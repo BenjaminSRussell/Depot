@@ -18,11 +18,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/iot-edge/internal/mfs"
-	"github.com/BenjaminSRussell/passage/services/iot-edge/internal/mqtt"
-	"github.com/BenjaminSRussell/passage/services/iot-edge/internal/runtime"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/iot-edge/internal/mfs"
+	"github.com/BenjaminSRussell/depot/services/iot-edge/internal/mqtt"
+	"github.com/BenjaminSRussell/depot/services/iot-edge/internal/runtime"
 )
 
 // version is the connector version heartbeats report; the build sets it with -ldflags.
@@ -83,7 +83,7 @@ type config struct {
 // error so the process exits non-zero before it touches the plant network.
 func loadConfig(getenv func(string) string) (config, error) {
 	cfg := config{
-		Env:       orDefault(getenv("PASSAGE_ENV"), defaultEnv),
+		Env:       orDefault(getenv("DEPOT_ENV"), defaultEnv),
 		Service:   orDefault(getenv("SERVICE_NAME"), defaultService),
 		Site:      getenv("EDGE_SITE"),
 		EdgeID:    getenv("EDGE_ID"),
@@ -127,7 +127,7 @@ func loadConfig(getenv func(string) string) (config, error) {
 		case len(cfg.PLCStation) > 8:
 			problems = append(problems, "EDGE_PLC_STATION must be at most 8 characters (the telegram's station name)")
 		case !strings.HasPrefix(cfg.WarehouseURL, "https://") && !(cfg.Env == "dev" && strings.HasPrefix(cfg.WarehouseURL, "http://")):
-			problems = append(problems, "EDGE_WAREHOUSE_URL must be https (http only when PASSAGE_ENV is dev) when EDGE_PLC_ADDR is set")
+			problems = append(problems, "EDGE_WAREHOUSE_URL must be https (http only when DEPOT_ENV is dev) when EDGE_PLC_ADDR is set")
 		}
 	}
 	cfg.ShopfloorURL = strings.TrimRight(getenv("EDGE_SHOPFLOOR_URL"), "/")
@@ -137,7 +137,7 @@ func loadConfig(getenv func(string) string) (config, error) {
 	if cfg.ShopfloorURL != "" {
 		switch {
 		case !strings.HasPrefix(cfg.ShopfloorURL, "https://") && !(cfg.Env == "dev" && strings.HasPrefix(cfg.ShopfloorURL, "http://")):
-			problems = append(problems, "EDGE_SHOPFLOOR_URL must be https (http only when PASSAGE_ENV is dev)")
+			problems = append(problems, "EDGE_SHOPFLOOR_URL must be https (http only when DEPOT_ENV is dev)")
 		case !ids.Valid(cfg.NodeID):
 			problems = append(problems, "EDGE_NODE_ID must be the edge node's UUID when EDGE_SHOPFLOOR_URL is set")
 		}
@@ -188,7 +188,7 @@ func loadConfig(getenv func(string) string) (config, error) {
 			}
 		}
 		if wantMQTT {
-			cfg.MQTTBroker, cfg.MQTTClientID, cfg.MQTTUser, cfg.MQTTCAFile = getenv("EDGE_MQTT_BROKER"), orDefault(getenv("EDGE_MQTT_CLIENT_ID"), "passage-"+cfg.EdgeID), getenv("EDGE_MQTT_USER"), getenv("EDGE_MQTT_CA_FILE")
+			cfg.MQTTBroker, cfg.MQTTClientID, cfg.MQTTUser, cfg.MQTTCAFile = getenv("EDGE_MQTT_BROKER"), orDefault(getenv("EDGE_MQTT_CLIENT_ID"), "depot-"+cfg.EdgeID), getenv("EDGE_MQTT_USER"), getenv("EDGE_MQTT_CA_FILE")
 			cfg.MQTTTLS = getenv("EDGE_MQTT_TLS") == "true"
 			if f := getenv("EDGE_MQTT_PASSWORD_FILE"); f != "" {
 				b, err := os.ReadFile(f)

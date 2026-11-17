@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/productcost/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/productcost/internal/domain"
 )
 
 // The version lifecycle and standard cost conversion routes (slice 3) are

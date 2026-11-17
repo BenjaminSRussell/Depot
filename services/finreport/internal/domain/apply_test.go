@@ -92,16 +92,16 @@ func TestBuild_NegativePostingReducesTheOtherSide(t *testing.T) {
 	}
 }
 
-// TestReadModelSourceURI: ledger links (passage://) become Passage routes, safe
+// TestReadModelSourceURI: ledger links (depot://) become Depot routes, safe
 // links stay and unsafe ones are dropped rather than refusing the entry.
 func TestReadModelSourceURI(t *testing.T) {
 	cases := map[string]string{
-		"passage://ledger/journal-batches/b1": "/ledger/journal-batches/b1",
-		"/ap/invoices/1":                      "/ap/invoices/1",
-		"https://dms.example/doc/9":           "https://dms.example/doc/9",
-		"javascript:alert(1)":                 "",
-		"passage:///evil.example/x":           "",
-		"":                                    "",
+		"depot://ledger/journal-batches/b1": "/ledger/journal-batches/b1",
+		"/ap/invoices/1":                    "/ap/invoices/1",
+		"https://dms.example/doc/9":         "https://dms.example/doc/9",
+		"javascript:alert(1)":               "",
+		"depot:///evil.example/x":           "",
+		"":                                  "",
 	}
 	for in, want := range cases {
 		if got := ReadModelSourceURI(in); got != want {
@@ -109,7 +109,7 @@ func TestReadModelSourceURI(t *testing.T) {
 		}
 	}
 	e := entry("reversal", SourceLine{LineNumber: 1, Account: "1", DebitCredit: "D", AmountAcct: dec("1"), SourceURI: "javascript:x"},
-		SourceLine{LineNumber: 2, Account: "2", DebitCredit: "C", AmountAcct: dec("1"), SourceURI: "passage://ledger/journal-entries/e1"})
+		SourceLine{LineNumber: 2, Account: "2", DebitCredit: "C", AmountAcct: dec("1"), SourceURI: "depot://ledger/journal-entries/e1"})
 	lines, _, err := e.Build()
 	if err != nil || lines[0].SourceURI != "" || lines[1].SourceURI != "/ledger/journal-entries/e1" {
 		t.Fatalf("links %+v err %v", lines, err)

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 // ListSSCCs answers from canned rows sorted by SSCC, honouring the cursor and
@@ -135,7 +135,7 @@ func TestSSCCRegister_RejectsBadInput(t *testing.T) {
 
 func TestSSCCRegister_RequiresWarehouseView(t *testing.T) {
 	fs := &fakeStore{}
-	rec := do(t, newServer(t, fs), http.MethodGet, "/v1/fulfillment/sscc-register", "", map[string]string{"X-Passage-Duties": "fulfillment.warehouse.pick"})
+	rec := do(t, newServer(t, fs), http.MethodGet, "/v1/fulfillment/sscc-register", "", map[string]string{"X-Depot-Duties": "fulfillment.warehouse.pick"})
 	if rec.Code != http.StatusForbidden || fs.ssccCalls != 0 {
 		t.Fatalf("status = %d calls = %d, want 403 and no read", rec.Code, fs.ssccCalls)
 	}

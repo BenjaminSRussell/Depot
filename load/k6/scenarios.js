@@ -1,6 +1,6 @@
-// Passage load campaign S1-S7 (PSG-50, PRD 9.50 FR-50.1).
+// Depot load campaign S1-S7 (DPT-50, PRD 9.50 FR-50.1).
 //
-// Run:  k6 run --env BASE_URL=https://api.perf.passage.dev --env TOKEN=$TOKEN \
+// Run:  k6 run --env BASE_URL=https://api.perf.depot.dev --env TOKEN=$TOKEN \
 //         --env POOL_FILE=/path/to/pool.json --summary-export=results/summary.json load/k6/scenarios.js
 // Then: python3 load/tools/check_campaign.py results/summary.json
 //
@@ -17,7 +17,7 @@ import { SharedArray } from 'k6/data';
 import { arrivalRate, journalEntry, thresholds, uuid } from './lib.js';
 
 const SLO = JSON.parse(open('../slo/slo.json'));
-const BASE = __ENV.BASE_URL || 'https://api.perf.passage.dev';
+const BASE = __ENV.BASE_URL || 'https://api.perf.depot.dev';
 const TOKEN = __ENV.TOKEN || '';
 const CAMPAIGN = __ENV.CAMPAIGN_ID || 'local';
 const POOL_FILE = __ENV.POOL_FILE || './data/pool.example.json';

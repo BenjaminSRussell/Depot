@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 func TestPerformanceRoutesRequireTheirDuty(t *testing.T) {

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
 )
 
 // sample850 builds a serialized 850 with one PO1 and CTT count ctt. Building it

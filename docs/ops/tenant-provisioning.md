@@ -14,7 +14,7 @@ Steps, each idempotent so a retry resumes:
 4. Create Kafka ACLs for the tenant topic prefix.
 5. Create the lakehouse namespace and object-store prefixes.
 6. Install the signed license (`PUT .../license`, Ed25519).
-7. Emit `dev.passage.ops.tenant.provisioned.v1` with tenant_id, region, realm, databases[].
+7. Emit `dev.depot.ops.tenant.provisioned.v1` with tenant_id, region, realm, databases[].
 
 Acceptance (AC-50.6): residency EU provisions into `eu-west` with RLS, realm, ACLs and license in <= 15 min.
 
@@ -56,22 +56,22 @@ are derived from `region.id` and marked `derived`. Violation kinds: `outside-res
 `placement`, `unplaced`, `no-region-values`, `unknown-residency`. See the tool's docstring for the exact rules.
 
 ## Real adapters (`services/ops/internal/provision`, #50)
-`passage-ops tenant provision|decommission` builds each system's adapter from the `OPS_*` environment (chart values `provisioning.*`, secrets from
+`depot-ops tenant provision|decommission` builds each system's adapter from the `OPS_*` environment (chart values `provisioning.*`, secrets from
 `secretKeyRef`). A system with no configuration stays on the logging adapter and a real run is refused, naming what is missing, before the API is
 touched; `--dry-run` always works and calls nothing.
 
 | Step | Adapter | Configuration | Provision | Decommission |
 |---|---|---|---|---|
-| realm | Keycloak Admin REST API | `OPS_KEYCLOAK_URL`, `OPS_KEYCLOAK_CLIENT_ID/SECRET` (client credentials in `OPS_KEYCLOAK_ADMIN_REALM`, default `master`), optional `OPS_KEYCLOAK_REALM_PREFIX` (`passage-`), `OPS_KEYCLOAK_REALM_TEMPLATE` | Creates realm `<prefix><tenant id>` from the template (`deploy/keycloak/realm-passage.json`: `REPLACE_WITH_TENANT_ID` is substituted, the example identity providers are dropped, a `REPLACE_WITH_` left in what remains is refused, and the `passage-services` client gets a hard-coded `tid` claim because its service account has no `tenant_id` attribute) or a built-in minimal realm (security settings, portal roles, the `passage-services` client with the `passage-api` audience mapper and a hard-coded `tid` claim). An existing realm (200 or 409) is DONE. The realm name is reported with the realm step and recorded by ops (`realmName`) | Deletes exactly the recorded realm; absent is DONE only for a recorded name (a name that was never recorded and does not exist is an error, not a guess) |
-| databases | pgx against each service database | `OPS_PROVISION_DATABASES` (JSON of context to connection string, or `@file`; as `passage_app`) | See "Decision: databases" | DONE with the detail "tenant data retained under the retention policy; purge separately" (nothing is deleted) |
+| realm | Keycloak Admin REST API | `OPS_KEYCLOAK_URL`, `OPS_KEYCLOAK_CLIENT_ID/SECRET` (client credentials in `OPS_KEYCLOAK_ADMIN_REALM`, default `master`), optional `OPS_KEYCLOAK_REALM_PREFIX` (`depot-`), `OPS_KEYCLOAK_REALM_TEMPLATE` | Creates realm `<prefix><tenant id>` from the template (`deploy/keycloak/realm-depot.json`: `REPLACE_WITH_TENANT_ID` is substituted, the example identity providers are dropped, a `REPLACE_WITH_` left in what remains is refused, and the `depot-services` client gets a hard-coded `tid` claim because its service account has no `tenant_id` attribute) or a built-in minimal realm (security settings, portal roles, the `depot-services` client with the `depot-api` audience mapper and a hard-coded `tid` claim). An existing realm (200 or 409) is DONE. The realm name is reported with the realm step and recorded by ops (`realmName`) | Deletes exactly the recorded realm; absent is DONE only for a recorded name (a name that was never recorded and does not exist is an error, not a guess) |
+| databases | pgx against each service database | `OPS_PROVISION_DATABASES` (JSON of context to connection string, or `@file`; as `depot_app`) | See "Decision: databases" | DONE with the detail "tenant data retained under the retention policy; purge separately" (nothing is deleted) |
 | kafka-acls | none | none | DONE: "not needed under the shared-topic model" | same |
 | lakehouse | Iceberg REST catalog | `OPS_LAKEHOUSE_CATALOG_URL`, optional `OPS_LAKEHOUSE_CATALOG_PREFIX`, `OPS_LAKEHOUSE_CATALOG_TOKEN`, `OPS_LAKEHOUSE_NAMESPACE_PREFIX` (`tenant_`) | `POST /v1/namespaces` for `tenant_<id with underscores>`; 409 is DONE | `DELETE`; 404 is DONE; a namespace that still has tables (409) fails: the tables are the tenant's data |
 
 ### Decision: databases
-Passage is shared-schema (`docs/architecture.md` E.1, E.2): one database per bounded context, `tenant_id` first in every table, row-level security. A
+Depot is shared-schema (`docs/architecture.md` E.1, E.2): one database per bounded context, `tenant_id` first in every table, row-level security. A
 tenant has no database or schema to create, so the step does not run `CREATE DATABASE`. The tenant's rows (its legal entities in identity, number
 sequences in numbering) are written by those services through their own APIs, not by ops. The databases step therefore proves the tenant can start
-safely: for each configured service database, connected as `passage_app`, it checks the role has neither SUPERUSER nor BYPASSRLS, that every table
+safely: for each configured service database, connected as `depot_app`, it checks the role has neither SUPERUSER nor BYPASSRLS, that every table
 with a `tenant_id` column has row security enabled and forced, and that a session scoped to the new tenant sees no row of another tenant. The
 deliberate exceptions are the ones `tools/rlscheck` enforces: both read one list, `platform/go/rlsexempt` (not-forced tables such as
 `service_token_replay`, tables with a documented open SELECT policy), and the platform tenant's rows (the nil UUID, system reference data such as org
@@ -80,13 +80,13 @@ schemas of org, identity, ledger and agents-ts.
 
 ### Decommission keeps the data; the purge is separate and gated
 The decommission's `databases` step reports DONE with "tenant data retained under the retention policy; purge separately": deleting the realm already
-blocks sign-in, and the data may be under the record-class retention (BR-50.9, 10 years in DE/FR). Deleting it is `passage-ops tenant purge`, which:
+blocks sign-in, and the data may be under the record-class retention (BR-50.9, 10 years in DE/FR). Deleting it is `depot-ops tenant purge`, which:
 
-1. needs the decommission DECOMMISSIONED and a verified export on record: `passage-ops tenant verify-export --tenant <id> --export-id <id> --note <text>`
+1. needs the decommission DECOMMISSIONED and a verified export on record: `depot-ops tenant verify-export --tenant <id> --export-id <id> --note <text>`
    (`PUT /v1/ops/tenants/{id}/export-verification`, duty `ops.tenant.purge`) stores the export id, who verified it and when; the marker is fixed once a
    purge is requested (OPS-1738, OPS-1739);
 2. asks `POST /v1/ops/tenants/{id}:purge` (audited) and then deletes with its own credentials, `OPS_PURGE_DATABASES` (its own secret: a role that may
-   delete, never the `passage_app` role of the verification) and `OPS_PURGE_KEEP_TABLES` (added to the built-in `identity_tenants`; chart
+   delete, never the `depot_app` role of the verification) and `OPS_PURGE_KEEP_TABLES` (added to the built-in `identity_tenants`; chart
    `provisioning.purge.secret` and `provisioning.purge.keepTables`);
 3. runs each database's deletes in one transaction scoped to the tenant, in foreign-key order, then counts the tenant's remaining rows in every purged
    table in the same transaction. A table whose policy hid rows from the DELETE (it affects zero rows without an error) leaves rows behind and fails the purge;
@@ -100,7 +100,7 @@ blocks sign-in, and the data may be under the record-class retention (BR-50.9, 1
 
 ### Decision: Kafka
 Entity topics are shared and keyed by tenant (architecture C.2, decision D6, Q5), so a per-tenant ACL on them is impossible. External consumers read
-egress topics `passage.egress.<tenantSlug>.<context>` that integration creates, with the KafkaUser, when the tenant subscribes
+egress topics `depot.egress.<tenantSlug>.<context>` that integration creates, with the KafkaUser, when the tenant subscribes
 (`POST /v1/integration/event-egress/{context}:subscribe`). Provisioning has nothing to do, and says why in the step detail.
 
 Not verified live: no real Keycloak, catalog or tenant database was available (#213); the adapters are tested against `httptest` fakes and a local
@@ -115,7 +115,7 @@ Postgres.
 What is built (#50): `POST /v1/ops/tenants/{id}:decommission` (`ops.tenant.decommission`, body `{"reason": "..."}`) opens it only when identity reports the
 tenant `suspended` (409 `OPS-1731` otherwise, 503 `OPS-1730` when identity cannot be asked) and the tenant has a provision; the request, each step and the
 completion go to the ops audit trail (`GET /v1/ops/tenants/{id}/decommission` returns it). The steps run in reverse order, lakehouse, Kafka ACLs, databases, realm,
-and a step is DONE only when the one before it is (`OPS-1733`); `passage-ops tenant decommission --tenant <id> --reason "..."` runs them with the executors of the
+and a step is DONE only when the one before it is (`OPS-1733`); `depot-ops tenant decommission --tenant <id> --reason "..."` runs them with the executors of the
 machine (`--dry-run` asks each adapter what it would do and changes nothing), and a rerun resumes at the first step that is not DONE. The last DONE step writes
 `tenant.decommissioned.v1`. Steps 1 (the verified export, BR-50.9) and the second approver are not built: until they are, the export is a manual step before the command.
 The adapters shipped log what would change (their step detail says "logged only"); a real adapter for each system implements the interfaces in `services/ops/internal/provision`.

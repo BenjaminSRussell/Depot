@@ -1,4 +1,4 @@
-image: { repository: ghcr.io/benjaminsrussell/passage-customer-portal, digest: "", tag: "", pullPolicy: IfNotPresent }
+image: { repository: ghcr.io/benjaminsrussell/depot-customer-portal, digest: "", tag: "", pullPolicy: IfNotPresent }
 # One replica unless sessionStore.url is set: without a shared store sessions live in the pod's memory, a restart signs everyone out and a
 # second replica would not know the first one's sessions, so the chart refuses replicaCount > 1 then. The rate limiter stays per pod.
 replicaCount: 1
@@ -12,14 +12,14 @@ sessionStore:
   namespace: valkey
   port: 6379
 oidc:
-  # The Keycloak realm URL, e.g. https://keycloak.<env>.passage.dev/realms/passage. Required.
+  # The Keycloak realm URL, e.g. https://keycloak.<env>.depot.dev/realms/depot. Required.
   issuer: ""
-  clientId: passage-portal-customer
-  # The redirect URI registered on the client: https://customer.<env>.passage.dev/bff/callback
+  clientId: depot-portal-customer
+  # The redirect URI registered on the client: https://customer.<env>.depot.dev/bff/callback
   redirectUri: ""
   # Secret holding the client secret under the key "client-secret". Created outside Git.
   clientSecretName: customer-portal-oidc
-# The origin the app is served from, e.g. https://customer.<env>.passage.dev. Required.
+# The origin the app is served from, e.g. https://customer.<env>.depot.dev. Required.
 appOrigin: ""
 # Owning services, as in-cluster URLs.
 upstreams:
@@ -31,7 +31,7 @@ upstreams:
   # Renders the invoice and statement PDFs from what the portal read (print.customer-portal.render) and serves the documents print delivered to the portal (print.customer-portal.documents).
   print: http://print.print.svc:8080
 # Secret holding this service's Ed25519 seed under the key "signing-key". Its public key is added to
-# PASSAGE_SERVICE_PUBLIC_KEYS of receivables, billing, sales, party, identity and print as customer-portal=...
+# DEPOT_SERVICE_PUBLIC_KEYS of receivables, billing, sales, party, identity and print as customer-portal=...
 serviceSigningSecretName: customer-portal-signing
 resources:
   requests: { cpu: 25m, memory: 96Mi }

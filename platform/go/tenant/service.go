@@ -20,13 +20,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const (
-	HeaderServiceToken = "X-Passage-Service-Token"
+	HeaderServiceToken = "X-Depot-Service-Token"
 
 	// VendorPortalIssuer is the one service whose tokens name a vendor (vnd).
 	VendorPortalIssuer = "supplier-portal"
@@ -39,14 +39,14 @@ const (
 
 	ServiceTokenMaxTTL = 60 * time.Second
 
-	EnvServiceName        = "PASSAGE_SERVICE_NAME"
-	EnvServicePublicKeys  = "PASSAGE_SERVICE_PUBLIC_KEYS"
-	EnvServiceSigningKey  = "PASSAGE_SERVICE_SIGNING_KEY"
-	EnvServiceSigningFile = "PASSAGE_SERVICE_SIGNING_KEY_FILE"
-	EnvServiceKeyID       = "PASSAGE_SERVICE_KEY_ID"
-	EnvServiceReplaySize  = "PASSAGE_SERVICE_REPLAY_CACHE_SIZE"
+	EnvServiceName        = "DEPOT_SERVICE_NAME"
+	EnvServicePublicKeys  = "DEPOT_SERVICE_PUBLIC_KEYS"
+	EnvServiceSigningKey  = "DEPOT_SERVICE_SIGNING_KEY"
+	EnvServiceSigningFile = "DEPOT_SERVICE_SIGNING_KEY_FILE"
+	EnvServiceKeyID       = "DEPOT_SERVICE_KEY_ID"
+	EnvServiceReplaySize  = "DEPOT_SERVICE_REPLAY_CACHE_SIZE"
 
-	serviceTokenContext  = "passage.service-token.v1."
+	serviceTokenContext  = "depot.service-token.v1."
 	serviceClockSkew     = 5 * time.Second
 	defaultReplayEntries = 100_000
 	maxServiceTokenSize  = 4096
@@ -447,9 +447,9 @@ func (s *ServiceSigner) WithClock(now func() time.Time) *ServiceSigner {
 	return &c
 }
 
-// ServiceSignerFromEnv builds the signer from PASSAGE_SERVICE_NAME and the
-// base64 32-byte seed in PASSAGE_SERVICE_SIGNING_KEY or the file named by
-// PASSAGE_SERVICE_SIGNING_KEY_FILE (a mounted secret that wins over the
+// ServiceSignerFromEnv builds the signer from DEPOT_SERVICE_NAME and the
+// base64 32-byte seed in DEPOT_SERVICE_SIGNING_KEY or the file named by
+// DEPOT_SERVICE_SIGNING_KEY_FILE (a mounted secret that wins over the
 // variable, so a stale variable never shadows a rotated mount). It returns nil, nil when
 // no signing key is configured so callers keep forwarding the end user.
 func ServiceSignerFromEnv(getenv func(string) string) (*ServiceSigner, error) {
@@ -665,10 +665,10 @@ func (v *ServiceVerifier) WithReplayStore(store ReplayStore) *ServiceVerifier {
 	return c
 }
 
-// ServiceVerifierFromEnv reads PASSAGE_SERVICE_NAME (this service, the expected
-// aud) and PASSAGE_SERVICE_PUBLIC_KEYS (comma-separated name=base64 or
+// ServiceVerifierFromEnv reads DEPOT_SERVICE_NAME (this service, the expected
+// aud) and DEPOT_SERVICE_PUBLIC_KEYS (comma-separated name=base64 or
 // name:kid=base64 Ed25519 public keys; a repeated name+kid is an error) and the
-// optional PASSAGE_SERVICE_REPLAY_CACHE_SIZE. It returns nil, nil when the name
+// optional DEPOT_SERVICE_REPLAY_CACHE_SIZE. It returns nil, nil when the name
 // or keys are unset.
 func ServiceVerifierFromEnv(getenv func(string) string) (*ServiceVerifier, error) {
 	self, raw := getenv(EnvServiceName), strings.TrimSpace(getenv(EnvServicePublicKeys))

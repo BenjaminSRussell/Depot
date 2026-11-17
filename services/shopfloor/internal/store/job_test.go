@@ -7,10 +7,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
 )
 
 func decPtr(s string) *decimal.Decimal {
@@ -28,7 +28,7 @@ func mustJob(t *testing.T, s *Postgres, ctx context.Context, resource string, st
 	return job
 }
 
-// FR-25.3 to FR-25.5 and AC-25.9 through Postgres as passage_app: the dispatch list
+// FR-25.3 to FR-25.5 and AC-25.9 through Postgres as depot_app: the dispatch list
 // in start order, partial feedback with a replay that changes nothing, a mandatory
 // numeric check (10 to 12) with value 13 that blocks finished (SF-0005) and stores
 // nothing, the supervisor override with reason, and feedback refused once finished.

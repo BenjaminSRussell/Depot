@@ -3,7 +3,7 @@
 package events
 
 // JobCompleted is published when a job reaches PRINTED or FAILED.
-const JobCompleted = "dev.passage.print.job.completed.v1"
+const JobCompleted = "dev.depot.print.job.completed.v1"
 
 // JobCompletedData is the data member of JobCompleted.
 type JobCompletedData struct {

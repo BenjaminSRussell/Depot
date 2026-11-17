@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 func TestRunSchedule_PlacesDependentBehindParent(t *testing.T) {
@@ -104,14 +104,14 @@ func TestRunSchedule_OrderScopeSchedulesOnlyThatOrder(t *testing.T) {
 	}
 	var scope string
 	if err := admin.QueryRow(context.Background(), `select payload->'data'->>'scope' from outbox where type = $1 and aggregate_id = $2`,
-		"dev.passage.scheduling.run.completed.v1", run.ID).Scan(&scope); err != nil || scope != "order" {
+		"dev.depot.scheduling.run.completed.v1", run.ID).Scan(&scope); err != nil || scope != "order" {
 		t.Fatalf("run.completed scope = %q err %v, want order", scope, err)
 	}
 	again, created, err := s.RunSchedule(ctx, req, store.Idem{Key: "k1", Fingerprint: "f"})
 	if err != nil || created || again.ID != run.ID {
 		t.Fatalf("replay = %+v created %v err %v, want the first run", again, created, err)
 	}
-	if got := outboxCount(t, admin, "dev.passage.scheduling.run.completed.v1"); got != 1 {
+	if got := outboxCount(t, admin, "dev.depot.scheduling.run.completed.v1"); got != 1 {
 		t.Fatalf("a replay must not publish again: run.completed events = %d", got)
 	}
 

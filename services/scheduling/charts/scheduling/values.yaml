@@ -1,5 +1,5 @@
 image:
-  repository: ghcr.io/benjaminsrussell/passage-scheduling
+  repository: ghcr.io/benjaminsrussell/depot-scheduling
   # Pin by digest in deploy/ (Argo CD digest-pinned sync); tag is a fallback for dev.
   tag: "0.1.0"
   digest: ""

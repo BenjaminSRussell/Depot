@@ -9,21 +9,21 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/domain"
-	tmsevents "github.com/BenjaminSRussell/passage/services/transport/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/domain"
+	tmsevents "github.com/BenjaminSRussell/depot/services/transport/internal/events"
 )
 
 const releaseColumns = `id, load_id, legal_entity_id::text, carriers, coalesce(currency, ''), timeout_min, released_by,
 	legal_entity_scope::text[], released_at, request_hash`
 
 // ReleaseLoad releases a load for tendering (FR-34.5) and writes the
-// dev.passage.tms.load.released.v1 event in the same transaction; workflow-ts
+// dev.depot.tms.load.released.v1 event in the same transaction; workflow-ts
 // starts the tender cascade from it. ReleasedBy and LegalEntityScope are taken
 // from the caller in ctx and in's are ignored: the workflow mints its scoped
 // tender token from them, so they must be the verified principal. A load

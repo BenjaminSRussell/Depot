@@ -19,33 +19,33 @@ CREATE TABLE IF NOT EXISTS purchase_invoicing_plan_row_settlement (
 ALTER TABLE purchase_invoicing_plan_row_settlement ENABLE ROW LEVEL SECURITY;
 ALTER TABLE purchase_invoicing_plan_row_settlement FORCE ROW LEVEL SECURITY;
 CREATE POLICY purchase_invoicing_plan_row_settlement_tenant_access ON purchase_invoicing_plan_row_settlement AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY purchase_invoicing_plan_row_settlement_legal_entity_scope ON purchase_invoicing_plan_row_settlement AS RESTRICTIVE
   USING (
-    current_setting('passage.legal_entity_scopes', true) = '*'
+    current_setting('depot.legal_entity_scopes', true) = '*'
     OR EXISTS (
       SELECT 1 FROM purchase_order scope_parent
       WHERE scope_parent.tenant_id = purchase_invoicing_plan_row_settlement.tenant_id
         AND scope_parent.id = purchase_invoicing_plan_row_settlement.purchase_order_id
-        AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ','))
+        AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ','))
     )
   )
   WITH CHECK (
-    current_setting('passage.legal_entity_scopes', true) = '*'
+    current_setting('depot.legal_entity_scopes', true) = '*'
     OR EXISTS (
       SELECT 1 FROM purchase_order scope_parent
       WHERE scope_parent.tenant_id = purchase_invoicing_plan_row_settlement.tenant_id
         AND scope_parent.id = purchase_invoicing_plan_row_settlement.purchase_order_id
-        AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ','))
+        AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ','))
     )
   );
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON purchase_invoicing_plan_row_settlement TO passage_app';
-    EXECUTE 'GRANT UPDATE (status) ON purchase_invoicing_plan_row TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON purchase_invoicing_plan_row_settlement TO depot_app';
+    EXECUTE 'GRANT UPDATE (status) ON purchase_invoicing_plan_row TO depot_app';
   END IF;
 END
 $$;

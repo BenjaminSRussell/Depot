@@ -2,7 +2,7 @@ import { WorkflowExecutionAlreadyStartedError, WorkflowIdReusePolicy } from "@te
 import type { Client } from "@temporalio/client";
 import { approvalWorkflow, approvalWorkflowId, partyMergeRequestId, type ApprovalInput, type ApprovalLevel } from "./workflows.js";
 
-export const changeRequestedType = "dev.passage.party.change.requested.v1";
+export const changeRequestedType = "dev.depot.party.change.requested.v1";
 
 export interface ChangeRequestedEvent {
   type: string;
@@ -33,7 +33,7 @@ export function toApprovalInput(event: ChangeRequestedEvent, levels: ApprovalLev
   };
 }
 
-export const mergeRequestedType = "dev.passage.party.merge.requested.v1";
+export const mergeRequestedType = "dev.depot.party.merge.requested.v1";
 
 export interface MergeRequestedEvent {
   type: string;

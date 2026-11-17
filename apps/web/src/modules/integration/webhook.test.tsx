@@ -58,8 +58,8 @@ const webhook = (over: Partial<Subscription> = {}): Subscription => ({
   kind: "webhook",
   rest: null,
   name: "Order hook",
-  url: "https://hooks.example.com/passage",
-  patterns: ["dev.passage.sales.order.confirmed.v1"],
+  url: "https://hooks.example.com/depot",
+  patterns: ["dev.depot.sales.order.confirmed.v1"],
   filter: null,
   status: "active",
   pausedReason: null,
@@ -79,19 +79,19 @@ describe("webhook pages wiring", () => {
 });
 
 describe("new webhook validation", () => {
-  const good = { ...EMPTY_WEBHOOK, name: "Order hook", url: "https://hooks.example.com/passage" };
+  const good = { ...EMPTY_WEBHOOK, name: "Order hook", url: "https://hooks.example.com/depot" };
 
   it("mirrors the hub's pattern rule", () => {
-    expect(patternProblem("dev.passage.sales.**")).toBeNull();
-    expect(patternProblem("dev.passage.*.order.confirmed.v1")).toBeNull();
+    expect(patternProblem("dev.depot.sales.**")).toBeNull();
+    expect(patternProblem("dev.depot.*.order.confirmed.v1")).toBeNull();
     expect(patternProblem("**")).toMatch(/first/);
     expect(patternProblem("dev.**.v1")).toMatch(/last/);
-    expect(patternProblem("Dev.Passage")).toMatch(/lowercase/);
+    expect(patternProblem("Dev.Depot")).toMatch(/lowercase/);
     expect(parsePatterns("a.b\nc.d, a.b")).toEqual(["a.b", "c.d"]);
   });
 
   it("builds the request the hub takes and leaves the optional fields out", () => {
-    expect(validateWebhook(good).input).toEqual({ kind: "webhook", name: "Order hook", url: good.url, patterns: ["dev.passage.sales.order.confirmed.v1"] });
+    expect(validateWebhook(good).input).toEqual({ kind: "webhook", name: "Order hook", url: good.url, patterns: ["dev.depot.sales.order.confirmed.v1"] });
     expect(validateWebhook({ ...good, filter: " data.currency = 'USD' ", secret: "whsec_chosen_by_me_1" }).input).toMatchObject({ filter: "data.currency = 'USD'", secret: "whsec_chosen_by_me_1" });
   });
 
@@ -110,14 +110,14 @@ describe("new webhook page", () => {
     const { container } = renderAt("/integration/sync/new-webhook");
     expect(pageViolations(container)).toEqual([]);
     fill("Name", "Order hook");
-    fill("Endpoint", "https://hooks.example.com/passage");
+    fill("Endpoint", "https://hooks.example.com/depot");
     fill("Filter", "data.currency = 'USD'");
     fireEvent.click(screen.getByRole("button", { name: "Create webhook" }));
     expect(await screen.findByRole("heading", { name: "Webhook created" })).toBeInTheDocument();
     expect(screen.getByLabelText("Signing secret")).toHaveTextContent("whsec_shown_exactly_once");
     const post = calls.find((c) => c.method === "POST") as (typeof calls)[number];
     expect(new Headers(post.init.headers).get("idempotency-key")).toMatch(/^[0-9a-f-]{36}$/);
-    expect(body(post)).toEqual({ kind: "webhook", name: "Order hook", url: "https://hooks.example.com/passage", patterns: ["dev.passage.sales.order.confirmed.v1"], filter: "data.currency = 'USD'" });
+    expect(body(post)).toEqual({ kind: "webhook", name: "Order hook", url: "https://hooks.example.com/depot", patterns: ["dev.depot.sales.order.confirmed.v1"], filter: "data.currency = 'USD'" });
     expect(screen.getByRole("link", { name: "Open the subscription" })).toHaveAttribute("href", `/integration/sync/${SUB_ID}`);
     expect(pageViolations(container)).toEqual([]);
   });
@@ -126,7 +126,7 @@ describe("new webhook page", () => {
     handler = (url, init) => (url.pathname === "/api/v1/hub/subscriptions" && init.method === "POST" ? json(200, webhook()) : undefined);
     renderAt("/integration/sync/new-webhook");
     fill("Name", "Order hook");
-    fill("Endpoint", "https://hooks.example.com/passage");
+    fill("Endpoint", "https://hooks.example.com/depot");
     fireEvent.click(screen.getByRole("button", { name: "Create webhook" }));
     expect(await screen.findByRole("heading", { name: "Webhook created" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Signing secret")).toBeNull();
@@ -140,7 +140,7 @@ describe("new webhook page", () => {
     expect(calls).toHaveLength(0);
 
     fill("Name", "Order hook");
-    fill("Endpoint", "https://hooks.example.com/passage");
+    fill("Endpoint", "https://hooks.example.com/depot");
     fill("Filter", "data.currency =");
     handler = () => json(400, { code: "HUB-0400", detail: "filter: unexpected end of expression" });
     fireEvent.click(screen.getByRole("button", { name: "Create webhook" }));

@@ -1,7 +1,7 @@
 {#-
   latest_state(relation, columns): the current state of every key in a raw.*
   CDC landing table (FR-46.4, BR-46.2). Keys are (tenant_id, id), as in every
-  Passage table.
+  Depot table.
 
   Exactly-once effect: the winner per key is the change with the highest
   _source_lsn among ALL raw rows for that key, not only the rows in the

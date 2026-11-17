@@ -26,7 +26,7 @@ func specOperations(spec string) map[string]bool {
 		case path != "" && specOperation.MatchString(line):
 			op = path + " " + specOperation.FindStringSubmatch(line)[1]
 			out[op] = out[op] || false
-		case op != "" && strings.HasPrefix(line, "      x-passage-duty: "):
+		case op != "" && strings.HasPrefix(line, "      x-depot-duty: "):
 			out[op] = true
 		case line == "components:":
 			path, op = "", ""
@@ -54,7 +54,7 @@ func TestOpenAPIMatchesTheRoutes(t *testing.T) {
 		if hasDuty, ok := declared[op]; !ok {
 			problems = append(problems, "not documented: "+op)
 		} else if !hasDuty {
-			problems = append(problems, "no x-passage-duty: "+op)
+			problems = append(problems, "no x-depot-duty: "+op)
 		}
 	}
 	for op := range declared {

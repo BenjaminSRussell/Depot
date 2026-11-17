@@ -11,11 +11,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/domain"
-	purchasingevents "github.com/BenjaminSRussell/passage/services/purchasing/internal/events"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
+	purchasingevents "github.com/BenjaminSRussell/depot/services/purchasing/internal/events"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
 
 // approvedBulk is an approved requisition with one line of 100 EA at 10.00 (1,000.00) and one of 1 EA at 5.00.

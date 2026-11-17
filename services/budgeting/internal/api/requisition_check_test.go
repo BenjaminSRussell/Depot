@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/budgeting/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/budgeting/internal/store"
 )
 
 func requisitionCheckBody(account, center, date string) string {

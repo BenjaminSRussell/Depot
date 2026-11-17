@@ -26,10 +26,10 @@ describe("placing an order", () => {
     expect(call.url).toBe("http://sales.test/v1/sales/customer-portal/orders");
     expect(call.headers.get("idempotency-key")).toBe(KEY);
     expect(JSON.parse(call.body)).toEqual(ORDER);
-    expect(tokenClaims(call.headers.get("x-passage-service-token") as string)).toMatchObject({
+    expect(tokenClaims(call.headers.get("x-depot-service-token") as string)).toMatchObject({
       iss: "customer-portal", aud: "sales", tid: TENANT, le: LE_1, act: "user-1", cus: CUSTOMER_A, duties: ["sales.customer-portal.order"],
     });
-    for (const h of ["cookie", "x-csrf-token", "origin", "x-passage-duties"]) expect(call.headers.get(h), h).toBeNull();
+    for (const h of ["cookie", "x-csrf-token", "origin", "x-depot-duties"]) expect(call.headers.get(h), h).toBeNull();
   });
 
   it("is a return of one's own invoice, holding only the return duty", async () => {
@@ -39,7 +39,7 @@ describe("placing an order", () => {
     expect(res.status).toBe(200);
     const call = rig.calls[0]!;
     expect(call.url).toBe("http://sales.test/v1/sales/customer-portal/returns");
-    expect(tokenClaims(call.headers.get("x-passage-service-token") as string)).toMatchObject({ cus: CUSTOMER_A, duties: ["sales.customer-portal.return"] });
+    expect(tokenClaims(call.headers.get("x-depot-service-token") as string)).toMatchObject({ cus: CUSTOMER_A, duties: ["sales.customer-portal.return"] });
   });
 
   it("is refused without a session, CSRF token, same-origin request, key or JSON body, before sales is called", async () => {
@@ -98,7 +98,7 @@ describe("placing an order", () => {
     const s = await signIn(rig);
     expect((await post(s, "/api/v1/orders", ORDER)).status).toBe(400);
     expect((await post(s, "/api/v1/orders", ORDER, { "x-legal-entity": LE_2 })).status).toBe(200);
-    expect(tokenClaims(rig.calls[0]!.headers.get("x-passage-service-token") as string)["le"]).toBe(LE_2);
+    expect(tokenClaims(rig.calls[0]!.headers.get("x-depot-service-token") as string)["le"]).toBe(LE_2);
   });
 
   it("counts toward the session's rate limit", async () => {
@@ -122,7 +122,7 @@ describe("paying invoices by card or bank account", () => {
     expect(call.url).toBe("http://receivables.test/v1/receivables/customer-portal/payment-intents");
     expect(call.headers.get("idempotency-key")).toBe(KEY);
     expect(JSON.parse(call.body)).toEqual(PAYMENT);
-    expect(tokenClaims(call.headers.get("x-passage-service-token") as string)).toMatchObject({ aud: "receivables", cus: CUSTOMER_A, duties: ["receivables.customer-portal.pay"] });
+    expect(tokenClaims(call.headers.get("x-depot-service-token") as string)).toMatchObject({ aud: "receivables", cus: CUSTOMER_A, duties: ["receivables.customer-portal.pay"] });
   });
 
   it("cancels an abandoned payment with the pay duty, at receivables' :cancel", async () => {
@@ -130,7 +130,7 @@ describe("paying invoices by card or bank account", () => {
     const s = await signIn(rig);
     expect((await post(s, `/api/v1/payment-intents/${ID_1}/cancel`, {})).status).toBe(200);
     expect(rig.calls[0]!.url).toBe(`http://receivables.test/v1/receivables/customer-portal/payment-intents/${ID_1}:cancel`);
-    expect(tokenClaims(rig.calls[0]!.headers.get("x-passage-service-token") as string)).toMatchObject({ duties: ["receivables.customer-portal.pay"] });
+    expect(tokenClaims(rig.calls[0]!.headers.get("x-depot-service-token") as string)).toMatchObject({ duties: ["receivables.customer-portal.pay"] });
   });
 
   it("reads a payment's status with the read duty only", async () => {
@@ -138,7 +138,7 @@ describe("paying invoices by card or bank account", () => {
     const s = await signIn(rig);
     await api(rig, s, "GET", `/api/v1/payment-intents/${ID_1}`);
     expect(rig.calls[0]!.url).toBe(`http://receivables.test/v1/receivables/customer-portal/payment-intents/${ID_1}`);
-    expect(tokenClaims(rig.calls[0]!.headers.get("x-passage-service-token") as string)).toMatchObject({ duties: ["receivables.customer-portal.read"] });
+    expect(tokenClaims(rig.calls[0]!.headers.get("x-depot-service-token") as string)).toMatchObject({ duties: ["receivables.customer-portal.read"] });
   });
 
   it("never forwards a customer named in the body, and needs CSRF, origin and a key", async () => {

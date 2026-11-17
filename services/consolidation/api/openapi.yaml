@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: Passage Consolidation
+  title: Depot Consolidation
   version: 0.4.0
   description: |
     Wave 40, slices 1 to 3. Stateless consolidation calculators: the E1–E5
@@ -14,11 +14,11 @@ info:
     journal check (FR-40.19, BR-40.18). The previews store nothing. Runs are
     stored (start, list, get, statements). Groups, collection,
     consolidated trial balances over collected data, posted reclassifications, posted
-    top-side journals and the stored monitor are later slices of PSG-40 (see NOT-IMPLEMENTED.md). Browser calls go through the web BFF at
+    top-side journals and the stored monitor are later slices of DPT-40 (see NOT-IMPLEMENTED.md). Browser calls go through the web BFF at
     /api/v1/consol/..., which rewrites to these paths and sets the tenant and
     duty headers.
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env:
         default: dev
@@ -27,7 +27,7 @@ paths:
     post:
       operationId: previewEliminations
       summary: Build the E1–E5 elimination entries for one parent and subsidiary pair, balanced per rule (AC-40.7)
-      x-passage-duty: consolidation.run
+      x-depot-duty: consolidation.run
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -60,7 +60,7 @@ paths:
     post:
       operationId: previewTranslation
       summary: Translate a unit's net assets and net income under IAS 21 and derive the CTA with its NCI share (AC-40.6)
-      x-passage-duty: consolidation.run
+      x-depot-duty: consolidation.run
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -87,7 +87,7 @@ paths:
     post:
       operationId: previewProfitInInventory
       summary: Unrealized profit in inventory per IC receipt layer by group cost, with the seller-margin fallback (FR-40.16, BR-40.7, AC-40.12)
-      x-passage-duty: consolidation.run
+      x-depot-duty: consolidation.run
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -114,7 +114,7 @@ paths:
     post:
       operationId: previewEquityMethod
       summary: Share of profit, dividends and closing carrying amount of an associate under the equity method (FR-40.18, AC-40.14)
-      x-passage-duty: consolidation.run
+      x-depot-duty: consolidation.run
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -141,7 +141,7 @@ paths:
     post:
       operationId: previewDivestiture
       summary: Deconsolidation gain or loss of a full divestiture with CTA recycled from OCI (FR-40.18)
-      x-passage-duty: consolidation.run
+      x-depot-duty: consolidation.run
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -168,7 +168,7 @@ paths:
     post:
       operationId: previewIcDifferences
       summary: Two-sided IC elimination per partner pair with the difference to the IC difference account up to the threshold (BR-40.15)
-      x-passage-duty: consolidation.run
+      x-depot-duty: consolidation.run
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -195,7 +195,7 @@ paths:
     post:
       operationId: previewValidations
       summary: Evaluate the seeded validation rules per unit and gate the group translation task (FR-40.20, AC-40.15)
-      x-passage-duty: consolidation.run
+      x-depot-duty: consolidation.run
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -222,7 +222,7 @@ paths:
     post:
       operationId: previewDividends
       summary: E6 elimination of a dividend within the group, with the per-rule rounding line (FR-40.9, BR-40.9)
-      x-passage-duty: consolidation.run
+      x-depot-duty: consolidation.run
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -255,7 +255,7 @@ paths:
     post:
       operationId: previewReclassificationRun
       summary: Dry run of ordered reclassification and regrouping rules at entity and group level (FR-40.17, BR-40.14, AC-40.13)
-      x-passage-duty: consolidation.run
+      x-depot-duty: consolidation.run
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -288,7 +288,7 @@ paths:
     post:
       operationId: previewGroupJournal
       summary: 'Check a top-side group journal: invariants, approval at the threshold and the periods it applies to (FR-40.19, BR-40.18)'
-      x-passage-duty: consolidation.journal.maintain
+      x-depot-duty: consolidation.journal.maintain
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -330,8 +330,8 @@ paths:
         eliminations is an open accountant question (issue 349) and the run
         stores what the engine produces. All run routes need all-entity scope
         (403 CNS-0923 for a legal-entity-scoped caller). Publishes
-        dev.passage.consol.run.completed.v1 through the outbox.
-      x-passage-duty: consolidation.run
+        dev.depot.consol.run.completed.v1 through the outbox.
+      x-depot-duty: consolidation.run
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -373,7 +373,7 @@ paths:
     get:
       operationId: listConsolidationRuns
       summary: List the tenant's runs, newest first (FR-40.10)
-      x-passage-duty: consolidation.view
+      x-depot-duty: consolidation.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -398,7 +398,7 @@ paths:
     get:
       operationId: getConsolidationRun
       summary: One run with its unit balances and eliminations (FR-40.11)
-      x-passage-duty: consolidation.view
+      x-depot-duty: consolidation.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -424,7 +424,7 @@ paths:
     get:
       operationId: getConsolidationRunStatements
       summary: The statements of one run (FR-40.11)
-      x-passage-duty: consolidation.view
+      x-depot-duty: consolidation.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -449,14 +449,14 @@ paths:
   /healthz:
     get:
       operationId: healthz
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200':
           description: Liveness
   /readyz:
     get:
       operationId: readyz
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200':
           description: Readiness (the stateless slice has no dependency to check)
@@ -465,7 +465,7 @@ paths:
       operationId: createConsolidationGroup
       summary: Create a consolidation group with its group currency (FR-40.7)
       description: A retry with the same Idempotency-Key replays the stored group; a second group with the same code is 409 CNS-0925. Group routes need all-entity scope (403 CNS-0923).
-      x-passage-duty: consolidation.configure
+      x-depot-duty: consolidation.configure
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -491,7 +491,7 @@ paths:
     get:
       operationId: listConsolidationGroups
       summary: List the tenant's groups with their unit counts
-      x-passage-duty: consolidation.view
+      x-depot-duty: consolidation.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -511,7 +511,7 @@ paths:
     get:
       operationId: getConsolidationGroup
       summary: A group with its units and their ownership history
-      x-passage-duty: consolidation.view
+      x-depot-duty: consolidation.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -530,7 +530,7 @@ paths:
       operationId: addConsolidationUnit
       summary: Add a legal entity to the group with the ledger its balances are collected from
       description: The same legal entity twice is 409 CNS-0926.
-      x-passage-duty: consolidation.configure
+      x-depot-duty: consolidation.configure
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -559,7 +559,7 @@ paths:
         The currency of a unit that collections were made from cannot change (409 CNS-0931): its stored balances are in it.
         fiscalYearStartMonth is the month the unit's fiscal year starts in; a collection takes the unit's income accounts from the start
         of the fiscal year the period falls in.
-      x-passage-duty: consolidation.configure
+      x-depot-duty: consolidation.configure
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -592,7 +592,7 @@ paths:
       operationId: removeConsolidationUnit
       summary: Remove a unit with its ownership history and terms
       description: A unit that collections were made from, or that holds a share of another unit, stays (409 CNS-0931).
-      x-passage-duty: consolidation.configure
+      x-depot-duty: consolidation.configure
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -612,7 +612,7 @@ paths:
         What a run cannot read from a trial balance: the cost of the investment (group currency), the share capital and retained earnings at
         acquisition (unit currency), the exchange rate of that day, which way the intercompany goods flow and whether the intercompany balance
         is part of the net investment. Replaces the earlier terms.
-      x-passage-duty: consolidation.configure
+      x-depot-duty: consolidation.configure
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -637,7 +637,7 @@ paths:
     get:
       operationId: listConsolidationUnitTerms
       summary: The stored acquisition terms of the group's units
-      x-passage-duty: consolidation.view
+      x-depot-duty: consolidation.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -664,7 +664,7 @@ paths:
         when known, the group's unit cost. A run over the collection of that period sums the unrealized profit over them for E3
         (quantity times legal cost less group cost; a layer without a group cost uses the seller's margin and the run answers a
         CNS-0908 warning) instead of taking it from the unsold share. An empty list removes the layers.
-      x-passage-duty: consolidation.configure
+      x-depot-duty: consolidation.configure
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -690,7 +690,7 @@ paths:
     get:
       operationId: listConsolidationIcLayers
       summary: The IC receipt layers of every unit of the group for a period
-      x-passage-duty: consolidation.view
+      x-depot-duty: consolidation.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -713,7 +713,7 @@ paths:
     get:
       operationId: listConsolidationInvestments
       summary: The investments register of the group's newest run for a period
-      x-passage-duty: consolidation.view
+      x-depot-duty: consolidation.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -737,7 +737,7 @@ paths:
         One line per unit in the group currency: a consolidated subsidiary at cost, an equity-method unit (terms method equity, up to 50
         percent held) with its opening carrying amount (the register of the previous fiscal year end, else the investment cost), the
         group's share of its profit, the dividends received and the closing carrying amount.
-      x-passage-duty: consolidation.view
+      x-depot-duty: consolidation.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -756,7 +756,7 @@ paths:
       operationId: addConsolidationOwnership
       summary: Record an ownership percentage from a date; the holder's open interval is closed on that date
       description: Holders of one unit together never exceed 100.00 percent on any date (422 CNS-0904). Without holderUnitId the group's top parent holds the stake.
-      x-passage-duty: consolidation.configure
+      x-depot-duty: consolidation.configure
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -783,7 +783,7 @@ paths:
       operationId: setConsolidationAccountMap
       summary: Store a new version of the chart mapping from main accounts to consolidation accounts
       description: Every PUT is a new version (the earlier ones are kept, so a collection keeps the mapping it was made with). An account may name the role a run reads it by.
-      x-passage-duty: consolidation.configure
+      x-depot-duty: consolidation.configure
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -806,7 +806,7 @@ paths:
     get:
       operationId: getConsolidationAccountMap
       summary: The group's chart mapping (the latest version, or the one named)
-      x-passage-duty: consolidation.view
+      x-depot-duty: consolidation.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -825,7 +825,7 @@ paths:
     get:
       operationId: listConsolidationAccountMapVersions
       summary: The stored versions of the chart mapping, newest first
-      x-passage-duty: consolidation.view
+      x-depot-duty: consolidation.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -864,7 +864,7 @@ paths:
         rate. A unit in another currency needs a rate for it (422 CNS-0927). A
         ledger that cannot be read is 502 CNS-0929. The result is stored as an
         immutable version of the group and period.
-      x-passage-duty: consolidation.run
+      x-depot-duty: consolidation.run
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -890,7 +890,7 @@ paths:
     get:
       operationId: listConsolidationCollections
       summary: A group's collections, newest first
-      x-passage-duty: consolidation.view
+      x-depot-duty: consolidation.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -912,7 +912,7 @@ paths:
     get:
       operationId: getConsolidationCollection
       summary: A collection with every collected line
-      x-passage-duty: consolidation.view
+      x-depot-duty: consolidation.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -931,7 +931,7 @@ paths:
       operationId: getConsolidatedTrialBalance
       summary: The consolidated trial balance of a collection, before eliminations, with each unit's contribution per account
       description: Accounts without a mapping are listed apart. unitDifferences is each unit's translation difference, the amount the run books as CTA.
-      x-passage-duty: consolidation.view
+      x-depot-duty: consolidation.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -953,7 +953,7 @@ paths:
         Assets less liabilities and equity (equity including the year's profit), in the unit's currency, must be within 0.01. The accounts are
         read by role (asset, liability, equity in the chart mapping), so a unit with balance sheet accounts that carry no role shows the
         difference they leave. blocked is true when any unit failed: the group translation must not run.
-      x-passage-duty: consolidation.view
+      x-depot-duty: consolidation.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -992,7 +992,7 @@ paths:
 components:
   parameters:
     TenantHeader:
-      name: X-Passage-Tenant
+      name: X-Depot-Tenant
       in: header
       required: true
       description: Set by the gateway; UUIDv7 tenant id
@@ -1000,7 +1000,7 @@ components:
         type: string
         format: uuid
     DutiesHeader:
-      name: X-Passage-Duties
+      name: X-Depot-Duties
       in: header
       required: true
       description: Set by the gateway; comma-separated duties of the caller
@@ -1674,7 +1674,7 @@ components:
       type: object
       required: [type, title, status]
       properties:
-        type: { type: string, format: uri, description: 'https://passage.dev/problems/<code>' }
+        type: { type: string, format: uri, description: 'https://depot.dev/problems/<code>' }
         title: { type: string }
         status: { type: integer }
         detail: { type: string }

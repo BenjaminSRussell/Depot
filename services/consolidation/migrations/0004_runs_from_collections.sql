@@ -48,26 +48,26 @@ CREATE TABLE IF NOT EXISTS consolidation_unit_terms (
 ALTER TABLE consolidation_unit_terms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE consolidation_unit_terms FORCE ROW LEVEL SECURITY;
 CREATE POLICY consolidation_unit_terms_tenant_access ON consolidation_unit_terms AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 ALTER TABLE consolidation_mapping_version ENABLE ROW LEVEL SECURITY;
 ALTER TABLE consolidation_mapping_version FORCE ROW LEVEL SECURITY;
 CREATE POLICY consolidation_mapping_version_tenant_access ON consolidation_mapping_version AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE consolidation_run ADD COLUMN IF NOT EXISTS collection_id uuid;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON consolidation_mapping_version TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON consolidation_unit_terms TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON consolidation_mapping_version TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON consolidation_unit_terms TO depot_app';
     -- A unit can be edited and, while nothing refers to it, removed with its ownership rows.
-    EXECUTE 'GRANT UPDATE, DELETE ON consolidation_unit TO passage_app';
-    EXECUTE 'GRANT DELETE ON consolidation_ownership, consolidation_unit_terms TO passage_app';
+    EXECUTE 'GRANT UPDATE, DELETE ON consolidation_unit TO depot_app';
+    EXECUTE 'GRANT DELETE ON consolidation_ownership, consolidation_unit_terms TO depot_app';
     -- Mapping rows are versions now: written once, never replaced.
-    EXECUTE 'REVOKE UPDATE, DELETE ON consolidation_account_map FROM passage_app';
+    EXECUTE 'REVOKE UPDATE, DELETE ON consolidation_account_map FROM depot_app';
   END IF;
 END
 $$;

@@ -1,6 +1,6 @@
 # treasury (web module)
 
-Treasury screens for wave 36 (PSG-36) slices 1, 3 and 4: bank accounts, camt.053, BAI2 and MT940 statement import,
+Treasury screens for wave 36 (DPT-36) slices 1, 3 and 4: bank accounts, camt.053, BAI2 and MT940 statement import,
 the cash flow forecast, checks, bank facilities with letters of credit and guarantees, and loan
 contracts. Built from the shell primitives in `src/shell/ui` and CSS Modules
 (`pages.module.css`), per `apps/web/docs/design-system.md`.

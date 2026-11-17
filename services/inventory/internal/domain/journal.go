@@ -7,7 +7,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // Journal and validation error codes (message catalog 3.16.18).

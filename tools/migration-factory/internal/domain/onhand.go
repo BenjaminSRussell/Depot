@@ -134,11 +134,11 @@ func ValidateOnhand(in []OnhandLine, items map[string]struct{}) (accepted []Onha
 }
 
 // ReconcileOnhand finishes an onhand run once the accepted lines are held. loaded is how many
-// lines this run inserted; held maps each accepted legacy id to the line Passage holds for it.
+// lines this run inserted; held maps each accepted legacy id to the line Depot holds for it.
 // glTotals are the control totals of a gl_balances run of the same company to reconcile with,
 // and account the inventory GL account to compare (BR-49.3); both are empty otherwise.
 //
-// It computes the FR-49.2 onhand totals of the whole extract against what Passage holds: the
+// It computes the FR-49.2 onhand totals of the whole extract against what Depot holds: the
 // quantity per item and inventory dimension, the value per (item, site, currency) and the value
 // per entity and currency. With a GL run it adds onhand.inventory_account: the migrated balance
 // of the inventory account (all its dimensions) against the loaded on-hand value, to 0.00. The
@@ -227,7 +227,7 @@ func ReconcileOnhand(r *PackRun, source, accepted []OnhandLine, loaded int, held
 
 // notPosted names the packs whose load stays in the factory: the run reconciles the factory's own
 // opening rows against the extract and nothing reaches the target ledger yet. A RECONCILED run of
-// such a pack is not stock or balances in Passage, so the go/no-go checklist does not count it.
+// such a pack is not stock or balances in Depot, so the go/no-go checklist does not count it.
 var notPosted = map[Pack]string{
 	PackOnhand:      "staged in the factory only, not posted to the inventory ledger (load it with POST /migration/runs/{id}/opening-load)",
 	PackGLBalances:  "staged in the factory only, not posted to the general ledger (post its opening journal)",

@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { BoardPage } from "./BoardPage";
 import { CostingPage } from "./CostingPage";
 import { FlowDetailPage, FlowsPage, NewFlowPage } from "./FlowPages";
@@ -9,7 +9,7 @@ import { NewRulePage, RuleDetailPage, RulesPage } from "./RulePages";
 import { SubcontractPage } from "./SubcontractPage";
 import { WorkCellBoardPage } from "./WorkCellBoardPage";
 
-const lean: PassageModule = {
+const lean: DepotModule = {
   id: "lean",
   title: "Lean manufacturing",
   description: "Production flows, kanban rules, the kanban board, the work-cell board of kanban jobs, flow costing and lean subcontracting.",

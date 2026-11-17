@@ -1,4 +1,4 @@
-# services/hr — Passage HR (wave 42)
+# services/hr — Depot HR (wave 42)
 
 Human resources core: workers, employments, positions and position assignments
 with effective dating, the as-of manager query, the audited PII vault, and
@@ -7,7 +7,7 @@ approval), and benefits (plans with CEL eligibility, a workforce simulation,
 life events and enrollments), and skills (catalog, worker ratings,
 certificates with expiry, position skill profiles, gap analysis and skill
 search), and courses (catalog, sessions with a waitlist, registrations with
-manager approval, completion into skills and certificates). Built for PSG-42,
+manager approval, completion into skills and certificates). Built for DPT-42,
 **slices 1 to 6**. The wave's remaining
 deliverables are listed in [NOT-IMPLEMENTED.md](NOT-IMPLEMENTED.md).
 
@@ -78,7 +78,7 @@ deliverables are listed in [NOT-IMPLEMENTED.md](NOT-IMPLEMENTED.md).
   (HCM-ABS-002). A request may not cross a plan-year start. An overlap with
   an APPROVED request is refused (HCM-ABS-001), with a SUBMITTED one it warns
   (HCM-ABS-003). Approval rechecks both, spends CARRY_OVER first and writes
-  `dev.passage.hr.absence.approved.v1` in the same transaction. A SUBMITTED
+  `dev.depot.hr.absence.approved.v1` in the same transaction. A SUBMITTED
   request can be cancelled. Every balance change locks the worker row first,
   so concurrent approvals, accruals and year ends cannot overspend or lose
   an update.
@@ -120,7 +120,7 @@ deliverables are listed in [NOT-IMPLEMENTED.md](NOT-IMPLEMENTED.md).
   any instant (exclusion constraint, HCM-BEN-004). Ending takes the last
   covered day and a reason; a TERMINATION keeps coverage to the end of that
   month and marks a COBRA qualifying event on health plans. Both write
-  `dev.passage.hr.benefitenrollment.changed.v1` (START or END, with the rates,
+  `dev.depot.hr.benefitenrollment.changed.v1` (START or END, with the rates,
   currency, pre-tax flag and deduction code payroll needs) in the same
   transaction. Enrollment and ending lock the rows they change.
 - **Own data**: `hr.benefits.self` alone enrolls, records life events and reads
@@ -134,7 +134,7 @@ deliverables are listed in [NOT-IMPLEMENTED.md](NOT-IMPLEMENTED.md).
   `Idempotency-Key` returns the stored skill.
 - **Ratings**: one current rating per worker and skill, on the skill's scale
   (HCM-SKL-RATING), with the assessment date (not in the future). A new
-  rating replaces the old one and writes `dev.passage.hr.workerskill.changed.v1`
+  rating replaces the old one and writes `dev.depot.hr.workerskill.changed.v1`
   with the previous rating in the same transaction. An assessment dated
   before the stored one is HCM-SKL-STALE, so a late retry cannot overwrite a
   newer rating; the same rating and date again changes nothing and publishes
@@ -143,7 +143,7 @@ deliverables are listed in [NOT-IMPLEMENTED.md](NOT-IMPLEMENTED.md).
   expiry given as a date or as validity months (the same day that many months
   later, or the month's last day when it has no such day), or none. Valid on
   `[issuedOn, expiresOn)`: a certificate is no longer valid on its expiry day.
-  Recording writes `dev.passage.hr.certification.issued.v1`. The same worker,
+  Recording writes `dev.depot.hr.certification.issued.v1`. The same worker,
   code and issue date twice is HCM-CERT-DUPLICATE.
 - **Certifications expiring** (8.42.14): certificates valid on `asOf` that
   expire within `withinDays` (default 60, at most 366), soonest first, with
@@ -193,7 +193,7 @@ deliverables are listed in [NOT-IMPLEMENTED.md](NOT-IMPLEMENTED.md).
   `workerskill.changed`), issues the certificate from the session end date
   for the validity months (`certification.issued`; a certificate the worker
   already holds for that code and day is reused), and writes
-  `dev.passage.hr.course.completed.v1`, all in one transaction. Lines apply
+  `dev.depot.hr.course.completed.v1`, all in one transaction. Lines apply
   all or none.
 
 ## What slice 6 does (incidents, loans, checklists, questionnaires)
@@ -308,12 +308,12 @@ Configuration is read from the environment and validated at startup:
 
 | Variable | Required | Meaning |
 |---|---|---|
-| `DATABASE_URL` | yes | Postgres as `passage_app` (no BYPASSRLS) |
+| `DATABASE_URL` | yes | Postgres as `depot_app` (no BYPASSRLS) |
 | `FIELDCRYPT_KEYS` / `FIELDCRYPT_KEYS_FILE`, `FIELDCRYPT_CURRENT_KEY_ID` | yes | `id=base64(32 bytes)` pairs and the key id new P3 values use (platform `fieldcrypt`); the service refuses to start without keys. The chart mounts the keys as `FIELDCRYPT_KEYS_FILE` |
 | `HR_PII_KEY` | no | legacy base64 32-byte key; only opens P3 values written before fieldcrypt. Keep it until `hr reseal-pii` reports `rewritten=0` for every tenant |
 | `HR_RETENTION_PURGE_ENABLED` | no | kill switch for `POST /v1/hr/candidates/purge` and `hr retention-purge`: `false` turns both off (503 `HCM-RET-DISABLED`); anything else leaves them on |
 | `COMPLIANCE_URL` | for the purge | compliance base URL; the purge asks `GET /v1/privacy/holds:check` per candidate (signed, `hr` to `compliance` grant) and skips held ones. Unset: the route answers 503 `HCM-RET-HOLDS` and erases nothing |
-| `PASSAGE_PHI_READ_AUDIT` | no | records every read that returns protected health information (health-plan elections and life events on `GET /v1/hr/workers/{id}/benefits`) in the audit service before the data is returned (#606). Empty or `auto` follows `PASSAGE_CLOUD_PROFILE` (on when it includes the `hipaa` overlay); `true` forces it on, `false` off. Chart: `config.phiReadAudit` |
+| `DEPOT_PHI_READ_AUDIT` | no | records every read that returns protected health information (health-plan elections and life events on `GET /v1/hr/workers/{id}/benefits`) in the audit service before the data is returned (#606). Empty or `auto` follows `DEPOT_CLOUD_PROFILE` (on when it includes the `hipaa` overlay); `true` forces it on, `false` off. Chart: `config.phiReadAudit` |
 | `AUDIT_URL` | when auditing is on | audit base URL; the read is posted to `POST /v1/audit/reads` (signed, `hr` to `audit` grant for `audit.read-log.write`). With auditing on, the service refuses to start without `AUDIT_URL` and a service signing key. Chart: `auditUrl` |
 | `HR_MANAGER_MAX_DEPTH` | no | vacant-manager walk depth, 1–20, default 10 |
 | `MIGRATE_ON_START` | no | `true` applies migrations at start (dev only) |
@@ -336,7 +336,7 @@ batches of 500, one transaction each, writes a `p3_change` audit row per
 rewritten worker (actor `hr-reseal-pii`, value unchanged) and logs
 `rewritten=<n>` per tenant. It is safe to re-run; a value that opens under
 neither key stops the run and names the worker. Migration `0007` grants
-`passage_app` UPDATE on the two sealed columns only.
+`depot_app` UPDATE on the two sealed columns only.
 
 ```sh
 go run ./cmd/hr reseal-pii <tenant-id> [<tenant-id>...]   # in a cluster: the hr binary with the pod's env
@@ -396,8 +396,8 @@ go vet ./... && go test ./...
   AC-42.4 and the overlap, span, plan-year and cancel rules with the approval
   event; own-data and self-approval refusals; and two concurrent approvals
   that cannot overspend one balance. They use `testkit.DB(t)` and **skip unless
-  `PASSAGE_TEST_DATABASE_URL` is set**. `TestRowLevelSecurity` also needs
-  `PASSAGE_TEST_APP_DATABASE_URL` (a role without BYPASSRLS) and checks every
+  `DEPOT_TEST_DATABASE_URL` is set**. `TestRowLevelSecurity` also needs
+  `DEPOT_TEST_APP_DATABASE_URL` (a role without BYPASSRLS) and checks every
   table, including the legal-entity scope on employments and positions and a
   scoped accrual run followed by an all-entity rerun. Benefits: plan replay
   and duplicates, the window, life-event, eligibility, option and overlap
@@ -412,18 +412,18 @@ go vet ./... && go test ./...
   registration), ratings never lowered and results recorded after
   attendance, approval and self-approval, own-data refusals, catalog and
   session replay, and 16 concurrent registrations that cannot overfill.
-  `grants_test.go` runs every skills and courses path as `passage_app`.
+  `grants_test.go` runs every skills and courses path as `depot_app`.
 
 To run the store tests:
 
 ```sh
-PASSAGE_TEST_DATABASE_URL=postgres://... go test ./internal/store/...
+DEPOT_TEST_DATABASE_URL=postgres://... go test ./internal/store/...
 ```
 
 ## Endpoints
 
 Specification: [api/openapi.yaml](api/openapi.yaml). Duties are checked by the
-kernel `authz.RequireDuty` (`x-passage-duty` in the spec).
+kernel `authz.RequireDuty` (`x-depot-duty` in the spec).
 
 | Method | Path | Duty |
 |---|---|---|
@@ -526,7 +526,7 @@ kernel `authz.RequireDuty` (`x-passage-duty` in the spec).
 ## Error codes
 
 Responses are RFC 9457 problems (`application/problem+json`) with `code`. The
-type is `https://passage.dev/problems/<code>`.
+type is `https://depot.dev/problems/<code>`.
 
 | Code | Where | Meaning |
 |---|---|---|
@@ -634,7 +634,7 @@ migrations/        0001_hr_core.sql, 0002_absence.sql, 0003_benefits.sql, 0004_g
 testdata/          hr-benefit-100.json (AC-42.5 fixture)
 api/openapi.yaml   OpenAPI 3.1 for every endpoint above
 events/asyncapi.yaml  AsyncAPI 3 for the eight events published
-charts/hr/         Helm chart passage-hr (lint: helm lint charts/hr)
+charts/hr/         Helm chart depot-hr (lint: helm lint charts/hr)
 ```
 
 ## Dependencies

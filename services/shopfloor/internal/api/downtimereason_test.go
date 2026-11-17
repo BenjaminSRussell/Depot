@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
 )
 
 const reasonID = "0195f0a0-0000-7000-8000-000000000041"

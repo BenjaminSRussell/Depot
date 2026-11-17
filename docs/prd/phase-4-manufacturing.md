@@ -2,7 +2,7 @@
 
 ## 4.0 Phase overview
 
-**Business outcome at phase exit.** A discrete or process manufacturer can run its plant on Passage: master planning nets demand against supply across a multi-level BOM and generates planned purchase, production and transfer orders; planners firm those into production or batch orders, schedule them against finite resource capacity on a Gantt, release them to the floor, and operators execute them from a kiosk while machines report counts over OPC-UA/MQTT. Every material issue, route consumption and report-as-finished posts WIP through the universal journal (wave 11) and the inventory ledger (wave 16); order end settles actual against planned cost and posts variances. Lean plants run kanban replenishment and production flows with periodic backflush costing. The phase-exit demo (wave 25 proof) manufactures a configured product from planned order to finished goods with full costing, and the WIP, inventory and variance accounts reconcile to the journal.
+**Business outcome at phase exit.** A discrete or process manufacturer can run its plant on Depot: master planning nets demand against supply across a multi-level BOM and generates planned purchase, production and transfer orders; planners firm those into production or batch orders, schedule them against finite resource capacity on a Gantt, release them to the floor, and operators execute them from a kiosk while machines report counts over OPC-UA/MQTT. Every material issue, route consumption and report-as-finished posts WIP through the universal journal (wave 11) and the inventory ledger (wave 16); order end settles actual against planned cost and posts variances. Lean plants run kanban replenishment and production flows with periodic backflush costing. The phase-exit demo (wave 25 proof) manufactures a configured product from planned order to finished goods with full costing, and the WIP, inventory and variance accounts reconcile to the journal.
 
 **Phase-exit sign-off criteria**
 - 100% of production order status transitions in the wave-21 state machine are covered by a property test; every illegal transition is rejected and every legal one posts the fixture-defined inventory and GL entries.
@@ -33,15 +33,15 @@
 
 | Event (CloudEvents type) | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| `passage.production.order.status-changed.v1` | production | planning, scheduling, shopfloor, lean, analytics | orderId, from, to, qty, dates, actor |
-| `dev.passage.production.journal.posted.v1` | production | inventory (w16), ledger (w11), planning | journalId, type, lines[item, qty, cost], journalEntryId |
-| `dev.passage.production.order.settled.v1` | production | ledger, costing (w20), analytics | orderId, actualCost, plannedCost, variances[] |
-| `dev.passage.planning.plan.completed.v1` | planning | production, purchasing (w17), scheduling | planVersionId, counts, duration, messages |
-| `passage.planning.planned-order.firmed.v1` | planning | production, purchasing, inventory | plannedOrderId, targetType, targetId |
-| `dev.passage.scheduling.job.scheduled.v1` | scheduling | production, shopfloor, planning | jobId, resourceId, start, end, runId |
-| `passage.lean.kanban.state-changed.v1` | lean | production, inventory, shopfloor | kanbanId, from, to, handlingUnits |
-| `dev.passage.shopfloor.registration.posted.v1` | shopfloor | production, payroll (w43) | registrationId, workerId, jobId, hours, payType |
-| `dev.passage.shopfloor.machine.event.v1` | iot-edge → shopfloor | shopfloor (OEE), production, analytics | machineId, resourceId, kind, counts, state, ts |
+| `depot.production.order.status-changed.v1` | production | planning, scheduling, shopfloor, lean, analytics | orderId, from, to, qty, dates, actor |
+| `dev.depot.production.journal.posted.v1` | production | inventory (w16), ledger (w11), planning | journalId, type, lines[item, qty, cost], journalEntryId |
+| `dev.depot.production.order.settled.v1` | production | ledger, costing (w20), analytics | orderId, actualCost, plannedCost, variances[] |
+| `dev.depot.planning.plan.completed.v1` | planning | production, purchasing (w17), scheduling | planVersionId, counts, duration, messages |
+| `depot.planning.planned-order.firmed.v1` | planning | production, purchasing, inventory | plannedOrderId, targetType, targetId |
+| `dev.depot.scheduling.job.scheduled.v1` | scheduling | production, shopfloor, planning | jobId, resourceId, start, end, runId |
+| `depot.lean.kanban.state-changed.v1` | lean | production, inventory, shopfloor | kanbanId, from, to, handlingUnits |
+| `dev.depot.shopfloor.registration.posted.v1` | shopfloor | production, payroll (w43) | registrationId, workerId, jobId, hours, payType |
+| `dev.depot.shopfloor.machine.event.v1` | iot-edge → shopfloor | shopfloor (OEE), production, analytics | machineId, resourceId, kind, counts, state, ts |
 
 **Phase-level risks**
 
@@ -58,13 +58,13 @@
 
 ### 4.21.1 Scope and business context
 
-Wave 21 is where Passage first consumes components and produces finished goods. Before it, the demo plant buys, receives, pays and values inventory (phase 3) but cannot transform it. After it, a production supervisor can create a production order for a BOM/route item, estimate its planned cost, release it, start it (auto-consuming materials by backflush or manually via a picking list), report route time on route and job cards, report quantities as finished including by-/co-products and scrap, and end the order so that actual cost settles against planned cost with material, labor and overhead variances posted to the GL. Subcontracted operations create a linked purchase order to the vendor.
+Wave 21 is where Depot first consumes components and produces finished goods. Before it, the demo plant buys, receives, pays and values inventory (phase 3) but cannot transform it. After it, a production supervisor can create a production order for a BOM/route item, estimate its planned cost, release it, start it (auto-consuming materials by backflush or manually via a picking list), report route time on route and job cards, report quantities as finished including by-/co-products and scrap, and end the order so that actual cost settles against planned cost with material, labor and overhead variances posted to the GL. Subcontracted operations create a linked purchase order to the vendor.
 
 Out of scope: scheduling against capacity (wave 23; wave 21 schedules with infinite capacity only), MRP-generated orders (wave 22), formula/batch orders, co-product allocation methods beyond the basic by-quantity method (wave 24), operator kiosk and time registration (wave 25), standard-cost roll-up and activation (wave 39; wave 21 reads an active standard or weighted-average cost from wave 20).
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX ProdTable status update dialogs (Estimate → Schedule → Release → Start) each open a modal with 8–15 parameters (ProdParmStartUp, ProdParmRelease); a supervisor clicks ~40 times to take one order to Started; SAP CO02 needs CO01 → release → CO11N → MIGO 261 across four transactions | Each status is a separate parameter table and batch class (ProdMultiStartUp); no sensible defaults persisted per site | One `:start` command with site-level defaults; parameter overrides only in an "advanced" drawer; bulk start on the list page | Clicks per order to Started 40 → 3; bulk 500 orders in < 5 min |
 | WIP vs GL drift is found at month-end: AX ProdCalcTrans and the ledger disagree after a failed ProdUpd posting left half a journal; SAP KKAX WIP calculation runs as a batch (CO88 settlement) hours before close | Non-atomic multi-table posting (ProdJournal → InventTrans → LedgerTrans) without idempotency; WIP computed periodically rather than per posting | Journal post is one transaction with idempotency key; WipPosting rows per journal; nightly reconciliation job, delta alerts | WIP reconciliation effort 2 days/month → 0; drift detected < 24 h instead of at close |
@@ -74,7 +74,7 @@ Out of scope: scheduling against capacity (wave 23; wave 21 schedules with infin
 
 ### 4.21.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Production order header | ProdTable, ProdStatus enum, form ProdTable, menu item ProdTable | AUFK/AFKO/AFPO, CO01/CO02/CO03 | `production` service, entity ProductionOrder, screen Production orders | full |
 | Order BOM and route snapshot | ProdBOM, ProdRoute, ProdRouteJob (ProdUpdCreate explosion) | RESB (components), AFVC/AFVV (operations), order read of BOM/routing | ProductionBomLine, ProductionOperation, ProductionJob | full |
@@ -122,7 +122,7 @@ Out of scope: scheduling against capacity (wave 23; wave 21 schedules with infin
 - **FR-21.13 Posting profiles** — Must. The system shall resolve ledger accounts for each posting type (picking list issue, picking list offset, WIP issue, WIP account, RAF receipt, RAF offset, variance accounts per variance type) by item group × site, falling back to All.
 - **FR-21.14 Co-product RAF (basic)** — Could. The system shall accept RAF lines for co-/by-products declared on the BOM (w9), allocating cost by quantity only; allocation methods arrive in wave 24.
 - **FR-21.15 Order split and merge** — Should. The system shall split a production order in status Created…Started into two orders (original keeps the remaining quantity; the new order receives `splitQty`), carrying BOM lines, operations and jobs proportionally, and shall merge orders of the same product, BOM/route version and site that are in status ≤ Released into one.
-  - Notes: Split of a Started order distributes posted consumption and route hours proportionally to the split ratio unless `allocation=keep-on-original`; WIP postings move via an internal transfer journal (Dr WIP new / Cr WIP original) so each order's WIP stays reconcilable. Split quantity must be ≥ the item's minimum order quantity and a multiple of the item's multiple. Scheduled jobs of the new order are rescheduled (w23) with the original's dates as the preferred window. Merge is refused if either order has posted journals. AX ProdSplit and SAP CO02 split both stop at Released; Passage allows Started with the allocation rules above.
+  - Notes: Split of a Started order distributes posted consumption and route hours proportionally to the split ratio unless `allocation=keep-on-original`; WIP postings move via an internal transfer journal (Dr WIP new / Cr WIP original) so each order's WIP stays reconcilable. Split quantity must be ≥ the item's minimum order quantity and a multiple of the item's multiple. Scheduled jobs of the new order are rescheduled (w23) with the original's dates as the preferred window. Merge is refused if either order has posted journals. AX ProdSplit and SAP CO02 split both stop at Released; Depot allows Started with the allocation rules above.
 - **FR-21.16 Order change management** — Should. The system shall detect, for open orders (status < Started, or Started with `ocm.allowStarted`), that the BOM or route version they snapshot has been superseded by an ECO (w9 `bom.version.activated` / `route.version.activated` events) and shall offer `:apply-change` that re-explodes the order and reports the delta (added/removed/changed lines and operations) with a change cost = Σ (new planned cost − old planned cost) plus a configurable change-cost surcharge per OCM profile.
   - Notes: OCM profile per item group × site: `automatic` (apply at next status transition), `manual` (planner confirms), `none` (ignore). Lines already consumed are never removed; they become `substituted` and feed the production substitution variance (BR-21.6). Each application writes an OrderChangeRecord (ECO id, before/after snapshot hash, change cost, actor). Configured products (w8) re-explode through the configurator with the stored configuration; a changed model that no longer yields the same configuration raises `OCM_CONFIG_DRIFT` and requires manual review.
 - **FR-21.17 Trigger points** — Should. The system shall evaluate TriggerPoint rules on operation feedback events (route card / job card post, operation status change, qty_error > 0, quality check fail from w25) and perform the configured function: insert a rework operation sequence after the current operation (standard operation set from w9), create a rework order (FR-21.20) for the error quantity, release the next operation, start a Temporal workflow, or raise a notification.
@@ -203,11 +203,11 @@ Commands: `CreateOrder` (validates product released, BOM/route active as of deli
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.production.order.created.v1` | order committed | orderId, orderNumber, productId, qty, siteId, deliveryDate, originType, originId | planning, analytics |
-| `passage.production.order.status-changed.v1` | any transition | orderId, from, to, qty, startDate, endDate, actor, occurredAt | planning, scheduling, shopfloor, lean |
-| `dev.passage.production.journal.posted.v1` | journal posted | journalId, orderId, type, postingDate, lines[{itemId, qty, unitCost, operNumber, hours}], journalEntryId | inventory, ledger, planning |
-| `dev.passage.production.order.settled.v1` | End posted | orderId, plannedCost{material,labor,overhead,subcontract}, actualCost{…}, variances[{type,costGroup,amount}] | ledger, costing, analytics |
-| `passage.production.subcontract.po-requested.v1` | release of subcontract op | orderId, operNumber, vendorId, serviceItemId, qty, dueDate | purchasing |
+| `dev.depot.production.order.created.v1` | order committed | orderId, orderNumber, productId, qty, siteId, deliveryDate, originType, originId | planning, analytics |
+| `depot.production.order.status-changed.v1` | any transition | orderId, from, to, qty, startDate, endDate, actor, occurredAt | planning, scheduling, shopfloor, lean |
+| `dev.depot.production.journal.posted.v1` | journal posted | journalId, orderId, type, postingDate, lines[{itemId, qty, unitCost, operNumber, hours}], journalEntryId | inventory, ledger, planning |
+| `dev.depot.production.order.settled.v1` | End posted | orderId, plannedCost{material,labor,overhead,subcontract}, actualCost{…}, variances[{type,costGroup,amount}] | ledger, costing, analytics |
+| `depot.production.subcontract.po-requested.v1` | release of subcontract op | orderId, operNumber, vendorId, serviceItemId, qty, dueDate | purchasing |
 
 ### 4.21.6 User experience
 
@@ -297,7 +297,7 @@ Helm chart `production` (Go service, 3 replicas, HPA on CPU 70%), `production-db
 
 ### 4.21.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | ProdTable (AX) / AUFK+AFKO+AFPO (SAP) | ProductionOrder | status map per FR-21.2; only open orders (status < Ended / not TECO) |
 | ProdBOM / RESB | ProductionBomLine | qty_required recomputed; consumed qty from InventTrans / MSEG 261 |
@@ -455,7 +455,7 @@ Open questions: (1) Should Cancelled be exposed for Released orders with reserva
 
 | Register row (inventory section + AX form or SAP T-code) | Status before | Disposition | Note |
 |---|---|---|---|
-| AX 12.22.1 Production control — Production order → Split / Group (ProdSplit) [AX #195] | PARTIAL-21 | ADDED as FR-21.15 | Split and merge with proportional WIP allocation (BR-21.11); AX stops at Released, Passage allows Started |
+| AX 12.22.1 Production control — Production order → Split / Group (ProdSplit) [AX #195] | PARTIAL-21 | ADDED as FR-21.15 | Split and merge with proportional WIP allocation (BR-21.11); AX stops at Released, Depot allows Started |
 | SAP 13.21 PP — Rework (CO07 / trigger points CO31 / CO33) [SAP #245] | PARTIAL-21 | ADDED as FR-21.17, FR-21.20 | Trigger points insert rework operations or create rework orders; rework order semantics of CO07 |
 | SAP 13.21 PP — Order split (CO02 → split), order change management (OCM: COCM / COCM1) [#246] | PARTIAL-21 | ADDED as FR-21.15, FR-21.16 | Split per FR-21.15; OCM detection, delta preview and change cost per FR-21.16 / BR-21.12 |
 | SAP 13.21 PP Customizing — OPMP / OPM trigger points (TTRIG) [#249] | PARTIAL-21 | ADDED as FR-21.17 | Trigger point definitions on w9 route operations; parameter "Trigger points enabled" in 4.21.13 |
@@ -473,7 +473,7 @@ Wave 22 gives planners the engine that decides what to make, buy and move. Befor
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Nightly MRP regeneration takes hours: AX ReqCalcTask on 50k items runs 3–6 h with helper threads contending on ReqTrans; SAP MD01 NEUPL regenerative run 2–4 h; Epicor Kinetic "MRP Full Regen" and Infor LN "Order Planning" routinely 4+ h, so planners work on yesterday's plan | Row-at-a-time netting with database round trips per item; planned orders deleted and recreated in place | In-memory level-by-level engine with sparse buckets, snapshot per PlanVersion, pointer swap; dynamic net-change within 60 s of an order event | 50k items 4 h → < 10 min; net change 4 h → 60 s |
 | No live pegging: AX ReqTransCov is only populated during the run and lost on re-run; SAP MD04 pegged requirements (MD09) require multi-level order report and are unavailable for planned orders mid-run; Plex "Where Used/Demand" pegging is single-level | Pegging stored as a transient by-product of the run | Pegging rows persisted per version; `/pegging` explain tree to any depth; "Explain this plan" in the UI | Time to answer "why is this planned order here" 20 min → < 5 s; 100% of qty explained |
@@ -483,7 +483,7 @@ Wave 22 gives planners the engine that decides what to make, buy and move. Befor
 
 ### 4.22.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Plan definition | ReqPlan (static/dynamic), ReqPlanVersion | MRP area, planning run parameters (MD01/MD02 processing keys NETCH/NEUPL) | Plan, PlanVersion | full |
 | Coverage group | ReqGroup (ReqPOType: Requirement/Period/MinMax/Manual) | MRP type (PD/VB/ND), lot-sizing procedure (T438A: EX, TB, FX, WB), MRP group | CoverageGroup | full |
@@ -590,11 +590,11 @@ Invariants (additions): for a DdmrpBuffer, top_of_red = red_base + red_safety < 
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.planning.plan.started.v1` | run begins | planId, versionId, kind, scope | analytics |
-| `dev.passage.planning.plan.completed.v1` | version becomes current | planId, versionId, itemsPlanned, plannedOrders{purchase,production,transfer}, messages, durationMs, planHash | production, purchasing, scheduling |
-| `passage.planning.planned-order.firmed.v1` | firm | plannedOrderId, orderType, targetId, qty, dates | production, purchasing, inventory |
-| `dev.passage.planning.message.raised.v1` | message created | requirementId, refType, refId, action, delayDays | purchasing, sales (w27), notifications |
-| `dev.passage.planning.forecast.published.v1` | consensus approved | modelId, version, items, horizonPeriods | planning run |
+| `dev.depot.planning.plan.started.v1` | run begins | planId, versionId, kind, scope | analytics |
+| `dev.depot.planning.plan.completed.v1` | version becomes current | planId, versionId, itemsPlanned, plannedOrders{purchase,production,transfer}, messages, durationMs, planHash | production, purchasing, scheduling |
+| `depot.planning.planned-order.firmed.v1` | firm | plannedOrderId, orderType, targetId, qty, dates | production, purchasing, inventory |
+| `dev.depot.planning.message.raised.v1` | message created | requirementId, refType, refId, action, delayDays | purchasing, sales (w27), notifications |
+| `dev.depot.planning.forecast.published.v1` | consensus approved | modelId, version, items, horizonPeriods | planning run |
 
 ### 4.22.6 User experience
 
@@ -684,7 +684,7 @@ Helm charts `planning` (Go, 2 replicas API + 1 planner worker pool with 8 CPU / 
 
 ### 4.22.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | ReqGroup (AX) / T438A + MRP type config (SAP) | CoverageGroup | ReqPOType→coverage_code; SAP lot-size EX→Requirement, TB→Period, FX→fixed qty via ItemCoverage standard qty, WB→Period(7) |
 | ReqItemTable / MARC MRP views | ItemCoverage | DISMM PD/VB/ND; EISBE→safety; DISLS; PLIFZ→lead time |
@@ -692,7 +692,7 @@ Helm charts `planning` (Go, 2 replicas API + 1 planner worker pool with 8 CPU / 
 | ReqPO (firmed only) / PLAF (firmed, PLAF-AUFFX = X) | PlannedOrder status firmed | unfirmed planned orders are not migrated — regenerated by the first run |
 | ReqTrans, ReqTransCov / MDTB | not migrated | regenerated |
 
-Validation: first Passage plan vs last legacy plan on identical snapshot: planned order count within ±5% and 95% of planned orders match item/date ±1 day. Not migrated: planning history, AX ReqCalcTask logs, SAP MRP lists.
+Validation: first Depot plan vs last legacy plan on identical snapshot: planned order count within ±5% and 95% of planned orders match item/date ±1 day. Not migrated: planning history, AX ReqCalcTask logs, SAP MRP lists.
 
 **Migration addendum (FR-22.16–22.19).** SAP T461P strategy groups map to PlanningStrategy (10 → mts-net, 11 → mts-gross, 20 → mto, 40 → assemble-to-order-final, 50/52 → plan-without-final-assembly, 70 → subassembly; 25/26/30/59/60/63/74/81/82 → nearest strategy with a migration warning). SAP EQUK/EQUP → QuotaArrangement/QuotaSource with allocated qty carried over. SAP MDLV/MDLG/MDLW → ItemCoverage planning_scope. S/4 DDMRP buffer data (PPH_DD_*) → BufferProfile/DdmrpBuffer with recalculation on first run. AX ReqPlan static plans used as simulations → ScenarioOverride with demand_source = forecast-version. AX ReqReduceKey + ReqPOType combinations → strategy per mapping table delivered with the w10 migration templates.
 
@@ -862,7 +862,7 @@ Wave 23 replaces the infinite-capacity dating of waves 21–22 with a scheduler 
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX job scheduling on a 2,000-job plant takes 20–40 min (WrkCtrCapRes rebuilt per order in X++); SAP CM21 capacity leveling is manual dispatch per work center and PP/DS needs a separate APO/embedded install with CIF integration | Scheduling runs per order inside the status-update dialog; capacity reservations stored row-by-row; finite scheduling is an add-on product | Scheduler service with materialized UTC capacity intervals, GiST exclusion constraint, site-level run with checkpoints | 5,000 operations 30 min → < 60 s; no separate product |
 | Gantt is read-mostly: D365 Gantt drag does not validate secondary resources or calendars until save; SAP CM21 planning board shows overloads but cannot propagate to dependent orders; Epicor Kinetic Multi-Resource Scheduling requires the APS module and locks the board during save | Validation happens server-side after commit; no dependency graph in the board | `:move` with `dryRun` preview showing violations and dependent impact before commit; canvas Gantt | Reschedule-and-verify 15 min → < 30 s; zero committed double-bookings |
@@ -872,7 +872,7 @@ Wave 23 replaces the infinite-capacity dating of waves 21–22 with a scheduler 
 
 ### 4.23.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Operations scheduling | ProdTable scheduling (operations), WrkCtrCapRes (capacity reservations), scheduling direction | Lead-time scheduling (CA97), capacity requirements KBED/KBEZ | ScheduleRun mode `operations`, ResourceCapacity | full |
 | Job scheduling | Job scheduling (ProdRouteJob), WrkCtrCapRes by job | Detailed scheduling (PP/DS), SAP APO | mode `jobs` (minute level) | full |
@@ -954,10 +954,10 @@ Invariants (additions): consecutive scheduled jobs of an order chain using a net
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.scheduling.run.completed.v1` | run done | runId, scope, operations, makespanMinutes, totalLatenessMinutes, solverStatus | production, planning |
-| `dev.passage.scheduling.job.scheduled.v1` | job placed/moved | jobId, orderId, operNumber, resourceId, start, end, runId, firmed | production, shopfloor |
-| `passage.scheduling.order.dates-changed.v1` | order start/end changed | orderId, start, end, lateMinutes | production, planning, sales (w27) |
-| `dev.passage.scheduling.bottleneck.detected.v1` | load > threshold | resourceId, periods[], loadPct | notifications |
+| `dev.depot.scheduling.run.completed.v1` | run done | runId, scope, operations, makespanMinutes, totalLatenessMinutes, solverStatus | production, planning |
+| `dev.depot.scheduling.job.scheduled.v1` | job placed/moved | jobId, orderId, operNumber, resourceId, start, end, runId, firmed | production, shopfloor |
+| `depot.scheduling.order.dates-changed.v1` | order start/end changed | orderId, start, end, lateMinutes | production, planning, sales (w27) |
+| `dev.depot.scheduling.bottleneck.detected.v1` | load > threshold | resourceId, periods[], loadPct | notifications |
 
 ### 4.23.6 User experience
 
@@ -1025,13 +1025,13 @@ Helm: `scheduling` (Go, 2 API replicas + 2 worker replicas, 4 CPU / 8 GB), `sche
 
 ### 4.23.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | WrkCtrCapRes (AX) / KBED+KBEZ (SAP) | ScheduledJob | only for open orders; re-scheduled on first run, legacy dates kept as `firmed` if the order is Started |
 | WrkCtrTable capacity/efficiency, WorkCalendar / CR02 capacity header, factory calendar | ResourceCapacity (materialized) | from w9 resources and calendars |
 | ProdRouteJob dates / AFVV dates | ProductionJob planned dates | preserved for reference |
 
-Not migrated: historical capacity reservations, PP/DS optimizer profiles, AX scheduling parameters (re-set in Passage).
+Not migrated: historical capacity reservations, PP/DS optimizer profiles, AX scheduling parameters (re-set in Depot).
 
 ### 4.23.12 Dependencies, risks, open questions
 
@@ -1176,7 +1176,7 @@ Wave 24 extends production to two further modes. Process manufacturers (food, ch
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Rescaling a batch order in AX (PmfProdTable "Rescale batch") recomputes lines but silently rounds to the inventory unit precision and does not preserve percent totals; SAP COR2 quantity change re-reads the recipe and drops manual line edits | Scaling implemented as re-explosion; rounding residual not tracked | BR-24.1 scaling with residual assigned to the largest scalable line, side-by-side preview, manual edits preserved | Percent-controlled Σ = 100.0000 on 100% of batches; rescale 12 clicks → 2 |
 | Potency adjustment is manual: AX requires the batch potency on InventBatch to be keyed before picking and the picking list does not recompute compensating lines automatically; SAP active-ingredient management needs batch characteristics plus custom proportion units | Potency not part of the consumption proposal | BR-24.2 proposal computes active and compensating quantities from recorded batch attributes | Potency re-keying 0 (attributes recorded once); consumption error < 0.1% |
@@ -1186,7 +1186,7 @@ Wave 24 extends production to two further modes. Process manufacturers (food, ch
 
 ### 4.24.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Formula | PmfFormula, BOMVersion with PmfFormulaSize, PmfFormulaLine (scalable, percent-controlled) | Master recipe (C201), material list in recipe, base quantity | Formula (BomVersion subtype), FormulaLine | full |
 | Batch order | ProdTable with ProdType=Batch (PmfProdTable), batch order status = ProdStatus | Process order (COR1/COR2), AUFK with order category 40 | BatchOrder (ProductionOrder subtype) | full |
@@ -1305,12 +1305,12 @@ Invariants (additions): a sealed ElectronicBatchRecord's content_hash equals SHA
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `passage.production.batch-order.created.v1` | batch order created | orderId, formulaVersionId, batchSize, scaleFactor, coProducts[] | planning, analytics |
-| `passage.production.batch.attributes-recorded.v1` | attribute values saved | batchId, itemId, values[{attributeId, value}], potency | quality (w33), sales (w27) |
-| `passage.production.co-product.allocated.v1` | End of batch order | orderId, lines[{itemId, method, pct, amount}], byProductBurden | ledger, costing |
-| `dev.passage.lean.kanban.created.v1` | kanban generated | kanbanId, ruleId, qty, eventRefType, eventRefId, due | production, shopfloor |
-| `passage.lean.kanban.state-changed.v1` | job/kanban transition | kanbanId, jobId, from, to, qty, scrap, handlingUnits | production, inventory, shopfloor |
-| `passage.lean.flow-period.settled.v1` | period settled | flowId, period, materialCost, conversionCost, outputValue, variance, journalEntryId | ledger, analytics |
+| `depot.production.batch-order.created.v1` | batch order created | orderId, formulaVersionId, batchSize, scaleFactor, coProducts[] | planning, analytics |
+| `depot.production.batch.attributes-recorded.v1` | attribute values saved | batchId, itemId, values[{attributeId, value}], potency | quality (w33), sales (w27) |
+| `depot.production.co-product.allocated.v1` | End of batch order | orderId, lines[{itemId, method, pct, amount}], byProductBurden | ledger, costing |
+| `dev.depot.lean.kanban.created.v1` | kanban generated | kanbanId, ruleId, qty, eventRefType, eventRefId, due | production, shopfloor |
+| `depot.lean.kanban.state-changed.v1` | job/kanban transition | kanbanId, jobId, from, to, qty, scrap, handlingUnits | production, inventory, shopfloor |
+| `depot.lean.flow-period.settled.v1` | period settled | flowId, period, materialCost, conversionCost, outputValue, variance, journalEntryId | ledger, analytics |
 
 ### 4.24.6 User experience
 
@@ -1388,7 +1388,7 @@ Helm: `production` extended (flag `prod.process`), `lean` (Go, 2 replicas), `lea
 
 ### 4.24.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | PmfFormula/BOMVersion+BOM lines (AX) / PLKO+PLPO+STPO recipe (SAP) | Formula, FormulaLine | formula size → base quantity; percent lines derived from quantities when SAP recipe is in base units |
 | PmfCoByProd / co-product apportionment (TKKAA) | CoProductLine on formula | TCA percentages from apportionment structure |
@@ -1540,7 +1540,7 @@ Open questions: (1) Should by-product `recycled` (negative issue) be supported i
 - **21 CFR Part 11 (US) and EU GMP Annex 11**: FR-24.22 implements 11.10(e) audit trail via the signature log and w5 audit, 11.50 manifestation, 11.70 record linkage, 11.100 uniqueness (Keycloak subject), 11.200 two-component re-authentication, 11.300 controls (password policy and lockout from w2). Validation package (IQ/OQ scripts, traceability matrix to these clauses) is a wave 48 deliverable; this wave provides the OQ test cases from 4.24.9 and AC-24.15/AC-24.16.
 - **Retention**: EBR retention per country/regime (US 21 CFR 211.180: expiry + 1 year; EU: max(expiry + 1 year, 5 years after certification); some countries require 10 years for blood/plasma products) set by the w48 retention policy; legal hold blocks purge.
 - **Food labeling**: batch label content (allergen declaration, lot code formats, best-before vs use-by wording, e.g., EU Regulation 1169/2011) is rendered by country-specific templates in wave 48 packs via the `production.label.render` extension point.
-- **Catch weight**: legal-for-trade weighing (OIML R76 / NIST Handbook 44) is a device concern; Passage stores the scale id and certification reference on catch-weight RAF lines when provided.
+- **Catch weight**: legal-for-trade weighing (OIML R76 / NIST Handbook 44) is a device concern; Depot stores the scale id and certification reference on catch-weight RAF lines when provided.
 - **Excise / alcohol**: bonded-production reporting (US TTB Form 5110.40, EU EMCS) is a wave 48 country-pack item fed from batch order consumption and RAF events through `production.statutory-extract`.
 - **Language**: batch tickets, CoA and EBR render in the site language; signature meanings are stored as codes and rendered per locale.
 - **Extension points**: `production.label.render`, `production.statutory-extract`, `signature.strategy.resolve` (OPA), `ebr.section.provider` (additional EBR sections such as environmental monitoring).
@@ -1591,7 +1591,7 @@ Wave 25 puts production on the floor. Operators use a touch kiosk (PWA) to clock
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Job-card re-keying: AX JmgTermReg registrations are "calculated" and "transferred" by a supervisor before ProdJournalRoute lines exist, so route cards are re-keyed or posted a day late; SAP CO11N confirmations are typed by a clerk from paper tickets; Infor LN and Epicor Kinetic MES data collection posts labor in a nightly batch | Registration and production posting are separate modules joined by a transfer job | Registration stop generates and posts the job-card journal (option immediate); reversal on edit | Labor posting latency 24 h → < 5 s; re-keyed tickets 0 |
 | Kiosk needs the AOS: AX terminal registration (JmgTermReg form) is a thick client; D365 production floor execution requires connectivity; Plex is cloud-only with no offline mode | No client-side queue or idempotent replay | PWA with IndexedDB queue, client UUIDs, conflict flags | Lost registrations during outages → 0 over a 30-min disconnect |
@@ -1601,7 +1601,7 @@ Wave 25 puts production on the floor. Operators use a touch kiosk (PWA) to clock
 
 ### 4.25.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Job registration terminal | JmgTermReg (terminal registration form), JmgJobTable, JmgRegistration, D365 production floor execution | SAP MII / Digital Manufacturing shop floor UI, PP-PDC terminals, CO11N | Kiosk PWA, `shopfloor-bff`, TimeRegistration | full |
 | Clock in/out, absence | JmgStampJournalTable (raw), JmgTmpRegistration, JmgAbsenceCode, JmgProfileTable | Time events (CATS/PT), HR time types | Registration kinds clock-in/out, absence; ProfileDay | full |
@@ -1632,7 +1632,7 @@ Wave 25 puts production on the floor. Operators use a touch kiosk (PWA) to clock
 - **FR-25.6 Instructions and documents** — Must. The kiosk shall show operation instructions (markdown) and attachments (PDF, images, video ≤ 50 MB) cached for offline use.
 - **FR-25.7 Pay calculation** — Must. The system shall calculate PayLines per worker-day from registrations using the worker's profile (day types, shift windows, breaks) and pay agreement rules: base, overtime after daily/weekly thresholds, shift premium, flex balance.
   - Notes: Defaults: overtime > 8.00 h/day at 1.5×, > 40.00 h/week at 1.5×, Sunday 2.0×; rounding per BR-25.2; max 24 h/day validation.
-- **FR-25.8 Approval and export** — Must. Supervisors shall approve per worker-day (bulk by team), with edits audited; approved days are locked and exported as `dev.passage.shopfloor.payday.approved.v1` for w43 and as CSV.
+- **FR-25.8 Approval and export** — Must. Supervisors shall approve per worker-day (bulk by team), with edits audited; approved days are locked and exported as `dev.depot.shopfloor.payday.approved.v1` for w43 and as CSV.
 - **FR-25.9 IoT ingestion** — Must. The `iot-edge` connector shall subscribe to OPC-UA nodes (via `gopcua`) and MQTT topics (Mosquitto/EMQX, QoS 1), normalize to the MachineEvent schema (BR-25.4), buffer locally (SQLite ring, 24 h), and publish to Kafka topic `shopfloor.machine-events` with idempotent producer and per-machine monotonic sequence.
 - **FR-25.10 OEE** — Must. The system shall compute OEE per resource per 15-minute bucket and shift (BR-25.5) from machine events and planned time from the w23 schedule/calendar, with dashboard lag p95 < 5 s.
 - **FR-25.11 Downtime and andon** — Must. The system shall open a DowntimeRecord when a machine reports DOWN or no count for > `idle_threshold_s` (default 300), require a reason code within the kiosk, and raise an AndonAlert (kiosk banner + notification) on downtime > 10 min, scrap rate > 5% in a bucket, or quality fail.
@@ -1698,11 +1698,11 @@ Invariants (additions): every completed PiSheetRun has an archive_json_id whose 
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.shopfloor.registration.posted.v1` | registration stored | registrationId, workerId, kind, jobId, hours, qtyGood, qtyScrap, offline | production (job card), analytics |
-| `dev.passage.shopfloor.machine.event.v1` | edge publish | see BR-25.4 | shopfloor OEE, production, maintenance (w44) |
-| `passage.shopfloor.oee.bucket-updated.v1` | bucket recomputed | resourceId, bucketStart, availability, performance, quality, oee | dashboards (w46) |
-| `dev.passage.shopfloor.andon.raised.v1` | alert condition | alertId, resourceId, kind, severity, jobId, startedAt | notifications, kiosk |
-| `dev.passage.shopfloor.payday.approved.v1` | approval | workerId, workDate, payLines[{type, hours, multiplier, amount}], approvedBy | payroll (w43) |
+| `dev.depot.shopfloor.registration.posted.v1` | registration stored | registrationId, workerId, kind, jobId, hours, qtyGood, qtyScrap, offline | production (job card), analytics |
+| `dev.depot.shopfloor.machine.event.v1` | edge publish | see BR-25.4 | shopfloor OEE, production, maintenance (w44) |
+| `depot.shopfloor.oee.bucket-updated.v1` | bucket recomputed | resourceId, bucketStart, availability, performance, quality, oee | dashboards (w46) |
+| `dev.depot.shopfloor.andon.raised.v1` | alert condition | alertId, resourceId, kind, severity, jobId, startedAt | notifications, kiosk |
+| `dev.depot.shopfloor.payday.approved.v1` | approval | workerId, workDate, payLines[{type, hours, multiplier, amount}], approvedBy | payroll (w43) |
 
 ### 4.25.6 User experience
 
@@ -1722,7 +1722,7 @@ Interaction rules: kiosk targets ≥ 48 px, no hover-only affordances, numeric k
 - **BR-25.1 Time attribution.** Hours for a job registration = (stopped_at − started_at) minus breaks that fall inside per the profile; bundle hours split by Σ qty_good (fallback equal split); hours rounded to 0.01 h on the job-card journal.
 - **BR-25.2 Rounding and tolerances.** Clock-in within tolerance_before_min (default 10) of shift start rounds to shift start; clock-out within tolerance_after_min (default 5) rounds to shift end; otherwise round to nearest rounding_minutes (default 1, max 15).
 - **BR-25.3 Missing clock-out.** At shift end + 4 h a missing clock-out auto-closes at shift end with flag `missing-clock-out`; the day cannot be approved until a supervisor confirms or edits.
-- **BR-25.4 Machine event schema.** CloudEvents envelope `type: dev.passage.shopfloor.machine.event.v1`, `source: urn:passage:iot-edge:<site>:<edgeId>`, `subject: <machineId>`, `id: <machineId>-<seq>`, `time: <device ts RFC 3339>`, `datacontenttype: application/json`, `data`: `{ "machineId": "M-101", "resourceId": "uuid", "seq": 184233, "kind": "count|state|downtime|alarm|measurement", "ts": "2026-10-21T08:15:03.250Z", "goodCount": 12, "rejectCount": 1, "state": "RUNNING", "reasonCode": null, "measurement": {"name": "temp_c", "value": 71.4, "unit": "Cel"}, "jobId": null, "tags": {"line": "L1"} }`. Counts are deltas since the previous count event; absolute counters are converted at the edge with rollover detection (32-bit). Events older than 7 days or with seq ≤ last seen are dropped and counted in a metric.
+- **BR-25.4 Machine event schema.** CloudEvents envelope `type: dev.depot.shopfloor.machine.event.v1`, `source: urn:depot:iot-edge:<site>:<edgeId>`, `subject: <machineId>`, `id: <machineId>-<seq>`, `time: <device ts RFC 3339>`, `datacontenttype: application/json`, `data`: `{ "machineId": "M-101", "resourceId": "uuid", "seq": 184233, "kind": "count|state|downtime|alarm|measurement", "ts": "2026-10-21T08:15:03.250Z", "goodCount": 12, "rejectCount": 1, "state": "RUNNING", "reasonCode": null, "measurement": {"name": "temp_c", "value": 71.4, "unit": "Cel"}, "jobId": null, "tags": {"line": "L1"} }`. Counts are deltas since the previous count event; absolute counters are converted at the edge with rollover detection (32-bit). Events older than 7 days or with seq ≤ last seen are dropped and counted in a metric.
 - **BR-25.5 OEE formula (ISO 22400 aligned).** Availability = run_minutes / planned_minutes; Performance = (ideal_cycle_s × total_count / 60) / run_minutes, capped at 1.0 with an over-rate flag; Quality = good_count / total_count (1.0 if total = 0); OEE = A × P × Q. Planned minutes = scheduled open minutes minus planned downtime (category planned). Example shift: planned 480 min, unplanned down 60 → A = 0.875; ideal cycle 60 s, total 380 → P = 380 / 420 = 0.9048; good 361 → Q = 0.95; OEE = 0.7522. Buckets roll up to shift/day by summing minutes and counts, not by averaging ratios.
 - **BR-25.6 Idle detection.** No count event for idle_threshold_s while state = RUNNING flips the bucket to IDLE from the last count; a later count closes the idle gap.
 - **BR-25.7 Offline conflict resolution.** Replayed registrations are accepted in client timestamp order; a job-start for a job that was finished server-side while offline is accepted but flagged `job-finished-conflict` for supervisor review; a duplicate client UUID is a no-op; clock skew > 5 min between device and server is corrected by the offset measured at reconnect and recorded.
@@ -1775,16 +1775,16 @@ Helm: `shopfloor` (Go, 3 replicas; Kafka consumer group `shopfloor-oee`), `shopf
 
 ### 4.25.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | JmgEmployee / HR mini-master (PA0001) | Worker | badge ids, default resource, profile |
 | JmgProfileTable, JmgProfileDay / work schedule rules (T508A) | ProfileDay | shifts, breaks, rounding |
 | JmgPayAgreement, JmgPayTable / wage types, time evaluation rules | PayRule config | overtime thresholds and multipliers |
-| JmgAbsenceCode, Jmg error cause codes / absence types, AFRU.GRUND | reason codes | mapped to Passage code lists |
+| JmgAbsenceCode, Jmg error cause codes / absence types, AFRU.GRUND | reason codes | mapped to Depot code lists |
 | JmgStampJournalTable, JmgRegistration (last 90 days) / CATSDB, AFRU | TimeRegistration (history, status exported) | read-only history for balances |
 | Flex balances (JmgFlexTrans) / time accounts (PT_BAL00) | opening flex balance per worker | one opening line |
 
-Validation: flex balances per worker equal legacy at cutover; pay lines for the last closed week recomputed in Passage match legacy within 0.01 h per worker. Not migrated: raw terminal logs older than 90 days, machine data (none in AX/SAP core), MII configurations.
+Validation: flex balances per worker equal legacy at cutover; pay lines for the last closed week recomputed in Depot match legacy within 0.01 h per worker. Not migrated: raw terminal logs older than 90 days, machine data (none in AX/SAP core), MII configurations.
 
 ### 4.25.12 Dependencies, risks, open questions
 

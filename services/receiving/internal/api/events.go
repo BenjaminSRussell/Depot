@@ -6,13 +6,13 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
 )
 
 const (
-	eventSource  = "/passage/receiving/receiving"
+	eventSource  = "/depot/receiving/receiving"
 	acctRounding = 4
 )
 

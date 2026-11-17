@@ -18,12 +18,12 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/domain"
-	ledgerevents "github.com/BenjaminSRussell/passage/services/ledger/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/domain"
+	ledgerevents "github.com/BenjaminSRussell/depot/services/ledger/internal/events"
 )
 
 // MaxPageSize bounds keyset pages (FR-11.14).

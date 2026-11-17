@@ -13,13 +13,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
-	"github.com/BenjaminSRussell/passage/services/receiving/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/services/receiving/migrations"
 )
 
 const (
@@ -74,7 +74,7 @@ func registerWith(serials ...string) store.RegisterFunc {
 
 func postWith(t *testing.T, p tenant.Principal, ledgerID string) store.PostFunc {
 	return func(r store.Receipt) (store.PostOutcome, error) {
-		evt, err := events.New(events.Type("receiving", "receipt", "posted", 1), "/passage/receiving/receiving", r.ID, p.TenantID,
+		evt, err := events.New(events.Type("receiving", "receipt", "posted", 1), "/depot/receiving/receiving", r.ID, p.TenantID,
 			map[string]string{"receiptId": r.ID, "ledgerEntryId": ledgerID})
 		if err != nil {
 			t.Fatal(err)
@@ -307,7 +307,7 @@ func TestPostWritesGrirAndOutboxAtomically(t *testing.T) {
 		return tx.QueryRow(context.Background(), `select payload from outbox where aggregate_type = 'receipt' and aggregate_id = $1`, r.ID).Scan(&payload)
 	})
 	var evt events.Event
-	if err := json.Unmarshal(payload, &evt); err != nil || evt.Type != "dev.passage.receiving.receipt.posted.v1" || evt.TenantID != p.TenantID {
+	if err := json.Unmarshal(payload, &evt); err != nil || evt.Type != "dev.depot.receiving.receipt.posted.v1" || evt.TenantID != p.TenantID {
 		t.Fatalf("outbox event=%+v err=%v", evt, err)
 	}
 	_, err = st.Post(ctxOf(p), r.ID, postWith(t, p, "entry-2"))
@@ -508,7 +508,7 @@ func TestErsPriceConfirmationKeepsHistoryAndIsScopedToTheEntity(t *testing.T) {
 	confirm := func(price, by string) error {
 		return st.ConfirmErsPrice(ctxOf(p), p.LegalEntityID, r.ID, 1, decimal.RequireFromString(price), by, func(old decimal.NullDecimal) (events.Event, error) {
 			olds = append(olds, old.Decimal.String()+fmt.Sprint(old.Valid))
-			return events.New(events.Type("receiving", "erspriceconfirmation", "confirmed", 1), "/passage/receiving/receiving", r.ID, p.TenantID, map[string]string{"receiptId": r.ID})
+			return events.New(events.Type("receiving", "erspriceconfirmation", "confirmed", 1), "/depot/receiving/receiving", r.ID, p.TenantID, map[string]string{"receiptId": r.ID})
 		})
 	}
 

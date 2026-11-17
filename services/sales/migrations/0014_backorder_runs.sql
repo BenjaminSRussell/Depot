@@ -67,28 +67,28 @@ CREATE INDEX IF NOT EXISTS backorder_run_line_order ON backorder_run_line (tenan
 ALTER TABLE backorder_run ENABLE ROW LEVEL SECURITY;
 ALTER TABLE backorder_run FORCE ROW LEVEL SECURITY;
 CREATE POLICY backorder_run_tenant_access ON backorder_run AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY backorder_run_legal_entity_scope ON backorder_run AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE backorder_run_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE backorder_run_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY backorder_run_line_tenant_access ON backorder_run_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY backorder_run_line_legal_entity_scope ON backorder_run_line AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The store inserts runs and lines and updates a run's status when it commits;
 -- run lines are never changed and nothing is deleted.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON backorder_run TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON backorder_run_line TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON backorder_run TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON backorder_run_line TO depot_app';
   END IF;
 END
 $$;

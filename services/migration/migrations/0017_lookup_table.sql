@@ -1,4 +1,4 @@
--- Lookup tables (PSG-10 outbound value lookups): tenant tables of keyed values (enum codes, unit-of-measure conversion
+-- Lookup tables (DPT-10 outbound value lookups): tenant tables of keyed values (enum codes, unit-of-measure conversion
 -- factors, price lists) that an outbound mapping reads while it renders a legacy request. Like outbound mappings, every
 -- edit writes an immutable version row and the header carries the current version (the optimistic version of the API).
 CREATE TABLE migration.lookup_table (
@@ -40,12 +40,12 @@ BEGIN
   FOREACH t IN ARRAY ARRAY['lookup_table', 'lookup_table_version'] LOOP
     EXECUTE format('ALTER TABLE migration.%I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE migration.%I FORCE ROW LEVEL SECURITY', t);
-    EXECUTE format('CREATE POLICY %I ON migration.%I AS PERMISSIVE USING (tenant_id = current_setting(''passage.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)', t || '_tenant_access', t);
-    EXECUTE format('CREATE POLICY %I ON migration.%I AS RESTRICTIVE USING (current_setting(''passage.legal_entity_scopes'', true) = ''*'')', t || '_legal_entity_scope', t);
+    EXECUTE format('CREATE POLICY %I ON migration.%I AS PERMISSIVE USING (tenant_id = current_setting(''depot.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)', t || '_tenant_access', t);
+    EXECUTE format('CREATE POLICY %I ON migration.%I AS RESTRICTIVE USING (current_setting(''depot.legal_entity_scopes'', true) = ''*'')', t || '_legal_entity_scope', t);
   END LOOP;
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    GRANT SELECT, INSERT, UPDATE ON migration.lookup_table TO passage_app;
-    GRANT SELECT, INSERT ON migration.lookup_table_version TO passage_app;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    GRANT SELECT, INSERT, UPDATE ON migration.lookup_table TO depot_app;
+    GRANT SELECT, INSERT ON migration.lookup_table_version TO depot_app;
   END IF;
 END
 $$;

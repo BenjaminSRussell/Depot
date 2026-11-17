@@ -207,7 +207,7 @@ Financial period close workspace live; demo entities close a simulated period in
 - [ ] Statements for the demo dataset tie to the trial balance to the cent; cash flow reconciles to the change in cash
 - [ ] Report designer round-trips a 200-row definition through JSON export/import
 - [ ] Drill-down from a balance to its lines returns exactly the lines that sum to the balance (property test)
-- [ ] Phase 2 exit: finance stakeholders sign off a closed period with full statements produced from Passage
+- [ ] Phase 2 exit: finance stakeholders sign off a closed period with full statements produced from Depot
 
 **Deploy**
 

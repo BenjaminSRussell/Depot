@@ -129,7 +129,7 @@ export class PgAgentStore implements AuditPort, BudgetPort {
     const client = await this.pool.connect();
     try {
       await client.query("begin");
-      await client.query("select set_config('passage.tenant_id', $1, true)", [tenantId]);
+      await client.query("select set_config('depot.tenant_id', $1, true)", [tenantId]);
       const out = await fn(client);
       await client.query("commit");
       return out;

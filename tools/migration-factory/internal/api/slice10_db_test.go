@@ -45,8 +45,8 @@ func TestBankBalances_LoadReconcileAndRerunLoadsNothing(t *testing.T) {
 	if n := count(t, admin, `select count(*) from bank_opening_balance where run_id = $1 and bank_account = 'OPER-USD' and balance = -1250.50`, run.RunID); n != 1 {
 		t.Fatalf("overdrawn account row = %d", n)
 	}
-	if n := count(t, admin, `select count(*) from legacy_xref x join bank_opening_balance b on b.legacy_xref_id = x.xref_id and b.balance_id = x.passage_id
-		where x.source_table = 'bank_balances' and x.passage_entity = 'bank_opening_balance'`); n != 3 {
+	if n := count(t, admin, `select count(*) from legacy_xref x join bank_opening_balance b on b.legacy_xref_id = x.xref_id and b.balance_id = x.depot_id
+		where x.source_table = 'bank_balances' and x.depot_entity = 'bank_opening_balance'`); n != 3 {
 		t.Fatalf("xref rows tied to their balance = %d, want 3", n)
 	}
 	again := do(t, h, request{method: "POST", path: bankPath, tenant: tenantA, duties: allDuties, body: bankBody("1000", "", cleanBank...)})

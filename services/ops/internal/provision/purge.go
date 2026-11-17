@@ -11,9 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// Purger deletes a decommissioned tenant's rows from the service databases (`passage-ops tenant purge`). It is deliberately not part of
+// Purger deletes a decommissioned tenant's rows from the service databases (`depot-ops tenant purge`). It is deliberately not part of
 // the decommission: the API only authorises it for a tenant whose decommission is DONE and whose export is verified. It connects with
-// its own credentials (URLs, OPS_PURGE_DATABASES: a role that may delete, never the passage_app role the verification uses).
+// its own credentials (URLs, OPS_PURGE_DATABASES: a role that may delete, never the depot_app role the verification uses).
 //
 // For every database it opens one transaction, scopes it to the tenant (all legal entities) and deletes the tenant's rows from every
 // table with a tenant_id column, in whatever order the foreign keys allow, then counts the tenant's remaining rows in each purged

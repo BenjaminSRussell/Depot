@@ -6,7 +6,7 @@ import (
 
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
 )
 
 func TestRequisitionTransition(t *testing.T) {

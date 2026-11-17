@@ -43,25 +43,25 @@ create index order_load_row_run on order_load_row (tenant_id, run_id, status);
 alter table order_load enable row level security;
 alter table order_load force row level security;
 create policy order_load_tenant_access on order_load as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy order_load_legal_entity_scope on order_load as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 alter table order_load_row enable row level security;
 alter table order_load_row force row level security;
 create policy order_load_row_tenant_access on order_load_row as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy order_load_row_legal_entity_scope on order_load_row as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON order_load, order_load_row TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON order_load, order_load_row TO depot_app';
   END IF;
 END
 $$;

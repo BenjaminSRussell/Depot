@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/search/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/search/internal/store"
 )
 
 const (
@@ -251,7 +251,7 @@ func TestMalformedEventsAreDeadLettered(t *testing.T) {
 	noTime := event(t, PartyCreatedType, partySource, good)
 	noTime.Time = time.Time{}
 	for name, evt := range map[string]events.Event{
-		"wrong source":                  event(t, PartyCreatedType, "/passage/other", good),
+		"wrong source":                  event(t, PartyCreatedType, "/depot/other", good),
 		"no time":                       noTime,
 		"bad json":                      {Type: PartyCreatedType, Source: partySource, Time: eventTime, Data: []byte("{")},
 		"party no number":               event(t, PartyUpdatedType, partySource, map[string]any{"party_id": recordID}),

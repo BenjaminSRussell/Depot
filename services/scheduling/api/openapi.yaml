@@ -1,13 +1,13 @@
 openapi: 3.1.0
 info:
-  title: Passage Scheduling
+  title: Depot Scheduling
   version: 0.1.0
   description: >
-    Finite capacity scheduling (wave 23, PSG-23). Routes match the handlers in
+    Finite capacity scheduling (wave 23, DPT-23). Routes match the handlers in
     internal/api. Errors are RFC 9457 problem details (application/problem+json)
     with a stable `code`; see README.md for the error codes.
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env:
         default: dev
@@ -20,7 +20,7 @@ paths:
         `engineeringResourceId` optionally maps the resource to the engineering (wave 09) resource it stands for. Production
         orders name that id on their jobs, and the order intake resolves it to this resource. Another resource that already
         stands for the engineering resource gets 409 SCHED-0132.
-      x-passage-duty: scheduling.capacity.write
+      x-depot-duty: scheduling.capacity.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -39,7 +39,7 @@ paths:
     get:
       operationId: listResources
       summary: Resources ordered by code
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       responses:
         '200':
           description: Resources
@@ -56,7 +56,7 @@ paths:
     get:
       operationId: getResource
       summary: One resource with its weekly calendar
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -83,7 +83,7 @@ paths:
         returned in affectedJobs and listed in resource.updated; hours a running
         job has already used do not count. The jobs stay where they are until
         they are moved or the schedule is run again.
-      x-passage-duty: scheduling.capacity.write
+      x-depot-duty: scheduling.capacity.write
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -113,7 +113,7 @@ paths:
     get:
       operationId: getResourceCapacity
       summary: Open capacity intervals (UTC) of a resource in a window of at most 62 days (FR-23.1)
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: from
@@ -150,7 +150,7 @@ paths:
         overlaps are returned in affectedJobs and stay where they are until
         they are moved or the schedule is run again (AC-23.7). A span is at
         most 31 days.
-      x-passage-duty: scheduling.capacity.write
+      x-depot-duty: scheduling.capacity.write
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -171,7 +171,7 @@ paths:
     get:
       operationId: listCapacityOverrides
       summary: Downtimes and extra shifts of a resource, optionally those overlapping a window
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: from
@@ -200,7 +200,7 @@ paths:
     delete:
       operationId: deleteCapacityOverride
       summary: Remove a downtime or extra shift; later runs and moves see the plain calendar again
-      x-passage-duty: scheduling.capacity.write
+      x-depot-duty: scheduling.capacity.write
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: overrideId
@@ -220,7 +220,7 @@ paths:
         cleanout first. A resource that never ran a campaign reads zero. The
         counter moves when a campaign starts or is cancelled and when a planner
         resets it.
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       responses:
         '200':
           description: The counters (at most 1,000 resources)
@@ -239,7 +239,7 @@ paths:
     get:
       operationId: getCleanoutCounter
       summary: Cleanout counter of a resource with its latest manual resets
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -264,7 +264,7 @@ paths:
         they are sequenced again; one sequenced from a zero counter stays valid.
         A replay answers the stored reset and its list. Publishes
         cleanoutcounter.reset (once; a replay publishes nothing).
-      x-passage-duty: scheduling.campaign.write
+      x-depot-duty: scheduling.campaign.write
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -288,7 +288,7 @@ paths:
     post:
       operationId: createOperation
       summary: Add a schedulable operation of an order
-      x-passage-duty: scheduling.schedule.write
+      x-depot-duty: scheduling.schedule.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -308,7 +308,7 @@ paths:
     get:
       operationId: listOperations
       summary: Operations ordered by order and operation number
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - name: orderId
           in: query
@@ -361,7 +361,7 @@ paths:
         message). An infinite run
         books no capacity on secondaries either, but each segment must still
         lie in the secondary's open time.
-      x-passage-duty: scheduling.run
+      x-depot-duty: scheduling.run
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -381,7 +381,7 @@ paths:
     get:
       operationId: listRuns
       summary: Schedule runs, newest first
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - name: limit
           in: query
@@ -411,7 +411,7 @@ paths:
         order with no operations in scheduling answers 404 SCHED-0135.
         Idempotent per Idempotency-Key and order. Takes the run duty, like
         createRun.
-      x-passage-duty: scheduling.run
+      x-depot-duty: scheduling.run
       parameters:
         - name: orderId
           in: path
@@ -446,7 +446,7 @@ paths:
     get:
       operationId: getOperation
       summary: One operation with its version
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -474,7 +474,7 @@ paths:
         change needs the operation version in If-Match (the ETag of a read); a
         stale version gets 412 SCHED-0137. An operation registered from a
         production order is overwritten by that order's next event or re-import.
-      x-passage-duty: scheduling.schedule.write
+      x-depot-duty: scheduling.schedule.write
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -510,7 +510,7 @@ paths:
         replay of the same Idempotency-Key answers as the first request did.
         An operation registered from a production order comes back with that
         order's next event or re-import.
-      x-passage-duty: scheduling.schedule.write
+      x-depot-duty: scheduling.schedule.write
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -542,7 +542,7 @@ paths:
         listed in keptFirmed. The operations themselves are kept. An order with
         no operations in scheduling answers 404 SCHED-0135. Needs no body;
         idempotent per Idempotency-Key and order.
-      x-passage-duty: scheduling.schedule.write
+      x-depot-duty: scheduling.schedule.write
       parameters:
         - name: orderId
           in: path
@@ -564,7 +564,7 @@ paths:
     get:
       operationId: getRun
       summary: Run status and metrics
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -584,7 +584,7 @@ paths:
         and, as bars with cleanout true, the cleanout windows a placed campaign
         holds (FR-23.14, BR-23.13). resourceIds filters all by the resource the
         bar sits on. The 5,000-bar limit counts every kind.
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - name: from
           in: query
@@ -653,7 +653,7 @@ paths:
         a slot ending beyond the planning horizon, a firmed job, a resource that
         is not a candidate, and conflicts of the jobs the move pushes are never
         overridden.
-      x-passage-duty: scheduling.schedule.write
+      x-depot-duty: scheduling.schedule.write
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: Idempotency-Key
@@ -691,7 +691,7 @@ paths:
     post:
       operationId: firmJob
       summary: Firm or unfirm a placement; firmed placements are frozen against later runs
-      x-passage-duty: scheduling.schedule.write
+      x-depot-duty: scheduling.schedule.write
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -732,7 +732,7 @@ paths:
         would make an order depend on itself is refused (SCHED-0121). Pegging a
         pair that is already pegged returns the existing peg with 200. Pegs are
         entered here until wave 22 pegging publishes them.
-      x-passage-duty: scheduling.schedule.write
+      x-depot-duty: scheduling.schedule.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -752,7 +752,7 @@ paths:
     get:
       operationId: listOrderPegs
       summary: Order pegs, optionally those where an order is the parent or the dependent
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - name: orderId
           in: query
@@ -775,7 +775,7 @@ paths:
     delete:
       operationId: deleteOrderPeg
       summary: Remove a peg; later moves no longer push its dependent
-      x-passage-duty: scheduling.schedule.write
+      x-depot-duty: scheduling.schedule.write
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -786,7 +786,7 @@ paths:
     get:
       operationId: listCapacityLoad
       summary: Booked versus open minutes per resource and week or day, with weekly bottleneck flags
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - name: period
           in: query
@@ -831,7 +831,7 @@ paths:
       operationId: listCapacityLoadJobs
       summary: Jobs booked on a resource in a range, the drill-down behind a capacity load cell
       description: Primary and secondary bookings (BR-23.4) of one resource that overlap the range, earliest first, at most 1,000 (then `truncated` is true). `minutesInRange` is the part of each segment inside the range.
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - name: resourceId
           in: query
@@ -877,7 +877,7 @@ paths:
         behind committed bookings. An episode whose flagged weeks have all
         passed is reported closed at the end of its last flagged week, even
         before the next change to the resource records that.
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - name: status
           in: query
@@ -912,7 +912,7 @@ paths:
       operationId: getBottleneck
       summary: One bottleneck episode with the weekly load of its resource
       description: The episode and the materialized weeks of its resource from the episode's first week on, at most 104. A week with no booking has no row.
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -934,7 +934,7 @@ paths:
         nothing the bookings do not already say, so repeating it is harmless, and
         it needs no Idempotency-Key. `bottleneck.detected` is published for an
         episode it opens.
-      x-passage-duty: scheduling.run
+      x-depot-duty: scheduling.run
       responses:
         '200':
           description: What was rebuilt
@@ -965,7 +965,7 @@ paths:
         line are UTC instants. Primary and secondary bookings (BR-23.4) are listed;
         `minutesInWindow` is the part of each segment inside the window and
         `totalMinutes` their sum. At most 1,000 lines (then `truncated` is true).
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - name: resourceId
           in: query
@@ -1033,7 +1033,7 @@ paths:
         overrides applied, between the first start and last end of the run's
         jobs, most used first.
         A run with no current jobs answers zeros and an empty list.
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1062,7 +1062,7 @@ paths:
         carries its run. The counts are exact; each list is cut at 500 entries
         and `truncated` is true when one was. A move run, or a run from before
         snapshots, has no snapshot and is refused with SCHED-0143.
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: to
@@ -1105,7 +1105,7 @@ paths:
         run kept no snapshot. The operations are locked in the same order as a
         run, so a rollback and a concurrent run serialize. Order dates and
         `job.scheduled` events follow like those of a run.
-      x-passage-duty: scheduling.run
+      x-depot-duty: scheduling.run
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1139,7 +1139,7 @@ paths:
         first and unplaced-only orders after them. A job is late when it ends
         after its operation's due date (an instant); lateness is that of the
         jobs now in the plan. At most `limit` orders; `truncated` is true when more exist.
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - name: minLateMinutes
           in: query
@@ -1176,7 +1176,7 @@ paths:
         and network are those of the operation as it is now and are null when it was deleted since. `networkId` keeps
         the findings of operations that follow that network; `from` (inclusive) and `to` (exclusive) bound the time the
         run was made. The totals count every match, whatever `limit` (`infeasibleOrders` counts the distinct orders flagged, as one failed chain lists each of its operations); `truncated` is true when more were found.
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - name: networkId
           in: query
@@ -1211,11 +1211,11 @@ paths:
       operationId: listOrderImports
       summary: Production orders received from wave 21 and what became of their operations
       description: >
-        Scheduling consumes `dev.passage.production.order.scheduled.v1` and registers each route operation of the
+        Scheduling consumes `dev.depot.production.order.scheduled.v1` and registers each route operation of the
         order as an operation to schedule (process hours as minutes, rounded up; setup hours as route setup; the
         resources of the process jobs as candidates; the delivery date as the due date). This lists the latest
         event of each order, most recent first, with the operations that could not be registered and why.
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - name: status
           in: query
@@ -1245,7 +1245,7 @@ paths:
       operationId: getOrderImport
       summary: One received production order with its skipped operations
       description: What scheduling did with the latest `order.scheduled.v1` of the production order, including each skipped operation and its reason.
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - name: orderId
           in: path
@@ -1270,7 +1270,7 @@ paths:
         newer event that arrived meanwhile wins and nothing changes. It needs no body and is naturally idempotent. An order
         received before scheduling kept events gets 409 SCHED-0133 and is imported again on its next event; a withdrawn order
         gets 409 SCHED-0134 and returns with production's next schedule event.
-      x-passage-duty: scheduling.schedule.write
+      x-depot-duty: scheduling.schedule.write
       parameters:
         - name: orderId
           in: path
@@ -1289,7 +1289,7 @@ paths:
     post:
       operationId: createNetwork
       summary: Create a resource network with its allowed transitions (FR-23.13)
-      x-passage-duty: scheduling.setup.write
+      x-depot-duty: scheduling.setup.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1309,7 +1309,7 @@ paths:
     get:
       operationId: listNetworks
       summary: Resource networks ordered by code, with their edges
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       responses:
         '200':
           description: Networks
@@ -1326,7 +1326,7 @@ paths:
     get:
       operationId: getNetwork
       summary: One resource network with its edges
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1346,7 +1346,7 @@ paths:
         change. Schedule runs and moves read the networks active on the run
         date, so an ended network stops constraining the next run; jobs already
         placed stay where they are. Needs the network version in If-Match.
-      x-passage-duty: scheduling.setup.write
+      x-depot-duty: scheduling.setup.write
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1376,7 +1376,7 @@ paths:
     post:
       operationId: createSetupMatrix
       summary: Create the next version of a resource's setup matrix (FR-23.15)
-      x-passage-duty: scheduling.setup.write
+      x-depot-duty: scheduling.setup.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1396,7 +1396,7 @@ paths:
     get:
       operationId: listSetupMatrices
       summary: Setup matrices, newest version first
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - name: resourceId
           in: query
@@ -1418,7 +1418,7 @@ paths:
     get:
       operationId: getSetupMatrix
       summary: One setup matrix with its changeover entries
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1432,7 +1432,7 @@ paths:
     post:
       operationId: createCleanoutRule
       summary: Create the cleanout rule of a setup group (FR-23.15, BR-23.13)
-      x-passage-duty: scheduling.setup.write
+      x-depot-duty: scheduling.setup.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1451,7 +1451,7 @@ paths:
     get:
       operationId: listCleanoutRules
       summary: Cleanout rules ordered by setup group
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       responses:
         '200':
           description: Cleanout rules
@@ -1468,7 +1468,7 @@ paths:
     post:
       operationId: createCapacityBlock
       summary: Create a capacity block restricted to an attribute condition (FR-23.17)
-      x-passage-duty: scheduling.capacity.write
+      x-depot-duty: scheduling.capacity.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1488,7 +1488,7 @@ paths:
     get:
       operationId: listCapacityBlocks
       summary: Capacity blocks by resource, highest priority first
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - name: resourceId
           in: query
@@ -1510,7 +1510,7 @@ paths:
     get:
       operationId: getCapacityBlock
       summary: One capacity block
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1532,7 +1532,7 @@ paths:
         in affectedJobs those booked from now on the block's resource that the
         active blocks now keep out (BR-23.15), for the planner to move or
         reschedule. Needs the block version in If-Match.
-      x-passage-duty: scheduling.capacity.write
+      x-depot-duty: scheduling.capacity.write
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1568,7 +1568,7 @@ paths:
         taken theirs (BR-23.15); matchedMinutes counts the finite booked minutes of jobs whose attributes
         match the block condition inside them; unusedMinutes is the difference. Sorted by start, then
         priority (highest first).
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: from
@@ -1606,7 +1606,7 @@ paths:
         whole percent (null when the block holds no minute in the range). Rows are sorted by resource
         code, then priority (highest first), then block code; at most 200 resources are read and
         truncated is true when more have blocks. The report totals add up the listed rows.
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - name: from
           in: query
@@ -1642,7 +1642,7 @@ paths:
         the order the jobs start; a group of more than 1000 orders is split into consecutive proposals.
         Nothing is stored: a planner creates the campaign from a proposal with POST /campaigns, entering
         each order's quantity. Proposals are sorted by planned start, then key, then resource.
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - name: from
           in: query
@@ -1675,7 +1675,7 @@ paths:
     post:
       operationId: createCampaign
       summary: Create a proposed campaign with its orders (FR-23.14)
-      x-passage-duty: scheduling.campaign.write
+      x-depot-duty: scheduling.campaign.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1695,7 +1695,7 @@ paths:
     get:
       operationId: listCampaigns
       summary: Campaigns, newest first (without their orders)
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - name: status
           in: query
@@ -1723,7 +1723,7 @@ paths:
     get:
       operationId: getCampaign
       summary: One campaign with its orders in run order; ETag carries the version
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1737,7 +1737,7 @@ paths:
     post:
       operationId: addCampaignOrder
       summary: Add an order to a campaign that has not started; clears its sequence (SCHED-0011 when started)
-      x-passage-duty: scheduling.campaign.write
+      x-depot-duty: scheduling.campaign.write
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1759,7 +1759,7 @@ paths:
     delete:
       operationId: removeCampaignOrder
       summary: Take an order out of a campaign that has not started; clears its sequence
-      x-passage-duty: scheduling.campaign.write
+      x-depot-duty: scheduling.campaign.write
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: orderId
@@ -1784,7 +1784,7 @@ paths:
         A cp-sat campaign first asks scheduler-opt for its order (BR-23.9) and reports the
         outcome as SCHED-0006; solver trouble never fails the command. Cleanouts count on
         from the resource's cleanout counter (carryIn).
-      x-passage-duty: scheduling.schedule.write
+      x-depot-duty: scheduling.schedule.write
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1802,7 +1802,7 @@ paths:
         Start a planned campaign; it is frozen afterwards, the resource's cleanout counter
         becomes the plan's carryOut and campaign.started is published. 409 SCHED-0123 when
         the counter moved after the campaign was sequenced.
-      x-passage-duty: scheduling.campaign.write
+      x-depot-duty: scheduling.campaign.write
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1821,7 +1821,7 @@ paths:
         Complete a started campaign (FR-23.14); its orders stay on it and campaign.completed is
         published. Its cleanout windows that have not begun are released (windows already run or
         under way stay). 422 SCHED-0125 when it has not started, SCHED-0011 when it is already completed or cancelled.
-      x-passage-duty: scheduling.campaign.write
+      x-depot-duty: scheduling.campaign.write
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1841,7 +1841,7 @@ paths:
         another campaign; a started campaign gives back the resource's cleanout counter while nothing
         has moved it since. campaign.cancelled is published. The body is optional. 422 SCHED-0011
         when it is already completed or cancelled.
-      x-passage-duty: scheduling.campaign.write
+      x-depot-duty: scheduling.campaign.write
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1867,7 +1867,7 @@ paths:
       summary: >
         Compute the allocation of a campaign's setup and cleanout cost to its orders
         (FR-23.16, BR-23.14). Nothing is posted or stored, so no Idempotency-Key is needed.
-      x-passage-duty: scheduling.campaign.write
+      x-depot-duty: scheduling.campaign.write
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -1909,7 +1909,7 @@ paths:
         no stretch holds the campaign without other jobs in between; 409 SCHED-0138 when a job of
         the campaign is firmed; 409 SCHED-0008 when a later operation held by a firmed job would
         have to move.
-      x-passage-duty: scheduling.schedule.write
+      x-depot-duty: scheduling.schedule.write
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1944,7 +1944,7 @@ paths:
         announced as unscheduled. The campaign stays sequenced, so it can be placed again.
         campaign.unplaced is published. 409 SCHED-0151 when it is not placed; 409 SCHED-0138 when a
         job of the campaign is firmed.
-      x-passage-duty: scheduling.schedule.write
+      x-depot-duty: scheduling.schedule.write
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1981,7 +1981,7 @@ paths:
         finite out, the Gantt drag snap, and the BR-23.10 limits of a propagated
         move. A tenant that never changed them gets the built-in defaults at
         version 1 with a null updatedAt.
-      x-passage-duty: scheduling.read
+      x-depot-duty: scheduling.read
       responses:
         '200':
           description: 'The parameters, with ETag "<version>" for the If-Match of a change'
@@ -2001,7 +2001,7 @@ paths:
         stores the row, so a tenant on the built-in defaults sends If-Match "1".
         The duty is Maintain scheduling setup (PRD 4.23.17). Publishes
         parameters.updated.
-      x-passage-duty: scheduling.setup.write
+      x-depot-duty: scheduling.setup.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
         - name: If-Match
@@ -2082,7 +2082,7 @@ components:
       type: object
       required: [type, title, status, code]
       properties:
-        type: { type: string, format: uri, example: 'https://passage.dev/problems/SCHED-0001' }
+        type: { type: string, format: uri, example: 'https://depot.dev/problems/SCHED-0001' }
         title: { type: string }
         status: { type: integer }
         detail: { type: string }

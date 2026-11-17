@@ -16,10 +16,10 @@ type RollbackStep struct {
 // Rollback step names, in execution order (FR-49.9, AC-49.7).
 const (
 	RollbackDecision       = "Decision point: go/no-go items still open at the abort deadline"
-	RollbackStopAccess     = "Stop Passage user access"
+	RollbackStopAccess     = "Stop Depot user access"
 	RollbackRestoreLegacy  = "Restore legacy write access"
 	RollbackResumeAdapters = "Resume legacy coexistence adapters"
-	RollbackExport         = "Export Passage postings since T-0 as re-keying files"
+	RollbackExport         = "Export Depot postings since T-0 as re-keying files"
 	RollbackRekey          = "Re-key the exported postings in legacy and reconcile"
 )
 

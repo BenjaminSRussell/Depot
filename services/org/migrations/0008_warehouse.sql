@@ -22,8 +22,8 @@ CREATE INDEX IF NOT EXISTS warehouse_site ON warehouse (tenant_id, site_id);
 ALTER TABLE warehouse ENABLE ROW LEVEL SECURITY;
 ALTER TABLE warehouse FORCE ROW LEVEL SECURITY;
 CREATE POLICY warehouse_tenant_access ON warehouse AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY warehouse_legal_entity_scope ON warehouse AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

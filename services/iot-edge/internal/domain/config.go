@@ -6,7 +6,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // ErrInvalidConfig wraps every validation failure of an edge configuration document.

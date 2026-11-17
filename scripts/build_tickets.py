@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write one Moonaan generate-code ticket file per wave: roadmap/tickets/PSG-<n>.md
+"""Write one Moonaan generate-code ticket file per wave: roadmap/tickets/DPT-<n>.md
 
 The file shape mirrors what the sdlc plugin's jira.py get-issue writes (wrapped as
 untrusted data, "# KEY: summary", a metadata block, ## Description, ## Acceptance
@@ -12,7 +12,7 @@ import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "roadmap" / "tickets"
-PROJECT = "PSG"
+PROJECT = "DPT"
 TODAY = "2026-10-21"
 
 UNTRUSTED_OPEN = '<untrusted-data source="jira">'
@@ -60,7 +60,7 @@ def ticket(w, phase, own):
         f"- [ ] AC{len(ac) + 2}: `go vet ./... && go test ./...` passes in every owned Go module; web modules pass `npx vitest --run` and `npx tsc --noEmit` in apps/web; OpenAPI/AsyncAPI files match code; Helm chart lints.",
     ]
     tests = [
-        "Pure domain logic gets table-driven unit tests and property tests (pgregory.net/rapid). Store/API tests use platform/go/testkit (skipped without PASSAGE_TEST_DATABASE_URL).",
+        "Pure domain logic gets table-driven unit tests and property tests (pgregory.net/rapid). Store/API tests use platform/go/testkit (skipped without DEPOT_TEST_DATABASE_URL).",
         "Fixture datasets named in the PRD test plan live under the service's testdata/.",
         "Reconciliation checks named in the PRD (subledger ⇄ journal, projection ⇄ events) are tests, not documentation.",
     ]

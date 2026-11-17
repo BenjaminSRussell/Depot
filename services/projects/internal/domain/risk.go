@@ -4,7 +4,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // CodeRiskStatus is raised for a risk or issue status move that is not allowed

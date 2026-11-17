@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/product/internal/orgclient"
-	"github.com/BenjaminSRussell/passage/services/product/internal/upstream"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/product/internal/orgclient"
+	"github.com/BenjaminSRussell/depot/services/product/internal/upstream"
 )
 
 func TestCheckerMapsStatuses(t *testing.T) {

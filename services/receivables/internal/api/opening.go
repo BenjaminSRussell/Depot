@@ -8,10 +8,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/store"
 )
 
 // dutyOpeningImport is held by the migration loader's service token (integration

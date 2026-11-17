@@ -7,10 +7,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 func doc(seq int, id, date string, amount string) domain.ReplayDocument {
@@ -33,8 +33,8 @@ func TestRun_PostsInSequenceAndStopsOnTransientFailure(t *testing.T) {
 	if len(got) != 3 || got[0].Entry.DocumentID != "C" || got[1].Entry.DocumentID != "A" || got[2].Entry.DocumentID != "B" {
 		t.Fatalf("posting order %v", got)
 	}
-	if len(res.Input.Passage) != 2 || !res.Input.Passage[0].Passage.Equal(decimal.NewFromInt(35)) || res.Input.DocumentsReplayed != 3 {
-		t.Fatalf("passage tb %+v", res.Input.Passage)
+	if len(res.Input.Depot) != 2 || !res.Input.Depot[0].Depot.Equal(decimal.NewFromInt(35)) || res.Input.DocumentsReplayed != 3 {
+		t.Fatalf("depot tb %+v", res.Input.Depot)
 	}
 	f.FailPosts(errors.New("connection reset"))
 	in.Period, in.Documents = "2026-06", []domain.ReplayDocument{doc(1, "D", "2026-06-01", "1")}

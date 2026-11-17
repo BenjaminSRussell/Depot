@@ -9,12 +9,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
 )
 
 // Process category problem codes (see README).
@@ -87,7 +87,7 @@ func defsJSON(in []domain.CharacteristicDef) ([]byte, error) {
 }
 
 // CreateProcessCategory stores a category under the Idempotency-Key and publishes
-// dev.passage.shopfloor.processcategory.saved.v1 in the same transaction. A code already in the
+// dev.depot.shopfloor.processcategory.saved.v1 in the same transaction. A code already in the
 // tenant's master is SF-0142; a row for a built-in code replaces that default from then on.
 func (s *Postgres) CreateProcessCategory(ctx context.Context, in domain.CategoryInput, createdBy string, idem Idem) (ProcessCategory, error) {
 	p, _ := tenant.FromContext(ctx)

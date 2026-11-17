@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 // Under the eu-data-boundary overlay Serve wraps the default logger, so the request log and a handler's own log lines

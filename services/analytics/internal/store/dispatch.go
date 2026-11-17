@@ -8,13 +8,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/analytics/internal/domain"
-	analyticsevents "github.com/BenjaminSRussell/passage/services/analytics/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/analytics/internal/domain"
+	analyticsevents "github.com/BenjaminSRussell/depot/services/analytics/internal/events"
 )
 
 // maxErrorText is the stored length of a delivery error (report_delivery.error_text).

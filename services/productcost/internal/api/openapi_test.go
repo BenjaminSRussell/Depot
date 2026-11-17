@@ -30,8 +30,8 @@ func TestOpenAPI_MatchesRoutes(t *testing.T) {
 			path = strings.TrimSuffix(strings.TrimSpace(line), ":")
 		case inPaths && strings.HasPrefix(line, "    ") && !strings.HasPrefix(line, "     ") && strings.HasSuffix(line, ":"):
 			method = strings.ToUpper(strings.TrimSuffix(strings.TrimSpace(line), ":"))
-		case inPaths && strings.HasPrefix(strings.TrimSpace(line), "x-passage-duty:"):
-			spec[method+" "+path] = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "x-passage-duty:"))
+		case inPaths && strings.HasPrefix(strings.TrimSpace(line), "x-depot-duty:"):
+			spec[method+" "+path] = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "x-depot-duty:"))
 		}
 	}
 	if err := sc.Err(); err != nil {

@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/iot-edge/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/iot-edge/internal/domain"
 )
 
 // EventBuffer is the store-and-forward queue the runtime ships events from. domain.Buffer is the

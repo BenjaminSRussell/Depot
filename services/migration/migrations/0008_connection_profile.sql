@@ -1,4 +1,4 @@
--- Connection profiles (PSG-10 integration track S1): how a tenant reaches a legacy or custom ERP. Non-secret settings
+-- Connection profiles (DPT-10 integration track S1): how a tenant reaches a legacy or custom ERP. Non-secret settings
 -- live in config (driver, host, port, database, baseUrl, auth type, paging style, codepage, timezone, drop directory);
 -- the one secret (a password, token or key) is sealed with platform fieldcrypt, bound to the tenant and to
 -- "migration.connection_profile.secret:"+id, and never read back through the API. Kind and source system are fixed at
@@ -30,10 +30,10 @@ CREATE INDEX connection_profile_name_idx ON migration.connection_profile (tenant
 ALTER TABLE migration.connection_profile ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.connection_profile FORCE ROW LEVEL SECURITY;
 CREATE POLICY connection_profile_tenant_access ON migration.connection_profile AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY connection_profile_legal_entity_scope ON migration.connection_profile AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*');
+  USING (current_setting('depot.legal_entity_scopes', true) = '*');
 
 -- Custom source systems: custom_<slug> next to the four legacy systems (run, xref and project).
 ALTER TABLE migration.run DROP CONSTRAINT run_source_system_check;
@@ -55,9 +55,9 @@ CREATE INDEX project_connection_profile_idx ON migration.project (tenant_id, con
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
     -- UPDATE: the store edits a profile under its version and sets its sealed secret. No DELETE: profiles are disabled, not removed.
-    GRANT SELECT, INSERT, UPDATE ON migration.connection_profile TO passage_app;
+    GRANT SELECT, INSERT, UPDATE ON migration.connection_profile TO depot_app;
   END IF;
 END
 $$;

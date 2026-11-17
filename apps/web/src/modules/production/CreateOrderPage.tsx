@@ -394,7 +394,7 @@ export function CreateProductionOrderPage({ onCreated, onCancel, initial, intake
             ? "The planned order fixes the product, quantity, site, delivery date and warehouse. Enter the BOM lines and the route; the order is created under the planned order's id."
             : values.rework
             ? "A rework order brings finished units back through rework operations. Add the product itself as a component to issue the units at their cost; the rework cost settles as a rework variance."
-            : "Enter the product, quantity, the BOM lines and the route. Passage explodes phantoms, applies scrap and rounding, and numbers the order."
+            : "Enter the product, quantity, the BOM lines and the route. Depot explodes phantoms, applies scrap and rounding, and numbers the order."
         }
         actions={onCancel ? <Button variant="ghost" onClick={onCancel}>Back to production orders</Button> : undefined}
       />

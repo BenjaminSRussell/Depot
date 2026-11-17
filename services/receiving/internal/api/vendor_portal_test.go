@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
 )
 
 const (
@@ -44,7 +44,7 @@ func (p *portal) call(t *testing.T, vendor, method, path, body string) (int, str
 	if err != nil {
 		t.Fatal(err)
 	}
-	rec := p.rg.call(method, path, body, headers{"X-Passage-Service-Token": token, "Idempotency-Key": p.rg.key()})
+	rec := p.rg.call(method, path, body, headers{"X-Depot-Service-Token": token, "Idempotency-Key": p.rg.key()})
 	return rec.Code, rec.Body.String()
 }
 

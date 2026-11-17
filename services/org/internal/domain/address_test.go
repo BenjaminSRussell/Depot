@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/org/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/org/internal/domain"
 )
 
 var (

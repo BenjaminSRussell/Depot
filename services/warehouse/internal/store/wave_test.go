@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/domain"
 )
 
 func seedStock(t *testing.T, st *Store, ctx context.Context, name string, locs []domain.Location, item string, qty string) {
@@ -138,10 +138,10 @@ func TestStore_ReleaseWave500Orders(t *testing.T) {
 // lock hang fails fast; no call fails (a deadlock aborts a transaction with an
 // error), every pick and refill work completes, stock is conserved between the
 // forward and reserve locations, and the p95 of work assignment is under one
-// second. The default run is a tenth of the day; PASSAGE_WMS_SIM_10K=1 runs all of it.
+// second. The default run is a tenth of the day; DEPOT_WMS_SIM_10K=1 runs all of it.
 func TestStore_Simulation10kLinesPerDay(t *testing.T) {
 	waves := 1
-	if os.Getenv("PASSAGE_WMS_SIM_10K") == "1" {
+	if os.Getenv("DEPOT_WMS_SIM_10K") == "1" {
 		waves = 10
 	}
 	const ordersPerWave, linesPerOrder, pickers, skus = 50, 20, 10, 50
@@ -413,7 +413,7 @@ func TestStore_ShortPickedRefillPassesTheWaitToItsRemainder(t *testing.T) {
 	if p := statusOf(t, st, ctx, pick.ID); p.Status != domain.WorkOpen || len(p.DependsOn) != 0 {
 		t.Fatalf("the pick must open once the remainder completes: %+v", p)
 	}
-	if n := outboxCount(t, adminOf(st), "dev.passage.wms.work.released.v1"); n != 1 {
+	if n := outboxCount(t, adminOf(st), "dev.depot.wms.work.released.v1"); n != 1 {
 		t.Fatalf("work.released events = %d, want 1", n)
 	}
 	last := assign(t, st, ctx, wh, "u3", time.Now())

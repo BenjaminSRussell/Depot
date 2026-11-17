@@ -123,7 +123,7 @@ export async function ecoApprovalWorkflow(input: EcoApprovalInput): Promise<EcoA
       if (state.status === "release_failed") state.failureReason = `ECO is ${eco.state} after release`;
     } catch (error) {
       if (!(error instanceof ActivityFailure)) throw error;
-      metricMeter.createCounter("passage_eco_release_failed", "1", "Approved ECOs that could not be released").add(1, { eco_id: input.ecoId });
+      metricMeter.createCounter("depot_eco_release_failed", "1", "Approved ECOs that could not be released").add(1, { eco_id: input.ecoId });
       state.status = "release_failed";
       state.failureReason = (error.cause?.message ?? error.message).slice(0, 500);
     }

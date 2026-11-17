@@ -1,7 +1,7 @@
 // Package events holds the event types analytics publishes and their payloads.
 package events
 
-import "github.com/BenjaminSRussell/passage/platform/events"
+import "github.com/BenjaminSRussell/depot/platform/events"
 
 // Context is the bounded context name used in event types.
 const Context = "analytics"
@@ -10,11 +10,11 @@ const Context = "analytics"
 var MetricReconciled = events.Type(Context, "metric", "reconciled", 1)
 
 // DQScored is emitted for every data-quality evaluation (PRD 9.46.5 names it in
-// the catalog context: dev.passage.catalog.dq.scored.v1).
+// the catalog context: dev.depot.catalog.dq.scored.v1).
 var DQScored = events.Type("catalog", "dq", "scored", 1)
 
 // ArchivePartitionMoved is emitted when the archive job verified a partition
-// (dev.passage.archive.partition.moved.v1, evidence for control CC6.5).
+// (dev.depot.archive.partition.moved.v1, evidence for control CC6.5).
 var ArchivePartitionMoved = events.Type("archive", "partition", "moved", 1)
 
 // MetricReconciledData is the data member of MetricReconciled (payload fields

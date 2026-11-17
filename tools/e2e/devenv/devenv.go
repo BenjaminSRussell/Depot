@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	WebClientID = "passage-web"
-	RealmName   = "passage"
+	WebClientID = "depot-web"
+	RealmName   = "depot"
 	devRPID     = "localhost"
-	devFlow     = "passage-browser-dev"
+	devFlow     = "depot-browser-dev"
 )
 
 type User struct {

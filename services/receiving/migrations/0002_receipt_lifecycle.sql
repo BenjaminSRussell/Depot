@@ -45,9 +45,9 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = current_schema() AND tablename = 'receiving_number_counter' AND policyname = 'receiving_number_counter_tenant_access') THEN
     ALTER TABLE receiving_number_counter ENABLE ROW LEVEL SECURITY;
     ALTER TABLE receiving_number_counter FORCE ROW LEVEL SECURITY;
-    CREATE POLICY receiving_number_counter_tenant_access ON receiving_number_counter AS PERMISSIVE USING (tenant_id = current_setting('passage.tenant_id', true)::uuid) WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+    CREATE POLICY receiving_number_counter_tenant_access ON receiving_number_counter AS PERMISSIVE USING (tenant_id = current_setting('depot.tenant_id', true)::uuid) WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
   END IF;
 END
 $$;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON receiving_number_counter TO passage_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON receiving_number_counter TO depot_app;

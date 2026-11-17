@@ -8,10 +8,10 @@ data:
       identity:
         url: https://identity-bundle:8443
         tls:
-          ca_cert: /etc/passage/opa-bundle/ca.pem
+          ca_cert: /etc/depot/opa-bundle/ca.pem
         credentials:
           bearer:
-            token_path: /etc/passage/opa-bundle/token
+            token_path: /etc/depot/opa-bundle/token
     bundles:
       authz:
         service: identity

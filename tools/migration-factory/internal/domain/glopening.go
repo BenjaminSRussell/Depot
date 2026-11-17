@@ -11,8 +11,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 var ErrOpeningUnbalanced = errors.New("opening journal out of balance")

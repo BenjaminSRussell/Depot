@@ -9,7 +9,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/billing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/domain"
 )
 
 var taxCodeText = regexp.MustCompile(`^[A-Z0-9_-]{1,20}$`)

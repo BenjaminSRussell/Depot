@@ -1,4 +1,4 @@
--- PSG-25 slice 11: persisted time profiles and pay agreements, and the link from a
+-- DPT-25 slice 11: persisted time profiles and pay agreements, and the link from a
 -- worker (FR-25.7, BR-25.2, BR-25.8; PRD 4.25.4 ProfileDay and pay agreement).
 --
 -- A time profile holds the day rules of one working pattern: a profile_day row per day
@@ -24,8 +24,8 @@ CREATE TABLE IF NOT EXISTS time_profile (
 ALTER TABLE time_profile ENABLE ROW LEVEL SECURITY;
 ALTER TABLE time_profile FORCE ROW LEVEL SECURITY;
 CREATE POLICY time_profile_tenant_access ON time_profile AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS profile_day (
   tenant_id uuid NOT NULL,
@@ -46,8 +46,8 @@ CREATE TABLE IF NOT EXISTS profile_day (
 ALTER TABLE profile_day ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profile_day FORCE ROW LEVEL SECURITY;
 CREATE POLICY profile_day_tenant_access ON profile_day AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS pay_agreement (
   tenant_id uuid NOT NULL,
@@ -70,8 +70,8 @@ CREATE TABLE IF NOT EXISTS pay_agreement (
 ALTER TABLE pay_agreement ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pay_agreement FORCE ROW LEVEL SECURITY;
 CREATE POLICY pay_agreement_tenant_access ON pay_agreement AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE worker ADD COLUMN IF NOT EXISTS profile_id uuid;
 ALTER TABLE worker ADD COLUMN IF NOT EXISTS pay_agreement_id uuid;
@@ -80,9 +80,9 @@ ALTER TABLE worker ADD CONSTRAINT worker_pay_agreement_fk FOREIGN KEY (tenant_id
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON time_profile, pay_agreement TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON profile_day TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON time_profile, pay_agreement TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON profile_day TO depot_app';
   END IF;
 END
 $$;

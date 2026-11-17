@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/metadata/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/metadata/migrations"
 )
 
 func TestCDCPublicationCoversOutbox(t *testing.T) {
@@ -25,7 +25,7 @@ func TestCDCPublicationCoversOutbox(t *testing.T) {
 	}
 	var tables int
 	err := pool.QueryRow(ctx, `select count(*) from pg_publication_rel pr join pg_publication p on p.oid = pr.prpubid
-		where p.pubname = 'passage_outbox_metadata' and pr.prrelid = to_regclass(current_schema() || '.outbox')`).Scan(&tables)
+		where p.pubname = 'depot_outbox_metadata' and pr.prrelid = to_regclass(current_schema() || '.outbox')`).Scan(&tables)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestCDCPublicationCoversOutbox(t *testing.T) {
 		t.Fatalf("outbox published %d times, want 1", tables)
 	}
 	var all bool
-	if err := pool.QueryRow(ctx, "select puballtables from pg_publication where pubname = 'passage_outbox_metadata'").Scan(&all); err != nil {
+	if err := pool.QueryRow(ctx, "select puballtables from pg_publication where pubname = 'depot_outbox_metadata'").Scan(&all); err != nil {
 		t.Fatal(err)
 	}
 	if all {

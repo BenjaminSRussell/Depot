@@ -11,9 +11,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/taxrate"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/taxrate"
 )
 
 // selfBilled810 is the customer's X12 810 billing itself for SHP-0001: 10 EA of prod-a at price, with the line tax and the total.

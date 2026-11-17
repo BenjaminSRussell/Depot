@@ -5,12 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/issueclaim"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/api"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/issueclaim"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/api"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 // TestPostingsFlow_BatchesAndSerials follows tracked stock through the

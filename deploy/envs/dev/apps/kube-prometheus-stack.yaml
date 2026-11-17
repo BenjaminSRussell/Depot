@@ -6,7 +6,7 @@
 #   for each wave to be Healthy (deploy/tofu/cluster/main.tf), so the stack comes last: a slow or broken stack cannot block
 #   the waves before it.
 # The chart is kube-prometheus-stack because the observability chart (deploy/observability) is written for it: its
-# passage-slo dashboard ConfigMap carries the Grafana sidecar label `grafana_dashboard: "1"`, which this chart's Grafana
+# depot-slo dashboard ConfigMap carries the Grafana sidecar label `grafana_dashboard: "1"`, which this chart's Grafana
 # watches in every namespace. Both charts come from the publisher's OCI registry.
 #
 # Dev choices: every ServiceMonitor, PodMonitor and PrometheusRule in the cluster is selected (not only this release's);
@@ -97,7 +97,7 @@ spec:
           kubeProxy:
             enabled: false
     # Secret grafana-admin, generated in the cluster (no hand-made Secret).
-    - repoURL: https://github.com/BenjaminSRussell/Passage.git
+    - repoURL: https://github.com/BenjaminSRussell/Depot.git
       targetRevision: main
       path: deploy/observability/grafana-admin
   destination:

@@ -9,14 +9,14 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
-	partyevents "github.com/BenjaminSRussell/passage/services/party/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
+	partyevents "github.com/BenjaminSRussell/depot/services/party/internal/events"
 )
 
 const (
@@ -189,7 +189,7 @@ func (s *Postgres) GetMergeRequest(ctx context.Context, requestID string) (domai
 // dbx.WithTenantWideAdminTx cannot be used; MergeExecutorPrincipal gates it instead.
 func executorTx(ctx context.Context, s *Postgres, tenantID string, fn func(tx pgx.Tx) error) error {
 	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', '*', true)`, tenantID); err != nil {
+		if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true)`, tenantID); err != nil {
 			return err
 		}
 		return fn(tx)

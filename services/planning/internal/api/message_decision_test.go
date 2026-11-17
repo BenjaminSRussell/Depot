@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/store"
 )
 
 const messagePath = "/v1/planning/messages/" + fgID
@@ -76,8 +76,8 @@ func TestDecideMessage_EmptyChunkedBody(t *testing.T) {
 	newRouter(st).Register(router)
 	req := httptest.NewRequest(http.MethodPost, messagePath+":dismiss", strings.NewReader(""))
 	req.ContentLength = -1
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", dutyOrders)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", dutyOrders)
 	req.Header.Set("If-Match", `"1"`)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -160,8 +160,8 @@ func TestListMessages_StatusFilter(t *testing.T) {
 func doKeyed(t *testing.T, router http.Handler, path, key string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, path, nil)
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", dutyOrders)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", dutyOrders)
 	req.Header.Set("If-Match", `"1"`)
 	req.Header.Set("Idempotency-Key", key)
 	rec := httptest.NewRecorder()

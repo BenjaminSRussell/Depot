@@ -5,9 +5,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
 )
 
 // RunOutput returns a run, the exact definition version it was evaluated with

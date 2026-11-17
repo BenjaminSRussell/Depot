@@ -29,11 +29,11 @@ CREATE TABLE IF NOT EXISTS revenue_contract (
 ALTER TABLE revenue_contract ENABLE ROW LEVEL SECURITY;
 ALTER TABLE revenue_contract FORCE ROW LEVEL SECURITY;
 CREATE POLICY revenue_contract_tenant_access ON revenue_contract AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY revenue_contract_legal_entity_scope ON revenue_contract AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 -- Contracts list (newest first) and the roll-forward scan per entity and currency.
 CREATE INDEX IF NOT EXISTS revenue_contract_created_idx ON revenue_contract (tenant_id, created_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS revenue_contract_entity_idx ON revenue_contract (tenant_id, legal_entity_id, currency, contract_date);
@@ -62,8 +62,8 @@ CREATE TABLE IF NOT EXISTS performance_obligation (
 ALTER TABLE performance_obligation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE performance_obligation FORCE ROW LEVEL SECURITY;
 CREATE POLICY performance_obligation_tenant_access ON performance_obligation AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- One row per planned recognition. scheduled_date is null for a milestone
 -- awaiting satisfaction; a RECOGNIZED line always carries recognized_on.
@@ -85,8 +85,8 @@ CREATE TABLE IF NOT EXISTS revenue_schedule (
 ALTER TABLE revenue_schedule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE revenue_schedule FORCE ROW LEVEL SECURITY;
 CREATE POLICY revenue_schedule_tenant_access ON revenue_schedule AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 -- The recognition run scans due lines by status and date (§5.29.4 schedules (period, status)).
 CREATE INDEX IF NOT EXISTS revenue_schedule_status_idx ON revenue_schedule (tenant_id, status, scheduled_date);
 
@@ -105,11 +105,11 @@ CREATE TABLE IF NOT EXISTS recognition_run (
 ALTER TABLE recognition_run ENABLE ROW LEVEL SECURITY;
 ALTER TABLE recognition_run FORCE ROW LEVEL SECURITY;
 CREATE POLICY recognition_run_tenant_access ON recognition_run AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY recognition_run_legal_entity_scope ON recognition_run AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 CREATE INDEX IF NOT EXISTS recognition_run_created_idx ON recognition_run (tenant_id, period_end DESC, created_at DESC);
 
 -- Transactional outbox relayed by Debezium (platform dbx.OutboxDDL); tenant RLS is added in 0004.

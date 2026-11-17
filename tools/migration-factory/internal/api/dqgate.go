@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/dq"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/dq"
 )
 
 // gateSuite puts the pack's data-quality suite on the load path (FR-49.11, D1c): the suite runs over the same extract as the

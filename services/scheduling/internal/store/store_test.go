@@ -11,14 +11,14 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/testdb"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/testdb"
 )
 
 // monday is 2027-01-04 00:00 UTC, a Monday in the future.
@@ -123,13 +123,13 @@ func TestRunSchedule_PlacesJobsAndCommitsEventsTogether(t *testing.T) {
 	if !bars[op1.ID].Start.Equal(at(0, 8, 0)) || !bars[op2.ID].Start.Equal(at(0, 9, 0)) || !bars[op2.ID].End.Equal(at(0, 10, 30)) {
 		t.Fatalf("bars = %+v, want op1 08:00-09:00 then op2 09:00-10:30", bars)
 	}
-	if got := outboxCount(t, admin, "dev.passage.scheduling.job.scheduled.v1"); got != 2 {
+	if got := outboxCount(t, admin, "dev.depot.scheduling.job.scheduled.v1"); got != 2 {
 		t.Fatalf("job.scheduled events = %d, want 2", got)
 	}
-	if got := outboxCount(t, admin, "dev.passage.scheduling.orderdates.changed.v1"); got != 1 {
+	if got := outboxCount(t, admin, "dev.depot.scheduling.orderdates.changed.v1"); got != 1 {
 		t.Fatalf("orderdates.changed events = %d, want 1", got)
 	}
-	if got := outboxCount(t, admin, "dev.passage.scheduling.run.completed.v1"); got != 1 {
+	if got := outboxCount(t, admin, "dev.depot.scheduling.run.completed.v1"); got != 1 {
 		t.Fatalf("run.completed events = %d, want 1", got)
 	}
 	ops, err := s.ListOperations(ctx, store.OperationFilter{Status: "scheduled", Limit: 10})
@@ -144,7 +144,7 @@ func TestRunSchedule_PlacesJobsAndCommitsEventsTogether(t *testing.T) {
 	if _, _, err := s.RunSchedule(ctx, siteRun(at(0, 6, 0)), store.Idem{Key: "run-1", Fingerprint: "other"}); problemCode(err) != store.CodeIdempotencyReuse {
 		t.Fatalf("reused key with another body: err=%v", err)
 	}
-	if got := outboxCount(t, admin, "dev.passage.scheduling.run.completed.v1"); got != 1 {
+	if got := outboxCount(t, admin, "dev.depot.scheduling.run.completed.v1"); got != 1 {
 		t.Fatalf("replays must not publish: run.completed events = %d", got)
 	}
 }
@@ -197,7 +197,7 @@ func TestMoveJob_PreviewWritesNothingAndCommitPropagates(t *testing.T) {
 	if _, _, err := s.RunSchedule(ctx, siteRun(at(0, 6, 0)), store.Idem{}); err != nil {
 		t.Fatal(err)
 	}
-	datesBefore := outboxCount(t, admin, "dev.passage.scheduling.orderdates.changed.v1")
+	datesBefore := outboxCount(t, admin, "dev.depot.scheduling.orderdates.changed.v1")
 	req := store.MoveRequest{JobID: op1.ID, Start: at(0, 14, 0), HorizonDays: 60, DryRun: true}
 	preview, _, err := s.MoveJob(ctx, req, store.Idem{})
 	if err != nil || preview.Conflict != nil || len(preview.Changes) != 2 || !preview.OrderEnd.Equal(at(0, 16, 0)) {
@@ -217,7 +217,7 @@ func TestMoveJob_PreviewWritesNothingAndCommitPropagates(t *testing.T) {
 	if !bars[op1.ID].Start.Equal(at(0, 14, 0)) || !bars[op2.ID].Start.Equal(at(0, 15, 0)) {
 		t.Fatalf("after commit op1=%+v op2=%+v, want 14:00 and 15:00", bars[op1.ID], bars[op2.ID])
 	}
-	if got := outboxCount(t, admin, "dev.passage.scheduling.orderdates.changed.v1"); got != datesBefore+1 {
+	if got := outboxCount(t, admin, "dev.depot.scheduling.orderdates.changed.v1"); got != datesBefore+1 {
 		t.Fatalf("orderdates.changed events = %d, want %d", got, datesBefore+1)
 	}
 	again, replayed, err := s.MoveJob(ctx, req, idem)

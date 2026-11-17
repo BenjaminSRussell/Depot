@@ -11,11 +11,11 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // Outbound mappings (integration track S5): the mapping DSL of the inbound pipeline, read in the other direction. The
-// "row" a mapping reads is the Passage CloudEvent (id, type, subject, time, data.*, and any extension attribute), plus
+// "row" a mapping reads is the Depot CloudEvent (id, type, subject, time, data.*, and any extension attribute), plus
 // the legacy keys the mapping's xref lookups resolved, under "xref.<name>". The output is the request body the
 // integration hub pushes to the legacy ERP.
 
@@ -40,14 +40,14 @@ var (
 	eventPathRE  = regexp.MustCompile(`^[A-Za-z0-9_\-]+(\.[A-Za-z0-9_\-]+)*$`)
 )
 
-// OutboundSubject names the Passage record an event is about. Its legacy key, once the legacy ERP has assigned one, is
+// OutboundSubject names the Depot record an event is about. Its legacy key, once the legacy ERP has assigned one, is
 // recorded against it (xref:record) so a later event about the same record can update instead of create.
 type OutboundSubject struct {
 	Entity string `json:"entity"`
 	IDPath string `json:"idPath"`
 }
 
-// OutboundXref resolves one Passage id carried by the event (a customer id, a product id) to the legacy key the S3 loads
+// OutboundXref resolves one Depot id carried by the event (a customer id, a product id) to the legacy key the S3 loads
 // recorded. The key reaches the mapping as the row field xref.<Name>.
 type OutboundXref struct {
 	Name   string `json:"name"`
@@ -60,7 +60,7 @@ type OutboundXref struct {
 // OutboundDefinition is one version of an outbound mapping.
 type OutboundDefinition struct {
 	// EventType is an exact CloudEvents type or a pattern in the hub's syntax: `*` stands for one dotted segment and a
-	// trailing `**` for the rest ("dev.passage.sales.order.*.v1", "dev.passage.billing.invoice.**").
+	// trailing `**` for the rest ("dev.depot.sales.order.*.v1", "dev.depot.billing.invoice.**").
 	EventType string           `json:"eventType"`
 	Subject   *OutboundSubject `json:"subject,omitempty"`
 	Xrefs     []OutboundXref   `json:"xrefs,omitempty"`
@@ -221,7 +221,7 @@ func MatchesEventType(pattern, eventType string) bool {
 	return len(ps) == len(ts)
 }
 
-// OutboundRef identifies a Passage record: the entity name used in the cross-reference and its id.
+// OutboundRef identifies a Depot record: the entity name used in the cross-reference and its id.
 //
 // A render's refs hold the header subject first and then the subject of each collection element, in collection and
 // element order; an element's ref names its Collection and Index so the hub can pair it with the key the legacy ERP
@@ -234,7 +234,7 @@ type OutboundRef struct {
 	LegacyKey  string `json:"legacyKey,omitempty"`
 }
 
-// UnresolvedRef is a lookup that found no legacy key: which xref of the mapping, which Passage record, and why.
+// UnresolvedRef is a lookup that found no legacy key: which xref of the mapping, which Depot record, and why.
 type UnresolvedRef struct {
 	Name   string `json:"name"`
 	Entity string `json:"entity"`
@@ -242,7 +242,7 @@ type UnresolvedRef struct {
 	Reason string `json:"reason"`
 }
 
-// UnresolvedError is MIG-XREF-UNRESOLVED: the event refers to Passage records that have no legacy key yet.
+// UnresolvedError is MIG-XREF-UNRESOLVED: the event refers to Depot records that have no legacy key yet.
 type UnresolvedError struct{ Refs []UnresolvedRef }
 
 func (e *UnresolvedError) Error() string {
@@ -264,13 +264,13 @@ func (e *RejectedError) Error() string {
 	return CodeOutboundRejected + ": " + strings.Join(parts, "; ")
 }
 
-// LegacyKeyResolver finds legacy keys for Passage records of one entity in one legacy system. A record with several
+// LegacyKeyResolver finds legacy keys for Depot records of one entity in one legacy system. A record with several
 // legacy keys resolves to the lowest (the first the cross-reference ever held in key order), so a render is repeatable.
 type LegacyKeyResolver interface {
-	LegacyKeys(ctx context.Context, sourceSystem, entity string, passageIDs []string) (map[string]string, error)
+	LegacyKeys(ctx context.Context, sourceSystem, entity string, depotIDs []string) (map[string]string, error)
 }
 
-// Rendered is the answer of a render: the request body, the key that makes the same render repeatable, and the Passage
+// Rendered is the answer of a render: the request body, the key that makes the same render repeatable, and the Depot
 // records the legacy key of the response belongs to.
 type Rendered struct {
 	Body           map[string]any `json:"body"`
@@ -344,8 +344,8 @@ func (d OutboundDefinition) Render(ctx context.Context, sourceSystem, mappingID 
 	refs := []OutboundRef{}
 	if d.Subject != nil {
 		if id, ok := idAt(event, d.Subject.IDPath); ok && !ids.Valid(id) {
-			// xref:record ties the legacy key to a Passage id; anything else would be pushed and then not recordable.
-			unresolved = append(unresolved, UnresolvedRef{Name: "subject", Entity: d.Subject.Entity, ID: id, Reason: "the id at " + d.Subject.IDPath + " is not a Passage id (UUID)"})
+			// xref:record ties the legacy key to a Depot id; anything else would be pushed and then not recordable.
+			unresolved = append(unresolved, UnresolvedRef{Name: "subject", Entity: d.Subject.Entity, ID: id, Reason: "the id at " + d.Subject.IDPath + " is not a Depot id (UUID)"})
 		} else if ok {
 			refs = append(refs, OutboundRef{Entity: d.Subject.Entity, ID: id})
 			// A subject that already has a legacy key is an update: the mapping may read xref.self.

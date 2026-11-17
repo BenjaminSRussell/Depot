@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/domain"
 )
 
 // MaxEvidenceRows bounds the lines of one transfer-pricing evidence export.

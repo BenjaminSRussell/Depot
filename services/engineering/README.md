@@ -1,10 +1,10 @@
 # engineering
 
-Wave 9 (PSG-9): engineering data for the `product` context: BOMs, routings, engineering change orders. Slice 1 is the pure domain kernel, the store, HTTP API, specs, chart and web module followed, slice 2 added pure calendar and resource domain code, slice 3 added resource and calendar persistence, slice 4 exposes it over HTTP, slice 5 added routing persistence, slice 6 added read APIs for route versions, the active route as of a date, and BOM version detail, and slice 8 adds resource, resource group and capability lists and route-version activation. What is not built is in `NOT-IMPLEMENTED.md`.
+Wave 9 (DPT-9): engineering data for the `product` context: BOMs, routings, engineering change orders. Slice 1 is the pure domain kernel, the store, HTTP API, specs, chart and web module followed, slice 2 added pure calendar and resource domain code, slice 3 added resource and calendar persistence, slice 4 exposes it over HTTP, slice 5 added routing persistence, slice 6 added read APIs for route versions, the active route as of a date, and BOM version detail, and slice 8 adds resource, resource group and capability lists and route-version activation. What is not built is in `NOT-IMPLEMENTED.md`.
 
 ## Layout
 
-- `cmd/engineering/main.go`: wiring. Env: `DATABASE_URL` (required, from Secret `engineering-db`), `MIGRATE_ON_START=true` (dev only), `HTTP_ADDR` (default `:8080`), `ADMIN_ADDR` (default `:9090`, serves `/metrics`), `AUDIT_URL` (required unless `PASSAGE_ENV=dev`; Part 11 signatures are queued in `audit_outbox` with the signature and relayed to `POST /v1/audit/changes` with an `engineering → audit.write` service token, retrying with backoff), `PASSAGE_ENV=dev` (binds the development re-authenticator; anywhere else document signing returns 503 until a step-up verifier exists).
+- `cmd/engineering/main.go`: wiring. Env: `DATABASE_URL` (required, from Secret `engineering-db`), `MIGRATE_ON_START=true` (dev only), `HTTP_ADDR` (default `:8080`), `ADMIN_ADDR` (default `:9090`, serves `/metrics`), `AUDIT_URL` (required unless `DEPOT_ENV=dev`; Part 11 signatures are queued in `audit_outbox` with the signature and relayed to `POST /v1/audit/changes` with an `engineering → audit.write` service token, retrying with backoff), `DEPOT_ENV=dev` (binds the development re-authenticator; anywhere else document signing returns 503 until a step-up verifier exists).
 - `internal/domain/bom.go`: as-of version resolution, multi-level explosion, implosion (where-used), cycle and overlap checks, cost roll-up skeleton.
 - `internal/domain/routing.go`: operation DAG validation and lead time (sequential sum, parallel branches take the max and a secondary starts with its primary, efficiency, overlap transfer batches).
 - `internal/domain/eco.go`: ECO state machine, `Approver` seam to the Temporal approval workflow, release plan (expire old at `release_date - 1`, activate new).
@@ -52,7 +52,7 @@ Lists page by id with `limit` (1 to 100) and `cursor`, answer `{items, nextCurso
 
 ## Event types
 
-The PRD names `dev.passage.engineering.bom.version.activated.v1`, which has four segments after the context and fails `platform/go/events.ValidType`. The entity is folded into one segment instead: `bomversion`, `routeversion` is reserved the same way (as `releasedproduct` is in the product service). Emitted: `bomversion.activated`, `bomversion.expired`, `eco.submitted`, `eco.approved`, `eco.released`, `resource.changed`, `calendar.generated`, `releasesession.created`, `releaseline.accepted`, `releasedproduct.changed`, `document.signed`, `document.released`, `ebom.imported`.
+The PRD names `dev.depot.engineering.bom.version.activated.v1`, which has four segments after the context and fails `platform/go/events.ValidType`. The entity is folded into one segment instead: `bomversion`, `routeversion` is reserved the same way (as `releasedproduct` is in the product service). Emitted: `bomversion.activated`, `bomversion.expired`, `eco.submitted`, `eco.approved`, `eco.released`, `resource.changed`, `calendar.generated`, `releasesession.created`, `releaseline.accepted`, `releasedproduct.changed`, `document.signed`, `document.released`, `ebom.imported`.
 
 ## Dependencies
 

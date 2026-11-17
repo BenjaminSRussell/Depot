@@ -85,7 +85,7 @@ describe("the label outbox", () => {
     const over = outbox.enqueue("last", undefined, 4);
     expect(over.dropped).toBe("111");
     expect(outbox.list()).toHaveLength(MAX_WAITING);
-    storage.data.set("passage.labelOutbox", "not json");
+    storage.data.set("depot.labelOutbox", "not json");
     expect(outbox.list()).toEqual([]);
   });
 

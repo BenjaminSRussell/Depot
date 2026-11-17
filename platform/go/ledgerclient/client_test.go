@@ -16,8 +16,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const (
@@ -326,7 +326,7 @@ func TestFromEnv(t *testing.T) {
 		t.Fatalf("no key: %v %v", c, err)
 	}
 	seed := base64.StdEncoding.EncodeToString(make([]byte, ed25519.SeedSize))
-	env := map[string]string{"LEDGER_URL": "http://ledger", "LEDGER_TIMEOUT": "750ms", "PASSAGE_SERVICE_NAME": "production", "PASSAGE_SERVICE_SIGNING_KEY": seed}
+	env := map[string]string{"LEDGER_URL": "http://ledger", "LEDGER_TIMEOUT": "750ms", "DEPOT_SERVICE_NAME": "production", "DEPOT_SERVICE_SIGNING_KEY": seed}
 	if c, err := ledgerclient.FromEnv(func(k string) string { return env[k] }, "production"); c == nil || err != nil {
 		t.Fatalf("configured: %v %v", c, err)
 	}

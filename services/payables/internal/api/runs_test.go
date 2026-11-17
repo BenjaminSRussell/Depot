@@ -17,21 +17,21 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/payables"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/api"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/fx"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/ledger"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/party"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/store"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/tax"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/withholdingreport"
-	"github.com/BenjaminSRussell/passage/services/payables/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/payables"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/api"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/fx"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/ledger"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/party"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/store"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/tax"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/withholdingreport"
+	"github.com/BenjaminSRussell/depot/services/payables/migrations"
 )
 
 const (
@@ -260,9 +260,9 @@ func profiles() api.PostingProfiles {
 			{Code: "WHT10T", Jurisdiction: "US", IncomeType: "royalties", Rates: []tax.Rate{{ValidFrom: "2020-01-01", RatePct: "10", Threshold: ptr("120")}}},
 		},
 		File: domain.RunFileConfig{
-			Debtor:        domain.PartyDTO{Name: "Passage Holding Inc", Address: domain.PostalAddressDTO{StreetName: "1 Market Street", PostCode: "94105", TownName: "San Francisco", Country: "US"}},
+			Debtor:        domain.PartyDTO{Name: "Depot Holding Inc", Address: domain.PostalAddressDTO{StreetName: "1 Market Street", PostCode: "94105", TownName: "San Francisco", Country: "US"}},
 			DebtorAccount: domain.AccountDTO{OtherID: "000123456789"}, DebtorBIC: "CHASUS33",
-			Profile: domain.BankProfileDTO{Variant: "US", Overrides: map[string]json.RawMessage{"charset": json.RawMessage(`"ascii"`), "initiating_party_id": json.RawMessage(`"PASSAGEUS01"`)}},
+			Profile: domain.BankProfileDTO{Variant: "US", Overrides: map[string]json.RawMessage{"charset": json.RawMessage(`"ascii"`), "initiating_party_id": json.RawMessage(`"DEPOTUS01"`)}},
 		},
 	}}
 }

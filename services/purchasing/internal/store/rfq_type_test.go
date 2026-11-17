@@ -8,11 +8,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
 
 func newRFQType(code string) domain.RFQType {
@@ -58,7 +58,7 @@ func TestRFQType_CreateReplayDuplicateAndUpdate(t *testing.T) {
 	if _, err := s.GetRFQType(ctx, ids.New()); problemCode(err) != store.CodeRFQTypeNotFound {
 		t.Fatalf("unknown type = %v", err)
 	}
-	if n := countEvents(t, ctx, pool, "dev.passage.procurement.rfqtype.created.v1") + countEvents(t, ctx, pool, "dev.passage.procurement.rfqtype.changed.v1"); n != 2 {
+	if n := countEvents(t, ctx, pool, "dev.depot.procurement.rfqtype.created.v1") + countEvents(t, ctx, pool, "dev.depot.procurement.rfqtype.changed.v1"); n != 2 {
 		t.Fatalf("rfqtype events = %d, want 2 (created, changed)", n)
 	}
 	// Another tenant sees none of it.
@@ -219,11 +219,11 @@ func TestRFQ_AmendAndAcknowledge(t *testing.T) {
 	if _, err := s.AcknowledgeAmendment(ctx, r.ID, 1, ids.New(), now); problemCode(err) != store.CodeAmendmentNotFound {
 		t.Fatalf("uninvited vendor = %v", err)
 	}
-	if n := countEvents(t, ctx, pool, "dev.passage.procurement.rfq.amended.v1"); n != 1 {
+	if n := countEvents(t, ctx, pool, "dev.depot.procurement.rfq.amended.v1"); n != 1 {
 		t.Fatalf("rfq.amended events = %d, want 1 (the replay writes none)", n)
 	}
 	for _, ev := range outbox(t, ctx, pool) {
-		if ev.Type != "dev.passage.procurement.rfq.amended.v1" {
+		if ev.Type != "dev.depot.procurement.rfq.amended.v1" {
 			continue
 		}
 		if cleared, _ := ev.Data["late_cleared_vendor_ids"].([]any); len(cleared) != 1 || cleared[0] != vendorB {

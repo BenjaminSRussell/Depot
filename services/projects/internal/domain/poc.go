@@ -5,7 +5,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // POCInput is the cost-to-cost position of one fixed-price project at a period

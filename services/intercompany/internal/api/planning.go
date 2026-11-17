@@ -7,8 +7,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/domain"
 )
 
 // ---- planning group run sequence (FR-40.15, BR-40.13, AC-40.16) ----

@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 )
 
 // CodePlacementVersion is SCHED-0154: the order's placement changed since the

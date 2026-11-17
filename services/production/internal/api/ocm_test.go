@@ -7,10 +7,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/production/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/production/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/production/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/production/internal/store"
 )
 
 // ocmFake records the OCM calls and answers with canned results.

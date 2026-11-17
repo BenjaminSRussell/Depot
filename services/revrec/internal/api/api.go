@@ -1,6 +1,6 @@
 // Package api serves the revrec HTTP surface: the stateless allocation preview,
 // persisted revenue contracts with milestone satisfaction, period recognition
-// runs and the deferred revenue roll-forward (PSG-29 slices 1 and 2).
+// runs and the deferred revenue roll-forward (DPT-29 slices 1 and 2).
 package api
 
 import (
@@ -18,11 +18,11 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/services/revrec/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/services/revrec/internal/domain"
 )
 
 const (

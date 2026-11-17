@@ -8,8 +8,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
 )
 
 var testProfile = domain.PostingProfile{Inventory: "1400", GRIR: "2100", PPV: "5200", VendorControl: "2000"}

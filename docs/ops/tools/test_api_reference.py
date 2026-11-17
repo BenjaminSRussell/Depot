@@ -13,7 +13,7 @@ def documented_op(**extra):
         "operationId": "listThings",
         "summary": "List things",
         "description": "Lists things the caller may read.",
-        "x-passage-duty": "thing.read",
+        "x-depot-duty": "thing.read",
         "responses": {"200": {"description": "ok"}},
     }
     op.update(extra)
@@ -21,13 +21,13 @@ def documented_op(**extra):
 
 
 class TestPublicRoutes(unittest.TestCase):
-    def test_x_passage_public_stands_in_for_the_duty(self):
+    def test_x_depot_public_stands_in_for_the_duty(self):
         op = documented_op()
-        del op["x-passage-duty"]
-        doc = {"paths": {"/a": {"post": dict(op, **{"x-passage-public": True})}, "/b": {"post": dict(op)}}}
+        del op["x-depot-duty"]
+        doc = {"paths": {"/a": {"post": dict(op, **{"x-depot-public": True})}, "/b": {"post": dict(op)}}}
         by_path = {o.path: ar.gaps(o, doc) for o in ar.operations(doc)}
         self.assertEqual(by_path["/a"], [])
-        self.assertEqual(by_path["/b"], ["POST /b: missing x-passage-duty"])
+        self.assertEqual(by_path["/b"], ["POST /b: missing x-depot-duty"])
 
 
 class TestOperations(unittest.TestCase):
@@ -72,7 +72,7 @@ class TestGaps(unittest.TestCase):
             [
                 "POST /a: missing operationId",
                 "POST /a: missing summary or description",
-                "POST /a: missing x-passage-duty",
+                "POST /a: missing x-depot-duty",
                 "POST /a: no 2xx response",
             ],
         )

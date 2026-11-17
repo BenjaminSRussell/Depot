@@ -7,7 +7,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
 )
 
 const ublInvoice = `<?xml version="1.0" encoding="UTF-8"?>

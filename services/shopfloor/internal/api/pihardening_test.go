@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
 )
 
 const hardeningDuties = DutyControlRecipeCreate + "," + DutyControlRecipeExecute + "," + DutyView + "," + DutyPIExecutionVerify + "," + DutyEdgeConfigure + "," + DutyEdgeConnect + "," + DutySetup + "," + processDuty
@@ -31,9 +31,9 @@ func TestKioskStepsAreDecidedByTheServer(t *testing.T) {
 	do := func(method, path, body, user string, hdr map[string]string) *httptest.ResponseRecorder {
 		e.calls++
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-User", user)
-		req.Header.Set("X-Passage-Duties", hardeningDuties)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-User", user)
+		req.Header.Set("X-Depot-Duties", hardeningDuties)
 		req.Header.Set("Idempotency-Key", fmt.Sprintf("h-%d", e.calls))
 		for k, v := range hdr {
 			req.Header.Set(k, v)

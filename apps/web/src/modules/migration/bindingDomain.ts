@@ -18,7 +18,7 @@ export const SOURCE_FIELDS: Record<ConnectionKind, SourceField[]> = {
     { key: "schema", label: "Schema", hint: "Optional. Letters, digits and _ $ # only." },
     { key: "table", label: "Table or view", hint: "Give a table or a query, not both. Oracle names are case-sensitive: type them as the catalog shows." },
     { key: "columns", label: "Columns", hint: "Optional, comma separated. Must include the key and cursor fields." },
-    { key: "query", label: "Read-only query", multiline: true, hint: "One SELECT (it may start with WITH). Use :watermark for the last change stamp of a delta. Do not add ORDER BY or a row limit; Passage pages by key. Use a read-only database login." },
+    { key: "query", label: "Read-only query", multiline: true, hint: "One SELECT (it may start with WITH). Use :watermark for the last change stamp of a delta. Do not add ORDER BY or a row limit; Depot pages by key. Use a read-only database login." },
   ],
   rest: [
     { key: "path", label: "Endpoint path", required: true, hint: "Under the connection's base URL, for example /api/customers." },

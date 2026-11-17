@@ -1,7 +1,7 @@
 # Functional guide: Phase 4, Manufacturing & Planning
 
 Waves 21-25. Audience: production planners, schedulers, shop-floor supervisors and operators, cost accountants and
-the plant controller. A discrete or process manufacturer builds product on Passage: production orders consume
+the plant controller. A discrete or process manufacturer builds product on Depot: production orders consume
 material and labour, master planning proposes the orders, scheduling sets their dates against capacity, and the shop
 floor reports what happened. The guide follows the order in which a planner works.
 

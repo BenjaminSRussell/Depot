@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.passage.dev/dev.passage.platform.entitydefinition.changed.v1.json",
+  "$id": "https://schemas.depot.dev/dev.depot.platform.entitydefinition.changed.v1.json",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -20,7 +20,7 @@
     "source": { "type": "string" },
     "type": {
       "type": "string",
-      "enum": ["dev.passage.platform.entitydefinition.changed.v1"]
+      "enum": ["dev.depot.platform.entitydefinition.changed.v1"]
     },
     "subject": { "type": "string" },
     "time": { "type": "string" },

@@ -13,7 +13,7 @@ import { FakeMcp, headers, MemoryStore, OTHER, serve, T1, tool, USER } from "./s
 import { MemState } from "./memstate.js";
 
 const AP_DUTIES = "agents.invoke,ap.invoice.read,ap.vendor.read,ledger.account.read,tax.code.read,ap.invoice.propose";
-const PROPOSE = "passage.ap.invoice.propose_coding";
+const PROPOSE = "depot.ap.invoice.propose_coding";
 const PKCS8 = Buffer.from("302e020100300506032b657004220420", "hex");
 const seed = randomBytes(32);
 const publicB64 = createPublicKey(createPrivateKey({ key: Buffer.concat([PKCS8, seed]), format: "der", type: "pkcs8" })).export({ format: "der", type: "spki" }).subarray(-32).toString("base64");
@@ -23,7 +23,7 @@ function mint(over: Record<string, unknown> = {}): string {
   const iat = Math.floor(NOW / 1000);
   const claims = { iss: "workflow-ts", aud: "agents", tid: T1, act: USER, duties: [DUTY_RUN_WORKFLOW], iat, exp: iat + 60, jti: randomBytes(8).toString("hex"), ...over };
   const body = Buffer.from(JSON.stringify(claims)).toString("base64url");
-  const sig = sign(null, Buffer.from(`passage.service-token.v1.${body}`), createPrivateKey({ key: Buffer.concat([PKCS8, seed]), format: "der", type: "pkcs8" })).toString("base64url");
+  const sig = sign(null, Buffer.from(`depot.service-token.v1.${body}`), createPrivateKey({ key: Buffer.concat([PKCS8, seed]), format: "der", type: "pkcs8" })).toString("base64url");
   return `${body}.${sig}`;
 }
 
@@ -78,7 +78,7 @@ afterEach(async () => {
 });
 
 const step = (base: string, runId: string, name: string, token: string | undefined, body: unknown = {}) =>
-  fetch(`${base}/api/v1/agents/runs/${runId}/steps/${name}`, { method: "POST", headers: token === undefined ? {} : { "x-passage-service-token": token }, body: JSON.stringify(body) });
+  fetch(`${base}/api/v1/agents/runs/${runId}/steps/${name}`, { method: "POST", headers: token === undefined ? {} : { "x-depot-service-token": token }, body: JSON.stringify(body) });
 
 describe("agent runs as workflows (AGENTS_RUN_ENGINE=temporal)", () => {
   it("start answers 202 with the run id and starts the workflow; the steps then run, an approval wakes the workflow and the commit runs as the approver", async () => {
@@ -218,7 +218,7 @@ describe("agent runs as workflows (AGENTS_RUN_ENGINE=temporal)", () => {
     const replay = mint({ jti: "same" });
     expect((await step(s.srv.base, run, "plan", replay)).status).toBe(404);
     expect((await step(s.srv.base, run, "plan", replay)).status).toBe(401);
-    expect((await fetch(`${s.srv.base}/api/v1/agents/runs/${run}/steps/plan`, { method: "GET", headers: { "x-passage-service-token": mint() } })).status).toBe(405);
+    expect((await fetch(`${s.srv.base}/api/v1/agents/runs/${run}/steps/plan`, { method: "GET", headers: { "x-depot-service-token": mint() } })).status).toBe(405);
   });
 
   it("another tenant's token cannot reach a run", async () => {

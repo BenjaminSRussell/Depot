@@ -17,5 +17,5 @@ create table "product_stubs" (
 alter table product_stubs enable row level security;
 alter table product_stubs force row level security;
 create policy product_stubs_tenant_access on product_stubs as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);

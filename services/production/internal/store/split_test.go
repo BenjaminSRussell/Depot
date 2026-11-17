@@ -12,10 +12,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/production/internal/domain"
-	prodevents "github.com/BenjaminSRussell/passage/services/production/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/production/internal/domain"
+	prodevents "github.com/BenjaminSRussell/depot/services/production/internal/events"
 )
 
 func plannedGroup(o Order, g domain.CostGroup) decimal.Decimal {
@@ -495,10 +495,10 @@ func TestSplit_StartedOrderRefusalsAndKeepOnOriginal(t *testing.T) {
 // so this is the budget the request has to meet.
 //
 // The set-up alone (500 creates and three bulk commands) takes minutes on a loaded machine, so the test runs
-// with PASSAGE_PERF_TEST=1 like the journal post budget (the bulk start itself took 22 s on a loaded laptop).
+// with DEPOT_PERF_TEST=1 like the journal post budget (the bulk start itself took 22 s on a loaded laptop).
 func TestBulkTransition_Start500ReleasedOrders(t *testing.T) {
-	if os.Getenv("PASSAGE_PERF_TEST") != "1" {
-		t.Skip("set PASSAGE_PERF_TEST=1 to run the 500-order bulk start budget")
+	if os.Getenv("DEPOT_PERF_TEST") != "1" {
+		t.Skip("set DEPOT_PERF_TEST=1 to run the 500-order bulk start budget")
 	}
 	_, s := migrated(t)
 	ctx := tenantCtx(testkit.TenantID(66))

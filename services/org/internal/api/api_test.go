@@ -16,14 +16,14 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	pevents "github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/api"
-	"github.com/BenjaminSRussell/passage/services/org/internal/domain"
-	orgevents "github.com/BenjaminSRussell/passage/services/org/internal/events"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	pevents "github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/api"
+	"github.com/BenjaminSRussell/depot/services/org/internal/domain"
+	orgevents "github.com/BenjaminSRussell/depot/services/org/internal/events"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
 type fakeStore struct {
@@ -387,7 +387,7 @@ func (f *fakeStore) UpdateLegalEntity(_ context.Context, id string, version int,
 
 func (f *fakeStore) ListLegalEntityNames(_ context.Context, id string) ([]store.LegalEntityName, error) {
 	_, err := f.lookup(id)
-	return []store.LegalEntityName{{Name: "Passage US", ValidFrom: time.Unix(0, 0).UTC()}}, err
+	return []store.LegalEntityName{{Name: "Depot US", ValidFrom: time.Unix(0, 0).UTC()}}, err
 }
 
 func (f *fakeStore) ListLegalEntities(_ context.Context, filter store.LegalEntityFilter, after string, limit int) (store.LegalEntityPage, error) {
@@ -919,8 +919,8 @@ func do(r http.Handler, method, path, body, duties string, withTenant bool, head
 func doWithoutTenantAdmin(r http.Handler, method, path, body, duties string, withTenant bool, headers ...string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	if withTenant {
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-Duties", duties)
 	}
 	for i := 0; i < len(headers); i += 2 {
 		req.Header.Set(headers[i], headers[i+1])
@@ -934,7 +934,7 @@ const (
 	legalEntities   = "/v1/org/legal-entities"
 	allDuties       = "org.read,org.legal-entity.write"
 	referenceDuties = "org.read,org.reference.write"
-	validBody       = `{"code":"US01","name":"Passage US","country":"US","currency":"USD","timeZone":"UTC"}`
+	validBody       = `{"code":"US01","name":"Depot US","country":"US","currency":"USD","timeZone":"UTC"}`
 )
 
 func TestLegalEntities(t *testing.T) {
@@ -981,7 +981,7 @@ func TestLegalEntities(t *testing.T) {
 const knownID, unknownID = "0190b6c0-0000-7000-8000-000000000001", "0190b6c0-0000-7000-8000-000000000002"
 
 func seededStore() *fakeStore {
-	return &fakeStore{entities: []store.LegalEntity{{ID: knownID, Code: "US01", Name: "Passage US", Version: 1}}}
+	return &fakeStore{entities: []store.LegalEntity{{ID: knownID, Code: "US01", Name: "Depot US", Version: 1}}}
 }
 
 func TestLegalEntityLifecycleRoutes(t *testing.T) {
@@ -1000,8 +1000,8 @@ func TestLegalEntityLifecycleRoutes(t *testing.T) {
 		{"get ok", seededStore(), http.MethodGet, byID, "", allDuties, true, http.StatusOK, `"code":"US01"`},
 		{"get unknown id", seededStore(), http.MethodGet, legalEntities + "/" + unknownID, "", allDuties, true, http.StatusNotFound, "ORG-LE-NOT-FOUND"},
 		{"get without tenant", seededStore(), http.MethodGet, byID, "", "", false, http.StatusUnauthorized, "AUTH-0001"},
-		{"patch name", seededStore(), http.MethodPatch, byID, `{"version":1,"name":"Passage USA"}`, allDuties, true, http.StatusOK, `"version":2`},
-		{"patch no change keeps version", seededStore(), http.MethodPatch, byID, `{"version":1,"name":"Passage US"}`, allDuties, true, http.StatusOK, `"version":1`},
+		{"patch name", seededStore(), http.MethodPatch, byID, `{"version":1,"name":"Depot USA"}`, allDuties, true, http.StatusOK, `"version":2`},
+		{"patch no change keeps version", seededStore(), http.MethodPatch, byID, `{"version":1,"name":"Depot US"}`, allDuties, true, http.StatusOK, `"version":1`},
 		{"patch unknown field code", seededStore(), http.MethodPatch, byID, `{"version":1,"code":"X1"}`, allDuties, true, http.StatusBadRequest, "COM-0001"},
 		{"patch bad primary address id", seededStore(), http.MethodPatch, byID, `{"version":1,"primaryAddressId":"abc"}`, allDuties, true, http.StatusBadRequest, `"primaryAddressId"`},
 		{"patch bad fiscal calendar id", seededStore(), http.MethodPatch, byID, `{"version":1,"fiscalCalendarId":"abc"}`, allDuties, true, http.StatusBadRequest, `"fiscalCalendarId"`},
@@ -1017,12 +1017,12 @@ func TestLegalEntityLifecycleRoutes(t *testing.T) {
 		{"patch store error hides detail", &fakeStore{err: errors.New("pg secret detail")}, http.MethodPatch, byID, `{"version":1}`, allDuties, true, http.StatusInternalServerError, "COM-0500"},
 		{"get malformed id never reaches the store", &fakeStore{err: errors.New("store reached")}, http.MethodGet, legalEntities + "/nope", "", allDuties, true, http.StatusNotFound, "ORG-LE-NOT-FOUND"},
 		{"patch malformed id never reaches the store", &fakeStore{err: errors.New("store reached")}, http.MethodPatch, legalEntities + "/nope", `{"version":1}`, allDuties, true, http.StatusNotFound, "ORG-LE-NOT-FOUND"},
-		{"names", seededStore(), http.MethodGet, byID + "/names", "", allDuties, true, http.StatusOK, `"items":[{"name":"Passage US"`},
+		{"names", seededStore(), http.MethodGet, byID + "/names", "", allDuties, true, http.StatusOK, `"items":[{"name":"Depot US"`},
 		{"names unknown id", seededStore(), http.MethodGet, legalEntities + "/" + unknownID + "/names", "", allDuties, true, http.StatusNotFound, "ORG-LE-NOT-FOUND"},
 		{"list bad status", &fakeStore{}, http.MethodGet, legalEntities + "?status=bogus", "", allDuties, true, http.StatusBadRequest, "COM-0001"},
-		{"create upper-cases the code", &fakeStore{}, http.MethodPost, legalEntities, `{"code":"us01","name":"Passage US","country":"US","currency":"USD","timeZone":"UTC"}`, allDuties, true, http.StatusCreated, `"code":"US01"`},
-		{"create defaults the language", &fakeStore{}, http.MethodPost, legalEntities, `{"code":"US01","name":"Passage US","country":"US","currency":"USD","timeZone":"UTC"}`, allDuties, true, http.StatusCreated, `"defaultLanguage":"en-US"`},
-		{"create keeps the registration number", &fakeStore{}, http.MethodPost, legalEntities, `{"code":"US01","name":"Passage US","country":"US","currency":"USD","timeZone":"UTC","registrationNumber":"R-1"}`, allDuties, true, http.StatusCreated, `"registrationNumber":"R-1"`},
+		{"create upper-cases the code", &fakeStore{}, http.MethodPost, legalEntities, `{"code":"us01","name":"Depot US","country":"US","currency":"USD","timeZone":"UTC"}`, allDuties, true, http.StatusCreated, `"code":"US01"`},
+		{"create defaults the language", &fakeStore{}, http.MethodPost, legalEntities, `{"code":"US01","name":"Depot US","country":"US","currency":"USD","timeZone":"UTC"}`, allDuties, true, http.StatusCreated, `"defaultLanguage":"en-US"`},
+		{"create keeps the registration number", &fakeStore{}, http.MethodPost, legalEntities, `{"code":"US01","name":"Depot US","country":"US","currency":"USD","timeZone":"UTC","registrationNumber":"R-1"}`, allDuties, true, http.StatusCreated, `"registrationNumber":"R-1"`},
 		{"create reserved code", &fakeStore{}, http.MethodPost, legalEntities, `{"code":"ALL","name":"n","country":"US","currency":"USD","timeZone":"UTC"}`, allDuties, true, http.StatusBadRequest, "ORG-LE-CODE-RESERVED"},
 		{"create bad default language", &fakeStore{}, http.MethodPost, legalEntities, `{"code":"US01","name":"n","country":"US","currency":"USD","timeZone":"UTC","defaultLanguage":"english"}`, allDuties, true, http.StatusBadRequest, `"defaultLanguage"`},
 	}
@@ -1043,9 +1043,9 @@ func TestLegalEntityLifecycleRoutes(t *testing.T) {
 func TestLegalEntityUpdatedCounterCountsOnlyVersionBumps(t *testing.T) {
 	r, a := newRouter(seededStore())
 	byID := legalEntities + "/" + knownID
-	do(r, http.MethodPatch, byID, `{"version":1,"name":"Passage US"}`, allDuties, true)
+	do(r, http.MethodPatch, byID, `{"version":1,"name":"Depot US"}`, allDuties, true)
 	do(r, http.MethodPatch, byID, `{"version":9,"name":"Other"}`, allDuties, true)
-	do(r, http.MethodPatch, byID, `{"version":1,"name":"Passage USA"}`, allDuties, true)
+	do(r, http.MethodPatch, byID, `{"version":1,"name":"Depot USA"}`, allDuties, true)
 	rec := httptest.NewRecorder()
 	a.Metrics().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
 	if !strings.Contains(rec.Body.String(), "org_legal_entities_updated_total 1") {
@@ -1068,7 +1068,7 @@ func TestCreateLegalEntity_ReplayReturnsOriginal(t *testing.T) {
 func TestLegalEntities_InvalidLegalEntityHeader(t *testing.T) {
 	r, _ := newRouter(&fakeStore{})
 	for _, method := range []string{http.MethodPost, http.MethodGet} {
-		rec := do(r, method, legalEntities, validBody, allDuties, true, "X-Passage-Legal-Entity", "foo")
+		rec := do(r, method, legalEntities, validBody, allDuties, true, "X-Depot-Legal-Entity", "foo")
 		if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "COM-0001") {
 			t.Fatalf("%s: got %d %s; want 400 COM-0001", method, rec.Code, rec.Body.String())
 		}
@@ -1204,7 +1204,7 @@ func declaredOperations(spec string) map[string]bool {
 		case specOperation.MatchString(line):
 			operation = path + " " + specOperation.FindStringSubmatch(line)[1]
 			declared[operation] = false
-		case operation != "" && strings.HasPrefix(line, "      x-passage-duty: "):
+		case operation != "" && strings.HasPrefix(line, "      x-depot-duty: "):
 			declared[operation] = true
 		}
 	}
@@ -1218,7 +1218,7 @@ func parityProblems(served map[string]bool, spec string) []string {
 		if hasDuty, ok := declared[operation]; !ok {
 			problems = append(problems, "not documented: "+operation)
 		} else if !hasDuty {
-			problems = append(problems, "no x-passage-duty: "+operation)
+			problems = append(problems, "no x-depot-duty: "+operation)
 		}
 	}
 	for operation := range declared {
@@ -1249,13 +1249,13 @@ func TestOpenAPIDocumentsEveryOperation(t *testing.T) {
 	}
 
 	t.Run("detects drift in both directions", func(t *testing.T) {
-		const small = "openapi: 3.1.0\npaths:\n  /a:\n    get:\n      x-passage-duty: org.read\n    put:\n      operationId: noDuty\n  /b:\n    post:\n      x-passage-duty: org.read\ncomponents:\n  schemas: {}\n"
+		const small = "openapi: 3.1.0\npaths:\n  /a:\n    get:\n      x-depot-duty: org.read\n    put:\n      operationId: noDuty\n  /b:\n    post:\n      x-depot-duty: org.read\ncomponents:\n  schemas: {}\n"
 		got := parityProblems(map[string]bool{"/a get": true, "/a put": true, "/c get": true}, small)
-		want := []string{"no x-passage-duty: /a put", "not documented: /c get", "not served: /b post"}
+		want := []string{"no x-depot-duty: /a put", "not documented: /c get", "not served: /b post"}
 		if !slices.Equal(got, want) {
 			t.Fatalf("problems = %v; want %v", got, want)
 		}
-		if extra := parityProblems(map[string]bool{"/a get": true, "/a put": true, "/b post": true}, strings.Replace(small, "noDuty", "noDuty\n      x-passage-duty: org.read", 1)); len(extra) != 0 {
+		if extra := parityProblems(map[string]bool{"/a get": true, "/a put": true, "/b post": true}, strings.Replace(small, "noDuty", "noDuty\n      x-depot-duty: org.read", 1)); len(extra) != 0 {
 			t.Fatalf("a matching spec must have no problems: %v", extra)
 		}
 	})
@@ -1267,7 +1267,7 @@ func TestAsyncAPIDeclaresEveryEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 	declared := map[string]bool{}
-	for _, m := range regexp.MustCompile(`x-passage-type: (\S+)`).FindAllStringSubmatch(string(spec), -1) {
+	for _, m := range regexp.MustCompile(`x-depot-type: (\S+)`).FindAllStringSubmatch(string(spec), -1) {
 		declared[m[1]] = true
 	}
 	for _, typ := range orgevents.All() {
@@ -1283,7 +1283,7 @@ func TestAsyncAPIDeclaresEveryEvent(t *testing.T) {
 
 func TestScopedCallerCannotCreateLegalEntity(t *testing.T) {
 	r, _ := newRouter(&fakeStore{})
-	rec := do(r, http.MethodPost, legalEntities, validBody, allDuties, true, "X-Passage-Legal-Entity", testkit.TenantID(2))
+	rec := do(r, http.MethodPost, legalEntities, validBody, allDuties, true, "X-Depot-Legal-Entity", testkit.TenantID(2))
 	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "AUTH-0003") {
 		t.Fatalf("got %d %s; want 403 AUTH-0003", rec.Code, rec.Body.String())
 	}
@@ -1354,7 +1354,7 @@ func TestReference(t *testing.T) {
 		{"patch unknown field", &fakeStore{}, http.MethodPatch, "/v1/org/currencies/USD", `{"status":"active","x":1}`, referenceDuties, true, nil, http.StatusBadRequest, "COM-0001"},
 		{"patch malformed", &fakeStore{}, http.MethodPatch, "/v1/org/currencies/USD", `{`, referenceDuties, true, nil, http.StatusBadRequest, "COM-0001"},
 		{"patch without write duty", &fakeStore{}, http.MethodPatch, "/v1/org/currencies/USD", `{"status":"inactive"}`, "org.read", true, nil, http.StatusForbidden, "AUTH-0003"},
-		{"patch legal-entity scoped", &fakeStore{}, http.MethodPatch, "/v1/org/currencies/USD", `{"status":"inactive"}`, referenceDuties, true, []string{"X-Passage-Legal-Entity", testkit.TenantID(2)}, http.StatusForbidden, "AUTH-0003"},
+		{"patch legal-entity scoped", &fakeStore{}, http.MethodPatch, "/v1/org/currencies/USD", `{"status":"inactive"}`, referenceDuties, true, []string{"X-Depot-Legal-Entity", testkit.TenantID(2)}, http.StatusForbidden, "AUTH-0003"},
 		{"patch without tenant", &fakeStore{}, http.MethodPatch, "/v1/org/currencies/USD", `{"status":"inactive"}`, "", false, nil, http.StatusUnauthorized, "AUTH-0001"},
 		{"patch unknown code", &fakeStore{}, http.MethodPatch, "/v1/org/currencies/ZZZ", `{"status":"inactive"}`, referenceDuties, true, nil, http.StatusNotFound, store.CodeReferenceNotFound},
 		{"patch store error hides detail", &fakeStore{err: errors.New("pg secret detail")}, http.MethodPatch, "/v1/org/currencies/USD", `{"status":"inactive"}`, referenceDuties, true, nil, http.StatusInternalServerError, "COM-0500"},
@@ -1808,7 +1808,7 @@ func (f *fakeStore) ResolveOrgUnitName(_ context.Context, ownerType, ownerID, ta
 
 func TestNilTenantIsUnauthorized(t *testing.T) {
 	r, _ := newRouter(&fakeStore{})
-	rec := do(r, http.MethodPost, legalEntities, validBody, allDuties, true, "X-Passage-Tenant", ids.Nil)
+	rec := do(r, http.MethodPost, legalEntities, validBody, allDuties, true, "X-Depot-Tenant", ids.Nil)
 	if rec.Code != http.StatusUnauthorized || !strings.Contains(rec.Body.String(), "AUTH-0001") {
 		t.Fatalf("nil tenant = %d %s", rec.Code, rec.Body)
 	}
@@ -1816,7 +1816,7 @@ func TestNilTenantIsUnauthorized(t *testing.T) {
 
 func TestScopedCallerCannotChangeReferenceStatus(t *testing.T) {
 	r, _ := newRouter(&fakeStore{})
-	rec := do(r, http.MethodPatch, "/v1/org/currencies/USD", `{"status":"inactive"}`, referenceDuties, true, "X-Passage-Legal-Entity", testkit.TenantID(2))
+	rec := do(r, http.MethodPatch, "/v1/org/currencies/USD", `{"status":"inactive"}`, referenceDuties, true, "X-Depot-Legal-Entity", testkit.TenantID(2))
 	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "AUTH-0003") {
 		t.Fatalf("got %d %s; want 403 AUTH-0003", rec.Code, rec.Body.String())
 	}
@@ -1842,7 +1842,7 @@ func TestTenantLevelWritesNeedTheTenantAdminDuty(t *testing.T) {
 			if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "AUTH-0003") || !strings.Contains(rec.Body.String(), "tenant.administer") {
 				t.Fatalf("no claim and %s without tenant.administer: %d %s", tt.duties, rec.Code, rec.Body)
 			}
-			rec = doWithoutTenantAdmin(r, tt.method, tt.path, `{}`, tt.duties+",tenant.administer", true, "X-Passage-Legal-Entity", entityA)
+			rec = doWithoutTenantAdmin(r, tt.method, tt.path, `{}`, tt.duties+",tenant.administer", true, "X-Depot-Legal-Entity", entityA)
 			if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "AUTH-0003") || !strings.Contains(rec.Body.String(), "legal-entity-scoped") {
 				t.Fatalf("scoped caller with tenant.administer: %d %s", rec.Code, rec.Body)
 			}

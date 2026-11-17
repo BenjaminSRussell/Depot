@@ -58,21 +58,21 @@ BEGIN
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
-    EXECUTE format('CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting(''passage.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)',
+    EXECUTE format('CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting(''depot.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)',
                    t || '_tenant_access', t);
-    EXECUTE format('CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting(''passage.legal_entity_scopes'', true) = ''*'' OR legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '',''))) WITH CHECK (current_setting(''passage.legal_entity_scopes'', true) = ''*'' OR legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '','')))',
+    EXECUTE format('CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting(''depot.legal_entity_scopes'', true) = ''*'' OR legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '',''))) WITH CHECK (current_setting(''depot.legal_entity_scopes'', true) = ''*'' OR legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '','')))',
                    t || '_legal_entity_scope', t);
   END LOOP;
 END $$;
 
--- passage_app: catalogs change status and version (UPDATE); entries are added and, in
+-- depot_app: catalogs change status and version (UPDATE); entries are added and, in
 -- a DRAFT catalog, removed (DELETE).
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT USAGE ON SEQUENCE procurement_catalog_number_seq TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON procurement_catalog TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON procurement_catalog_entry TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT USAGE ON SEQUENCE procurement_catalog_number_seq TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON procurement_catalog TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON procurement_catalog_entry TO depot_app';
   END IF;
 END
 $$;

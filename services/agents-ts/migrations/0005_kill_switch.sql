@@ -23,19 +23,19 @@ CREATE TABLE IF NOT EXISTS kill_switch_change (
 CREATE INDEX IF NOT EXISTS kill_switch_change_scope ON kill_switch_change (scope, target_tenant_id, version DESC);
 ALTER TABLE kill_switch_change ENABLE ROW LEVEL SECURITY;
 ALTER TABLE kill_switch_change FORCE ROW LEVEL SECURITY;
--- nullif: the pods read on pooled connections where an earlier transaction left passage.tenant_id as ''.
+-- nullif: the pods read on pooled connections where an earlier transaction left depot.tenant_id as ''.
 CREATE POLICY kill_switch_change_tenant_access ON kill_switch_change AS PERMISSIVE
-  USING (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid)
-  WITH CHECK (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
+  USING (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid)
+  WITH CHECK (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
 -- Every pod reads every toggle (allowlisted in tools/rlscheck): writes stay bound by the tenant policy above.
 CREATE POLICY kill_switch_change_fleet_read ON kill_switch_change AS PERMISSIVE FOR SELECT USING (true);
 
 -- Toggles are append-only: no UPDATE or DELETE grant.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON kill_switch_change TO passage_app';
-    EXECUTE 'GRANT USAGE ON SEQUENCE kill_switch_version_seq TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON kill_switch_change TO depot_app';
+    EXECUTE 'GRANT USAGE ON SEQUENCE kill_switch_version_seq TO depot_app';
   END IF;
 END
 $$;

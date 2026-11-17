@@ -2,8 +2,8 @@
 package events
 
 import (
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/services/sales/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/domain"
 )
 
 const Context = "sales"

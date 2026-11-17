@@ -9,12 +9,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
-	"github.com/BenjaminSRussell/passage/services/org/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/services/org/migrations"
 )
 
 func principalContext(n int) context.Context {
@@ -40,7 +40,7 @@ func newStore(t *testing.T, n int) (*store.Postgres, context.Context) {
 
 func TestPostgres_TenantIsolationIdempotencyAndDuplicateCode(t *testing.T) {
 	s, ctx := newStore(t, 1)
-	in := store.LegalEntity{Code: "US01", Name: "Passage US", Country: "US", Currency: "USD", TimeZone: "UTC"}
+	in := store.LegalEntity{Code: "US01", Name: "Depot US", Country: "US", Currency: "USD", TimeZone: "UTC"}
 
 	first, err := s.CreateLegalEntity(ctx, in, "key-1")
 	if err != nil {
@@ -135,14 +135,14 @@ func TestPostgres_CreateLegalEntityEnqueuesInSameTx(t *testing.T) {
 	}
 	seed(t, ctx, pool)
 	s := store.New(pool)
-	in := store.LegalEntity{Code: "US01", Name: "Passage US", Country: "US", Currency: "USD", TimeZone: "America/Chicago"}
+	in := store.LegalEntity{Code: "US01", Name: "Depot US", Country: "US", Currency: "USD", TimeZone: "America/Chicago"}
 
 	created, err := s.CreateLegalEntity(ctx, in, "key-1")
 	if err != nil {
 		t.Fatal(err)
 	}
 	rows := outboxRows(t, ctx, pool)
-	if len(rows) != 1 || rows[0].Type != "dev.passage.org.legalentity.created.v1" {
+	if len(rows) != 1 || rows[0].Type != "dev.depot.org.legalentity.created.v1" {
 		t.Fatalf("outbox rows = %+v; want one legalentity.created", rows)
 	}
 	var evt struct {
@@ -152,7 +152,7 @@ func TestPostgres_CreateLegalEntityEnqueuesInSameTx(t *testing.T) {
 	if err := json.Unmarshal(rows[0].Payload, &evt); err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]string{"id": created.ID, "code": "US01", "name": "Passage US", "country_code": "US", "accounting_currency": "USD", "time_zone": "America/Chicago"}
+	want := map[string]string{"id": created.ID, "code": "US01", "name": "Depot US", "country_code": "US", "accounting_currency": "USD", "time_zone": "America/Chicago"}
 	if evt.Subject != created.ID || len(evt.Data) != len(want) {
 		t.Fatalf("event = %+v; want subject %s and data %v", evt, created.ID, want)
 	}

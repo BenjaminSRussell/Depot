@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const tenantID = "11111111-1111-1111-1111-111111111111"

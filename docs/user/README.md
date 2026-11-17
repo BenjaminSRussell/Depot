@@ -1,6 +1,6 @@
-# Passage user guides
+# Depot user guides
 
-Task-based guides for people who use Passage every day. Each one names the real screens, buttons and messages, and says plainly what is not available yet.
+Task-based guides for people who use Depot every day. Each one names the real screens, buttons and messages, and says plainly what is not available yet.
 
 - [Enter and pay a vendor invoice](ap-clerk.md) (accounts payable)
 - [Raise a purchase order and receive goods](buyer.md) (buyers)

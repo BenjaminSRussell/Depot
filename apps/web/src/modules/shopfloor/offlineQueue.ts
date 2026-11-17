@@ -45,7 +45,7 @@ export class IndexedDbQueueStore implements QueueStore {
   private db: Promise<IDBDatabase> | null = null;
 
   constructor(
-    private readonly dbName = "passage-kiosk",
+    private readonly dbName = "depot-kiosk",
     private readonly storeName = "registrations",
   ) {}
 

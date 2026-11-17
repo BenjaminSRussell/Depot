@@ -20,22 +20,22 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/api"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/certtrust"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/cxmlmap"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/delivery"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/poster"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/safenet"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/secrets"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/sources"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/taxrate"
-	"github.com/BenjaminSRussell/passage/services/edi/migrations"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/api"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/certtrust"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/cxmlmap"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/delivery"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/poster"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/safenet"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/secrets"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/sources"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/taxrate"
+	"github.com/BenjaminSRussell/depot/services/edi/migrations"
 )
 
 func main() {
@@ -195,7 +195,7 @@ type transportConfig struct {
 
 // loadTransportConfig reads EDI_SECRETS_DIR (the mounted directory of
 // transport secrets), EDI_AS2_ADDR (the AS2 listener, off when empty; it must
-// differ from HTTP_ADDR because it serves partners without a Passage
+// differ from HTTP_ADDR because it serves partners without a Depot
 // identity), EDI_AS2_PUBLIC_URL (https base URL partners reach it on),
 // EDI_AS2_ALLOW_HTTP (http:// partner URLs, development only),
 // EDI_AS2_RATE_PER_MINUTE and EDI_AS2_RATE_BURST (requests per AS2 endpoint,
@@ -222,7 +222,7 @@ func loadTransportConfig(getenv func(string) string, httpAddr string) (transport
 	}
 	c.trust = trust
 	if c.as2Addr != "" && c.as2Addr == httpAddr {
-		return c, errors.New("EDI_AS2_ADDR must differ from HTTP_ADDR: the AS2 listener serves partners without a Passage identity")
+		return c, errors.New("EDI_AS2_ADDR must differ from HTTP_ADDR: the AS2 listener serves partners without a Depot identity")
 	}
 	if c.publicURL != "" {
 		u, err := url.Parse(c.publicURL)

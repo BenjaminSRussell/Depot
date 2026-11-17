@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 // maxOpenItems is the most rows POST /open-items:batch takes (receivables domain.MaxOpeningRows) and maxImportSource
@@ -32,7 +32,7 @@ type openingResult struct {
 // openItems loads a cutover snapshot of open AR items through POST /v1/receivables/open-items:batch, one request per
 // legal entity. The batch is keyed by (importSource, legacyKey), so a retry or a rerun updates instead of duplicating;
 // the target answers per row and a refused row keeps the target's AR-OPENING-* code. The customer is the legacy
-// customer key of an earlier customer load (customerKey) or a Passage customer id (customerId).
+// customer key of an earlier customer load (customerKey) or a Depot customer id (customerId).
 func (l *Loader) openItems(ctx context.Context, tenantID string, items []domain.LoadItem) ([]domain.LoadResult, error) {
 	if l.cfg.ReceivablesURL == "" {
 		return all(items, domain.LoadResult{Code: CodeNotAvailable, Detail: "the receivables service address is not configured for the migration service"}), nil

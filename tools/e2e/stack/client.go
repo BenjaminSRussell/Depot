@@ -64,10 +64,10 @@ func (c Client) Do(ctx context.Context, method, path string, body any, headers m
 		req.Header.Set("Content-Type", "application/json")
 	}
 	if c.Principal.User != "" {
-		req.Header.Set("X-Passage-Tenant", Tenant)
-		req.Header.Set("X-Passage-Legal-Entity", LegalEntity)
-		req.Header.Set("X-Passage-User", c.Principal.User)
-		req.Header.Set("X-Passage-Duties", strings.Join(c.Principal.Duties, ","))
+		req.Header.Set("X-Depot-Tenant", Tenant)
+		req.Header.Set("X-Depot-Legal-Entity", LegalEntity)
+		req.Header.Set("X-Depot-User", c.Principal.User)
+		req.Header.Set("X-Depot-Duties", strings.Join(c.Principal.Duties, ","))
 	}
 	for k, v := range c.Headers {
 		req.Header.Set(k, v)

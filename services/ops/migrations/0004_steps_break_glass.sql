@@ -1,11 +1,11 @@
--- Failover step results and break-glass for ops.failover.execute (PSG-50, part 2). Platform state, not tenant data: no
+-- Failover step results and break-glass for ops.failover.execute (DPT-50, part 2). Platform state, not tenant data: no
 -- tenant_id and no RLS (allowlisted in tools/rlscheck), like the other ops tables.
 
 -- When a region's lag was last reported. A reading older than OPS_LAG_STALE_S is treated as unknown (very large), so a stopped
 -- reporter blocks a failover instead of leaving the last, now stale, number in place.
 ALTER TABLE ops_region ADD COLUMN lag_reported_at timestamptz;
 
--- One row per executed step of a failover plan, written by the runner (passage-ops failover) as each step finishes, so a
+-- One row per executed step of a failover plan, written by the runner (depot-ops failover) as each step finishes, so a
 -- crashed run resumes at the first step that is not DONE and the record shows who ran what.
 CREATE TABLE ops_failover_step (
   event_id    text NOT NULL REFERENCES ops_failover (event_id),
@@ -55,11 +55,11 @@ CREATE TABLE ops_break_glass_use (
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ops_failover_step TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ops_break_glass TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON ops_break_glass_use TO passage_app';
-    EXECUTE format('GRANT USAGE ON SEQUENCE %I TO passage_app', 'ops_break_glass_use_id_seq');
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ops_failover_step TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ops_break_glass TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON ops_break_glass_use TO depot_app';
+    EXECUTE format('GRANT USAGE ON SEQUENCE %I TO depot_app', 'ops_break_glass_use_id_seq');
   END IF;
 END
 $$;

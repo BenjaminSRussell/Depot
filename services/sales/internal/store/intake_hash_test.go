@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/sales/migrations"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/sales/migrations"
 )
 
 // TestPostgres_IntakeHashOfOneTimeRequestIsKeyed covers the slice 20 follow-up:
@@ -120,10 +120,10 @@ func TestPostgres_IntakeKeyedHashMigrationClearsPlainDigests(t *testing.T) {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	if os.Getenv(testkit.EnvAppURL) != "" {
-		if _, err := tx.Exec(ctx, `alter table intake_error owner to passage_app`); err != nil {
+		if _, err := tx.Exec(ctx, `alter table intake_error owner to depot_app`); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := tx.Exec(ctx, `set local role passage_app`); err != nil {
+		if _, err := tx.Exec(ctx, `set local role depot_app`); err != nil {
 			t.Fatal(err)
 		}
 	}

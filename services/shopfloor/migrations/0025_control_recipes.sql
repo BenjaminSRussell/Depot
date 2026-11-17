@@ -1,4 +1,4 @@
--- PSG-25 #25 subtask 25-5: control recipes (FR-25.15, BR-25.11, BR-25.15, D6). A control recipe is the
+-- DPT-25 #25 subtask 25-5: control recipes (FR-25.15, BR-25.11, BR-25.15, D6). A control recipe is the
 -- ISA-88 structure of one order (procedure, unit procedures, operations, phases, process instructions)
 -- generated for one destination: the kiosk, or a process control system reached through an edge node
 -- (pcs-opcua writes setpoints to allowlisted nodes, pcs-mqtt publishes to a topic). It is sent when it is
@@ -38,8 +38,8 @@ CREATE INDEX IF NOT EXISTS control_recipe_resource ON control_recipe (tenant_id,
 ALTER TABLE control_recipe ENABLE ROW LEVEL SECURITY;
 ALTER TABLE control_recipe FORCE ROW LEVEL SECURITY;
 CREATE POLICY control_recipe_tenant_access ON control_recipe AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS control_recipe_event (
   tenant_id uuid NOT NULL,
@@ -58,8 +58,8 @@ CREATE INDEX IF NOT EXISTS control_recipe_event_recipe ON control_recipe_event (
 ALTER TABLE control_recipe_event ENABLE ROW LEVEL SECURITY;
 ALTER TABLE control_recipe_event FORCE ROW LEVEL SECURITY;
 CREATE POLICY control_recipe_event_tenant_access ON control_recipe_event AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS edge_write_audit (
   tenant_id uuid NOT NULL,
@@ -82,15 +82,15 @@ CREATE INDEX IF NOT EXISTS edge_write_audit_recipe ON edge_write_audit (tenant_i
 ALTER TABLE edge_write_audit ENABLE ROW LEVEL SECURITY;
 ALTER TABLE edge_write_audit FORCE ROW LEVEL SECURITY;
 CREATE POLICY edge_write_audit_tenant_access ON edge_write_audit AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON control_recipe TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON control_recipe_event TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON edge_write_audit TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON control_recipe TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON control_recipe_event TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON edge_write_audit TO depot_app';
   END IF;
 END
 $$;

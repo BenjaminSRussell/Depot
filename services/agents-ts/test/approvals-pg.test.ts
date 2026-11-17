@@ -30,7 +30,7 @@ describe.runIf(ownerUrl)("persisted approvals in Postgres", () => {
       tenantId,
       runId,
       seq: 1,
-      tool: "passage.ap.invoice.propose_coding",
+      tool: "depot.ap.invoice.propose_coding",
       invokerUserId: INVOKER,
       approvalDuty: "ap.invoice.propose",
       amount: usd("1200.00"),
@@ -46,7 +46,7 @@ describe.runIf(ownerUrl)("persisted approvals in Postgres", () => {
     const found = await approvals.find(TENANT, runId, actionId);
     expect(found).toMatchObject({ invokerUserId: INVOKER, approvalDuty: "ap.invoice.propose", amount: usd("1200.00"), selfApprovalLimit: usd("5000.00") });
     expect(found?.decided).toBeUndefined();
-    expect(await approvals.pendingForRun(TENANT, runId)).toEqual([expect.objectContaining({ actionId, seq: 1, tool: "passage.ap.invoice.propose_coding" })]);
+    expect(await approvals.pendingForRun(TENANT, runId)).toEqual([expect.objectContaining({ actionId, seq: 1, tool: "depot.ap.invoice.propose_coding" })]);
   });
 
   it("records the first decision only: a second approver gets the stored one, and the decision endpoint answers 409 for a different decision", async () => {

@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { AdjustmentDetailPage, AdjustmentsPage, CreateAdjustmentPage } from "./AdjustmentsPage";
 import { AgingPage } from "./AgingPage";
 import { AgingSnapshotsPage, BucketSetsPage, CreateSnapshotPage, SnapshotDetailPage } from "./AgingSnapshotsPage";
@@ -12,7 +12,7 @@ import { VersionDetailPage } from "./VersionDetailPage";
 import { ValueReportPage } from "./ValueReportPage";
 import { CreateVersionPage, VersionsPage } from "./VersionsPage";
 
-const costing: PassageModule = {
+const costing: DepotModule = {
   id: "costing",
   title: "Inventory costing",
   description:

@@ -4,12 +4,12 @@ info:
   version: 0.1.0
   description: Identity service. This slice exposes tenant, legal-entity and role-assignment administration, the read-only user directory, role and duty catalogue, and effective-permission report.
 servers:
-  - url: https://app.local.passage.dev
+  - url: https://app.local.depot.dev
 paths:
   /v1/identity/users/{id}/effective-permissions:
     get:
       operationId: getUserEffectivePermissions
-      x-passage-duty: identity.effective-permission.view
+      x-depot-duty: identity.effective-permission.view
       description: >-
         Evaluates every route and method in the seeded duty catalogue for the user's active role
         assignments. The role of an assignment holds a duty name until the role catalogue exists;
@@ -49,7 +49,7 @@ paths:
   /v1/identity/users:
     get:
       operationId: listUsers
-      x-passage-duty: identity.user.maintain
+      x-depot-duty: identity.user.maintain
       description: >-
         Lists the caller's tenant's users by id, keyset-paged. Users belong to the tenant, so every caller holding
         identity.user.maintain sees all of them; legalEntityId narrows to users with an active role assignment for that
@@ -75,7 +75,7 @@ paths:
     get:
       operationId: listUserNames
       summary: "Resolve user ids to display names"
-      x-passage-duty: identity.user-name.read
+      x-depot-duty: identity.user-name.read
       description: >-
         Up to 50 user ids of the caller's tenant (`ids`, comma separated) to display names, so a page can say who rejected,
         released or approved something. Only the display name is returned. Unknown ids are left out; deprovisioned users
@@ -111,7 +111,7 @@ paths:
     get:
       operationId: getUser
       summary: "Get a user"
-      x-passage-duty: identity.user.maintain
+      x-depot-duty: identity.user.maintain
       security: [{ gatewayHeaders: [] }]
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
@@ -128,7 +128,7 @@ paths:
   /v1/identity/users/{id}/keycloak-deprovisions:
     get:
       operationId: listKeycloakDeprovisions
-      x-passage-duty: identity.user.maintain
+      x-depot-duty: identity.user.maintain
       description: >-
         The Keycloak calls SCIM deprovisioning (active=false or DELETE) queued for the user, newest first. pending calls
         are retried with backoff; parked ones failed too often (or permanently) and wait for a retry; done ones disabled
@@ -149,11 +149,11 @@ paths:
   /v1/identity/users/{id}/keycloak-deprovisions/{deprovisionId}:retry:
     post:
       operationId: retryKeycloakDeprovision
-      x-passage-duty: identity.user.maintain
+      x-depot-duty: identity.user.maintain
       description: >-
         Makes a parked or pending Keycloak deprovisioning call due now with its attempt count reset, after its cause is
         fixed. Needs a tenant administrator (tenant.administer, no legal-entity claim). A finished call returns 409
-        IDN-KEYCLOAK-DEPROVISION-DONE. Audited and emitted as dev.passage.identity.keycloakdeprovision.retried.v1.
+        IDN-KEYCLOAK-DEPROVISION-DONE. Audited and emitted as dev.depot.identity.keycloakdeprovision.retried.v1.
       security: [{ gatewayHeaders: [] }]
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
@@ -171,7 +171,7 @@ paths:
   /v1/identity/customer-contacts:
     get:
       operationId: listCustomerContacts
-      x-passage-duty: identity.customer-contact.maintain
+      x-depot-duty: identity.customer-contact.maintain
       description: The customer portal contacts of the tenant, optionally for one customer or one status, ordered by contact id (page with after).
       security: [{ gatewayHeaders: [] }]
       parameters:
@@ -190,7 +190,7 @@ paths:
         '500': { $ref: '#/components/responses/Problem' }
     post:
       operationId: inviteCustomerContact
-      x-passage-duty: identity.customer-contact.maintain
+      x-depot-duty: identity.customer-contact.maintain
       description: >-
         Invites a person to the customer portal for one customer and the named legal entities (#30). Creates the user in the
         tenant's Keycloak realm with the role customer-user, the claims tenant_id, legal_entity_id (comma separated) and customer_id as
@@ -199,7 +199,7 @@ paths:
         send the email; :resend sends it again. The caller needs scope over every named legal entity. Identity does not read customers,
         so the customerId is taken as given. 409 IDN-CONTACT-EXISTS for an address already invited; 502 IDN-CONTACT-KEYCLOAK when
         Keycloak refused and nothing was stored; 503 IDN-CONTACT-KEYCLOAK-OFF when Keycloak administration is not configured. Audited
-        and emitted as dev.passage.identity.customercontact.invited.v1 (ids only, never the address).
+        and emitted as dev.depot.identity.customercontact.invited.v1 (ids only, never the address).
       security: [{ gatewayHeaders: [] }]
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
@@ -230,12 +230,12 @@ paths:
   /v1/identity/customer-contacts/{id}:
     patch:
       operationId: remapCustomerContact
-      x-passage-duty: identity.customer-contact.maintain
+      x-depot-duty: identity.customer-contact.maintain
       description: >-
         Maps the contact to another customer and set of legal entities: the Keycloak attributes are rewritten and the contact's
         sessions end, so the next sign-in carries the new claims; the registry row follows. The caller needs scope over the new and the
         old legal entities. 409 IDN-CONTACT-DISABLED for a disabled contact. Audited and emitted as
-        dev.passage.identity.customercontact.remapped.v1.
+        dev.depot.identity.customercontact.remapped.v1.
       security: [{ gatewayHeaders: [] }]
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
@@ -265,7 +265,7 @@ paths:
   /v1/identity/customer-contacts/{id}:resend:
     post:
       operationId: resendCustomerContactInvitation
-      x-passage-duty: identity.customer-contact.maintain
+      x-depot-duty: identity.customer-contact.maintain
       description: Asks Keycloak to email the invitation link again (the link lasts seven days). 409 IDN-CONTACT-DISABLED for a disabled contact.
       security: [{ gatewayHeaders: [] }]
       parameters:
@@ -285,8 +285,8 @@ paths:
   /v1/identity/customer-contacts/{id}:disable:
     post:
       operationId: disableCustomerContact
-      x-passage-duty: identity.customer-contact.maintain
-      description: Disables the Keycloak account, ends its sessions and marks the contact disabled. Idempotent. Audited and emitted as dev.passage.identity.customercontact.disabled.v1.
+      x-depot-duty: identity.customer-contact.maintain
+      description: Disables the Keycloak account, ends its sessions and marks the contact disabled. Idempotent. Audited and emitted as dev.depot.identity.customercontact.disabled.v1.
       security: [{ gatewayHeaders: [] }]
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
@@ -304,7 +304,7 @@ paths:
   /v1/identity/customer-portal/legal-entity:
     get:
       operationId: customerPortalLegalEntity
-      x-passage-duty: identity.customer-portal.read
+      x-depot-duty: identity.customer-portal.read
       description: >-
         For the customer portal only (#30): the service-only duty, and the caller must be the customer-portal service token acting for a
         customer (a staff caller is 403). Answers the display name of the one legal entity of the token, for the portal's company
@@ -331,7 +331,7 @@ paths:
   /v1/authz/roles:
     get:
       operationId: listRoles
-      x-passage-duty: identity.security-role.maintain
+      x-depot-duty: identity.security-role.maintain
       description: Lists the role catalogue. Until roles are first-class a role is an assignable (not service-only) duty and its name is the duty name that role assignments hold. q is a case-insensitive substring filter on the name.
       security: [{ gatewayHeaders: [] }]
       parameters:
@@ -347,7 +347,7 @@ paths:
   /v1/authz/roles/{name}:
     get:
       operationId: getRole
-      x-passage-duty: identity.security-role.maintain
+      x-depot-duty: identity.security-role.maintain
       description: A role with the duties it holds and the routes each duty grants. A service-only duty is not a role (404 IDN-ROLE-NOT-FOUND).
       security: [{ gatewayHeaders: [] }]
       parameters:
@@ -363,7 +363,7 @@ paths:
   /v1/authz/duties:
     get:
       operationId: listDuties
-      x-passage-duty: identity.security-role.maintain
+      x-depot-duty: identity.security-role.maintain
       description: Lists every seeded duty with its route count, sorted by name. q is a case-insensitive substring filter; serviceOnly narrows to service-only or person duties.
       security: [{ gatewayHeaders: [] }]
       parameters:
@@ -381,7 +381,7 @@ paths:
     get:
       operationId: getDuty
       summary: "Get a duty"
-      x-passage-duty: identity.security-role.maintain
+      x-depot-duty: identity.security-role.maintain
       security: [{ gatewayHeaders: [] }]
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
@@ -396,8 +396,8 @@ paths:
   /v1/tenants:
     post:
       operationId: createTenant
-      x-passage-duty: identity.tenant.maintain
-      description: Operator only. Provisions a tenant; the caller must hold identity.tenant.maintain and belong to the platform operator tenant. Audited and emitted as dev.passage.identity.tenant.created.v1.
+      x-depot-duty: identity.tenant.maintain
+      description: Operator only. Provisions a tenant; the caller must hold identity.tenant.maintain and belong to the platform operator tenant. Audited and emitted as dev.depot.identity.tenant.created.v1.
       security: [{ gatewayHeaders: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantHeader' }, { $ref: '#/components/parameters/UserHeader' }, { $ref: '#/components/parameters/Duties' }]
       requestBody:
@@ -415,7 +415,7 @@ paths:
         '500': { $ref: '#/components/responses/Problem' }
     get:
       operationId: listTenants
-      x-passage-duty: identity.tenant.maintain
+      x-depot-duty: identity.tenant.maintain
       description: Operator only. Lists all tenants by id, keyset-paged, optionally only those with one status. A service holding the read-only identity.tenant-registry.read duty (a scheduled job that needs the active tenants) may also list; every other tenant route needs identity.tenant.maintain.
       security: [{ gatewayHeaders: [] }]
       parameters:
@@ -433,7 +433,7 @@ paths:
   /v1/tenants/{id}:
     get:
       operationId: getTenant
-      x-passage-duty: identity.tenant.maintain
+      x-depot-duty: identity.tenant.maintain
       description: Operator only.
       security: [{ gatewayHeaders: [] }]
       parameters:
@@ -450,7 +450,7 @@ paths:
   /v1/tenants/{id}/admins:
     post:
       operationId: grantTenantAdministrator
-      x-passage-duty: identity.tenant.maintain
+      x-depot-duty: identity.tenant.maintain
       description: Operator only. Grants the tenant-wide tenant.administer duty to an active user of an active tenant other than the operator tenant, and never to the caller. Audited in the target and operator tenants.
       security: [{ gatewayHeaders: [] }]
       parameters:
@@ -474,8 +474,8 @@ paths:
   /v1/legal-entities:
     post:
       operationId: createLegalEntity
-      x-passage-duty: identity.legal-entity.maintain
-      description: Creates a legal entity in the caller's tenant. Requires access to all legal entities. Audited and emitted as dev.passage.identity.legalentity.created.v1.
+      x-depot-duty: identity.legal-entity.maintain
+      description: Creates a legal entity in the caller's tenant. Requires access to all legal entities. Audited and emitted as dev.depot.identity.legalentity.created.v1.
       security: [{ gatewayHeaders: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantHeader' }, { $ref: '#/components/parameters/UserHeader' }, { $ref: '#/components/parameters/Duties' }, { $ref: '#/components/parameters/LegalEntityHeader' }]
       requestBody:
@@ -492,7 +492,7 @@ paths:
         '500': { $ref: '#/components/responses/Problem' }
     get:
       operationId: listLegalEntities
-      x-passage-duty: identity.legal-entity.maintain
+      x-depot-duty: identity.legal-entity.maintain
       description: Lists the caller's tenant's legal entities that are inside the caller's legal-entity scope.
       security: [{ gatewayHeaders: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantHeader' }, { $ref: '#/components/parameters/Duties' }, { $ref: '#/components/parameters/LegalEntityHeader' }, { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/After' }]
@@ -506,7 +506,7 @@ paths:
     get:
       operationId: getLegalEntity
       summary: "Get a legal entity"
-      x-passage-duty: identity.legal-entity.maintain
+      x-depot-duty: identity.legal-entity.maintain
       security: [{ gatewayHeaders: [] }]
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
@@ -523,7 +523,7 @@ paths:
   /v1/tenant/features:
     get:
       operationId: getTenantFeatures
-      x-passage-duty: identity.feature.view
+      x-depot-duty: identity.feature.view
       description: >-
         The feature catalog with the caller's tenant's on/off state, and the industry templates. A feature the tenant
         never changed is on. The service itself needs only an authenticated tenant; the duty applies at the gateway, and a service token carrying identity.feature.view (granted to processmfg) is accepted without a legal entity. 403 comes from the gateway or from a service token without that duty.
@@ -536,13 +536,13 @@ paths:
         '500': { $ref: '#/components/responses/Problem' }
     put:
       operationId: updateTenantFeatures
-      x-passage-duty: identity.feature.maintain
+      x-depot-duty: identity.feature.maintain
       description: >-
         Turns features on or off, or applies a template (its features on, every other feature off). Send either
         template or features. A feature cannot be turned on while one it depends on is off, nor off while another
         feature that is on depends on it (422 IDN-FEATURE-DEPENDENCY, with a plain-words message per feature in
         errors). Requires access to all legal entities and tenant.administer. A change is audited and emitted as
-        dev.passage.identity.tenantfeatures.updated.v1; a request that changes nothing writes nothing.
+        dev.depot.identity.tenantfeatures.updated.v1; a request that changes nothing writes nothing.
       security: [{ gatewayHeaders: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantHeader' }, { $ref: '#/components/parameters/UserHeader' }, { $ref: '#/components/parameters/Duties' }, { $ref: '#/components/parameters/LegalEntityHeader' }]
       requestBody:
@@ -560,7 +560,7 @@ paths:
   /v1/tenant/setup:
     get:
       operationId: getTenantSetup
-      x-passage-duty: identity.setup.view
+      x-depot-duty: identity.setup.view
       description: >-
         The onboarding wizard steps in the order a company is set up, each todo, done or skipped, with who changed it and
         when. complete is true once every step is done or skipped.
@@ -574,8 +574,8 @@ paths:
   /v1/tenant/setup/steps/{step}:
     put:
       operationId: updateTenantSetupStep
-      x-passage-duty: identity.setup.maintain
-      description: Marks one step todo, done or skipped. Requires access to all legal entities and tenant.administer. Audited and emitted as dev.passage.identity.tenantsetup.updated.v1. An unknown step is 404.
+      x-depot-duty: identity.setup.maintain
+      description: Marks one step todo, done or skipped. Requires access to all legal entities and tenant.administer. Audited and emitted as dev.depot.identity.tenantsetup.updated.v1. An unknown step is 404.
       security: [{ gatewayHeaders: [] }]
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
@@ -602,7 +602,7 @@ paths:
   /v1/tenant/workspace-config:
     get:
       operationId: getTenantWorkspaceConfig
-      x-passage-duty: identity.setup.view
+      x-depot-duty: identity.setup.view
       description: The tenant's override of the shell's workspaces (areas, workspaces, hide), or null when the tenant uses the shipped workspaces. The shell merges and validates it.
       security: [{ gatewayHeaders: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantHeader' }, { $ref: '#/components/parameters/UserHeader' }, { $ref: '#/components/parameters/Duties' }]
@@ -613,7 +613,7 @@ paths:
         '500': { $ref: '#/components/responses/Problem' }
     put:
       operationId: updateTenantWorkspaceConfig
-      x-passage-duty: identity.setup.maintain
+      x-depot-duty: identity.setup.maintain
       description: Replaces the override; null goes back to the shipped workspaces. Only the keys areas, workspaces and hide are accepted. Requires access to all legal entities and tenant.administer. Audited.
       security: [{ gatewayHeaders: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantHeader' }, { $ref: '#/components/parameters/UserHeader' }, { $ref: '#/components/parameters/Duties' }, { $ref: '#/components/parameters/LegalEntityHeader' }]
@@ -631,7 +631,7 @@ paths:
   /v1/authz/assignments:
     post:
       operationId: assignRole
-      x-passage-duty: identity.security-role.maintain
+      x-depot-duty: identity.security-role.maintain
       description: >-
         Assigns a role (a seeded duty name until the role catalogue exists) to a user, tenant-wide or for one
         legal entity, effective from validFrom (default now) until validTo (default open-ended). The database
@@ -640,7 +640,7 @@ paths:
         caller holding identity.security-role.maintain. validFrom more than five minutes in the past is refused, and a
         validTo that is not in the future is refused (a window that has already closed grants nothing). A caller cannot grant a role to themselves (403 IAM-0416), identity.tenant.maintain can only be granted
         in the operator tenant (403), and an inactive legal entity is refused (422 IDN-LEGAL-ENTITY-INACTIVE).
-        Audited and emitted as dev.passage.identity.roleassignment.assigned.v1.
+        Audited and emitted as dev.depot.identity.roleassignment.assigned.v1.
       security: [{ gatewayHeaders: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantHeader' }, { $ref: '#/components/parameters/UserHeader' }, { $ref: '#/components/parameters/Duties' }, { $ref: '#/components/parameters/LegalEntityHeader' }]
       requestBody:
@@ -659,7 +659,7 @@ paths:
         '500': { $ref: '#/components/responses/Problem' }
     get:
       operationId: listRoleAssignments
-      x-passage-duty: identity.security-role.maintain
+      x-depot-duty: identity.security-role.maintain
       description: Lists assignments by user (userId), by role (role), or both; at least one of userId or role is required (400 otherwise). active=true keeps assignments in effect now.
       security: [{ gatewayHeaders: [] }]
       parameters:
@@ -681,7 +681,7 @@ paths:
     get:
       operationId: getRoleAssignment
       summary: "Get a role assignment"
-      x-passage-duty: identity.security-role.maintain
+      x-depot-duty: identity.security-role.maintain
       security: [{ gatewayHeaders: [] }]
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
@@ -697,7 +697,7 @@ paths:
         '500': { $ref: '#/components/responses/Problem' }
     delete:
       operationId: revokeRoleAssignment
-      x-passage-duty: identity.security-role.maintain
+      x-depot-duty: identity.security-role.maintain
       description: Alias of POST .../end; the assignment is end-dated, never deleted. An optional body may carry validTo.
       security: [{ gatewayHeaders: [] }]
       parameters:
@@ -722,12 +722,12 @@ paths:
   /v1/authz/assignments/{id}/end:
     post:
       operationId: endRoleAssignment
-      x-passage-duty: identity.security-role.maintain
+      x-depot-duty: identity.security-role.maintain
       description: >-
         End-dates an assignment at validTo (default now, or validFrom for a future-dated assignment, which cancels
         it: the empty range grants nothing). validTo may lag the server clock by up to five minutes, must not
         precede validFrom and must not extend an existing end date; ending at exactly the current end is a no-op
-        with no audit row; an assignment that has already ended returns 409 IDN-ASSIGNMENT-ENDED. Audited and emitted as dev.passage.identity.roleassignment.ended.v1.
+        with no audit row; an assignment that has already ended returns 409 IDN-ASSIGNMENT-ENDED. Audited and emitted as dev.depot.identity.roleassignment.ended.v1.
       security: [{ gatewayHeaders: [] }]
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
@@ -753,29 +753,29 @@ components:
     gatewayHeaders:
       type: apiKey
       in: header
-      name: X-Passage-Tenant
-      description: Tenant, caller and duties are asserted by the gateway through X-Passage-* headers until JWT validation lands.
+      name: X-Depot-Tenant
+      description: Tenant, caller and duties are asserted by the gateway through X-Depot-* headers until JWT validation lands.
   parameters:
     TenantHeader:
-      name: X-Passage-Tenant
+      name: X-Depot-Tenant
       in: header
       required: true
       description: Tenant id set by the gateway until JWT validation lands (kernel tenant middleware).
       schema: { type: string, format: uuid }
     Duties:
-      name: X-Passage-Duties
+      name: X-Depot-Duties
       in: header
       required: false
       description: Comma-separated duties of the caller; identity.effective-permission.view or identity.user.maintain is required.
       schema: { type: string }
     LegalEntityHeader:
-      name: X-Passage-Legal-Entity
+      name: X-Depot-Legal-Entity
       in: header
       required: false
       description: Legal-entity scope of the caller. Only an explicit all-entity scope is accepted; an absent or narrower scope yields 403.
       schema: { type: string }
     UserHeader:
-      name: X-Passage-User
+      name: X-Depot-User
       in: header
       required: true
       description: Authenticated caller recorded as the actor in the audit trail and events; mutations without it return 401.

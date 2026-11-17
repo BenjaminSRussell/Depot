@@ -15,9 +15,9 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/domain"
 )
 
 // dutySetupView is the PRD duty WMS_SETUP_VIEW (§6.31.17), named the way every
@@ -29,7 +29,7 @@ const (
 )
 
 // simulatePath is the PRD route /wms/v1/location-directives:simulate under the
-// /v1/<service>/ prefix every Passage service uses; the web BFF maps
+// /v1/<service>/ prefix every Depot service uses; the web BFF maps
 // /api/v1/warehouse/... onto it.
 const simulatePath = "/v1/warehouse/location-directives:simulate"
 

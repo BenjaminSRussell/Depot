@@ -15,13 +15,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/certtrust"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/delivery"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/transport"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/certtrust"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/delivery"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/transport"
 )
 
 // maxAS2Body caps one AS2 request: a 4 MiB interchange with base64, the
@@ -32,8 +32,8 @@ const maxAS2Body = 8 << 20
 const maxAsyncMDNBody = 1 << 20
 
 // AS2Routes is the handler of the AS2 listener (EDI_AS2_ADDR). Partners call
-// it without a Passage identity, so it has no tenant middleware and accepts
-// no X-Passage-* header: the endpoint id in the path selects one partner
+// it without a Depot identity, so it has no tenant middleware and accepts
+// no X-Depot-* header: the endpoint id in the path selects one partner
 // transport (tenant, partner and legal entity come from that row), and the
 // caller is authenticated by its CMS signature against the partner
 // certificate pinned there, with AS2-From and AS2-To matching the profile.

@@ -10,17 +10,17 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
-	"github.com/BenjaminSRussell/passage/services/org/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/services/org/migrations"
 )
 
 const (
-	siteCreatedType = "dev.passage.org.site.created.v1"
-	siteUpdatedType = "dev.passage.org.site.updated.v1"
+	siteCreatedType = "dev.depot.org.site.created.v1"
+	siteUpdatedType = "dev.depot.org.site.updated.v1"
 )
 
 func newSite(legalEntityID, code string) store.Site {
@@ -329,7 +329,7 @@ func outboxTypesInOrder(t *testing.T, ctx context.Context, pool *pgxpool.Pool) [
 		t.Fatal(err)
 	}
 	defer tx.Rollback(ctx)
-	if _, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', '*', true)`, testkit.TenantID(1)); err != nil {
+	if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true)`, testkit.TenantID(1)); err != nil {
 		t.Fatal(err)
 	}
 	rows, err := tx.Query(ctx, `select type from outbox order by id`)
@@ -364,7 +364,7 @@ func TestPostgres_SiteCreateWithDefaultWarehouseWritesBothRowsAndEventsInOrder(t
 	if err != nil || stored.DefaultWarehouseID == nil || *stored.DefaultWarehouseID != warehouse.ID || stored.Version != 1 {
 		t.Fatalf("stored site = %+v, %v", stored, err)
 	}
-	if got := outboxTypesInOrder(t, ctx, pool); !reflect.DeepEqual(got, []string{"dev.passage.org.legalentity.created.v1", siteCreatedType, warehouseCreatedType}) {
+	if got := outboxTypesInOrder(t, ctx, pool); !reflect.DeepEqual(got, []string{"dev.depot.org.legalentity.created.v1", siteCreatedType, warehouseCreatedType}) {
 		t.Fatalf("event order = %v", got)
 	}
 	if events := unitEvents(t, ctx, pool, siteCreatedType); len(events) != 1 || events[0]["default_warehouse_id"] != warehouse.ID {

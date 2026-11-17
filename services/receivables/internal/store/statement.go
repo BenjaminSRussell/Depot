@@ -7,8 +7,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
 )
 
 // statementQuery reads a customer's documents still open at the end of the

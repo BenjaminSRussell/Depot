@@ -6,7 +6,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // MaxVersionSites bounds the site scope of one costing version.

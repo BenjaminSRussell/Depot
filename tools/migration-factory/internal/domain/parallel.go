@@ -68,7 +68,7 @@ type ParallelVariance struct {
 	ExplainedAt *time.Time
 }
 
-// ParallelRun is one replayed legacy period compared with Passage (FR-49.5).
+// ParallelRun is one replayed legacy period compared with Depot (FR-49.5).
 type ParallelRun struct {
 	ID                string
 	Period            string
@@ -87,7 +87,7 @@ type ParallelRun struct {
 	CreatedAt         time.Time
 }
 
-// ParallelInput is what a parallel run is started from: the legacy tuples, and the Passage
+// ParallelInput is what a parallel run is started from: the legacy tuples, and the Depot
 // tuples the replay produced (FR-49.5 step 1).
 type ParallelInput struct {
 	Period            string
@@ -96,7 +96,7 @@ type ParallelInput struct {
 	Revenue           decimal.Decimal
 	ExplainedMaxPct   decimal.Decimal
 	Legacy            []Line
-	Passage           []Line
+	Depot             []Line
 }
 
 // Validate checks the period (YYYY-MM), the counts and the tuples.
@@ -110,10 +110,10 @@ func (in ParallelInput) Validate() error {
 	if in.Revenue.IsNegative() {
 		return fmt.Errorf("%w: revenue must be >= 0", ErrInvalid)
 	}
-	if len(in.Legacy)+len(in.Passage) == 0 {
-		return fmt.Errorf("%w: a parallel run needs legacy or Passage tuples", ErrInvalid)
+	if len(in.Legacy)+len(in.Depot) == 0 {
+		return fmt.Errorf("%w: a parallel run needs legacy or Depot tuples", ErrInvalid)
 	}
-	for _, side := range [][]Line{in.Legacy, in.Passage} {
+	for _, side := range [][]Line{in.Legacy, in.Depot} {
 		for _, l := range side {
 			if strings.TrimSpace(l.Key) == "" {
 				return fmt.Errorf("%w: %s tuple has a blank key", ErrInvalid, l.Area)
@@ -129,7 +129,7 @@ func (in ParallelInput) Validate() error {
 // Hash is the sha256 of the input in a canonical order, so the same tuples in any order hash
 // the same. A repeated start for (period, system) with another hash is a different run.
 func (in ParallelInput) Hash() string {
-	lines := make([]string, 0, len(in.Legacy)+len(in.Passage))
+	lines := make([]string, 0, len(in.Legacy)+len(in.Depot))
 	// A document count is hashed only when given, so a run stored before tuples carried one keeps its hash.
 	docs := func(n int) string {
 		if n <= 0 {
@@ -140,8 +140,8 @@ func (in ParallelInput) Hash() string {
 	for _, l := range in.Legacy {
 		lines = append(lines, "L|"+string(l.Area)+"|"+l.Key+"|"+l.Legacy.StringFixed(6)+docs(l.Documents))
 	}
-	for _, l := range in.Passage {
-		lines = append(lines, "P|"+string(l.Area)+"|"+l.Key+"|"+l.Passage.StringFixed(6)+docs(l.Documents))
+	for _, l := range in.Depot {
+		lines = append(lines, "P|"+string(l.Area)+"|"+l.Key+"|"+l.Depot.StringFixed(6)+docs(l.Documents))
 	}
 	sort.Strings(lines)
 	head := fmt.Sprintf("%s|%s|%d|%s|%s", in.Period, in.SourceSystem, in.DocumentsReplayed, in.Revenue.StringFixed(6), in.ExplainedMaxPct.StringFixed(6))
@@ -158,7 +158,7 @@ func StartParallelRun(id string, in ParallelInput, rules []Rule, startedBy strin
 	run := ParallelRun{ID: id, Period: in.Period, SourceSystem: in.SourceSystem, DocumentsReplayed: in.DocumentsReplayed,
 		Revenue: in.Revenue, ExplainedMaxPct: in.ExplainedMaxPct, InputHash: in.Hash(), State: ParallelDiffing,
 		StartedBy: startedBy, Version: 1}
-	for _, v := range Diff(in.Legacy, in.Passage, rules, Explanations{}) {
+	for _, v := range Diff(in.Legacy, in.Depot, rules, Explanations{}) {
 		run.Variances = append(run.Variances, ParallelVariance{ID: newID(), Variance: v})
 	}
 	run.Summarize()

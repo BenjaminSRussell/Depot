@@ -3,7 +3,7 @@ package events
 // PolicyChanged is written when a legal entity's purchasing policy is saved
 // (FR-17.13). Audit and workflow consumers read it; the subject is the legal
 // entity id.
-const PolicyChanged = "dev.passage.procurement.policy.changed.v1"
+const PolicyChanged = "dev.depot.procurement.policy.changed.v1"
 
 // PolicyChangedData is the data member of policy.changed.v1.
 type PolicyChangedData struct {

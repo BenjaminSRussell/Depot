@@ -31,7 +31,7 @@ export function createBudgetPlanActivities(baseUrl: string, signer: ServiceToken
     const response = await fetchImpl(`${baseUrl}/v1/budget/plans/${encodeURIComponent(ref.planId)}${path}`, {
       method: "POST",
       headers: {
-        "X-Passage-Service-Token": mintOrReject(() =>
+        "X-Depot-Service-Token": mintOrReject(() =>
           signer.mintForBudgeting({
             tenantId: ref.tenantId,
             legalEntityId: ref.legalEntityId,

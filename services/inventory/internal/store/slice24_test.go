@@ -7,9 +7,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 // A transfer can always ship against its own booked demand: the open quantity of the order itself is
@@ -245,7 +245,7 @@ func TestExpiredReservationAgainstExpectedReceiptGivesItBack(t *testing.T) {
 		t.Fatalf("reserved_ordered %s after expiry, want 0", got)
 	}
 	var given int
-	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.passage.inventory.onhand.changed.v1'
+	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.depot.inventory.onhand.changed.v1'
 		and payload->'data'->>'deltaBucket' = 'RESERVED_ORDERED' and payload->'data'->>'deltaQty' = '-12.5'`).Scan(&given); err != nil || given != 1 {
 		t.Fatalf("onhand.changed giving back RESERVED_ORDERED: %d (%v), want 1", given, err)
 	}

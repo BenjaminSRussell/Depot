@@ -32,14 +32,14 @@ CREATE INDEX IF NOT EXISTS returnable_packaging_movement_created_idx
 ALTER TABLE returnable_packaging_movement ENABLE ROW LEVEL SECURITY;
 ALTER TABLE returnable_packaging_movement FORCE ROW LEVEL SECURITY;
 CREATE POLICY returnable_packaging_movement_tenant_access ON returnable_packaging_movement AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT ON returnable_packaging_movement TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT ON returnable_packaging_movement TO depot_app';
   END IF;
 END
 $$;

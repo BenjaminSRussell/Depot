@@ -10,10 +10,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/eam/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/eam/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/eam/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/eam/migrations"
 )
 
 // plans40 is testdata/eam-plans-40/fixture.json (see its comment for the

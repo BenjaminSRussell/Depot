@@ -15,19 +15,19 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 const (
 	DowntimeConsumerName  = "scheduling-downtime"
-	DowntimeRecordedType  = "dev.passage.eam.downtime.recorded.v1"
-	DowntimeRecordedTopic = "passage.eam.downtime"
+	DowntimeRecordedType  = "dev.depot.eam.downtime.recorded.v1"
+	DowntimeRecordedTopic = "depot.eam.downtime"
 	DutyDowntimeApply     = "scheduling.downtime.apply"
 
 	downtimeApplyTimeout = 30 * time.Second

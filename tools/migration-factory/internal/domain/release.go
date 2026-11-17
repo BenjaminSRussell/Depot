@@ -40,7 +40,7 @@ func (c Correction) Apply(r Record) Record {
 
 // ReleaseOpenItem re-runs the open-items suite on a corrected quarantined record and, when it
 // passes, books the record into the run as loaded: the run's control totals gain the record on
-// the Passage side, the counts move from quarantined to loaded, and the run moves to RECONCILED
+// the Depot side, the counts move from quarantined to loaded, and the run moves to RECONCILED
 // when no total is MISMATCH any more. parties is the master data to check the party against.
 //
 // A corrected control account moves the record's legacy amount from the extracted account's
@@ -102,7 +102,7 @@ func sameKey(a, b map[string]string) bool {
 	return true
 }
 
-// totalMove adds to the legacy (source) and Passage (target) sides of one control total, creating
+// totalMove adds to the legacy (source) and Depot (target) sides of one control total, creating
 // the total when the run has none for the key.
 type totalMove struct {
 	name           string

@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS idempotency_keys (
   tenant_id uuid NOT NULL,
@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
 ALTER TABLE idempotency_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE idempotency_keys FORCE ROW LEVEL SECURITY;
 CREATE POLICY idempotency_keys_tenant_access ON idempotency_keys AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Control rule versions (FR-38.3). Each row is one immutable version; a new
 -- version of the same code takes the next version number.
@@ -47,11 +47,11 @@ CREATE TABLE IF NOT EXISTS budget_control_rule (
 ALTER TABLE budget_control_rule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budget_control_rule FORCE ROW LEVEL SECURITY;
 CREATE POLICY budget_control_rule_tenant_access ON budget_control_rule AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY budget_control_rule_legal_entity_scope ON budget_control_rule AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Per-combination balance cache (FR-38.4). Rebuilt from events in later slices;
 -- here it is written by register postings and checks under FOR UPDATE.
@@ -74,11 +74,11 @@ CREATE TABLE IF NOT EXISTS budget_control_balance (
 ALTER TABLE budget_control_balance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budget_control_balance FORCE ROW LEVEL SECURITY;
 CREATE POLICY budget_control_balance_tenant_access ON budget_control_balance AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY budget_control_balance_legal_entity_scope ON budget_control_balance AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Budget register entries (FR-38.1). Posted entries are immutable (BR-38.2).
 CREATE TABLE IF NOT EXISTS budget_register_entry (
@@ -97,11 +97,11 @@ CREATE TABLE IF NOT EXISTS budget_register_entry (
 ALTER TABLE budget_register_entry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budget_register_entry FORCE ROW LEVEL SECURITY;
 CREATE POLICY budget_register_entry_tenant_access ON budget_register_entry AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY budget_register_entry_legal_entity_scope ON budget_register_entry AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Encumbrances (FR-38.5): one per source line; reserved grows on checks and
 -- relieved grows on invoice relief. lines holds the Reserve/Relieve history.
@@ -126,11 +126,11 @@ CREATE TABLE IF NOT EXISTS encumbrance (
 ALTER TABLE encumbrance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE encumbrance FORCE ROW LEVEL SECURITY;
 CREATE POLICY encumbrance_tenant_access ON encumbrance AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY encumbrance_legal_entity_scope ON encumbrance AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Budget check results (FR-38.4 step 8): every check is recorded, pass, warn
 -- or fail, with its per-line outcome and step trace. Retained 7 years.
@@ -152,8 +152,8 @@ CREATE INDEX IF NOT EXISTS budget_check_result_document ON budget_check_result (
 ALTER TABLE budget_check_result ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budget_check_result FORCE ROW LEVEL SECURITY;
 CREATE POLICY budget_check_result_tenant_access ON budget_check_result AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY budget_check_result_legal_entity_scope ON budget_check_result AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

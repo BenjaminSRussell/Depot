@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/payables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/domain"
 )
 
 func codeOf(t *testing.T, err error) string {

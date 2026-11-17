@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 func plainDial(ctx context.Context, network, address string) (net.Conn, error) {
@@ -42,7 +42,7 @@ func TestPostgresConfig_TakesSettingsVerbatimAndIgnoresTheServiceEnvironment(t *
 	if cfg.TLSConfig != nil || len(cfg.Fallbacks) != 0 || cfg.ValidateConnect != nil || cfg.SSLNegotiation != "" {
 		t.Fatalf("environment leaked: tls=%v fallbacks=%d validate=%v negotiation=%q", cfg.TLSConfig != nil, len(cfg.Fallbacks), cfg.ValidateConnect != nil, cfg.SSLNegotiation)
 	}
-	if len(cfg.RuntimeParams) != 1 || cfg.RuntimeParams["application_name"] != "passage-migration-probe" {
+	if len(cfg.RuntimeParams) != 1 || cfg.RuntimeParams["application_name"] != "depot-migration-probe" {
 		t.Fatalf("runtime params = %v", cfg.RuntimeParams)
 	}
 	if addrs, _ := cfg.LookupFunc(context.Background(), "erp.acme.example"); len(addrs) != 1 || addrs[0] != "erp.acme.example" {

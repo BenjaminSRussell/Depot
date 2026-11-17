@@ -1,4 +1,4 @@
-# Passage Roadmap — 50 Waves
+# Depot Roadmap — 50 Waves
 
 Generated from `waves.json` and `phases.json` by `scripts/build_roadmap.py`. Edit the JSON, not this file.
 
@@ -26,7 +26,7 @@ Model the enterprise (legal entities, sites, org hierarchies), the shared party/
 | 7 | [Global Party & Business Partner Model](phase-1-master-data.md#wave-07-global-party-model) | One party record per real-world organization or person, with customer/vendor/employee/contact roles layered on top, deduplicated and governed. |
 | 8 | [Product Master, Variants & Catalogs](phase-1-master-data.md#wave-08-product-master) | Define products once (released per legal entity), with variants/dimensions, tracking dimensions, UoM conversions, attributes and catalogs. |
 | 9 | [Engineering Data: BOMs, Routings, Resources & Change Management](phase-1-master-data.md#wave-09-engineering-data) | A manufacturer can define multi-level BOMs, routings with operations and resources, and control changes with engineering change orders and effective dates. |
-| 10 | [Data Migration Framework & Legacy Connectors](phase-1-master-data.md#wave-10-migration-framework) | Repeatable, validated loads of AX and SAP master data into Passage with reconciliation reports — the tool every later wave uses for its own data. |
+| 10 | [Data Migration Framework & Legacy Connectors](phase-1-master-data.md#wave-10-migration-framework) | Repeatable, validated loads of AX and SAP master data into Depot with reconciliation reports — the tool every later wave uses for its own data. |
 
 ## Phase 2: Financial Core (waves 11-15)
 
@@ -54,7 +54,7 @@ Inventory ledger and costing, purchasing, receiving with three-way match, accoun
 
 ## Phase 4: Manufacturing & Planning (waves 21-25)
 
-Production orders and WIP, MRP/MPS, capacity and scheduling, process and lean manufacturing, shop-floor execution and IoT. A discrete or process manufacturer can build product on Passage.
+Production orders and WIP, MRP/MPS, capacity and scheduling, process and lean manufacturing, shop-floor execution and IoT. A discrete or process manufacturer can build product on Depot.
 
 | Wave | Name | Goal |
 |---|---|---|
@@ -66,7 +66,7 @@ Production orders and WIP, MRP/MPS, capacity and scheduling, process and lean ma
 
 ## Phase 5: Order-to-Cash (waves 26-30)
 
-Pricing, sales orders with ATP, fulfillment, billing and revenue recognition, accounts receivable and collections. At the end of wave 30 a manufacturer runs the full buy-make-sell-collect loop on Passage — the first go-live milestone.
+Pricing, sales orders with ATP, fulfillment, billing and revenue recognition, accounts receivable and collections. At the end of wave 30 a manufacturer runs the full buy-make-sell-collect loop on Depot — the first go-live milestone.
 
 | Wave | Name | Goal |
 |---|---|---|
@@ -120,6 +120,6 @@ Data platform and analytics, AI copilots and agents, globalization and complianc
 |---|---|---|
 | 46 | [Data Platform, Analytics & Embedded BI](phase-9-intelligence-golive.md#wave-46-data-platform-analytics) | Every domain streams into a governed lakehouse with semantic models; users get embedded dashboards, self-service analytics and operational KPIs without touching OLTP. |
 | 47 | [AI Copilots, Agents & Automation](phase-9-intelligence-golive.md#wave-47-ai-copilots-agents) | Users ask questions and delegate work in natural language; governed agents execute multi-step processes (cash application, planning exceptions, AP coding) with human-in-the-loop and full audit. |
-| 48 | [Globalization, Localization & Compliance Controls](phase-9-intelligence-golive.md#wave-48-globalization-compliance) | Passage runs legally in target countries (statutory reports, e-invoicing mandates, localized documents) and passes SOC 2 / ISO 27001-style controls with segregation of duties. |
+| 48 | [Globalization, Localization & Compliance Controls](phase-9-intelligence-golive.md#wave-48-globalization-compliance) | Depot runs legally in target countries (statutory reports, e-invoicing mandates, localized documents) and passes SOC 2 / ISO 27001-style controls with segregation of duties. |
 | 49 | [Migration Factory: Full AX/SAP Transactional Cutover Tooling](phase-9-intelligence-golive.md#wave-49-migration-factory) | A customer on AX 2012/D365 F&O or SAP ECC/S4 can be migrated — master data, open transactions, balances, history — with automated reconciliation and parallel-run comparison. |
-| 50 | [Scale Hardening, Multi-Region & Production Go-Live](phase-9-intelligence-golive.md#wave-50-scale-hardening-golive) | Passage runs a real customer in production at enterprise scale with multi-region resilience, documented operations and a public release. |
+| 50 | [Scale Hardening, Multi-Region & Production Go-Live](phase-9-intelligence-golive.md#wave-50-scale-hardening-golive) | Depot runs a real customer in production at enterprise scale with multi-region resilience, documented operations and a public release. |

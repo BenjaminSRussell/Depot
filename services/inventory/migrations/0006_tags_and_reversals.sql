@@ -50,11 +50,11 @@ CREATE INDEX IF NOT EXISTS count_tag_range_seq_idx ON count_tag_range (tenant_id
 ALTER TABLE count_tag_range ENABLE ROW LEVEL SECURITY;
 ALTER TABLE count_tag_range FORCE ROW LEVEL SECURITY;
 CREATE POLICY count_tag_range_tenant_access ON count_tag_range AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY count_tag_range_legal_entity_scope ON count_tag_range AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- One printed tag. seq is the legal entity's TAG- number, so a tag number is
 -- consumed once (BR-16.15). dims is the normalized dimension set of the count.
@@ -90,16 +90,16 @@ CREATE INDEX IF NOT EXISTS count_tag_plan_idx ON count_tag (tenant_id, plan_id, 
 ALTER TABLE count_tag ENABLE ROW LEVEL SECURITY;
 ALTER TABLE count_tag FORCE ROW LEVEL SECURITY;
 CREATE POLICY count_tag_tenant_access ON count_tag AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY count_tag_legal_entity_scope ON count_tag AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON count_tag_range, count_tag TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON count_tag_range, count_tag TO depot_app';
   END IF;
 END
 $$;

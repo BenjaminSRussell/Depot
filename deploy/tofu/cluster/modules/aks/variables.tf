@@ -88,13 +88,13 @@ variable "fieldcrypt_service_accounts" {
   description = "Service accounts of the services that unwrap fieldcrypt keys. Each gets a federated credential on the fieldcrypt identity; the Helm charts create the same accounts (global.workloadIdentity)."
   type        = list(object({ namespace = string, service_account = string }))
   default = [
-    { namespace = "passage", service_account = "passage-hr" },
-    { namespace = "passage", service_account = "passage-party" },
-    { namespace = "passage", service_account = "passage-payables" },
-    { namespace = "passage", service_account = "passage-receiving" },
-    { namespace = "passage", service_account = "passage-sales" },
-    { namespace = "passage", service_account = "passage-compliance" },
-    { namespace = "passage", service_account = "passage-migration" },
+    { namespace = "depot", service_account = "depot-hr" },
+    { namespace = "depot", service_account = "depot-party" },
+    { namespace = "depot", service_account = "depot-payables" },
+    { namespace = "depot", service_account = "depot-receiving" },
+    { namespace = "depot", service_account = "depot-sales" },
+    { namespace = "depot", service_account = "depot-compliance" },
+    { namespace = "depot", service_account = "depot-migration" },
   ]
 }
 
@@ -183,7 +183,7 @@ variable "workload_identities" {
   default = {
     external_secrets = { namespace = "external-secrets", service_account = "external-secrets" }
     # CNPG names the instance service account after the cluster (deploy/multi-region postgres.clusterName).
-    backup = { namespace = "passage-data", service_account = "passage-pg" }
+    backup = { namespace = "depot-data", service_account = "depot-pg" }
   }
 }
 

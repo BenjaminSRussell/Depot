@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/batch/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/domain"
 )
 
 // These tests start from the Secret volume the batch chart mounts (ExternalSecret batch-notify, one file per key at

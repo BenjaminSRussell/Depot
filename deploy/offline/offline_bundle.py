@@ -17,9 +17,9 @@ chart repository. The bundle is everything an install needs, as one signed archi
 
     docker run -d -p 5000:5000 registry:2                               # throwaway staging registry for signing
     make -C deploy offline-bundle OUT=dist/offline KEY=cosign.key     # build, on a connected machine
-    python3 deploy/offline/offline_bundle.py verify dist/offline/passage-offline.tar.gz --key cosign.pub
-    python3 deploy/offline/offline_bundle.py install dist/offline/passage-offline.tar.gz --registry registry.enclave:5000 \\
-        --git-url https://git.enclave/passage.git --key cosign.pub        # inside the enclave
+    python3 deploy/offline/offline_bundle.py verify dist/offline/depot-offline.tar.gz --key cosign.pub
+    python3 deploy/offline/offline_bundle.py install dist/offline/depot-offline.tar.gz --registry registry.enclave:5000 \\
+        --git-url https://git.enclave/depot.git --key cosign.pub        # inside the enclave
 
 `build` checks each image's upstream signature against provenance.json (an image or chart with no entry fails the
 build), then signs and attests every image with the offline key in a staging registry; it needs skopeo, syft, cosign
@@ -51,7 +51,7 @@ HERE = Path(__file__).resolve().parent
 DEPLOY = HERE.parent
 REPO = DEPLOY.parent
 
-GIT_URL = "https://github.com/BenjaminSRussell/Passage.git"
+GIT_URL = "https://github.com/BenjaminSRussell/Depot.git"
 IMAGE_LINE = re.compile(r"^\s*-?\s*image:\s*[\"']?([^\s\"']+)", re.M)
 IMAGE_FLAG = re.compile(r"--[a-z0-9-]*image=[\"']?([^\s\"',]+)")
 # The repository's values file for a third-party chart, passed to `helm template` so the render matches the install.
@@ -349,9 +349,9 @@ def build(out: Path, key: str, runner: Runner = run, now: Callable[[], str] | No
             shutil.copytree(src, stage / "policies" / Path(pol).name, dirs_exist_ok=True)
     (stage / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     write_sums(stage)
-    archive = out / "passage-offline.tar.gz"
+    archive = out / "depot-offline.tar.gz"
     with tarfile.open(archive, "w:gz") as tar:
-        tar.add(stage, arcname="passage-offline")
+        tar.add(stage, arcname="depot-offline")
     runner(["cosign", "sign-blob", "--yes", "--key", key, "--output-signature", str(archive) + ".sig", str(archive)])
     return archive
 
@@ -401,7 +401,7 @@ def extract(archive: Path, dest: Path) -> Path:
             tar.extractall(dest, filter="data")
         else:  # pragma: no cover - Python before 3.11.4; every member was checked above
             tar.extractall(dest)
-    return dest / "passage-offline"
+    return dest / "depot-offline"
 
 
 def check_sums(root: Path) -> list[str]:

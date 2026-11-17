@@ -218,7 +218,7 @@ AP workspace with payment runs; demo entity pays open invoices to a sandbox bank
 
 **Deploy**
 
-Costing workspace; supplier portal at supplier.<env>.passage.dev with a demo vendor login.
+Costing workspace; supplier portal at supplier.<env>.depot.dev with a demo vendor login.
 
 **References**
 

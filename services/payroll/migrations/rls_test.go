@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 const payRunInsert = `insert into pay_run (tenant_id, id, legal_entity_id, pay_date, period_start, period_end, status, calculated_by, idempotency_key, request_hash)

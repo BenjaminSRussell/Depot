@@ -11,11 +11,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/services/revrec/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/services/revrec/internal/domain"
 )
 
 // Codes of credit-note lines the consumer cannot apply. They are permanent: the event is parked on the dead-letter topic.

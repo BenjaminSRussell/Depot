@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tenant license state evaluation (PSG-50, FR-50.12, BR-50.8, AC-50.8).
+"""Tenant license state evaluation (DPT-50, FR-50.12, BR-50.8, AC-50.8).
 
 Pure function from (license terms, today, active users) to the state VALID | GRACE | EXPIRED and the access
 rules that follow from it. The signature check (Ed25519 over the license file, LIC-1804) is NOT here: it needs a

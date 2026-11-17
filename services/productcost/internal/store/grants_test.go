@@ -7,15 +7,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/productcost/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/productcost/internal/domain"
 )
 
 func TestGrants_AppRoleCannotRewriteComponentsOrOutbox(t *testing.T) {
 	s, _, rls := setup(t)
 	if !rls {
-		t.Skip("PASSAGE_TEST_APP_DATABASE_URL is needed for the grants test")
+		t.Skip("DEPOT_TEST_APP_DATABASE_URL is needed for the grants test")
 	}
 	ctx := as(1, "")
 	for _, stmt := range []string{
@@ -40,7 +40,7 @@ func TestGrants_AppRoleCannotRewriteComponentsOrOutbox(t *testing.T) {
 func TestGrants_LockedTransitionWorksAsAppRole(t *testing.T) {
 	s, _, rls := setup(t)
 	if !rls {
-		t.Skip("PASSAGE_TEST_APP_DATABASE_URL is needed for the grants test")
+		t.Skip("DEPOT_TEST_APP_DATABASE_URL is needed for the grants test")
 	}
 	ctx := as(1, "")
 	v, _, err := s.CreateVersion(ctx, spec(ids.New(), "STD-GRANTS"), "k-grants")

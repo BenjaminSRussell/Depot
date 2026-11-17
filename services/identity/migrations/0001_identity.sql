@@ -57,36 +57,36 @@ create table identity_role_assignments (
 
 create index identity_role_assignments_user_idx on identity_role_assignments (tenant_id, user_id, valid_from);
 
--- A session reset leaves passage.tenant_id as '' rather than unset; nullif turns that into NULL so the
+-- A session reset leaves depot.tenant_id as '' rather than unset; nullif turns that into NULL so the
 -- comparison matches no rows instead of failing the ''::uuid cast.
 alter table identity_tenants enable row level security;
 alter table identity_tenants force row level security;
 create policy identity_tenants_tenant_access on identity_tenants as permissive
-  using (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid)
-  with check (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
+  using (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid)
+  with check (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
 
 alter table identity_users enable row level security;
 alter table identity_users force row level security;
 create policy identity_users_tenant_access on identity_users as permissive
-  using (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid)
-  with check (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
+  using (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid)
+  with check (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
 
 alter table identity_legal_entities enable row level security;
 alter table identity_legal_entities force row level security;
 create policy identity_legal_entities_tenant_access on identity_legal_entities as permissive
-  using (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid)
-  with check (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
+  using (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid)
+  with check (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
 create policy identity_legal_entities_legal_entity_scope on identity_legal_entities as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 alter table identity_role_assignments enable row level security;
 alter table identity_role_assignments force row level security;
 create policy identity_role_assignments_tenant_access on identity_role_assignments as permissive
-  using (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid)
-  with check (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
+  using (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid)
+  with check (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
 -- Decision: a caller scoped to specific legal entities does not see tenant-wide assignments
 -- (legal_entity_id is null); only a '*' scope does.
 create policy identity_role_assignments_legal_entity_scope on identity_role_assignments as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

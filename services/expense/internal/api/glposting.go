@@ -14,13 +14,13 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	pmoney "github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/expense/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	pmoney "github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/expense/internal/store"
 )
 
 // Problem codes of the reimbursement liability posting (listed in the service README).

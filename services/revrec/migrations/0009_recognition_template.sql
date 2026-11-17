@@ -13,12 +13,12 @@ CREATE TABLE IF NOT EXISTS recognition_template (
 ALTER TABLE recognition_template ENABLE ROW LEVEL SECURITY;
 ALTER TABLE recognition_template FORCE ROW LEVEL SECURITY;
 CREATE POLICY recognition_template_tenant_access ON recognition_template AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON recognition_template TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON recognition_template TO depot_app';
   END IF;
 END
 $$;

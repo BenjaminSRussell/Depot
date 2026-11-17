@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 func withFormat(f string) func(*domain.FieldRule) {

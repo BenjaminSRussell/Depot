@@ -83,7 +83,7 @@ describe("purchasing API client", () => {
       "fetch",
       vi.fn(async () =>
         jsonResponse(
-          { type: "https://passage.dev/problems/PRC-PRICE-001", title: "Unprocessable Entity", status: 422, code: "PRC-PRICE-001", detail: "no price" },
+          { type: "https://depot.dev/problems/PRC-PRICE-001", title: "Unprocessable Entity", status: 422, code: "PRC-PRICE-001", detail: "no price" },
           422,
         ),
       ),

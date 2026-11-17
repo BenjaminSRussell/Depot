@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/store"
 )
 
 // late is the day the tests terminate on: inside period 5 of the worked lease (2026-01-01, yearly), so ending after periods 1 to 4 is not ahead
@@ -51,7 +51,7 @@ func TestTerminateLease_DerecognizesLiabilityAndROUWithGain(t *testing.T) {
 	if _, err := s.ModifyLease(ctx, lease.ID, store.LeaseModificationInput{Version: res.Lease.Version, EffectivePeriod: 1, PaymentAmount: d("1")}, "mod-after-term"); err == nil {
 		t.Fatal("a terminated lease cannot be modified")
 	}
-	if types := outboxTypes(t, pool, ctx); types["dev.passage.assets.lease.terminated.v1"] != 1 {
+	if types := outboxTypes(t, pool, ctx); types["dev.depot.assets.lease.terminated.v1"] != 1 {
 		t.Fatalf("outbox = %v", types)
 	}
 	got, err := s.GetLease(ctx, lease.ID)
@@ -136,7 +136,7 @@ func TestTerminateLease_JournalFollowsThePeriodsAndClearsTheBalances(t *testing.
 	if again, err := s.PostLeasesToGL(ctx, fake, leaseReq(le, ledgerID, "2035-12-31")); err != nil || len(again.Booked) != 0 {
 		t.Fatalf("booked once: %+v %v", again, err)
 	}
-	if types := outboxTypes(t, pool, ctx); types["dev.passage.assets.lease.posted.v1"] != 4 || types["dev.passage.assets.lease.terminated.v1"] != 1 {
+	if types := outboxTypes(t, pool, ctx); types["dev.depot.assets.lease.posted.v1"] != 4 || types["dev.depot.assets.lease.terminated.v1"] != 1 {
 		t.Fatalf("outbox = %v", types)
 	}
 }

@@ -9,12 +9,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/party/internal/api"
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/party/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/party/internal/api"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/party/internal/store"
 )
 
 const (
@@ -87,7 +87,7 @@ func (s *supplierHarness) portal(t *testing.T, vendor, method, path, body string
 		t.Fatal(err)
 	}
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Service-Token", token)
+	req.Header.Set("X-Depot-Service-Token", token)
 	rec := httptest.NewRecorder()
 	s.h.ServeHTTP(rec, req)
 	return rec

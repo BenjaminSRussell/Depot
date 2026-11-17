@@ -1,7 +1,7 @@
 [project]
-name = "passage-prediction"
+name = "depot-prediction"
 version = "0.1.0"
-description = "Passage payment-date prediction (FR-47.15): gradient-boosted trees in pure Python, MAE-gated promotion"
+description = "Depot payment-date prediction (FR-47.15): gradient-boosted trees in pure Python, MAE-gated promotion"
 requires-python = ">=3.11"
 dependencies = [
   "cryptography>=42",

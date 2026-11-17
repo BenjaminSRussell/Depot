@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: Passage supplier portal BFF
+  title: Depot supplier portal BFF
   version: 0.1.0
   description: >-
     The session and proxy API of apps/supplier-portal. Every /api/v1 route needs the session cookie; writes also need the

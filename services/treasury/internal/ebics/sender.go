@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/bankconnect"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/bankconnect"
 )
 
 // AccountLookup finds the EBICS subscriber bound to a bank account.

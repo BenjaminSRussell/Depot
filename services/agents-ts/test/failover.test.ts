@@ -5,7 +5,7 @@ import { createFailoverProvider, type ProviderEndpoint } from "../src/providers/
 import { providerRejected, providerUnavailable } from "../src/providers/wire.js";
 import { proposal } from "./fakes.js";
 
-const REQ = { system: "s", user: "u", allowedTools: ["passage.ap.invoice.post"] } as const;
+const REQ = { system: "s", user: "u", allowedTools: ["depot.ap.invoice.post"] } as const;
 
 /** Provider that has an outage (AGT-0206, 503) while `down` is true, else returns a proposal. */
 class Flaky implements ModelProvider {

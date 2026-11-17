@@ -36,7 +36,7 @@ func shipmentStatus() ShipmentStatus {
 // partner's translator would read it.
 func x12RoundTrip(t *testing.T, tr Transaction) Transaction {
 	t.Helper()
-	env, err := OutboundEnvelope(tr, Party{Qualifier: "ZZ", ID: "PASSAGE"}, Party{Qualifier: "ZZ", ID: "DISTRIBUTOR"}, "T", 7, fixedAt)
+	env, err := OutboundEnvelope(tr, Party{Qualifier: "ZZ", ID: "DEPOT"}, Party{Qualifier: "ZZ", ID: "DISTRIBUTOR"}, "T", 7, fixedAt)
 	if err != nil {
 		t.Fatal(err)
 	}

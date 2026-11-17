@@ -1,5 +1,5 @@
 // Package iccharge raises the lender's sales invoice of an intercompany charge in Invoice settlement mode (#40): intercompany
-// publishes dev.passage.interco.chargeinvoice.requested.v1 instead of posting the charge, and this consumer creates a FREE_TEXT
+// publishes dev.depot.interco.chargeinvoice.requested.v1 instead of posting the charge, and this consumer creates a FREE_TEXT
 // invoice proposal in the lender's legal entity for the borrower (the pairing's customer account): one line at the charge's price,
 // on the configured revenue account, carrying the tax intercompany worked out for the charge (the same tax payables books on the
 // borrower's side) under the charge's tax code. A person posts it from the billing workspace, as every proposal; the post-time
@@ -22,14 +22,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/billing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/store"
 )
 
 const (
@@ -38,11 +38,11 @@ const (
 	// Duty is the only duty of that principal.
 	Duty = "billing.iccharge.from-event"
 	// ChargeInvoiceRequestedType is the event this consumer handles; Topic is where intercompany's outbox routes it.
-	ChargeInvoiceRequestedType = "dev.passage.interco.chargeinvoice.requested.v1"
+	ChargeInvoiceRequestedType = "dev.depot.interco.chargeinvoice.requested.v1"
 	// Source is the CloudEvents source intercompany publishes with (services/intercompany/internal/events.Source).
-	Source          = "/passage/intercompany"
-	Topic           = "passage.interco.chargeinvoice"
-	DeadLetterTopic = "passage.billing.iccharge.dlq"
+	Source          = "/depot/intercompany"
+	Topic           = "depot.interco.chargeinvoice"
+	DeadLetterTopic = "depot.billing.iccharge.dlq"
 	maxDescription  = domain.MaxDescription
 )
 

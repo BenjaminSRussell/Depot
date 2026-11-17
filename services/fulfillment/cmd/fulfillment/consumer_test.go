@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/api"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/api"
 )
 
 // The consumer starts only when the service principal table gives it the sync duty.

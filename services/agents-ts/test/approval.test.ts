@@ -92,7 +92,7 @@ describe("approvalRequestedEvent", () => {
     tenantId: TENANT,
     runId: "run-1",
     actionId: "act-1",
-    toolName: "passage.ap.invoice.propose_coding",
+    toolName: "depot.ap.invoice.propose_coding",
     proposalRedacted: "account 6100 cost centre CC-10 tax S1 for [EMAIL-1]",
     confidence: 0.8,
     riskScore: 0.2,
@@ -101,12 +101,12 @@ describe("approvalRequestedEvent", () => {
   it("builds the requested event with the redacted proposal", () => {
     const evt = approvalRequestedEvent(input);
     expect(evt.type).toBe(AGENT_EVENT_TYPES.approvalRequested);
-    expect(evt.type).toBe("dev.passage.agent.approval.requested.v1");
+    expect(evt.type).toBe("dev.depot.agent.approval.requested.v1");
     expect(evt.tenantId).toBe(TENANT);
     expect(evt.data).toEqual({
       run_id: "run-1",
       action_id: "act-1",
-      tool_name: "passage.ap.invoice.propose_coding",
+      tool_name: "depot.ap.invoice.propose_coding",
       proposal: input.proposalRedacted,
       confidence: 0.8,
       risk_score: 0.2,

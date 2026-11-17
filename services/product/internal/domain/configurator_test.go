@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/product/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/product/internal/domain"
 )
 
 func TestBicycleFiftyConstraintFixture(t *testing.T) {

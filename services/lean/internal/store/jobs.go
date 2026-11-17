@@ -10,10 +10,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/lean/internal/domain"
-	leanevents "github.com/BenjaminSRussell/passage/services/lean/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/lean/internal/domain"
+	leanevents "github.com/BenjaminSRussell/depot/services/lean/internal/events"
 )
 
 // Job is a KanbanJob (FR-24.10, PRD 4.24.4): a card's work at one activity of

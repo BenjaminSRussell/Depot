@@ -1,5 +1,5 @@
 {
-  "name": "passage-cdc-${DOMAIN}",
+  "name": "depot-cdc-${DOMAIN}",
   "config": {
     "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
     "plugin.name": "pgoutput",
@@ -7,12 +7,12 @@
     "database.port": "5432",
     "database.user": "${CDC_DB_USER}",
     "database.password": "${file:/vault/cdc/credentials.properties:password}",
-    "database.dbname": "passage_${DOMAIN}",
+    "database.dbname": "depot_${DOMAIN}",
     "topic.prefix": "cdc.${DOMAIN}",
     "schema.include.list": "public",
     "table.include.list": "${TABLE_INCLUDE_LIST}",
-    "slot.name": "passage_cdc_${DOMAIN}",
-    "publication.name": "passage_cdc_${DOMAIN}",
+    "slot.name": "depot_cdc_${DOMAIN}",
+    "publication.name": "depot_cdc_${DOMAIN}",
     "publication.autocreate.mode": "filtered",
     "snapshot.mode": "initial",
     "heartbeat.interval.ms": "10000",

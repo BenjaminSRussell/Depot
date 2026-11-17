@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/tax/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/tax/internal/provider"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/provider"
 )
 
 // The fixtures in testdata are written from the providers' published API documentation, not recorded from a live account:

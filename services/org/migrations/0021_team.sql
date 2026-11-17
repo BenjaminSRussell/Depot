@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS team_type (
 ALTER TABLE team_type ENABLE ROW LEVEL SECURITY;
 ALTER TABLE team_type FORCE ROW LEVEL SECURITY;
 CREATE POLICY team_type_tenant_access ON team_type AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS team (
   tenant_id uuid NOT NULL,
@@ -45,5 +45,5 @@ CREATE INDEX IF NOT EXISTS team_operating_unit ON team (tenant_id, operating_uni
 ALTER TABLE team ENABLE ROW LEVEL SECURITY;
 ALTER TABLE team FORCE ROW LEVEL SECURITY;
 CREATE POLICY team_tenant_access ON team AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

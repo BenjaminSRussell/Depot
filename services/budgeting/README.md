@@ -1,6 +1,6 @@
 # budgeting
 
-Budget control for Passage (PRD 7.38, ticket PSG-38, wave 38, slices 1 to 4). The service holds budget control rule
+Budget control for Depot (PRD 7.38, ticket DPT-38, wave 38, slices 1 to 4). The service holds budget control rule
 versions, posts budget register entries, runs budget checks against per-combination balances under row locks,
 relieves encumbrances from matched invoice lines, releases them on PO cancellation or close, keeps budget reservation documents (earmarked funds) and maintains
 investment programs.
@@ -36,7 +36,7 @@ investment programs.
   invoice or journal) on one reservation line. In one transaction the reservation line is relieved, the follow-on
   line's encumbrance is created (or raised) and the balance moves the amount from reservations to encumbrances, so
   available funds do not change (AC-38.12). FundsBlocking cannot be consumed (`CO-0631`). The event
-  `dev.passage.budget.reservation.consumed.v1` goes through the outbox in the same transaction.
+  `dev.depot.budget.reservation.consumed.v1` goes through the outbox in the same transaction.
 - **Close and expiry**: close releases the residual (FundsBlocking from Open only). The `reservation-expiry` job
   calls `POST /v1/budget/reservations:expire` with a date; Open and PartiallyConsumed documents whose expiry date is
   on or before it move to Expired and release their residual. The expiry date is the first day a document no longer
@@ -58,7 +58,7 @@ investment programs.
   distributed − the actual and commitment of its own assignments, floored at zero. Summed over positions this counts
   each unit of program budget once, so a parent and its children are never both carried for the same money. Each
   position carries once (`BUD-0021` when nothing is left); only approval year + 1 is accepted (`BUD-0032`). The event
-  `dev.passage.budget.program.carriedforward.v1` goes through the outbox in the same transaction.
+  `dev.depot.budget.program.carriedforward.v1` goes through the outbox in the same transaction.
 
 ## What slice 4 adds
 
@@ -66,7 +66,7 @@ investment programs.
   reason (`Cancelled` for a PO line cancellation, `Closed` for a PO closed with a residual) gives the open remainder
   (reserved − relieved) back to available funds. What invoices already relieved stays relieved. The balance row and
   the encumbrance are locked in the same order as a check, move together, and
-  `dev.passage.budget.encumbrance.released.v1` goes through the outbox in the same transaction. The encumbrance
+  `dev.depot.budget.encumbrance.released.v1` goes through the outbox in the same transaction. The encumbrance
   becomes `Released` and is final: a later check or reservation consumption for the same line is refused
   (`BUD-0011`), an invoice against it relieves nothing (its whole amount is `excess`), and a second release is
   `BUD-0010`. Revisions of a live line (raise or lower) still go through a re-check of the line (BR-38.3).
@@ -98,18 +98,18 @@ investment programs.
   neither order of the two can double the budget; a Revision is not affected.
 
 Money is `numeric(19,4)` with a currency. Every command requires `Idempotency-Key`. Commands emit outbox events
-(`dev.passage.budget.register.posted.v1`, `dev.passage.budget.check.completed.v1`,
-`dev.passage.budget.encumbrance.relieved.v1`, `dev.passage.budget.encumbrance.released.v1`,
-`dev.passage.budget.reservation.consumed.v1`,
-`dev.passage.budget.program.carriedforward.v1`, `dev.passage.budget.plan.submitted.v1`,
-`dev.passage.budget.plan.approved.v1`, `dev.passage.budget.plan.rejected.v1`).
+(`dev.depot.budget.register.posted.v1`, `dev.depot.budget.check.completed.v1`,
+`dev.depot.budget.encumbrance.relieved.v1`, `dev.depot.budget.encumbrance.released.v1`,
+`dev.depot.budget.reservation.consumed.v1`,
+`dev.depot.budget.program.carriedforward.v1`, `dev.depot.budget.plan.submitted.v1`,
+`dev.depot.budget.plan.approved.v1`, `dev.depot.budget.plan.rejected.v1`).
 
 ## Run and test
 
 ```sh
 cd services/budgeting
 go test ./...                      # unit tests; store and API DB tests skip without a database
-PASSAGE_TEST_DATABASE_URL=postgres://... go test ./...   # runs the store tests against Postgres
+DEPOT_TEST_DATABASE_URL=postgres://... go test ./...   # runs the store tests against Postgres
 DATABASE_URL=postgres://... MIGRATE_ON_START=true HTTP_ADDR=:8080 go run ./cmd/budgeting
 ```
 
@@ -205,4 +205,4 @@ rapid for property tests).
 
 ## Wave reference
 
-Wave 38 of PSG-38. Remaining scope is listed in `NOT-IMPLEMENTED.md`.
+Wave 38 of DPT-38. Remaining scope is listed in `NOT-IMPLEMENTED.md`.

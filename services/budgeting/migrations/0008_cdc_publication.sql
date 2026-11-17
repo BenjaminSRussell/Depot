@@ -4,17 +4,17 @@
 -- names the relations without opening them, so the check below reads that instead.
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'passage_outbox_budgeting') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'depot_outbox_budgeting') THEN
     BEGIN
-      CREATE PUBLICATION passage_outbox_budgeting;
+      CREATE PUBLICATION depot_outbox_budgeting;
     EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL;
     END;
   END IF;
   IF NOT EXISTS (
     SELECT 1 FROM pg_publication_rel pr JOIN pg_publication p ON p.oid = pr.prpubid
-    WHERE p.pubname = 'passage_outbox_budgeting' AND pr.prrelid = to_regclass(format('%I.outbox', current_schema()))
+    WHERE p.pubname = 'depot_outbox_budgeting' AND pr.prrelid = to_regclass(format('%I.outbox', current_schema()))
   ) THEN
-    EXECUTE format('ALTER PUBLICATION passage_outbox_budgeting ADD TABLE %I.outbox', current_schema());
+    EXECUTE format('ALTER PUBLICATION depot_outbox_budgeting ADD TABLE %I.outbox', current_schema());
   END IF;
 END
 $$;

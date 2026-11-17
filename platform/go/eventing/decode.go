@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 const (

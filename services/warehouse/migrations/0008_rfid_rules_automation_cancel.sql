@@ -37,8 +37,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS rfid_rule_one_per_antenna ON rfid_rule (tenant
 ALTER TABLE rfid_rule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rfid_rule FORCE ROW LEVEL SECURITY;
 CREATE POLICY rfid_rule_tenant_access ON rfid_rule AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- A cancelled order no longer holds its line: after a fault or a divert, the line can be given to the PLC again.
 ALTER TABLE automation_order DROP CONSTRAINT IF EXISTS automation_order_tenant_id_work_id_line_no_key;
@@ -48,9 +48,9 @@ ALTER TABLE automation_order ADD COLUMN IF NOT EXISTS cancelled_by text NOT NULL
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON rfid_rule TO passage_app';
-    EXECUTE 'GRANT UPDATE ON rfid_read TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON rfid_rule TO depot_app';
+    EXECUTE 'GRANT UPDATE ON rfid_read TO depot_app';
   END IF;
 END
 $$;

@@ -160,7 +160,7 @@ def main(argv: list[str], getenv=os.environ.get) -> int:  # type: ignore[no-unty
 
     url, signer = getenv("RECEIVABLES_URL"), ServiceSigner.from_env(getenv)
     if not url or signer is None:
-        print("RECEIVABLES_URL and a service signing key (PASSAGE_SERVICE_NAME=prediction, PASSAGE_SERVICE_SIGNING_KEY) are needed", file=sys.stderr)
+        print("RECEIVABLES_URL and a service signing key (DEPOT_SERVICE_NAME=prediction, DEPOT_SERVICE_SIGNING_KEY) are needed", file=sys.stderr)
         return 2
     scopes = scopes_from_env(getenv("PREDICTION_SYNC_SCOPES") or "")
     service, feed = PredictionService(repository_from_env(), config_from_env()), ReceivablesFeed(url, signer)

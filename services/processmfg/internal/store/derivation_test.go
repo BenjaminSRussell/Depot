@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	pmfevents "github.com/BenjaminSRussell/passage/services/processmfg/internal/events"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	pmfevents "github.com/BenjaminSRussell/depot/services/processmfg/internal/events"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/store"
 )
 
 func defineRule(t *testing.T, s *store.Postgres, item, attr, agg string, decimals *int) store.InheritanceRule {

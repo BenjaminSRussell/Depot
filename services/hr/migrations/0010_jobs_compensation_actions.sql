@@ -95,39 +95,39 @@ CREATE INDEX IF NOT EXISTS hr_personnel_action_worker ON hr_personnel_action (te
 ALTER TABLE hr_job ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_job FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_job_tenant_access ON hr_job AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE hr_compensation_plan ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_compensation_plan FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_compensation_plan_tenant_access ON hr_compensation_plan AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE hr_fixed_compensation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_fixed_compensation FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_fixed_compensation_tenant_access ON hr_fixed_compensation AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY hr_fixed_compensation_legal_entity_scope ON hr_fixed_compensation AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE hr_personnel_action ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_personnel_action FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_personnel_action_tenant_access ON hr_personnel_action AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY hr_personnel_action_legal_entity_scope ON hr_personnel_action AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON hr_job, hr_compensation_plan TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hr_fixed_compensation, hr_personnel_action TO passage_app';
-    EXECUTE 'GRANT UPDATE ON employment, position_assignment TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON hr_job, hr_compensation_plan TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hr_fixed_compensation, hr_personnel_action TO depot_app';
+    EXECUTE 'GRANT UPDATE ON employment, position_assignment TO depot_app';
   END IF;
 END
 $$;

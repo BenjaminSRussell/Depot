@@ -1,11 +1,11 @@
-# Installed to %ProgramData%\Passage\conf.d\node.yaml by the "TypeScript services" MSI feature. The server merges it into passage.yaml.
+# Installed to %ProgramData%\Depot\conf.d\node.yaml by the "TypeScript services" MSI feature. The server merges it into depot.yaml.
 # {install} and {data} expand to the install and data directories, {port} and {adminPort} to the ports the supervisor gives the service.
 # Each service is a Node process under the private runtime in the install directory (ADR-0004: no Node single executable applications).
 # The bundles under runtime\node\apps\ are built by deploy/windows/scripts/Build-ServiceBundles.ps1 (windows-msi workflow), which also
 # runs Test-ServiceBundles.ps1 against them: the paths below are the ones that script publishes and tests.
 services:
   # The Temporal worker and its decision route. It reads HTTP_PORT, not HTTP_ADDR, and answers /readyz on that one port.
-  # TEMPORAL_ADDRESS and TEMPORAL_NAMESPACE come from temporalHostPort and temporalNamespace in passage.yaml.
+  # TEMPORAL_ADDRESS and TEMPORAL_NAMESPACE come from temporalHostPort and temporalNamespace in depot.yaml.
   - name: workflow-ts
     exe: "{install}/runtime/node/node.exe"
     args: ["{install}/runtime/node/apps/workflow-ts/dist/worker.js"]
@@ -16,12 +16,12 @@ services:
     noDb: true
     singlePort: true
   # The agent runtime. It reads HTTP_ADDR and ADMIN_ADDR (admin /readyz) and needs its own database (agent runs, budgets, the
-  # approval inbox and the outbox); `passage-server migrate` applies runtime\node\apps\agents-ts\migrations.
+  # approval inbox and the outbox); `depot-server migrate` applies runtime\node\apps\agents-ts\migrations.
   - name: agents-ts
     exe: "{install}/runtime/node/node.exe"
     args: ["{install}/runtime/node/apps/agents-ts/dist/main.js"]
     # agents-ts verifies the caller's bearer token itself, so the gateway forwards Authorization on its route (and only there).
-    # The sign-in settings come from passage.yaml (oidcIssuer, oidcAudience, oidcJwksUrl) and MCP_URL from mcpUrl: the MCP gateway
+    # The sign-in settings come from depot.yaml (oidcIssuer, oidcAudience, oidcJwksUrl) and MCP_URL from mcpUrl: the MCP gateway
     # (mcp-ts) is not bundled, so mcpUrl must name one; agents-ts stops with a clear message while it is empty.
     forwardAuthorization: true
     env:

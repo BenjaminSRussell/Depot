@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
 )
 
 // DutyJobReopen reopens a finished job. FR-25.3 says a supervisor reopens it; the PRD duty

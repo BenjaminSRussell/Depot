@@ -7,9 +7,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/gateway/stripe"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/gateway/stripe"
 )
 
 var (

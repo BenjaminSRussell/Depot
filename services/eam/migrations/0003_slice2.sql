@@ -153,7 +153,7 @@ BEGIN
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
     EXECUTE format('CREATE POLICY %I_tenant_access ON %I AS PERMISSIVE
-      USING (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)
-      WITH CHECK (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)', t, t);
+      USING (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)
+      WITH CHECK (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)', t, t);
   END LOOP;
 END $$;

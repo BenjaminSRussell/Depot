@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/target"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/target"
 )
 
 const (
@@ -167,7 +167,7 @@ func TestReader_ATargetRecordChangedOrGoneFailsReconciliation(t *testing.T) {
 	}
 	x1, _, _ := h.xref.Get(context.Background(), domain.XrefKey{SourceSystem: system, Entity: "party", SourceKey: "P1"})
 	h.f.Lock()
-	h.f.Parties[x1.TargetID].Body["legalName"] = "Acme (edited in Passage)"
+	h.f.Parties[x1.TargetID].Body["legalName"] = "Acme (edited in Depot)"
 	h.f.Unlock()
 	rep := run(t, h, l, "party", m, extract)
 	if rep.Reconciliation.OK() || rep.Status != domain.StatusFailed {

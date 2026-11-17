@@ -17,7 +17,7 @@ function memoryStore(seed: Record<string, string> = {}): ModeStore & { data: Rec
 
 describe("copilot mode memory (9.47.6)", () => {
   it("keys the remembered mode by user and workspace", () => {
-    expect(modeMemoryKey("u1", "ap")).toBe("passage.copilot.mode:u1:ap");
+    expect(modeMemoryKey("u1", "ap")).toBe("depot.copilot.mode:u1:ap");
     const store = memoryStore();
     rememberMode(store, "u1", "ap", "explain");
     expect(readRememberedMode(store, "u1", "ap")).toBe("explain");

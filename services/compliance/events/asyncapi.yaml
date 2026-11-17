@@ -1,49 +1,49 @@
 asyncapi: 3.0.0
 info:
-  title: Passage compliance events
+  title: Depot compliance events
   version: 1.0.0
   description: >-
     CloudEvents 1.0 events published by the compliance service through the
     outbox (wave 48: segregation of duties from slice 1, sanctions screening
     from slice 4, subject requests from slice 5). Types follow
-    dev.passage.<context>.<entity>.<verb>.v<n>; the topic
-    passage.<context>.<entity> is relayed by Debezium's outbox router, keyed by
+    dev.depot.<context>.<entity>.<verb>.v<n>; the topic
+    depot.<context>.<entity> is relayed by Debezium's outbox router, keyed by
     the aggregate id (conflict id, screening hit id or subject request id).
 defaultContentType: application/cloudevents+json
 servers:
   kafka:
-    host: kafka.passage.svc:9092
+    host: kafka.depot.svc:9092
     protocol: kafka
 channels:
   conflictDetected:
-    address: passage.sod.conflict
+    address: depot.sod.conflict
     messages:
       conflictDetected:
         $ref: "#/components/messages/ConflictDetected"
   mitigationApproved:
-    address: passage.sod.mitigation
+    address: depot.sod.mitigation
     messages:
       mitigationApproved:
         $ref: "#/components/messages/MitigationApproved"
   screeningHit:
-    address: passage.trade.screening
+    address: depot.trade.screening
     messages:
       screeningHit:
         $ref: "#/components/messages/ScreeningHit"
   requestCompleted:
-    address: passage.privacy.request
+    address: depot.privacy.request
     messages:
       requestCompleted:
         $ref: "#/components/messages/RequestCompleted"
   holdPlaced:
-    address: passage.privacy.hold
+    address: depot.privacy.hold
     messages:
       holdPlaced:
         $ref: "#/components/messages/HoldPlaced"
       holdReleased:
         $ref: "#/components/messages/HoldReleased"
   erasureRequested:
-    address: passage.privacy.erasure
+    address: depot.privacy.erasure
     messages:
       erasureRequested:
         $ref: "#/components/messages/ErasureRequested"
@@ -111,49 +111,49 @@ operations:
 components:
   messages:
     ConflictDetected:
-      name: dev.passage.sod.conflict.detected.v1
+      name: dev.depot.sod.conflict.detected.v1
       contentType: application/cloudevents+json
       headers:
         $ref: "#/components/schemas/CloudEventHeaders"
       payload:
         $ref: "#/components/schemas/ConflictDetectedData"
     MitigationApproved:
-      name: dev.passage.sod.mitigation.approved.v1
+      name: dev.depot.sod.mitigation.approved.v1
       contentType: application/cloudevents+json
       headers:
         $ref: "#/components/schemas/CloudEventHeaders"
       payload:
         $ref: "#/components/schemas/MitigationApprovedData"
     ScreeningHit:
-      name: dev.passage.trade.screening.hit.v1
+      name: dev.depot.trade.screening.hit.v1
       contentType: application/cloudevents+json
       headers:
         $ref: "#/components/schemas/CloudEventHeaders"
       payload:
         $ref: "#/components/schemas/ScreeningHitData"
     RequestCompleted:
-      name: dev.passage.privacy.request.completed.v1
+      name: dev.depot.privacy.request.completed.v1
       contentType: application/cloudevents+json
       headers:
         $ref: "#/components/schemas/CloudEventHeaders"
       payload:
         $ref: "#/components/schemas/RequestCompletedData"
     HoldPlaced:
-      name: dev.passage.privacy.hold.placed.v1
+      name: dev.depot.privacy.hold.placed.v1
       contentType: application/cloudevents+json
       headers:
         $ref: "#/components/schemas/CloudEventHeaders"
       payload:
         $ref: "#/components/schemas/HoldPlacedData"
     HoldReleased:
-      name: dev.passage.privacy.hold.released.v1
+      name: dev.depot.privacy.hold.released.v1
       contentType: application/cloudevents+json
       headers:
         $ref: "#/components/schemas/CloudEventHeaders"
       payload:
         $ref: "#/components/schemas/HoldReleasedData"
     ErasureRequested:
-      name: dev.passage.privacy.erasure.requested.v1
+      name: dev.depot.privacy.erasure.requested.v1
       contentType: application/cloudevents+json
       headers:
         $ref: "#/components/schemas/CloudEventHeaders"

@@ -1,4 +1,4 @@
--- Wave 36 (PSG-36) slice 1: bank accounts, statements, statement lines, cash forecast entries.
+-- Wave 36 (DPT-36) slice 1: bank accounts, statements, statement lines, cash forecast entries.
 -- Every tenant table: tenant_id first, PK (tenant_id, id), permissive tenant policy (dbx.RLSPolicy)
 -- and restrictive legal-entity policy (dbx.LegalEntityScopePolicy). Money numeric(20,6) + currency char(3).
 
@@ -24,11 +24,11 @@ create table bank_account (
 alter table bank_account enable row level security;
 alter table bank_account force row level security;
 create policy bank_account_tenant_access on bank_account as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy bank_account_legal_entity_scope on bank_account as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 create table bank_statement (
   tenant_id uuid not null,
@@ -55,11 +55,11 @@ create index ix_treasury_statement_sequence on bank_statement (tenant_id, bank_a
 alter table bank_statement enable row level security;
 alter table bank_statement force row level security;
 create policy bank_statement_tenant_access on bank_statement as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy bank_statement_legal_entity_scope on bank_statement as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 create table bank_statement_line (
   tenant_id uuid not null,
@@ -86,11 +86,11 @@ create index ix_treasury_statement_line_unmatched on bank_statement_line (tenant
 alter table bank_statement_line enable row level security;
 alter table bank_statement_line force row level security;
 create policy bank_statement_line_tenant_access on bank_statement_line as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy bank_statement_line_legal_entity_scope on bank_statement_line as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Monthly partitioning by expected_date (FR-36.9 retention 24 months) is deferred; see NOT-IMPLEMENTED.md.
 create table cash_forecast_entry (
@@ -110,11 +110,11 @@ create index ix_treasury_forecast_entry_date on cash_forecast_entry (tenant_id, 
 alter table cash_forecast_entry enable row level security;
 alter table cash_forecast_entry force row level security;
 create policy cash_forecast_entry_tenant_access on cash_forecast_entry as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy cash_forecast_entry_legal_entity_scope on cash_forecast_entry as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Idempotency-Key store (dbx.IdempotencyDDL) for create bank account and create forecast entry.
 create table if not exists idempotency_keys (
@@ -129,8 +129,8 @@ create table if not exists idempotency_keys (
 alter table idempotency_keys enable row level security;
 alter table idempotency_keys force row level security;
 create policy idempotency_keys_tenant_access on idempotency_keys as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Transactional outbox (dbx.OutboxDDL); excluded from RLS, relayed by Debezium.
 create table if not exists outbox (

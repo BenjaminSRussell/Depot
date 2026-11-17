@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
 )
 
 const (
@@ -20,7 +20,7 @@ const (
 )
 
 // asConnector is a connector call as the identity bound to the node.
-var asConnector = map[string]string{"X-Passage-User": connectorSub}
+var asConnector = map[string]string{"X-Depot-User": connectorSub}
 
 type edgeFake struct {
 	nodeIn  *store.EdgeNodeInput
@@ -230,7 +230,7 @@ func TestEdgeHeartbeat_ValidationAndResult(t *testing.T) {
 	}
 	// The store's refusal of a caller that is not the bound connector reaches the connector.
 	f.edge().beatErr = httpx.NewProblem(http.StatusForbidden, store.CodeEdgeNotConnector, "not this node's connector")
-	if rec := callWith(t, h, http.MethodPost, path, `{"bufferFillPct":"1"}`, edgeConnect, map[string]string{"X-Passage-User": "edge-plant2"}); rec.Code != http.StatusForbidden ||
+	if rec := callWith(t, h, http.MethodPost, path, `{"bufferFillPct":"1"}`, edgeConnect, map[string]string{"X-Depot-User": "edge-plant2"}); rec.Code != http.StatusForbidden ||
 		problemCode(t, rec) != store.CodeEdgeNotConnector || f.edge().subject != "edge-plant2" {
 		t.Fatalf("other connector: %d %s", rec.Code, rec.Body.String())
 	}

@@ -8,14 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/testdb"
-	"github.com/BenjaminSRussell/passage/services/migration/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/testdb"
+	"github.com/BenjaminSRussell/depot/services/migration/migrations"
 )
 
 const everyQuarter = "*/15 * * * *"
@@ -154,8 +154,8 @@ func exerciseSync(t *testing.T, s store.Store, ctx context.Context, tenantID str
 	if _, ok, _ := s.ClaimSync(ctx, r.binding.ID, ids.New()); ok {
 		t.Fatal("a paused binding must not be claimed")
 	}
-	resumed, passage := false, domain.SourcePassage
-	if v, err = s.UpdateSync(ctx, r.binding.ID, v.Version, store.SyncEdit{Paused: &resumed, SourceOfTruth: &passage}); err != nil || v.Paused || v.SourceOfTruth != "passage" {
+	resumed, depot := false, domain.SourceDepot
+	if v, err = s.UpdateSync(ctx, r.binding.ID, v.Version, store.SyncEdit{Paused: &resumed, SourceOfTruth: &depot}); err != nil || v.Paused || v.SourceOfTruth != "depot" {
 		t.Fatalf("resume = %+v %v", v, err)
 	}
 	if _, err := s.UpdateSync(ctx, ids.New(), 0, store.SyncEdit{Paused: &paused}); err == nil {
@@ -188,7 +188,7 @@ func exerciseSync(t *testing.T, s store.Store, ctx context.Context, tenantID str
 		}
 	}
 
-	// Conflicts: list, keep Passage (remembered by hash), resolve twice is refused, a changed legacy row reopens it.
+	// Conflicts: list, keep Depot (remembered by hash), resolve twice is refused, a changed legacy row reopens it.
 	open, err := s.ListConflicts(ctx, store.ConflictFilter{Status: "open", Limit: 10})
 	if err != nil || len(open) != 1 || open[0].SourceKey != "C1" || open[0].Entity != "customer" || open[0].LegacyFields["name"] != "Legacy name" {
 		t.Fatalf("open conflicts = %+v %v", open, err)
@@ -263,12 +263,12 @@ func TestPostgres_SyncUnderRLS(t *testing.T) {
 		}
 	})
 	var events int
-	if err := admin.QueryRow(context.Background(), `select count(*) from migration.outbox where type like 'dev.passage.migration.syncrun.%.v1' and aggregate_type = 'syncrun'`).Scan(&events); err != nil || events < 5 {
+	if err := admin.QueryRow(context.Background(), `select count(*) from migration.outbox where type like 'dev.depot.migration.syncrun.%.v1' and aggregate_type = 'syncrun'`).Scan(&events); err != nil || events < 5 {
 		t.Fatalf("sync-run events in the outbox = %d %v", events, err)
 	}
 	// The failed run's event carries the watermark the binding kept, written in the transaction that ended the claim.
 	var failedPayload string
-	if err := admin.QueryRow(context.Background(), `select payload::text from migration.outbox where type = 'dev.passage.migration.syncrun.failed.v1' order by created_at, id limit 1`).Scan(&failedPayload); err != nil ||
+	if err := admin.QueryRow(context.Background(), `select payload::text from migration.outbox where type = 'dev.depot.migration.syncrun.failed.v1' order by created_at, id limit 1`).Scan(&failedPayload); err != nil ||
 		!strings.Contains(failedPayload, `"watermark": "2026-11-01T10:00:00.000000Z"`) {
 		t.Fatalf("failed event = %s %v", failedPayload, err)
 	}

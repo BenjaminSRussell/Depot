@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/gen"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/gen"
 )
 
 const (
@@ -50,7 +50,7 @@ func TestGenerate_GoldenReferenceEntities(t *testing.T) {
 				t.Errorf("%s drifted from golden; review the change and rerun with UPDATE_GOLDEN=1", name)
 			}
 		}
-		for _, want := range []string{`"x-passage-duty"`, `"Idempotency-Key"`, `"If-Match"`, `"ETag"`, "conflict_version", "application/problem+json", "serviceCode", `"/v1/`} {
+		for _, want := range []string{`"x-depot-duty"`, `"Idempotency-Key"`, `"If-Match"`, `"ETag"`, "conflict_version", "application/problem+json", "serviceCode", `"/v1/`} {
 			if !strings.Contains(out.OpenAPI, want) {
 				t.Errorf("%s OpenAPI lacks %s", e.Name, want)
 			}
@@ -134,8 +134,8 @@ func TestGenerate_PHIGolden(t *testing.T) {
 			}
 		}
 		for file, want := range map[string][]string{
-			out.JSONSchema: {`"x-passage-phi":true`, `"x-passage-encrypted":true`},
-			out.OpenAPI:    {`"x-passage-phi":true`, `"x-passage-phi-fields":["coverageTier","medicalLeaveReason","accommodationNote"]`},
+			out.JSONSchema: {`"x-depot-phi":true`, `"x-depot-encrypted":true`},
+			out.OpenAPI:    {`"x-depot-phi":true`, `"x-depot-phi-fields":["coverageTier","medicalLeaveReason","accommodationNote"]`},
 			out.Domain:     {`func BenefitElectionPHIFields() []string { return []string{"coverageTier", "medicalLeaveReason", "accommodationNote"} }`},
 			out.Migration:  {`"coverage_tier" bytea`, `"accommodation_note" bytea`, `"payroll_memo" bytea`},
 		} {
@@ -151,10 +151,10 @@ func TestGenerate_PHIGolden(t *testing.T) {
 		if err := json.Unmarshal([]byte(out.JSONSchema), &schema); err != nil {
 			t.Fatal(err)
 		}
-		if _, tagged := schema.Properties["planCode"]["x-passage-phi"]; tagged {
+		if _, tagged := schema.Properties["planCode"]["x-depot-phi"]; tagged {
 			t.Errorf("a non-phi field must not carry the phi classification")
 		}
-		if schema.Properties["payrollMemo"]["x-passage-phi"] != nil || schema.Properties["payrollMemo"]["x-passage-encrypted"] != true {
+		if schema.Properties["payrollMemo"]["x-depot-phi"] != nil || schema.Properties["payrollMemo"]["x-depot-encrypted"] != true {
 			t.Errorf("an encrypted non-phi field is encrypted but not phi: %v", schema.Properties["payrollMemo"])
 		}
 	}

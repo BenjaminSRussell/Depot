@@ -8,11 +8,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
 )
 
 const vendor = "00000000-0000-0000-0008-000000000001"
@@ -166,14 +166,14 @@ func TestPostgres_VendorRebateClaims(t *testing.T) {
 	}
 	var types []string
 	for _, e := range outboxRows(t, maker, pool) {
-		if e.Type == "dev.passage.pricing.vendorrebateclaim.created.v1" || e.Type == "dev.passage.pricing.vendorrebateclaim.approved.v1" {
+		if e.Type == "dev.depot.pricing.vendorrebateclaim.created.v1" || e.Type == "dev.depot.pricing.vendorrebateclaim.approved.v1" {
 			types = append(types, e.Type)
 			if e.Data["vendor_id"] != vendor || e.Data["agreement_id"] != a.ID {
 				t.Fatalf("claim payload = %v", e.Data)
 			}
 		}
 	}
-	if len(types) != 4 || types[3] != "dev.passage.pricing.vendorrebateclaim.approved.v1" {
+	if len(types) != 4 || types[3] != "dev.depot.pricing.vendorrebateclaim.approved.v1" {
 		t.Fatalf("claim events = %v; want three created and one approved", types)
 	}
 

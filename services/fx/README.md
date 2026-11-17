@@ -1,6 +1,6 @@
 # fx
 
-Wave 12 (PSG-12): the pure FX domain engine in `internal/domain` and the rate store in `internal/store`. No service entrypoint yet.
+Wave 12 (DPT-12): the pure FX domain engine in `internal/domain` and the rate store in `internal/store`. No service entrypoint yet.
 
 ## Run and test
 
@@ -14,9 +14,9 @@ go test ./...
 
 - `rates.go`: append-only rate book, lookup order exact, inverse (only when the rate type allows it), triangulation through a reference currency, else missing.
 - `convert.go`: single-rounding conversion, residual allocation (BR-12.4), half-away-from-zero and half-even.
-- `internal/store`: tenant-scoped rate types and versioned rates; a correction supersedes the current row, a lower-priority source (`ecb 10, openexchangerates 20, csv 30, manual 40`) arrives already superseded, and each row enqueues `dev.passage.fx.rate.published.v1` in the same transaction. `migrations/0001_init.sql` creates the tables.
+- `internal/store`: tenant-scoped rate types and versioned rates; a correction supersedes the current row, a lower-priority source (`ecb 10, openexchangerates 20, csv 30, manual 40`) arrives already superseded, and each row enqueues `dev.depot.fx.rate.published.v1` in the same transaction. `migrations/0001_init.sql` creates the tables.
 - `internal/provider`: `Provider` adapters returning `RatePoint`s. `ecb` parses `eurofxref-daily.xml`, `openexchangerates` parses `latest.json` / `historical/{date}.json` and reports disabled (no request made) without an app id, `csv` parses `type,from,to,valid_from,rate` and rejects bad rows with the line number. `PayloadHash` is the SHA-256 of the record: the canonical `<Cube currency="USD" rate="1.0834"/>` for ECB, `"EUR":0.923` for OpenExchangeRates, the raw line for CSV. ECB and OpenExchangeRates rates beyond 10 decimals are rounded to 10; CSV rejects them. Recorded fixtures live in `testdata/providers/`.
-- Run log and idempotency store methods: `StartRun` (one row per provider, rate type and run date; a succeeded key is returned as `done`), `RecordAttempt`, `FinishRunSucceeded`, `FinishRunFailed` (also enqueues `dev.passage.fx.provider.degraded.v1`), `ListRuns`, `LastSuccess`, `GetIdempotency`, `PutIdempotency` (`migrations/0002_idempotency.sql`). `PostRates` reports `Unchanged` for an identical current row and adds `previous_rate` and `deviation_pct` to `dev.passage.fx.rate.published.v1`.
+- Run log and idempotency store methods: `StartRun` (one row per provider, rate type and run date; a succeeded key is returned as `done`), `RecordAttempt`, `FinishRunSucceeded`, `FinishRunFailed` (also enqueues `dev.depot.fx.provider.degraded.v1`), `ListRuns`, `LastSuccess`, `GetIdempotency`, `PutIdempotency` (`migrations/0002_idempotency.sql`). `PostRates` reports `Unchanged` for an identical current row and adds `previous_rate` and `deviation_pct` to `dev.depot.fx.rate.published.v1`.
 - `reval.go`: closing-rate revaluation with reversal on period end plus one day (BR-12.8, BR-12.9).
 
 ## Error codes
@@ -43,6 +43,6 @@ No module beyond what `platform/go` already requires: `shopspring/decimal` (MIT)
 - `Book.Add` accepts rates in (0, 1e9] with at most 10 decimals (`domain.MaxRate`, `domain.MaxRateScale`, shared with the provider adapters, which reject anything above). Lookups go through a map keyed by (type, from, to) to a date-ordered series, then a binary search for the latest row on or before the date; duplicate-ID checks are map lookups. `CurrentBook` skips and logs a stored row the book rejects instead of failing the whole tenant book.
 - `ConvertEntry` and `Revalue` name every offending currency in sorted order, so errors are stable across runs.
 
-`GET /v1/fx/rates` takes `fx.rate.view` or the service-only `fx.rate.lookup` (payables' signed service token, #305; no other fx route accepts it). Set `PASSAGE_SERVICE_NAME=fx` and `PASSAGE_SERVICE_PUBLIC_KEYS` (chart `serviceIdentity.publicKeys`); a malformed key stops startup. Rollout order: set `publicKeys` (receiving's and payables' keys) on fx before deploying a payables version that signs these reads, or fx answers 401.
+`GET /v1/fx/rates` takes `fx.rate.view` or the service-only `fx.rate.lookup` (payables' signed service token, #305; no other fx route accepts it). Set `DEPOT_SERVICE_NAME=fx` and `DEPOT_SERVICE_PUBLIC_KEYS` (chart `serviceIdentity.publicKeys`); a malformed key stops startup. Rollout order: set `publicKeys` (receiving's and payables' keys) on fx before deploying a payables version that signs these reads, or fx answers 401.
 
 See `NOT-IMPLEMENTED.md` for the deliverables outside this slice.

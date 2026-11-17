@@ -7,9 +7,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	planevents "github.com/BenjaminSRussell/passage/services/planning/internal/events"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	planevents "github.com/BenjaminSRussell/depot/services/planning/internal/events"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/store"
 )
 
 func statCell(item, site, start, end, qty string) store.ForecastCellInput {

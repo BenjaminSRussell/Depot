@@ -1,4 +1,4 @@
-# Campaign route check (PSG-50, FR-50.1)
+# Campaign route check (DPT-50, FR-50.1)
 
 Record of `load/tools/verify_paths.py` run on 2026-10-29 against main at `8e452b55` (re-run in wave 50 slice 11;
 first recorded in slice 10 at `ba93dd3e`). It is a snapshot: `load/tools/test_verify_paths.py` re-runs the

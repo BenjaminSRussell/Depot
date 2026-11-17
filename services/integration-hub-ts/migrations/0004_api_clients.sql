@@ -3,7 +3,7 @@
 -- The client secret lives in Keycloak (client credentials); this table is the
 -- hub's registry of the Keycloak client: scopes, quota, sandbox tenant, owner.
 -- Every table carries tenant_id with ENABLE + FORCE row-level security and the
--- tenant policy. passage_app is granted exactly what the store does: clients are
+-- tenant policy. depot_app is granted exactly what the store does: clients are
 -- revoked, never deleted; buckets and usage are upserted; the outbox is insert-only.
 
 CREATE TABLE IF NOT EXISTS hub_api_client (
@@ -33,8 +33,8 @@ CREATE INDEX IF NOT EXISTS hub_api_client_list ON hub_api_client (tenant_id, cre
 ALTER TABLE hub_api_client ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hub_api_client FORCE ROW LEVEL SECURITY;
 CREATE POLICY hub_api_client_tenant_access ON hub_api_client AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- The token bucket of one client (src/quota.ts): fractional tokens and the
 -- millisecond clock of the last refill. Locked FOR UPDATE by a consume.
@@ -49,8 +49,8 @@ CREATE TABLE IF NOT EXISTS hub_client_bucket (
 ALTER TABLE hub_client_bucket ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hub_client_bucket FORCE ROW LEVEL SECURITY;
 CREATE POLICY hub_client_bucket_tenant_access ON hub_client_bucket AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Requests per client per minute (the portal usage chart, AC-35.6): units
 -- admitted and units refused (a request costs one unit, GraphQL one per 100 points).
@@ -66,8 +66,8 @@ CREATE TABLE IF NOT EXISTS hub_client_usage (
 ALTER TABLE hub_client_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hub_client_usage FORCE ROW LEVEL SECURITY;
 CREATE POLICY hub_client_usage_tenant_access ON hub_client_usage AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Transactional outbox, relayed by Debezium (kernel dbx.OutboxDDL); the payload is
 -- the whole CloudEvents envelope, as platform/go/outbox writes it.
@@ -83,17 +83,17 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hub_api_client TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hub_client_bucket TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hub_client_usage TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON outbox TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hub_api_client TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hub_client_bucket TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hub_client_usage TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON outbox TO depot_app';
   END IF;
 END
 $$;

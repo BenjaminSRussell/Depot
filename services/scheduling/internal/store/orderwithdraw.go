@@ -9,8 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	schedevents "github.com/BenjaminSRussell/passage/services/scheduling/internal/events"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	schedevents "github.com/BenjaminSRussell/depot/services/scheduling/internal/events"
 )
 
 // OrderWithdrawal is production taking an order out of schedule: a reset to

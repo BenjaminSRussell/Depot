@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capacity estimate (PSG-50, FR-50.9, capacity model in docs/ops/capacity-model.md).
+"""Capacity estimate (DPT-50, FR-50.9, capacity model in docs/ops/capacity-model.md).
 
 Maps workload inputs (concurrent users, journal lines/h, order lines/h, scanners, storage growth) to pod counts,
 nodes, Postgres storage, Kafka brokers and, when provider rates are given, a monthly cost. The formulas and constants

@@ -12,13 +12,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/cxmlmap"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/sources"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/cxmlmap"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/sources"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
 )
 
 // The vendor 810 (#35, 35-5): an X12 810 a vendor sends us is its invoice to us. It is not the self-billed invoice of a customer, so

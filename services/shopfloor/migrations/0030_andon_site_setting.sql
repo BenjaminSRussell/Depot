@@ -15,13 +15,13 @@ CREATE TABLE IF NOT EXISTS andon_site_setting (
 ALTER TABLE andon_site_setting ENABLE ROW LEVEL SECURITY;
 ALTER TABLE andon_site_setting FORCE ROW LEVEL SECURITY;
 CREATE POLICY andon_site_setting_tenant_access ON andon_site_setting AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON andon_site_setting TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON andon_site_setting TO depot_app';
   END IF;
 END
 $$;

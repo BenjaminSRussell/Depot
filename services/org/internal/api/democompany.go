@@ -6,10 +6,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/org/internal/seed"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/org/internal/seed"
 )
 
 const (
@@ -52,7 +52,7 @@ func demoAdmin(w http.ResponseWriter, r *http.Request, action string) (tenant.Pr
 // trial or sales demo can start over. Records are recognised by the idempotency key namespace only the demo
 // loader writes; anything else is never deleted, and if something else hangs off a demo record the reset is
 // refused with 409 ORG-DEMO-IN-USE before anything changes. The removal is recorded by a
-// dev.passage.org.democompany.removed.v1 event naming the caller.
+// dev.depot.org.democompany.removed.v1 event naming the caller.
 func (a *API) resetDemoCompany(w http.ResponseWriter, r *http.Request) {
 	p, ok := demoAdmin(w, r, "resetting")
 	if !ok {

@@ -8,24 +8,24 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/party/internal/api"
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/party/internal/store"
-	"github.com/BenjaminSRussell/passage/services/party/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/party/internal/api"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/party/internal/store"
+	"github.com/BenjaminSRussell/depot/services/party/migrations"
 )
 
 // buyer calls the real routes as a buyer user of one legal entity with the named duties.
 func buyer(h http.Handler, user, duties, method, path, body string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Legal-Entity", portalLE)
-	req.Header.Set("X-Passage-User", user)
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Legal-Entity", portalLE)
+	req.Header.Set("X-Depot-User", user)
+	req.Header.Set("X-Depot-Duties", duties)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	return rec

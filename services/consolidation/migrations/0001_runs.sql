@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS idempotency_keys (
   tenant_id uuid NOT NULL,
@@ -33,8 +33,8 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
 ALTER TABLE idempotency_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE idempotency_keys FORCE ROW LEVEL SECURITY;
 CREATE POLICY idempotency_keys_tenant_access ON idempotency_keys AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS consolidation_run (
   tenant_id uuid NOT NULL,
@@ -109,8 +109,8 @@ BEGIN
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
     EXECUTE format($p$CREATE POLICY %I_tenant_access ON %I AS PERMISSIVE
-      USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-      WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid)$p$, t, t);
+      USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+      WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid)$p$, t, t);
   END LOOP;
 END
 $$;

@@ -4,7 +4,7 @@ package schema
 import (
 	"fmt"
 
-	"github.com/BenjaminSRussell/passage/services/batch/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/domain"
 )
 
 // JSONSchema is the subset used by event payloads.

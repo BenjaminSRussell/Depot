@@ -9,7 +9,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/events"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/events"
 )
 
 const PriorityPrimary = "primary"

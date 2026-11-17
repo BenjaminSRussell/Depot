@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/api"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/api"
 )
 
 func TestLoadConfig_DefaultsAndRanges(t *testing.T) {

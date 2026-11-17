@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
 )
 
 // Source is where statement data comes from. HTTPSource reads receivables and party; tests use a fake.

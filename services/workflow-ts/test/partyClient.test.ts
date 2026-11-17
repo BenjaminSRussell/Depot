@@ -15,7 +15,7 @@ const approval: PartyDecision = {
 const signer = createServiceTokenSigner({ seedBase64: Buffer.alloc(32, 9).toString("base64") });
 
 function claimsOf(init: RequestInit | undefined) {
-  return decodeClaims(new Headers(init?.headers).get("X-Passage-Service-Token"));
+  return decodeClaims(new Headers(init?.headers).get("X-Depot-Service-Token"));
 }
 
 function problem(status: number, code: string): Response {
@@ -37,7 +37,7 @@ describe("party http client", () => {
     expect(url).toBe("http://party/v1/party/pending-changes/chg-1:approve");
     expect(claimsOf(init)).toMatchObject({ iss: "workflow-ts", aud: "party", tid: "t1", le: "le1", act: "alice", duties: ["party.approve"] });
     const headers = new Headers(init?.headers);
-    for (const name of ["X-Passage-Tenant", "X-Passage-Legal-Entity", "X-Passage-User", "X-Passage-Duties"]) expect(headers.has(name)).toBe(false);
+    for (const name of ["X-Depot-Tenant", "X-Depot-Legal-Entity", "X-Depot-User", "X-Depot-Duties"]) expect(headers.has(name)).toBe(false);
   });
 
   it("refuses, without calling party, a decision whose approver's scope lacks the change's legal entity", async () => {

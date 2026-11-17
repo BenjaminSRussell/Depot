@@ -50,23 +50,23 @@ create table cutover_go_approval (
 alter table cutover_decision enable row level security;
 alter table cutover_decision force row level security;
 create policy cutover_decision_tenant_access on cutover_decision as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 alter table cutover_go_approval enable row level security;
 alter table cutover_go_approval force row level security;
 create policy cutover_go_approval_tenant_access on cutover_go_approval as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Application role privileges. Decisions and approvals are insert-only; the plan version moves
 -- through the existing UPDATE grant on cutover_plan. Skipped when the role does not exist.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT ON cutover_decision TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON cutover_go_approval TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT ON cutover_decision TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON cutover_go_approval TO depot_app';
   END IF;
 END
 $$;

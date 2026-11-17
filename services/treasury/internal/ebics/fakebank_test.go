@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/bankconnect"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/bankconnect"
 )
 
 var (
@@ -581,10 +581,10 @@ func (v *fakeVault) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		reply(`{"signature":"vault:v1:` + base64.StdEncoding.EncodeToString(sig) + `","key_version":` + strconv.Itoa(version) + `}`)
-	case r.Method == http.MethodGet && p == "secret/data/passage/ebics-e002":
+	case r.Method == http.MethodGet && p == "secret/data/depot/ebics-e002":
 		text := strings.ReplaceAll(string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: mustPKCS8(v.e002)})), "\n", `\n`)
 		reply(`{"data":{"pem":"` + text + `"}}`)
-	case r.Method == http.MethodGet && p == "secret/data/passage/ebics-e002-pub":
+	case r.Method == http.MethodGet && p == "secret/data/depot/ebics-e002-pub":
 		der, _ := x509.MarshalPKIXPublicKey(&v.e002.PublicKey)
 		text := strings.ReplaceAll(string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der})), "\n", `\n`)
 		reply(`{"data":{"pem":"` + text + `"}}`)
@@ -615,7 +615,7 @@ func newEnv(t *testing.T, useVault bool) *env {
 	keys := testKeys(t)
 	e := &env{t: t, bank: newFakeBank(t, keys), store: &memStore{subs: map[string]Subscriber{}}, local: memoryKeys{a006: keys[0], x002: keys[1], e002: keys[2]}}
 	e.store.subs["sub-1"] = Subscriber{ID: "sub-1", LegalEntityID: "le-1", BankAccountID: "ba-1", HostID: "BANKHOST", PartnerID: "PARTNER1", UserID: "USER1",
-		URL: e.bank.srv.URL, A006Key: "ebics-a006", X002Key: "ebics-x002", E002KVPath: "passage/ebics-e002", State: StateNew}
+		URL: e.bank.srv.URL, A006Key: "ebics-a006", X002Key: "ebics-x002", E002KVPath: "depot/ebics-e002", State: StateNew}
 	c := &Client{Store: e.store, AllowLoopback: true, Sleep: func(_ context.Context, d time.Duration) error { e.sleeps = append(e.sleeps, d); return nil }}
 	if useVault {
 		e.vault = newFakeVault(t, keys[0], keys[1], keys[2])

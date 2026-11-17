@@ -1,4 +1,4 @@
-module github.com/BenjaminSRussell/passage/platform
+module github.com/BenjaminSRussell/depot/platform
 
 go 1.26.0
 

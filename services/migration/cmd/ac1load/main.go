@@ -10,15 +10,15 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/ac1load"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/testdb"
-	"github.com/BenjaminSRussell/passage/services/migration/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/ac1load"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/testdb"
+	"github.com/BenjaminSRussell/depot/services/migration/migrations"
 )
 
-const throwawayDatabase = "passage_ac1"
+const throwawayDatabase = "depot_ac1"
 
 func main() {
 	report := flag.String("report", "internal/ac1load/testdata/ac1-reconciliation.json", "JSON reconciliation report path")
@@ -87,9 +87,9 @@ func checkThrowaway(ctx context.Context, owner, app *pgxpool.Pool) (ac1load.Env,
 }
 
 func run(ctx context.Context, reportPath, markdownPath, commit string) error {
-	ownerURL, appURL := os.Getenv("PASSAGE_TEST_DATABASE_URL"), os.Getenv("PASSAGE_TEST_APP_DATABASE_URL")
+	ownerURL, appURL := os.Getenv("DEPOT_TEST_DATABASE_URL"), os.Getenv("DEPOT_TEST_APP_DATABASE_URL")
 	if ownerURL == "" || appURL == "" {
-		return fmt.Errorf("set PASSAGE_TEST_DATABASE_URL (schema owner) and PASSAGE_TEST_APP_DATABASE_URL (the role the load runs as), or run make ac1-load")
+		return fmt.Errorf("set DEPOT_TEST_DATABASE_URL (schema owner) and DEPOT_TEST_APP_DATABASE_URL (the role the load runs as), or run make ac1-load")
 	}
 	ctx, cancel := context.WithTimeout(ctx, ac1load.Budget+5*time.Minute)
 	defer cancel()

@@ -11,13 +11,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 // TestOpenAPI_MatchesRoutes keeps api/openapi.yaml and Register in step: every
 // mounted method and path is documented and nothing else is, and each
-// operation's x-passage-duty is the duty the route enforces (the documented
+// operation's x-depot-duty is the duty the route enforces (the documented
 // duty alone passes authorization; no duty is 403).
 func TestOpenAPI_MatchesRoutes(t *testing.T) {
 	raw, err := os.ReadFile("../../api/openapi.yaml")
@@ -26,7 +26,7 @@ func TestOpenAPI_MatchesRoutes(t *testing.T) {
 	}
 	pathRe := regexp.MustCompile(`^  (/v1/\S+):$`)
 	methodRe := regexp.MustCompile(`^    (get|put|post|patch|delete):$`)
-	dutyRe := regexp.MustCompile(`^      x-passage-duty: (\S+)`)
+	dutyRe := regexp.MustCompile(`^      x-depot-duty: (\S+)`)
 	documented := map[string]string{}
 	var path, op string
 	for _, line := range strings.Split(string(raw), "\n") {
@@ -77,7 +77,7 @@ func TestOpenAPI_MatchesRoutes(t *testing.T) {
 	h := setup(t, newFakeStore(), &fakeTax{perLine: "19.00"})
 	for op, duty := range documented {
 		if duty == "" {
-			t.Errorf("%s has no x-passage-duty", op)
+			t.Errorf("%s has no x-depot-duty", op)
 			continue
 		}
 		method, route, _ := strings.Cut(op, " ")

@@ -10,7 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/services/payables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/domain"
 )
 
 func check(number, amount, status string) domain.CheckPaymentDTO {

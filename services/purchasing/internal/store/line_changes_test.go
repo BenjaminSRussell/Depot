@@ -5,7 +5,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
 )
 
 // Only a change that comes from inbound planning may move the quantity of a line ordered from a requisition line.

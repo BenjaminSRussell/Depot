@@ -22,24 +22,24 @@ $bin = Join-Path $Out 'bin'
 $common = @('-d', "Version=$Version", '-d', "BinDir=$bin")
 if ($Fips) { $common += @('-d', 'Fips=1') }
 
-$msi = Join-Path $Out "Passage-$Version-$Variant.msi"
+$msi = Join-Path $Out "Depot-$Version-$Variant.msi"
 $d = $common
 if ($env:NODE_DIR) { $d += @('-d', "NodeDir=$env:NODE_DIR") }
 if ($env:PYTHON_DIR) { $d += @('-d', "PythonDir=$env:PYTHON_DIR") }
 Push-Location $here
 try {
-    Invoke-Wix 'Passage.msi build' (@('build', '-arch', $Arch) + $d + @('-ext', 'WixToolset.Util.wixext', '-ext', 'WixToolset.Firewall.wixext', 'Package.wxs', 'Config.wxs', '-o', $msi))
+    Invoke-Wix 'Depot.msi build' (@('build', '-arch', $Arch) + $d + @('-ext', 'WixToolset.Util.wixext', '-ext', 'WixToolset.Firewall.wixext', 'Package.wxs', 'Config.wxs', '-o', $msi))
     $temporalMsi = $null
     if ($env:TEMPORAL_DIR) {
-        $temporalMsi = Join-Path $Out "PassageTemporal-$Version-$Variant.msi"
-        Invoke-Wix 'PassageTemporal.msi build' (@('build', '-arch', $Arch) + $common + @('-d', "TemporalDir=$env:TEMPORAL_DIR", '-ext', 'WixToolset.Util.wixext', 'Temporal.wxs', '-o', $temporalMsi))
+        $temporalMsi = Join-Path $Out "DepotTemporal-$Version-$Variant.msi"
+        Invoke-Wix 'DepotTemporal.msi build' (@('build', '-arch', $Arch) + $common + @('-d', "TemporalDir=$env:TEMPORAL_DIR", '-ext', 'WixToolset.Util.wixext', 'Temporal.wxs', '-o', $temporalMsi))
     }
     if ($Arch -eq 'x64') {
-        $b = @('-d', "Version=$Version", '-d', "PassageMsi=$msi")
+        $b = @('-d', "Version=$Version", '-d', "DepotMsi=$msi")
         if ($Fips) { $b += @('-d', 'Fips=1') }
         if ($temporalMsi) { $b += @('-d', "TemporalMsi=$temporalMsi") }
         if ($env:POSTGRES_INSTALLER) { $b += @('-d', "PostgresInstaller=$env:POSTGRES_INSTALLER") }
-        Invoke-Wix 'PassageSetup.exe bundle build' (@('build', '-arch', 'x64') + $b + @('-ext', 'WixToolset.Util.wixext', '-ext', 'WixToolset.BootstrapperApplications.wixext', 'Bundle.wxs', '-o', (Join-Path $Out "PassageSetup-$Version-$Variant.exe")))
+        Invoke-Wix 'DepotSetup.exe bundle build' (@('build', '-arch', 'x64') + $b + @('-ext', 'WixToolset.Util.wixext', '-ext', 'WixToolset.BootstrapperApplications.wixext', 'Bundle.wxs', '-o', (Join-Path $Out "DepotSetup-$Version-$Variant.exe")))
     }
 } finally {
     Pop-Location

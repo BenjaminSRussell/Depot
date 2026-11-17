@@ -17,5 +17,5 @@ create index "ix_attachments_01" on "attachments" ("tenant_id", "owner_id");
 alter table attachments enable row level security;
 alter table attachments force row level security;
 create policy attachments_tenant_access on attachments as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);

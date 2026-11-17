@@ -10,11 +10,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/domain"
-	svcevents "github.com/BenjaminSRussell/passage/services/fieldservice/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/domain"
+	svcevents "github.com/BenjaminSRussell/depot/services/fieldservice/internal/events"
 )
 
 // Problem codes of supplier warranty claims beside the BR-45.12 rule codes in the
@@ -379,7 +379,7 @@ func (s *Postgres) DecideClaim(ctx context.Context, m ClaimMove, key, requestHas
 
 // SettleClaim matches the vendor's credit note (wave 18) to an accepted claim by
 // its vendor reference; the claim becomes SETTLED with the credit as the recovered
-// amount, and dev.passage.service.supplierclaim.settled.v1 is written to the outbox
+// amount, and dev.depot.service.supplierclaim.settled.v1 is written to the outbox
 // in the same transaction for the GL warranty recovery (BR-45.12, AC-45.13).
 func (s *Postgres) SettleClaim(ctx context.Context, m ClaimMove, key, requestHash string) (SupplierClaim, bool, error) {
 	tid := tenantOf(ctx)

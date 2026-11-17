@@ -5,13 +5,13 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
 )
 
-// FR-25.3 through Postgres as passage_app: a finished job is reopened with a reason and the
+// FR-25.3 through Postgres as depot_app: a finished job is reopened with a reason and the
 // version the supervisor read; it returns to the dispatch list as started with its totals and
 // check results, takes feedback again, and the finish still passes the mandatory-check gate.
 // A reopening writes one audit row and one job.reopened event, a repeated key changes nothing,

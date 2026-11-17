@@ -1,4 +1,4 @@
-SELECT set_config('passage.tenant_id', '00000000-0000-0000-0000-000000000000', true);
+SELECT set_config('depot.tenant_id', '00000000-0000-0000-0000-000000000000', true);
 UPDATE country
    SET postal_regex = '^[ABCEGHJ-NPRSTVXY][0-9][ABCEGHJ-NPRSTV-Z] ?[0-9][ABCEGHJ-NPRSTV-Z][0-9]$'
  WHERE tenant_id = '00000000-0000-0000-0000-000000000000'

@@ -6,7 +6,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // WOStatus is the work-order status machine (BR-45.5).

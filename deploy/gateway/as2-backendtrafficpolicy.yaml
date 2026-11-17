@@ -6,7 +6,7 @@
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: BackendTrafficPolicy
 metadata:
-  name: passage-as2-limits
+  name: depot-as2-limits
   namespace: hello-ledger
 spec:
   targetRefs:

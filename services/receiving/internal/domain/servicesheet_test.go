@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
 )
 
 func TestPostServiceSheet_DebitsExpenseAndCreditsGRIR(t *testing.T) {

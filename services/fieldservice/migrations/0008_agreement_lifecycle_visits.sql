@@ -1,4 +1,4 @@
--- Field service, slice 6 (PSG-4506): the agreement lifecycle (activate, suspend,
+-- Field service, slice 6 (DPT-4506): the agreement lifecycle (activate, suspend,
 -- resume, cancel, expire; FR-45.3) and included-visit consumption. Agreements get a
 -- version for If-Match, a status log records each change, and visits are recorded
 -- against a line's includedVisits.
@@ -23,11 +23,11 @@ CREATE INDEX IF NOT EXISTS service_agreement_status_log_agreement ON service_agr
 ALTER TABLE service_agreement_status_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_agreement_status_log FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_agreement_status_log_tenant_access ON service_agreement_status_log AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY service_agreement_status_log_legal_entity_scope ON service_agreement_status_log AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS service_agreement_visit (
   tenant_id uuid NOT NULL,
@@ -56,20 +56,20 @@ CREATE INDEX IF NOT EXISTS service_agreement_visit_agreement ON service_agreemen
 ALTER TABLE service_agreement_visit ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_agreement_visit FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_agreement_visit_tenant_access ON service_agreement_visit AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY service_agreement_visit_legal_entity_scope ON service_agreement_visit AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Application role privileges, in the style of 0002. The status log and visits are
 -- append-only; service_agreement already has UPDATE (0002). Nothing is deleted.
 -- Skipped when the role does not exist (developer databases without the role split).
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT ON service_agreement_status_log, service_agreement_visit TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT ON service_agreement_status_log, service_agreement_visit TO depot_app';
   END IF;
 END
 $$;

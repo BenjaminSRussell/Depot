@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 var partyFields = []string{"legalName", "tradeName", "registrationNumber", "industryCode", "givenName", "middleName", "familyName", "prefix", "suffix", "dob", "gender", "languageCode", "timeZone", "ownerUserId", "ownerTeamId"}
@@ -24,7 +24,7 @@ func accepted(r reply, fallbackID string) domain.LoadResult {
 	return domain.LoadResult{TargetID: rc.ID, TargetVersion: rc.Version}
 }
 
-// loadParty creates a party under the id the pipeline reserved, so the legacy key keeps one Passage id, or patches
+// loadParty creates a party under the id the pipeline reserved, so the legacy key keeps one Depot id, or patches
 // the one an earlier run created. The party number comes from numbering in the party service.
 func (l *Loader) loadParty(ctx context.Context, c *call, it domain.LoadItem) (domain.LoadResult, error) {
 	le, bad := l.legalEntity(it.Fields)
@@ -73,7 +73,7 @@ func (l *Loader) loadParty(ctx context.Context, c *call, it domain.LoadItem) (do
 // role, so a row that changed since its first load is a reject, not a silent skip.
 func (l *Loader) loadRole(ctx context.Context, c *call, it domain.LoadItem, role string, need []string, optional []string) (domain.LoadResult, error) {
 	if it.Existing {
-		return domain.LoadResult{Code: CodeUpdateUnavailable, Detail: "the party service has no import route to change a " + role + " role after it is created; change it in Passage or load it as a new key"}, nil
+		return domain.LoadResult{Code: CodeUpdateUnavailable, Detail: "the party service has no import route to change a " + role + " role after it is created; change it in Depot or load it as a new key"}, nil
 	}
 	le, bad := l.legalEntity(it.Fields)
 	if bad != nil {

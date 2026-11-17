@@ -28,7 +28,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 )
 
 const (
@@ -144,7 +144,7 @@ func NewPolicyBundleCompiler(pool *pgxpool.Pool, catalogue *Catalogue, catalogue
 func (c *PolicyBundleCompiler) assignments(ctx context.Context) (map[string]map[string][]string, error) {
 	out := map[string]map[string][]string{}
 	err := pgx.BeginFunc(ctx, c.pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', '*', true), set_config('passage.policy_compile', 'on', true)`, c.operatorTenantID); err != nil {
+		if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true), set_config('depot.policy_compile', 'on', true)`, c.operatorTenantID); err != nil {
 			return err
 		}
 		var operators int

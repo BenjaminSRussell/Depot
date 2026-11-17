@@ -79,16 +79,16 @@ BEGIN
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
     EXECUTE format($p$CREATE POLICY %I_tenant_access ON %I AS PERMISSIVE
-      USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-      WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid)$p$, t, t);
+      USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+      WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid)$p$, t, t);
   END LOOP;
 END
 $$;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ic_journal, ic_journal_entry, ic_charge_request TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ic_journal, ic_journal_entry, ic_charge_request TO depot_app';
   END IF;
 END
 $$;

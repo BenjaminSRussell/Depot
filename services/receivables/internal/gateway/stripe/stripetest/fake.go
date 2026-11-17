@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/gateway/stripe"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/gateway/stripe"
 )
 
 // Request is one call the fake received.

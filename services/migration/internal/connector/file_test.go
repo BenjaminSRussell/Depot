@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/connector"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/connector"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 func fileSpec(profile map[string]any, source map[string]any) connector.Spec {

@@ -8,13 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	ediev "github.com/BenjaminSRussell/passage/services/edi/internal/events"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/poster"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/sources"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	ediev "github.com/BenjaminSRussell/depot/services/edi/internal/events"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/poster"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/sources"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
 )
 
 func (f *postFixture) poster() *poster.Poster {

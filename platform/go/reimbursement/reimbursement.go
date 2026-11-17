@@ -5,7 +5,7 @@
 // run settles that item.
 package reimbursement
 
-import "github.com/BenjaminSRussell/passage/platform/events"
+import "github.com/BenjaminSRussell/depot/platform/events"
 
 var (
 	ReportApprovedType  = events.Type("expense", "report", "approved", 1)

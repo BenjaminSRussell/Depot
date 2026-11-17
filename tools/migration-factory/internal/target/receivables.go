@@ -1,7 +1,7 @@
 // Package target is the migration factory's client for the services it loads into. Today that is the
 // receivables service: the open_items pack is sent to POST /v1/receivables/open-items:batch and the target's own
 // totals are read from GET /v1/receivables/open-item-imports. The factory signs as its own service
-// (PASSAGE_SERVICE_NAME=migration-factory, its own key, never the migration service's) and acts as the existing
+// (DEPOT_SERVICE_NAME=migration-factory, its own key, never the migration service's) and acts as the existing
 // service:migration-loader principal in the run's legal entity. Each token carries one duty of the grant: the
 // batch only receivables.import.write, the totals read only receivables.view. Every attempt carries a freshly signed token
 // (a token id is single use).
@@ -13,7 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"io"
 	"net/http"
 	"sort"
@@ -23,9 +23,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 const (
@@ -230,7 +230,7 @@ type ImportSummary struct {
 
 // ImportTotals reads what receivables holds for the import source in the legal entity, per currency. The token is
 // scoped to the legal entity, so receivables' row-level security returns that entity's groups only. Receivables
-// totals every item ever loaded under the import source (by any run), as Passage holds it now. A full page is
+// totals every item ever loaded under the import source (by any run), as Depot holds it now. A full page is
 // refused as unreadable: a currency missing from it could be beyond the page, and reading it as zero would
 // report a false mismatch (or hide a missing currency).
 func (r *Receivables) ImportTotals(ctx context.Context, tenantID, legalEntityID, importSource string) ([]domain.ImportTotals, error) {

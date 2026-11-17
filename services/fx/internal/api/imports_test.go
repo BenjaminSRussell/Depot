@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/api"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/importer"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/provider"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/api"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/importer"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/provider"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/store"
 )
 
 type fakeImporter struct {

@@ -9,9 +9,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
 )
 
 // treeRef names the tree revision of a run as CODE@revision, in the run

@@ -13,10 +13,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/xlsx"
-	"github.com/BenjaminSRussell/passage/services/budgeting/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/budgeting/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/xlsx"
+	"github.com/BenjaminSRussell/depot/services/budgeting/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/budgeting/internal/store"
 )
 
 // Problem codes of the workbook round trip (FR-38.14).

@@ -13,11 +13,11 @@ CREATE TABLE IF NOT EXISTS pricing_parameter (
 ALTER TABLE pricing_parameter ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pricing_parameter FORCE ROW LEVEL SECURITY;
 CREATE POLICY pricing_parameter_tenant_access ON pricing_parameter AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY pricing_parameter_legal_entity_scope ON pricing_parameter AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE price_journal ADD COLUMN IF NOT EXISTS created_by text NOT NULL DEFAULT '' CHECK (length(created_by) <= 128);
 ALTER TABLE price_journal ADD COLUMN IF NOT EXISTS posted_by text NOT NULL DEFAULT '' CHECK (length(posted_by) <= 128);
@@ -26,8 +26,8 @@ ALTER TABLE price_journal ADD COLUMN IF NOT EXISTS posted_by text NOT NULL DEFAU
 -- version). price_journal already has UPDATE. Skipped when the role does not exist.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON pricing_parameter TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON pricing_parameter TO depot_app';
   END IF;
 END
 $$;

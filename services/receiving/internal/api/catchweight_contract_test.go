@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/purchasing"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store/memstore"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/purchasing"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store/memstore"
 )
 
 // receiptFixture is the catch-weight receipt.posted the inventory postings
@@ -146,7 +146,7 @@ func TestCatchWeightReceipt_PostedEventAndGRIRMatchTheInventoryContract(t *testi
 	}
 	var adjustments []map[string]any
 	for _, e := range st.Events() {
-		if e.Type == "dev.passage.receiving.receipt.corrected.v1" {
+		if e.Type == "dev.depot.receiving.receipt.corrected.v1" {
 			var m map[string]any
 			if err := json.Unmarshal(e.Data, &m); err != nil {
 				t.Fatal(err)

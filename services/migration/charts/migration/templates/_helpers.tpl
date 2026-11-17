@@ -1,7 +1,7 @@
 {{- define "migration.image" -}}
 {{- if .Values.image.digest -}}
-{{ (include "passage.imageRepository" $) }}@{{ .Values.image.digest }}
+{{ (include "depot.imageRepository" $) }}@{{ .Values.image.digest }}
 {{- else -}}
-{{ (include "passage.imageRepository" $) }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+{{ (include "depot.imageRepository" $) }}:{{ .Values.image.tag | default .Chart.AppVersion }}
 {{- end -}}
 {{- end -}}

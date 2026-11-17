@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/store"
 )
 
 func (f *fakeStore) ActivateBomVersion(_ context.Context, id string, check func(store.Snapshot, domain.BomVersion) error) (domain.BomVersion, error) {

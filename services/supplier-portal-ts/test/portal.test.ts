@@ -12,7 +12,7 @@ const SECRET = "A".repeat(43);
 const TOKEN = `inv1.${TENANT}.${LE_1}.${VENDOR_A}.${INVITE_ID}.${SECRET}`;
 const registration = { tenantId: TENANT, legalEntityId: LE_1 };
 const upload = (content: string) => ({ title: "Certificate", fileName: "iso.pdf", contentType: "application/pdf", contentBase64: Buffer.from(content).toString("base64") });
-const claimsOf = (i: number) => tokenClaims(rig.calls[i]!.headers.get("x-passage-service-token") as string);
+const claimsOf = (i: number) => tokenClaims(rig.calls[i]!.headers.get("x-depot-service-token") as string);
 
 describe("invoice by received line", () => {
   it("lists invoiceable lines and submits an invoice for the session's vendor and legal entity", async () => {

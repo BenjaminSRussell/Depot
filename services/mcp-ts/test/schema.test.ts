@@ -65,36 +65,36 @@ describe("schemaViolations (outputSchema conformance)", () => {
 
 describe("callTool outputSchema enforcement", () => {
   it("returns MCP-0502 and audits UPSTREAM_ERROR when the body does not conform", async () => {
-    const tool = readTool("passage.ap.invoice.list", "APInvoiceRead", { outputSchema: invoiceList });
+    const tool = readTool("depot.ap.invoice.list", "APInvoiceRead", { outputSchema: invoiceList });
     const r = rig([tool]);
     r.upstream.responses.push({ status: 200, body: { items: [{ amount: "1" }] } });
-    const res = await callTool(r.deps, principal(["APInvoiceRead"]), "passage.ap.invoice.list", {});
+    const res = await callTool(r.deps, principal(["APInvoiceRead"]), "depot.ap.invoice.list", {});
     expect(res).toMatchObject({ kind: "error", status: 502, code: "MCP-0502" });
     expect(r.audit.entries[0]).toMatchObject({ outcome: "UPSTREAM_ERROR", status: 502 });
   });
 
   it("returns the body when it conforms", async () => {
-    const tool = readTool("passage.ap.invoice.list", "APInvoiceRead", { outputSchema: invoiceList });
+    const tool = readTool("depot.ap.invoice.list", "APInvoiceRead", { outputSchema: invoiceList });
     const r = rig([tool]);
     r.upstream.responses.push({ status: 200, body: { items: [{ id: "i1", amount: "1" }] } });
-    const res = await callTool(r.deps, principal(["APInvoiceRead"]), "passage.ap.invoice.list", {});
+    const res = await callTool(r.deps, principal(["APInvoiceRead"]), "depot.ap.invoice.list", {});
     expect(res).toMatchObject({ kind: "ok", status: 200 });
   });
 
   it("lists up to three violations in the message", async () => {
-    const tool = readTool("passage.ap.invoice.list", "APInvoiceRead", { outputSchema: invoiceList });
+    const tool = readTool("depot.ap.invoice.list", "APInvoiceRead", { outputSchema: invoiceList });
     const r = rig([tool]);
     r.upstream.responses.push({ status: 200, body: { items: [{}, {}] } });
-    const res = await callTool(r.deps, principal(["APInvoiceRead"]), "passage.ap.invoice.list", {});
+    const res = await callTool(r.deps, principal(["APInvoiceRead"]), "depot.ap.invoice.list", {});
     expect(res).toMatchObject({ kind: "error", code: "MCP-0502" });
     expect(res.kind === "error" ? res.message.split("; ") : []).toHaveLength(3);
   });
 
   it("does not check write tools: their upstream has already committed", async () => {
-    const tool = writeTool("passage.ap.invoice.post", "APInvoicePost", { outputSchema: invoiceList });
+    const tool = writeTool("depot.ap.invoice.post", "APInvoicePost", { outputSchema: invoiceList });
     const r = rig([tool]);
     r.upstream.responses.push({ status: 200, body: { posted: true } });
-    const res = await callTool(r.deps, principal(["APInvoicePost"]), "passage.ap.invoice.post", { invoiceId: "i1" });
+    const res = await callTool(r.deps, principal(["APInvoicePost"]), "depot.ap.invoice.post", { invoiceId: "i1" });
     expect(res).toMatchObject({ kind: "ok", status: 200, body: { posted: true } });
     expect(r.audit.entries[0]).toMatchObject({ outcome: "OK" });
   });

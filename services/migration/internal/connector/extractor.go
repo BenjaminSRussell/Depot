@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 // Binding is one entity's source for an Extractor. Open is called when the entity is extracted and its result closed

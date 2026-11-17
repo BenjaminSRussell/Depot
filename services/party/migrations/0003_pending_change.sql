@@ -25,9 +25,9 @@ ALTER TABLE pending_change ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pending_change FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS pending_change_tenant_access ON pending_change;
 CREATE POLICY pending_change_tenant_access ON pending_change AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS pending_change_legal_entity_scope ON pending_change;
 CREATE POLICY pending_change_legal_entity_scope ON pending_change AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

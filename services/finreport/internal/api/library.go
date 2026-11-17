@@ -10,11 +10,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/store"
 )
 
 func badQuery(w http.ResponseWriter, r *http.Request, detail string) {
@@ -123,7 +123,7 @@ func (a *API) getLibraryEntry(w http.ResponseWriter, r *http.Request) {
 }
 
 // libraryContent serves the stored file, exactly the bytes that were
-// distributed. The ETag and X-Passage-Content-Sha256 carry the SHA-256 listed
+// distributed. The ETag and X-Depot-Content-Sha256 carry the SHA-256 listed
 // on the entry, so a download can be verified.
 func (a *API) libraryContent(w http.ResponseWriter, r *http.Request) {
 	id, ok := libraryID(w, r)
@@ -138,7 +138,7 @@ func (a *API) libraryContent(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", e.ContentType)
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, safeFileName(e.FileName)))
 	w.Header().Set("ETag", `"`+e.SHA256+`"`)
-	w.Header().Set("X-Passage-Content-Sha256", e.SHA256)
+	w.Header().Set("X-Depot-Content-Sha256", e.SHA256)
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(body)
 }

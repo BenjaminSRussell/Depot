@@ -26,11 +26,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS dispute_one_active_per_item ON dispute (tenant
 ALTER TABLE dispute ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dispute FORCE ROW LEVEL SECURITY;
 CREATE POLICY dispute_tenant_access ON dispute AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY dispute_legal_entity_scope ON dispute AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS promise_to_pay (
   tenant_id uuid NOT NULL,
@@ -50,11 +50,11 @@ CREATE INDEX IF NOT EXISTS promise_open_item ON promise_to_pay (tenant_id, open_
 ALTER TABLE promise_to_pay ENABLE ROW LEVEL SECURITY;
 ALTER TABLE promise_to_pay FORCE ROW LEVEL SECURITY;
 CREATE POLICY promise_to_pay_tenant_access ON promise_to_pay AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY promise_to_pay_legal_entity_scope ON promise_to_pay AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS dunning_run (
   tenant_id uuid NOT NULL,
@@ -74,11 +74,11 @@ CREATE TABLE IF NOT EXISTS dunning_run (
 ALTER TABLE dunning_run ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dunning_run FORCE ROW LEVEL SECURITY;
 CREATE POLICY dunning_run_tenant_access ON dunning_run AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY dunning_run_legal_entity_scope ON dunning_run AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS dunning_letter (
   tenant_id uuid NOT NULL,
@@ -102,11 +102,11 @@ CREATE INDEX IF NOT EXISTS dunning_letter_run ON dunning_letter (tenant_id, run_
 ALTER TABLE dunning_letter ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dunning_letter FORCE ROW LEVEL SECURITY;
 CREATE POLICY dunning_letter_tenant_access ON dunning_letter AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY dunning_letter_legal_entity_scope ON dunning_letter AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS interest_note (
   tenant_id uuid NOT NULL,
@@ -130,8 +130,8 @@ CREATE TABLE IF NOT EXISTS interest_note (
 ALTER TABLE interest_note ENABLE ROW LEVEL SECURITY;
 ALTER TABLE interest_note FORCE ROW LEVEL SECURITY;
 CREATE POLICY interest_note_tenant_access ON interest_note AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY interest_note_legal_entity_scope ON interest_note AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

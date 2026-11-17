@@ -1,7 +1,7 @@
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: BackendTrafficPolicy
 metadata:
-  name: passage-api-tenant-rate-limit
+  name: depot-api-tenant-rate-limit
   namespace: hello-ledger
 spec:
   targetRefs:
@@ -63,9 +63,9 @@ spec:
       - shared: true
         clientSelectors:
           - headers:
-              - name: X-Passage-Tier
+              - name: X-Depot-Tier
                 value: starter
-              - name: X-Passage-Tenant
+              - name: X-Depot-Tenant
                 type: Distinct
         limit:
           requests: 600
@@ -73,9 +73,9 @@ spec:
       - shared: true
         clientSelectors:
           - headers:
-              - name: X-Passage-Tier
+              - name: X-Depot-Tier
                 value: professional
-              - name: X-Passage-Tenant
+              - name: X-Depot-Tenant
                 type: Distinct
         limit:
           requests: 3000
@@ -83,9 +83,9 @@ spec:
       - shared: true
         clientSelectors:
           - headers:
-              - name: X-Passage-Tier
+              - name: X-Depot-Tier
                 value: enterprise
-              - name: X-Passage-Tenant
+              - name: X-Depot-Tenant
                 type: Distinct
         limit:
           requests: 12000
@@ -93,11 +93,11 @@ spec:
       - shared: true
         clientSelectors:
           - headers:
-              - name: X-Passage-Tier
+              - name: X-Depot-Tier
                 type: RegularExpression
                 value: ^(starter|professional|enterprise)$
                 invert: true
-              - name: X-Passage-Tenant
+              - name: X-Depot-Tenant
                 type: Distinct
         limit:
           requests: 600

@@ -128,7 +128,7 @@ export interface ViewStore {
 
 export const VIEW_STORE_VERSION = 1;
 
-export const viewStoreKey = (identity: string, listId: string) => `passage.list.v${VIEW_STORE_VERSION}.${identity}.${listId}`;
+export const viewStoreKey = (identity: string, listId: string) => `depot.list.v${VIEW_STORE_VERSION}.${identity}.${listId}`;
 
 const isStrings = (value: unknown): value is string[] => Array.isArray(value) && value.every((v) => typeof v === "string");
 

@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/platform-health/internal/api"
-	"github.com/BenjaminSRussell/passage/services/platform-health/internal/store"
-	"github.com/BenjaminSRussell/passage/services/platform-health/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/platform-health/internal/api"
+	"github.com/BenjaminSRussell/depot/services/platform-health/internal/store"
+	"github.com/BenjaminSRussell/depot/services/platform-health/migrations"
 )
 
 const (
@@ -33,8 +33,8 @@ func releaseBody(mutate func(string) string) string {
 
 func doRelease(r http.Handler, method, path, body, duties, key string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", duties)
 	if key != "" {
 		req.Header.Set("Idempotency-Key", key)
 	}
@@ -264,8 +264,8 @@ func TestRecordReleaseRestrictedToOperatorTenant(t *testing.T) {
 			r := httpx.NewRouter()
 			api.New(f, tc.operator).Register(r)
 			req := httptest.NewRequest(http.MethodPost, releasesPath, strings.NewReader(releaseBody(nil)))
-			req.Header.Set("X-Passage-Tenant", testkit.TenantID(tc.tenantN))
-			req.Header.Set("X-Passage-Duties", "platform.release.maintain,platform.promotion.approve,platform.environment.rollback")
+			req.Header.Set("X-Depot-Tenant", testkit.TenantID(tc.tenantN))
+			req.Header.Set("X-Depot-Duties", "platform.release.maintain,platform.promotion.approve,platform.environment.rollback")
 			rec := httptest.NewRecorder()
 			r.ServeHTTP(rec, req)
 			if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), tc.wantBody) || len(f.releases) != 0 {
@@ -289,8 +289,8 @@ func TestListReleasesOpenToAnyTenantWithDuty(t *testing.T) {
 			r := httpx.NewRouter()
 			api.New(&fakeStore{releases: []store.Release{{ID: "1", Actor: "operator-user"}}}, testkit.TenantID(1)).Register(r)
 			req := httptest.NewRequest(http.MethodGet, releasesPath, nil)
-			req.Header.Set("X-Passage-Tenant", testkit.TenantID(tc.tenantN))
-			req.Header.Set("X-Passage-Duties", "platform.release.view")
+			req.Header.Set("X-Depot-Tenant", testkit.TenantID(tc.tenantN))
+			req.Header.Set("X-Depot-Duties", "platform.release.view")
 			rec := httptest.NewRecorder()
 			r.ServeHTTP(rec, req)
 			if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), "operator-user") != tc.wantActor {

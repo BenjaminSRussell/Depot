@@ -39,7 +39,7 @@ export function testSigner(iss = "fulfillment", nowMs = () => NOW_MS): TestSigne
         ...overrides,
       };
       const body = Buffer.from(JSON.stringify(claims)).toString("base64url");
-      return `${body}.${sign(null, Buffer.from("passage.service-token.v1." + body), key).toString("base64url")}`;
+      return `${body}.${sign(null, Buffer.from("depot.service-token.v1." + body), key).toString("base64url")}`;
     },
   };
 }

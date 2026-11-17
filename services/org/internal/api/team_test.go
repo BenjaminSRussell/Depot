@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
 const (
@@ -29,7 +29,7 @@ func seededTeamTypes() *fakeStore {
 }
 
 func TestTeamTypes(t *testing.T) {
-	scoped := []string{"X-Passage-Legal-Entity", testkit.TenantID(2)}
+	scoped := []string{"X-Depot-Legal-Entity", testkit.TenantID(2)}
 	tests := []struct {
 		name       string
 		store      *fakeStore
@@ -163,7 +163,7 @@ const (
 )
 
 func TestTeams(t *testing.T) {
-	scoped := []string{"X-Passage-Legal-Entity", testkit.TenantID(2)}
+	scoped := []string{"X-Depot-Legal-Entity", testkit.TenantID(2)}
 	withBody := func(old, replacement string) string { return strings.Replace(teamBody, old, replacement, 1) }
 	seeded := func() *fakeStore {
 		return &fakeStore{teams: []store.Team{{ID: teamTypeID1, Code: "AUD", Name: "Auditors", EffectiveFrom: "2026-01-01"}}}
@@ -295,7 +295,7 @@ const (
 )
 
 func TestTeamMembers(t *testing.T) {
-	scoped := []string{"X-Passage-Legal-Entity", testkit.TenantID(2)}
+	scoped := []string{"X-Depot-Legal-Entity", testkit.TenantID(2)}
 	membersPath := teamsPath + "/" + teamTypeID1 + "/members"
 	withBody := func(old, replacement string) string { return strings.Replace(memberBody, old, replacement, 1) }
 	seeded := func() *fakeStore {
@@ -431,7 +431,7 @@ func teamWithMember() *fakeStore {
 }
 
 func TestTeamMaintenanceRoutes(t *testing.T) {
-	scoped := []string{"X-Passage-Legal-Entity", testkit.TenantID(2)}
+	scoped := []string{"X-Depot-Legal-Entity", testkit.TenantID(2)}
 	teamPath := teamsPath + "/" + teamTypeID1
 	memberPath := teamPath + "/members/" + memberRowID1
 	tests := []struct {

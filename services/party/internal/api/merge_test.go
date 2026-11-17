@@ -8,13 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/party/internal/api"
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/party/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/party/internal/api"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/party/internal/store"
 )
 
 const (
@@ -75,9 +75,9 @@ func mergeRouter(f *fakeMerges) (http.Handler, *api.API) {
 
 func userCall(r http.Handler, method, path, body string, headers map[string]string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-User", "rita")
-	req.Header.Set("X-Passage-Duties", "party.merge,tenant.administer")
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-User", "rita")
+	req.Header.Set("X-Depot-Duties", "party.merge,tenant.administer")
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
@@ -143,7 +143,7 @@ func TestMergeRoute_Rejections(t *testing.T) {
 			r, _ := mergeRouter(f)
 			headers := map[string]string{}
 			if tc.duties != "" {
-				headers["X-Passage-Duties"] = tc.duties
+				headers["X-Depot-Duties"] = tc.duties
 			}
 			code, body := mergeCall(r, tc.id, tc.body, headers)
 			if code != tc.want || !strings.Contains(body, tc.wantCode) {
@@ -159,10 +159,10 @@ func TestMergeRoute_Rejections(t *testing.T) {
 func TestMergeRoute_ReadsARequest(t *testing.T) {
 	f := &fakeMerges{}
 	r, _ := mergeRouter(f)
-	if rec := userCall(r, http.MethodGet, "/v1/party/merge-requests/"+mergeRequestID, "", map[string]string{"X-Passage-Duties": "party.read"}); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"requestedBy":"rita"`) {
+	if rec := userCall(r, http.MethodGet, "/v1/party/merge-requests/"+mergeRequestID, "", map[string]string{"X-Depot-Duties": "party.read"}); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"requestedBy":"rita"`) {
 		t.Fatalf("got %d %s", rec.Code, rec.Body)
 	}
-	if rec := userCall(r, http.MethodGet, "/v1/party/merge-requests/"+mergeRequestID, "", map[string]string{"X-Passage-Duties": "party.merge"}); rec.Code != http.StatusForbidden {
+	if rec := userCall(r, http.MethodGet, "/v1/party/merge-requests/"+mergeRequestID, "", map[string]string{"X-Depot-Duties": "party.merge"}); rec.Code != http.StatusForbidden {
 		t.Fatalf("read without party.read: %d", rec.Code)
 	}
 }
@@ -252,9 +252,9 @@ func TestMergeDecision_ReplaysAreNotCountedAndTokensAreSingleUse(t *testing.T) {
 func TestMergeDecision_RefusesEveryoneButTheWorkflow(t *testing.T) {
 	g := newMergeRig(t, &fakeMerges{})
 	for name, headers := range map[string]map[string]string{
-		"a person holding the execute duty": {"X-Passage-Duties": "party.merge.execute,tenant.administer"},
-		"a merge approver":                  {"X-Passage-Duties": "party.merge.approve,tenant.administer"},
-		"a party change approver":           {"X-Passage-Duties": "party.approve"},
+		"a person holding the execute duty": {"X-Depot-Duties": "party.merge.execute,tenant.administer"},
+		"a merge approver":                  {"X-Depot-Duties": "party.merge.approve,tenant.administer"},
+		"a party change approver":           {"X-Depot-Duties": "party.approve"},
 	} {
 		if rec := userCall(g.handler, http.MethodPost, "/v1/party/merge-requests/"+mergeRequestID+":approve", "", headers); rec.Code != http.StatusForbidden {
 			t.Errorf("%s: %d, want 403", name, rec.Code)

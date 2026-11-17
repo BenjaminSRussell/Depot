@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { ActivitiesPage, ActivityDetailPage, NewActivityPage } from "./ActivitiesPage";
 import { AgreementDetailPage } from "./AgreementDetailPage";
 import { AgreementsPage, NewAgreementPage } from "./AgreementsPage";
@@ -21,7 +21,7 @@ import { NewSupplierClaimPage, SupplierClaimsPage } from "./SupplierClaimsPage";
 import { WorkOrderDetailPage } from "./WorkOrderDetailPage";
 import { NewWorkOrderPage, WorkOrdersPage } from "./WorkOrdersPage";
 
-const service: PassageModule = {
+const service: DepotModule = {
   id: "service",
   title: "Service",
   description: "Open service cases with entitlement and SLA clocks, pause and resolve them, maintain service agreements and SLA profiles, run work orders through to billing and follow-up, track SLA attainment and first-time fix, keep the installed base with its warranties, plan activities on any record, maintain the knowledge base, run HR, collections, audit and other cases through their category's stages, recover warranty cost from vendors with supplier claims, turn inbound email into cases, and register technicians, schedule work orders on the dispatch board and publish the day.",

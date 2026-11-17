@@ -6,9 +6,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/phiaudit"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/phiaudit"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/store"
 )
 
 const (
@@ -19,8 +19,8 @@ const (
 	codeBreakGlassUnaudited = "HCM-BREAK-GLASS-UNAUDITED"
 	// dutyBenefitsBreakGlass is emergency read access to any worker's benefits (#606), reviewed in the audit service.
 	dutyBenefitsBreakGlass = "hr.benefits.break-glass"
-	maxPurposeLength        = 500
-	selfServicePurpose      = "self-service"
+	maxPurposeLength       = 500
+	selfServicePurpose     = "self-service"
 )
 
 // healthPlanTypes are the benefit plan types whose enrollment says something about a person's health coverage.

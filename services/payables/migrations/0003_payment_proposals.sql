@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS ap_vendor_block (
 ALTER TABLE ap_vendor_block ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ap_vendor_block FORCE ROW LEVEL SECURITY;
 CREATE POLICY ap_vendor_block_tenant_access ON ap_vendor_block AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS ap_payment_proposal (
   tenant_id uuid NOT NULL,
@@ -37,11 +37,11 @@ CREATE TABLE IF NOT EXISTS ap_payment_proposal (
 ALTER TABLE ap_payment_proposal ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ap_payment_proposal FORCE ROW LEVEL SECURITY;
 CREATE POLICY ap_payment_proposal_tenant_access ON ap_payment_proposal AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY ap_payment_proposal_legal_entity_scope ON ap_payment_proposal AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS ap_payment_proposal_group (
   tenant_id uuid NOT NULL,
@@ -62,11 +62,11 @@ CREATE TABLE IF NOT EXISTS ap_payment_proposal_group (
 ALTER TABLE ap_payment_proposal_group ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ap_payment_proposal_group FORCE ROW LEVEL SECURITY;
 CREATE POLICY ap_payment_proposal_group_tenant_access ON ap_payment_proposal_group AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY ap_payment_proposal_group_legal_entity_scope ON ap_payment_proposal_group AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS ap_payment_proposal_line (
   tenant_id uuid NOT NULL,
@@ -89,8 +89,8 @@ CREATE INDEX IF NOT EXISTS ap_payment_proposal_line_group ON ap_payment_proposal
 ALTER TABLE ap_payment_proposal_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ap_payment_proposal_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY ap_payment_proposal_line_tenant_access ON ap_payment_proposal_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY ap_payment_proposal_line_legal_entity_scope ON ap_payment_proposal_line AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

@@ -3,7 +3,7 @@ package events
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 )
 
 func TestStatementImported_MatchesNamingRule(t *testing.T) {
@@ -34,7 +34,7 @@ func TestAll_EveryTypeFollowsTheNamingRule(t *testing.T) {
 	}
 	for _, typ := range All() {
 		if want[typ] != typ || !events.ValidType(typ) {
-			t.Fatalf("%q does not follow dev.passage.<ctx>.<entity>.<verb>.v1", typ)
+			t.Fatalf("%q does not follow dev.depot.<ctx>.<entity>.<verb>.v1", typ)
 		}
 	}
 }

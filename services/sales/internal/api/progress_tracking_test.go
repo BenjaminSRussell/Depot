@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // A DELIVERED report names the batches and serials it took (#480); the

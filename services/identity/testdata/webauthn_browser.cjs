@@ -50,7 +50,7 @@ async function start(cmd) {
     ],
   });
   context = await browser.newContext();
-  // Keycloak redirects to passage-web's callback, which does not resolve: the request is recorded
+  // Keycloak redirects to depot-web's callback, which does not resolve: the request is recorded
   // (a route would not see a server redirect) and the browser's error page is never read.
   context.on('request', (request) => {
     if (request.url().startsWith(callbackPrefix)) callback = request.url();
@@ -87,7 +87,7 @@ async function has(selector) {
   }
 }
 
-// login answers Keycloak's pages until passage-web's callback is requested. prefer "webauthn"
+// login answers Keycloak's pages until depot-web's callback is requested. prefer "webauthn"
 // takes "Try another way" from the OTP form to the passkey; prefer "otp" answers the OTP form.
 async function login(cmd) {
   callback = undefined;

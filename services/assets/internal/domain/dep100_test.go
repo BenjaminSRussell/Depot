@@ -8,7 +8,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // dep100Book is one entry of testdata/dep-100.json. The expected amounts come

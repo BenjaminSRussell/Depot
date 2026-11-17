@@ -7,8 +7,8 @@ ALTER TABLE production_order_edit ADD CONSTRAINT production_order_edit_target_ch
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT DELETE ON production_coproduct TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT DELETE ON production_coproduct TO depot_app';
   END IF;
 END
 $$;

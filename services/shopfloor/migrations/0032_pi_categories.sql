@@ -21,13 +21,13 @@ CREATE TABLE IF NOT EXISTS pi_category (
 ALTER TABLE pi_category ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pi_category FORCE ROW LEVEL SECURITY;
 CREATE POLICY pi_category_tenant_access ON pi_category AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON pi_category TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON pi_category TO depot_app';
   END IF;
 END
 $$;

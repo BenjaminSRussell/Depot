@@ -11,10 +11,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/domain"
-	fulevents "github.com/BenjaminSRussell/passage/services/fulfillment/internal/events"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/domain"
+	fulevents "github.com/BenjaminSRussell/depot/services/fulfillment/internal/events"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 // Fixture warehouse-sim-1k (testdata/warehouse-sim-1k/README.md, section 5.28.9):

@@ -5,14 +5,14 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/edi/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/migrations"
 )
 
-// The partner update runs as passage_app under If-Match, and once a trade
+// The partner update runs as depot_app under If-Match, and once a trade
 // profile binds the partner to a legal entity only callers of that entity
 // (or of every entity) may change it.
 func TestUpdatePartner_VersionScopeAndIdentity(t *testing.T) {

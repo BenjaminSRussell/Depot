@@ -1,5 +1,5 @@
-// Package events defines the CloudEvents envelope Passage publishes and the
-// naming rule for event types: dev.passage.<context>.<entity>.<verb>.v<n>.
+// Package events defines the CloudEvents envelope Depot publishes and the
+// naming rule for event types: dev.depot.<context>.<entity>.<verb>.v<n>.
 package events
 
 import (
@@ -8,10 +8,10 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
-// Event is a CloudEvents 1.0 structured envelope with Passage extensions.
+// Event is a CloudEvents 1.0 structured envelope with Depot extensions.
 type Event struct {
 	SpecVersion     string          `json:"specversion"`
 	ID              string          `json:"id"`
@@ -21,7 +21,7 @@ type Event struct {
 	Time            time.Time       `json:"time"`
 	DataContentType string          `json:"datacontenttype"`
 	Data            json.RawMessage `json:"data"`
-	// Passage extensions
+	// Depot extensions
 	TenantID      string `json:"tenantid"`
 	CorrelationID string `json:"correlationid,omitempty"`
 	CausationID   string `json:"causationid,omitempty"`
@@ -32,11 +32,11 @@ type Event struct {
 	LegalEntityID string `json:"legalentityid,omitempty"`
 }
 
-var typeRe = regexp.MustCompile(`^dev\.passage\.[a-z][a-z0-9]*\.[a-z][a-z0-9]*\.[a-z][a-z0-9]*\.v[0-9]+$`)
+var typeRe = regexp.MustCompile(`^dev\.depot\.[a-z][a-z0-9]*\.[a-z][a-z0-9]*\.[a-z][a-z0-9]*\.v[0-9]+$`)
 
 // Type builds a conforming event type name.
 func Type(context, entity, verb string, version int) string {
-	return fmt.Sprintf("dev.passage.%s.%s.%s.v%d", context, entity, verb, version)
+	return fmt.Sprintf("dev.depot.%s.%s.%s.v%d", context, entity, verb, version)
 }
 
 // ValidType reports whether t follows the naming rule.
@@ -73,11 +73,11 @@ func payloadLegalEntity(raw json.RawMessage) string {
 	return p.Snake
 }
 
-// Topic returns the Kafka topic for an event type: passage.<context>.<entity>.
+// Topic returns the Kafka topic for an event type: depot.<context>.<entity>.
 func Topic(typ string) string {
 	parts := regexp.MustCompile(`\.`).Split(typ, -1)
 	if len(parts) < 6 {
-		return "passage.invalid"
+		return "depot.invalid"
 	}
-	return "passage." + parts[2] + "." + parts[3]
+	return "depot." + parts[2] + "." + parts[3]
 }

@@ -10,11 +10,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/events"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/events"
 )
 
 // CodeVerificationNotFound is a slice-local code (not in the PRD catalog yet).

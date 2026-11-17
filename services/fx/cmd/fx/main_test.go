@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/importer"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/importer"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/store"
 )
 
 func env(values map[string]string) func(string) string {
@@ -44,9 +44,9 @@ func TestRunRequiresDatabaseURL(t *testing.T) {
 
 func TestRunStopsOnMalformedServicePublicKeys(t *testing.T) {
 	err := run(context.Background(), func(k string) string {
-		return map[string]string{"PASSAGE_SERVICE_NAME": "fx", "PASSAGE_SERVICE_PUBLIC_KEYS": "payables=zzz"}[k]
+		return map[string]string{"DEPOT_SERVICE_NAME": "fx", "DEPOT_SERVICE_PUBLIC_KEYS": "payables=zzz"}[k]
 	})
-	if err == nil || !strings.Contains(err.Error(), "PASSAGE_SERVICE_PUBLIC_KEYS") {
+	if err == nil || !strings.Contains(err.Error(), "DEPOT_SERVICE_PUBLIC_KEYS") {
 		t.Fatalf("run with a malformed key = %v", err)
 	}
 }

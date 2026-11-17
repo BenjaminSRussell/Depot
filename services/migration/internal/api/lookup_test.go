@@ -7,16 +7,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
 )
 
 const lkPath = "/v1/integration/lookup-tables"
 
-const lkEnum = `{"kind":"enum","description":"Passage unit codes to AX","entries":{"kg":"KGM","ea":"EA"}}`
+const lkEnum = `{"kind":"enum","description":"Depot unit codes to AX","entries":{"kg":"KGM","ea":"EA"}}`
 
 const lkOutboundDefinition = `{
-  "eventType": "dev.passage.sales.order.*.v1",
+  "eventType": "dev.depot.sales.order.*.v1",
   "subject": {"entity": "salesOrder", "idPath": "data.order_id"},
   "xrefs": [{"name": "customer", "entity": "customer", "idPath": "data.customer_id"}],
   "lookups": [{"name": "unit", "table": "unit-codes", "keyPaths": ["data.uom"]}],

@@ -1,4 +1,4 @@
--- Slice 4 (PSG-43): persisted expense reports and lines (FR-43.11, FR-43.12, 8.43.4).
+-- Slice 4 (DPT-43): persisted expense reports and lines (FR-43.11, FR-43.12, 8.43.4).
 -- Amounts are in the report currency. The stored totals satisfy
 -- total = reimbursable + company-paid and equal the sum of the lines (8.43.4 invariant);
 -- the store recomputes them in the transaction that changes a line.
@@ -53,17 +53,17 @@ create table expense_line (
 alter table expense_report enable row level security;
 alter table expense_report force row level security;
 create policy expense_report_tenant_access on expense_report as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy expense_report_legal_entity_scope on expense_report as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 alter table expense_line enable row level security;
 alter table expense_line force row level security;
 create policy expense_line_tenant_access on expense_line as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 -- A line carries no legal_entity_id: it is visible only when its report is, so the
 -- legal-entity scope follows the report.
 create policy expense_line_legal_entity_scope on expense_line as restrictive

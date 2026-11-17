@@ -11,13 +11,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/store"
-	"github.com/BenjaminSRussell/passage/services/engineering/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/store"
+	"github.com/BenjaminSRussell/depot/services/engineering/migrations"
 )
 
 // Legal entities are canonical UUIDs, the only form a platform principal's scope carries.
@@ -305,10 +305,10 @@ func TestPostgres_AC912_ReadinessBlocksThenActivates(t *testing.T) {
 		t.Fatalf("active product still blocked: %s", code)
 	}
 	// The AsyncAPI payloads (camelCase), not Go structs; the move to Active is published too.
-	if n := rowCount(t, pool, `select count(*) from outbox where type = 'dev.passage.engineering.releasedproduct.changed.v1' and payload->'data'->>'releasedProductId' = $1 and payload->'data'->>'state' = 'Active' and payload->'data'->>'legalEntityId' = $2`, got.ID, leUSMF); n != 1 {
+	if n := rowCount(t, pool, `select count(*) from outbox where type = 'dev.depot.engineering.releasedproduct.changed.v1' and payload->'data'->>'releasedProductId' = $1 and payload->'data'->>'state' = 'Active' and payload->'data'->>'legalEntityId' = $2`, got.ID, leUSMF); n != 1 {
 		t.Fatalf("releasedproduct.changed to Active = %d; want one contract-shaped event", n)
 	}
-	if n := rowCount(t, pool, `select count(*) from outbox where type = 'dev.passage.engineering.releasesession.created.v1' and payload->'data'->>'sessionId' = $1 and payload->'data'->>'number' = 'REL-1'`, session.Session.ID); n != 1 {
+	if n := rowCount(t, pool, `select count(*) from outbox where type = 'dev.depot.engineering.releasesession.created.v1' and payload->'data'->>'sessionId' = $1 and payload->'data'->>'number' = 'REL-1'`, session.Session.ID); n != 1 {
 		t.Fatalf("releasesession.created = %d; want one contract-shaped event", n)
 	}
 }
@@ -487,10 +487,10 @@ func TestPostgres_AC916_DocumentSignatureAndECO(t *testing.T) {
 	if err := releaseEco(ctx, s, submitted); err != nil {
 		t.Fatal(err)
 	}
-	if n := rowCount(t, pool, `select count(*) from outbox where type = 'dev.passage.engineering.document.released.v1' and payload->'data'->>'documentId' = $1 and payload->'data'->>'version' = '02'`, next.ID); n != 1 {
+	if n := rowCount(t, pool, `select count(*) from outbox where type = 'dev.depot.engineering.document.released.v1' and payload->'data'->>'documentId' = $1 and payload->'data'->>'version' = '02'`, next.ID); n != 1 {
 		t.Fatalf("document.released events for the replacement = %d; want 1 shaped as the AsyncAPI payload", n)
 	}
-	if n := rowCount(t, pool, `select count(*) from outbox where type = 'dev.passage.engineering.document.signed.v1' and payload->'data'->>'signerId' = 'carol' and payload->'data' ? 'signedAt' and not payload->'data' ? 'OriginalsHash'`); n != 2 {
+	if n := rowCount(t, pool, `select count(*) from outbox where type = 'dev.depot.engineering.document.signed.v1' and payload->'data'->>'signerId' = 'carol' and payload->'data' ? 'signedAt' and not payload->'data' ? 'OriginalsHash'`); n != 2 {
 		t.Fatalf("document.signed events = %d; want 2 shaped as the AsyncAPI payload", n)
 	}
 	old, err := s.GetDocument(ctx, first.ID)

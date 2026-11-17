@@ -6,7 +6,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // Insurance codes from the PRD message catalog (7.37.18): AST-0531 warns that

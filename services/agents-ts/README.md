@@ -1,4 +1,4 @@
-# passage-agents (wave 47, PSG-47)
+# depot-agents (wave 47, DPT-47)
 
 The agent runtime (PRD 9.47 FR-47.4 to FR-47.13). This slice contains the run
 engine and the governance rules it enforces. An agent run plans with a model,
@@ -21,7 +21,7 @@ deterministic in tests.
 | `src/domain/budget.ts` | Monthly token budget states OK, SOFT (80%), HARD (100%) (FR-47.11, AC-47.7) |
 | `src/domain/redaction.ts` | `scanPii` (write-time scanner), `assertNoPii`, and `Pseudonymizer`: stable pseudonyms per (tenant, value) with a TTL, restored only for the UI (FR-47.12, BR-47.7, AC-47.8) |
 | `src/domain/registry.ts` | `agent_version` records: prompt, tool list and model id pinned; a production version needs a passing eval (FR-47.10) |
-| `src/store/registry.ts`, `src/cli/record-eval.ts`, `migrations/0006_versions_evals_partitions.sql` | Persisted registry (FR-47.10, BR-47.8). `agent_version` holds each definition a pod runs (agent id, version, prompt hash, model, prompt, tools, duties), registered at start; a deployment that pins another model for the same version is a second definition. `eval_run` holds the eval pipeline's gate results per definition and dataset version. A run starts only when the newest `eval_run` of its exact definition passed (AGT-0204). `node dist/cli/record-eval.js report.json` stores an `evals` CLI report for the definitions this deployment runs (same image and model settings, and the owner role's `DATABASE_URL`). Both tables are platform rows with no tenant column (allowlisted in tools/rlscheck): `agent_version` is append-only for `passage_app`, and `eval_run` is read-only for it, so a pod cannot record a passing eval for itself |
+| `src/store/registry.ts`, `src/cli/record-eval.ts`, `migrations/0006_versions_evals_partitions.sql` | Persisted registry (FR-47.10, BR-47.8). `agent_version` holds each definition a pod runs (agent id, version, prompt hash, model, prompt, tools, duties), registered at start; a deployment that pins another model for the same version is a second definition. `eval_run` holds the eval pipeline's gate results per definition and dataset version. A run starts only when the newest `eval_run` of its exact definition passed (AGT-0204). `node dist/cli/record-eval.js report.json` stores an `evals` CLI report for the definitions this deployment runs (same image and model settings, and the owner role's `DATABASE_URL`). Both tables are platform rows with no tenant column (allowlisted in tools/rlscheck): `agent_version` is append-only for `depot_app`, and `eval_run` is read-only for it, so a pod cannot record a passing eval for itself |
 | `agent_action` partitions (migration 0006) | `agent_action` is range-partitioned by `run_month`, the UTC month the run started (a generated column on `agent_run`); the primary key and the foreign key to `agent_run (tenant_id, run_id, run_month)` keep every action of a run in its run's partition and (tenant, run, seq) unique. Each pod calls `agent_action_ensure_partitions(2)` (SECURITY DEFINER) at start and daily; rows of a month without a partition land in `agent_action_default` and move out when the month is created. The migration moves existing rows |
 | `src/domain/audit.ts` | Action records: inputs, tool calls, outputs and approver (AC-47.3) |
 | `src/domain/money.ts` | Currency-safe money comparison for the AUTO amount limit. Never floats |
@@ -39,7 +39,7 @@ deterministic in tests.
 | `src/api/killswitch.ts` | Kill switch toggle (AC-47.6): tenant scope needs agents.admin and the caller's own tenant, global scope platform.global.admin. Idempotent by scope. The `killswitch.changed` event is published first and applied to the local registry only after it succeeded. `readKillSwitchStatus` serves the administration screen |
 | `src/store/killswitch.ts`, `src/runtime/killswitch-poller.ts`, `migrations/0005_kill_switch.sql` | The kill switch every pod shares (AC-47.6). `kill_switch_change` is an append-only log of toggles with a version from one sequence; `PgKillSwitchLog.toggle` takes a transaction advisory lock, decides idempotence from the stored state, inserts the row and writes its `killswitch.changed` outbox event in the same transaction, so versions commit in order. `KillSwitchPoller` reads `version > applied` every `AGENTS_KILLSWITCH_POLL_MS` on every pod and heartbeats only after a successful read, so a pod that cannot read the table for 10 s fails closed. A starting pod reads only the latest toggle of each switch. The chart runs two replicas |
 | `src/api/decision.ts` | Approval decision (FR-47.8): approver duty (AGT-0203), self-approval (AGT-0209), expiry recorded as REJECTED/EXPIRED (BR-47.3). Idempotent by action id with a first-writer-wins `ApprovalStore.record`; a different decision on a decided action is 409. Every store call is scoped to the caller's tenant |
-| `src/api/auth.ts` | Caller authentication: verifies the bearer token (RS256 against the realm's JWKS, issuer, audience, expiry, not-before) and takes the tenant (`tid`), user (`sub`) and duties from it. The X-Passage-* edge headers are never the source of identity; present ones must match the token. 401 AGT-0401 otherwise, 503 AGT-0503 when the keys cannot be read |
+| `src/api/auth.ts` | Caller authentication: verifies the bearer token (RS256 against the realm's JWKS, issuer, audience, expiry, not-before) and takes the tenant (`tid`), user (`sub`) and duties from it. The X-Depot-* edge headers are never the source of identity; present ones must match the token. 401 AGT-0401 otherwise, 503 AGT-0503 when the keys cannot be read |
 | `src/api/principal.ts` | The `Principal` type, the HTTP error codes and the mapping of `AgentError` to status |
 | `src/runtime/killswitch-feed.ts` | `KillSwitchFeed`: applies each consumed `killswitch.changed` message to a worker's registry and keeps the fail-closed window open on heartbeats. A malformed message, one without an envelope tenant, or a tenant toggle addressed to another tenant throws so the consumer sends it to the DLQ |
 | `src/main.ts`, `src/config.ts`, `src/server.ts` | Process entrypoint. 12-factor config (`MCP_URL`, `DATABASE_URL`, `MIGRATE_ON_START`, `AGENTS_PROVIDER` anthropic/openai/bedrock, `AGENTS_MODEL` default `claude-sonnet-5-5`, `AGENTS_COPILOT_MODEL`, `AGENTS_MODEL_OVERRIDES` per agent, `AGENTS_RUN_TOKEN_CAP`, and the provider keys from the environment only), a provider factory (one adapter per model id, never built until the first run needs it), the public listener (`GET /healthz`, `GET /readyz`, the API) and the admin listener on `ADMIN_ADDR` (`/metrics`, `/healthz`). The Claude ids to choose from are `claude-opus-5-5`, `claude-sonnet-5-5` and `claude-haiku-5-5`; nothing is hard-wired. Helm chart `charts/agent-runtime`, `Dockerfile` (build from the repository root) |
@@ -52,15 +52,15 @@ deterministic in tests.
 
 | Variable | Meaning | Default |
 |---|---|---|
-| `DATABASE_URL` | Postgres, role `passage_app` (required) | |
+| `DATABASE_URL` | Postgres, role `depot_app` (required) | |
 | `MCP_URL` | Base URL of the MCP gateway (required) | |
-| `AGENTS_JWT_ISSUER`, `AGENTS_JWT_AUDIENCE` | Issuer (realm URL) and audience of the callers' bearer tokens; the issuer is required | audience `passage-api` |
+| `AGENTS_JWT_ISSUER`, `AGENTS_JWT_AUDIENCE` | Issuer (realm URL) and audience of the callers' bearer tokens; the issuer is required | audience `depot-api` |
 | `AGENTS_JWKS_URL` or `AGENTS_JWKS_FILE` | The realm's signing keys: its certs endpoint, or a mounted key set (chart `auth.jwksConfigMap`); one is required | |
 | `AGENTS_PROVIDER` | `anthropic`, `openai` (OpenAI-compatible, Azure) or `bedrock` | `anthropic` |
 | `AGENTS_MODEL`, `AGENTS_COPILOT_MODEL`, `AGENTS_MODEL_OVERRIDES` | Model ids; the overrides are a JSON object of agent id to model id | `claude-sonnet-5-5` |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` + `AGENTS_OPENAI_BASE_URL`, `AWS_REGION` + `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` | Provider credentials, from a secret; a missing one fails the first run naming the variable | |
 | `AGENTS_RUN_TOKEN_CAP`, `AGENTS_COPILOT_TOKEN_CAP`, `AGENTS_COPILOT_MAX_TURNS` | Per-run and per-chat token caps, chat turns | 20000, 8000, 4 |
-| `AGENTS_RUN_ENGINE`, `AGENTS_WORKFLOW_URL`, `PASSAGE_SERVICE_PUBLIC_KEYS` | `inprocess` (dev fallback: a run is one promise in the pod) or `temporal` (each run is workflow-ts `agentRunWorkflow`, so a run resumes after an approval across pod restarts; needs the workflow URL and workflow-ts's public key, see "Runs as workflows") | `inprocess` |
+| `AGENTS_RUN_ENGINE`, `AGENTS_WORKFLOW_URL`, `DEPOT_SERVICE_PUBLIC_KEYS` | `inprocess` (dev fallback: a run is one promise in the pod) or `temporal` (each run is workflow-ts `agentRunWorkflow`, so a run resumes after an approval across pod restarts; needs the workflow URL and workflow-ts's public key, see "Runs as workflows") | `inprocess` |
 | `AGENTS_APPROVAL_EXPIRY_H`, `AGENTS_SELF_APPROVAL_LIMIT`, `AGENTS_SELF_APPROVAL_CURRENCY` | BR-47.3 expiry (1 to 240 hours) and the self-approval limit | 72, 0, USD |
 | `AGENTS_KILLSWITCH_POLL_MS` | How often each pod reads the shared kill switch (100 to 5000) | 1000 |
 | `HTTP_ADDR`, `ADMIN_ADDR`, `MIGRATE_ON_START`, `AGENTS_DB_POOL` | Listeners and database | `0.0.0.0:8080`, `0.0.0.0:9090`, off, 10 |
@@ -74,10 +74,10 @@ workflow drives them as activities through `POST /api/v1/agents/runs/{id}/steps/
 
 **Service to service.** The two services authenticate each other with signed service tokens (the platform/go/tenant format,
 Ed25519, 60 s, tenant-level, the run's user as actor). workflow-ts calls the step routes here (audience `agents`, grant
-`agents.run.workflow`, verified in `src/api/serviceToken.ts` against `PASSAGE_SERVICE_PUBLIC_KEYS`; the actor must be the user who
+`agents.run.workflow`, verified in `src/api/serviceToken.ts` against `DEPOT_SERVICE_PUBLIC_KEYS`; the actor must be the user who
 started the run). This service starts and wakes the workflow with its own token (`src/api/serviceSigner.ts`, audience
-`workflow-ts`, grant `agents.run.signal`, key from `PASSAGE_SERVICE_SIGNING_KEY[_FILE]`), verified by workflow-ts. workflow-ts
-trusts `X-Passage-*` headers on its edge routes, so these routes take only the token and are not exposed at the edge; the wake is
+`workflow-ts`, grant `agents.run.signal`, key from `DEPOT_SERVICE_SIGNING_KEY[_FILE]`), verified by workflow-ts. workflow-ts
+trusts `X-Depot-*` headers on its edge routes, so these routes take only the token and are not exposed at the edge; the wake is
 authorized as the agents service, so approvers need no workflow duty. Charts: `workflowUrl` is the `workflows` Service,
 `networkPolicy.workflowPodLabels` admits workflow-ts's pods, and workflow-ts's `agentsUrl` is the `agent-runtime` Service.
 
@@ -122,7 +122,7 @@ npm run typecheck
 npm run build
 ```
 
-Postgres-backed tests (`approvals-pg`, `budget-store`) run when `PASSAGE_TEST_DATABASE_URL` (owner) and `PASSAGE_TEST_APP_DATABASE_URL` (`passage_app`) are set, as in CI; without them they are skipped.
+Postgres-backed tests (`approvals-pg`, `budget-store`) run when `DEPOT_TEST_DATABASE_URL` (owner) and `DEPOT_TEST_APP_DATABASE_URL` (`depot_app`) are set, as in CI; without them they are skipped.
 
 The tests run without a database or network. Ports are faked in `test/fakes.ts`.
 CI runs typecheck, tests and build for this package, `services/mcp-ts` and

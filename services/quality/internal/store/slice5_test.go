@@ -8,10 +8,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/quality/internal/domain"
-	qevents "github.com/BenjaminSRussell/passage/services/quality/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/quality/internal/domain"
+	qevents "github.com/BenjaminSRussell/depot/services/quality/internal/events"
 )
 
 // TestPostgres_StudyLifecycle moves a study PLANNED -> ACTIVE -> TERMINATED under

@@ -3,7 +3,7 @@ package domain_test
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
 )
 
 func lineState(t testing.TB, no int, qty, price, delivery string) domain.LineState {

@@ -1,4 +1,4 @@
-# integration (web module, PSG-35)
+# integration (web module, DPT-35)
 
 Screens for the edi service (`services/edi/api/openapi.yaml`), wired through `api/client.ts` to `/api/v1/edi/...`.
 
@@ -36,4 +36,4 @@ Screens for the edi service (`services/edi/api/openapi.yaml`), wired through `ap
 
 The sync pages call the hub through `api/hubClient.ts` (`/api/v1/hub/...`, mapped by the gateway to `/v1/hub/...`) and are gated on `hub.delivery.read` (nav) and `hub.subscription.write` (create, test, resume, replay). The client pages are gated on `hub.delivery.read` (nav) and act on `hub.client.write` (register, quota, revoke); that duty is not seeded yet, so no nav item or route carries it. Tests: `clients.test.tsx`. Editing a subscription other than its filter, and deleting one, are not in the UI yet. Tests: `sync.test.tsx`, `webhook.test.tsx`.
 
-The outbound document is edited as JSON, like the map tester takes raw X12: structured editors for ASN packs and invoice lines are not built, because these documents normally come from the wave-31 and wave-29 events. The slice-5 screens are dry runs over stateless routes, so they have no list pages: punchout sessions, self-billing documents and e-invoices are not stored yet. Not here yet (later slices of PSG-35): punchout session log, self-billing reconciliation report and dispute worklist, the e-invoice workspace, resend, per-row selection for bulk reprocess (the filters choose the interchanges), map designer, hub admin. Tests: `npx vitest --run src/modules/integration`.
+The outbound document is edited as JSON, like the map tester takes raw X12: structured editors for ASN packs and invoice lines are not built, because these documents normally come from the wave-31 and wave-29 events. The slice-5 screens are dry runs over stateless routes, so they have no list pages: punchout sessions, self-billing documents and e-invoices are not stored yet. Not here yet (later slices of DPT-35): punchout session log, self-billing reconciliation report and dispute worklist, the e-invoice workspace, resend, per-row selection for bulk reprocess (the filters choose the interchanges), map designer, hub admin. Tests: `npx vitest --run src/modules/integration`.

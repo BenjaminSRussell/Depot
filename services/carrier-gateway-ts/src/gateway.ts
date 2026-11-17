@@ -1,4 +1,4 @@
-// The gateway between Passage callers and the carrier adapters: rate shopping across carriers, idempotent label
+// The gateway between Depot callers and the carrier adapters: rate shopping across carriers, idempotent label
 // purchase, tracking. Labels are kept per tenant, legal entity and calling service in a LabelStore; the in-memory
 // store is the only one built (NOT-IMPLEMENTED.md).
 

@@ -8,18 +8,18 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/eventing/kafka"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/revrec/internal/api"
-	"github.com/BenjaminSRussell/passage/services/revrec/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/eventing/kafka"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/revrec/internal/api"
+	"github.com/BenjaminSRussell/depot/services/revrec/internal/store"
 )
 
 // creditNoteDeadLetterTopic parks the creditnote.booked events the consumer could not apply (the x-origin-* headers name the
 // source record, x-dlq-reason why).
-const creditNoteDeadLetterTopic = "passage.revrec.creditnotes.dlq"
+const creditNoteDeadLetterTopic = "depot.revrec.creditnotes.dlq"
 
 func creditNoteKafkaConfig(getenv func(string) string) (kafka.Config, error) {
 	return kafka.ConfigFromEnv(getenv, api.CreditNoteConsumerName, api.CreditNoteConsumerName, []string{api.BillingInvoiceTopic})

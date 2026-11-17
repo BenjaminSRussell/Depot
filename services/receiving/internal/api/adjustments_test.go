@@ -9,14 +9,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store/memstore"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store/memstore"
 )
 
 const (
 	adjustmentsPath = "/v1/receiving/invoice-adjustments:post"
-	entityHeader    = "X-Passage-Legal-Entity"
+	entityHeader    = "X-Depot-Legal-Entity"
 )
 
 func (rg *rig) apPosterFor(entity string) headers {
@@ -224,7 +224,7 @@ func TestAdjustment_AuthAndScope(t *testing.T) {
 	problemCode(t, rg.call(http.MethodPost, adjustmentsPath, body, duty("receiving.receipt.post", "k", entityHeader, legalEntityID)), http.StatusForbidden, "AUTH-0003")
 	problemCode(t, rg.call(http.MethodPost, adjustmentsPath, body, duty("receiving.vendor-invoice.post", "k", entityHeader, ledgerID)), http.StatusForbidden, "AUTH-0003")
 	problemCode(t, rg.call(http.MethodPost, adjustmentsPath, body, headers{"Idempotency-Key": "k"}), http.StatusUnauthorized, "AUTH-0001")
-	problemCode(t, rg.call(http.MethodPost, adjustmentsPath, body, headers{"X-Passage-Tenant": tenantTwo(), "X-Passage-Duties": "receiving.vendor-invoice.post", "Idempotency-Key": "k", entityHeader: legalEntityID}), http.StatusNotFound, "RCV-NF-005")
+	problemCode(t, rg.call(http.MethodPost, adjustmentsPath, body, headers{"X-Depot-Tenant": tenantTwo(), "X-Depot-Duties": "receiving.vendor-invoice.post", "Idempotency-Key": "k", entityHeader: legalEntityID}), http.StatusNotFound, "RCV-NF-005")
 	problemCode(t, rg.call(http.MethodPost, adjustmentsPath, body, duty("receiving.vendor-invoice.post", "", entityHeader, legalEntityID)), http.StatusBadRequest, "COM-0001")
 }
 
@@ -253,7 +253,7 @@ func TestAdjustment_EmitsDocumentedEventAndMetric(t *testing.T) {
 
 	evts := rg.st.Events()
 	last := evts[len(evts)-1]
-	if last.Type != "dev.passage.payables.invoice.adjusted.v1" || !strings.Contains(string(last.Data), `"kind":"CREDIT"`) || !strings.Contains(string(last.Data), `"total":"5"`) {
+	if last.Type != "dev.depot.payables.invoice.adjusted.v1" || !strings.Contains(string(last.Data), `"kind":"CREDIT"`) || !strings.Contains(string(last.Data), `"total":"5"`) {
 		t.Fatalf("event %s %s", last.Type, last.Data)
 	}
 	assertDocumented(t, last)
@@ -316,7 +316,7 @@ func TestVendorGroupDimension_RidesOnTheVendorControlLine(t *testing.T) {
 	}
 	evts := rg.st.Events()
 	for _, e := range evts {
-		if e.Type == "dev.passage.payables.invoice.posted.v1" && !strings.Contains(string(e.Data), `"vendor_group_code":"DOM"`) {
+		if e.Type == "dev.depot.payables.invoice.posted.v1" && !strings.Contains(string(e.Data), `"vendor_group_code":"DOM"`) {
 			t.Fatalf("invoice.posted %s lacks vendor_group_code", e.Data)
 		}
 	}

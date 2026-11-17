@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 func TestPortalVendorPrincipalTrustsOnlyTheSupplierPortalToken(t *testing.T) {

@@ -1,4 +1,4 @@
-# forecast-py (wave 22, PSG-22, slices 1, 2 and 6)
+# forecast-py (wave 22, DPT-22, slices 1, 2 and 6)
 
 Statistical forecast baseline for master planning (PRD FR-22.9). Numeric work
 only, per the Python rules in the engineering conventions.
@@ -69,6 +69,6 @@ version. An index at or beyond `totalBatches` is a 422.
 
 ## Wave reference
 
-PSG-22 (Phase 4). The Go planning service will call these endpoints once the
+DPT-22 (Phase 4). The Go planning service will call these endpoints once the
 forecast batch job is built (see NOT-IMPLEMENTED.md). `statsforecast` is not a
 dependency yet; it is the planned replacement for the in-house ETS and Croston code.

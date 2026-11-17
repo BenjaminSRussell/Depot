@@ -11,14 +11,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/print/internal/delivery"
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/print/internal/statements"
-	"github.com/BenjaminSRussell/passage/services/print/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/print/internal/delivery"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/print/internal/statements"
+	"github.com/BenjaminSRussell/depot/services/print/internal/store"
 )
 
 const (
@@ -486,7 +486,7 @@ func (a *API) getPortalDocumentPDF(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", `attachment; filename="document.pdf"`)
-	w.Header().Set("X-Passage-Document-Pages", strconv.Itoa(d.Pages))
+	w.Header().Set("X-Depot-Document-Pages", strconv.Itoa(d.Pages))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(d.PDF)
 }

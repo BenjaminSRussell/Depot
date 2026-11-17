@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/api"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
-	"github.com/BenjaminSRussell/passage/services/org/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/api"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/services/org/migrations"
 )
 
 func (m *memOrg) UpdateLegalEntity(ctx context.Context, id string, version int, in store.LegalEntityPatch) (store.LegalEntity, error) {
@@ -202,7 +202,7 @@ func TestOrgPackage_Postgres_FiscalCalendarAssignmentsRoundTrip(t *testing.T) {
 	if exported.Code != http.StatusOK || !strings.Contains(exported.Body.String(), `"fiscalCalendar":"STD"`) || !strings.Contains(exported.Body.String(), `"fiscalCalendar":"ALT"`) {
 		t.Fatalf("export = %d %s", exported.Code, exported.Body)
 	}
-	other := do(r, http.MethodPost, "/v1/org/import", exported.Body.String(), packageDuties, true, "X-Passage-Tenant", testkit.TenantID(2))
+	other := do(r, http.MethodPost, "/v1/org/import", exported.Body.String(), packageDuties, true, "X-Depot-Tenant", testkit.TenantID(2))
 	if other.Code != http.StatusOK || !strings.Contains(other.Body.String(), `"fiscalCalendarAssignments":{"created":2`) {
 		t.Fatalf("import into another tenant = %d %s", other.Code, other.Body)
 	}

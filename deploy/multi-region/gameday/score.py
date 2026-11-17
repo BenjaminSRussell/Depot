@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Game-day scorecard: measured RTO and RPO against the targets, plus zero committed loss (PSG-50, AC-50.3).
+"""Game-day scorecard: measured RTO and RPO against the targets, plus zero committed loss (DPT-50, AC-50.3).
 
     python3 deploy/multi-region/gameday/score.py --timeline timeline.json --verify-report report.json \
         [--region-values deploy/multi-region/values/eu-central.yaml] [--report score.json]

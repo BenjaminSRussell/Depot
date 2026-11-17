@@ -26,11 +26,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS valuation_ledger_one_primary
 ALTER TABLE valuation_ledger ENABLE ROW LEVEL SECURITY;
 ALTER TABLE valuation_ledger FORCE ROW LEVEL SECURITY;
 CREATE POLICY valuation_ledger_tenant_access ON valuation_ledger AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY valuation_ledger_legal_entity_scope ON valuation_ledger AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- A valuation category splits a product's stock into valuation types (SAP
 -- OMWC/OMWD). It is tenant-wide (3.20.13). types is a jsonb array of
@@ -51,8 +51,8 @@ CREATE TABLE IF NOT EXISTS valuation_category (
 ALTER TABLE valuation_category ENABLE ROW LEVEL SECURITY;
 ALTER TABLE valuation_category FORCE ROW LEVEL SECURITY;
 CREATE POLICY valuation_category_tenant_access ON valuation_category AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Aging bucket sets are saved per legal entity; bounds is the ascending list of
 -- upper bounds in days (the last bucket is open-ended).
@@ -69,11 +69,11 @@ CREATE TABLE IF NOT EXISTS aging_bucket_set (
 ALTER TABLE aging_bucket_set ENABLE ROW LEVEL SECURITY;
 ALTER TABLE aging_bucket_set FORCE ROW LEVEL SECURITY;
 CREATE POLICY aging_bucket_set_tenant_access ON aging_bucket_set AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY aging_bucket_set_legal_entity_scope ON aging_bucket_set AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- A month-end aging snapshot is evidence (3.20.15): it is written once and never
 -- updated. body holds the whole snapshot (buckets, totals, lines); the columns
@@ -99,8 +99,8 @@ CREATE INDEX IF NOT EXISTS aging_snapshot_entity_asof ON aging_snapshot (tenant_
 ALTER TABLE aging_snapshot ENABLE ROW LEVEL SECURITY;
 ALTER TABLE aging_snapshot FORCE ROW LEVEL SECURITY;
 CREATE POLICY aging_snapshot_tenant_access ON aging_snapshot AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY aging_snapshot_legal_entity_scope ON aging_snapshot AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

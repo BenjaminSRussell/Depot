@@ -1,6 +1,6 @@
 name: windows-msi
 
-# Cross-builds passage-server and the Go services for Windows and packages them with WiX. See docs/adr/0004-windows-packaging.md and
+# Cross-builds depot-server and the Go services for Windows and packages them with WiX. See docs/adr/0004-windows-packaging.md and
 # docs/ops/windows-install.md. It is path-filtered so it does not run on every pull request.
 #
 #   build    runs for pull requests, tags and manual runs. It has NO secrets and no id-token: it builds unsigned packages to prove the
@@ -25,7 +25,7 @@ on:
   pull_request:
     paths:
       - 'deploy/windows/**'
-      - 'tools/passage-server/**'
+      - 'tools/depot-server/**'
       - 'platform/go/**'
       - 'services/*/cmd/**'
       - 'services/*/go.mod'
@@ -58,7 +58,7 @@ env:
 
 jobs:
   test:
-    name: passage-server (windows tests)
+    name: depot-server (windows tests)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -67,7 +67,7 @@ jobs:
           go-version: '1.26'
           cache-dependency-path: '**/go.sum'
       - name: vet and test
-        working-directory: tools/passage-server
+        working-directory: tools/depot-server
         run: |
           go vet ./...
           if ($LASTEXITCODE -ne 0) { throw "go vet failed with exit code $LASTEXITCODE" }
@@ -86,7 +86,7 @@ jobs:
       GOOS: windows
       GOARCH: ${{ matrix.arch }}
       CGO_ENABLED: '0'
-      # The FIPS variant links the Go Cryptographic Module (#599); passage-server then refuses to start when FIPS mode is off.
+      # The FIPS variant links the Go Cryptographic Module (#599); depot-server then refuses to start when FIPS mode is off.
       GOFIPS140: ${{ matrix.fips && 'v1.0.0' || 'off' }}
       OUT: ${{ github.workspace }}\out
       VERSION_INPUT: ${{ inputs.version }}
@@ -129,28 +129,28 @@ jobs:
           "VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "VARIANT=${fips}${{ matrix.wixarch }}" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      # The web build is embedded into passage-server with go:embed (-tags webdist). It is not committed.
-      # VITE_PASSAGE_SERVER makes the web app read /installation.json and hide the screens of an MSI feature that is off (#607).
+      # The web build is embedded into depot-server with go:embed (-tags webdist). It is not committed.
+      # VITE_DEPOT_SERVER makes the web app read /installation.json and hide the screens of an MSI feature that is off (#607).
       - name: Build the web app
         working-directory: apps/web
         env:
-          VITE_PASSAGE_SERVER: '1'
+          VITE_DEPOT_SERVER: '1'
         run: |
           npm ci --no-audit --no-fund
           if ($LASTEXITCODE -ne 0) { throw "npm ci failed with exit code $LASTEXITCODE" }
           npm run build
           if ($LASTEXITCODE -ne 0) { throw "npm run build failed with exit code $LASTEXITCODE" }
-          New-Item -ItemType Directory -Force -Path ..\..\tools\passage-server\internal\web | Out-Null
-          Copy-Item -Recurse -Force dist ..\..\tools\passage-server\internal\web\dist
+          New-Item -ItemType Directory -Force -Path ..\..\tools\depot-server\internal\web | Out-Null
+          Copy-Item -Recurse -Force dist ..\..\tools\depot-server\internal\web\dist
 
-      - name: Cross-build passage-server and the Go services
+      - name: Cross-build depot-server and the Go services
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "$env:OUT\bin" | Out-Null
           $ld = "-s -w -X main.version=$env:VERSION"
-          Push-Location tools/passage-server
-          go build -trimpath -tags webdist -ldflags $ld -o "$env:OUT\bin\passage-server.exe" .
-          if ($LASTEXITCODE -ne 0) { throw 'passage-server build failed' }
+          Push-Location tools/depot-server
+          go build -trimpath -tags webdist -ldflags $ld -o "$env:OUT\bin\depot-server.exe" .
+          if ($LASTEXITCODE -ne 0) { throw 'depot-server build failed' }
           Pop-Location
           # One executable per service whose cmd directory carries the service's name (devgateway, entitygen and demo mains are skipped).
           $n = 0
@@ -163,7 +163,7 @@ jobs:
               Pop-Location
               $n++
           }
-          "built passage-server and $n services for $env:GOARCH (GOFIPS140=$env:GOFIPS140)"
+          "built depot-server and $n services for $env:GOARCH (GOFIPS140=$env:GOFIPS140)"
 
       - name: Install WiX
         shell: pwsh
@@ -178,12 +178,12 @@ jobs:
         shell: pwsh
         run: .\deploy\windows\scripts\Build-ServiceBundles.ps1 -Arch ${{ matrix.wixarch }} -Repo $env:GITHUB_WORKSPACE
 
-      # Starts each bundled service with the start command passage-server resolves from the conf.d files. The runner is x64, so the
+      # Starts each bundled service with the start command depot-server resolves from the conf.d files. The runner is x64, so the
       # arm64 bundles are built but not started.
       - name: Test the service start commands
         if: matrix.wixarch == 'x64'
         shell: pwsh
-        run: .\deploy\windows\scripts\Test-ServiceBundles.ps1 -ServerExe "$env:OUT\bin\passage-server.exe" -Repo $env:GITHUB_WORKSPACE -Temp $env:RUNNER_TEMP
+        run: .\deploy\windows\scripts\Test-ServiceBundles.ps1 -ServerExe "$env:OUT\bin\depot-server.exe" -Repo $env:GITHUB_WORKSPACE -Temp $env:RUNNER_TEMP
 
       - name: Build the packages (unsigned)
         shell: pwsh
@@ -256,9 +256,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path "$env:OUT" | Out-Null
           Copy-Item -Recurse -Force "$env:GITHUB_WORKSPACE\unsigned\bin" "$env:OUT\bin"
-          $msi = Get-ChildItem "$env:GITHUB_WORKSPACE\unsigned\Passage-*-$env:VARIANT.msi" | Select-Object -First 1
-          if (-not $msi) { throw "no unsigned Passage MSI for $env:VARIANT in the build artifact" }
-          $v = ($msi.BaseName -replace '^Passage-', '') -replace "-$([regex]::Escape($env:VARIANT))$", ''
+          $msi = Get-ChildItem "$env:GITHUB_WORKSPACE\unsigned\Depot-*-$env:VARIANT.msi" | Select-Object -First 1
+          if (-not $msi) { throw "no unsigned Depot MSI for $env:VARIANT in the build artifact" }
+          $v = ($msi.BaseName -replace '^Depot-', '') -replace "-$([regex]::Escape($env:VARIANT))$", ''
           "VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Install WiX
         shell: pwsh
@@ -278,7 +278,7 @@ jobs:
         run: .\deploy\windows\scripts\Build-ServiceBundles.ps1 -Arch ${{ matrix.wixarch }} -Repo $env:GITHUB_WORKSPACE
 
       # The secrets are mapped only onto the steps that sign.
-      - name: Sign the executables (services, passage-server, Temporal)
+      - name: Sign the executables (services, depot-server, Temporal)
         shell: pwsh
         env:
           SIGNING_PFX_BASE64: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
@@ -303,7 +303,7 @@ jobs:
           SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
         run: |
           .\deploy\windows\scripts\Sign-Files.ps1 -Path "$env:OUT\*.msi"
-          $bundle = "$env:OUT\PassageSetup-$env:VERSION-$env:VARIANT.exe"
+          $bundle = "$env:OUT\DepotSetup-$env:VERSION-$env:VARIANT.exe"
           if (Test-Path $bundle) { .\deploy\windows\scripts\Sign-Bundle.ps1 -Bundle $bundle -Temp $env:RUNNER_TEMP }
 
       # Fails the release on any unsigned or untimestamped binary.
@@ -316,7 +316,7 @@ jobs:
         with:
           path: out/bin
           format: spdx-json
-          output-file: out/Passage-${{ env.VERSION }}-${{ env.VARIANT }}.spdx.json
+          output-file: out/Depot-${{ env.VERSION }}-${{ env.VARIANT }}.spdx.json
           upload-artifact: false
 
       - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532
@@ -337,6 +337,6 @@ jobs:
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: passage-windows-${{ env.VERSION }}-${{ env.VARIANT }}
+          name: depot-windows-${{ env.VERSION }}-${{ env.VARIANT }}
           path: ${{ runner.temp }}/release
           if-no-files-found: error

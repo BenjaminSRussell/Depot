@@ -8,17 +8,17 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/eventing/kafka"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/eventing/kafka"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/api"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/autosend"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/sources"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/api"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/autosend"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/sources"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
 )
 
 // consumerSeeded reports whether the service principal table gives the consumer its principal with the one outbound duty; the
@@ -47,7 +47,7 @@ func consume(ctx context.Context, getenv func(string) string) error {
 	}
 	fulfillmentURL, billingURL, salesURL := getenv("EDI_FULFILLMENT_URL"), getenv("EDI_BILLING_URL"), getenv("EDI_SALES_URL")
 	if signer == nil || fulfillmentURL == "" || billingURL == "" || salesURL == "" {
-		return errors.New("outbound consumer needs PASSAGE_SERVICE_SIGNING_KEY and EDI_FULFILLMENT_URL, EDI_BILLING_URL and EDI_SALES_URL")
+		return errors.New("outbound consumer needs DEPOT_SERVICE_SIGNING_KEY and EDI_FULFILLMENT_URL, EDI_BILLING_URL and EDI_SALES_URL")
 	}
 	kcfg, err := kafka.ConfigFromEnv(getenv, autosend.ConsumerName, autosend.ConsumerName, []string{autosend.FulfillmentTopic, autosend.WarehouseTopic, autosend.BillingTopic})
 	if err != nil {

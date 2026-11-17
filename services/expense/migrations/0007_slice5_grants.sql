@@ -4,9 +4,9 @@
 -- Skipped when the role does not exist (developer databases without the role split).
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON travel_requisition, cash_advance TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON card_import, card_transaction TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON travel_requisition, cash_advance TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON card_import, card_transaction TO depot_app';
   END IF;
 END
 $$;

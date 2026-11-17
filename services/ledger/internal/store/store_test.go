@@ -15,14 +15,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/domain"
-	ledgerevents "github.com/BenjaminSRussell/passage/services/ledger/internal/events"
-	"github.com/BenjaminSRussell/passage/services/ledger/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/domain"
+	ledgerevents "github.com/BenjaminSRussell/depot/services/ledger/internal/events"
+	"github.com/BenjaminSRussell/depot/services/ledger/migrations"
 )
 
 var (
@@ -34,7 +34,7 @@ var (
 type env struct {
 	ctx    context.Context
 	store  *Postgres
-	pool   *pgxpool.Pool // application role (passage_app): RLS and grants apply
+	pool   *pgxpool.Pool // application role (depot_app): RLS and grants apply
 	admin  *pgxpool.Pool // migration owner
 	ledger Ledger
 	tenant string
@@ -82,7 +82,7 @@ func vendorInvoice(ledgerID, key, amount string) PostInput {
 	hash, _ := domain.HashPayload(map[string]string{"key": key, "amount": amount})
 	return PostInput{
 		LedgerID: ledgerID, DocumentID: ids.New(), PostingDate: testPostingDate, Description: "Vendor invoice " + key,
-		Source: ledgerevents.Source{System: "ap", Type: "vendor_invoice", ID: key, URI: "passage://ap/invoices/" + key},
+		Source: ledgerevents.Source{System: "ap", Type: "vendor_invoice", ID: key, URI: "depot://ap/invoices/" + key},
 		Lines: []domain.LineInput{
 			{Account: "6010", Side: domain.SideDebit, Amount: decimal.RequireFromString(amount), Currency: "USD", Dimensions: map[string]string{"DEPT": "D100"}},
 			{Account: "2100", Side: domain.SideCredit, Amount: decimal.RequireFromString(amount), Currency: "USD"},

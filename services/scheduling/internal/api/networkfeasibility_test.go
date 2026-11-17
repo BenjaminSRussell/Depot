@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 func (f *fakeStore) NetworkFeasibility(_ context.Context, nf store.NetworkFeasibilityFilter) (store.NetworkFeasibility, error) {

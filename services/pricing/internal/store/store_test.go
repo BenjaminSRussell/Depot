@@ -13,13 +13,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
-	"github.com/BenjaminSRussell/passage/services/pricing/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/pricing/migrations"
 )
 
 const (
@@ -152,7 +152,7 @@ func TestPostgres_ActivateRejectsOverlapAndWritesEvents(t *testing.T) {
 		t.Fatalf("active records = %v, %v; want the first record only", recs, err)
 	}
 	events := outboxRows(t, ctx, pool)
-	if len(events) != 1 || events[0].Type != "dev.passage.pricing.conditionrecord.activated.v1" {
+	if len(events) != 1 || events[0].Type != "dev.depot.pricing.conditionrecord.activated.v1" {
 		t.Fatalf("events = %+v; want one activated event (no event for the replay or the rejection)", events)
 	}
 	if events[0].Data["legal_entity_id"] != legalEntity || events[0].Data["retroactive"] != true || events[0].Data["version"] != float64(2) {
@@ -188,7 +188,7 @@ func TestPostgres_WithdrawLifecycle(t *testing.T) {
 		t.Fatalf("a withdrawn record must not price, got %v", recs)
 	}
 	events := outboxRows(t, ctx, pool)
-	if len(events) != 2 || events[1].Type != "dev.passage.pricing.conditionrecord.withdrawn.v1" || events[1].Data["reason"] != "superseded" {
+	if len(events) != 2 || events[1].Type != "dev.depot.pricing.conditionrecord.withdrawn.v1" || events[1].Data["reason"] != "superseded" {
 		t.Fatalf("events = %+v; want activated then withdrawn with the reason", events)
 	}
 	if _, err := s.GetRecord(ctx, "00000000-0000-0000-0000-00000000dead"); problemCode(err) != store.CodeRecordNotFound {

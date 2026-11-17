@@ -11,10 +11,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 type OpeningJournalRequest struct {
@@ -63,7 +63,7 @@ func openingRun(ctx context.Context, tx pgx.Tx, runID string) (domain.PackRun, e
 
 func readOpeningBalances(ctx context.Context, tx pgx.Tx, system, company string) ([]domain.GLBalance, error) {
 	rows, err := tx.Query(ctx, `select legacy_id, account, dimensions, currency, balance::text from gl_opening_balance
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_system = $1 and source_company = $2
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_system = $1 and source_company = $2
 		order by legacy_id`, system, company)
 	if err != nil {
 		return nil, fmt.Errorf("read gl_opening_balance: %w", err)
@@ -87,7 +87,7 @@ type openingTarget struct{ legalEntityID, ledgerID string }
 func readOpeningTarget(ctx context.Context, tx pgx.Tx, system, company string) (*openingTarget, error) {
 	var t openingTarget
 	err := tx.QueryRow(ctx, `select target_legal_entity_id::text, ledger_id from gl_opening_target
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_system = $1 and source_company = $2`, system, company).Scan(&t.legalEntityID, &t.ledgerID)
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_system = $1 and source_company = $2`, system, company).Scan(&t.legalEntityID, &t.ledgerID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -102,7 +102,7 @@ type postedKey struct{ ledgerID, hash string }
 
 func readOpeningPostings(ctx context.Context, tx pgx.Tx, system, company, legalEntityID string) (map[string]OpeningPosting, map[string]postedKey, error) {
 	q := `select currency, legal_entity_id::text, ledger_id, posting_date::text, line_count, debit::text, credit::text, entry_id, posted_at, content_hash
-		from gl_opening_posting where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_system = $1 and source_company = $2`
+		from gl_opening_posting where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_system = $1 and source_company = $2`
 	args := []any{system, company}
 	if legalEntityID != "" {
 		q += ` and legal_entity_id = $3`
@@ -258,7 +258,7 @@ func (s *Postgres) PostOpeningJournal(ctx context.Context, ledger ledgerclient.L
 		if err := s.tx(ctx, func(tx pgx.Tx) error {
 			_, err := tx.Exec(ctx, `insert into gl_opening_posting (tenant_id, source_system, source_company, legal_entity_id, currency, ledger_id, posting_date,
 				idempotency_key, content_hash, line_count, debit, credit, entry_id, run_id, posted_by)
-				values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) on conflict do nothing`,
+				values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) on conflict do nothing`,
 				string(run.SourceSystem), run.SourceCompany, in.LegalEntityID, j.Currency, in.LedgerID, in.PostingDate, j.Key, j.Hash, j.LineCount,
 				j.Debit.String(), j.Credit.String(), entryID, run.RunID, in.By)
 			return err
@@ -279,12 +279,12 @@ func takePostingLease(ctx context.Context, tx pgx.Tx, run domain.PackRun, in Ope
 	if err := lockOpeningCompany(ctx, tx, string(run.SourceSystem), run.SourceCompany); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `delete from gl_opening_posting_lease where tenant_id = current_setting('passage.tenant_id', true)::uuid
+	if _, err := tx.Exec(ctx, `delete from gl_opening_posting_lease where tenant_id = current_setting('depot.tenant_id', true)::uuid
 		and source_system = $1 and source_company = $2 and expires_at <= now()`, string(run.SourceSystem), run.SourceCompany); err != nil {
 		return err
 	}
 	_, err := tx.Exec(ctx, `insert into gl_opening_posting_lease (tenant_id, source_system, source_company, holder, taken_by, expires_at)
-		values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, now() + make_interval(secs => $5))`,
+		values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, now() + make_interval(secs => $5))`,
 		string(run.SourceSystem), run.SourceCompany, holder, in.By, postingLeaseTTL.Seconds())
 	return err
 }
@@ -298,7 +298,7 @@ func (s *Postgres) renewPostingLease(ctx context.Context, run domain.PackRun, ho
 	var renewed int64
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `update gl_opening_posting_lease set expires_at = now() + make_interval(secs => $4)
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and holder = $3 and expires_at > now()`,
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and holder = $3 and expires_at > now()`,
 			string(run.SourceSystem), run.SourceCompany, holder, postingLeaseTTL.Seconds())
 		renewed = tag.RowsAffected()
 		return err
@@ -316,7 +316,7 @@ func (s *Postgres) renewPostingLease(ctx context.Context, run domain.PackRun, ho
 func (s *Postgres) releasePostingLease(ctx context.Context, run domain.PackRun, holder string) {
 	ctx = context.WithoutCancel(ctx)
 	err := s.tx(ctx, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, `delete from gl_opening_posting_lease where tenant_id = current_setting('passage.tenant_id', true)::uuid
+		_, err := tx.Exec(ctx, `delete from gl_opening_posting_lease where tenant_id = current_setting('depot.tenant_id', true)::uuid
 			and source_system = $1 and source_company = $2 and holder = $3`, string(run.SourceSystem), run.SourceCompany, holder)
 		return err
 	})
@@ -329,7 +329,7 @@ func (s *Postgres) releasePostingLease(ctx context.Context, run domain.PackRun, 
 func (s *Postgres) releaseOpeningTarget(ctx context.Context, run domain.PackRun, in OpeningJournalRequest) {
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `delete from gl_opening_target t
-			where t.tenant_id = current_setting('passage.tenant_id', true)::uuid and t.source_system = $1 and t.source_company = $2
+			where t.tenant_id = current_setting('depot.tenant_id', true)::uuid and t.source_system = $1 and t.source_company = $2
 			and t.target_legal_entity_id = $3 and t.ledger_id = $4
 			and not exists (select 1 from gl_opening_posting p where p.tenant_id = t.tenant_id and p.source_system = t.source_system and p.source_company = t.source_company)`,
 			string(run.SourceSystem), run.SourceCompany, in.LegalEntityID, in.LedgerID)
@@ -356,7 +356,7 @@ func (s *Postgres) pinOpeningTarget(ctx context.Context, run domain.PackRun, in 
 			return openingTargetMapped(run.SourceCompany)
 		}
 		tag, err := tx.Exec(ctx, `insert into gl_opening_target (tenant_id, source_system, source_company, target_legal_entity_id, ledger_id, pinned_by)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5) on conflict do nothing`,
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5) on conflict do nothing`,
 			string(run.SourceSystem), run.SourceCompany, in.LegalEntityID, in.LedgerID, in.By)
 		if err != nil {
 			return fmt.Errorf("pin gl_opening_target: %w", err)

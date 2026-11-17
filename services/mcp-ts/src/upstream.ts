@@ -1,7 +1,7 @@
 import type { Upstream, UpstreamRequest, UpstreamResponse } from "./gateway.js";
 
 /**
- * HTTP upstream to the Passage API. Path parameters are filled from args;
+ * HTTP upstream to the Depot API. Path parameters are filled from args;
  * GET and DELETE send the rest as query string, other methods as JSON body.
  * ifMatch and idempotencyKey map to their headers and are not sent in the body.
  */

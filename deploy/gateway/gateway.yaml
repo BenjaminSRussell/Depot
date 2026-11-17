@@ -1,10 +1,10 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: passage-api
+  name: depot-api
   namespace: hello-ledger
 spec:
-  gatewayClassName: passage-envoy
+  gatewayClassName: depot-envoy
   listeners:
     - name: http-dev
       protocol: HTTP
@@ -20,7 +20,7 @@ spec:
         certificateRefs:
           - group: ""
             kind: Secret
-            name: passage-api-tls
+            name: depot-api-tls
       allowedRoutes:
         namespaces:
           from: Same

@@ -33,7 +33,7 @@ spec:
 {{- end }}
       containers:
         - name: analytics
-          image: "{{ (include "passage.imageRepository" $) }}{{ if .Values.image.digest }}@{{ .Values.image.digest }}{{ else }}:{{ .Values.image.tag }}{{ end }}"
+          image: "{{ (include "depot.imageRepository" $) }}{{ if .Values.image.digest }}@{{ .Values.image.digest }}{{ else }}:{{ .Values.image.tag }}{{ end }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             allowPrivilegeEscalation: false
@@ -46,7 +46,7 @@ spec:
             - name: admin
               containerPort: 9090
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: SERVICE_NAME
               value: analytics
             - name: HTTP_ADDR
@@ -68,7 +68,7 @@ spec:
                   key: {{ .Values.semanticLayer.secret.key }}
 {{- end }}
 {{- if .Values.reconciliation.tenantId }}
-            - name: PASSAGE_SERVICE_NAME
+            - name: DEPOT_SERVICE_NAME
               value: analytics
             - name: ANALYTICS_RECON_TENANT_ID
               value: {{ .Values.reconciliation.tenantId | quote }}
@@ -88,10 +88,10 @@ spec:
             - name: LEDGER_URL
               value: {{ .Values.reconciliation.ledgerUrl | quote }}
 {{- if .Values.serviceIdentity.signingKeySecret }}
-            - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
-              value: /var/run/passage/service-identity/signing-key
+            - name: DEPOT_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/depot/service-identity/signing-key
 {{- if .Values.serviceIdentity.keyId }}
-            - name: PASSAGE_SERVICE_KEY_ID
+            - name: DEPOT_SERVICE_KEY_ID
               value: {{ .Values.serviceIdentity.keyId | quote }}
 {{- end }}
 {{- end }}
@@ -112,7 +112,7 @@ spec:
               port: http
 {{- if .Values.serviceIdentity.signingKeySecret }}
           volumeMounts:
-            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
 {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

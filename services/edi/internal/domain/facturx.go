@@ -284,7 +284,7 @@ func FacturXPDF(cii string, created time.Time) ([]byte, error) {
 <x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
 <rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/"><pdfaid:part>3</pdfaid:part><pdfaid:conformance>B</pdfaid:conformance></rdf:Description>
 <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title><rdf:Alt><rdf:li xml:lang="x-default">` + esc(title+" "+number) + `</rdf:li></rdf:Alt></dc:title></rdf:Description>
-<rdf:Description rdf:about="" xmlns:pdf="http://ns.adobe.com/pdf/1.3/"><pdf:Producer>Passage EDI</pdf:Producer></rdf:Description>
+<rdf:Description rdf:about="" xmlns:pdf="http://ns.adobe.com/pdf/1.3/"><pdf:Producer>Depot EDI</pdf:Producer></rdf:Description>
 <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/"><xmp:CreateDate>` + iso + `</xmp:CreateDate><xmp:ModifyDate>` + iso + `</xmp:ModifyDate></rdf:Description>
 <rdf:Description rdf:about="" xmlns:fx="urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#"><fx:DocumentType>INVOICE</fx:DocumentType><fx:DocumentFileName>factur-x.xml</fx:DocumentFileName><fx:Version>1.0</fx:Version><fx:ConformanceLevel>EN 16931</fx:ConformanceLevel></rdf:Description>
 <rdf:Description rdf:about="" xmlns:pdfaExtension="http://www.aiim.org/pdfa/ns/extension/" xmlns:pdfaSchema="http://www.aiim.org/pdfa/ns/schema#" xmlns:pdfaProperty="http://www.aiim.org/pdfa/ns/property#"><pdfaExtension:schemas><rdf:Bag><rdf:li rdf:parseType="Resource"><pdfaSchema:schema>Factur-X PDFA Extension Schema</pdfaSchema:schema><pdfaSchema:namespaceURI>urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#</pdfaSchema:namespaceURI><pdfaSchema:prefix>fx</pdfaSchema:prefix><pdfaSchema:property><rdf:Seq>` +
@@ -312,7 +312,7 @@ func FacturXPDF(cii string, created time.Time) ([]byte, error) {
 	obj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>")
 	obj("<< /Type /Filespec /F (factur-x.xml) /UF (factur-x.xml) /Desc (Factur-X invoice) /AFRelationship /Data /EF << /F 6 0 R /UF 6 0 R >> >>")
 	obj(stream(fmt.Sprintf("/Type /EmbeddedFile /Subtype /text#2Fxml /Params << /Size %d /ModDate (D:%s) >>", len(cii), stamp), cii))
-	obj(fmt.Sprintf("<< /Producer (Passage EDI) /CreationDate (D:%s) /ModDate (D:%s) >>", stamp, stamp))
+	obj(fmt.Sprintf("<< /Producer (Depot EDI) /CreationDate (D:%s) /ModDate (D:%s) >>", stamp, stamp))
 	for i, lines := range pages {
 		obj(fmt.Sprintf("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents %d 0 R /Resources << /Font << /F1 4 0 R >> >> >>", 9+2*i))
 		obj(stream("", strings.Join(lines, "\n")))

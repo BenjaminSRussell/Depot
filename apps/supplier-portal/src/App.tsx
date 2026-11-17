@@ -54,7 +54,7 @@ export function App() {
     <>
       <a href="#main" className="skip">Skip to content</a>
       <header>
-        <strong>Passage Supplier Portal</strong>
+        <strong>Depot Supplier Portal</strong>
         {me.data ? (
           <div className="who">
             {me.data.legalEntityIds.length > 1 ? (

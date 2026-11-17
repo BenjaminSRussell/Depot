@@ -1,4 +1,4 @@
-/** Tool model for the Passage MCP gateway (FR-47.1). Pure functions, no I/O. */
+/** Tool model for the Depot MCP gateway (FR-47.1). Pure functions, no I/O. */
 
 export const APPROVAL_MODES = ["none", "suggest", "approve_before_commit"] as const;
 export type ApprovalMode = (typeof APPROVAL_MODES)[number];
@@ -9,7 +9,7 @@ export type HttpMethod = (typeof HTTP_METHODS)[number];
 export type JsonObject = Record<string, unknown>;
 
 export interface ToolDefinition {
-  /** passage.<domain>.<entity>.<verb>, e.g. passage.ap.invoice.list */
+  /** depot.<domain>.<entity>.<verb>, e.g. depot.ap.invoice.list */
   name: string;
   description: string;
   version: number;
@@ -19,19 +19,19 @@ export interface ToolDefinition {
   sourceRef: string;
   inputSchema: JsonObject;
   outputSchema: JsonObject;
-  /** OPA duty the caller must hold to see and call the tool (x-passage-duty). */
+  /** OPA duty the caller must hold to see and call the tool (x-depot-duty). */
   requiredDuty: string;
-  /** x-passage-approval */
+  /** x-depot-approval */
   approvalMode: ApprovalMode;
   readOnly: boolean;
   idempotent: boolean;
 }
 
 /**
- * Three or four segments: passage.<domain>.<entity>.<verb>, or
- * passage.<domain>.<verb> for single-resource domains such as passage.knowledge.search.
+ * Three or four segments: depot.<domain>.<entity>.<verb>, or
+ * depot.<domain>.<verb> for single-resource domains such as depot.knowledge.search.
  */
-export const TOOL_NAME_PATTERN = /^passage(\.[a-z][a-z0-9_-]*){2,3}$/;
+export const TOOL_NAME_PATTERN = /^depot(\.[a-z][a-z0-9_-]*){2,3}$/;
 
 export function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -44,13 +44,13 @@ export function hasTenantProperty(schema: JsonObject): boolean {
 /** Returns every rule violation; an empty list means the definition is publishable. */
 export function validateToolDefinition(t: ToolDefinition): string[] {
   const errors: string[] = [];
-  if (!TOOL_NAME_PATTERN.test(t.name)) errors.push(`${t.name}: name must match passage.<domain>.<entity>.<verb>`);
+  if (!TOOL_NAME_PATTERN.test(t.name)) errors.push(`${t.name}: name must match depot.<domain>.<entity>.<verb>`);
   if (!Number.isInteger(t.version) || t.version < 1) errors.push(`${t.name}: version must be a positive integer`);
   if (!HTTP_METHODS.includes(t.method)) errors.push(`${t.name}: unsupported method ${String(t.method)}`);
   if (!t.path.startsWith("/")) errors.push(`${t.name}: path must start with /`);
   if (!t.sourceRef) errors.push(`${t.name}: sourceRef is required`);
-  if (!t.requiredDuty) errors.push(`${t.name}: x-passage-duty is required`);
-  if (!APPROVAL_MODES.includes(t.approvalMode)) errors.push(`${t.name}: unknown x-passage-approval`);
+  if (!t.requiredDuty) errors.push(`${t.name}: x-depot-duty is required`);
+  if (!APPROVAL_MODES.includes(t.approvalMode)) errors.push(`${t.name}: unknown x-depot-approval`);
   if (t.method === "GET" && !t.readOnly) errors.push(`${t.name}: GET tools must be read-only`);
   if (!t.readOnly && t.approvalMode === "none") {
     errors.push(`${t.name}: write tools must be suggest or approve_before_commit`);
@@ -80,8 +80,8 @@ export interface McpTool {
   description: string;
   inputSchema: JsonObject;
   annotations: { readOnlyHint: boolean; destructiveHint: boolean; idempotentHint: boolean };
-  "x-passage-duty": string;
-  "x-passage-approval": ApprovalMode;
+  "x-depot-duty": string;
+  "x-depot-approval": ApprovalMode;
 }
 
 /** The wire shape returned by tools/list. */
@@ -95,7 +95,7 @@ export function toMcpTool(t: ToolDefinition): McpTool {
       destructiveHint: !t.readOnly,
       idempotentHint: t.idempotent,
     },
-    "x-passage-duty": t.requiredDuty,
-    "x-passage-approval": t.approvalMode,
+    "x-depot-duty": t.requiredDuty,
+    "x-depot-approval": t.approvalMode,
   };
 }

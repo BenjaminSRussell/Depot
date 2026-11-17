@@ -9,12 +9,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/product/internal/api"
-	"github.com/BenjaminSRussell/passage/services/product/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/product/internal/orgclient"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/product/internal/api"
+	"github.com/BenjaminSRussell/depot/services/product/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/product/internal/orgclient"
 )
 
 const importDuty = "product.import.write"
@@ -255,8 +255,8 @@ func TestPatchProductFollowsTheLifecycleMachine(t *testing.T) {
 	f.products[id] = domain.Product{ID: id, ProductNumber: "LC-1", Name: "LC", LifecycleState: domain.StateObsolete, Version: 3}
 	patch := func(version, body, duties string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPatch, "/v1/product/products/"+id, strings.NewReader(body))
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-Duties", duties)
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("If-Match", version)
 		rec := httptest.NewRecorder()
@@ -340,10 +340,10 @@ func TestLoaderReleaseWithPlacementsIsExplicitUntilProductCanSignForOrg(t *testi
 	le := testkit.TenantID(9)
 	req := httptest.NewRequest(http.MethodPost, "/v1/product/releases", strings.NewReader(
 		fmt.Sprintf(`{"productId":"p-1","legalEntityId":%q,"itemGroupId":"FG","itemModelGroupId":"STD","defaultSiteId":"S1","defaultWarehouseId":"W1"}`, le)))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Legal-Entity", le)
-	req.Header.Set("X-Passage-User", "u-1")
-	req.Header.Set("X-Passage-Duties", "product.release")
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Legal-Entity", le)
+	req.Header.Set("X-Depot-User", "u-1")
+	req.Header.Set("X-Depot-Duties", "product.release")
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusCreated || *hits != 2 || last.Get(tenant.HeaderUser) != "u-1" || last.Get(tenant.HeaderServiceToken) != "" {

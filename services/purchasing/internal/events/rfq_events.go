@@ -4,9 +4,9 @@ package events
 // transaction that changes the RFQ; the subject is the RFQ id.
 const (
 	// RFQSent is written by :send, when the vendors are invited.
-	RFQSent = "dev.passage.procurement.rfq.sent.v1"
+	RFQSent = "dev.depot.procurement.rfq.sent.v1"
 	// RFQAwarded is written by :award, with the purchase orders it created.
-	RFQAwarded = "dev.passage.procurement.rfq.awarded.v1"
+	RFQAwarded = "dev.depot.procurement.rfq.awarded.v1"
 )
 
 // RFQLineData is one requested line as carried on rfq.sent.v1. Quantities are
@@ -62,11 +62,11 @@ type RFQAwardedData struct {
 // RFQ amendment and type events (FR-17.19).
 const (
 	// RFQAmended is written by POST /rfqs/{id}/amendments, when an addendum is issued to the invited vendors.
-	RFQAmended = "dev.passage.procurement.rfq.amended.v1"
+	RFQAmended = "dev.depot.procurement.rfq.amended.v1"
 	// RFQTypeCreated is written when an RFQ type is created.
-	RFQTypeCreated = "dev.passage.procurement.rfqtype.created.v1"
+	RFQTypeCreated = "dev.depot.procurement.rfqtype.created.v1"
 	// RFQTypeChanged is written when an RFQ type is changed or deactivated.
-	RFQTypeChanged = "dev.passage.procurement.rfqtype.changed.v1"
+	RFQTypeChanged = "dev.depot.procurement.rfqtype.changed.v1"
 )
 
 // RFQAmendedData is the data member of rfq.amended.v1: the addendum RFQ-n-A<k>, the vendors that must

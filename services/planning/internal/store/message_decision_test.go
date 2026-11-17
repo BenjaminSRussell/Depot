@@ -8,11 +8,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/domain"
-	planevents "github.com/BenjaminSRussell/passage/services/planning/internal/events"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/domain"
+	planevents "github.com/BenjaminSRussell/depot/services/planning/internal/events"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/store"
 )
 
 // surplusItem is the item of every surplus run, so later runs raise the same messages.

@@ -27,7 +27,7 @@ func csrPEM(t *testing.T, key any, cn string) string {
 // The certificate carries the subject the server chose and 90 days of life, never the request's names,
 // verifies against the CA for client auth, and holds the requester's key.
 func TestLocalCA_IssuesForTheServersSubject(t *testing.T) {
-	cp, kp, err := NewTestCA("Passage edge CA", now)
+	cp, kp, err := NewTestCA("Depot edge CA", now)
 	if err != nil {
 		t.Fatal(err)
 	}

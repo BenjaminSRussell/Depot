@@ -36,11 +36,11 @@ CREATE TABLE IF NOT EXISTS invoice (
 ALTER TABLE invoice ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoice FORCE ROW LEVEL SECURITY;
 CREATE POLICY invoice_tenant_access ON invoice AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY invoice_legal_entity_scope ON invoice AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 -- Invoices list (newest first) and the due-date index of §5.29.4.
 CREATE INDEX IF NOT EXISTS invoice_created_idx ON invoice (tenant_id, created_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS invoice_account_status_due_idx ON invoice (tenant_id, invoice_account_id, status, due_date);
@@ -63,8 +63,8 @@ CREATE TABLE IF NOT EXISTS invoice_line (
 ALTER TABLE invoice_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoice_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY invoice_line_tenant_access ON invoice_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Gap-free numbers: one row per (entity, sequence, fiscal year), incremented in
 -- the posting transaction so a rolled-back post consumes no number (BR-29.9).
@@ -79,11 +79,11 @@ CREATE TABLE IF NOT EXISTS number_sequence_counter (
 ALTER TABLE number_sequence_counter ENABLE ROW LEVEL SECURITY;
 ALTER TABLE number_sequence_counter FORCE ROW LEVEL SECURITY;
 CREATE POLICY number_sequence_counter_tenant_access ON number_sequence_counter AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY number_sequence_counter_legal_entity_scope ON number_sequence_counter AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Transactional outbox relayed by Debezium (platform dbx.OutboxDDL); excluded from RLS.
 CREATE TABLE IF NOT EXISTS outbox (

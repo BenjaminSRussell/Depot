@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { migrate, PgAgentStore } from "../src/store/pg.js";
 
-export const ownerUrl = process.env["PASSAGE_TEST_DATABASE_URL"];
-const appUrl = process.env["PASSAGE_TEST_APP_DATABASE_URL"] ?? ownerUrl;
+export const ownerUrl = process.env["DEPOT_TEST_DATABASE_URL"];
+const appUrl = process.env["DEPOT_TEST_APP_DATABASE_URL"] ?? ownerUrl;
 
 export interface Fixture {
   store: PgAgentStore;
@@ -12,7 +12,7 @@ export interface Fixture {
   close(): Promise<void>;
 }
 
-/** A private schema migrated by the owner role, used through the passage_app role when one is configured. */
+/** A private schema migrated by the owner role, used through the depot_app role when one is configured. */
 export async function fixture(): Promise<Fixture> {
   const schema = `agents_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
   const admin = new pg.Pool({ connectionString: ownerUrl, max: 1 });

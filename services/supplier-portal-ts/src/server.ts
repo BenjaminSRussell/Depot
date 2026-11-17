@@ -46,7 +46,7 @@ export interface ServerDeps {
   registration?: { tenantId: string; legalEntityId: string };
   /** A limit per client address for the public routes (registration, invitation checks); default 10 an hour. */
   publicLimiter?: RateLimiter;
-  /** The proxies in front whose X-Forwarded-For is believed (PASSAGE_TRUSTED_PROXIES). Default none: the client is the TCP peer. */
+  /** The proxies in front whose X-Forwarded-For is believed (DEPOT_TRUSTED_PROXIES). Default none: the client is the TCP peer. */
   trustedProxies?: TrustedProxies;
   now?: () => number;
   log?: (entry: Record<string, unknown>) => void;
@@ -65,7 +65,7 @@ function send(res: ServerResponse, status: number, body: unknown, headers: Recor
 }
 
 function problem(res: ServerResponse, status: number, code: string, detail: string, headers: Record<string, string> = {}): void {
-  send(res, status, { type: `https://passage.dev/problems/${code}`, title: detail, status, code, detail }, headers);
+  send(res, status, { type: `https://depot.dev/problems/${code}`, title: detail, status, code, detail }, headers);
 }
 
 async function readBody(req: IncomingMessage, max: number): Promise<Buffer | "too-large"> {
@@ -186,7 +186,7 @@ export function createHttpServer(deps: ServerDeps): Server {
     // (checked in api() as well): party requires that duty on the invitation routes, so a supplier user's token cannot reach them.
     const caller = { tenantId: session.identity.tenantId, legalEntityId: le, userId: session.identity.userId, vendorId: session.identity.vendorId, isAdmin: session.identity.isAdmin };
     const token = deps.signer.mint(route.audience, caller, route.adminOnly ? [DUTY_PORTAL_ADMIN] : undefined);
-    const headers: Record<string, string> = { "x-passage-service-token": token, accept: route.binary ? "*/*" : "application/json" };
+    const headers: Record<string, string> = { "x-depot-service-token": token, accept: route.binary ? "*/*" : "application/json" };
     if (body !== undefined) headers["content-type"] = "application/json";
     if (route.method === "POST") {
       const key = req.headers["idempotency-key"];
@@ -247,7 +247,7 @@ export function createHttpServer(deps: ServerDeps): Server {
     try {
       return await deps.fetcher(new URL(path, deps.upstreams.party).toString(), {
         method: "POST",
-        headers: { "x-passage-service-token": token, accept: "application/json", "content-type": "application/json", "idempotency-key": randomUUID() },
+        headers: { "x-depot-service-token": token, accept: "application/json", "content-type": "application/json", "idempotency-key": randomUUID() },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
       });

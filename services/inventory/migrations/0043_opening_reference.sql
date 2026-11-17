@@ -14,11 +14,11 @@ CREATE INDEX IF NOT EXISTS inventory_opening_reference_batch_idx ON inventory_op
 ALTER TABLE inventory_opening_reference ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_opening_reference FORCE ROW LEVEL SECURITY;
 CREATE POLICY inventory_opening_reference_tenant_access ON inventory_opening_reference AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY inventory_opening_reference_legal_entity_scope ON inventory_opening_reference AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The batches recorded before this table existed hold their references through their posted journals' lines.
 INSERT INTO inventory_opening_reference (tenant_id, legal_entity_id, reference, batch_key)
@@ -31,8 +31,8 @@ ON CONFLICT (tenant_id, legal_entity_id, reference) DO NOTHING;
 -- DELETE: a batch that stopped before its journal was posted releases its references.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON inventory_opening_reference TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON inventory_opening_reference TO depot_app';
   END IF;
 END
 $$;

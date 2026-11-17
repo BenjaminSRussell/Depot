@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
 )
 
 // MaxProfiles bounds the SLA profile list; a tenant keeps a handful of profiles.

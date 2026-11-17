@@ -18,27 +18,27 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/tax/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/tax/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/store"
 )
 
 const (
 	// ConsumerName is the consumer (and Kafka group) and the service principal it runs as, service:tax-intrastat.
 	ConsumerName = "tax-intrastat"
 	// PackingSlipTopic and ReceiptTopic are the source topics (the outbox connectors of fulfillment and receiving create them).
-	PackingSlipTopic = "passage.fulfillment.packingslip"
-	ReceiptTopic     = "passage.receiving.receipt"
+	PackingSlipTopic = "depot.fulfillment.packingslip"
+	ReceiptTopic     = "depot.receiving.receipt"
 	// DeadLetterTopic parks the events the consumer could not map or stage.
-	DeadLetterTopic = "passage.tax.intrastat.dlq"
+	DeadLetterTopic = "depot.tax.intrastat.dlq"
 
-	PackingSlipPostedType = "dev.passage.fulfillment.packingslip.posted.v1"
-	ReceiptPostedType     = "dev.passage.receiving.receipt.posted.v1"
+	PackingSlipPostedType = "dev.depot.fulfillment.packingslip.posted.v1"
+	ReceiptPostedType     = "dev.depot.receiving.receipt.posted.v1"
 	packingSlipSource     = "fulfillment"
-	receiptSource         = "/passage/receiving/receiving"
+	receiptSource         = "/depot/receiving/receiving"
 
 	dutyFeed   = "tax.intrastat.feed"
 	dateLayout = "2006-01-02"
@@ -98,7 +98,7 @@ func handle(ctx context.Context, tx pgx.Tx, evt events.Event, s Stager, source s
 	ctx = tenant.With(ctx, scoped)
 	// The inbox transaction was opened for the consumer's tenant-level principal, which reaches no legal entity: narrow it to the event's
 	// legal entity (and no other) so row-level security lets the entity setting and the staged movement through.
-	if _, err := tx.Exec(ctx, `select set_config('passage.legal_entity_scopes', $1, true)`, legalEntityID); err != nil {
+	if _, err := tx.Exec(ctx, `select set_config('depot.legal_entity_scopes', $1, true)`, legalEntityID); err != nil {
 		return fmt.Errorf("scope the transaction to legal entity %s: %w", legalEntityID, err)
 	}
 	home, err := s.HomeCountry(ctx, tx)

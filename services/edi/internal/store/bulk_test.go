@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	ediev "github.com/BenjaminSRussell/passage/services/edi/internal/events"
+	ediev "github.com/BenjaminSRussell/depot/services/edi/internal/events"
 )
 
 func TestReprocessInterchanges(t *testing.T) {

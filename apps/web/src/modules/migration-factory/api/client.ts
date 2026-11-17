@@ -148,7 +148,7 @@ export interface LoadRequest {
   target: "receivables";
   legalEntityId: string;
   importSource?: string;
-  /** Legacy party id to Passage customer id. */
+  /** Legacy party id to Depot customer id. */
   customerIds?: Record<string, string>;
 }
 
@@ -346,11 +346,11 @@ export interface Xref {
   company: string;
   table: string;
   legacyId: string;
-  passageEntity: string;
-  passageId: string;
+  depotEntity: string;
+  depotId: string;
   runId: string;
   createdAt: string;
-  /** True once passageId is the id the target service assigned (the factory's own before that). */
+  /** True once depotId is the id the target service assigned (the factory's own before that). */
   targetConfirmed?: boolean;
 }
 
@@ -372,7 +372,7 @@ export interface ParallelRunRequest {
   revenue: string;
   explainedMaxPct?: string;
   legacy: Tuple[];
-  passage: Tuple[];
+  depot: Tuple[];
 }
 
 export interface Variance {
@@ -380,7 +380,7 @@ export interface Variance {
   area: Area;
   key: string;
   legacy: string;
-  passage: string;
+  depot: string;
   delta: string;
   class: VarianceClass;
   ruleId?: string;
@@ -581,7 +581,7 @@ export interface Rekeying {
   excluded: number;
 }
 
-/** One Passage posting line since T-0 handed back to the legacy system for re-keying (FR-49.9). */
+/** One Depot posting line since T-0 handed back to the legacy system for re-keying (FR-49.9). */
 export interface RekeyPosting {
   kind: "JOURNAL" | "DOCUMENT";
   entity: string;
@@ -796,7 +796,7 @@ export function completeStep(planId: string, seq: number, actualDurationMin: num
 /**
  * POST /cutover/plans/{id}/rollback as the signed-in user. Needs two different migration.cutover.manage holders (CUT-1603): the first call
  * stores the caller's approval and returns the plan with pendingRollback (202), a second caller's call runs the rollback.
- * postings are the Passage postings since T-0 to export for re-keying; one the service rejects leaves the plan as it was.
+ * postings are the Depot postings since T-0 to export for re-keying; one the service rejects leaves the plan as it was.
  */
 export function rollbackPlan(planId: string, postings: RekeyPosting[], version: number, key: string = newKey()): Promise<CutoverPlan> {
   return post(`/cutover/plans/${encodeURIComponent(planId)}/rollback`, { postings, version }, key);
@@ -870,7 +870,7 @@ export interface OpeningLoadDetail extends OpeningLoad {
 export interface OpeningLoadRequest {
   legalEntityId: string;
   postingDate: string;
-  /** Legacy item to Passage product id (onhand); an item that is already a product id needs no entry. */
+  /** Legacy item to Depot product id (onhand); an item that is already a product id needs no entry. */
   products?: Record<string, string>;
   /** Legacy bank account to treasury bank account id (bank_balances). */
   bankAccounts?: Record<string, string>;

@@ -12,14 +12,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/sales/internal/api"
-	"github.com/BenjaminSRussell/passage/services/sales/internal/store"
-	"github.com/BenjaminSRussell/passage/services/sales/internal/upstream"
-	"github.com/BenjaminSRussell/passage/services/sales/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/api"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/store"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/upstream"
+	"github.com/BenjaminSRussell/depot/services/sales/migrations"
 )
 
 const (

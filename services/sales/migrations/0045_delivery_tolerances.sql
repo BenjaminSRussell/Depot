@@ -32,17 +32,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS delivery_tolerance_unique ON delivery_toleranc
 ALTER TABLE delivery_tolerance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE delivery_tolerance FORCE ROW LEVEL SECURITY;
 CREATE POLICY delivery_tolerance_tenant_access ON delivery_tolerance AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY delivery_tolerance_legal_entity_scope ON delivery_tolerance AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The store inserts, updates by version and deletes a rule.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON delivery_tolerance TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON delivery_tolerance TO depot_app';
   END IF;
 END
 $$;

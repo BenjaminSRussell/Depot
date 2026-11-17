@@ -42,9 +42,9 @@ check() {
     abort "#{label}: ExternalSecret keys #{got}, want #{keys}" unless got == keys
     es.dig("spec", "data").each do |d|
       ref = d["remoteRef"]
-      abort "#{label}: #{d["secretKey"]} remoteRef #{ref}" unless ref["key"] == "passage/dev/batch/notify/#{d["secretKey"]}" && ref["property"] == "value"
+      abort "#{label}: #{d["secretKey"]} remoteRef #{ref}" unless ref["key"] == "depot/dev/batch/notify/#{d["secretKey"]}" && ref["property"] == "value"
     end
-    abort "#{label}: ExternalSecret store" unless es.dig("spec", "secretStoreRef") == { "kind" => "ClusterSecretStore", "name" => "passage" }
+    abort "#{label}: ExternalSecret store" unless es.dig("spec", "secretStoreRef") == { "kind" => "ClusterSecretStore", "name" => "depot" }
     secret = es.dig("spec", "target", "name")
     dir = env.dig("NOTIFY_SECRETS_DIR", "value") or abort "#{label}: NOTIFY_SECRETS_DIR not set"
     mount = (container["volumeMounts"] || []).find { |m| m["mountPath"] == dir } or abort "#{label}: nothing mounted at #{dir}"

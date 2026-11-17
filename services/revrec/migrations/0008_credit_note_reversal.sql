@@ -46,13 +46,13 @@ CREATE TABLE IF NOT EXISTS credit_note_reversal (
 ALTER TABLE credit_note_reversal ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credit_note_reversal FORCE ROW LEVEL SECURITY;
 CREATE POLICY credit_note_reversal_tenant_access ON credit_note_reversal AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY credit_note_reversal_legal_entity_scope ON credit_note_reversal AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')))
-  WITH CHECK (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')))
+  WITH CHECK (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 -- The roll-forward sums per contract and date; the posting sweep scans the unposted reversals of an entity.
 CREATE INDEX IF NOT EXISTS credit_note_reversal_contract_idx ON credit_note_reversal (tenant_id, contract_id, posting_date);
 CREATE INDEX IF NOT EXISTS credit_note_reversal_unposted_idx ON credit_note_reversal (tenant_id, legal_entity_id, gl_next_attempt_at)
@@ -70,16 +70,16 @@ CREATE TABLE IF NOT EXISTS consumer_inbox (
 ALTER TABLE consumer_inbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE consumer_inbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY consumer_inbox_tenant_access ON consumer_inbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Reversal rows are inserted by the consumer and updated only by the posting sweep; nothing is deleted. The inbox is
 -- insert-only.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON credit_note_reversal TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON consumer_inbox TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON credit_note_reversal TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON consumer_inbox TO depot_app';
   END IF;
 END
 $$;

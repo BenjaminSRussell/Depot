@@ -15,10 +15,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/domain"
 )
 
 func dec(s string) decimal.Decimal { return decimal.RequireFromString(s) }
@@ -36,7 +36,7 @@ func send(t *testing.T, h http.Handler, body []byte, duties string) *httptest.Re
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set(tenant.HeaderTenant, ids.New())
 	if duties != "" {
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Duties", duties)
 	}
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -219,7 +219,7 @@ func TestMetrics_CountsSimulations(t *testing.T) {
 
 func TestSimulate_RequiresTenant(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, simulatePath, bytes.NewReader(bodyFor(t, ids.New(), nil)))
-	req.Header.Set("X-Passage-Duties", dutySetupView)
+	req.Header.Set("X-Depot-Duties", dutySetupView)
 	rec := httptest.NewRecorder()
 	newRouter(t).ServeHTTP(rec, req)
 	if rec.Code != http.StatusUnauthorized || !strings.Contains(rec.Body.String(), "AUTH-0001") {
@@ -383,8 +383,8 @@ func TestOpenAPIDocumentsEveryOperation(t *testing.T) {
 		case specOperation.MatchString(line):
 			op = strings.ToUpper(specOperation.FindStringSubmatch(line)[1]) + " " + path
 			declared[op] = ""
-		case op != "" && strings.HasPrefix(line, "      x-passage-duty: "):
-			declared[op] = strings.TrimPrefix(line, "      x-passage-duty: ")
+		case op != "" && strings.HasPrefix(line, "      x-depot-duty: "):
+			declared[op] = strings.TrimPrefix(line, "      x-depot-duty: ")
 		}
 	}
 	duties := map[string]string{
@@ -440,7 +440,7 @@ func TestOpenAPIDocumentsEveryOperation(t *testing.T) {
 		case !ok:
 			t.Errorf("openapi.yaml does not document %s", key)
 		case business && duty != want:
-			t.Errorf("%s x-passage-duty = %q, want %s", key, duty, want)
+			t.Errorf("%s x-depot-duty = %q, want %s", key, duty, want)
 		case !business && route != "/healthz" && route != "/readyz":
 			t.Errorf("%s has no expected duty in this test", key)
 		}

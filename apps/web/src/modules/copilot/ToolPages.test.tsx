@@ -8,7 +8,7 @@ import copilot from "./module";
 import { ToolCatalogPage } from "./ToolCatalogPage";
 import { ToolDetailPage } from "./ToolDetailPage";
 
-const tool = (name: string, duty: string, approval: McpTool["x-passage-approval"], readOnly = true): McpTool => ({
+const tool = (name: string, duty: string, approval: McpTool["x-depot-approval"], readOnly = true): McpTool => ({
   name,
   description: `${name} description`,
   inputSchema: {
@@ -17,14 +17,14 @@ const tool = (name: string, duty: string, approval: McpTool["x-passage-approval"
     required: ["id"],
   },
   annotations: { readOnlyHint: readOnly, destructiveHint: !readOnly, idempotentHint: readOnly },
-  "x-passage-duty": duty,
-  "x-passage-approval": approval,
+  "x-depot-duty": duty,
+  "x-depot-approval": approval,
 });
 
 const catalog = [
-  tool("passage.ap.invoice.list", "APInvoiceRead", "none"),
-  tool("passage.ap.invoice.propose_coding", "APInvoiceCode", "suggest", false),
-  tool("passage.ledger.journal.reverse", "LedgerPost", "approve_before_commit", false),
+  tool("depot.ap.invoice.list", "APInvoiceRead", "none"),
+  tool("depot.ap.invoice.propose_coding", "APInvoiceCode", "suggest", false),
+  tool("depot.ledger.journal.reverse", "LedgerPost", "approve_before_commit", false),
 ];
 
 const rpc = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -55,7 +55,7 @@ describe("listTools", () => {
   });
 
   it("derives the domain and flattens input fields", () => {
-    expect(toolDomain("passage.ap.invoice.list")).toBe("ap");
+    expect(toolDomain("depot.ap.invoice.list")).toBe("ap");
     expect(inputFields(catalog[0]!.inputSchema)).toEqual([
       { name: "id", type: "string", required: true, description: "Invoice id" },
       { name: "limit", type: "integer", required: false, description: "" },
@@ -74,7 +74,7 @@ describe("ToolCatalogPage", () => {
     const table = await screen.findByRole("table", { name: "Tools" });
     await waitFor(() => expect(table).not.toHaveAttribute("aria-busy", "true"));
     expect(within(table).getAllByRole("row")).toHaveLength(4);
-    expect(table).toHaveTextContent("passage.ledger.journal.reverse");
+    expect(table).toHaveTextContent("depot.ledger.journal.reverse");
     expect(table).toHaveTextContent("LedgerPost");
     expect(table).toHaveTextContent("Approve before commit");
     expect(pageViolations()).toEqual([]);
@@ -84,10 +84,10 @@ describe("ToolCatalogPage", () => {
     render(<ToolCatalogPage load={async () => catalog} />);
     const user = userEvent.setup();
     const table = await screen.findByRole("table", { name: "Tools" });
-    await waitFor(() => expect(table).toHaveTextContent("passage.ap.invoice.list"));
+    await waitFor(() => expect(table).toHaveTextContent("depot.ap.invoice.list"));
     await user.selectOptions(screen.getByLabelText("Approval mode"), "suggest");
     expect(within(table).getAllByRole("row")).toHaveLength(2);
-    expect(table).toHaveTextContent("passage.ap.invoice.propose_coding");
+    expect(table).toHaveTextContent("depot.ap.invoice.propose_coding");
     await user.type(screen.getByLabelText("Tool or duty"), "ledger");
     expect(await screen.findByText("No tools match")).toBeInTheDocument();
   });
@@ -104,7 +104,7 @@ describe("ToolCatalogPage", () => {
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("HTTP 503"));
     expect(screen.queryByRole("table", { name: "Tools" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Try again" }));
-    expect(await screen.findByText("passage.ap.invoice.list")).toBeInTheDocument();
+    expect(await screen.findByText("depot.ap.invoice.list")).toBeInTheDocument();
     expect(load).toHaveBeenCalledTimes(2);
   });
 
@@ -112,15 +112,15 @@ describe("ToolCatalogPage", () => {
     const onOpen = vi.fn();
     render(<ToolCatalogPage load={async () => catalog} onOpen={onOpen} />);
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "passage.ap.invoice.propose_coding" }));
-    expect(onOpen).toHaveBeenCalledWith("passage.ap.invoice.propose_coding");
+    await user.click(await screen.findByRole("button", { name: "depot.ap.invoice.propose_coding" }));
+    expect(onOpen).toHaveBeenCalledWith("depot.ap.invoice.propose_coding");
   });
 });
 
 describe("ToolDetailPage", () => {
   it("shows governance facts and the arguments of one tool", async () => {
-    render(<ToolDetailPage name="passage.ap.invoice.propose_coding" load={async () => catalog} />);
-    expect(await screen.findByRole("heading", { name: "passage.ap.invoice.propose_coding" })).toBeInTheDocument();
+    render(<ToolDetailPage name="depot.ap.invoice.propose_coding" load={async () => catalog} />);
+    expect(await screen.findByRole("heading", { name: "depot.ap.invoice.propose_coding" })).toBeInTheDocument();
     expect(screen.getByText("APInvoiceCode")).toBeInTheDocument();
     expect(screen.getByText("Changes data")).toBeInTheDocument();
     const args = screen.getByRole("table", { name: "Arguments" });
@@ -131,17 +131,17 @@ describe("ToolDetailPage", () => {
   });
 
   it("shows a loading state first", () => {
-    render(<ToolDetailPage name="passage.ap.invoice.list" load={() => new Promise(() => {})} />);
+    render(<ToolDetailPage name="depot.ap.invoice.list" load={() => new Promise(() => {})} />);
     expect(screen.getByText("Loading tool…")).toBeInTheDocument();
   });
 
   it("says a tool outside your duties is not available", async () => {
-    render(<ToolDetailPage name="passage.payroll.run.post" load={async () => catalog} />);
+    render(<ToolDetailPage name="depot.payroll.run.post" load={async () => catalog} />);
     expect(await screen.findByText("This tool isn't available to you")).toBeInTheDocument();
   });
 
   it("shows a load failure as an alert", async () => {
-    render(<ToolDetailPage name="passage.ap.invoice.list" load={async () => { throw new Error("The tool catalog is unavailable (HTTP 500)."); }} />);
+    render(<ToolDetailPage name="depot.ap.invoice.list" load={async () => { throw new Error("The tool catalog is unavailable (HTTP 500)."); }} />);
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("HTTP 500"));
   });
 });
@@ -159,8 +159,8 @@ describe("copilot routes", () => {
       </MemoryRouter>,
     );
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "passage.ledger.journal.reverse" }));
-    expect(await screen.findByRole("heading", { name: "passage.ledger.journal.reverse" })).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "depot.ledger.journal.reverse" }));
+    expect(await screen.findByRole("heading", { name: "depot.ledger.journal.reverse" })).toBeInTheDocument();
     expect(screen.getByText("LedgerPost")).toBeInTheDocument();
   });
 });

@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// SLO report (PSG-50, FR-50.1). The figures come from the shared HTTP series every service exposes
+// SLO report (DPT-50, FR-50.1). The figures come from the shared HTTP series every service exposes
 // (platform/go/httpx: http_requests_total{route,status}, http_request_duration_seconds{route}), read from Prometheus per
 // scrape job (one job per service). A service breaches when its availability is below the target or its p95 latency is
 // above the target over the window.

@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/domain"
 )
 
 // Purge is the record that authorises, and then reports, the deletion of a decommissioned tenant's data (#50). A decommission keeps

@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS gs1_company (
 ALTER TABLE gs1_company ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gs1_company FORCE ROW LEVEL SECURITY;
 CREATE POLICY gs1_company_tenant_access ON gs1_company AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE receipt_line ADD COLUMN IF NOT EXISTS sscc text NOT NULL DEFAULT '' CHECK (sscc = '' OR sscc ~ '^[0-9]{18}$');
 ALTER TABLE receipt_line ADD COLUMN IF NOT EXISTS lot text NOT NULL DEFAULT '' CHECK (char_length(lot) <= 40);
@@ -43,8 +43,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS receipt_line_sscc_unique ON receipt_line (tena
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON gs1_company TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON gs1_company TO depot_app';
   END IF;
 END
 $$;

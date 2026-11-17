@@ -5,7 +5,7 @@
 // through the vault and holds the plain master key in memory only. The sealed-value envelope, which names its master
 // key id, is unchanged, so values sealed before wrapping still open and rotation is "wrap a new key under a new id".
 //
-// The vault host must be a Key Vault host of the cloud profile (PASSAGE_CLOUD_PROFILE): a vault URL from another
+// The vault host must be a Key Vault host of the cloud profile (DEPOT_CLOUD_PROFILE): a vault URL from another
 // cloud is refused, since tokens are not accepted across clouds. Authentication is AKS workload identity
 // (AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_FEDERATED_TOKEN_FILE), exchanged at the profile's Entra authority.
 package azurekv
@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
+	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
 )
 
 const (
@@ -96,7 +96,7 @@ func New(cfg Config) (*Client, error) {
 	return c, nil
 }
 
-// FromEnv builds a Client from FIELDCRYPT_AZURE_KEY_ID and PASSAGE_CLOUD_PROFILE.
+// FromEnv builds a Client from FIELDCRYPT_AZURE_KEY_ID and DEPOT_CLOUD_PROFILE.
 func FromEnv(getenv func(string) string) (*Client, error) {
 	profile, err := cloudprofile.FromEnv(getenv)
 	if err != nil {

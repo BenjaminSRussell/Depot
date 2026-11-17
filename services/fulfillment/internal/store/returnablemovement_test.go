@@ -4,9 +4,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	fulevents "github.com/BenjaminSRussell/passage/services/fulfillment/internal/events"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	fulevents "github.com/BenjaminSRussell/depot/services/fulfillment/internal/events"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 // The movements behind a balance replay to it: post, cancel, repost, a return, and a

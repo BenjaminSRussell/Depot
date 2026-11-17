@@ -10,8 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/services/projects/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/services/projects/internal/domain"
 )
 
 func ruleCode(err error) string {
@@ -214,7 +214,7 @@ func assertScheduledEvent(t *testing.T, s *Postgres, ctx context.Context, planID
 	if err != nil {
 		t.Fatal(err)
 	}
-	if evt.Type != "dev.passage.projects.wbs.scheduled.v1" || evt.Data.ProjectID != "PROJ-PLN" || evt.Data.PlanVersionID != planID ||
+	if evt.Type != "dev.depot.projects.wbs.scheduled.v1" || evt.Data.ProjectID != "PROJ-PLN" || evt.Data.PlanVersionID != planID ||
 		evt.Data.FinishDate != res.FinishDate || fmt.Sprint(evt.Data.CriticalPath) != fmt.Sprint(res.CriticalPath) {
 		t.Fatalf("scheduled event = %+v", evt)
 	}

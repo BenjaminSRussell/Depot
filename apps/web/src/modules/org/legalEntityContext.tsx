@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ALL, describeProblem, listLegalEntities, type LegalEntity, type Problem, type Scope } from "./api/client";
 
-const STORAGE_KEY = "passage.org.legalEntity";
+const STORAGE_KEY = "depot.org.legalEntity";
 const ALL_SCOPE_DUTY = "org.switcher.all-scope";
 const REFERENCE_WRITE_DUTY = "org.reference.write";
 const LEGAL_ENTITY_WRITE_DUTY = "org.legal-entity.write";

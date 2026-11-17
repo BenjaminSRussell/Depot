@@ -14,17 +14,17 @@ metadata:
   name: {{ .Values.postgres.clusterName }}
   namespace: {{ .Values.region.namespace }}
   labels:
-    {{- include "passage-mr.labels" . | nindent 4 }}
-  {{- if include "passage-mr.fenced" . }}
+    {{- include "depot-mr.labels" . | nindent 4 }}
+  {{- if include "depot-mr.fenced" . }}
   annotations:
     cnpg.io/fencedInstances: '["*"]'
   {{- end }}
 spec:
   instances: {{ .Values.postgres.instances }}
-  imageName: {{ include "passage.mirrorImage" (dict "root" $ "ref" .Values.postgres.imageName) }}
+  imageName: {{ include "depot.mirrorImage" (dict "root" $ "ref" .Values.postgres.imageName) }}
   primaryUpdateStrategy: unsupervised
   enableSuperuserAccess: false
-  {{- if include "passage-mr.azureWorkloadIdentity" . }}
+  {{- if include "depot-mr.azureWorkloadIdentity" . }}
   # AKS workload identity (#600): the instance pods and the barman-cloud sidecar authenticate to Blob storage as the
   # Entra managed identity bound to this service account, so no storage key is stored.
   inheritedMetadata:
@@ -35,12 +35,12 @@ spec:
       annotations:
         azure.workload.identity/client-id: {{ required "backup.azure.workloadIdentityClientId is required with backup.azure.useWorkloadIdentity" .Values.backup.azure.workloadIdentityClientId | quote }}
   {{- end }}
-  {{- if include "passage-mr.backsUp" . }}
+  {{- if include "depot-mr.backsUp" . }}
   plugins:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
       parameters:
-        barmanObjectName: {{ include "passage-mr.backupStore" . }}
+        barmanObjectName: {{ include "depot-mr.backupStore" . }}
   {{- end }}
   postgresql:
     parameters:
@@ -59,12 +59,12 @@ spec:
   {{- if ne .Values.region.role "PASSIVE" }}
   bootstrap:
     initdb:
-      database: passage
-      owner: passage_owner
+      database: depot
+      owner: depot_owner
       # The application role never bypasses RLS (CONVENTIONS); its password is
       # set by the secret rotation job, not here.
       postInitApplicationSQL:
-        - CREATE ROLE passage_app LOGIN NOSUPERUSER NOBYPASSRLS
+        - CREATE ROLE depot_app LOGIN NOSUPERUSER NOBYPASSRLS
   {{- else }}
   bootstrap:
     pg_basebackup:
@@ -97,7 +97,7 @@ spec:
     size: {{ .Values.postgres.storageSize }}
   monitoring:
     enablePodMonitor: true
-{{- if and .Values.postgres.pooler.enabled (not (include "passage-mr.fenced" .)) }}
+{{- if and .Values.postgres.pooler.enabled (not (include "depot-mr.fenced" .)) }}
 ---
 # PgBouncer transaction pooling in front of the read-write service (FR-50.2).
 # In a PASSIVE region it fronts the replica cluster's designated primary, which
@@ -108,7 +108,7 @@ metadata:
   name: {{ .Values.postgres.clusterName }}-pooler-rw
   namespace: {{ .Values.region.namespace }}
   labels:
-    {{- include "passage-mr.labels" . | nindent 4 }}
+    {{- include "depot-mr.labels" . | nindent 4 }}
 spec:
   cluster:
     name: {{ .Values.postgres.clusterName }}

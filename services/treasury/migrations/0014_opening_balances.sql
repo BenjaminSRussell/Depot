@@ -36,25 +36,25 @@ create table bank_opening_balance (
 alter table bank_opening_batch enable row level security;
 alter table bank_opening_batch force row level security;
 create policy bank_opening_batch_tenant_access on bank_opening_batch as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy bank_opening_batch_legal_entity_scope on bank_opening_batch as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 alter table bank_opening_balance enable row level security;
 alter table bank_opening_balance force row level security;
 create policy bank_opening_balance_tenant_access on bank_opening_balance as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy bank_opening_balance_legal_entity_scope on bank_opening_balance as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON bank_opening_batch, bank_opening_balance TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON bank_opening_batch, bank_opening_balance TO depot_app';
   END IF;
 END
 $$;

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
 )
 
 const (
@@ -118,7 +118,7 @@ func TestProjects_DutiesAndScope(t *testing.T) {
 	if rec := do(r, http.MethodGet, projectsPath, "", "", false); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("no principal: %d", rec.Code)
 	}
-	if rec := do(r, http.MethodPost, projectsPath, copyBody, writeDuties, true, "X-Passage-Legal-Entity", leSource); rec.Code != http.StatusForbidden {
+	if rec := do(r, http.MethodPost, projectsPath, copyBody, writeDuties, true, "X-Depot-Legal-Entity", leSource); rec.Code != http.StatusForbidden {
 		t.Fatalf("legal-entity scoped caller: %d", rec.Code)
 	}
 }

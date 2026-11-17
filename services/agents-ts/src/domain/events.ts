@@ -6,10 +6,10 @@ import type { RunStatus } from "./run.js";
 
 /** Event types from PRD 9.47.5 that this slice builds payloads for. */
 export const AGENT_EVENT_TYPES = {
-  runCompleted: "dev.passage.agent.run.completed.v1",
-  approvalRequested: "dev.passage.agent.approval.requested.v1",
-  budgetThreshold: "dev.passage.agent.budget.threshold.v1",
-  killSwitchChanged: "dev.passage.agent.killswitch.changed.v1",
+  runCompleted: "dev.depot.agent.run.completed.v1",
+  approvalRequested: "dev.depot.agent.approval.requested.v1",
+  budgetThreshold: "dev.depot.agent.budget.threshold.v1",
+  killSwitchChanged: "dev.depot.agent.killswitch.changed.v1",
 } as const;
 
 /** What the outbox receives: the type, the tenant the envelope is addressed to, and the data. */

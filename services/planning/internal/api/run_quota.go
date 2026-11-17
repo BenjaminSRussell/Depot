@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/planning/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/domain"
 )
 
 // applyQuotaToRun applies the quota arrangements stored for the run's site to

@@ -1,14 +1,14 @@
-# Passage web app: Accessibility Conformance Report (draft)
+# Depot web app: Accessibility Conformance Report (draft)
 
 Based on the VPAT® 2.5 WCAG edition template. **Status: draft, not signed off.** The human screen-reader pass and the sign-off are tracked in #512. This draft records what the automated checks and the code review show today, so the sign-off can start from evidence rather than from a blank template.
 
 | | |
 |---|---|
-| Product | Passage web app (`apps/web`), the shell and the procure-to-pay and order-to-cash pages |
+| Product | Depot web app (`apps/web`), the shell and the procure-to-pay and order-to-cash pages |
 | Version | `main` at the date below |
 | Report date | 2026-11-10 |
 | Standard | WCAG 2.2, levels A and AA |
-| Contact | The Passage product team (see the repository README) |
+| Contact | The Depot product team (see the repository README) |
 
 ## Evaluation methods
 

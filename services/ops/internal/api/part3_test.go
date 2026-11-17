@@ -12,14 +12,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/store"
-	"github.com/BenjaminSRussell/passage/services/ops/migrations"
+	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/store"
+	"github.com/BenjaminSRussell/depot/services/ops/migrations"
 )
 
 type fakeSLO struct {
@@ -337,7 +337,7 @@ func TestFailoverCompletedEventAfterTheLastStep(t *testing.T) {
 
 func TestProvisionUnderTheEUDataBoundaryOverlay(t *testing.T) {
 	profile, err := cloudprofile.FromEnv(func(k string) string {
-		if k == "PASSAGE_CLOUD_PROFILE" {
+		if k == "DEPOT_CLOUD_PROFILE" {
 			return "commercial+eu-data-boundary"
 		}
 		return ""

@@ -1,12 +1,12 @@
 // RFID read integration point (FR-32.9). The native shell (a Zebra RFD handheld or a fixed reader
-// gateway) forwards each inventory round as a "passage:rfid" CustomEvent. This module validates the
+// gateway) forwards each inventory round as a "depot:rfid" CustomEvent. This module validates the
 // detail, drops the repeated reads of one tag inside a round and across a short window, and turns
 // each EPC into the scan the flow runner already understands. Pure apart from the EventTarget the
 // caller passes in.
 
 import { decodeEpc, epcToScan } from "./epc";
 
-export const RFID_EVENT = "passage:rfid";
+export const RFID_EVENT = "depot:rfid";
 
 /** One tag seen by the reader. */
 export interface RfidRead {

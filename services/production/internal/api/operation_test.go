@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/production/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/production/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/production/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/production/internal/store"
 )
 
 func (f *fakeStore) ApplyOperationCommand(_ context.Context, c store.OperationCommand) (store.Order, store.OperationOutcome, error) {

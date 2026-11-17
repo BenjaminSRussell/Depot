@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { useParams } from "react-router-dom";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { MetadataForm } from "./MetadataForm";
 
 function MetadataRoute() {
@@ -8,7 +8,7 @@ function MetadataRoute() {
   return createElement(MetadataForm, { entity });
 }
 
-const metadataModule: PassageModule = {
+const metadataModule: DepotModule = {
   id: "metadata",
   title: "Metadata",
   description: "Fields and forms your tenant uses for each record type.",

@@ -1,12 +1,12 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Intercompany events
+  title: Depot Intercompany events
   version: 0.5.0
   description: |
     Events published by the intercompany service through the outbox, in the
     same transaction as the state change. CloudEvents 1.0 envelope from
-    platform/go/events; type dev.passage.interco.<entity>.<verb>.v1; source
-    /passage/intercompany. The payloads below are the data member.
+    platform/go/events; type dev.depot.interco.<entity>.<verb>.v1; source
+    /depot/intercompany. The payloads below are the data member.
 
     Slice 4 publishes the trading-partner events. They are not in the PRD
     7.40.5 event table; they are added so the mirror-saga worker and the sales
@@ -22,37 +22,37 @@ info:
 defaultContentType: application/cloudevents+json
 channels:
   partnerCreated:
-    address: passage.interco.partner
+    address: depot.interco.partner
     messages:
       partnerCreated:
         $ref: "#/components/messages/PartnerCreated"
   partnerUpdated:
-    address: passage.interco.partner
+    address: depot.interco.partner
     messages:
       partnerUpdated:
         $ref: "#/components/messages/PartnerUpdated"
   journalPosted:
-    address: passage.interco.journal
+    address: depot.interco.journal
     messages:
       journalPosted:
         $ref: "#/components/messages/JournalPosted"
   journalCompensated:
-    address: passage.interco.journal
+    address: depot.interco.journal
     messages:
       journalCompensated:
         $ref: "#/components/messages/JournalCompensated"
   chargePosted:
-    address: passage.interco.charge
+    address: depot.interco.charge
     messages:
       chargePosted:
         $ref: "#/components/messages/ChargePosted"
   chargeInvoiceRequested:
-    address: passage.interco.chargeinvoice
+    address: depot.interco.chargeinvoice
     messages:
       chargeInvoiceRequested:
         $ref: "#/components/messages/ChargeInvoiceRequested"
   reconciliationFlagged:
-    address: passage.interco.reconciliation
+    address: depot.interco.reconciliation
     messages:
       reconciliationFlagged:
         $ref: "#/components/messages/ReconciliationFlagged"
@@ -81,15 +81,15 @@ operations:
 components:
   messages:
     JournalPosted:
-      name: dev.passage.interco.journal.posted.v1
+      name: dev.depot.interco.journal.posted.v1
       title: IC journal posted to the ledgers of both entities (FR-40.5)
       payload: { $ref: "#/components/schemas/Journal" }
     JournalCompensated:
-      name: dev.passage.interco.journal.compensated.v1
+      name: dev.depot.interco.journal.compensated.v1
       title: IC journal reversed after a side was refused (FR-40.5)
       payload: { $ref: "#/components/schemas/Journal" }
     ChargePosted:
-      name: dev.passage.interco.charge.posted.v1
+      name: dev.depot.interco.charge.posted.v1
       title: IC charge posted to both entities (FR-40.13)
       payload:
         type: object
@@ -106,7 +106,7 @@ components:
           margin: { type: string }
           journalId: { type: string, format: uuid }
     ChargeInvoiceRequested:
-      name: dev.passage.interco.chargeinvoice.requested.v1
+      name: dev.depot.interco.chargeinvoice.requested.v1
       title: IC charge in Invoice settlement mode, to be settled by the pairing's invoice documents (FR-40.13); billing and payables consume it
       payload:
         type: object
@@ -132,7 +132,7 @@ components:
           vendorAccount: { type: string, description: "The lender as vendor of the borrower, from the active pairing" }
           autoPostInvoice: { type: boolean, description: "The active pairing's autoPostInvoice flag. True: billing posts the lender's proposal and payables posts the borrower's vendor invoice without review; false (default) leaves both for a person" }
     ReconciliationFlagged:
-      name: dev.passage.interco.reconciliation.flagged.v1
+      name: dev.depot.interco.reconciliation.flagged.v1
       title: A reconciliation run left Timing or Mismatch items (FR-40.6)
       payload:
         type: object
@@ -144,7 +144,7 @@ components:
           timing: { type: integer }
           mismatch: { type: integer }
     PartnerCreated:
-      name: dev.passage.interco.partner.created.v1
+      name: dev.depot.interco.partner.created.v1
       title: Trading-partner pairing created (FR-40.1)
       payload:
         type: object
@@ -159,7 +159,7 @@ components:
           pricing: { type: string, enum: [PriceList, CostPlus, TransferPriceTable] }
           version: { type: integer, minimum: 1 }
     PartnerUpdated:
-      name: dev.passage.interco.partner.updated.v1
+      name: dev.depot.interco.partner.updated.v1
       title: Trading-partner policy changed (FR-40.1, policies versioned)
       payload:
         type: object

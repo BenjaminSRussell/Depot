@@ -10,20 +10,20 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/iccharge"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/ledger"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/store"
-	"github.com/BenjaminSRussell/passage/services/payables/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/iccharge"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/ledger"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/store"
+	"github.com/BenjaminSRussell/depot/services/payables/migrations"
 )
 
 // publishedSource is what intercompany's enqueue passes to events.New (services/intercompany/internal/events.Source).
-const publishedSource = "/passage/intercompany"
+const publishedSource = "/depot/intercompany"
 
 // event builds the event the way intercompany's store enqueues it: events.New with the given source.
 func event(t *testing.T, data map[string]any, source string) events.Event {
@@ -89,7 +89,7 @@ func TestHandle_RefusesWhatCannotBeTakenIn(t *testing.T) {
 			t.Errorf("%s: accepted", name)
 		}
 	}
-	if _, err := iccharge.Handle(consumerCtx(t), nil, nil, event(t, good, "/passage/billing")); err == nil {
+	if _, err := iccharge.Handle(consumerCtx(t), nil, nil, event(t, good, "/depot/billing")); err == nil {
 		t.Error("another source is refused")
 	}
 }

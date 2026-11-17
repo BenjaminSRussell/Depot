@@ -11,9 +11,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/provider"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/provider"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/store"
 )
 
 var day = time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)

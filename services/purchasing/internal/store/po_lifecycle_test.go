@@ -8,11 +8,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/domain"
-	purchasingevents "github.com/BenjaminSRussell/passage/services/purchasing/internal/events"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
+	purchasingevents "github.com/BenjaminSRussell/depot/services/purchasing/internal/events"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
 
 // lifecyclePO is a one-line PO of qty EA at 10.00 delivering on date.

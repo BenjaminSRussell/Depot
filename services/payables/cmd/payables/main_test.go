@@ -50,7 +50,7 @@ func TestLedgerBalancesWiring(t *testing.T) {
 		t.Fatal("LEDGER_URL must configure the ledger client")
 	}
 	if _, err := ledgerBalances(func(k string) string {
-		return map[string]string{"LEDGER_URL": "http://ledger", "PASSAGE_SERVICE_SIGNING_KEY": "not-a-seed"}[k]
+		return map[string]string{"LEDGER_URL": "http://ledger", "DEPOT_SERVICE_SIGNING_KEY": "not-a-seed"}[k]
 	}); err == nil {
 		t.Fatal("a malformed service signing key must stop startup")
 	}
@@ -72,7 +72,7 @@ func TestRateSourceWiring(t *testing.T) {
 	if src, err := rateSource(func(k string) string { return env[k] }); src == nil || err != nil {
 		t.Fatal("FX_URL must configure the fx client")
 	}
-	env["PASSAGE_SERVICE_SIGNING_KEY"] = "not-a-seed"
+	env["DEPOT_SERVICE_SIGNING_KEY"] = "not-a-seed"
 	if _, err := rateSource(func(k string) string { return env[k] }); err == nil {
 		t.Fatal("a malformed service signing key must stop startup")
 	}
@@ -86,7 +86,7 @@ func TestLedgerPosterWiring(t *testing.T) {
 		t.Fatalf("a ledger without a signing key must not become a poster: %v %v", lp, err)
 	}
 	seed := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{4}, 32))
-	env := map[string]string{"LEDGER_URL": "http://ledger", "PASSAGE_SERVICE_NAME": "payables", "PASSAGE_SERVICE_SIGNING_KEY": seed}
+	env := map[string]string{"LEDGER_URL": "http://ledger", "DEPOT_SERVICE_NAME": "payables", "DEPOT_SERVICE_SIGNING_KEY": seed}
 	if lp, err := ledgerPoster(func(k string) string { return env[k] }); lp == nil || err != nil {
 		t.Fatalf("a signed ledger client is the poster: %v %v", lp, err)
 	}
@@ -95,7 +95,7 @@ func TestLedgerPosterWiring(t *testing.T) {
 func TestVendorBanksAndWithholdingNeedASignedServiceClient(t *testing.T) {
 	seed := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{4}, 32))
 	signed := func(url string) func(string) string {
-		env := map[string]string{url: "http://svc", "PASSAGE_SERVICE_NAME": "payables", "PASSAGE_SERVICE_SIGNING_KEY": seed}
+		env := map[string]string{url: "http://svc", "DEPOT_SERVICE_NAME": "payables", "DEPOT_SERVICE_SIGNING_KEY": seed}
 		return func(k string) string { return env[k] }
 	}
 	unsigned := func(url string) func(string) string {

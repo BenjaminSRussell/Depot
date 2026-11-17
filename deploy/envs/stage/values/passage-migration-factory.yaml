@@ -1,2 +1,0 @@
-# Stage values for passage-migration-factory: two replicas (the chart default is one; nothing in the service keeps state in the pod).
-replicaCount: 2

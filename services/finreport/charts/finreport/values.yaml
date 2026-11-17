@@ -28,7 +28,7 @@ reporting:
   # Empty shows trace ids without a link.
   traceUrl: ""
 # Service identity the consumer and the API sign ledger requests with
-# (PASSAGE_SERVICE_NAME=finreport). When signingKeySecret is set, the API pods
+# (DEPOT_SERVICE_NAME=finreport). When signingKeySecret is set, the API pods
 # also mount it and get LEDGER_URL, which turns on balance verification
 # (POST /balance-verifications); without it those routes answer 503.
 # The ledger must hold finreport's public key and the platform must seed the
@@ -38,7 +38,7 @@ serviceIdentity:
   keyId: ""
 serviceUrls:
   ledger: ""
-# Kafka consumer of dev.passage.ledger.journal.posted.v1 (FR-15.1): one pod per
+# Kafka consumer of dev.depot.ledger.journal.posted.v1 (FR-15.1): one pod per
 # partition set; ordering across partitions is handled by the read model.
 consumer:
   enabled: false

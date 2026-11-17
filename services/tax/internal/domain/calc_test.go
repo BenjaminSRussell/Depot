@@ -16,7 +16,7 @@ import (
 	"github.com/shopspring/decimal"
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/services/tax/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/domain"
 )
 
 type spec struct {

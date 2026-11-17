@@ -35,8 +35,8 @@ func declaredOperations(spec string) map[string]*declaredOp {
 		case specOperation.MatchString(line):
 			current = &declaredOp{declared: true}
 			declared[path+" "+specOperation.FindStringSubmatch(line)[1]] = current
-		case current != nil && strings.HasPrefix(line, "      x-passage-duty: "):
-			current.duty = strings.TrimPrefix(line, "      x-passage-duty: ")
+		case current != nil && strings.HasPrefix(line, "      x-depot-duty: "):
+			current.duty = strings.TrimPrefix(line, "      x-depot-duty: ")
 		case current != nil && strings.Contains(line, "#/components/parameters/IdempotencyKey"):
 			current.idemKey = true
 		}

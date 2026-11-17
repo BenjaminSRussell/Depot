@@ -1,8 +1,8 @@
-# pricing (wave 26, PSG-26)
+# pricing (wave 26, DPT-26)
 
-Deterministic pricing engine for Passage: resolves net prices and discounts for a
+Deterministic pricing engine for Depot: resolves net prices and discounts for a
 customer / product / date / quantity / currency tuple from condition records, and returns
-the ordered trace of conditions that produced the price. Ticket PSG-26, PRD §5.26.
+the ordered trace of conditions that produced the price. Ticket DPT-26, PRD §5.26.
 
 ## Status (slices 1-6)
 
@@ -17,7 +17,7 @@ Wave 26 proof (issue #26 acceptance; details in NOT-IMPLEMENTED.md AC1-AC4):
 - Proof tests: `TestPricing500_ResolveToExpectedPriceAndExplain`,
   `TestResolve_PureAndDeterministicOverEveryConditionType`, `TestPostgres_ResolveP95Under20ms`
   and `TestPostgres_Journal100kAtomicAndReversible` (the last two need
-  `PASSAGE_TEST_DATABASE_URL` and are skipped with `-short`).
+  `DEPOT_TEST_DATABASE_URL` and are skipped with `-short`).
 
 Built in slice 6:
 
@@ -230,7 +230,7 @@ testdata/               fixtures
 | GET | `/v1/pricing/condition-records/{id}` | pricing.view | |
 | POST | `/v1/pricing/condition-records/{id}:activate` | pricing.maintain | body `{version}`; overlap check; `Idempotency-Key` honoured |
 | POST | `/v1/pricing/condition-records/{id}:withdraw` | pricing.maintain | body `{version, reason}`; `Idempotency-Key` honoured |
-| GET | `/v1/pricing/condition-records:export?legalEntityId=&status=&type=&customer=&product=&campaignId=&asOf=&validToFrom=&validToTo=` | pricing.view | streamed CSV of the matching records, at most 50000 rows; `X-Passage-Truncated: true` when more matched; formula-like text cells get a leading apostrophe |
+| GET | `/v1/pricing/condition-records:export?legalEntityId=&status=&type=&customer=&product=&campaignId=&asOf=&validToFrom=&validToTo=` | pricing.view | streamed CSV of the matching records, at most 50000 rows; `X-Depot-Truncated: true` when more matched; formula-like text cells get a leading apostrophe |
 | POST | `/v1/pricing/condition-records:expire` | pricing.maintain | record expiry job for the scheduler: body `{legalEntityId, asOf}`; ACTIVE records with valid_to before asOf become EXPIRED and write `conditionrecord.withdrawn` with reason EXPIRED; a rerun expires nothing; asOf at most tomorrow (UTC) |
 | GET | `/v1/pricing/workspace?legalEntityId=&asOf=` | pricing.view | workspace tiles: exact record, journal, campaign and open-claim counts, and the month's rebate accruals per party role and currency; all entities in scope without legalEntityId |
 | GET | `/v1/pricing/journals?legalEntityId=&status=&limit=` | pricing.view | price journal log, newest first, no lines |
@@ -379,30 +379,30 @@ testdata/               fixtures
 
 Written to `outbox` in the same transaction as the change (see `events/asyncapi.yaml`):
 
-- `dev.passage.pricing.conditionrecord.activated.v1` (activation and journal post; `journal_id` set by journals, `campaign_id` for a campaign record)
-- `dev.passage.pricing.conditionrecord.withdrawn.v1`
-- `dev.passage.pricing.journal.posted.v1` (post and reverse)
-- `dev.passage.pricing.rebateaccrual.posted.v1` (`retroactive=true` on a retroactive recompute delta; `party_role` CUSTOMER posts Dr 4150 / Cr 2150, VENDOR Dr 2160 / Cr 5100)
-- `dev.passage.pricing.vendorrebateclaim.created.v1` and `.approved.v1` (vendor rebate claims for w19 AP)
-- `dev.passage.pricing.commission.calculated.v1` (one per rep per invoice line; rep id only, never a name)
-- `dev.passage.pricing.commissionexport.issued.v1` and `dev.passage.pricing.commissionexport.voided.v1` (a settlement export recorded or voided; totals per currency and the file digest, no rep ids)
-- `dev.passage.pricing.fund.closed.v1`, `dev.passage.pricing.fund.reopened.v1`
-- `dev.passage.pricing.fundusage.recorded.v1` (one per attribution, with the period usage and budget after it)
-- `dev.passage.pricing.campaign.killed.v1`, `dev.passage.pricing.campaign.restored.v1` (kill switch)
-- `dev.passage.pricing.procedure.activated.v1` (names the superseded version)
-- `dev.passage.pricing.procedureassignment.changed.v1` (a procedure was assigned to a sales channel, changed or cleared)
-- `dev.passage.pricing.parameters.changed.v1` (a legal entity's parameters after a change, with the version and the user: the audit record)
-- `dev.passage.pricing.tenantparameter.changed.v1` (the tenant's parameters after a change; replicas drop their cached copies on it)
-- `dev.passage.pricing.brokercontract.created.v1` and `.closed.v1`; `dev.passage.pricing.royaltyagreement.created.v1` and `.closed.v1`
-- `dev.passage.pricing.contractaccrual.posted.v1` (one per broker or royalty accrual, credit or minimum royalty shortfall, with `posting_date`; Dr 6210 / Cr 2175 broker, Dr 6220 / Cr 2176 royalty by default)
-- `dev.passage.pricing.contractclaim.created.v1` and `.approved.v1` (broker and royalty claims BC-n / RY-n for w19 AP)
+- `dev.depot.pricing.conditionrecord.activated.v1` (activation and journal post; `journal_id` set by journals, `campaign_id` for a campaign record)
+- `dev.depot.pricing.conditionrecord.withdrawn.v1`
+- `dev.depot.pricing.journal.posted.v1` (post and reverse)
+- `dev.depot.pricing.rebateaccrual.posted.v1` (`retroactive=true` on a retroactive recompute delta; `party_role` CUSTOMER posts Dr 4150 / Cr 2150, VENDOR Dr 2160 / Cr 5100)
+- `dev.depot.pricing.vendorrebateclaim.created.v1` and `.approved.v1` (vendor rebate claims for w19 AP)
+- `dev.depot.pricing.commission.calculated.v1` (one per rep per invoice line; rep id only, never a name)
+- `dev.depot.pricing.commissionexport.issued.v1` and `dev.depot.pricing.commissionexport.voided.v1` (a settlement export recorded or voided; totals per currency and the file digest, no rep ids)
+- `dev.depot.pricing.fund.closed.v1`, `dev.depot.pricing.fund.reopened.v1`
+- `dev.depot.pricing.fundusage.recorded.v1` (one per attribution, with the period usage and budget after it)
+- `dev.depot.pricing.campaign.killed.v1`, `dev.depot.pricing.campaign.restored.v1` (kill switch)
+- `dev.depot.pricing.procedure.activated.v1` (names the superseded version)
+- `dev.depot.pricing.procedureassignment.changed.v1` (a procedure was assigned to a sales channel, changed or cleared)
+- `dev.depot.pricing.parameters.changed.v1` (a legal entity's parameters after a change, with the version and the user: the audit record)
+- `dev.depot.pricing.tenantparameter.changed.v1` (the tenant's parameters after a change; replicas drop their cached copies on it)
+- `dev.depot.pricing.brokercontract.created.v1` and `.closed.v1`; `dev.depot.pricing.royaltyagreement.created.v1` and `.closed.v1`
+- `dev.depot.pricing.contractaccrual.posted.v1` (one per broker or royalty accrual, credit or minimum royalty shortfall, with `posting_date`; Dr 6210 / Cr 2175 broker, Dr 6220 / Cr 2176 royalty by default)
+- `dev.depot.pricing.contractclaim.created.v1` and `.approved.v1` (broker and royalty claims BC-n / RY-n for w19 AP)
 
 The entity segments are `conditionrecord` and `rebateaccrual` (as in `internal/events`); the PRD
 writes `condition-record` and `rebate-accrual`. Naming is a handoff to the kernel owner (see NOT-IMPLEMENTED.md).
 
 ## Configuration
 
-12-factor env vars, validated at startup: `PASSAGE_ENV`, `SERVICE_NAME`, `HTTP_ADDR`,
+12-factor env vars, validated at startup: `DEPOT_ENV`, `SERVICE_NAME`, `HTTP_ADDR`,
 `ADMIN_ADDR`, `DATABASE_URL`, `PRICING_MAX_LINES` (500), `PRICING_EXPLAIN_MAX_BYTES` (65536).
 `PRICING_CACHE_TTL` (60s; a duration or whole seconds, 10s to 600s, 0 turns the record snapshot
 cache off). Optional replica cache consumer (chart `cacheConsumer`): `KAFKA_BROKERS` starts it
@@ -415,7 +415,7 @@ replica reads under the group `pricing-cache-<HOSTNAME>`; `KAFKA_GROUP` is ignor
 ```
 cd services/pricing
 go test ./...                      # runs without Postgres; store/API DB tests skip
-PASSAGE_TEST_DATABASE_URL=postgres://... PASSAGE_TEST_APP_DATABASE_URL=postgres://passage_app:...@... go test ./...   # runs the store DB tests under RLS
+DEPOT_TEST_DATABASE_URL=postgres://... DEPOT_TEST_APP_DATABASE_URL=postgres://depot_app:...@... go test ./...   # runs the store DB tests under RLS
 go vet ./...
 ```
 

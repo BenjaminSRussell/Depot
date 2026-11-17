@@ -9,9 +9,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/quality/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/quality/internal/domain"
 )
 
 // pendingOrderRequiring creates a one-test order that demands certRequired and
@@ -83,7 +83,7 @@ func TestPostgres_CertificateGateAC3312(t *testing.T) {
 		!raised.Qty.Equal(decimal.NewFromInt(40)) || raised.UOM != "KG" {
 		t.Fatalf("the NOK certificate's NCR: %+v %v", raised, err)
 	}
-	if types := outboxTypes(t, pool, raised.ID); len(types) != 1 || types[0] != "dev.passage.quality.nonconformance.created.v1" {
+	if types := outboxTypes(t, pool, raised.ID); len(types) != 1 || types[0] != "dev.depot.quality.nonconformance.created.v1" {
 		t.Fatalf("the NCR's event goes out with the certificate: %v", types)
 	}
 	if again, inserted, err := s.RecordCertificate(ctx, nok, &ncr, "c-1"); err != nil || inserted || again.ID != saved.ID {

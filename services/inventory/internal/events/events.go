@@ -2,19 +2,19 @@
 // Schemas are documented in events/asyncapi.yaml.
 package events
 
-// Event types (dev.passage.<context>.<entity>.<verb>.v<n>).
+// Event types (dev.depot.<context>.<entity>.<verb>.v<n>).
 const (
-	TransactionPosted    = "dev.passage.inventory.transaction.posted.v1"
-	OnhandChanged        = "dev.passage.inventory.onhand.changed.v1"
-	JournalPosted        = "dev.passage.inventory.journal.posted.v1"
-	ReservationCreated   = "dev.passage.inventory.reservation.created.v1"
-	ReservationReleased  = "dev.passage.inventory.reservation.released.v1"
-	ReservationConverted = "dev.passage.inventory.reservation.converted.v1"
-	BlockingCreated      = "dev.passage.inventory.blocking.created.v1"
-	BlockingReleased     = "dev.passage.inventory.blocking.released.v1"
-	BlockingEscalated    = "dev.passage.inventory.blocking.escalated.v1"
-	HoldPlaced           = "dev.passage.inventory.hold.placed.v1"
-	HoldReleased         = "dev.passage.inventory.hold.released.v1"
+	TransactionPosted    = "dev.depot.inventory.transaction.posted.v1"
+	OnhandChanged        = "dev.depot.inventory.onhand.changed.v1"
+	JournalPosted        = "dev.depot.inventory.journal.posted.v1"
+	ReservationCreated   = "dev.depot.inventory.reservation.created.v1"
+	ReservationReleased  = "dev.depot.inventory.reservation.released.v1"
+	ReservationConverted = "dev.depot.inventory.reservation.converted.v1"
+	BlockingCreated      = "dev.depot.inventory.blocking.created.v1"
+	BlockingReleased     = "dev.depot.inventory.blocking.released.v1"
+	BlockingEscalated    = "dev.depot.inventory.blocking.escalated.v1"
+	HoldPlaced           = "dev.depot.inventory.hold.placed.v1"
+	HoldReleased         = "dev.depot.inventory.hold.released.v1"
 )
 
 // All lists every event type the service publishes.

@@ -16,14 +16,14 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: receiving-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/receiving-postgres/cdc-password
+        key: depot/dev/receiving-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -37,14 +37,14 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: eam-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/eam-postgres/cdc-password
+        key: depot/dev/eam-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -58,14 +58,14 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: transport-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/transport-postgres/cdc-password
+        key: depot/dev/transport-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -79,14 +79,14 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: sales-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/sales-postgres/cdc-password
+        key: depot/dev/sales-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -100,14 +100,14 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: fulfillment-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/fulfillment-postgres/cdc-password
+        key: depot/dev/fulfillment-postgres/cdc-password
         property: value
 ---
 # The CDC passwords of the outbox connectors whose database lives in this Postgres (deploy/kafka/connect.yaml): the same
@@ -123,14 +123,14 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: billing-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/billing-postgres/cdc-password
+        key: depot/dev/billing-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -144,14 +144,14 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: budgeting-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/budgeting-postgres/cdc-password
+        key: depot/dev/budgeting-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -165,14 +165,14 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: warehouse-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/warehouse-postgres/cdc-password
+        key: depot/dev/warehouse-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -186,14 +186,14 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: intercompany-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/intercompany-postgres/cdc-password
+        key: depot/dev/intercompany-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -207,14 +207,14 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: fieldservice-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/fieldservice-postgres/cdc-password
+        key: depot/dev/fieldservice-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -228,14 +228,14 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: ops-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/ops-postgres/cdc-password
+        key: depot/dev/ops-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -249,14 +249,14 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: receivables-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/receivables-postgres/cdc-password
+        key: depot/dev/receivables-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -270,14 +270,14 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: expense-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/expense-postgres/cdc-password
+        key: depot/dev/expense-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -291,14 +291,14 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: projects-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/projects-postgres/cdc-password
+        key: depot/dev/projects-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -312,14 +312,14 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: party-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/party-postgres/cdc-password
+        key: depot/dev/party-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -333,14 +333,14 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: product-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/product-postgres/cdc-password
+        key: depot/dev/product-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -354,14 +354,14 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: purchasing-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/purchasing-postgres/cdc-password
+        key: depot/dev/purchasing-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -375,14 +375,14 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: production-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/production-postgres/cdc-password
+        key: depot/dev/production-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -396,18 +396,18 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: hr-cdc
     creationPolicy: Owner
   data:
     - secretKey: CDC_PASSWORD
       remoteRef:
-        key: passage/dev/hr-postgres/cdc-password
+        key: depot/dev/hr-postgres/cdc-password
         property: value
 ---
 # eam's DATABASE_URL (chart value database.secretName eam-database, key url): its own login role
-# passage_eam_app in passage_eam, created by 60-eam-db.sh with the same Vault password (APP_PASSWORD). The
+# depot_eam_app in depot_eam, created by 60-eam-db.sh with the same Vault password (APP_PASSWORD). The
 # password goes into the URL as is, so it must be URL-safe (hex, like the other dev passwords).
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
@@ -420,22 +420,22 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: eam-database
     creationPolicy: Owner
     template:
       data:
-        url: "postgres://passage_eam_app:{{ .password }}@postgres.hello-ledger.svc:5432/passage_eam?sslmode=disable"
+        url: "postgres://depot_eam_app:{{ .password }}@postgres.hello-ledger.svc:5432/depot_eam?sslmode=disable"
         APP_PASSWORD: "{{ .password }}"
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/eam-postgres/app-password
+        key: depot/dev/eam-postgres/app-password
         property: value
 ---
 # transport's DATABASE_URL (chart value database.secretName transport-db, key url): its own login role
-# passage_transport_app in passage_transport, created by 70-transport-db.sh with the same Vault password
+# depot_transport_app in depot_transport, created by 70-transport-db.sh with the same Vault password
 # (APP_PASSWORD). URL-safe password, as for eam-database.
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
@@ -448,18 +448,18 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: transport-db
     creationPolicy: Owner
     template:
       data:
-        url: "postgres://passage_transport_app:{{ .password }}@postgres.hello-ledger.svc:5432/passage_transport?sslmode=disable"
+        url: "postgres://depot_transport_app:{{ .password }}@postgres.hello-ledger.svc:5432/depot_transport?sslmode=disable"
         APP_PASSWORD: "{{ .password }}"
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/transport-postgres/app-password
+        key: depot/dev/transport-postgres/app-password
         property: value
 ---
 apiVersion: v1
@@ -472,309 +472,309 @@ metadata:
 data:
   10-app-role.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<SQL
-    CREATE ROLE passage_app LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '$APP_PASSWORD';
-    GRANT ALL ON SCHEMA public TO passage_app;
+    CREATE ROLE depot_app LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '$APP_PASSWORD';
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
   20-receiving-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<SQL
-    SELECT 'CREATE DATABASE passage_receiving' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_receiving')\gexec
-    GRANT CONNECT, CREATE ON DATABASE passage_receiving TO passage_app;
-    \c passage_receiving
-    GRANT ALL ON SCHEMA public TO passage_app;
+    SELECT 'CREATE DATABASE depot_receiving' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_receiving')\gexec
+    GRANT CONNECT, CREATE ON DATABASE depot_receiving TO depot_app;
+    \c depot_receiving
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
   30-fx-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<SQL
-    SELECT 'CREATE DATABASE passage_fx' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_fx')\gexec
-    GRANT CONNECT, CREATE ON DATABASE passage_fx TO passage_app;
-    \c passage_fx
-    GRANT ALL ON SCHEMA public TO passage_app;
+    SELECT 'CREATE DATABASE depot_fx' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_fx')\gexec
+    GRANT CONNECT, CREATE ON DATABASE depot_fx TO depot_app;
+    \c depot_fx
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
   40-org-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<SQL
-    CREATE ROLE passage_org_owner LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '$ORG_OWNER_PASSWORD';
-    SELECT 'CREATE DATABASE passage_org OWNER passage_org_owner' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_org')\gexec
-    GRANT CONNECT ON DATABASE passage_org TO passage_app;
+    CREATE ROLE depot_org_owner LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '$ORG_OWNER_PASSWORD';
+    SELECT 'CREATE DATABASE depot_org OWNER depot_org_owner' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_org')\gexec
+    GRANT CONNECT ON DATABASE depot_org TO depot_app;
     SQL
   50-receiving-cdc.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
     REVOKE CONNECT ON DATABASE hello FROM PUBLIC;
-    REVOKE CONNECT ON DATABASE passage_fx FROM PUBLIC;
-    REVOKE CONNECT ON DATABASE passage_org FROM PUBLIC;
-    REVOKE CONNECT ON DATABASE passage_receiving FROM PUBLIC;
-    GRANT CONNECT ON DATABASE hello TO passage_app;
-    GRANT CONNECT ON DATABASE passage_fx TO passage_app;
-    GRANT CONNECT ON DATABASE passage_org TO passage_app;
-    GRANT CONNECT ON DATABASE passage_receiving TO passage_app, debezium_cdc;
+    REVOKE CONNECT ON DATABASE depot_fx FROM PUBLIC;
+    REVOKE CONNECT ON DATABASE depot_org FROM PUBLIC;
+    REVOKE CONNECT ON DATABASE depot_receiving FROM PUBLIC;
+    GRANT CONNECT ON DATABASE hello TO depot_app;
+    GRANT CONNECT ON DATABASE depot_fx TO depot_app;
+    GRANT CONNECT ON DATABASE depot_org TO depot_app;
+    GRANT CONNECT ON DATABASE depot_receiving TO depot_app, debezium_cdc;
     SQL
   60-eam-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_EAM_PASSWORD" -v app_password="$EAM_APP_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc_eam LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
-    CREATE ROLE passage_eam_app LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD :'app_password';
-    SELECT 'CREATE DATABASE passage_eam' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_eam')\gexec
-    REVOKE CONNECT ON DATABASE passage_eam FROM PUBLIC;
-    GRANT CONNECT, CREATE ON DATABASE passage_eam TO passage_app, passage_eam_app;
-    GRANT CONNECT ON DATABASE passage_eam TO debezium_cdc_eam;
-    \c passage_eam
-    GRANT ALL ON SCHEMA public TO passage_app, passage_eam_app;
+    CREATE ROLE depot_eam_app LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD :'app_password';
+    SELECT 'CREATE DATABASE depot_eam' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_eam')\gexec
+    REVOKE CONNECT ON DATABASE depot_eam FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_eam TO depot_app, depot_eam_app;
+    GRANT CONNECT ON DATABASE depot_eam TO debezium_cdc_eam;
+    \c depot_eam
+    GRANT ALL ON SCHEMA public TO depot_app, depot_eam_app;
     SQL
   70-transport-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_TRANSPORT_PASSWORD" -v app_password="$TRANSPORT_APP_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc_transport LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
-    CREATE ROLE passage_transport_app LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD :'app_password';
-    SELECT 'CREATE DATABASE passage_transport' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_transport')\gexec
-    REVOKE CONNECT ON DATABASE passage_transport FROM PUBLIC;
-    GRANT CONNECT, CREATE ON DATABASE passage_transport TO passage_app, passage_transport_app;
-    GRANT CONNECT ON DATABASE passage_transport TO debezium_cdc_transport;
-    \c passage_transport
-    GRANT ALL ON SCHEMA public TO passage_app, passage_transport_app;
+    CREATE ROLE depot_transport_app LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD :'app_password';
+    SELECT 'CREATE DATABASE depot_transport' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_transport')\gexec
+    REVOKE CONNECT ON DATABASE depot_transport FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_transport TO depot_app, depot_transport_app;
+    GRANT CONNECT ON DATABASE depot_transport TO debezium_cdc_transport;
+    \c depot_transport
+    GRANT ALL ON SCHEMA public TO depot_app, depot_transport_app;
     SQL
   80-sales-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_SALES_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc_sales LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
-    SELECT 'CREATE DATABASE passage_sales' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_sales')\gexec
-    REVOKE CONNECT ON DATABASE passage_sales FROM PUBLIC;
-    GRANT CONNECT, CREATE ON DATABASE passage_sales TO passage_app;
-    GRANT CONNECT ON DATABASE passage_sales TO debezium_cdc_sales;
-    \c passage_sales
-    GRANT ALL ON SCHEMA public TO passage_app;
+    SELECT 'CREATE DATABASE depot_sales' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_sales')\gexec
+    REVOKE CONNECT ON DATABASE depot_sales FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_sales TO depot_app;
+    GRANT CONNECT ON DATABASE depot_sales TO debezium_cdc_sales;
+    \c depot_sales
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
   90-fulfillment-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_FULFILLMENT_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc_fulfillment LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
-    SELECT 'CREATE DATABASE passage_fulfillment' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_fulfillment')\gexec
-    REVOKE CONNECT ON DATABASE passage_fulfillment FROM PUBLIC;
-    GRANT CONNECT, CREATE ON DATABASE passage_fulfillment TO passage_app;
-    GRANT CONNECT ON DATABASE passage_fulfillment TO debezium_cdc_fulfillment;
-    \c passage_fulfillment
-    GRANT ALL ON SCHEMA public TO passage_app;
+    SELECT 'CREATE DATABASE depot_fulfillment' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_fulfillment')\gexec
+    REVOKE CONNECT ON DATABASE depot_fulfillment FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_fulfillment TO depot_app;
+    GRANT CONNECT ON DATABASE depot_fulfillment TO debezium_cdc_fulfillment;
+    \c depot_fulfillment
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
   # One 95- script per outbox connector database (deploy/kafka/connect.yaml): each creates its database and CDC role and
-  # needs only passage_app from 10-app-role.sh, so they share a number and run in name order after the others. Their
+  # needs only depot_app from 10-app-role.sh, so they share a number and run in name order after the others. Their
   # passwords are optional: with its Vault key not yet written a script creates the database, skips the CDC role and logs
   # it, so the shared Postgres still starts; write the key and restart the pod (docs/runbooks/delivery/deploy-local.md).
   95-billing-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
-    SELECT 'CREATE DATABASE passage_billing' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_billing')\gexec
-    REVOKE CONNECT ON DATABASE passage_billing FROM PUBLIC;
-    GRANT CONNECT, CREATE ON DATABASE passage_billing TO passage_app;
-    \c passage_billing
-    GRANT ALL ON SCHEMA public TO passage_app;
+    SELECT 'CREATE DATABASE depot_billing' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_billing')\gexec
+    REVOKE CONNECT ON DATABASE depot_billing FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_billing TO depot_app;
+    \c depot_billing
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
     if [ -z "$CDC_BILLING_PASSWORD" ]; then
-      echo "95-billing-db.sh: CDC_BILLING_PASSWORD is empty (Vault passage/dev/billing-postgres/cdc-password not written); debezium_cdc_billing not created"
+      echo "95-billing-db.sh: CDC_BILLING_PASSWORD is empty (Vault depot/dev/billing-postgres/cdc-password not written); debezium_cdc_billing not created"
     else
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_BILLING_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc_billing LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
-    GRANT CONNECT ON DATABASE passage_billing TO debezium_cdc_billing;
+    GRANT CONNECT ON DATABASE depot_billing TO debezium_cdc_billing;
     SQL
     fi
   95-budgeting-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
-    SELECT 'CREATE DATABASE passage_budgeting' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_budgeting')\gexec
-    REVOKE CONNECT ON DATABASE passage_budgeting FROM PUBLIC;
-    GRANT CONNECT, CREATE ON DATABASE passage_budgeting TO passage_app;
-    \c passage_budgeting
-    GRANT ALL ON SCHEMA public TO passage_app;
+    SELECT 'CREATE DATABASE depot_budgeting' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_budgeting')\gexec
+    REVOKE CONNECT ON DATABASE depot_budgeting FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_budgeting TO depot_app;
+    \c depot_budgeting
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
     if [ -z "$CDC_BUDGETING_PASSWORD" ]; then
-      echo "95-budgeting-db.sh: CDC_BUDGETING_PASSWORD is empty (Vault passage/dev/budgeting-postgres/cdc-password not written); debezium_cdc_budgeting not created"
+      echo "95-budgeting-db.sh: CDC_BUDGETING_PASSWORD is empty (Vault depot/dev/budgeting-postgres/cdc-password not written); debezium_cdc_budgeting not created"
     else
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_BUDGETING_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc_budgeting LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
-    GRANT CONNECT ON DATABASE passage_budgeting TO debezium_cdc_budgeting;
+    GRANT CONNECT ON DATABASE depot_budgeting TO debezium_cdc_budgeting;
     SQL
     fi
   95-warehouse-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
-    SELECT 'CREATE DATABASE passage_warehouse' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_warehouse')\gexec
-    REVOKE CONNECT ON DATABASE passage_warehouse FROM PUBLIC;
-    GRANT CONNECT, CREATE ON DATABASE passage_warehouse TO passage_app;
-    \c passage_warehouse
-    GRANT ALL ON SCHEMA public TO passage_app;
+    SELECT 'CREATE DATABASE depot_warehouse' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_warehouse')\gexec
+    REVOKE CONNECT ON DATABASE depot_warehouse FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_warehouse TO depot_app;
+    \c depot_warehouse
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
     if [ -z "$CDC_WAREHOUSE_PASSWORD" ]; then
-      echo "95-warehouse-db.sh: CDC_WAREHOUSE_PASSWORD is empty (Vault passage/dev/warehouse-postgres/cdc-password not written); debezium_cdc_warehouse not created"
+      echo "95-warehouse-db.sh: CDC_WAREHOUSE_PASSWORD is empty (Vault depot/dev/warehouse-postgres/cdc-password not written); debezium_cdc_warehouse not created"
     else
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_WAREHOUSE_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc_warehouse LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
-    GRANT CONNECT ON DATABASE passage_warehouse TO debezium_cdc_warehouse;
+    GRANT CONNECT ON DATABASE depot_warehouse TO debezium_cdc_warehouse;
     SQL
     fi
   95-intercompany-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
-    SELECT 'CREATE DATABASE passage_intercompany' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_intercompany')\gexec
-    REVOKE CONNECT ON DATABASE passage_intercompany FROM PUBLIC;
-    GRANT CONNECT, CREATE ON DATABASE passage_intercompany TO passage_app;
-    \c passage_intercompany
-    GRANT ALL ON SCHEMA public TO passage_app;
+    SELECT 'CREATE DATABASE depot_intercompany' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_intercompany')\gexec
+    REVOKE CONNECT ON DATABASE depot_intercompany FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_intercompany TO depot_app;
+    \c depot_intercompany
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
     if [ -z "$CDC_INTERCOMPANY_PASSWORD" ]; then
-      echo "95-intercompany-db.sh: CDC_INTERCOMPANY_PASSWORD is empty (Vault passage/dev/intercompany-postgres/cdc-password not written); debezium_cdc_intercompany not created"
+      echo "95-intercompany-db.sh: CDC_INTERCOMPANY_PASSWORD is empty (Vault depot/dev/intercompany-postgres/cdc-password not written); debezium_cdc_intercompany not created"
     else
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_INTERCOMPANY_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc_intercompany LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
-    GRANT CONNECT ON DATABASE passage_intercompany TO debezium_cdc_intercompany;
+    GRANT CONNECT ON DATABASE depot_intercompany TO debezium_cdc_intercompany;
     SQL
     fi
   95-fieldservice-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
-    SELECT 'CREATE DATABASE passage_fieldservice' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_fieldservice')\gexec
-    REVOKE CONNECT ON DATABASE passage_fieldservice FROM PUBLIC;
-    GRANT CONNECT, CREATE ON DATABASE passage_fieldservice TO passage_app;
-    \c passage_fieldservice
-    GRANT ALL ON SCHEMA public TO passage_app;
+    SELECT 'CREATE DATABASE depot_fieldservice' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_fieldservice')\gexec
+    REVOKE CONNECT ON DATABASE depot_fieldservice FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_fieldservice TO depot_app;
+    \c depot_fieldservice
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
     if [ -z "$CDC_FIELDSERVICE_PASSWORD" ]; then
-      echo "95-fieldservice-db.sh: CDC_FIELDSERVICE_PASSWORD is empty (Vault passage/dev/fieldservice-postgres/cdc-password not written); debezium_cdc_fieldservice not created"
+      echo "95-fieldservice-db.sh: CDC_FIELDSERVICE_PASSWORD is empty (Vault depot/dev/fieldservice-postgres/cdc-password not written); debezium_cdc_fieldservice not created"
     else
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_FIELDSERVICE_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc_fieldservice LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
-    GRANT CONNECT ON DATABASE passage_fieldservice TO debezium_cdc_fieldservice;
+    GRANT CONNECT ON DATABASE depot_fieldservice TO debezium_cdc_fieldservice;
     SQL
     fi
   95-ops-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
-    SELECT 'CREATE DATABASE passage_ops' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_ops')\gexec
-    REVOKE CONNECT ON DATABASE passage_ops FROM PUBLIC;
-    GRANT CONNECT, CREATE ON DATABASE passage_ops TO passage_app;
-    \c passage_ops
-    GRANT ALL ON SCHEMA public TO passage_app;
+    SELECT 'CREATE DATABASE depot_ops' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_ops')\gexec
+    REVOKE CONNECT ON DATABASE depot_ops FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_ops TO depot_app;
+    \c depot_ops
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
     if [ -z "$CDC_OPS_PASSWORD" ]; then
-      echo "95-ops-db.sh: CDC_OPS_PASSWORD is empty (Vault passage/dev/ops-postgres/cdc-password not written); debezium_cdc_ops not created"
+      echo "95-ops-db.sh: CDC_OPS_PASSWORD is empty (Vault depot/dev/ops-postgres/cdc-password not written); debezium_cdc_ops not created"
     else
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_OPS_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc_ops LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
-    GRANT CONNECT ON DATABASE passage_ops TO debezium_cdc_ops;
+    GRANT CONNECT ON DATABASE depot_ops TO debezium_cdc_ops;
     SQL
     fi
   95-receivables-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
-    SELECT 'CREATE DATABASE passage_receivables' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_receivables')\gexec
-    REVOKE CONNECT ON DATABASE passage_receivables FROM PUBLIC;
-    GRANT CONNECT, CREATE ON DATABASE passage_receivables TO passage_app;
-    \c passage_receivables
-    GRANT ALL ON SCHEMA public TO passage_app;
+    SELECT 'CREATE DATABASE depot_receivables' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_receivables')\gexec
+    REVOKE CONNECT ON DATABASE depot_receivables FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_receivables TO depot_app;
+    \c depot_receivables
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
     if [ -z "$CDC_RECEIVABLES_PASSWORD" ]; then
-      echo "95-receivables-db.sh: CDC_RECEIVABLES_PASSWORD is empty (Vault passage/dev/receivables-postgres/cdc-password not written); debezium_cdc_receivables not created"
+      echo "95-receivables-db.sh: CDC_RECEIVABLES_PASSWORD is empty (Vault depot/dev/receivables-postgres/cdc-password not written); debezium_cdc_receivables not created"
     else
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_RECEIVABLES_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc_receivables LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
-    GRANT CONNECT ON DATABASE passage_receivables TO debezium_cdc_receivables;
+    GRANT CONNECT ON DATABASE depot_receivables TO debezium_cdc_receivables;
     SQL
     fi
   95-expense-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
-    SELECT 'CREATE DATABASE passage_expense' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_expense')\gexec
-    REVOKE CONNECT ON DATABASE passage_expense FROM PUBLIC;
-    GRANT CONNECT, CREATE ON DATABASE passage_expense TO passage_app;
-    \c passage_expense
-    GRANT ALL ON SCHEMA public TO passage_app;
+    SELECT 'CREATE DATABASE depot_expense' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_expense')\gexec
+    REVOKE CONNECT ON DATABASE depot_expense FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_expense TO depot_app;
+    \c depot_expense
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
     if [ -z "$CDC_EXPENSE_PASSWORD" ]; then
-      echo "95-expense-db.sh: CDC_EXPENSE_PASSWORD is empty (Vault passage/dev/expense-postgres/cdc-password not written); debezium_cdc_expense not created"
+      echo "95-expense-db.sh: CDC_EXPENSE_PASSWORD is empty (Vault depot/dev/expense-postgres/cdc-password not written); debezium_cdc_expense not created"
     else
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_EXPENSE_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc_expense LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
-    GRANT CONNECT ON DATABASE passage_expense TO debezium_cdc_expense;
+    GRANT CONNECT ON DATABASE depot_expense TO debezium_cdc_expense;
     SQL
     fi
   95-projects-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
-    SELECT 'CREATE DATABASE passage_projects' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_projects')\gexec
-    REVOKE CONNECT ON DATABASE passage_projects FROM PUBLIC;
-    GRANT CONNECT, CREATE ON DATABASE passage_projects TO passage_app;
-    \c passage_projects
-    GRANT ALL ON SCHEMA public TO passage_app;
+    SELECT 'CREATE DATABASE depot_projects' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_projects')\gexec
+    REVOKE CONNECT ON DATABASE depot_projects FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_projects TO depot_app;
+    \c depot_projects
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
     if [ -z "$CDC_PROJECTS_PASSWORD" ]; then
-      echo "95-projects-db.sh: CDC_PROJECTS_PASSWORD is empty (Vault passage/dev/projects-postgres/cdc-password not written); debezium_cdc_projects not created"
+      echo "95-projects-db.sh: CDC_PROJECTS_PASSWORD is empty (Vault depot/dev/projects-postgres/cdc-password not written); debezium_cdc_projects not created"
     else
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PROJECTS_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc_projects LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
-    GRANT CONNECT ON DATABASE passage_projects TO debezium_cdc_projects;
+    GRANT CONNECT ON DATABASE depot_projects TO debezium_cdc_projects;
     SQL
     fi
   95-party-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
-    SELECT 'CREATE DATABASE passage_party' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_party')\gexec
-    REVOKE CONNECT ON DATABASE passage_party FROM PUBLIC;
-    GRANT CONNECT, CREATE ON DATABASE passage_party TO passage_app;
-    \c passage_party
-    GRANT ALL ON SCHEMA public TO passage_app;
+    SELECT 'CREATE DATABASE depot_party' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_party')\gexec
+    REVOKE CONNECT ON DATABASE depot_party FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_party TO depot_app;
+    \c depot_party
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
     if [ -z "$CDC_PARTY_PASSWORD" ]; then
-      echo "95-party-db.sh: CDC_PARTY_PASSWORD is empty (Vault passage/dev/party-postgres/cdc-password not written); debezium_cdc_party not created"
+      echo "95-party-db.sh: CDC_PARTY_PASSWORD is empty (Vault depot/dev/party-postgres/cdc-password not written); debezium_cdc_party not created"
     else
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PARTY_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc_party LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
-    GRANT CONNECT ON DATABASE passage_party TO debezium_cdc_party;
+    GRANT CONNECT ON DATABASE depot_party TO debezium_cdc_party;
     SQL
     fi
   95-product-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
-    SELECT 'CREATE DATABASE passage_product' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_product')\gexec
-    REVOKE CONNECT ON DATABASE passage_product FROM PUBLIC;
-    GRANT CONNECT, CREATE ON DATABASE passage_product TO passage_app;
-    \c passage_product
-    GRANT ALL ON SCHEMA public TO passage_app;
+    SELECT 'CREATE DATABASE depot_product' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_product')\gexec
+    REVOKE CONNECT ON DATABASE depot_product FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_product TO depot_app;
+    \c depot_product
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
     if [ -z "$CDC_PRODUCT_PASSWORD" ]; then
-      echo "95-product-db.sh: CDC_PRODUCT_PASSWORD is empty (Vault passage/dev/product-postgres/cdc-password not written); debezium_cdc_product not created"
+      echo "95-product-db.sh: CDC_PRODUCT_PASSWORD is empty (Vault depot/dev/product-postgres/cdc-password not written); debezium_cdc_product not created"
     else
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PRODUCT_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc_product LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
-    GRANT CONNECT ON DATABASE passage_product TO debezium_cdc_product;
+    GRANT CONNECT ON DATABASE depot_product TO debezium_cdc_product;
     SQL
     fi
   95-purchasing-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
-    SELECT 'CREATE DATABASE passage_purchasing' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_purchasing')\gexec
-    REVOKE CONNECT ON DATABASE passage_purchasing FROM PUBLIC;
-    GRANT CONNECT, CREATE ON DATABASE passage_purchasing TO passage_app;
-    \c passage_purchasing
-    GRANT ALL ON SCHEMA public TO passage_app;
+    SELECT 'CREATE DATABASE depot_purchasing' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_purchasing')\gexec
+    REVOKE CONNECT ON DATABASE depot_purchasing FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_purchasing TO depot_app;
+    \c depot_purchasing
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
     if [ -z "$CDC_PURCHASING_PASSWORD" ]; then
-      echo "95-purchasing-db.sh: CDC_PURCHASING_PASSWORD is empty (Vault passage/dev/purchasing-postgres/cdc-password not written); debezium_cdc_purchasing not created"
+      echo "95-purchasing-db.sh: CDC_PURCHASING_PASSWORD is empty (Vault depot/dev/purchasing-postgres/cdc-password not written); debezium_cdc_purchasing not created"
     else
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PURCHASING_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc_purchasing LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
-    GRANT CONNECT ON DATABASE passage_purchasing TO debezium_cdc_purchasing;
+    GRANT CONNECT ON DATABASE depot_purchasing TO debezium_cdc_purchasing;
     SQL
     fi
   95-production-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
-    SELECT 'CREATE DATABASE passage_production' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_production')\gexec
-    REVOKE CONNECT ON DATABASE passage_production FROM PUBLIC;
-    GRANT CONNECT, CREATE ON DATABASE passage_production TO passage_app;
-    \c passage_production
-    GRANT ALL ON SCHEMA public TO passage_app;
+    SELECT 'CREATE DATABASE depot_production' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_production')\gexec
+    REVOKE CONNECT ON DATABASE depot_production FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_production TO depot_app;
+    \c depot_production
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
     if [ -z "$CDC_PRODUCTION_PASSWORD" ]; then
-      echo "95-production-db.sh: CDC_PRODUCTION_PASSWORD is empty (Vault passage/dev/production-postgres/cdc-password not written); debezium_cdc_production not created"
+      echo "95-production-db.sh: CDC_PRODUCTION_PASSWORD is empty (Vault depot/dev/production-postgres/cdc-password not written); debezium_cdc_production not created"
     else
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PRODUCTION_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc_production LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
-    GRANT CONNECT ON DATABASE passage_production TO debezium_cdc_production;
+    GRANT CONNECT ON DATABASE depot_production TO debezium_cdc_production;
     SQL
     fi
   95-hr-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
-    SELECT 'CREATE DATABASE passage_hr' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_hr')\gexec
-    REVOKE CONNECT ON DATABASE passage_hr FROM PUBLIC;
-    GRANT CONNECT, CREATE ON DATABASE passage_hr TO passage_app;
-    \c passage_hr
-    GRANT ALL ON SCHEMA public TO passage_app;
+    SELECT 'CREATE DATABASE depot_hr' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_hr')\gexec
+    REVOKE CONNECT ON DATABASE depot_hr FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_hr TO depot_app;
+    \c depot_hr
+    GRANT ALL ON SCHEMA public TO depot_app;
     SQL
     if [ -z "$CDC_HR_PASSWORD" ]; then
-      echo "95-hr-db.sh: CDC_HR_PASSWORD is empty (Vault passage/dev/hr-postgres/cdc-password not written); debezium_cdc_hr not created"
+      echo "95-hr-db.sh: CDC_HR_PASSWORD is empty (Vault depot/dev/hr-postgres/cdc-password not written); debezium_cdc_hr not created"
     else
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_HR_PASSWORD" <<'SQL'
     CREATE ROLE debezium_cdc_hr LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
-    GRANT CONNECT ON DATABASE passage_hr TO debezium_cdc_hr;
+    GRANT CONNECT ON DATABASE depot_hr TO debezium_cdc_hr;
     SQL
     fi
 ---
@@ -796,7 +796,7 @@ spec:
         app.kubernetes.io/name: postgres
       annotations:
         # initdb scripts run only on an empty PGDATA; bump this whenever postgres-init changes so the pod restarts
-        passage.dev/init-rev: "10"
+        depot.dev/init-rev: "10"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -816,7 +816,7 @@ spec:
             capabilities:
               drop: [ALL]
           env:
-            - { name: POSTGRES_USER, value: passage }
+            - { name: POSTGRES_USER, value: depot }
             - { name: POSTGRES_DB, value: hello }
             - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
             - name: POSTGRES_PASSWORD
@@ -895,7 +895,7 @@ spec:
             - { name: pg, containerPort: 5432 }
           readinessProbe:
             exec:
-              command: [pg_isready, -U, passage, -d, hello]
+              command: [pg_isready, -U, depot, -d, hello]
           volumeMounts:
             - { name: data, mountPath: /var/lib/postgresql/data }
             - { name: init, mountPath: /docker-entrypoint-initdb.d }
@@ -958,7 +958,7 @@ spec:
               kubernetes.io/metadata.name: kafka
           podSelector:
             matchLabels:
-              strimzi.io/cluster: passage-connect
+              strimzi.io/cluster: depot-connect
               strimzi.io/kind: KafkaConnect
       ports:
         - { protocol: TCP, port: 5432 }

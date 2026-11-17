@@ -3,7 +3,7 @@ import swSource from "../../../../technician/public/sw.js?raw";
 
 // The technician worker (apps/technician/public/sw.js) run against fakes: it caches the shell at install, serves it
 // when a navigation finds no network, and never touches /api/ calls or writes.
-const ORIGIN = "https://tech.passage.dev";
+const ORIGIN = "https://tech.depot.dev";
 type Listener = (event: Record<string, unknown>) => void;
 interface Req {
   url: string;

@@ -1,4 +1,4 @@
--- Key check scheduling and the vanish threshold (PSG-10 integration track S4).
+-- Key check scheduling and the vanish threshold (DPT-10 integration track S4).
 -- keycheck_force: an operator asked for the next run to be a full read (keyCheckNow or keyCheckAcceptLarge). It
 -- replaces clearing keycheck_attempt_at, because a binding that never checked is no longer due at once. A run spends
 -- it only when its claim saw it, so a request sent while a run reads the source waits for the next run.

@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
-  title: Passage print service
+  title: Depot print service
   version: 0.1.0
   description: Printer registry, queues and ZPL print jobs (wave 32, FR-32.7 and FR-32.13). Every mutating call requires Idempotency-Key.
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env: { default: dev }
 paths:
@@ -12,7 +12,7 @@ paths:
     get:
       operationId: listPrinters
       summary: List printers of the tenant
-      x-passage-duty: print.job.submit
+      x-depot-duty: print.job.submit
       responses:
         '200':
           description: Printers ordered by code
@@ -28,7 +28,7 @@ paths:
     post:
       operationId: createPrinter
       summary: Register a printer and its queue membership
-      x-passage-duty: print.admin
+      x-depot-duty: print.admin
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -54,7 +54,7 @@ paths:
     get:
       operationId: listRoutingRules
       summary: List document routing rules in resolution order
-      x-passage-duty: print.job.submit
+      x-depot-duty: print.job.submit
       responses:
         '200':
           description: Rules ordered by sequence
@@ -70,7 +70,7 @@ paths:
     post:
       operationId: createRoutingRule
       summary: Create a document routing rule
-      x-passage-duty: print.admin
+      x-depot-duty: print.admin
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -91,7 +91,7 @@ paths:
     get:
       operationId: listPrintJobs
       summary: Print job log, newest first (§6.32.14)
-      x-passage-duty: print.job.submit
+      x-depot-duty: print.job.submit
       parameters:
         - name: status
           in: query
@@ -123,7 +123,7 @@ paths:
       summary: Render a built-in template and print it on the first reachable ZPL device of the queue
       description: >-
         A job that no device accepts is recorded as FAILED with lastError MOB-0111 (unreachable), MOB-0112 (empty queue) or PRN-0007 (the label does not fit the media of any device in the queue) and returned with 201. Each ZPL label is sized at dispatch for the device that prints it (FR-32.13): the layout is scaled from 203 dpi to the device's dpi and ^PW/^LL are set from its media size; on 2X1_IN and 3X1_IN devices LP_LABEL, LOCATION_LABEL and ITEM_LABEL print a compact 1 in layout. A label whose fields or bar code width (with quiet zones) do not fit a device's media is not sent to it, and the next device in the queue is tried without retries. A documentType with no matching routing rule is refused with 422 MOB-0112 before anything is stored. A repeated key returns the stored job with Idempotent-Replayed true and prints nothing. reprintOf reuses the stored ZPL. ITEM_LABEL and GS1_CARTON_LABEL compose their GS1-128 element string (AI 00, 01, 10, 17, 21, 400, 420) from the data fields; a bad check digit, date, length or set-82 character is refused with 400 PRN-0001 before anything is stored.
-      x-passage-duty: print.job.submit
+      x-depot-duty: print.job.submit
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -159,13 +159,13 @@ paths:
         bytes. Text is Unicode and is put in NFC. The PDF embeds subsets of the Go Regular and Go Bold fonts (Identity-H
         with a ToUnicode map, so text can be selected and searched), which cover Latin with its extended letters, Greek and
         Cyrillic. A character the fonts lack (Chinese, Japanese, Korean, Arabic, Hebrew, emoji and others) prints as the
-        replacement character U+FFFD, the original text is kept as ActualText, and X-Passage-Unprintable-Characters counts
+        replacement character U+FFFD, the original text is kept as ActualText, and X-Depot-Unprintable-Characters counts
         them; the document is still rendered. Nothing is stored and no printer is used. A document that cannot be rendered
         is refused with 422 PRN-0008 and a detail that names the field (an empty required value, a text over its length
         limit, a control character, a line with the wrong number of cells), or with 422 PRN-0009 when it has more than 500
         lines. Fields added since the first release are optional, so earlier callers are unaffected.
-      x-passage-duty: print.document.render
-      x-passage-duty-alternatives: [print.customer-portal.render, print.ops.render]
+      x-depot-duty: print.document.render
+      x-depot-duty-alternatives: [print.customer-portal.render, print.ops.render]
       requestBody:
         required: true
         content:
@@ -175,8 +175,8 @@ paths:
         '200':
           description: The PDF
           headers:
-            X-Passage-Document-Pages: { description: The number of pages., schema: { type: integer, minimum: 1 } }
-            X-Passage-Unprintable-Characters: { description: 'Present only when the document has characters the fonts lack: how many were printed as U+FFFD.', schema: { type: integer, minimum: 1 } }
+            X-Depot-Document-Pages: { description: The number of pages., schema: { type: integer, minimum: 1 } }
+            X-Depot-Unprintable-Characters: { description: 'Present only when the document has characters the fonts lack: how many were printed as U+FFFD.', schema: { type: integer, minimum: 1 } }
           content:
             application/pdf:
               schema: { type: string, format: binary }
@@ -188,7 +188,7 @@ paths:
     get:
       operationId: listDocumentTemplates
       summary: List the tenant's document templates (46-1)
-      x-passage-duty: print.job.submit
+      x-depot-duty: print.job.submit
       parameters:
         - { name: documentType, in: query, required: false, schema: { type: string } }
       responses:
@@ -201,7 +201,7 @@ paths:
     get:
       operationId: getDocumentTemplate
       summary: Read one document template
-      x-passage-duty: print.job.submit
+      x-depot-duty: print.job.submit
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
       responses:
@@ -218,7 +218,7 @@ paths:
         read's ETag, for example "3"): without it 428 PRN-0018, and a save based on an older version than the current
         one is 412 PRN-0017; nothing is stored either way. A new template is created without If-Match. Every saved
         version is kept with who saved it (GET .../versions).
-      x-passage-duty: print.admin
+      x-depot-duty: print.admin
       parameters:
         - { name: code, in: path, required: true, schema: { type: string, pattern: '^[A-Z][A-Z0-9_-]{1,39}$' } }
         - { name: If-Match, in: header, required: false, schema: { type: string }, description: 'The template version as an entity tag, for example "3".' }
@@ -242,7 +242,7 @@ paths:
         rewritten. The default flag stays as it is now. Needs the version you looked at as If-Match, as any save does:
         without it 428 PRN-0018, and 412 PRN-0017 when the template was saved after that. The text blocks the old
         layout names must still exist (400 otherwise).
-      x-passage-duty: print.admin
+      x-depot-duty: print.admin
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
         - { name: version, in: path, required: true, schema: { type: integer, minimum: 1 } }
@@ -257,7 +257,7 @@ paths:
     get:
       operationId: listDocumentTemplateVersions
       summary: Every saved version of a document template, newest first (46-1)
-      x-passage-duty: print.job.submit
+      x-depot-duty: print.job.submit
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
       responses:
@@ -283,7 +283,7 @@ paths:
     get:
       operationId: listTextBlocks
       summary: List every language version of every text block (46-4)
-      x-passage-duty: print.job.submit
+      x-depot-duty: print.job.submit
       responses:
         '200':
           description: Text blocks by code and language
@@ -295,7 +295,7 @@ paths:
       operationId: putTextBlock
       summary: Create or replace one language version of a standard text (46-4)
       description: The body may hold placeholders written {{name}}. A render that gives no value for a placeholder is refused with PRN-0014, so a letter never prints a raw placeholder.
-      x-passage-duty: print.admin
+      x-depot-duty: print.admin
       parameters:
         - { name: code, in: path, required: true, schema: { type: string, pattern: '^[A-Z][A-Z0-9_-]{1,39}$' } }
         - { name: language, in: path, required: true, schema: { type: string, pattern: '^[a-z]{2}(-[A-Z]{2})?$' } }
@@ -311,7 +311,7 @@ paths:
     get:
       operationId: listOutputRules
       summary: List the output rules (46-2)
-      x-passage-duty: print.job.submit
+      x-depot-duty: print.job.submit
       responses:
         '200':
           description: Rules by sequence
@@ -328,7 +328,7 @@ paths:
         site print agent, an e-mail address, the e-invoice network, the archive or the portal. It may be limited to a legal
         entity, an account (customer or vendor) or both. The rule says where; delivery is done by the caller or a later
         slice (see NOT-IMPLEMENTED.md).
-      x-passage-duty: print.admin
+      x-depot-duty: print.admin
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -344,7 +344,7 @@ paths:
     delete:
       operationId: deleteOutputRule
       summary: Delete an output rule
-      x-passage-duty: print.admin
+      x-depot-duty: print.admin
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -355,7 +355,7 @@ paths:
       operationId: resolveOutputPlan
       summary: Where the original and the copies of one document go (46-2)
       description: For each copy kind (original, copy), every rule of the most specific matching scope that has a rule for it (legal entity and account, then account, then legal entity, then the document type's default), whatever its channel, so an account's own original replaces the default original instead of adding to it. Original first.
-      x-passage-duty: print.job.submit
+      x-depot-duty: print.job.submit
       parameters:
         - { name: documentType, in: query, required: true, schema: { type: string } }
         - { name: legalEntityId, in: query, required: false, schema: { type: string } }
@@ -380,7 +380,7 @@ paths:
         archive waits on the document-store decision. `sourceKey` names the document (an invoice or payment id); delivering
         it again sends nothing to a destination that already took it, and tries a failed destination again. A destination
         that fails does not fail the call: its result says FAILED with the reason.
-      x-passage-duty: print.document.deliver
+      x-depot-duty: print.document.deliver
       requestBody:
         required: true
         content:
@@ -409,7 +409,7 @@ paths:
     get:
       operationId: listStatementSchedules
       summary: Scheduled customer statements (46-4)
-      x-passage-duty: print.job.submit
+      x-depot-duty: print.job.submit
       responses:
         '200':
           description: The schedules by name
@@ -425,7 +425,7 @@ paths:
         statement template (or `templateCode`) and delivers it by the PERIODIC_STATEMENT output rules, the account being
         the customer. Several replicas may run: a schedule is leased while one runs it and each customer's statement of
         a date is produced once. The first run is the first matching day after today. Idempotency-Key is required.
-      x-passage-duty: print.admin
+      x-depot-duty: print.admin
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -445,7 +445,7 @@ paths:
       operationId: updateStatementSchedule
       summary: Pause or resume a statement schedule
       description: Resuming moves a run date in the past to the next matching day, so a schedule paused for months does not run for each missed date.
-      x-passage-duty: print.admin
+      x-depot-duty: print.admin
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -460,7 +460,7 @@ paths:
     delete:
       operationId: deleteStatementSchedule
       summary: Delete a statement schedule and its run records
-      x-passage-duty: print.admin
+      x-depot-duty: print.admin
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -471,7 +471,7 @@ paths:
       operationId: runStatementSchedule
       summary: Run a statement schedule for today now
       description: A statement already delivered for today is not sent again; one that failed is tried again. The schedule's own run date does not move. 503 when the receivables and party addresses are not configured; 502 PRN-0021 when receivables cannot be read.
-      x-passage-duty: print.admin
+      x-depot-duty: print.admin
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -487,7 +487,7 @@ paths:
     get:
       operationId: listStatementRuns
       summary: The newest statements of a schedule, one per customer and run date
-      x-passage-duty: print.job.submit
+      x-depot-duty: print.job.submit
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
@@ -503,7 +503,7 @@ paths:
       operationId: listPortalDocuments
       summary: The documents delivered to the customer portal for one customer (service only)
       description: Called by the customer portal; the customer is the one in its signed service token (403 for any other caller). The duty is the portal's own and no user holds it.
-      x-passage-duty: print.customer-portal.documents
+      x-depot-duty: print.customer-portal.documents
       parameters:
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 100 } }
       responses:
@@ -518,14 +518,14 @@ paths:
       operationId: getPortalDocumentPdf
       summary: The PDF of one document delivered to the portal (service only)
       description: A document of another customer, or another tenant, is 404 PRN-0020.
-      x-passage-duty: print.customer-portal.documents
+      x-depot-duty: print.customer-portal.documents
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         '200':
           description: The PDF
           headers:
-            X-Passage-Document-Pages: { schema: { type: integer } }
+            X-Depot-Document-Pages: { schema: { type: integer } }
           content:
             application/pdf: { schema: { type: string, format: binary } }
         '403': { $ref: '#/components/responses/Problem' }
@@ -535,7 +535,7 @@ paths:
       operationId: purgePrintJobs
       summary: Delete the tenant's finished job log rows older than the retention window (§6.32.19)
       description: Removes the tenant's PRINTED and FAILED jobs created before now minus PRINT_JOB_RETENTION_DAYS (default 30). QUEUED jobs are kept. The key is required but not stored; calling it again deletes nothing new. The service also runs this purge daily at 01:00 UTC for each tenant in PRINT_PURGE_TENANT_IDS.
-      x-passage-duty: print.admin
+      x-depot-duty: print.admin
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       responses:
@@ -552,7 +552,7 @@ paths:
       operationId: updatePrinter
       summary: Edit an active printer, or move it to another queue or failover rank (FR-32.13)
       description: Omitted fields keep their value. The code and device type never change. A queue and rank already held by an active printer is PRN-0006; a retired or unknown printer is PRN-0010.
-      x-passage-duty: print.admin
+      x-depot-duty: print.admin
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -583,7 +583,7 @@ paths:
       operationId: retirePrinter
       summary: Take a printer out of its queue
       description: The row stays so the job log still names the printer, and its failover rank is free again. Later jobs fail over past it. List retired printers with includeRetired=true on GET /printers.
-      x-passage-duty: print.admin
+      x-depot-duty: print.admin
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -597,7 +597,7 @@ paths:
     put:
       operationId: updateRoutingRule
       summary: Replace a document routing rule
-      x-passage-duty: print.admin
+      x-depot-duty: print.admin
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -616,7 +616,7 @@ paths:
     delete:
       operationId: deleteRoutingRule
       summary: Delete a document routing rule
-      x-passage-duty: print.admin
+      x-depot-duty: print.admin
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -627,7 +627,7 @@ paths:
       operationId: sweepPrintJobs
       summary: Dispatch the tenant's jobs left QUEUED (§6.32.16)
       description: Finds jobs QUEUED for more than a minute (the process died between insert and completion), stamps them so a second sweep skips them, and dispatches each through its queue in failover order. A swept job prints the stored layout, like a reprint. The service also runs this every 15 s for each tenant in PRINT_PURGE_TENANT_IDS.
-      x-passage-duty: print.admin
+      x-depot-duty: print.admin
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       responses:
@@ -647,7 +647,7 @@ paths:
       operationId: listPrinterStatus
       summary: Operational status of every printer of the tenant (§6.32.14)
       description: State is derived from the printer's most recent job (IDLE with no job, BUSY while QUEUED, READY when PRINTED, ERROR when FAILED). No device probe is made, so the state is what the service last observed.
-      x-passage-duty: print.job.submit
+      x-depot-duty: print.job.submit
       responses:
         '200':
           description: Printers ordered by code
@@ -664,7 +664,7 @@ paths:
     get:
       operationId: getPrintJob
       summary: Read a print job
-      x-passage-duty: print.job.submit
+      x-depot-duty: print.job.submit
       parameters:
         - name: id
           in: path

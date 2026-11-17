@@ -5,8 +5,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
 )
 
 // Context is the bounded context segment of every event type this service emits.
@@ -21,7 +21,7 @@ var (
 	ProcessMessageReceived  = events.Type(Context, "processmessage", "received", 1)
 	ProcessMessageDelivered = events.Type(Context, "processmessage", "delivered", 1)
 	ProcessMessageDeleted   = events.Type(Context, "processmessage", "deleted", 1)
-	// PRD 4.25.5 names this event passage.shopfloor.oee.bucket-updated.v1; the
+	// PRD 4.25.5 names this event depot.shopfloor.oee.bucket-updated.v1; the
 	// platform naming rule allows one [a-z0-9] word per segment.
 	OEEBucketUpdated = events.Type(Context, "oeebucket", "updated", 1)
 	OEEBucketRemoved = events.Type(Context, "oeebucket", "removed", 1)
@@ -76,7 +76,7 @@ func All() []string {
 		EdgeNodeSaved, EdgeConfigPublished, EdgeConfigApplied, DowntimeReasonSaved, ProcessCategorySaved, ControlRecipeStatusChanged, ControlRecipeDeviation}
 }
 
-// ProcessMessageReceivedData is the payload of dev.passage.shopfloor.processmessage.received.v1,
+// ProcessMessageReceivedData is the payload of dev.depot.shopfloor.processmessage.received.v1,
 // published when a process message is stored, again for one destination when it is
 // reprocessed, and again by the retry sweep for the destinations whose wait elapsed
 // (FR-25.17). Destinations then names only those destinations. Each consuming context (w21 journal, w33 quality, w24 EBR,
@@ -95,7 +95,7 @@ type ProcessMessageReceivedData struct {
 	OccurredAt      time.Time               `json:"occurredAt"`
 }
 
-// ProcessMessageDeliveredData is the payload of dev.passage.shopfloor.processmessage.delivered.v1,
+// ProcessMessageDeliveredData is the payload of dev.depot.shopfloor.processmessage.delivered.v1,
 // published once when every destination of a message is delivered.
 type ProcessMessageDeliveredData struct {
 	MessageID    string `json:"messageId"`
@@ -103,7 +103,7 @@ type ProcessMessageDeliveredData struct {
 	OrderID      string `json:"orderId"`
 }
 
-// ProcessMessageDeletedData is the payload of dev.passage.shopfloor.processmessage.deleted.v1,
+// ProcessMessageDeletedData is the payload of dev.depot.shopfloor.processmessage.deleted.v1,
 // published when a supervisor deletes a message with a destination in error (FR-25.17).
 // Undelivered names the destinations that never received it, so the EBR consumer can
 // record the missed message as an exception (BR-24.15).
@@ -117,7 +117,7 @@ type ProcessMessageDeletedData struct {
 	DeletedAt    time.Time `json:"deletedAt"`
 }
 
-// OEEBucketUpdatedData is the payload of dev.passage.shopfloor.oeebucket.updated.v1,
+// OEEBucketUpdatedData is the payload of dev.depot.shopfloor.oeebucket.updated.v1,
 // published by the OEE rollup for a bucket that is new or whose values changed
 // (FR-25.10). Minutes and counts travel with the ratios so a dashboard rolls
 // buckets up to a shift by summing them, never by averaging ratios (BR-25.5).
@@ -137,7 +137,7 @@ type OEEBucketUpdatedData struct {
 	OverRate       bool            `json:"overRate"`
 }
 
-// JobReportedData is the payload of dev.passage.shopfloor.job.reported.v1, published
+// JobReportedData is the payload of dev.depot.shopfloor.job.reported.v1, published
 // once per stored operator feedback on a job (FR-25.4, FR-25.5); a replayed feedbackId
 // publishes nothing. QtyGood and QtyScrap are this posting's increments, GoodQuantity
 // and ScrapQuantity the job's totals after it. FailedChecks lists the checks whose
@@ -161,7 +161,7 @@ type JobReportedData struct {
 	RecordedAt     time.Time       `json:"recordedAt"`
 }
 
-// JobReopenedData is the payload of dev.passage.shopfloor.job.reopened.v1, published when a
+// JobReopenedData is the payload of dev.depot.shopfloor.job.reopened.v1, published when a
 // supervisor reopens a finished job. GoodQuantity and ScrapQuantity are the job's totals at the
 // reopening; PreviousFinishedAt is the finish that no longer stands.
 type JobReopenedData struct {
@@ -178,7 +178,7 @@ type JobReopenedData struct {
 	PreviousFinishedAt time.Time       `json:"previousFinishedAt"`
 }
 
-// OEEBucketRemovedData is the payload of dev.passage.shopfloor.oeebucket.removed.v1,
+// OEEBucketRemovedData is the payload of dev.depot.shopfloor.oeebucket.removed.v1,
 // published when a rollup finds that a stored bucket no longer has planned time
 // (for example its downtime was coded as planned afterwards).
 type OEEBucketRemovedData struct {
@@ -187,7 +187,7 @@ type OEEBucketRemovedData struct {
 	BucketStart   time.Time `json:"bucketStart"`
 }
 
-// PaydayExportedData is the payload of dev.passage.shopfloor.payday.exported.v1:
+// PaydayExportedData is the payload of dev.depot.shopfloor.payday.exported.v1:
 // one payroll export batch with every pay line it carries (FR-25.8, w43).
 type PaydayExportedData struct {
 	BatchID   string             `json:"batchId"`
@@ -209,7 +209,7 @@ type ExportedLineData struct {
 	Currency   string          `json:"currency"`
 }
 
-// AndonRaisedData is the payload of dev.passage.shopfloor.andon.raised.v1.
+// AndonRaisedData is the payload of dev.depot.shopfloor.andon.raised.v1.
 type AndonRaisedData struct {
 	AlertID    string  `json:"alertId"`
 	ResourceID string  `json:"resourceId"`
@@ -219,7 +219,7 @@ type AndonRaisedData struct {
 	StartedAt  string  `json:"startedAt"`
 }
 
-// RegistrationPostedData is the payload of dev.passage.shopfloor.registration.posted.v1.
+// RegistrationPostedData is the payload of dev.depot.shopfloor.registration.posted.v1.
 type RegistrationPostedData struct {
 	RegistrationID string  `json:"registrationId"`
 	WorkerID       string  `json:"workerId"`
@@ -258,7 +258,7 @@ type PayLineData struct {
 	Currency   string          `json:"currency"`
 }
 
-// PaydayApprovedData is the payload of dev.passage.shopfloor.payday.approved.v1.
+// PaydayApprovedData is the payload of dev.depot.shopfloor.payday.approved.v1.
 type PaydayApprovedData struct {
 	WorkerID   string        `json:"workerId"`
 	WorkDate   string        `json:"workDate"`
@@ -266,7 +266,7 @@ type PaydayApprovedData struct {
 	ApprovedBy string        `json:"approvedBy"`
 }
 
-// RegistrationCorrectedData is the payload of dev.passage.shopfloor.registration.corrected.v1,
+// RegistrationCorrectedData is the payload of dev.depot.shopfloor.registration.corrected.v1,
 // published when a supervisor changes the times of a registration with a reason (FR-25.8).
 // Hours is the new elapsed time of a closed registration; consumers that posted the old
 // hours (w21 job card) replace them.
@@ -284,7 +284,7 @@ type RegistrationCorrectedData struct {
 	CorrectedBy    string           `json:"correctedBy"`
 }
 
-// PaydayRevisedData is the payload of dev.passage.shopfloor.payday.revised.v1, published
+// PaydayRevisedData is the payload of dev.depot.shopfloor.payday.revised.v1, published
 // when a supervisor revises an approved worker-day (BR-25.8, AC-25.8). ReversedLines
 // carry negative hours and amounts and cancel lines that were approved (and possibly
 // exported); AddedLines are the new pay lines. Revision counts the day's revisions.
@@ -298,7 +298,7 @@ type PaydayRevisedData struct {
 	RevisedBy     string        `json:"revisedBy"`
 }
 
-// TimeProfileSavedData is the payload of dev.passage.shopfloor.timeprofile.saved.v1,
+// TimeProfileSavedData is the payload of dev.depot.shopfloor.timeprofile.saved.v1,
 // published when a time profile is created or changed. Version is 1 for a new profile.
 type TimeProfileSavedData struct {
 	ProfileID string `json:"profileId"`
@@ -309,7 +309,7 @@ type TimeProfileSavedData struct {
 	SavedBy   string `json:"savedBy"`
 }
 
-// PayAgreementSavedData is the payload of dev.passage.shopfloor.payagreement.saved.v1,
+// PayAgreementSavedData is the payload of dev.depot.shopfloor.payagreement.saved.v1,
 // published when a pay agreement is created or changed. Decimals are strings.
 type PayAgreementSavedData struct {
 	AgreementID        string `json:"agreementId"`
@@ -327,7 +327,7 @@ type PayAgreementSavedData struct {
 	SavedBy       string                     `json:"savedBy"`
 }
 
-// WorkerAssignedData is the payload of dev.passage.shopfloor.worker.assigned.v1,
+// WorkerAssignedData is the payload of dev.depot.shopfloor.worker.assigned.v1,
 // published when a worker's time profile, pay agreement or home resource changes. A nil
 // profile or agreement id means the worker is calculated with the defaults; a nil
 // defaultResourceId means the worker has no home resource. Days already calculated keep their pay lines
@@ -341,7 +341,7 @@ type WorkerAssignedData struct {
 	AssignedBy        string  `json:"assignedBy"`
 }
 
-// WorkerSavedData is the payload of dev.passage.shopfloor.worker.saved.v1, published when a
+// WorkerSavedData is the payload of dev.depot.shopfloor.worker.saved.v1, published when a
 // worker's own fields change or the worker is deactivated or reactivated. Change is
 // "updated", "deactivated" or "reactivated"; Reason is set for a deactivation. The badge is a
 // personal identifier and is not published. CostRate is a decimal string. Days already calculated
@@ -359,7 +359,7 @@ type WorkerSavedData struct {
 	SavedBy  string  `json:"savedBy"`
 }
 
-// WorkerCostRateSetData is the payload of dev.passage.shopfloor.workercostrate.set.v1, published when
+// WorkerCostRateSetData is the payload of dev.depot.shopfloor.workercostrate.set.v1, published when
 // a dated cost rate is added to a worker. CostRate is a decimal string per hour in Currency, and holds
 // for days from EffectiveFrom (YYYY-MM-DD) until the next dated rate. Days already calculated keep
 // the rate they were calculated with until a supervisor recalculates or revises them.
@@ -372,7 +372,7 @@ type WorkerCostRateSetData struct {
 	SetBy         string `json:"setBy"`
 }
 
-// AbsenceCodeSavedData is the payload of dev.passage.shopfloor.absencecode.saved.v1,
+// AbsenceCodeSavedData is the payload of dev.depot.shopfloor.absencecode.saved.v1,
 // published when an absence code is created or changed. PayMultiplier is a decimal string.
 type AbsenceCodeSavedData struct {
 	AbsenceCodeID string `json:"absenceCodeId"`
@@ -385,7 +385,7 @@ type AbsenceCodeSavedData struct {
 	SavedBy       string `json:"savedBy"`
 }
 
-// DowntimeReasonSavedData is the payload of dev.passage.shopfloor.downtimereason.saved.v1,
+// DowntimeReasonSavedData is the payload of dev.depot.shopfloor.downtimereason.saved.v1,
 // published when a downtime reason code is created or changed.
 type DowntimeReasonSavedData struct {
 	ReasonID string `json:"reasonId"`
@@ -397,7 +397,7 @@ type DowntimeReasonSavedData struct {
 	SavedBy  string `json:"savedBy"`
 }
 
-// ProcessCategorySavedData is the payload of dev.passage.shopfloor.processcategory.saved.v1,
+// ProcessCategorySavedData is the payload of dev.depot.shopfloor.processcategory.saved.v1,
 // published when a process message category is created or changed.
 type ProcessCategorySavedData struct {
 	CategoryID       string                     `json:"categoryId"`
@@ -421,7 +421,7 @@ type ProcessCategoryCharacter struct {
 	Required bool    `json:"required"`
 }
 
-// EdgeNodeSavedData is the payload of dev.passage.shopfloor.edgenode.saved.v1, published when
+// EdgeNodeSavedData is the payload of dev.depot.shopfloor.edgenode.saved.v1, published when
 // an edge node is registered or its name, site, ring, connector identity or status is changed.
 type EdgeNodeSavedData struct {
 	EdgeID   string  `json:"edgeId"`
@@ -437,7 +437,7 @@ type EdgeNodeSavedData struct {
 	SavedBy          string  `json:"savedBy"`
 }
 
-// EdgeConfigPublishedData is the payload of dev.passage.shopfloor.edgeconfig.published.v1,
+// EdgeConfigPublishedData is the payload of dev.depot.shopfloor.edgeconfig.published.v1,
 // published when a new configuration version is stored for an edge node. It is the audit
 // record of the publish: who, the SHA-256 of the stored document and the write allowlist nodes.
 type EdgeConfigPublishedData struct {
@@ -448,7 +448,7 @@ type EdgeConfigPublishedData struct {
 	PublishedBy    string   `json:"publishedBy"`
 }
 
-// EdgeConfigAppliedData is the payload of dev.passage.shopfloor.edgeconfig.applied.v1,
+// EdgeConfigAppliedData is the payload of dev.depot.shopfloor.edgeconfig.applied.v1,
 // published when a heartbeat reports a configuration version other than the one applied before.
 // PreviousVersion is null for the first one.
 type EdgeConfigAppliedData struct {
@@ -457,7 +457,7 @@ type EdgeConfigAppliedData struct {
 	PreviousVersion *int   `json:"previousVersion"`
 }
 
-// ControlRecipeStatusChangedData is the payload of dev.passage.shopfloor.controlrecipe.statuschanged.v1,
+// ControlRecipeStatusChangedData is the payload of dev.depot.shopfloor.controlrecipe.statuschanged.v1,
 // published when a control recipe is generated and sent (From empty), when its status is reported
 // (received, in-execution, completed, error) and when it is sent again (From error, SendCount raised).
 type ControlRecipeStatusChangedData struct {
@@ -473,7 +473,7 @@ type ControlRecipeStatusChangedData struct {
 	Actor       string  `json:"actor"`
 }
 
-// ControlRecipeDeviationData is the payload of dev.passage.shopfloor.controlrecipe.deviation.v1, published
+// ControlRecipeDeviationData is the payload of dev.depot.shopfloor.controlrecipe.deviation.v1, published
 // when a value read back after a setpoint write differs from the value written (BR-25.15). The deviation
 // process message the PRD asks for is raised from this event by the process message path (open).
 type ControlRecipeDeviationData struct {

@@ -34,10 +34,10 @@ async function lookupName(entity: "party" | "product", id: string): Promise<stri
 /** The browser's dependencies: IndexedDB sealed under a non-extractable device key, the real API. */
 export async function browserDeps(): Promise<TechnicianDeps> {
   // One database, one object store: the device key and the sealed documents sit under different keys.
-  const db = new IndexedDbStore<CryptoKey>("passage-technician", "kv");
+  const db = new IndexedDbStore<CryptoKey>("depot-technician", "kv");
   const key = await loadOrCreateDeviceKey(db, globalThis.crypto.subtle);
   return {
-    store: new IndexedDbStore<string>("passage-technician", "kv"),
+    store: new IndexedDbStore<string>("depot-technician", "kv"),
     cipher: new AesGcmSealer(globalThis.crypto.subtle, key),
     client: serverClient,
     loadDay: fetchDay,

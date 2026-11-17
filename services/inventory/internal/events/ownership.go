@@ -3,7 +3,7 @@ package events
 // OwnershipChanged is emitted when an OWNERSHIP_CHANGE journal posts
 // (FR-16.17); wave 18 (FR-18.16) builds the consignment settlement invoice from
 // it.
-const OwnershipChanged = "dev.passage.inventory.ownership.changed.v1"
+const OwnershipChanged = "dev.depot.inventory.ownership.changed.v1"
 
 // OwnershipLineData is one line of an ownership change: the vendor-owned
 // dimension set it moved (owner included), the quantity and unit, the

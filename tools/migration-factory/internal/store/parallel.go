@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	mfevents "github.com/BenjaminSRussell/passage/tools/migration-factory/internal/events"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	mfevents "github.com/BenjaminSRussell/depot/tools/migration-factory/internal/events"
 )
 
 // ErrParallelRunExists is returned when a parallel run for the period and source system already
@@ -43,7 +43,7 @@ func startParallelRun(ctx context.Context, tx pgx.Tx, run domain.ParallelRun) (d
 	var created time.Time
 	err := tx.QueryRow(ctx, `insert into parallel_run (tenant_id, parallel_run_id, period, source_system, documents_replayed, revenue,
 		explained_max_pct, input_hash, state, unexplained_count, unexplained_amount, explained_amount, started_by, version)
-		values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		on conflict (tenant_id, period, source_system) do nothing returning created_at`,
 		run.ID, run.Period, string(run.SourceSystem), run.DocumentsReplayed, run.Revenue.String(), run.ExplainedMaxPct.String(),
 		run.InputHash, string(run.State), run.Summary.UnexplainedCount, run.Summary.UnexplainedAmount.String(),
@@ -64,17 +64,17 @@ func startParallelRun(ctx context.Context, tx pgx.Tx, run domain.ParallelRun) (d
 	run.CreatedAt = created
 	if n := len(run.Variances); n > 0 {
 		vids, seqs, areas, keys := make([]string, n), make([]int32, n), make([]string, n), make([]string, n)
-		legacy, passage, delta := make([]string, n), make([]string, n), make([]string, n)
+		legacy, depot, delta := make([]string, n), make([]string, n), make([]string, n)
 		classes, rules, docs := make([]string, n), make([]string, n), make([]int32, n)
 		for i, v := range run.Variances {
 			vids[i], seqs[i], areas[i], keys[i] = v.ID, int32(i+1), string(v.Area), v.Key
-			legacy[i], passage[i], delta[i] = v.Legacy.String(), v.Passage.String(), v.Delta.String()
+			legacy[i], depot[i], delta[i] = v.Legacy.String(), v.Depot.String(), v.Delta.String()
 			classes[i], rules[i], docs[i] = v.Class, v.RuleID, int32(v.Documents)
 		}
-		tag, err := tx.Exec(ctx, `insert into variance (tenant_id, variance_id, parallel_run_id, seq, area, key_text, legacy_value, passage_value, delta, class, rule_id, documents)
-			select current_setting('passage.tenant_id', true)::uuid, v, $1, s, a, k, l, p, d, c, r, n
+		tag, err := tx.Exec(ctx, `insert into variance (tenant_id, variance_id, parallel_run_id, seq, area, key_text, legacy_value, depot_value, delta, class, rule_id, documents)
+			select current_setting('depot.tenant_id', true)::uuid, v, $1, s, a, k, l, p, d, c, r, n
 			from unnest($2::uuid[], $3::int[], $4::text[], $5::text[], $6::numeric[], $7::numeric[], $8::numeric[], $9::text[], $10::text[], $11::int[]) as t(v, s, a, k, l, p, d, c, r, n)`,
-			run.ID, vids, seqs, areas, keys, legacy, passage, delta, classes, rules, docs)
+			run.ID, vids, seqs, areas, keys, legacy, depot, delta, classes, rules, docs)
 		if err != nil {
 			return domain.ParallelRun{}, false, fmt.Errorf("insert variance: %w", err)
 		}
@@ -109,7 +109,7 @@ func scanParallel(row pgx.Row) (domain.ParallelRun, error) {
 
 // getParallelRunBy reads one run matching where (with its variances); forUpdate locks the row.
 func getParallelRunBy(ctx context.Context, tx pgx.Tx, where string, forUpdate bool, args ...any) (domain.ParallelRun, error) {
-	q := `select ` + parallelColumns + ` from parallel_run where tenant_id = current_setting('passage.tenant_id', true)::uuid and ` + where
+	q := `select ` + parallelColumns + ` from parallel_run where tenant_id = current_setting('depot.tenant_id', true)::uuid and ` + where
 	if forUpdate {
 		q += ` for update`
 	}
@@ -120,9 +120,9 @@ func getParallelRunBy(ctx context.Context, tx pgx.Tx, where string, forUpdate bo
 	if err != nil {
 		return domain.ParallelRun{}, err
 	}
-	rows, err := tx.Query(ctx, `select variance_id::text, area, key_text, legacy_value::text, passage_value::text, delta::text, documents, class, rule_id,
+	rows, err := tx.Query(ctx, `select variance_id::text, area, key_text, legacy_value::text, depot_value::text, delta::text, documents, class, rule_id,
 		reason, explained_by, explained_at from variance
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and parallel_run_id = $1 order by seq`, run.ID)
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and parallel_run_id = $1 order by seq`, run.ID)
 	if err != nil {
 		return domain.ParallelRun{}, err
 	}
@@ -134,7 +134,7 @@ func getParallelRunBy(ctx context.Context, tx pgx.Tx, where string, forUpdate bo
 			return domain.ParallelRun{}, err
 		}
 		v.Area = domain.Area(area)
-		v.Legacy, v.Passage, v.Delta = decimal.RequireFromString(l), decimal.RequireFromString(p), decimal.RequireFromString(d)
+		v.Legacy, v.Depot, v.Delta = decimal.RequireFromString(l), decimal.RequireFromString(p), decimal.RequireFromString(d)
 		run.Variances = append(run.Variances, v)
 	}
 	if err := rows.Err(); err != nil {
@@ -170,7 +170,7 @@ func (s *Postgres) ListParallelRuns(ctx context.Context, f ParallelFilter) ([]do
 		var afterID *string
 		if f.After != "" {
 			var at time.Time
-			err := tx.QueryRow(ctx, `select created_at from parallel_run where tenant_id = current_setting('passage.tenant_id', true)::uuid and parallel_run_id = $1`, f.After).Scan(&at)
+			err := tx.QueryRow(ctx, `select created_at from parallel_run where tenant_id = current_setting('depot.tenant_id', true)::uuid and parallel_run_id = $1`, f.After).Scan(&at)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrNotFound
 			}
@@ -180,7 +180,7 @@ func (s *Postgres) ListParallelRuns(ctx context.Context, f ParallelFilter) ([]do
 			after, afterID = &at, &f.After
 		}
 		rows, err := tx.Query(ctx, `select `+parallelColumns+` from parallel_run
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and ($1 = '' or state = $1)
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and ($1 = '' or state = $1)
 			  and ($2::timestamptz is null or (created_at, parallel_run_id) < ($2, $3::uuid))
 			order by created_at desc, parallel_run_id desc limit $4`, f.State, after, afterID, clampLimit(f.Limit))
 		if err != nil {
@@ -224,7 +224,7 @@ func (s *Postgres) ExplainVariance(ctx context.Context, idem Idem, e ExplainVari
 				continue
 			}
 			if _, err := tx.Exec(ctx, `update variance set class = $3, reason = $4, explained_by = $5, explained_at = $6
-				where tenant_id = current_setting('passage.tenant_id', true)::uuid and parallel_run_id = $1 and variance_id = $2`,
+				where tenant_id = current_setting('depot.tenant_id', true)::uuid and parallel_run_id = $1 and variance_id = $2`,
 				run.ID, v.ID, v.Class, v.Reason, v.ExplainedBy, v.ExplainedAt); err != nil {
 				return false, fmt.Errorf("update variance: %w", err)
 			}
@@ -273,7 +273,7 @@ func (s *Postgres) review(ctx context.Context, idem Idem, id string, expected in
 			}
 			if _, err := tx.Exec(ctx, `update parallel_run set state = $2, unexplained_count = $3, unexplained_amount = $4, explained_amount = $5,
 				signed_off_by = $6, signed_off_at = $7, version = $8
-				where tenant_id = current_setting('passage.tenant_id', true)::uuid and parallel_run_id = $1`,
+				where tenant_id = current_setting('depot.tenant_id', true)::uuid and parallel_run_id = $1`,
 				run.ID, string(run.State), run.Summary.UnexplainedCount, run.Summary.UnexplainedAmount.String(), run.Summary.ExplainedAmount.String(),
 				run.SignedOffBy, run.SignedOffAt, run.Version); err != nil {
 				return domain.ParallelRun{}, fmt.Errorf("update parallel_run: %w", err)

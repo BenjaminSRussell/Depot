@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	ediev "github.com/BenjaminSRussell/passage/services/edi/internal/events"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	ediev "github.com/BenjaminSRussell/depot/services/edi/internal/events"
 )
 
 // inbound214 is the 214 golden turned around: the carrier (DISTRIBUTOR)
@@ -19,8 +19,8 @@ func inbound214(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := strings.Replace(string(raw), "ZZ*PASSAGE        *ZZ*DISTRIBUTOR    ", "ZZ*DISTRIBUTOR    *ZZ*PASSAGE        ", 1)
-	return strings.Replace(s, "GS*QM*PASSAGE*DISTRIBUTOR", "GS*QM*DISTRIBUTOR*PASSAGE", 1)
+	s := strings.Replace(string(raw), "ZZ*DEPOT          *ZZ*DISTRIBUTOR    ", "ZZ*DISTRIBUTOR    *ZZ*DEPOT          ", 1)
+	return strings.Replace(s, "GS*QM*DEPOT*DISTRIBUTOR", "GS*QM*DISTRIBUTOR*DEPOT", 1)
 }
 
 // The receipt maps an inbound 820 remittance and 214 shipment status onto

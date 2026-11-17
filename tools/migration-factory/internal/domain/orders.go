@@ -177,8 +177,8 @@ func isISODate(s string) bool {
 }
 
 // ReconcileOpenOrders finishes an open_orders run once the accepted lines are held. loaded is how
-// many lines this run inserted; held maps each accepted line's HeldKey to the line Passage holds. It
-// computes the FR-49.2 totals of the whole extract against what Passage holds: the open quantity
+// many lines this run inserted; held maps each accepted line's HeldKey to the line Depot holds. It
+// computes the FR-49.2 totals of the whole extract against what Depot holds: the open quantity
 // per (order type, item, unit), the open value per (order type, currency), and the line and order
 // counts per order type. The run moves from VALIDATED to LOADED and, when no total is MISMATCH, to
 // RECONCILED. Quarantined lines are part of the source, so a run with quarantine stays LOADED.

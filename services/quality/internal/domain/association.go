@@ -1,7 +1,7 @@
 package domain
 
 import (
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // Trigger names a quality order trigger.

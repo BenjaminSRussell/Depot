@@ -10,16 +10,16 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/lean/internal/domain"
-	leanevents "github.com/BenjaminSRussell/passage/services/lean/internal/events"
-	"github.com/BenjaminSRussell/passage/services/lean/internal/store"
-	"github.com/BenjaminSRussell/passage/services/lean/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/lean/internal/domain"
+	leanevents "github.com/BenjaminSRussell/depot/services/lean/internal/events"
+	"github.com/BenjaminSRussell/depot/services/lean/internal/store"
+	"github.com/BenjaminSRussell/depot/services/lean/migrations"
 )
 
 // setup migrates a throwaway schema as the owner and returns a store on the

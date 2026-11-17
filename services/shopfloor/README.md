@@ -1,6 +1,6 @@
 # shopfloor
 
-Shop floor execution service. Wave reference: **PSG-25 / Wave 25**
+Shop floor execution service. Wave reference: **DPT-25 / Wave 25**
 (Shop Floor Execution, Time Registration & IoT), PRD section 4.25.
 
 ## Slice 23: idle downtime and dated cost rates (FR-25.11, BR-25.6, D2a')
@@ -23,7 +23,7 @@ security, SELECT and INSERT grants because rows are append-only). `POST workers/
 2000-01-01 and 2099-12-31, `costRate` non-negative decimal with up to 6 decimals, optional `note`; `Idempotency-Key`; duty
 `shopfloor.setup.maintain`) and `GET workers/{id}/cost-rates` (newest first; `shopfloor.view`). One rate per worker and date
 (SF-0170, 409): a change takes effect on a later date. The worker's own sign-in user cannot set it (SF-0106, 403). Each rate
-publishes `dev.passage.shopfloor.workercostrate.set.v1`. `pay:calculate` (and so `pay:revise`) prices every line of a day (base,
+publishes `dev.depot.shopfloor.workercostrate.set.v1`. `pay:calculate` (and so `pay:revise`) prices every line of a day (base,
 overtime, shift premium, paid absence) at the latest rate dated on or before that day, and a day before the first dated rate at the
 worker's own `costRate`, so a raise reprices only the days from its date when they are recalculated. The currency stays on the
 worker. Nothing is rewritten when a rate is added. A calculated day priced by a rate added after its calculation (the
@@ -37,7 +37,7 @@ has a cost rate history card (list and add form).
 A supervisor edits a worker and deactivates one who left (migration `0021_worker_maintenance.sql`: the
 `deactivated_at`, `deactivated_by` and `deactivation_reason` columns of `worker`; no new table, so no new grant).
 All three routes use the existing duty `shopfloor.setup.maintain`, `If-Match` on the worker version (SF-0143, 412)
-and an `Idempotency-Key`, and publish `dev.passage.shopfloor.worker.saved.v1` through the outbox.
+and an `Idempotency-Key`, and publish `dev.depot.shopfloor.worker.saved.v1` through the outbox.
 
 - `PUT workers/{id}` replaces name, badge, sign-in user, cost rate and currency (the party link never changes).
   A badge held by another worker is SF-0105; a null badge removes it. An inactive worker can be edited. The worker's
@@ -62,7 +62,7 @@ and an `Idempotency-Key`, and publish `dev.passage.shopfloor.worker.saved.v1` th
 A worker has an optional home resource, the machine or work centre the worker normally runs
 (`worker.default_resource_id`, migration `0015_worker_home_resource.sql`; no new table, so no new grant).
 `POST workers/{id}:assign-resource` (duty `shopfloor.setup.maintain`, `If-Match` on the worker version,
-`Idempotency-Key`) sets or clears it and publishes `dev.passage.shopfloor.worker.assigned.v1`, whose payload
+`Idempotency-Key`) sets or clears it and publishes `dev.depot.shopfloor.worker.assigned.v1`, whose payload
 now also carries `defaultResourceId`. `GET jobs?workerId=` (the PRD filter) returns the jobs of the worker's
 home resource; a worker without one sees every job, an unknown worker is SF-0101 (404), and `workerId`
 cannot be combined with `resourceId`. Resources belong to engineering data (w9), so the store accepts only a
@@ -117,7 +117,7 @@ code (`phase-start` through `custom`) or adds a code of its own (lowercase lette
 the destinations (`ebr`, `journal`, `quality`, `kafka`, `webhook`), `rejectOutOfLimit` and characteristic definitions (name,
 type, unit, limits, required). `POST`/`GET process-categories` and `GET`/`PUT process-categories/{id}` (create with an
 `Idempotency-Key`, update with `If-Match`; the code never changes; duties `shopfloor.setup.maintain` and `shopfloor.view`)
-publish `dev.passage.shopfloor.processcategory.saved.v1`. The list returns the tenant's rows and the built-in defaults no row
+publish `dev.depot.shopfloor.processcategory.saved.v1`. The list returns the tenant's rows and the built-in defaults no row
 overrides (`builtIn: true`). `POST process-messages` resolves the category first: a master row wins, else the default,
 else SF-0164; an inactive row is SF-0165. The definitions then govern the values they name (unit and limits come from the
 definition, a different type or a missing required value is SF-0115), and a category that rejects out-of-limit values
@@ -152,8 +152,8 @@ report), `Idempotency-Key` is required (a repeat returns the stored job and publ
 caller must be an authenticated user, who is recorded. A job that is not finished is SF-0155 (422). The
 job keeps its quantities and check results, so a later finish passes the mandatory-check gate again
 (SF-0005, and the override with its own duty). The reopening is a row of `job_reopening` (migration
-`0014_job_reopenings.sql`, tenant scoped, forced RLS, append only for `passage_app`) with who, why, when,
-the finish it undid and the totals at that moment, and `dev.passage.shopfloor.job.reopened.v1` is written
+`0014_job_reopenings.sql`, tenant scoped, forced RLS, append only for `depot_app`) with who, why, when,
+the finish it undid and the totals at that moment, and `dev.depot.shopfloor.job.reopened.v1` is written
 through the outbox in the same transaction, so production (w21) and quality (w33) can reopen what they
 closed on the finish. `GET jobs/{id}/reopenings` (duty `shopfloor.view`) lists them newest first.
 Counted in `shopfloor_jobs_reopened_total`. On the web the job page of a finished job shows a *Reopen
@@ -170,7 +170,7 @@ name, site, ring (promotion), connector identity and the active flag with `If-Ma
 documents are versioned per node: `POST edge-nodes/{id}/config-versions` validates the document
 (machines with a UUID resource, tags that point at a listed machine with a known kind, a write allowlist
 with finite min <= max; other keys pass through), writes the server's version number into it and stores
-it. A published version is immutable: `passage_app` may update only `applied_at`, and a trigger refuses
+it. A published version is immutable: `depot_app` may update only `applied_at`, and a trigger refuses
 any other change, a second `applied_at` stamp and deletes, even for the table owner.
 
 Fleet writes (register, update, publish) need `shopfloor.edge.configure`, not the machine setup duty,
@@ -179,7 +179,7 @@ because the write allowlist decides which machine nodes a connector may write. T
 (`documentSha256`, also on every configuration read) and the allowlist nodes.
 
 **Connector identity.** Each node is bound to the identity its connector authenticates as
-(`connectorSubject`, the subject the gateway forwards in `X-Passage-User`; unique per tenant). The
+(`connectorSubject`, the subject the gateway forwards in `X-Depot-User`; unique per tenant). The
 connector holds `shopfloor.edge.connect` and pulls `GET edge-nodes/{id}/config` and reports every 30 s
 with `POST edge-nodes/{id}:heartbeat`; both refuse any caller other than the bound identity, a signed
 service token and an unbound node with SF-0154 (403) before anything is read or written. The machine-event
@@ -264,7 +264,7 @@ agreement list shows the windows and the create form adds and removes them.
   Deactivating a profile or agreement stops new assignments but keeps applying to workers
   already linked, so pay never changes silently. Days already calculated keep their lines until
   recalculated (an approved day through `pay:revise`).
-- Events `dev.passage.shopfloor.timeprofile.saved.v1`, `payagreement.saved.v1` and
+- Events `dev.depot.shopfloor.timeprofile.saved.v1`, `payagreement.saved.v1` and
   `worker.assigned.v1` are written through the outbox in the same transaction.
 - Duty: `shopfloor.setup.maintain` writes, `shopfloor.view` reads (both exist already).
 
@@ -322,7 +322,7 @@ agreement list shows the windows and the create form adds and removes them.
   `finished`). The client `feedbackId` is the idempotency key: a resend returns 200 with
   `duplicate: true` and changes nothing; the same id on another job is SF-0124. A finished
   job takes no feedback (SF-0122). Each stored posting writes
-  `dev.passage.shopfloor.job.reported.v1` to the outbox in the same transaction, with the
+  `dev.depot.shopfloor.job.reported.v1` to the outbox in the same transaction, with the
   posting's quantities, the job's totals, the finish and the failed checks.
 - Quality checks (FR-25.5, AC-25.9): a check is numeric (inclusive `min`/`max`),
   pass-fail or text. Values are evaluated against the job's definitions (unknown code
@@ -336,7 +336,7 @@ agreement list shows the windows and the create form adds and removes them.
 - Pure rules in `internal/domain/checks.go` (`ValidateCheck`, `EvaluateCheck`,
   `FinishBlockers`), with a property test that a numeric check passes exactly within its
   limits. Tables `shop_job`, `job_feedback`, `job_check_result` (migration 0007, forced RLS,
-  granted to `passage_app`).
+  granted to `depot_app`).
 - Web: the dispatch list (`/shopfloor/jobs`, resource and status filters) and the job
   detail (`/shopfloor/jobs/:id`) with checks and their results, the report form (quantities,
   scrap reason, check values, *Save report* and *Report and finish*) and the supervisor
@@ -351,7 +351,7 @@ agreement list shows the windows and the create form adds and removes them.
   (SF-0127), a job-start already closed by a job-stop is refused (SF-0127; the job-stop
   carries the interval and hours, so it is the one to correct), a missing reason or no change is SF-0128, and the worker's own user cannot
   correct (SF-0106). The before and after are kept in `registration_correction`
-  (migration 0009) and `dev.passage.shopfloor.registration.corrected.v1` is written through
+  (migration 0009) and `dev.depot.shopfloor.registration.corrected.v1` is written through
   the outbox. A day calculated before a correction is stale for approval (SF-0104).
 - `POST pay:revise` (duty `shopfloor.pay.revise`) recalculates a range and applies it:
   days that are not approved are replaced as in `pay:calculate`; an approved day keeps its
@@ -360,7 +360,7 @@ agreement list shows the windows and the create form adds and removes them.
   the new lines are added, all with the day's next `revision`. The pay of a day is the sum of
   its lines. The `pay_line` trigger still refuses updates and deletes of approved lines and
   only admits inserts that carry a revision. Reversal and new lines join the next payroll
-  export. Event `dev.passage.shopfloor.payday.revised.v1`. No difference in any day is
+  export. Event `dev.depot.shopfloor.payday.revised.v1`. No difference in any day is
   SF-0129; an approved day that would carry open flags is SF-0006.
 - `GET registration-corrections?from&to[&workerId]` lists the audit trail.
 - `POST registrations:auto-clock-out[?afterHours=16&limit=100]` (duty `shopfloor.time.autoclockout`)
@@ -396,9 +396,9 @@ agreement list shows the windows and the create form adds and removes them.
   buckets, at most 24 hours, not in the future) exactly as `GET oee` does, for the given
   resources or every registered machine, and upserts them into `oee_bucket` by (resource,
   bucket width, bucket start). A new or changed bucket emits
-  `dev.passage.shopfloor.oeebucket.updated.v1` with its minutes, counts and ratios; a stored
+  `dev.depot.shopfloor.oeebucket.updated.v1` with its minutes, counts and ratios; a stored
   bucket that lost all planned time (its downtime later coded as planned) is removed with
-  `dev.passage.shopfloor.oeebucket.removed.v1`; an unchanged bucket is not rewritten and
+  `dev.depot.shopfloor.oeebucket.removed.v1`; an unchanged bucket is not rewritten and
   emits nothing, so the job is safe to repeat and takes no `Idempotency-Key`. Counted in
   `shopfloor_oee_buckets_changed_total` and `shopfloor_oee_buckets_removed_total`.
 - Kiosk badge login (`POST sessions:badge`, duty `shopfloor.kiosk.login`, FR-25.1): a
@@ -411,7 +411,7 @@ agreement list shows the windows and the create form adds and removes them.
   started since that clock-in and have not stopped (no `stoppedAt` and no later
   `job-stop` for the job; every job of a bundle is listed).
 - Migration 0006 also grants `process_message` and `process_message_delivery` to
-  `passage_app`: migration 0004 created them without the grant, so the service could not
+  `depot_app`: migration 0004 created them without the grant, so the service could not
   use them under the application role.
 - Web: a kiosk page (badge sign-in, clock in and out, sign-out after the idle timeout), the
   "Who is clocked in" board, and the idle threshold on machine registration and the
@@ -438,7 +438,7 @@ agreement list shows the windows and the create form adds and removes them.
   with a destination in `error` can be deleted (SF-0119); a deleted one cannot be deleted
   again, reported or reprocessed (SF-0120). The row is kept for audit with `deletedAt`,
   `deletedBy` and `deleteReason` (migration 0005), leaves the monitor and is still read by
-  id. `dev.passage.shopfloor.processmessage.deleted.v1` names the destinations that never
+  id. `dev.depot.shopfloor.processmessage.deleted.v1` names the destinations that never
   received it, so the EBR consumer can record the missed message (BR-24.15).
 - Monitor paging (`GET process-messages?cursor=`): keyset on (received time, id), newest
   first. The response carries `nextCursor`, null on the last page; a cursor the list did
@@ -462,7 +462,7 @@ agreement list shows the windows and the create form adds and removes them.
   yet). A malformed value is SF-0115.
 - Routing: the category decides the destinations (`domain.CategoryByCode`): EBR, journal
   (w21), quality (w33), Kafka and webhook (w35). One delivery row per destination is
-  written with the message and `dev.passage.shopfloor.processmessage.received.v1` in one
+  written with the message and `dev.depot.shopfloor.processmessage.received.v1` in one
   transaction. Kafka is that outbox event, so it is delivered at commit.
 - Delivery reports (`POST process-messages/{id}/deliveries/{destination}:report`, duty
   `shopfloor.process.deliver`, held by the consuming contexts, `Idempotency-Key`): a failure
@@ -525,7 +525,7 @@ agreement list shows the windows and the create form adds and removes them.
 - Downtime and andon (FR-25.11, BR-25.10): a DOWN state opens a downtime and any other
   state ends it. When an ingest finds a downtime open for more than 10 minutes (server
   time), it raises one andon per (resource, kind) and emits
-  `dev.passage.shopfloor.andon.raised.v1` in the same transaction. The alert clears on a
+  `dev.depot.shopfloor.andon.raised.v1` in the same transaction. The alert clears on a
   later ingest once the downtime has been over for 5 minutes. Downtimes are listed
   (`GET downtimes`) and coded (`downtimes/{id}:code`, reason and optional planned or
   unplanned category); coding does not clear the alert (AC-25.6).
@@ -539,7 +539,7 @@ agreement list shows the windows and the create form adds and removes them.
   The stream ends before the 30 s request timeout with `retry: 1000`, so EventSource reconnects.
 - Payroll export (`pay:export`): every approved pay line in a range of up to 31 days that is
   not yet exported joins one new batch (a line is exported once). The response carries the
-  CSV (batch id on every row) and `dev.passage.shopfloor.payday.exported.v1` carries the
+  CSV (batch id on every row) and `dev.depot.shopfloor.payday.exported.v1` carries the
   lines, written in the same transaction. Nothing new is SF-0111. Batches are listed
   (`GET pay-exports`) and read back with their CSV (`GET pay-exports/{id}`).
 - Web: machines list and registration, downtimes with reason coding, andon board, OEE by
@@ -551,7 +551,7 @@ agreement list shows the windows and the create form adds and removes them.
   cost rate and currency; list and get. A badge is unique per tenant (SF-0105).
 - Batch registrations from the kiosk: clock-in/out, job start/stop, absence and indirect
   time, each identified by a client UUID so an offline replay is idempotent (BR-25.7).
-  A new item emits `dev.passage.shopfloor.registration.posted.v1` in the same transaction.
+  A new item emits `dev.depot.shopfloor.registration.posted.v1` in the same transaction.
 - Pay calculation per worker and date range (`pay:calculate`): rounding and tolerances
   (BR-25.2), break deduction (BR-25.1), daily overtime over 8.00 h at 1.5x, weekly overtime
   over 40.00 h at 1.5x per pay week (Monday start) without double counting (BR-25.8; the
@@ -561,7 +561,7 @@ agreement list shows the windows and the create form adds and removes them.
 - Approval (`pay:approve`): locks calculated days, refuses days with open flags (SF-0006),
   days whose registrations arrived after calculation (SF-0104) and approval of one's own day
   (SF-0106); already approved days are returned unchanged, and each newly approved day emits
-  `dev.passage.shopfloor.payday.approved.v1` (consumed by payroll, wave 43).
+  `dev.depot.shopfloor.payday.approved.v1` (consumed by payroll, wave 43).
 - Review lists for the approval screen: worker-days with pay lines and flags, and a
   worker's registrations.
 - `Idempotency-Key` on every command except the registration batch and the machine-event
@@ -572,7 +572,7 @@ agreement list shows the windows and the create form adds and removes them.
 - Web: `apps/web/src/modules/shopfloor` (workers list, new worker, worker detail with
   registrations and days, time approval).
 
-Everything else in PSG-25 is listed in [NOT-IMPLEMENTED.md](NOT-IMPLEMENTED.md).
+Everything else in DPT-25 is listed in [NOT-IMPLEMENTED.md](NOT-IMPLEMENTED.md).
 
 ## Layout
 
@@ -599,7 +599,7 @@ charts/shopfloor       Helm chart (3 replicas, /healthz and /readyz probes, Serv
 ## Run
 
 ```
-export DATABASE_URL=postgres://passage_app:...@localhost:5432/passage_shopfloor
+export DATABASE_URL=postgres://depot_app:...@localhost:5432/depot_shopfloor
 export MIGRATE_ON_START=true   # dev only; stage/prod run migrations as an Argo PreSync Job
 go run ./cmd/shopfloor
 ```
@@ -755,13 +755,13 @@ Ports: `HTTP_ADDR` (default `:8080`), `ADMIN_ADDR` (default `:9090`, serves `/me
 
 ```
 go vet ./... && go test ./...
-PASSAGE_TEST_DATABASE_URL=postgres://... PASSAGE_TEST_APP_DATABASE_URL=postgres://passage_app... go test ./...
+DEPOT_TEST_DATABASE_URL=postgres://... DEPOT_TEST_APP_DATABASE_URL=postgres://depot_app... go test ./...
 ```
 
 Domain tests are pure table-driven tests plus `pgregory.net/rapid` properties. Store tests
 and the HTTP end-to-end test use `platform/go/testkit` (`DBWithApp`: migrations as the admin
-role, queries as `passage_app`, so RLS is enforced) and skip when
-`PASSAGE_TEST_DATABASE_URL` is unset. `openapi_test.go` and `events_test.go` keep the
+role, queries as `depot_app`, so RLS is enforced) and skip when
+`DEPOT_TEST_DATABASE_URL` is unset. `openapi_test.go` and `events_test.go` keep the
 OpenAPI and AsyncAPI files in step with the router and the published event types.
 
 ## Authorization
@@ -807,7 +807,7 @@ local check in a later wave, behind the same interface.
 
 ## Error codes
 
-Problem details use `application/problem+json` with `type` `https://passage.dev/problems/<code>`.
+Problem details use `application/problem+json` with `type` `https://depot.dev/problems/<code>`.
 
 | Code | HTTP | Meaning |
 |---|---|---|
@@ -924,7 +924,7 @@ google/uuid, rapid for tests). No new dependencies in this slice.
 
 A PI signature step (a process message with `signed-by` or `signature-meaning`) is accepted only from a signed-in person whose
 token was issued by a login within `SHOPFLOOR_SIGNATURE_MAX_AUTH_AGE_SECONDS` (chart `config.signatureMaxAuthAgeSeconds`,
-default 300). The gateways forward the token's `auth_time` claim as `X-Passage-Auth-Time`. **The identity provider must put
+default 300). The gateways forward the token's `auth_time` claim as `X-Depot-Auth-Time`. **The identity provider must put
 `auth_time` in access tokens and honour `prompt=login` / `max_age=0`.** Keycloak does by default; an IdP that does not
 (Entra ID v2 access tokens, for one) makes every signature fail with 403 SF-0188, whose detail then says the sign-in carries
 no authentication time. There is no switch to turn the check off. The signer's user id and the `auth_time` used are stored on

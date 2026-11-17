@@ -1,4 +1,4 @@
--- PSG-25 slice 16: a worker's home resource (D2a'). The dispatch list the PRD calls "my jobs"
+-- DPT-25 slice 16: a worker's home resource (D2a'). The dispatch list the PRD calls "my jobs"
 -- (GET jobs?workerId=) is the jobs of the resource the worker normally runs, and the kiosk shows
 -- it for the signed-in worker. The column is a resource id from engineering data (w9), another
 -- service, so there is no foreign key; the store accepts only a resource this tenant's shop floor

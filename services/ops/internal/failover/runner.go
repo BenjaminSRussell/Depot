@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/domain"
 )
 
 // Step actions, the Action values of domain.PlanFailover.

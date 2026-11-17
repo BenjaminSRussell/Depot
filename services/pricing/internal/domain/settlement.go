@@ -11,7 +11,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // Settlement targets of the commission settlement export (FR-26.18, §5.26.13

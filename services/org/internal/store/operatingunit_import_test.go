@@ -6,11 +6,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
 func importRow(line int, unitType, code, name, entity string) store.OperatingUnitImportRow {
@@ -28,7 +28,7 @@ func TestPostgres_ImportOperatingUnits(t *testing.T) {
 	existing := unit("department", "D1")
 	existing.DefaultLegalEntityID = &a.ID
 	mustCreateUnit(t, s, ctx, existing)
-	before := len(unitEvents(t, ctx, pool, "dev.passage.org.operatingunit.created.v1"))
+	before := len(unitEvents(t, ctx, pool, "dev.depot.org.operatingunit.created.v1"))
 
 	rows := []store.OperatingUnitImportRow{
 		importRow(1, "department", "D1", "Unit D1", "US01"),
@@ -53,7 +53,7 @@ func TestPostgres_ImportOperatingUnits(t *testing.T) {
 		if err != nil || created.DefaultLegalEntityID == nil || *created.DefaultLegalEntityID != a.ID || created.Version != 1 {
 			t.Fatalf("created %+v err %v", created, err)
 		}
-		if got := len(unitEvents(t, ctx, pool, "dev.passage.org.operatingunit.created.v1")) - before; got != 2 {
+		if got := len(unitEvents(t, ctx, pool, "dev.depot.org.operatingunit.created.v1")) - before; got != 2 {
 			t.Fatalf("events written = %d; want 2", got)
 		}
 	})
@@ -67,7 +67,7 @@ func TestPostgres_ImportOperatingUnits(t *testing.T) {
 				t.Fatalf("res %+v", res)
 			}
 		}
-		if got := len(unitEvents(t, ctx, pool, "dev.passage.org.operatingunit.created.v1")) - before; got != 2 {
+		if got := len(unitEvents(t, ctx, pool, "dev.depot.org.operatingunit.created.v1")) - before; got != 2 {
 			t.Fatalf("events after rerun = %d; want 2", got)
 		}
 	})

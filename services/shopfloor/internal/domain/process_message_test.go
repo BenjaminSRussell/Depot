@@ -7,7 +7,7 @@ import (
 
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 var at = time.Date(2026, 10, 20, 9, 0, 0, 0, time.UTC)

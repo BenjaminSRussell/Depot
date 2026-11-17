@@ -13,12 +13,12 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/fxclient"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/posting"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/fxclient"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/posting"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/store"
 )
 
 // DefaultRateType is the rate type of the fx rate tables both sides of a pair are converted at.

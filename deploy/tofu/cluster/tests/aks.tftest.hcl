@@ -5,7 +5,7 @@ mock_provider "helm" {}
 mock_provider "null" {}
 
 variables {
-  name            = "passage-test"
+  name            = "depot-test"
   azure_tenant_id = "00000000-0000-0000-0000-000000000002"
 }
 

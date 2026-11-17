@@ -19,15 +19,15 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
+	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
 )
 
 // fakeAzure serves a Key Vault key (real RSA-OAEP-256 wrapping) and an Entra token endpoint over TLS, and returns an
 // http.Client that sends every request, whatever its host, to it, so the production URLs are exercised.
 type fakeAzure struct {
-	server    *httptest.Server
-	client    *http.Client
-	priv      *rsa.PrivateKey
+	server *httptest.Server
+	client *http.Client
+	priv   *rsa.PrivateKey
 	// older holds the private keys of earlier key versions, by version; priv is the latest, reported as latest.
 	older     map[string]*rsa.PrivateKey
 	latest    string
@@ -135,7 +135,7 @@ func newClient(t *testing.T, f *fakeAzure, profile, keyID string) *Client {
 
 func TestWrapUnwrapRoundTripThroughKeyVaultWithWorkloadIdentity(t *testing.T) {
 	f := newFakeAzure(t)
-	c := newClient(t, f, "commercial", "https://kv-passage.vault.azure.net/keys/fieldcrypt-kek/0123abcd")
+	c := newClient(t, f, "commercial", "https://kv-depot.vault.azure.net/keys/fieldcrypt-kek/0123abcd")
 	master := make([]byte, 32)
 	_, _ = rand.Read(master)
 	wrapped, err := c.Wrap(context.Background(), master)
@@ -155,7 +155,7 @@ func TestWrapUnwrapRoundTripThroughKeyVaultWithWorkloadIdentity(t *testing.T) {
 	if f.tokens.Load() != 1 {
 		t.Errorf("token fetched %d times, want one (cached)", f.tokens.Load())
 	}
-	for _, want := range []string{"POST login.microsoftonline.com/tenant-1/oauth2/v2.0/token", "POST kv-passage.vault.azure.net/keys/fieldcrypt-kek/0123abcd/wrapkey", "POST kv-passage.vault.azure.net/keys/fieldcrypt-kek/0123abcd/unwrapkey"} {
+	for _, want := range []string{"POST login.microsoftonline.com/tenant-1/oauth2/v2.0/token", "POST kv-depot.vault.azure.net/keys/fieldcrypt-kek/0123abcd/wrapkey", "POST kv-depot.vault.azure.net/keys/fieldcrypt-kek/0123abcd/unwrapkey"} {
 		if !slices.Contains(f.paths, want) {
 			t.Errorf("no request %q in %v", want, f.paths)
 		}
@@ -254,7 +254,7 @@ func TestFromEnvNeedsAKeyInTheProfilesVault(t *testing.T) {
 	if _, err := FromEnv(env(map[string]string{})); err == nil {
 		t.Error("no key id must fail")
 	}
-	if _, err := FromEnv(env(map[string]string{EnvKeyID: "https://kv.vault.azure.net/keys/kek", "PASSAGE_CLOUD_PROFILE": "gcc-high"})); err == nil {
+	if _, err := FromEnv(env(map[string]string{EnvKeyID: "https://kv.vault.azure.net/keys/kek", "DEPOT_CLOUD_PROFILE": "gcc-high"})); err == nil {
 		t.Error("a commercial vault under gcc-high must fail")
 	}
 	if _, err := FromEnv(env(map[string]string{EnvKeyID: "https://kv.vault.azure.net/keys/kek"})); err != nil {
@@ -266,7 +266,7 @@ func TestFromEnvNeedsAKeyInTheProfilesVault(t *testing.T) {
 // its wrap reported, while an unversioned unwrap (the latest version) cannot open it.
 func TestAWrappedKeyStillUnwrapsAfterTheVaultKeyIsRotated(t *testing.T) {
 	f := newFakeAzure(t)
-	c := newClient(t, f, "commercial", "https://kv-passage.vault.azure.net/keys/fieldcrypt-kek")
+	c := newClient(t, f, "commercial", "https://kv-depot.vault.azure.net/keys/fieldcrypt-kek")
 	master := make([]byte, 32)
 	_, _ = rand.Read(master)
 	wrapped, version, err := c.WrapVersioned(context.Background(), master)
@@ -285,7 +285,7 @@ func TestAWrappedKeyStillUnwrapsAfterTheVaultKeyIsRotated(t *testing.T) {
 	if err != nil || string(got) != string(master) {
 		t.Fatalf("unwrap by version = %x, %v", got, err)
 	}
-	if !slices.Contains(f.paths, "POST kv-passage.vault.azure.net/keys/fieldcrypt-kek/0123abcd/unwrapkey") {
+	if !slices.Contains(f.paths, "POST kv-depot.vault.azure.net/keys/fieldcrypt-kek/0123abcd/unwrapkey") {
 		t.Errorf("paths = %v", f.paths)
 	}
 	if _, err := c.UnwrapVersion(context.Background(), "../x", wrapped); err == nil {

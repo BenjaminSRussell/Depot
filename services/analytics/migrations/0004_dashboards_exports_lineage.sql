@@ -1,4 +1,4 @@
--- Slice 4 (PSG-4604): dashboards, explorer exports, schedule deliveries and
+-- Slice 4 (DPT-4604): dashboards, explorer exports, schedule deliveries and
 -- catalog lineage. Every table is tenant-wide (no legal_entity_id), so only the
 -- tenant policy applies: data scope is applied to the queries a dashboard or an
 -- export runs, not to their definitions.
@@ -19,8 +19,8 @@ create table if not exists dashboard (
 alter table dashboard enable row level security;
 alter table dashboard force row level security;
 create policy dashboard_tenant_access on dashboard as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Explorer export jobs (FR-46.9, BR-46.7), the export log of §9.46.14.
 -- query_hash fingerprints the requesting user, the format and the compiled,
@@ -45,8 +45,8 @@ create table if not exists export_job (
 alter table export_job enable row level security;
 alter table export_job force row level security;
 create policy export_job_tenant_access on export_job as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create index if not exists export_job_hash on export_job (tenant_id, query_hash, created_at desc);
 create index if not exists export_job_log on export_job (tenant_id, created_at desc);
 
@@ -75,8 +75,8 @@ create table if not exists report_delivery (
 alter table report_delivery enable row level security;
 alter table report_delivery force row level security;
 create policy report_delivery_tenant_access on report_delivery as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create index if not exists report_delivery_schedule on report_delivery (tenant_id, schedule_id, run_at desc);
 
 -- Lineage edges between catalog assets (FR-46.12). An edge says target is
@@ -93,8 +93,8 @@ create table if not exists lineage_edge (
 alter table lineage_edge enable row level security;
 alter table lineage_edge force row level security;
 create policy lineage_edge_tenant_access on lineage_edge as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create index if not exists lineage_edge_target on lineage_edge (tenant_id, target_fqn);
 
 -- Application role privileges for the slice-4 tables (see 0002_grants.sql).
@@ -105,10 +105,10 @@ create index if not exists lineage_edge_target on lineage_edge (tenant_id, targe
 -- here is deleted by the service.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON dashboard TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON export_job, report_delivery, lineage_edge TO passage_app';
-    EXECUTE 'GRANT UPDATE (last_run_at, next_run_at, failure_count) ON report_schedule TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON dashboard TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON export_job, report_delivery, lineage_edge TO depot_app';
+    EXECUTE 'GRANT UPDATE (last_run_at, next_run_at, failure_count) ON report_schedule TO depot_app';
   END IF;
 END
 $$;

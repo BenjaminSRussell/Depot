@@ -11,7 +11,7 @@ import (
 // TrustedProxiesEnv names the comma-separated list of CIDRs (or bare IPs) of the
 // ingress proxies whose forwarded headers are honoured. Empty means none: the
 // client IP is always the TCP peer address.
-const TrustedProxiesEnv = "PASSAGE_TRUSTED_PROXIES"
+const TrustedProxiesEnv = "DEPOT_TRUSTED_PROXIES"
 
 // ParseTrustedProxies parses a comma-separated CIDR/IP list, ignoring blanks and
 // invalid entries.

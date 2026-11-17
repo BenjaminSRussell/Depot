@@ -4,7 +4,7 @@
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: BackendTrafficPolicy
 metadata:
-  name: passage-payments-webhook-limits
+  name: depot-payments-webhook-limits
   namespace: hello-ledger
 spec:
   targetRefs:

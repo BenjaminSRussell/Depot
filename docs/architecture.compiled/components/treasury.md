@@ -1,7 +1,7 @@
 # Treasury
 
 ## Purpose & Boundaries
-Context `treasury` (Go only, database `passage_treasury`; waves 36-37). Bank accounts/statements/reconciliation, cash forecast, checks, fixed assets, asset books, depreciation, leases (IFRS 16), letters of credit. Posts via `ledger.Post` (bank charges, reconciliation adjustments, depreciation, lease). Signs (Vault transit) and transmits the payment file that `procurement` generates.
+Context `treasury` (Go only, database `depot_treasury`; waves 36-37). Bank accounts/statements/reconciliation, cash forecast, checks, fixed assets, asset books, depreciation, leases (IFRS 16), letters of credit. Posts via `ledger.Post` (bank charges, reconciliation adjustments, depreciation, lease). Signs (Vault transit) and transmits the payment file that `procurement` generates.
 
 ## Interfaces
 Prefix `/v1/treasury/`: `bank-statements:import` (202; camt.053/MT940/BAI2; idempotent by file hash), `bank-statements/{id}:auto-reconcile`, `bank-statement-lines/{id}:match` (posts via ledger.Post), `cash-positions`, `cash-forecasts` (202), `checks/{id}:void` (number retained), `bank-connections/{id}:test` (EBICS/SFTP; keys stay in Vault), `payment-submissions` (Svc:`paymentsubmission.write`; signed under principal `system:treasury-signer` holding duty `Release payments` — key custody control, not SoD), `fixed-assets/{id}:acquire|:dispose|:transfer|:revalue`, `depreciation-runs` (202), `leases/{id}:commence|:modify`, `GET /reconciliation/{check}` (bank, assets).

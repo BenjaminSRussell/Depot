@@ -11,13 +11,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
 func rule(t *testing.T, currency, purpose, unit, method string, entity *string) store.CurrencyRounding {
@@ -54,7 +54,7 @@ func roundingEvents(t *testing.T, ctx context.Context, pool *pgxpool.Pool) []map
 	t.Helper()
 	var payloads []map[string]any
 	for _, row := range outboxRows(t, ctx, pool) {
-		if row.Type != "dev.passage.org.currencyrounding.changed.v1" {
+		if row.Type != "dev.depot.org.currencyrounding.changed.v1" {
 			continue
 		}
 		var envelope struct {

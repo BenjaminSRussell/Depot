@@ -1,11 +1,11 @@
 -- Payment prediction (FR-47.15, 9.47 data model): models, predictions, per-tenant settings and the outbox.
 -- Every table carries tenant_id with ENABLE + FORCE row-level security and the tenant policy. Run as the owner
--- role, never as passage_app (which would own the tables and could switch row-level security off).
+-- role, never as depot_app (which would own the tables and could switch row-level security off).
 
 DO $do$
 BEGIN
-  IF current_user = 'passage_app' THEN
-    RAISE EXCEPTION 'prediction migrations must run as the owner role, not passage_app';
+  IF current_user = 'depot_app' THEN
+    RAISE EXCEPTION 'prediction migrations must run as the owner role, not depot_app';
   END IF;
 END
 $do$;
@@ -28,8 +28,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS prediction_model_one_active ON prediction_mode
 ALTER TABLE prediction_model ENABLE ROW LEVEL SECURITY;
 ALTER TABLE prediction_model FORCE ROW LEVEL SECURITY;
 CREATE POLICY prediction_model_tenant_access ON prediction_model AS PERMISSIVE
-  USING (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid)
-  WITH CHECK (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
+  USING (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid)
+  WITH CHECK (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
 
 -- The latest prediction per open invoice. actual_paid_date is set when the invoice turns up paid in a retrain,
 -- which is what the accuracy report reads.
@@ -50,8 +50,8 @@ CREATE INDEX IF NOT EXISTS payment_prediction_outcomes ON payment_prediction (te
 ALTER TABLE payment_prediction ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payment_prediction FORCE ROW LEVEL SECURITY;
 CREATE POLICY payment_prediction_tenant_access ON payment_prediction AS PERMISSIVE
-  USING (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid)
-  WITH CHECK (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
+  USING (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid)
+  WITH CHECK (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
 
 -- prediction.payment.* per tenant (9.47.20). A tenant without a row uses the service defaults.
 CREATE TABLE IF NOT EXISTS prediction_settings (
@@ -64,8 +64,8 @@ CREATE TABLE IF NOT EXISTS prediction_settings (
 ALTER TABLE prediction_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE prediction_settings FORCE ROW LEVEL SECURITY;
 CREATE POLICY prediction_settings_tenant_access ON prediction_settings AS PERMISSIVE
-  USING (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid)
-  WITH CHECK (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
+  USING (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid)
+  WITH CHECK (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
 
 -- Transactional outbox (kernel dbx.OutboxDDL shape): prediction.payment.scored rows are written with the predictions.
 CREATE TABLE IF NOT EXISTS outbox (
@@ -80,17 +80,17 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid)
-  WITH CHECK (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
+  USING (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid)
+  WITH CHECK (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON prediction_model TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON payment_prediction TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON prediction_settings TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON outbox TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON prediction_model TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON payment_prediction TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON prediction_settings TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON outbox TO depot_app';
   END IF;
 END
 $$;

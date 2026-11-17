@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/costing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/costing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/costing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/costing/internal/store"
 )
 
 // slice4 fakes the valuation setup and aging stores in memory, with the same
@@ -223,7 +223,7 @@ func TestValuationLedgers_RegisterAndRefuse(t *testing.T) {
 	if rec := call(h, http.MethodGet, "/v1/costing/valuation-ledgers", "", allDuties, scopedTo("")); rec.Code != http.StatusForbidden {
 		t.Errorf("unfiltered list without legal-entity scope: %d, want 403", rec.Code)
 	}
-	allScope := map[string]string{"X-Passage-LegalEntity-Scope": "ALL"}
+	allScope := map[string]string{"X-Depot-LegalEntity-Scope": "ALL"}
 	if got := items(t, call(h, http.MethodGet, "/v1/costing/valuation-ledgers", "", allDuties+",org.switcher.all-scope", allScope)); len(got) != 3 {
 		t.Errorf("all ledgers = %d, want 3", len(got))
 	}
@@ -254,7 +254,7 @@ func TestValuationLedgers_ValidationAndDuty(t *testing.T) {
 func TestValuationLedgers_LegalEntityScope(t *testing.T) {
 	h, _ := server()
 	mine, other := ids.New(), ids.New()
-	scoped := map[string]string{"X-Passage-Legal-Entity": mine}
+	scoped := map[string]string{"X-Depot-Legal-Entity": mine}
 	if rec := call(h, http.MethodPost, "/v1/costing/valuation-ledgers", ledgerBody(other, ids.New(), "IFRS", "FIFO", true), setupDuties, scoped); rec.Code != http.StatusForbidden {
 		t.Errorf("create in another legal entity: %d, want 403", rec.Code)
 	}
@@ -439,7 +439,7 @@ func TestAgingSnapshot_LedgerAndBucketSet(t *testing.T) {
 		if name == "ledger of another legal entity" {
 			otherLE := ids.New()
 			body = snapshotBody(otherLE, p, s, tc.extra)
-			headers["X-Passage-Legal-Entity"] = otherLE
+			headers["X-Depot-Legal-Entity"] = otherLE
 		}
 		if name == "transactions dated after the day" {
 			body = strings.Replace(body, `"asOf":"2026-01-31",`, "", 1)

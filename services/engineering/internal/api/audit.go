@@ -13,10 +13,10 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/store"
 )
 
 const (
@@ -40,7 +40,7 @@ type Reauthenticator interface {
 	Verify(ctx context.Context, actor string, auth domain.Reauth) (method string, err error)
 }
 
-// NopAuditor discards records; it is bound only when PASSAGE_ENV=dev and AUDIT_URL is unset.
+// NopAuditor discards records; it is bound only when DEPOT_ENV=dev and AUDIT_URL is unset.
 type NopAuditor struct{}
 
 func (NopAuditor) RecordSignature(context.Context, domain.Signature) error { return nil }
@@ -51,7 +51,7 @@ func (FailClosedReauth) Verify(context.Context, string, domain.Reauth) (string, 
 	return "", httpx.NewProblem(http.StatusServiceUnavailable, domain.CodeDocReauthUnavailable, "signing is unavailable: no re-authentication service is configured")
 }
 
-// DevReauth verifies nothing; it is bound only when PASSAGE_ENV=dev, and every signature it admits records
+// DevReauth verifies nothing; it is bound only when DEPOT_ENV=dev, and every signature it admits records
 // the method domain.AuthDevUnverified so it can never pass for a re-authenticated one.
 type DevReauth struct{}
 

@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 func ssccs(rows []store.SSCCRow) []string {

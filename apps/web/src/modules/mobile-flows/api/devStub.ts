@@ -1,4 +1,4 @@
-// Vite middleware that stands in for the mobile service during `vite serve` / Playwright; enabled by PASSAGE_MOBILE_STUB=1.
+// Vite middleware that stands in for the mobile service during `vite serve` / Playwright; enabled by DEPOT_MOBILE_STUB=1.
 import type { Plugin } from "vite";
 import { createMobileStore } from "./devStore";
 
@@ -47,7 +47,7 @@ function pathOf(req: StubReq): string {
 export function mobileDevStub(): Plugin {
   const store = createMobileStore();
   return {
-    name: "passage-mobile-dev-stub",
+    name: "depot-mobile-dev-stub",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const stubReq = req as StubReq;

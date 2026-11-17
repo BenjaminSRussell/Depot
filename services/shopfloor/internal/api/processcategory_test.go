@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
 )
 
 const categoryID = "0195f0a0-0000-7000-8000-000000000051"

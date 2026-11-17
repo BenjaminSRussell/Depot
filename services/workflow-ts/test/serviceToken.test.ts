@@ -95,17 +95,17 @@ describe("service token", () => {
 
   it("reads the seed from the environment or a mounted file and fails without one", () => {
     const seed = Buffer.alloc(32, 3).toString("base64");
-    expect(() => serviceTokenSignerFromEnv({ PASSAGE_SERVICE_SIGNING_KEY: seed }, () => "")).not.toThrow();
-    expect(() => serviceTokenSignerFromEnv({ PASSAGE_SERVICE_SIGNING_KEY_FILE: "/secret" }, () => `${seed}\n`)).not.toThrow();
+    expect(() => serviceTokenSignerFromEnv({ DEPOT_SERVICE_SIGNING_KEY: seed }, () => "")).not.toThrow();
+    expect(() => serviceTokenSignerFromEnv({ DEPOT_SERVICE_SIGNING_KEY_FILE: "/secret" }, () => `${seed}\n`)).not.toThrow();
     expect(() => serviceTokenSignerFromEnv({}, () => "")).toThrow(/required/);
   });
 
   it("prefers the mounted key file over the environment variable", () => {
     const mounted = Buffer.alloc(32, 7);
     const stale = Buffer.alloc(32, 9).toString("base64");
-    const signer = serviceTokenSignerFromEnv({ PASSAGE_SERVICE_SIGNING_KEY: stale, PASSAGE_SERVICE_SIGNING_KEY_FILE: "/secret" }, () => `${mounted.toString("base64")}\n`);
+    const signer = serviceTokenSignerFromEnv({ DEPOT_SERVICE_SIGNING_KEY: stale, DEPOT_SERVICE_SIGNING_KEY_FILE: "/secret" }, () => `${mounted.toString("base64")}\n`);
     const [body, signature] = signer.mintForPayables({ tenantId: "t", legalEntityId: "l", actor: "a" }).split(".");
     const publicKey = createPublicKey(createPrivateKey({ key: Buffer.concat([Buffer.from("302e020100300506032b657004220420", "hex"), mounted]), format: "der", type: "pkcs8" }));
-    expect(verify(null, Buffer.from(`passage.service-token.v1.${body}`), publicKey, Buffer.from(signature!, "base64url"))).toBe(true);
+    expect(verify(null, Buffer.from(`depot.service-token.v1.${body}`), publicKey, Buffer.from(signature!, "base64url"))).toBe(true);
   });
 });

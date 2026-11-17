@@ -3,8 +3,8 @@ package store_test
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 func TestDispatchRows_ListsPrimaryAndSecondaryBookingsInTheWindow(t *testing.T) {

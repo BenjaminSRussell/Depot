@@ -11,12 +11,12 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/store"
 )
 
 func net(t *testing.T, l ledgerclient.Ledger, ledgerID, account string) decimal.Decimal {

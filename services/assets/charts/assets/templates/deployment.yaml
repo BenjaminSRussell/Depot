@@ -32,7 +32,7 @@ spec:
 {{- end }}
       containers:
         - name: assets
-          image: "{{ (include "passage.imageRepository" $) }}:{{ .Values.image.tag }}{{ if .Values.image.digest }}@{{ .Values.image.digest }}{{ end }}"
+          image: "{{ (include "depot.imageRepository" $) }}:{{ .Values.image.tag }}{{ if .Values.image.digest }}@{{ .Values.image.digest }}{{ end }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
@@ -42,7 +42,7 @@ spec:
             - name: admin
               containerPort: {{ .Values.service.adminPort }}
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: SERVICE_NAME
               value: assets
             - name: HTTP_ADDR
@@ -58,22 +58,22 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.database.secretName }}
                   key: {{ .Values.database.secretKey }}
-            - name: PASSAGE_SERVICE_NAME
+            - name: DEPOT_SERVICE_NAME
               value: assets
 {{- if .Values.ledgerUrl }}
             - { name: LEDGER_URL, value: {{ .Values.ledgerUrl | quote }} }
 {{- end }}
 {{- if .Values.serviceIdentity.signingKeySecret }}
-            - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
-              value: /var/run/passage/service-identity/signing-key
+            - name: DEPOT_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/depot/service-identity/signing-key
 {{- if .Values.serviceIdentity.keyId }}
-            - name: PASSAGE_SERVICE_KEY_ID
+            - name: DEPOT_SERVICE_KEY_ID
               value: {{ .Values.serviceIdentity.keyId | quote }}
 {{- end }}
 {{- end }}
 {{- if .Values.serviceIdentity.signingKeySecret }}
           volumeMounts:
-            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
 {{- end }}
           livenessProbe:
             httpGet:

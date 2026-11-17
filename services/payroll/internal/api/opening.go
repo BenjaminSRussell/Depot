@@ -14,13 +14,13 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	platmoney "github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/openingimport"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/payroll/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	platmoney "github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/openingimport"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/payroll/internal/store"
 )
 
 // Opening import of payroll year-to-date balances at cutover (#49): the migration factory sends, per worker and tax year, the gross, tax, deductions and

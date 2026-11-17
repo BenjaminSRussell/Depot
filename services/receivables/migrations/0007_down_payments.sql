@@ -30,11 +30,11 @@ CREATE INDEX IF NOT EXISTS down_payment_customer_idx ON down_payment (tenant_id,
 ALTER TABLE down_payment ENABLE ROW LEVEL SECURITY;
 ALTER TABLE down_payment FORCE ROW LEVEL SECURITY;
 CREATE POLICY down_payment_tenant_access ON down_payment AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY down_payment_legal_entity_scope ON down_payment AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- One row per clearing, so an open item's history (amount - settlements - clearings)
 -- and the as-of balance of a balance confirmation stay reconstructible.
@@ -55,8 +55,8 @@ CREATE INDEX IF NOT EXISTS down_payment_clearing_dp_idx ON down_payment_clearing
 ALTER TABLE down_payment_clearing ENABLE ROW LEVEL SECURITY;
 ALTER TABLE down_payment_clearing FORCE ROW LEVEL SECURITY;
 CREATE POLICY down_payment_clearing_tenant_access ON down_payment_clearing AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY down_payment_clearing_legal_entity_scope ON down_payment_clearing AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

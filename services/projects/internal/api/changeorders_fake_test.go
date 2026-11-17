@@ -7,11 +7,11 @@ import (
 	"sort"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/projects/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/projects/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/projects/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/projects/internal/store"
 )
 
 // This file gives fakeStore the change order and risk register methods of

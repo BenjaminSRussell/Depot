@@ -1,30 +1,30 @@
 # The scheduling consumers (`scheduling consume`): the downtime consumer (group scheduling-downtime) reads eam's
-# passage.eam.downtime and parks on passage.eam.downtime.dlq; the production order intake (group scheduling-order-import,
+# depot.eam.downtime and parks on depot.eam.downtime.dlq; the production order intake (group scheduling-order-import,
 # chart consumer.kafka.orderGroup, started once service:scheduling-order-import is seeded) reads production's
-# order.scheduled and order.statuschanged on passage.production.order (outbox-production, deploy/kafka/connect.yaml) and parks
-# on passage.production.order.dlq. Literal ACLs: the user reads only those two topics and writes only their dead-letter topics.
+# order.scheduled and order.statuschanged on depot.production.order (outbox-production, deploy/kafka/connect.yaml) and parks
+# on depot.production.order.dlq. Literal ACLs: the user reads only those two topics and writes only their dead-letter topics.
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
   name: scheduling-consumer
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage
+    strimzi.io/cluster: depot
 spec:
   authentication:
     type: scram-sha-512
   authorization:
     type: simple
     acls:
-      - resource: {type: topic, name: passage.eam.downtime, patternType: literal}
+      - resource: {type: topic, name: depot.eam.downtime, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.eam.downtime.dlq, patternType: literal}
+      - resource: {type: topic, name: depot.eam.downtime.dlq, patternType: literal}
         operations: [Write, Describe]
       - resource: {type: group, name: scheduling-downtime, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.production.order, patternType: literal}
+      - resource: {type: topic, name: depot.production.order, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.production.order.dlq, patternType: literal}
+      - resource: {type: topic, name: depot.production.order.dlq, patternType: literal}
         operations: [Write, Describe]
       - resource: {type: group, name: scheduling-order-import, patternType: literal}
         operations: [Read, Describe]
@@ -32,12 +32,12 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: passage-eam-downtime-dlq
+  name: depot-eam-downtime-dlq
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage
+    strimzi.io/cluster: depot
 spec:
-  topicName: passage.eam.downtime.dlq
+  topicName: depot.eam.downtime.dlq
   partitions: 3
   replicas: 3
   config:
@@ -46,12 +46,12 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: passage-production-order-dlq
+  name: depot-production-order-dlq
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage
+    strimzi.io/cluster: depot
 spec:
-  topicName: passage.production.order.dlq
+  topicName: depot.production.order.dlq
   partitions: 3
   replicas: 3
   config:

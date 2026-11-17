@@ -1,5 +1,5 @@
 image:
-  repository: ghcr.io/benjaminsrussell/passage-localization
+  repository: ghcr.io/benjaminsrussell/depot-localization
   # Stage and prod pin the digest (cosign-signed) through Argo CD; the tag is for dev.
   tag: "0.1.0"
   digest: ""
@@ -11,7 +11,7 @@ serviceName: localization
 
 # Slice 1 is stateless: packs ship in the image under /countrypacks and no database is used.
 config:
-  passageEnv: dev
+  depotEnv: dev
   httpAddr: ":8080"
   adminAddr: ":9090"
   countryPacksDir: /countrypacks

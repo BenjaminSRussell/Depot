@@ -25,7 +25,7 @@ func fullEnv() map[string]string {
 	return map[string]string{
 		"ANALYTICS_RECON_TENANT_ID": reconTenant, "CUBE_URL": "http://cube", "CUBE_API_TOKEN": cubeToken(reconTenant, time.Now().Add(time.Hour)), "LEDGER_URL": "http://ledger",
 		"ANALYTICS_RECON_LEDGERS": reconEntity + "=" + reconLedger, "ANALYTICS_RECON_REVENUE_ACCOUNTS": "4000-4999",
-		"PASSAGE_SERVICE_NAME": "analytics", "PASSAGE_SERVICE_SIGNING_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"DEPOT_SERVICE_NAME": "analytics", "DEPOT_SERVICE_SIGNING_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
 	}
 }
 
@@ -46,7 +46,7 @@ func TestNewReconJob_BuildsFromFullConfig(t *testing.T) {
 }
 
 func TestNewReconJob_RejectsIncompleteOrMalformedConfig(t *testing.T) {
-	for _, key := range []string{"CUBE_URL", "CUBE_API_TOKEN", "LEDGER_URL", "ANALYTICS_RECON_LEDGERS", "ANALYTICS_RECON_REVENUE_ACCOUNTS", "PASSAGE_SERVICE_SIGNING_KEY"} {
+	for _, key := range []string{"CUBE_URL", "CUBE_API_TOKEN", "LEDGER_URL", "ANALYTICS_RECON_LEDGERS", "ANALYTICS_RECON_REVENUE_ACCOUNTS", "DEPOT_SERVICE_SIGNING_KEY"} {
 		m := fullEnv()
 		delete(m, key)
 		if _, err := newReconJob(env(m), nil); err == nil {

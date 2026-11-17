@@ -10,15 +10,15 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/services/productcost/internal/api"
-	"github.com/BenjaminSRussell/passage/services/productcost/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/productcost/internal/engineering"
-	"github.com/BenjaminSRussell/passage/services/productcost/internal/inventory"
-	"github.com/BenjaminSRussell/passage/services/productcost/internal/store"
-	"github.com/BenjaminSRussell/passage/services/productcost/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/services/productcost/internal/api"
+	"github.com/BenjaminSRussell/depot/services/productcost/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/productcost/internal/engineering"
+	"github.com/BenjaminSRussell/depot/services/productcost/internal/inventory"
+	"github.com/BenjaminSRussell/depot/services/productcost/internal/store"
+	"github.com/BenjaminSRussell/depot/services/productcost/migrations"
 )
 
 const (

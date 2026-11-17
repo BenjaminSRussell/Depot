@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 func (f *fakeStore) UpdateResource(_ context.Context, id string, version int, patch store.ResourcePatch, _ time.Time, idem store.Idem) (store.ResourceUpdate, bool, error) {
@@ -27,8 +27,8 @@ func (f *fakeStore) UpdateResource(_ context.Context, id string, version int, pa
 
 func patchResource(h http.Handler, path, body, duties, key, ifMatch string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodPatch, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", tenantID)
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Tenant", tenantID)
+	req.Header.Set("X-Depot-Duties", duties)
 	req.Header.Set("Content-Type", "application/json")
 	if key != "" {
 		req.Header.Set("Idempotency-Key", key)

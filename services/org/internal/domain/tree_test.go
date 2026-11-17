@@ -8,7 +8,7 @@ import (
 
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/services/org/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/org/internal/domain"
 )
 
 func chain(length int) []domain.Node {

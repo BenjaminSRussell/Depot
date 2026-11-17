@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
 )
 
 func (t *tenantData) invoiceBase(invoiceID string) (store.InvoiceBase, error) {

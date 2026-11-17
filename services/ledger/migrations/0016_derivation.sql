@@ -63,36 +63,36 @@ ALTER TABLE journal_line ADD COLUMN IF NOT EXISTS derived_by_step_ids uuid[] NOT
 ALTER TABLE lookup_table ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lookup_table FORCE ROW LEVEL SECURITY;
 CREATE POLICY lookup_table_tenant_access ON lookup_table AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY lookup_table_legal_entity_scope ON lookup_table AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE lookup_table_row ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lookup_table_row FORCE ROW LEVEL SECURITY;
 CREATE POLICY lookup_table_row_tenant_access ON lookup_table_row AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY lookup_table_row_legal_entity_scope ON lookup_table_row AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE derivation_strategy ENABLE ROW LEVEL SECURITY;
 ALTER TABLE derivation_strategy FORCE ROW LEVEL SECURITY;
 CREATE POLICY derivation_strategy_tenant_access ON derivation_strategy AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY derivation_strategy_legal_entity_scope ON derivation_strategy AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Lookup tables and strategy drafts are updated in place; a table's rows are replaced (deleted and inserted).
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON lookup_table, derivation_strategy TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON lookup_table_row TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON lookup_table, derivation_strategy TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON lookup_table_row TO depot_app';
   END IF;
 END
 $$;

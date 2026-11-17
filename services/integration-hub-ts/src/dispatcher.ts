@@ -222,7 +222,7 @@ export class Dispatcher {
 
   /**
    * Replays the archive from `fromSeconds` (BR-35.9): every page of planReplay
-   * is enqueued as a replayed delivery, so receivers see ce-passagereplay: true.
+   * is enqueued as a replayed delivery, so receivers see ce-depotreplay: true.
    * Returns the number of events enqueued.
    */
   replay(archive: readonly HubEvent[], fromSeconds: number, cap: number = REPLAY_MAX_EVENTS): number {
@@ -317,11 +317,11 @@ export class Dispatcher {
     const body = JSON.stringify({
       specversion: "1.0",
       id: e.eventId,
-      source: this.#o.source ?? "/passage/integration-hub",
+      source: this.#o.source ?? "/depot/integration-hub",
       type: e.type,
       time: new Date(e.occurredAt * 1000).toISOString(),
       subject: e.aggregateId,
-      passagesequence: e.sequence,
+      depotsequence: e.sequence,
       data: e.data,
     });
     // At-least-once: a retry, a resend after a crash and a replay all carry the
@@ -329,7 +329,7 @@ export class Dispatcher {
     const headers: Record<string, string> = {
       "content-type": "application/cloudevents+json",
       "idempotency-key": e.eventId,
-      "passage-signature": sign(this.#o.subscription.secret, now, body, this.#o.subscription.previousSecret),
+      "depot-signature": sign(this.#o.subscription.secret, now, body, this.#o.subscription.previousSecret),
       ...(delivery.replay ? replayHeaders() : {}),
     };
     return { body, headers };

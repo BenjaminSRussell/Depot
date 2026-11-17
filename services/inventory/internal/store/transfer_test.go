@@ -9,10 +9,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 var shipDay = time.Date(2026, 9, 2, 0, 0, 0, 0, time.UTC)
@@ -132,11 +132,11 @@ func TestTransferThroughTransitWithShortClose(t *testing.T) {
 	if err := admin.QueryRow(context.Background(), `select count(*) from inventory_journal where journal_type = 'OPENING_BALANCE'`).Scan(&journals); err != nil || journals != 1 {
 		t.Fatalf("journals %d (%v): a transfer must not create a journal or GL entry", journals, err)
 	}
-	if outboxCount(t, admin, "dev.passage.inventory.transfer.shipped.v1") != 1 || outboxCount(t, admin, "dev.passage.inventory.transfer.received.v1") != 1 {
+	if outboxCount(t, admin, "dev.depot.inventory.transfer.shipped.v1") != 1 || outboxCount(t, admin, "dev.depot.inventory.transfer.received.v1") != 1 {
 		t.Fatal("want one transfer.shipped and one transfer.received event")
 	}
 	var raw []byte
-	if err := admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.passage.inventory.transfer.received.v1'`).Scan(&raw); err != nil {
+	if err := admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.depot.inventory.transfer.received.v1'`).Scan(&raw); err != nil {
 		t.Fatal(err)
 	}
 	var evt struct {
@@ -242,7 +242,7 @@ func TestTransferShipRespectsAvailability(t *testing.T) {
 	if n := transferTxnCount(t, admin, o.ID); n != 0 {
 		t.Fatalf("%d transactions written by a refused shipment", n)
 	}
-	if outboxCount(t, admin, "dev.passage.inventory.transfer.shipped.v1") != 0 {
+	if outboxCount(t, admin, "dev.depot.inventory.transfer.shipped.v1") != 0 {
 		t.Fatal("a refused shipment emitted an event")
 	}
 	if _, err := s.ShipTransfer(ctx, o.ID, o.Version, nil, shipDay, domain.NegativePolicy{PhysicalAllowed: true, FinancialAllowed: true}); err != nil {
@@ -544,7 +544,7 @@ func TestTransferPartialShipmentsAndPlannedReceipt(t *testing.T) {
 	if !second.ShipDate.Equal(shipDay) {
 		t.Fatalf("order ship date %v after a later partial shipment, want the first shipment's %v", second.ShipDate, shipDay)
 	}
-	if n := outboxCount(t, admin, "dev.passage.inventory.transfer.shipped.v1"); n != 2 {
+	if n := outboxCount(t, admin, "dev.depot.inventory.transfer.shipped.v1"); n != 2 {
 		t.Fatalf("transfer.shipped events %d, want one per shipment", n)
 	}
 	var evt struct {
@@ -553,7 +553,7 @@ func TestTransferPartialShipmentsAndPlannedReceipt(t *testing.T) {
 			ShippedQty string `json:"shippedQty"`
 		} `json:"lines"`
 	}
-	eventData(t, admin, "dev.passage.inventory.transfer.shipped.v1", "'shipDate'", "2026-09-07", &evt)
+	eventData(t, admin, "dev.depot.inventory.transfer.shipped.v1", "'shipDate'", "2026-09-07", &evt)
 	if len(evt.Lines) != 1 || evt.Lines[0].Qty != "40" || evt.Lines[0].ShippedQty != "100" {
 		t.Fatalf("second transfer.shipped lines %+v, want qty 40 of shipped 100", evt.Lines)
 	}
@@ -651,12 +651,12 @@ func TestEditTransferChangesLinesAndEmitsEvent(t *testing.T) {
 		t.Fatalf("remove last line: %v, want %s", err, domain.CodeInvalid)
 	}
 	var n int
-	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.passage.inventory.transfer.changed.v1'
+	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.depot.inventory.transfer.changed.v1'
 		and aggregate_id = $1`, o.ID).Scan(&n); err != nil || n != 4 {
 		t.Fatalf("transfer.changed events %d (%v), want 4 (the create and three edits)", n, err)
 	}
 	// The event carries the changed header: receiving site and planned receipt date.
-	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.passage.inventory.transfer.changed.v1'
+	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.depot.inventory.transfer.changed.v1'
 		and aggregate_id = $1 and payload->'data'->>'toSiteId' = 'S2' and payload->'data'->>'plannedReceiptDate' = '2026-09-07'
 		and jsonb_array_length(payload->'data'->'lines') = 2`, o.ID).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("transfer.changed with the new site and planned receipt: %d (%v), want 1", n, err)
@@ -672,7 +672,7 @@ func TestEditTransferChangesLinesAndEmitsEvent(t *testing.T) {
 	if _, err := s.EditTransfer(ctx, o2.ID, o2.Version+1, domain.TransferEdit{ClearPlannedReceipt: true}); problemCode(err) != domain.CodeTransferState {
 		t.Fatalf("edit cancelled: %v, want %s", err, domain.CodeTransferState)
 	}
-	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.passage.inventory.transfer.changed.v1'
+	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.depot.inventory.transfer.changed.v1'
 		and aggregate_id = $1`, o2.ID).Scan(&n); err != nil || n != 2 {
 		t.Fatalf("cancel events %d (%v), want 2 (the create and the cancel)", n, err)
 	}

@@ -1,4 +1,4 @@
-# Region file: northeurope is PASSIVE (CNPG replica cluster and MirrorMaker 2 target) in the EU Azure pair. `passage-ops
+# Region file: northeurope is PASSIVE (CNPG replica cluster and MirrorMaker 2 target) in the EU Azure pair. `depot-ops
 # failover --to northeurope` sets role PRIMARY here, role FENCED in westeurope.yaml and swaps mm2.sourceAlias/targetAlias in
 # both files (docs/ops/runbooks/failover.md). Its backup block is ready for the day it is promoted: the storage account
 # is in this region, so a failover never moves backups out of the EU.
@@ -6,16 +6,16 @@ region:
   id: northeurope
   role: PASSIVE
   provider: aks
-  namespace: passage-data
+  namespace: depot-data
 
 postgres:
   primary:
-    host: passage-pg-rw.westeurope.passage.internal
+    host: depot-pg-rw.westeurope.depot.internal
 
 backup:
   store: azure-blob
   azure:
-    storageAccount: passagepgbkpnortheurope
+    storageAccount: depotpgbkpnortheurope
     storageAccountRegion: northeurope
     container: pg-backups
 
@@ -24,9 +24,9 @@ objectStore:
 
 kafka:
   localAlias: northeurope
-  localBootstrap: passage-kafka-bootstrap.kafka.svc:9093
+  localBootstrap: depot-kafka-bootstrap.kafka.svc:9093
   remoteAlias: westeurope
-  remoteBootstrap: passage-kafka-bootstrap.kafka.passage-westeurope.internal:9093
+  remoteBootstrap: depot-kafka-bootstrap.kafka.depot-westeurope.internal:9093
 
 mm2:
   sourceAlias: westeurope

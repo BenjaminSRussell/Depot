@@ -1,6 +1,6 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Quality events
+  title: Depot Quality events
   version: 0.1.0
   description: |
     Events published by the quality service through the transactional outbox.
@@ -9,49 +9,49 @@ info:
 defaultContentType: application/cloudevents+json
 channels:
   qualityOrder:
-    address: passage.quality.order
+    address: depot.quality.order
     messages:
       orderCreated:
         $ref: "#/components/messages/OrderCreated"
   qualityResult:
-    address: passage.quality.result
+    address: depot.quality.result
     messages:
       resultRecorded:
         $ref: "#/components/messages/ResultRecorded"
   qualityUsageDecision:
-    address: passage.quality.usagedecision
+    address: depot.quality.usagedecision
     messages:
       usageDecisionPosted:
         $ref: "#/components/messages/UsageDecisionPosted"
   qualityComplianceList:
-    address: passage.quality.compliancelist
+    address: depot.quality.compliancelist
     messages:
       complianceListCreated:
         $ref: "#/components/messages/ComplianceListCreated"
   qualityComplianceResult:
-    address: passage.quality.complianceresult
+    address: depot.quality.complianceresult
     messages:
       complianceResultRecorded:
         $ref: "#/components/messages/ComplianceResultRecorded"
   qualityStabilityStudy:
-    address: passage.quality.stabilitystudy
+    address: depot.quality.stabilitystudy
     messages:
       stabilityStudyCreated:
         $ref: "#/components/messages/StabilityStudyCreated"
       stabilityStudyStatusChanged:
         $ref: "#/components/messages/StabilityStudyStatusChanged"
   qualityNonconformance:
-    address: passage.quality.nonconformance
+    address: depot.quality.nonconformance
     messages:
       nonconformanceCreated:
         $ref: "#/components/messages/NonconformanceCreated"
   qualityCapa:
-    address: passage.quality.capa
+    address: depot.quality.capa
     messages:
       capaClosed:
         $ref: "#/components/messages/CAPAClosed"
   qualityCoa:
-    address: passage.quality.coa
+    address: depot.quality.coa
     messages:
       coaIssued:
         $ref: "#/components/messages/CoAIssued"
@@ -109,58 +109,58 @@ operations:
 components:
   messages:
     OrderCreated:
-      name: dev.passage.quality.order.created.v1
+      name: dev.depot.quality.order.created.v1
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/OrderCreatedData"
     ResultRecorded:
-      name: dev.passage.quality.result.recorded.v1
+      name: dev.depot.quality.result.recorded.v1
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/ResultRecordedData"
     UsageDecisionPosted:
-      name: dev.passage.quality.usagedecision.posted.v1
+      name: dev.depot.quality.usagedecision.posted.v1
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/UsageDecisionPostedData"
     ComplianceListCreated:
-      name: dev.passage.quality.compliancelist.created.v1
+      name: dev.depot.quality.compliancelist.created.v1
       contentType: application/cloudevents+json
       summary: A new version of a compliance list; it supersedes the previous version (FR-33.13).
       payload:
         $ref: "#/components/schemas/ComplianceListCreatedData"
     ComplianceResultRecorded:
-      name: dev.passage.quality.complianceresult.recorded.v1
+      name: dev.depot.quality.complianceresult.recorded.v1
       contentType: application/cloudevents+json
       summary: A new result version for an item, list version and region (BR-33.11); sales, shipping and purchasing block or warn on it.
       payload:
         $ref: "#/components/schemas/ComplianceResultRecordedData"
     StabilityStudyCreated:
-      name: dev.passage.quality.stabilitystudy.created.v1
+      name: dev.depot.quality.stabilitystudy.created.v1
       contentType: application/cloudevents+json
       summary: A planned stability study with its pull schedule; the scheduling workflow starts from it (BR-33.14).
       payload:
         $ref: "#/components/schemas/StabilityStudyCreatedData"
     NonconformanceCreated:
-      name: dev.passage.quality.nonconformance.created.v1
+      name: dev.depot.quality.nonconformance.created.v1
       contentType: application/cloudevents+json
       summary: A nonconformance raised through the API or by a usage decision that rejected quantity (FR-33.6, FR-33.7); the vendor scorecard counts it by severity.
       payload:
         $ref: "#/components/schemas/NonconformanceCreatedData"
     CAPAClosed:
-      name: dev.passage.quality.capa.closed.v1
+      name: dev.depot.quality.capa.closed.v1
       contentType: application/cloudevents+json
       summary: The 8D correction of a nonconformance closed with an effective check (FR-33.8); the nonconformance is CLOSED.
       payload:
         $ref: "#/components/schemas/CAPAClosedData"
     StabilityStudyStatusChanged:
-      name: dev.passage.quality.stabilitystudy.statuschanged.v1
+      name: dev.depot.quality.stabilitystudy.statuschanged.v1
       contentType: application/cloudevents+json
       summary: A stability study moved PLANNED to ACTIVE, ACTIVE to COMPLETED, or to TERMINATED (FR-33.16); the scheduling workflow stops on COMPLETED or TERMINATED.
       payload:
         $ref: "#/components/schemas/StabilityStudyStatusChangedData"
     CoAIssued:
-      name: dev.passage.quality.coa.issued.v1
+      name: dev.depot.quality.coa.issued.v1
       contentType: application/cloudevents+json
       summary: One immutable certificate of analysis revision (FR-33.9, BR-33.10); the shipment hook and the customer portal deliver it.
       payload:

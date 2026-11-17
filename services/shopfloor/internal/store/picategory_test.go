@@ -3,10 +3,10 @@ package store
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
-// The PI category master through Postgres as passage_app: a code is unique per tenant (SF-0142), a change needs the
+// The PI category master through Postgres as depot_app: a code is unique per tenant (SF-0142), a change needs the
 // version read (SF-0143), and another tenant sees none of it.
 func TestPICategory_MasterVersionedAndTenantScoped(t *testing.T) {
 	s, _, _ := setup(t)

@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
 )
 
 // IPP operation, delimiter and value tags (RFC 8011 §5.4.15, RFC 8010 §3.5).
@@ -28,7 +28,7 @@ const (
 
 	ippContentType       = "application/ipp"
 	ippDocumentFormatPDF = "application/pdf"
-	ippRequestingUser    = "passage-print"
+	ippRequestingUser    = "depot-print"
 	ippResource          = "/ipp/print" // IPP Everywhere print resource
 )
 

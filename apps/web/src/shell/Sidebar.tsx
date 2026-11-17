@@ -61,7 +61,7 @@ export function Sidebar({ shellNav, drawerOpen, announce, searchRef, onOpenSearc
               <path d="M4 18c3-8 7-12 16-12M4 18c5 0 9-2 12-6" />
             </svg>
           </span>
-          Passage
+          Depot
         </Link>
       </div>
       <div className={styles.searchWrap}>

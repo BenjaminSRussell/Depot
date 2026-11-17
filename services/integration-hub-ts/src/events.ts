@@ -1,4 +1,4 @@
-// The hub's own CloudEvents (dev.passage.hub.<entity>.<verb>.v1), written to the
+// The hub's own CloudEvents (dev.depot.hub.<entity>.<verb>.v1), written to the
 // outbox in the same transaction as the change they report (events/asyncapi.yaml).
 // The outbox payload is the whole envelope, as platform/go/outbox writes it, so
 // Debezium's router and the hub's own consumer read it like any other service's.
@@ -6,28 +6,28 @@
 import { randomUUID } from "node:crypto";
 import type pg from "pg";
 
-export const SOURCE = "passage/integration-hub";
+export const SOURCE = "depot/integration-hub";
 
 export const EVENT_TYPES = [
-  "dev.passage.hub.subscription.created.v1",
-  "dev.passage.hub.subscription.updated.v1",
-  "dev.passage.hub.subscription.deleted.v1",
-  "dev.passage.hub.subscription.paused.v1",
-  "dev.passage.hub.subscription.resumed.v1",
-  "dev.passage.hub.subscription.secretrotated.v1",
-  "dev.passage.hub.webhook.delivered.v1",
-  "dev.passage.hub.webhook.deadlettered.v1",
-  "dev.passage.hub.apiclient.registered.v1",
-  "dev.passage.hub.apiclient.updated.v1",
-  "dev.passage.hub.apiclient.revoked.v1",
-  "dev.passage.hub.catalogentry.published.v1",
-  "dev.passage.hub.catalogentry.updated.v1",
-  "dev.passage.hub.catalogentry.deprecated.v1",
-  "dev.passage.hub.catalogentry.retired.v1",
+  "dev.depot.hub.subscription.created.v1",
+  "dev.depot.hub.subscription.updated.v1",
+  "dev.depot.hub.subscription.deleted.v1",
+  "dev.depot.hub.subscription.paused.v1",
+  "dev.depot.hub.subscription.resumed.v1",
+  "dev.depot.hub.subscription.secretrotated.v1",
+  "dev.depot.hub.webhook.delivered.v1",
+  "dev.depot.hub.webhook.deadlettered.v1",
+  "dev.depot.hub.apiclient.registered.v1",
+  "dev.depot.hub.apiclient.updated.v1",
+  "dev.depot.hub.apiclient.revoked.v1",
+  "dev.depot.hub.catalogentry.published.v1",
+  "dev.depot.hub.catalogentry.updated.v1",
+  "dev.depot.hub.catalogentry.deprecated.v1",
+  "dev.depot.hub.catalogentry.retired.v1",
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
-const TYPE_RE = /^dev\.passage\.[a-z][a-z0-9]*\.[a-z][a-z0-9]*\.[a-z][a-z0-9]*\.v[0-9]+$/;
+const TYPE_RE = /^dev\.depot\.[a-z][a-z0-9]*\.[a-z][a-z0-9]*\.[a-z][a-z0-9]*\.v[0-9]+$/;
 
 export interface OutboxEvent {
   type: EventType;
@@ -60,7 +60,7 @@ export function envelope(tenantId: string, e: OutboxEvent, now: Date = new Date(
 
 /**
  * The outbox aggregate_type: the type's entity segment, so Debezium's EventRouter
- * (route.by.field aggregate_type) publishes to passage.hub.<entity>, the topic
+ * (route.by.field aggregate_type) publishes to depot.hub.<entity>, the topic
  * platform/go/events.Topic gives for the type and the AsyncAPI channel.
  */
 export function aggregateTypeOf(type: EventType): string {

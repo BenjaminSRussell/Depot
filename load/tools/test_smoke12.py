@@ -1,4 +1,4 @@
-"""Validate the fx-smoke-12 fixture (PSG-50, PRD 9.50.9). Run: python3 -m unittest discover -s load/tools
+"""Validate the fx-smoke-12 fixture (DPT-50, PRD 9.50.9). Run: python3 -m unittest discover -s load/tools
 
 Besides the shape, every step is resolved against the OpenAPI files of the services on this
 branch: a step either names a route that exists (method and path, through the gateway's

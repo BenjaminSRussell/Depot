@@ -30,8 +30,8 @@ CREATE INDEX IF NOT EXISTS quota_arrangement_item_ix ON quota_arrangement (tenan
 ALTER TABLE quota_arrangement ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quota_arrangement FORCE ROW LEVEL SECURITY;
 CREATE POLICY quota_arrangement_tenant_access ON quota_arrangement AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- A source names exactly the reference of its type. allocated_qty is carried
 -- over from a legacy system on create (SAP EQUP) and later accumulated from
@@ -65,5 +65,5 @@ CREATE TABLE IF NOT EXISTS quota_source (
 ALTER TABLE quota_source ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quota_source FORCE ROW LEVEL SECURITY;
 CREATE POLICY quota_source_tenant_access ON quota_source AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

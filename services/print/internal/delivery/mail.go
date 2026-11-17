@@ -175,7 +175,7 @@ func mime(from string, m Message) ([]byte, error) {
 	if _, err := rand.Read(raw[:]); err != nil {
 		return nil, err
 	}
-	boundary := "passage-" + hex.EncodeToString(raw[:])
+	boundary := "depot-" + hex.EncodeToString(raw[:])
 	var b bytes.Buffer
 	fmt.Fprintf(&b, "From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=%q\r\n\r\n", from, to, subject, boundary)
 	fmt.Fprintf(&b, "--%s\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n%s\r\n", boundary, m.Body)

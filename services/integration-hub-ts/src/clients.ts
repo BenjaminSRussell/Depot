@@ -139,7 +139,7 @@ const CLIENT_ID = /^[a-z0-9][a-z0-9._-]{2,63}$/;
 // before #210 may still hold scopes in the old PascalCase, SCREAMING_CASE or prose styles, so a
 // scope stays any duty-shaped name: letters, digits, space, '.', '_' or '-', starting with a letter
 // and not ending in a space. Commas are refused because the gateway joins duties with commas in
-// X-Passage-Duties.
+// X-Depot-Duties.
 const SCOPE = /^[A-Za-z](?:[A-Za-z0-9 ._-]{0,98}[A-Za-z0-9._-])?$/;
 const UNIQUE_VIOLATION = "23505";
 
@@ -194,7 +194,7 @@ export class ClientStore {
           return { client: toClient(existing.rows[0] as ClientRow), created: false };
         }
         const client = toClient(res.rows[0]);
-        await enqueue(c, tenantId, { type: "dev.passage.hub.apiclient.registered.v1", aggregateId: client.id, actor: input.createdBy, data: eventData(client) });
+        await enqueue(c, tenantId, { type: "dev.depot.hub.apiclient.registered.v1", aggregateId: client.id, actor: input.createdBy, data: eventData(client) });
         return { client, created: true };
       });
     } catch (err) {
@@ -247,7 +247,7 @@ export class ClientStore {
         [id, patch.name ?? row.name, patch.scopes ?? row.scopes, quotaPerMin, burst, sandbox, patch.ownerContact ?? row.owner_contact],
       );
       const client = toClient(res.rows[0] as ClientRow);
-      await enqueue(c, tenantId, { type: "dev.passage.hub.apiclient.updated.v1", aggregateId: id, actor, data: eventData(client) });
+      await enqueue(c, tenantId, { type: "dev.depot.hub.apiclient.updated.v1", aggregateId: id, actor, data: eventData(client) });
       return client;
     });
   }
@@ -262,7 +262,7 @@ export class ClientStore {
       );
       if (res.rows[0] !== undefined) {
         const client = toClient(res.rows[0]);
-        await enqueue(c, tenantId, { type: "dev.passage.hub.apiclient.revoked.v1", aggregateId: id, actor, data: eventData(client) });
+        await enqueue(c, tenantId, { type: "dev.depot.hub.apiclient.revoked.v1", aggregateId: id, actor, data: eventData(client) });
         return client;
       }
       const existing = await c.query<ClientRow>(`select ${COLUMNS} from hub_api_client where id = $1`, [id]);

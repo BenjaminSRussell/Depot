@@ -161,9 +161,9 @@ describe("RFID and voice (32-4)", () => {
     await screen.findByLabelText(/^Scan/);
     // An SSCC-96 tag is the license plate; the same tag read again in the field is not a second scan.
     const round = { reads: [{ epc: "3174257BF4499602D2000000", rssi: -50 }] };
-    act(() => void window.dispatchEvent(new CustomEvent("passage:rfid", { detail: round })));
+    act(() => void window.dispatchEvent(new CustomEvent("depot:rfid", { detail: round })));
     expect(await screen.findByText("Scan the put-away location")).toBeInTheDocument();
-    act(() => void window.dispatchEvent(new CustomEvent("passage:rfid", { detail: round })));
+    act(() => void window.dispatchEvent(new CustomEvent("depot:rfid", { detail: round })));
     expect(screen.getByText("Scan the put-away location")).toBeInTheDocument();
   });
 
@@ -171,7 +171,7 @@ describe("RFID and voice (32-4)", () => {
     stubService(() => undefined);
     render(<DeviceApp deviceId="d1" userId="u1" flows={[RECEIVE_PUTAWAY_FLOW]} />);
     await screen.findByLabelText(/^Scan/);
-    act(() => void window.dispatchEvent(new CustomEvent("passage:rfid", { detail: { reads: [{ epc: "E280689400004012345ABCDE" }] } })));
+    act(() => void window.dispatchEvent(new CustomEvent("depot:rfid", { detail: { reads: [{ epc: "E280689400004012345ABCDE" }] } })));
     expect(await screen.findByRole("alert")).toHaveTextContent("MOB-0118");
   });
 

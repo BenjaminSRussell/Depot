@@ -4,16 +4,16 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: passage-as2-tls
+  name: depot-as2-tls
   namespace: hello-ledger
 spec:
-  secretName: passage-as2-tls
+  secretName: depot-as2-tls
   dnsNames:
-    - as2.dev.passage.dev
+    - as2.dev.depot.dev
   privateKey:
     algorithm: RSA
     size: 2048
     rotationPolicy: Always
   issuerRef:
     kind: ClusterIssuer
-    name: passage-local-ca
+    name: depot-local-ca

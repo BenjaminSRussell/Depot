@@ -8,11 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/api"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/store"
-	"github.com/BenjaminSRussell/passage/services/intercompany/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/api"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/store"
+	"github.com/BenjaminSRussell/depot/services/intercompany/migrations"
 )
 
 type reconRunOut struct {

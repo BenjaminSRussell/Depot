@@ -11,14 +11,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/audit/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/audit/internal/store"
-	"github.com/BenjaminSRussell/passage/services/audit/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/store"
+	"github.com/BenjaminSRussell/depot/services/audit/migrations"
 )
 
 func problemCode(err error) (int, string) {
@@ -138,7 +138,7 @@ func TestReviewWorksAsTheAppRoleAndIsRowLevelSecured(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := s.ReviewRead(ctx, glass.ID, "user-2", domain.ReviewApproved, ""); err != nil {
-		t.Fatalf("review as passage_app: %v", err)
+		t.Fatalf("review as depot_app: %v", err)
 	}
 	for _, stmt := range []string{`update phi_read_review set outcome = 'FLAGGED'`, `delete from phi_read_review`} {
 		err := dbx.WithTenantTx(ctx, app, func(tx pgx.Tx) error {

@@ -14,13 +14,13 @@ ALTER TABLE consumer_inbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE consumer_inbox FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS consumer_inbox_tenant_access ON consumer_inbox;
 CREATE POLICY consumer_inbox_tenant_access ON consumer_inbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON consumer_inbox TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON consumer_inbox TO depot_app';
   END IF;
 END
 $$;

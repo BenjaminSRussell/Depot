@@ -8,9 +8,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 func sdoc(seq int, id string, area domain.Area, kind, date, key, amount string) domain.SubledgerDocument {
@@ -28,7 +28,7 @@ func ports() (Ports, map[domain.Area]*MemoryPort) {
 }
 
 func variances(in domain.ParallelInput) []domain.Variance {
-	return domain.Diff(in.Legacy, in.Passage, domain.DefaultRules(), nil)
+	return domain.Diff(in.Legacy, in.Depot, domain.DefaultRules(), nil)
 }
 
 func unexplained(vs []domain.Variance) []domain.Variance {
@@ -135,7 +135,7 @@ func TestRunSubledger_RefusedDocumentShowsAsAVarianceAndMissingDocumentsAgainstT
 		t.Fatalf("rejected %+v", res.Rejected)
 	}
 	u := unexplained(variances(res.Input))
-	if len(u) != 1 || u[0].Area != domain.AreaAP || !u[0].Legacy.Equal(decimal.NewFromInt(160)) || !u[0].Passage.Equal(decimal.NewFromInt(100)) {
+	if len(u) != 1 || u[0].Area != domain.AreaAP || !u[0].Legacy.Equal(decimal.NewFromInt(160)) || !u[0].Depot.Equal(decimal.NewFromInt(100)) {
 		t.Fatalf("unexplained %+v", u)
 	}
 	// The legacy extract is the legacy side when given: a document the legacy ledger holds and the replay file

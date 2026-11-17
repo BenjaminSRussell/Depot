@@ -10,13 +10,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/domain"
-	orgevents "github.com/BenjaminSRussell/passage/services/org/internal/events"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
-	"github.com/BenjaminSRussell/passage/services/org/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/domain"
+	orgevents "github.com/BenjaminSRussell/depot/services/org/internal/events"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/services/org/migrations"
 )
 
 func teamStore(t *testing.T) (*store.Postgres, context.Context, *pgxpool.Pool) {

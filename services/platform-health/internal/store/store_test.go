@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/platform-health/internal/store"
-	"github.com/BenjaminSRussell/passage/services/platform-health/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/platform-health/internal/store"
+	"github.com/BenjaminSRussell/depot/services/platform-health/migrations"
 )
 
 func TestPostgres_TenantIsolationAndIdempotency(t *testing.T) {

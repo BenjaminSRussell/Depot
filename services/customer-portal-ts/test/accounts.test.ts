@@ -22,7 +22,7 @@ describe("acting for a bill-to or ship-to account", () => {
     expect(((await res.json()) as { items: unknown[] }).items).toHaveLength(2);
     const call = rig.calls[0]!;
     expect(call.url).toBe("http://party.test/v1/party/customer-portal/accounts");
-    expect(tokenClaims(call.headers.get("x-passage-service-token") as string)).toMatchObject({ aud: "party", cus: CUSTOMER_A, duties: ["party.customer-portal.read"] });
+    expect(tokenClaims(call.headers.get("x-depot-service-token") as string)).toMatchObject({ aud: "party", cus: CUSTOMER_A, duties: ["party.customer-portal.read"] });
   });
 
   it("signs the named account when party lists it, and the contact's own otherwise", async () => {
@@ -33,8 +33,8 @@ describe("acting for a bill-to or ship-to account", () => {
     const accounts = rig.calls.filter((c) => c.url.startsWith("http://party.test"));
     const order = rig.calls.find((c) => c.url.startsWith("http://sales.test"))!;
     expect(accounts).toHaveLength(1);
-    expect(tokenClaims(accounts[0]!.headers.get("x-passage-service-token") as string)["cus"]).toBe(CUSTOMER_A);
-    expect(tokenClaims(order.headers.get("x-passage-service-token") as string)).toMatchObject({ aud: "sales", cus: SHIP_TO, duties: ["sales.customer-portal.read"] });
+    expect(tokenClaims(accounts[0]!.headers.get("x-depot-service-token") as string)["cus"]).toBe(CUSTOMER_A);
+    expect(tokenClaims(order.headers.get("x-depot-service-token") as string)).toMatchObject({ aud: "sales", cus: SHIP_TO, duties: ["sales.customer-portal.read"] });
     // The list is kept for a minute: a second call does not ask party again.
     await api(rig, s, "GET", "/api/v1/open-items", undefined, { "x-customer": SHIP_TO });
     expect(rig.calls.filter((c) => c.url.startsWith("http://party.test"))).toHaveLength(1);
@@ -43,7 +43,7 @@ describe("acting for a bill-to or ship-to account", () => {
     await api(rig, s, "GET", "/api/v1/orders", undefined, { "x-customer": CUSTOMER_A });
     await api(rig, s, "GET", "/api/v1/orders");
     expect(rig.calls.slice(before).every((c) => c.url.startsWith("http://sales.test"))).toBe(true);
-    expect(rig.calls.slice(before).map((c) => tokenClaims(c.headers.get("x-passage-service-token") as string)["cus"])).toEqual([CUSTOMER_A, CUSTOMER_A]);
+    expect(rig.calls.slice(before).map((c) => tokenClaims(c.headers.get("x-depot-service-token") as string)["cus"])).toEqual([CUSTOMER_A, CUSTOMER_A]);
   });
 
   it("refuses an account party does not list, and never signs it", async () => {
@@ -73,7 +73,7 @@ describe("acting for a bill-to or ship-to account", () => {
     const ok = await api(rig, s, "POST", "/api/v1/orders", body, { "idempotency-key": "submit-0001-abcd", origin: APP, "x-customer": SHIP_TO });
     expect(ok.status).toBe(200);
     const sales = rig.calls.find((c) => c.url.startsWith("http://sales.test"))!;
-    expect(tokenClaims(sales.headers.get("x-passage-service-token") as string)).toMatchObject({ cus: SHIP_TO, duties: ["sales.customer-portal.order"] });
+    expect(tokenClaims(sales.headers.get("x-depot-service-token") as string)).toMatchObject({ cus: SHIP_TO, duties: ["sales.customer-portal.order"] });
     const before = rig.calls.length;
     const bad = await api(rig, s, "POST", "/api/v1/orders", body, { "idempotency-key": "submit-0002-abcd", origin: APP, "x-customer": CUSTOMER_B });
     expect(bad.status).toBe(403);
@@ -99,14 +99,14 @@ describe("company names", () => {
     rig.claims["le"] = `${LE_1},${LE_2}`;
     const s = await signIn(rig);
     rig.on("http://identity.test/", (c) => {
-      const le = tokenClaims(c.headers.get("x-passage-service-token") as string)["le"];
+      const le = tokenClaims(c.headers.get("x-depot-service-token") as string)["le"];
       return Response.json({ legalEntityId: le, displayName: le === LE_1 ? "Cedar Ridge Pumps Inc." : "Cedar Ridge Pumps GmbH" });
     });
     const res = await api(rig, s, "GET", "/api/v1/companies");
     expect(await res.json()).toEqual({ items: [{ legalEntityId: LE_1, name: "Cedar Ridge Pumps Inc." }, { legalEntityId: LE_2, name: "Cedar Ridge Pumps GmbH" }] });
     for (const c of rig.calls) {
       expect(c.url).toBe("http://identity.test/v1/identity/customer-portal/legal-entity");
-      expect(tokenClaims(c.headers.get("x-passage-service-token") as string)).toMatchObject({ aud: "identity", cus: CUSTOMER_A, duties: ["identity.customer-portal.read"] });
+      expect(tokenClaims(c.headers.get("x-depot-service-token") as string)).toMatchObject({ aud: "identity", cus: CUSTOMER_A, duties: ["identity.customer-portal.read"] });
     }
     await api(rig, s, "GET", "/api/v1/companies");
     expect(rig.calls).toHaveLength(2);

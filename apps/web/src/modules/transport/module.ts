@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { BuildLoadsPage } from "./BuildLoadsPage";
 import { CarrierInvoicesPage } from "./CarrierInvoicesPage";
 import { CheckInPage } from "./CheckInPage";
@@ -35,7 +35,7 @@ import { TransportHome } from "./TransportHome";
 import { VoyageDetailPage } from "./VoyageDetailPage";
 import { VoyagesPage } from "./VoyagesPage";
 
-const transport: PassageModule = {
+const transport: DepotModule = {
   id: "transport",
   title: "Transportation",
   description:

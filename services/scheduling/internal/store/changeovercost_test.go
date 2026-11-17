@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 func wantBarCost(t *testing.T, b store.Bar, cost, currency string, cleaning *string) {

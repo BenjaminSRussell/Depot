@@ -1,1 +1,1 @@
-"""Passage product configurator (wave 8)."""
+"""Depot product configurator (wave 8)."""

@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/store"
 )
 
 // exemptLease stores a quarterly lease of 12 months under an election: no liability, no ROU asset, one payment line per quarter.
@@ -50,7 +50,7 @@ func TestLeaseElection_NothingIsRecognizedAndEachPaymentIsExpensed(t *testing.T)
 	if lease.Election != domain.ElectionShortTerm || lease.UnderlyingAssetValue != nil || lease.UnderlyingAssetCurrency != "" || lease.PurchaseOption || len(lease.Schedule) != 4 {
 		t.Fatalf("short-term lease: %+v", lease)
 	}
-	if types := outboxTypes(t, pool, ctx); types["dev.passage.assets.lease.recognized.v1"] != 2 {
+	if types := outboxTypes(t, pool, ctx); types["dev.depot.assets.lease.recognized.v1"] != 2 {
 		t.Fatalf("outbox = %v", types)
 	}
 
@@ -82,7 +82,7 @@ func TestLeaseElection_NothingIsRecognizedAndEachPaymentIsExpensed(t *testing.T)
 	if posted, err := s.GetLeasePostings(ctx, lease.ID); err != nil || posted.RecognitionJournalID != nil || len(posted.Periods) != 4 || posted.Periods[3].PostedJournalID == nil {
 		t.Fatalf("postings: %+v %v", posted, err)
 	}
-	if types := outboxTypes(t, pool, ctx); types["dev.passage.assets.lease.posted.v1"] != 8 {
+	if types := outboxTypes(t, pool, ctx); types["dev.depot.assets.lease.posted.v1"] != 8 {
 		t.Fatalf("outbox = %v (one lease.posted per period)", types)
 	}
 

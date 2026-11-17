@@ -8,12 +8,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
-const reservationConvertedType = "dev.passage.inventory.reservation.converted.v1"
+const reservationConvertedType = "dev.depot.inventory.reservation.converted.v1"
 
 // reservedBuckets reads reserved_physical and reserved_ordered of a product at one warehouse.
 func reservedBuckets(t *testing.T, admin *pgxpool.Pool, product, warehouse string) (string, string) {

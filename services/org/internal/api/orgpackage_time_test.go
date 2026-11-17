@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/org/internal/api"
-	"github.com/BenjaminSRussell/passage/services/org/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/services/org/internal/api"
+	"github.com/BenjaminSRussell/depot/services/org/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
 type memVersion struct {

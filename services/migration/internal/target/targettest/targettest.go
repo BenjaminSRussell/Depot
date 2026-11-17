@@ -17,7 +17,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 // Call is one request a fake received.
@@ -468,7 +468,7 @@ func (f *Fakes) receivables(w http.ResponseWriter, r *http.Request, c Call) {
 		}
 		switch {
 		case f.SettledKeys[key]:
-			res["outcome"], res["code"], res["detail"] = "REJECTED", "AR-OPENING-SETTLED", "the item was settled in Passage"
+			res["outcome"], res["code"], res["detail"] = "REJECTED", "AR-OPENING-SETTLED", "the item was settled in Depot"
 		case known && fmt.Sprint(prev) == fmt.Sprint(row):
 			res["outcome"], res["openItemId"] = "UNCHANGED", f.itemIDs[key]
 		default:

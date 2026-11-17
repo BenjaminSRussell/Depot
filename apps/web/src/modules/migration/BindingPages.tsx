@@ -102,7 +102,7 @@ function KeyAndCursorFields({ form, errors, onChange }: { form: BindingForm; err
   );
 }
 
-/** Entity bindings: which table, query, endpoint or file of a connection feeds which Passage entity. */
+/** Entity bindings: which table, query, endpoint or file of a connection feeds which Depot entity. */
 export function BindingsPage() {
   const navigate = useNavigate();
   const canWrite = holdsDuty(usePrincipalDuties(), DUTY_BINDING_WRITE);
@@ -126,7 +126,7 @@ export function BindingsPage() {
     <div className={styles.stack}>
       <PageHeader
         title="Entity bindings"
-        description="Which table, query, endpoint or file of a connection feeds which Passage entity. Preview a binding to see the mapped records and rule errors before any load."
+        description="Which table, query, endpoint or file of a connection feeds which Depot entity. Preview a binding to see the mapped records and rule errors before any load."
         actions={
           canWrite ? (
             <Link className={buttonClassName("primary")} to="/migration/bindings/new">
@@ -264,7 +264,7 @@ export function NewBindingPage() {
               </Select>
             )}
           </FormField>
-          <FormField id="bind-entity" label="Passage entity" error={errors.entity} hint="For example customer, vendor, item. Mapping specs are published per entity.">
+          <FormField id="bind-entity" label="Depot entity" error={errors.entity} hint="For example customer, vendor, item. Mapping specs are published per entity.">
             {(control) => <Input {...control} value={form.entity} invalid={Boolean(errors.entity)} onChange={(event) => edit({ ...form, entity: event.target.value })} />}
           </FormField>
           {profile ? <SourceFields kind={profile.kind} values={form.source} errors={errors} onChange={(k, v) => edit({ ...form, source: { ...form.source, [k]: v } })} /> : null}

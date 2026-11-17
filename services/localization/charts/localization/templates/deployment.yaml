@@ -22,9 +22,9 @@ spec:
       containers:
         - name: localization
           {{- if .Values.image.digest }}
-          image: "{{ (include "passage.imageRepository" $) }}@{{ .Values.image.digest }}"
+          image: "{{ (include "depot.imageRepository" $) }}@{{ .Values.image.digest }}"
           {{- else }}
-          image: "{{ (include "passage.imageRepository" $) }}:{{ .Values.image.tag }}"
+          image: "{{ (include "depot.imageRepository" $) }}:{{ .Values.image.tag }}"
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
@@ -33,9 +33,9 @@ spec:
             - name: admin
               containerPort: 9090
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
-            - name: PASSAGE_ENV
-              value: {{ .Values.config.passageEnv | quote }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
+            - name: DEPOT_ENV
+              value: {{ .Values.config.depotEnv | quote }}
             - name: SERVICE_NAME
               value: {{ .Values.serviceName | quote }}
             - name: HTTP_ADDR

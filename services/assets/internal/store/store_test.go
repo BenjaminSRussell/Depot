@@ -12,14 +12,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/store"
-	"github.com/BenjaminSRussell/passage/services/assets/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/store"
+	"github.com/BenjaminSRussell/depot/services/assets/migrations"
 )
 
 func setup(t *testing.T) (*store.Postgres, *pgxpool.Pool, context.Context) {
@@ -221,7 +221,7 @@ func TestStore_DisposalAcrossBooksReconciles(t *testing.T) {
 		t.Fatalf("acquire on a scrapped asset: err = %v", err)
 	}
 	types := outboxTypes(t, pool, ctx)
-	if types["dev.passage.assets.asset.acquired.v1"] != 2 || types["dev.passage.assets.asset.disposed.v1"] != 4 {
+	if types["dev.depot.assets.asset.acquired.v1"] != 2 || types["dev.depot.assets.asset.disposed.v1"] != 4 {
 		t.Fatalf("outbox = %v", types)
 	}
 }
@@ -333,7 +333,7 @@ func TestStore_LeaseRoundTripAndList(t *testing.T) {
 	if _, err := s.GetLease(ctx, ids.New()); problemCode(err) != store.CodeLeaseNotFound {
 		t.Fatalf("unknown lease: err = %v", err)
 	}
-	if types := outboxTypes(t, pool, ctx); types["dev.passage.assets.lease.recognized.v1"] != 1 {
+	if types := outboxTypes(t, pool, ctx); types["dev.depot.assets.lease.recognized.v1"] != 1 {
 		t.Fatalf("outbox = %v", types)
 	}
 }

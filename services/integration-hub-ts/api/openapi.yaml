@@ -1,15 +1,15 @@
 openapi: 3.1.0
 info:
-  title: Passage integration hub
+  title: Depot integration hub
   version: 0.5.0
   description: |
     Webhook and rest-push subscriptions, the delivery log, the dead-letter list, resume after a
     410 pause and replay (FR-35.9, FR-35.10). Callers reach these routes through the
-    edge gateway, which verifies the user's token and sets x-passage-tenant,
-    x-passage-user and x-passage-duties (client copies are stripped). Every row is
+    edge gateway, which verifies the user's token and sets x-depot-tenant,
+    x-depot-user and x-depot-duties (client copies are stripped). Every row is
     scoped to the caller's tenant by row-level security. Webhook signing secrets are
     sealed at rest with field encryption. Each delivery is a structured CloudEvent
-    signed in `Passage-Signature`; its `Idempotency-Key` header is the event id and
+    signed in `Depot-Signature`; its `Idempotency-Key` header is the event id and
     stays the same on every retry, resend and replay, so a receiver applies an event
     once. Errors are RFC 9457
     problems with a stable `code`: HUB-04xx for HTTP-level errors, HUB-0114 (a 410
@@ -48,10 +48,10 @@ info:
     bucket is held in Postgres under a row lock, so concurrent requests of one client never
     overspend; usage per minute feeds the portal chart. Clients are revoked, never deleted.
 
-    The hub writes its own CloudEvents (`dev.passage.hub.*`, see events/asyncapi.yaml)
+    The hub writes its own CloudEvents (`dev.depot.hub.*`, see events/asyncapi.yaml)
     to the outbox in the same transaction as the change.
 servers:
-  - url: https://api.passage.dev
+  - url: https://api.depot.dev
 paths:
   /v1/hub/subscriptions:
     post:
@@ -80,7 +80,7 @@ paths:
         attribute, a value that cannot be read as the other side's type, a division by
         zero, or LIKE patterns that would take more than 1,000,000 character steps over
         the event's values) does not match it.
-      x-passage-duty: hub.subscription.write
+      x-depot-duty: hub.subscription.write
       parameters:
         - {$ref: "#/components/parameters/IdempotencyKey"}
       requestBody:
@@ -109,7 +109,7 @@ paths:
       operationId: listSubscriptions
       summary: List the tenant's webhook subscriptions, newest first
       description: Keyset-paged; pass `nextCursor` as `cursor` for the next page. The signing secret is never returned.
-      x-passage-duty: hub.delivery.read
+      x-depot-duty: hub.delivery.read
       parameters:
         - {$ref: "#/components/parameters/Limit"}
         - {$ref: "#/components/parameters/Cursor"}
@@ -129,7 +129,7 @@ paths:
       operationId: getSubscription
       summary: Read one webhook subscription
       description: Another tenant's subscription is reported as not found.
-      x-passage-duty: hub.delivery.read
+      x-depot-duty: hub.delivery.read
       responses:
         "200":
           description: The subscription.
@@ -145,7 +145,7 @@ paths:
       description: |
         Optimistic: `version` must be the version last read, otherwise 409 HUB-0409.
         A new URL goes through the same SSRF guard as create (422 HUB-0422).
-      x-passage-duty: hub.subscription.write
+      x-depot-duty: hub.subscription.write
       requestBody:
         required: true
         content:
@@ -167,7 +167,7 @@ paths:
       operationId: deleteSubscription
       summary: Delete a subscription and its deliveries
       description: Pending deliveries are dropped with the subscription.
-      x-passage-duty: hub.subscription.write
+      x-depot-duty: hub.subscription.write
       responses:
         "204":
           description: The subscription and its deliveries were deleted.
@@ -181,7 +181,7 @@ paths:
       operationId: resumeSubscription
       summary: Resume a subscription paused by a 410 Gone response (HUB-0114)
       description: Idempotent; resuming an active subscription changes nothing. Held events are delivered on the next poll.
-      x-passage-duty: hub.subscription.write
+      x-depot-duty: hub.subscription.write
       responses:
         "200":
           description: The subscription, active.
@@ -201,14 +201,14 @@ paths:
         Replaces the signing secret with a generated one (or `secret`, 16 to 256 characters) and
         returns it once in this response. The previous secret keeps signing for `graceSeconds`
         (default 86,400, at most 604,800; 0 ends it at once): while it does, every delivery's
-        `Passage-Signature` carries one `v1=` per secret (`t=..,v1=<new>,v1=<previous>`), and a
+        `Depot-Signature` carries one `v1=` per secret (`t=..,v1=<new>,v1=<previous>`), and a
         receiver that accepts either secret switches over without losing events. Only the secret
         before this rotation is kept; a second rotation inside the grace period drops the first
         old secret. Optimistic: `version` must be the version last read, otherwise 409 HUB-0409.
         Only webhook subscriptions have a signing secret (a rest-push subscription answers 409).
-        Writes `dev.passage.hub.subscription.secretrotated.v1` (no secret in it). Without field
+        Writes `dev.depot.hub.subscription.secretrotated.v1` (no secret in it). Without field
         encryption keys the hub answers 501 HUB-0501.
-      x-passage-duty: hub.subscription.write
+      x-depot-duty: hub.subscription.write
       requestBody:
         required: true
         content:
@@ -240,9 +240,9 @@ paths:
         delivery, no cross-reference. `stage` says how far it got (render, url, token,
         built, sent). Only rest-push subscriptions: a webhook answers 409. The render runs
         for the caller: the service token names the caller as actor and the legal entity
-        the edge scoped them to (X-Passage-Legal-Entity), which is also the sample's
+        the edge scoped them to (X-Depot-Legal-Entity), which is also the sample's
         `legalentityid`; a sample naming another legal entity answers 403.
-      x-passage-duty: hub.subscription.write
+      x-depot-duty: hub.subscription.write
       requestBody:
         required: true
         content:
@@ -269,12 +269,12 @@ paths:
         The subscription's own events already delivered or dead-lettered with an
         occurrence time at or after `from`, and whose type still matches the
         subscription's patterns, are queued again, oldest first, and sent in
-        per-aggregate sequence order marked with `ce-passagereplay: true`. `cap`
+        per-aggregate sequence order marked with `ce-depotreplay: true`. `cap`
         limits the number of events (1 to 1,000,000, the default); `truncated` says
         more matching events remain, which a later replay from a later `from` picks up.
         Events the subscription never recorded cannot be replayed, and HUB-0118 dead letters
         are skipped (see replayDelivery).
-      x-passage-duty: hub.subscription.write
+      x-depot-duty: hub.subscription.write
       requestBody:
         required: true
         content:
@@ -307,7 +307,7 @@ paths:
         answers 409, and so does a HUB-0118 dead letter (the receiver already holds the record and the
         migration service keeps another legacy key for the event, so a replay could only push a duplicate);
         another tenant's delivery is reported as not found.
-      x-passage-duty: hub.subscription.write
+      x-depot-duty: hub.subscription.write
       responses:
         "202":
           description: The delivery is pending again.
@@ -327,7 +327,7 @@ paths:
       operationId: listDeliveries
       summary: List webhook deliveries, newest first
       description: Filter by status and subscription. Keyset-paged.
-      x-passage-duty: hub.delivery.read
+      x-depot-duty: hub.delivery.read
       parameters:
         - name: status
           in: query
@@ -359,7 +359,7 @@ paths:
         the push, but the migration service already recorded another legacy key for the event
         (MIG-XREF-EVENT-CONFLICT); `legacyKey` is the key this push returned, and the delivery is never
         resent or replayed: reconcile the record in the legacy ERP.
-      x-passage-duty: hub.delivery.read
+      x-depot-duty: hub.delivery.read
       parameters:
         - {$ref: "#/components/parameters/Limit"}
         - {$ref: "#/components/parameters/Cursor"}
@@ -385,7 +385,7 @@ paths:
         A repeated Idempotency-Key returns the client created first; a client id already
         registered in the tenant is 409 HUB-0409. A caller may grant only duties they hold
         themselves: a scope the caller's token does not carry is 403 HUB-0403 naming it.
-      x-passage-duty: hub.client.write
+      x-depot-duty: hub.client.write
       parameters:
         - {$ref: "#/components/parameters/ClientIdempotencyKey"}
       requestBody:
@@ -413,7 +413,7 @@ paths:
       operationId: listClients
       summary: List the tenant's API clients, newest first
       description: Keyset-paged; pass `nextCursor` as `cursor` for the next page. Revoked clients stay in the list.
-      x-passage-duty: hub.delivery.read
+      x-depot-duty: hub.delivery.read
       parameters:
         - {$ref: "#/components/parameters/Limit"}
         - {$ref: "#/components/parameters/Cursor"}
@@ -433,7 +433,7 @@ paths:
       operationId: getClient
       summary: Read one API client
       description: Another tenant's client is reported as not found.
-      x-passage-duty: hub.delivery.read
+      x-depot-duty: hub.delivery.read
       responses:
         "200":
           description: The API client.
@@ -451,7 +451,7 @@ paths:
         client cannot be changed (409). A lower burst takes effect at once: tokens above it are
         dropped on the next request. Scopes the client already has stay whoever changes the
         client; a scope the change adds must be a duty the caller holds (403 HUB-0403 names it).
-      x-passage-duty: hub.client.write
+      x-depot-duty: hub.client.write
       requestBody:
         required: true
         content:
@@ -475,7 +475,7 @@ paths:
       operationId: revokeClient
       summary: Revoke an API client
       description: Idempotent; a revoked client is refused by the quota check (403) and writes no second event. The Keycloak client is disabled by the platform.
-      x-passage-duty: hub.client.write
+      x-depot-duty: hub.client.write
       responses:
         "200":
           description: The client, revoked.
@@ -492,7 +492,7 @@ paths:
       operationId: getClientUsage
       summary: Read a client's requests per minute (admitted and throttled)
       description: Minutes with no requests are absent. `minutes` is the look-back window, 1 to 1440 (default 60).
-      x-passage-duty: hub.delivery.read
+      x-depot-duty: hub.delivery.read
       parameters:
         - name: minutes
           in: query
@@ -521,7 +521,7 @@ paths:
         unknown client id 404. `hub.client.consume` is service-only: no person or role may hold
         it, because spending another client's quota throttles that client. No caller holds it
         yet; the edge component that will call this route is a deployment handoff.
-      x-passage-duty: hub.client.consume
+      x-depot-duty: hub.client.consume
       requestBody:
         required: true
         content:
@@ -559,7 +559,7 @@ paths:
         (`kind` event) for the developer portal. The document is a JSON object of at most 2 MiB
         nested at most 64 levels deep; the request body limit for this route is 2 MiB plus
         16 KiB, not the 64 KiB of the other routes. The hub derives the operations (method,
-        path, operationId, summary, x-passage-duty) or messages and counts them.
+        path, operationId, summary, x-depot-duty) or messages and counts them.
         `specVersion` is MAJOR.MINOR.PATCH, must equal the document's `info.version`, and must
         be higher than the newest published version of the same major line (kind and name);
         the first version of a new major line must be higher than every published major, so
@@ -570,7 +570,7 @@ paths:
         with the same kind, name, version and document returns the entry created first (200);
         with anything different it is 422 HUB-0422. A version already published, lower than
         its line's newest, or in a retired line is 409 HUB-0409.
-      x-passage-duty: hub.catalog.write
+      x-depot-duty: hub.catalog.write
       parameters:
         - {$ref: "#/components/parameters/CatalogIdempotencyKey"}
       requestBody:
@@ -602,7 +602,7 @@ paths:
         Keyset-paged; pass `nextCursor` as `cursor` for the next page. The list leaves out the
         documents; read one with `getCatalogSpec`. `q` matches the name, title, owner and
         summary, ignoring case, as plain text.
-      x-passage-duty: hub.delivery.read
+      x-depot-duty: hub.delivery.read
       parameters:
         - name: kind
           in: query
@@ -641,8 +641,8 @@ paths:
     get:
       operationId: getCatalogEntry
       summary: Read one catalog entry with its operations and documentation gaps
-      description: Another tenant's entry is reported as not found. `issues` lists operations without operationId, summary or x-passage-duty.
-      x-passage-duty: hub.delivery.read
+      description: Another tenant's entry is reported as not found. `issues` lists operations without operationId, summary or x-depot-duty.
+      x-depot-duty: hub.delivery.read
       responses:
         "200":
           description: The catalog entry.
@@ -655,8 +655,8 @@ paths:
     patch:
       operationId: updateCatalogEntry
       summary: Change an entry's title, summary or owner service
-      description: Optimistic - `version` must be the version last read, otherwise 409 HUB-0409. The published document and version never change. Writes `dev.passage.hub.catalogentry.updated.v1`.
-      x-passage-duty: hub.catalog.write
+      description: Optimistic - `version` must be the version last read, otherwise 409 HUB-0409. The published document and version never change. Writes `dev.depot.hub.catalogentry.updated.v1`.
+      x-depot-duty: hub.catalog.write
       requestBody:
         required: true
         content:
@@ -680,7 +680,7 @@ paths:
       operationId: getCatalogSpec
       summary: Read the published OpenAPI or AsyncAPI document of an entry
       description: Returns the document exactly as published, as JSON, with its keys in the published order.
-      x-passage-duty: hub.delivery.read
+      x-depot-duty: hub.delivery.read
       responses:
         "200":
           description: The published document.
@@ -701,7 +701,7 @@ paths:
         HUB_API_DEPRECATION_MONTHS) after now, otherwise 400. `replacedBy` names another active
         entry of the same kind. Only an active entry can be deprecated (409), and `version` must
         be current (409).
-      x-passage-duty: hub.catalog.write
+      x-depot-duty: hub.catalog.write
       requestBody:
         required: true
         content:
@@ -725,7 +725,7 @@ paths:
       operationId: retireCatalogEntry
       summary: Retire a deprecated entry once its sunset date has passed
       description: Only a deprecated entry past its sunset date can be retired (409 otherwise). The entry and its document stay readable.
-      x-passage-duty: hub.catalog.write
+      x-depot-duty: hub.catalog.write
       requestBody:
         required: true
         content:
@@ -906,14 +906,14 @@ components:
           type: array
           minItems: 1
           maxItems: 50
-          items: {type: string, examples: ["dev.passage.sales.**"]}
+          items: {type: string, examples: ["dev.depot.sales.**"]}
         secret: {type: string, minLength: 16, maxLength: 256, description: "Signing secret; generated when omitted."}
         filter: {$ref: "#/components/schemas/EventFilter"}
     EventFilter:
       type: string
       minLength: 1
       maxLength: 1024
-      description: "A CESQL condition over the event: context attributes (id, type, source, subject, time, tenantid, actor, legalentityid, passagesequence) and `data.<path>` for the JSON payload. Operators = != <> < <= > >= AND OR XOR NOT LIKE IN EXISTS + - * / %; functions LENGTH CONCAT CONCAT_WS LOWER UPPER TRIM LEFT RIGHT SUBSTRING ABS INT STRING BOOL. Integers are 32-bit; decimal amounts in Passage events are strings, so compare them as text or with INT."
+      description: "A CESQL condition over the event: context attributes (id, type, source, subject, time, tenantid, actor, legalentityid, depotsequence) and `data.<path>` for the JSON payload. Operators = != <> < <= > >= AND OR XOR NOT LIKE IN EXISTS + - * / %; functions LENGTH CONCAT CONCAT_WS LOWER UPPER TRIM LEFT RIGHT SUBSTRING ABS INT STRING BOOL. Integers are 32-bit; decimal amounts in Depot events are strings, so compare them as text or with INT."
       examples: ["data.currency = 'USD' AND EXISTS actor"]
     RotateSecret:
       type: object
@@ -1100,7 +1100,7 @@ components:
         method: {type: string, description: "HTTP method, or `event` for a message."}
         path: {type: string, description: "The path, or the CloudEvents type of a message."}
         summary: {type: [string, "null"]}
-        duty: {type: [string, "null"], description: "x-passage-duty; messages have none."}
+        duty: {type: [string, "null"], description: "x-depot-duty; messages have none."}
     NewCatalogEntry:
       type: object
       additionalProperties: false
@@ -1165,7 +1165,7 @@ components:
           required: [operations, issues]
           properties:
             operations: {type: array, items: {$ref: "#/components/schemas/CatalogOperation"}}
-            issues: {type: array, items: {type: string}, description: "Operations without operationId, summary or x-passage-duty; empty when clean."}
+            issues: {type: array, items: {type: string}, description: "Operations without operationId, summary or x-depot-duty; empty when clean."}
     CatalogPage:
       type: object
       required: [items, nextCursor]

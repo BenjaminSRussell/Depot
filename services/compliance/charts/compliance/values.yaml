@@ -1,5 +1,5 @@
 image:
-  repository: ghcr.io/benjaminsrussell/passage-compliance
+  repository: ghcr.io/benjaminsrussell/depot-compliance
   # Stage and prod pin the digest (cosign-signed) through Argo CD; the tag is for dev.
   tag: "0.1.0"
   digest: ""
@@ -10,7 +10,7 @@ replicaCount: 2
 serviceName: compliance
 
 config:
-  passageEnv: dev
+  depotEnv: dev
   httpAddr: ":8080"
   adminAddr: ":9090"
   migrateOnStart: "false"
@@ -27,7 +27,7 @@ config:
 
 # DATABASE_URL is read from this secret (Vault via External Secrets), never inline.
 databaseSecret:
-  name: passage-compliance-db
+  name: depot-compliance-db
   key: url
 
 # Erasure pseudonyms are HMACs under a per-tenant key derived from these keys; without them erasure
@@ -36,7 +36,7 @@ fieldCrypt:
   keysSecret: ""
   currentKeyId: ""
 
-# Service tokens from receiving (the legal hold check); publicKeys is the PASSAGE_SERVICE_PUBLIC_KEYS value.
+# Service tokens from receiving (the legal hold check); publicKeys is the DEPOT_SERVICE_PUBLIC_KEYS value.
 serviceIdentity:
   publicKeys: ""
 

@@ -3,10 +3,10 @@ package store_test
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/domain"
-	purchasingevents "github.com/BenjaminSRussell/passage/services/purchasing/internal/events"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
+	purchasingevents "github.com/BenjaminSRussell/depot/services/purchasing/internal/events"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
 
 // rfqFor is a DRAFT RFQ raised for the requisition lines, one RFQ line each.

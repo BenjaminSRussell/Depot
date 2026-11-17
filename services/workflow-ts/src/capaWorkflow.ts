@@ -99,7 +99,7 @@ export async function capaWorkflow(input: CapaInput): Promise<CapaState> {
 
   const as = (actor: string, scope: string[]): CapaRef => ({ tenantId: input.tenantId, legalEntityId: input.legalEntityId, ncrId: input.ncrId, actor, scope });
   const stalled = (at: "step" | "effectiveness"): CapaState => {
-    metricMeter.createCounter("passage_capa_stalled", "1", "CAPAs whose next step or effectiveness check never arrived").add(1, { ncr_id: input.ncrId, at });
+    metricMeter.createCounter("depot_capa_stalled", "1", "CAPAs whose next step or effectiveness check never arrived").add(1, { ncr_id: input.ncrId, at });
     return Object.assign(state, { status: "stalled" as const, stalledAt: at });
   };
   const follow = (ncr: CapaNcr): void => {

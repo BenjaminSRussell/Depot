@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-const realmFile = "../../../deploy/keycloak/realm-passage.json"
+const realmFile = "../../../deploy/keycloak/realm-depot.json"
 
 func loadRealm(t *testing.T) map[string]any {
 	t.Helper()
@@ -162,7 +162,7 @@ func TestEveryPatchedRealmImportsIntoKeycloak(t *testing.T) {
 	known := knownRealmFields(t)
 	for key := range loadRealm(t) {
 		if !known[key] {
-			t.Errorf("realm-passage.json has %q, which Keycloak 26.0.8 does not accept", key)
+			t.Errorf("realm-depot.json has %q, which Keycloak 26.0.8 does not accept", key)
 		}
 	}
 	for _, sel := range [][]string{{"commercial"}, {"gcc"}, {"gcc-high"}, {"dod"}, {"commercial", "hipaa"}, {"gcc-high", "hipaa"}, {"commercial", "eu-data-boundary"}} {

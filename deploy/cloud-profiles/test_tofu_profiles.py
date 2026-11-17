@@ -3,7 +3,7 @@
 - every key a generated `-var-file` sets is a declared root variable (an undeclared one is silently ignored by tofu),
 - the root module passes the profile switches through to the AKS module,
 - every Azure resource type the AKS module creates is mapped to a service, and under the hipaa overlay each of those
-  services is on the business-associate-agreement list kept in the profile (so PHI-bearing Passage infrastructure
+  services is on the business-associate-agreement list kept in the profile (so PHI-bearing Depot infrastructure
   uses only BAA-covered Azure services).
 """
 

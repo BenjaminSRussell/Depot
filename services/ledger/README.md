@@ -1,8 +1,8 @@
-# Passage ledger service
+# Depot ledger service
 
 The ledger is the universal journal: one append-only, double-entry journal per
 ledger, the chart of accounts, the posting API every subledger calls, and the
-balance projection that trial balances read. Wave 11 (PSG-11, slices 1 to 10).
+balance projection that trial balances read. Wave 11 (DPT-11, slices 1 to 10).
 
 Reference: `docs/prd/phase-2-financial-core.md` section 2.11. What is built and
 what is not is listed in [NOT-IMPLEMENTED.md](NOT-IMPLEMENTED.md).
@@ -55,15 +55,15 @@ what is not is listed in [NOT-IMPLEMENTED.md](NOT-IMPLEMENTED.md).
 - CSV exports (slice 23): `format=csv` on `GET /charts/{chart}/accounts`, `GET /balances`
   and `GET /journal-lines` returns one streamed UTF-8 CSV file (byte order mark) of the whole
   result under the same duty, filters and legal-entity scope, up to 50,000 rows
-  (`X-Passage-Export-Truncated`, `X-Passage-Export-Next-Cursor` when cut). Cells starting with
+  (`X-Depot-Export-Truncated`, `X-Depot-Export-Next-Cursor` when cut). Cells starting with
   `=`, `+`, `-`, `@`, tab or carriage return get an apostrophe unless they are plain numbers.
   `GET /charts/{chart}/accounts/{number}` reads one account with its `ETag`.
-- Events through the outbox (same transaction): `dev.passage.ledger.journal.posted.v1`,
-  `dev.passage.ledger.journal.reversed.v1`, `dev.passage.ledger.balance.rebuilt.v1`.
+- Events through the outbox (same transaction): `dev.depot.ledger.journal.posted.v1`,
+  `dev.depot.ledger.journal.reversed.v1`, `dev.depot.ledger.balance.rebuilt.v1`.
 - Database guarantees (FR-11.6, BR-11.1): every table has `tenant_id` with ENABLE and
   FORCE row-level security and a tenant policy (plus the legal-entity scope policy
   where the table carries `legal_entity_id`); triggers reject UPDATE, DELETE and
-  TRUNCATE on `journal_entry`/`journal_line` for every role; the `passage_app` role
+  TRUNCATE on `journal_entry`/`journal_line` for every role; the `depot_app` role
   holds only SELECT and INSERT on them; a deferred constraint trigger re-checks at
   commit that each entry's debits equal its credits.
 
@@ -183,8 +183,8 @@ what is not is listed in [NOT-IMPLEMENTED.md](NOT-IMPLEMENTED.md).
 - Ledger sets (FR-12.7): the PRD's ledger group is implemented as the ledger set, under `/ledger-sets` (`POST /ledger-sets`, `GET /ledger-sets`, `GET /ledger-sets/{id}`, `GET /ledgers/{id}/account-mappings`, `POST /ledger-sets/{setId}/journal-entries`, `POST /ledgers/{id}/account-mappings`). The PRD's `ledger-groups` naming is not adopted (issue #222). Posting to one non-leading ledger on its own needs `ledger.journal.postledger` (FB50L). `POST /ledger-sets/{setId}/journal-entries` also takes `ledgerLines` (BR-12.6 `ledger_lines`): per-ledger line groups posted to that ledger only, unmapped, on top of the common `lines` (which go to every ledger through its account mappings). Each ledger's entry must balance by itself; otherwise 422 `LEDGER_UNBALANCED` names the ledger (`ledger TAX: entry does not balance ...`) and nothing is written. A ledger outside the set is 422 `LEDGER_LINES_LEDGER_NOT_IN_SET`. Ledger lines for a non-leading ledger need `ledger.journal.postledger` (403 `AUTH-0003`), since they are ledger-specific adjustments; common lines and leading-ledger lines do not (decision recorded on issue #222). Ledgers carry optional `calendarCode`, `accountingPrinciple` (IFRS, US_GAAP, LOCAL_GAAP, TAX, MANAGEMENT) and `reportingCurrency` (FR-12.7; migration 0024; stored and returned, not yet consumed by posting), changed with `PATCH /ledgers/{id}` (duty `ledger.ledger.write`, `If-Match` on the ledger `version`, announced as `rules.changed` kind `ledger_settings`). Members of a set may be kept in different currencies: the set post translates the common lines into a member's currency at the posting date's spot rate from `services/fx` (`FX_URL`; the ledger's service identity holds the `fx.rate.lookup` grant; one lookup per currency, made before the posting transaction), rounds to the member's minor units, and moves any difference between the translated net and the rounded net of the source lines onto the largest line that can take it (flagged `roundingAdjustment`, BR-12.4), so each ledger balances alone. No rate is 422 `LEDGER_RATE_MISSING` (also without `FX_URL`), another fx rejection is relayed as 422 with its code, a refused lookup 502 `LEDGER_FX_MISCONFIGURED`, an unreachable fx service 503 `LEDGER_FX_UNAVAILABLE`; nothing is written. `POST /journal-entries` takes `ledgerLines` for its own ledger only (added to `lines`); a group for another ledger is 422 `LEDGER_LINES_OWN_LEDGER_ONLY`. Journal batches do not take `ledgerLines`: a batch is a single-ledger document, so its lines already are that ledger's lines.
 - Reversal: an entry posted from a batch whose journal name sets `reversalReasonRequired`
   needs a reason code even when the ledger does not (FR-11.15, AC-11.11).
-- Events: every transition writes `dev.passage.ledger.batch.statuschanged.v1` (aggregate
-  `journal_batch`, topic `passage.ledger.batch`) to the outbox in the same transaction.
+- Events: every transition writes `dev.depot.ledger.batch.statuschanged.v1` (aggregate
+  `journal_batch`, topic `depot.ledger.batch`) to the outbox in the same transaction.
 - Web: journal name list and form, journal batch list (status filter), new batch form with a
   line grid and totals, and the batch screen with submit, approve, reject, post, cancel and
   line editing.
@@ -197,7 +197,7 @@ internal/domain/       pure rules: validation, combination hashing, balance aggr
 internal/store/        Postgres repositories (pgx, RLS through dbx.WithTenantTx)
 internal/api/          HTTP handlers, DTOs, duties (authz.RequireDuty)
 internal/events/       event type constants and payloads
-migrations/            0001..0013 SQL, applied in order by dbx.Migrate (0005: passage_app grants; 0006: reason codes; 0007: account structures, dimension values; 0008: description templates; 0009: journal names and batches; 0013: recurring journals)
+migrations/            0001..0013 SQL, applied in order by dbx.Migrate (0005: depot_app grants; 0006: reason codes; 0007: account structures, dimension values; 0008: description templates; 0009: journal names and batches; 0013: recurring journals)
 api/openapi.yaml       OpenAPI 3.1 for every route
 events/asyncapi.yaml   AsyncAPI 3 for every event
 charts/ledger/         Helm chart (ports 8080 http, 9090 admin; readiness on admin /readyz)
@@ -210,28 +210,28 @@ port serves `/metrics` and the database-backed `/readyz`.
 ## Run
 
 ```
-export DATABASE_URL=postgres://passage_app:...@localhost:5432/passage_ledger
+export DATABASE_URL=postgres://depot_app:...@localhost:5432/depot_ledger
 export MIGRATE_ON_START=true   # dev only; stage and prod run migrations as a PreSync Job
 go run ./cmd/ledger
 ```
 
 Required tenant context on each request comes from the kernel's trusted headers
-(`X-Passage-Tenant`, plus the principal headers the platform gateway sets) until
+(`X-Depot-Tenant`, plus the principal headers the platform gateway sets) until
 wave 2 replaces them with JWT validation.
 
 ## Test
 
 ```
 go vet ./... && go test ./...
-PASSAGE_TEST_DATABASE_URL=postgres://admin@... PASSAGE_TEST_APP_DATABASE_URL=postgres://passage_app@... go test ./...
+DEPOT_TEST_DATABASE_URL=postgres://admin@... DEPOT_TEST_APP_DATABASE_URL=postgres://depot_app@... go test ./...
 ```
 
 Domain tests are pure (table-driven plus `pgregory.net/rapid` properties). API
 tests run the handlers over a fake store, and a drift test checks that every
 mounted route and its duty is in `api/openapi.yaml`. Store tests use
 `platform/go/testkit`: migrations run as the admin URL, queries run as
-`passage_app` so RLS and the journal grants apply. They are skipped when
-`PASSAGE_TEST_DATABASE_URL` is unset.
+`depot_app` so RLS and the journal grants apply. They are skipped when
+`DEPOT_TEST_DATABASE_URL` is unset.
 
 ## Local performance benchmark (AC4 proxy, issue #476)
 
@@ -244,15 +244,15 @@ journal, balance projection, outbox) while readers read the trial balance; it
 reports lines/s overall and for the slowest one-second window, posting and read
 latency percentiles, and afterwards checks that every trial balance nets to zero
 and a rebuild finds no differing projection rows. It is skipped unless
-`PASSAGE_LEDGER_BENCH` is set, so CI does not run it.
+`DEPOT_LEDGER_BENCH` is set, so CI does not run it.
 
 ```
 make bench-ledger                       # from the repository root, or:
 services/ledger/scripts/bench-local.sh  # throwaway PG16 cluster (pg_createcluster, root), dropped on exit
-PASSAGE_TEST_DATABASE_URL=... PASSAGE_TEST_APP_DATABASE_URL='...&pool_max_conns=10' services/ledger/scripts/bench-local.sh
+DEPOT_TEST_DATABASE_URL=... DEPOT_TEST_APP_DATABASE_URL='...&pool_max_conns=10' services/ledger/scripts/bench-local.sh
 ```
 
-Knobs: `PASSAGE_LEDGER_BENCH_SECONDS` (30), `_WARMUP_SECONDS` (5), `_WORKERS` (8),
+Knobs: `DEPOT_LEDGER_BENCH_SECONDS` (30), `_WARMUP_SECONDS` (5), `_WORKERS` (8),
 `_LEDGERS` (4, workers round robin), `_LINES` (10 per entry), `_READERS` (2),
 `_READ_INTERVAL_MS` (250), `_OUT` (JSON report). `_MIN_LPS` and `_MAX_P99_MS` turn
 the report into a gate (slowest one-second window, posting p99). Posting is
@@ -318,7 +318,7 @@ new dimension combinations in different orders (`40P01` on `dimension_combinatio
   and records the run in one transaction; a date that already has a run replays it (200). Codes:
   `LEDGER_RECURRING_NOT_FOUND`, `_PAUSED`, `_DATE_INVALID`, `_BASE_REQUIRED`, `_LEDGER_FIXED`,
   `_ID_CONFLICT`.
-  Event `dev.passage.ledger.recurring.generated.v1`.
+  Event `dev.depot.ledger.recurring.generated.v1`.
 - Replacing a template keeps its next run date while frequency, day and start date are unchanged
   (runs skipped by a resume stay skipped); a changed schedule recomputes it from the last run.
 - The web batch screen has "Save as recurring journal", which opens the new recurring journal form
@@ -369,7 +369,7 @@ new dimension combinations in different orders (`40P01` on `dimension_combinatio
 - `POST /journal-entries/{id}/reverse` refuses an entry with an item in an active clearing, including a
   clearing's own difference entry (409 `LEDGER_OPEN_ITEM_ALREADY_CLEARED`): reset the clearing first.
 - `PUT/GET /ledgers/{ledger}/tolerance-groups[/{code}]` maintain the groups (`ETag`, optional `If-Match`).
-- Event `dev.passage.ledger.openitem.cleared.v1` (status `cleared` or `reset`), aggregate type `clearing`.
+- Event `dev.depot.ledger.openitem.cleared.v1` (status `cleared` or `reset`), aggregate type `clearing`.
 - Web: open items (filters, selection, preview, clear), clearing documents list and detail with
   reset, tolerance group list and form, open-item account list with switch.
 
@@ -391,7 +391,7 @@ new dimension combinations in different orders (`40P01` on `dimension_combinatio
   later one. Simulation reads only. A rule reads at most 100,000 items per run (`truncated`).
 - A committed run (`Idempotency-Key` required) is stored in `auto_clearing_run` with its group log
   (`auto_clearing_run_group`, migration 0015, RLS, grants); `GET /auto-clearing-runs[/{id}]` reads them (the log
-  returns the first 1,000 groups). Each cleared group emits `dev.passage.ledger.openitem.cleared.v1` with mode `auto`.
+  returns the first 1,000 groups). Each cleared group emits `dev.depot.ledger.openitem.cleared.v1` with mode `auto`.
 - Web: automatic clearing rule list and form, run page (simulate, clear, earlier runs) and run detail.
 
 ## Dimension derivation (slice 10, FR-11.22, BR-11.14, AC-11.15)
@@ -416,7 +416,7 @@ new dimension combinations in different orders (`40P01` on `dimension_combinatio
   dimensions) to one target dimension. A PUT replaces all rows (at most 5,000; `validFrom`, optional `validTo`).
   Rows match on the full tuple with `*` wildcards: fewest wildcards wins, then the latest `validFrom`; a blank source
   value matches only `*`. A table used by a step keeps its definition (409 `LEDGER_LOOKUP_TABLE_IN_USE`).
-- Activation and table replacement write `dev.passage.ledger.rules.changed.v1` through the outbox. Duty
+- Activation and table replacement write `dev.depot.ledger.rules.changed.v1` through the outbox. Duty
   `ledger.rules.write` maintains rules; reading uses `ledger.journal.read`.
 - Web: lookup table list and form (rows pasted as comma or tab separated lines), strategy version list and
   step editor with save draft and save-and-activate; the journal entry screen marks lines a step derived
@@ -521,4 +521,4 @@ shopspring/decimal, google/uuid) are used.
   recurring journals by next run date (none last), name, then `id`.
 - `GET /journal-batches`, `/recurring-journals` and `/clearings` page by keyset: `limit` (1 to 200, default 100)
   and the opaque `cursor` from `nextCursor`, which is absent on the last page.
-- `dev.passage.ledger.journal.posted.v1` carries `legalEntityId` (also the CloudEvent `legalentityid` extension).
+- `dev.depot.ledger.journal.posted.v1` carries `legalEntityId` (also the CloudEvent `legalentityid` extension).

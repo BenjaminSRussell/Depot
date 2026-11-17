@@ -129,10 +129,10 @@ BEGIN
   FOREACH t IN ARRAY ARRAY['outbox', 'idempotency_keys', 'period_status_change', 'period_reopen_request', 'close_template', 'close_template_task', 'close_run', 'close_task'] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
-    EXECUTE format('CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting(''passage.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)', t || '_tenant_access', t);
+    EXECUTE format('CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting(''depot.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)', t || '_tenant_access', t);
   END LOOP;
   FOREACH t IN ARRAY ARRAY['period_status_change', 'period_reopen_request', 'close_task'] LOOP
-    EXECUTE format('CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting(''passage.legal_entity_scopes'', true) = ''*'' OR legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '','')))', t || '_legal_entity_scope', t);
+    EXECUTE format('CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting(''depot.legal_entity_scopes'', true) = ''*'' OR legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '','')))', t || '_legal_entity_scope', t);
   END LOOP;
 END
 $$;
@@ -177,7 +177,7 @@ CREATE OR REPLACE FUNCTION close_reopen_due_tenants() RETURNS SETOF uuid
 REVOKE ALL ON FUNCTION close_reopen_due_tenants() FROM PUBLIC;
 DO $$
 BEGIN
-  EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
+  EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
 END
 $$;
 GRANT SELECT, INSERT, UPDATE, DELETE ON
@@ -189,6 +189,6 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
   close_template_task,
   close_run,
   close_task
-TO passage_app;
-GRANT SELECT, INSERT ON period_status_change TO passage_app;
-GRANT EXECUTE ON FUNCTION close_reopen_due_tenants() TO passage_app;
+TO depot_app;
+GRANT SELECT, INSERT ON period_status_change TO depot_app;
+GRANT EXECUTE ON FUNCTION close_reopen_due_tenants() TO depot_app;

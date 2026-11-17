@@ -5,6 +5,6 @@ resources:
   - service.yaml
   - networkpolicy.yaml
 configMapGenerator:
-  - name: keycloak-realm-passage
+  - name: keycloak-realm-depot
     files:
-      - realm-passage.json
+      - realm-depot.json

@@ -33,25 +33,25 @@ CREATE INDEX key_rewrite_rule_project_idx ON migration.key_rewrite_rule (tenant_
 ALTER TABLE migration.config_package ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.config_package FORCE ROW LEVEL SECURITY;
 CREATE POLICY config_package_tenant_access ON migration.config_package AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY config_package_legal_entity_scope ON migration.config_package AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*');
+  USING (current_setting('depot.legal_entity_scopes', true) = '*');
 
 ALTER TABLE migration.key_rewrite_rule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.key_rewrite_rule FORCE ROW LEVEL SECURITY;
 CREATE POLICY key_rewrite_rule_tenant_access ON migration.key_rewrite_rule AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY key_rewrite_rule_legal_entity_scope ON migration.key_rewrite_rule AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*');
+  USING (current_setting('depot.legal_entity_scopes', true) = '*');
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
     -- UPDATE only on config_package: the store appends to its applied history.
-    GRANT SELECT, INSERT, UPDATE ON migration.config_package TO passage_app;
-    GRANT SELECT, INSERT ON migration.key_rewrite_rule TO passage_app;
+    GRANT SELECT, INSERT, UPDATE ON migration.config_package TO depot_app;
+    GRANT SELECT, INSERT ON migration.key_rewrite_rule TO depot_app;
   END IF;
 END
 $$;

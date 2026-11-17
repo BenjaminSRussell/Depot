@@ -8,8 +8,8 @@ import json
 import logging
 import unittest
 
-from passage_dispatch import logpseudo as lp
-from passage_dispatch.__main__ import JsonFormatter
+from depot_dispatch import logpseudo as lp
+from depot_dispatch.__main__ import JsonFormatter
 
 TENANT_A = "11111111-1111-4111-8111-111111111111"
 TENANT_B = "22222222-2222-4222-8222-222222222222"
@@ -129,9 +129,9 @@ class TestInstall(unittest.TestCase):
     def test_on_under_the_eu_overlay_and_with_the_flag_only(self):
         for env, want in (
             ({}, False), ({"LOG_PSEUDONYMIZE": "false"}, False), ({"LOG_PSEUDONYMIZE": "true"}, True),
-            ({"PASSAGE_CLOUD_PROFILE": "gcc"}, False), ({"PASSAGE_CLOUD_PROFILE": "commercial+eu-data-boundary"}, True),
-            ({"PASSAGE_CLOUD_PROFILE": "gcc+hipaa"}, False),
-            ({"PASSAGE_CLOUD_PROFILE": "commercial+eu-data-boundary", "LOG_PSEUDONYMIZE": "false"}, True),
+            ({"DEPOT_CLOUD_PROFILE": "gcc"}, False), ({"DEPOT_CLOUD_PROFILE": "commercial+eu-data-boundary"}, True),
+            ({"DEPOT_CLOUD_PROFILE": "gcc+hipaa"}, False),
+            ({"DEPOT_CLOUD_PROFILE": "commercial+eu-data-boundary", "LOG_PSEUDONYMIZE": "false"}, True),
         ):
             handler = logging.StreamHandler(io.StringIO())
             self.assertEqual(lp.install(handler, env), want, env)

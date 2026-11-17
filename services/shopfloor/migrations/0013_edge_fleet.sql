@@ -1,4 +1,4 @@
--- PSG-25 slice 14: edge fleet (FR-25.19). An edge node is one iot-edge connector the plant runs.
+-- DPT-25 slice 14: edge fleet (FR-25.19). An edge node is one iot-edge connector the plant runs.
 -- The shopfloor service keeps its ring, its last heartbeat (every 30 s, buffer fill and the
 -- status of its machines) and the versioned configuration documents it pulls. Each document
 -- version is immutable once published; a node reports the version it runs in its heartbeat and
@@ -9,7 +9,7 @@
 -- connector_subject is the identity the connector authenticates as (the subject the gateway
 -- forwards). Only that identity may pull the node's configuration (which carries the write
 -- allowlist) or report for it; a node without one refuses both. One identity serves one node.
--- A published configuration is immutable: passage_app may update only applied_at, and a trigger
+-- A published configuration is immutable: depot_app may update only applied_at, and a trigger
 -- refuses any other change and any second stamp of applied_at, and refuses deletes.
 
 CREATE TABLE IF NOT EXISTS edge_node (
@@ -40,8 +40,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS edge_node_connector_subject ON edge_node (tena
 ALTER TABLE edge_node ENABLE ROW LEVEL SECURITY;
 ALTER TABLE edge_node FORCE ROW LEVEL SECURITY;
 CREATE POLICY edge_node_tenant_access ON edge_node AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS edge_config_version (
   tenant_id uuid NOT NULL,
@@ -76,15 +76,15 @@ CREATE TRIGGER edge_config_version_immutable BEFORE UPDATE OR DELETE ON edge_con
 ALTER TABLE edge_config_version ENABLE ROW LEVEL SECURITY;
 ALTER TABLE edge_config_version FORCE ROW LEVEL SECURITY;
 CREATE POLICY edge_config_version_tenant_access ON edge_config_version AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON edge_node TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON edge_config_version TO passage_app';
-    EXECUTE 'GRANT UPDATE (applied_at) ON edge_config_version TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON edge_node TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON edge_config_version TO depot_app';
+    EXECUTE 'GRANT UPDATE (applied_at) ON edge_config_version TO depot_app';
   END IF;
 END
 $$;

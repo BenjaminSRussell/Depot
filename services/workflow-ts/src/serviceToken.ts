@@ -1,6 +1,6 @@
 import { createPrivateKey, randomBytes, sign } from "node:crypto";
 
-const TOKEN_CONTEXT = "passage.service-token.v1.";
+const TOKEN_CONTEXT = "depot.service-token.v1.";
 const TOKEN_TTL_SECONDS = 60;
 const PKCS8_ED25519_PREFIX = Buffer.from("302e020100300506032b657004220420", "hex");
 const SEED_BYTES = 32;
@@ -111,8 +111,8 @@ export function serviceTokenSignerFromEnv(
   env: Record<string, string | undefined>,
   readFile: (path: string) => string,
 ): ServiceTokenSigner {
-  const file = env.PASSAGE_SERVICE_SIGNING_KEY_FILE;
-  const seedBase64 = file ? readFile(file) : (env.PASSAGE_SERVICE_SIGNING_KEY ?? "");
-  if (!seedBase64.trim()) throw new Error("PASSAGE_SERVICE_SIGNING_KEY or PASSAGE_SERVICE_SIGNING_KEY_FILE is required");
-  return createServiceTokenSigner({ seedBase64, keyId: env.PASSAGE_SERVICE_KEY_ID });
+  const file = env.DEPOT_SERVICE_SIGNING_KEY_FILE;
+  const seedBase64 = file ? readFile(file) : (env.DEPOT_SERVICE_SIGNING_KEY ?? "");
+  if (!seedBase64.trim()) throw new Error("DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE is required");
+  return createServiceTokenSigner({ seedBase64, keyId: env.DEPOT_SERVICE_KEY_ID });
 }

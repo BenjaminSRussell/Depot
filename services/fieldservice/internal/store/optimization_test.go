@@ -9,11 +9,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/optimizer"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/optimizer"
 )
 
 const optDate, optZone = "2026-10-26", "America/Chicago"
@@ -212,7 +212,7 @@ func TestStore_AcceptWritesThePlanAndReportsWhatItCannot(t *testing.T) {
 		if err != nil || wo.Status != "SCHEDULED" || wo.TechnicianID == nil || *wo.TechnicianID != ana.ID || wo.AssignmentPinned {
 			t.Fatalf("applied order %+v %v", wo, err)
 		}
-		if want := []string{"dev.passage.service.assignment.changed.v1"}; !slices.Equal(d.eventTypes(t, id), want) {
+		if want := []string{"dev.depot.service.assignment.changed.v1"}; !slices.Equal(d.eventTypes(t, id), want) {
 			t.Fatalf("events of %s: %v", id, d.eventTypes(t, id))
 		}
 	}

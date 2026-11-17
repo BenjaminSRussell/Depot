@@ -7,11 +7,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // StagedLine is one line of a staged-only pack (wip_prod, fixed_assets, payroll_ytd) in the shape
-// the factory stores and reconciles: the legacy id, the natural key Passage holds the line under
+// the factory stores and reconciles: the legacy id, the natural key Depot holds the line under
 // (unique per system and company), the currency, the dimensions the control totals group by and
 // the measured amounts. None of these packs has a target import API yet (D1a), so the lines stay
 // in `staged_opening_line` with their legacy_xref rows, like bank_balances before H-S10-1.
@@ -147,8 +147,8 @@ func firstFine(spec StagedSpec, l StagedLine) string {
 }
 
 // ReconcileStaged finishes a staged pack run once the accepted lines are held: loaded is how many
-// lines this run inserted and held maps each accepted legacy id to the line Passage holds. Every
-// total of the spec is computed over the whole extract against what Passage holds, exactly unless a
+// lines this run inserted and held maps each accepted legacy id to the line Depot holds. Every
+// total of the spec is computed over the whole extract against what Depot holds, exactly unless a
 // tolerance is configured. The run moves from VALIDATED to LOADED and, without a MISMATCH, to
 // RECONCILED; a run with quarantine keeps a mismatch and stays LOADED.
 func ReconcileStaged(r *PackRun, spec StagedSpec, source, accepted []StagedLine, loaded int, held map[string]StagedLine) error {

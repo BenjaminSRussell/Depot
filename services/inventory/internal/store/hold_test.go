@@ -10,11 +10,11 @@ import (
 	"github.com/shopspring/decimal"
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 func legalEntityOf(ctx context.Context) string {
@@ -94,7 +94,7 @@ func TestHoldLeavesStockOutOfAvailabilityAndIssues(t *testing.T) {
 		counts[typ] = n
 	}
 	rows.Close()
-	if counts["dev.passage.inventory.hold.placed.v1"] != 1 || counts["dev.passage.inventory.hold.released.v1"] != 1 {
+	if counts["dev.depot.inventory.hold.placed.v1"] != 1 || counts["dev.depot.inventory.hold.released.v1"] != 1 {
 		t.Fatalf("hold events %v, want one placed and one released", counts)
 	}
 	if rep, err := s.RebuildOnHand(ctx, false); err != nil || rep.DiffCount != 0 {

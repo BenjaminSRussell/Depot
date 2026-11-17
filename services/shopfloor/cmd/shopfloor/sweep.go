@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/api"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/registry"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/api"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/registry"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
 )
 
 // sweepConfig reads the sweeper's environment. SWEEP_TENANT_IDS names the tenants (comma-separated

@@ -11,15 +11,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/autosend"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
-	"github.com/BenjaminSRussell/passage/services/edi/migrations"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/autosend"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/migrations"
 )
 
 // autoSetup is a migrated database, the API over fake sources, a partner with a trade profile and the consumer's handlers.

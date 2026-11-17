@@ -12,12 +12,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/payables/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/payables/migrations"
 )
 
 const (
@@ -81,7 +81,7 @@ func TestCreateFromInvoice_EmitsOneEvent(t *testing.T) {
 	}
 	var n int
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `select count(*) from outbox where type = 'dev.passage.payables.openitem.created.v1'`).Scan(&n)
+		return tx.QueryRow(ctx, `select count(*) from outbox where type = 'dev.depot.payables.openitem.created.v1'`).Scan(&n)
 	})
 	if err != nil || n != 1 {
 		t.Fatalf("outbox events = %d err=%v, want 1", n, err)

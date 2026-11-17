@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/store"
 )
 
 const autoRuleID = "00000000-0000-4000-8000-0000000000a1"

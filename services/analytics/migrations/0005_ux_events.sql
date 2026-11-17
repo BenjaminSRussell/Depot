@@ -26,8 +26,8 @@ create table if not exists ux_event (
 alter table ux_event enable row level security;
 alter table ux_event force row level security;
 create policy ux_event_tenant_access on ux_event as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create index if not exists ux_event_flow on ux_event (tenant_id, flow, occurred_at) where event_type = 'funnel_step';
 create index if not exists ux_event_type on ux_event (tenant_id, event_type, occurred_at);
 
@@ -35,8 +35,8 @@ create index if not exists ux_event_type on ux_event (tenant_id, event_type, occ
 -- months) is an operations job on received_at.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON ux_event TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON ux_event TO depot_app';
   END IF;
 END
 $$;

@@ -13,7 +13,7 @@ const TOOL_COUNT = 400;
 const DUTY_COUNT = 20;
 const HELD = new Set(Array.from({ length: DUTY_COUNT / 2 }, (_, i) => `Duty${i}`));
 
-const tools = Array.from({ length: TOOL_COUNT }, (_, i) => readTool(`passage.dom${i}.entity.read`, `Duty${i % DUTY_COUNT}`));
+const tools = Array.from({ length: TOOL_COUNT }, (_, i) => readTool(`depot.dom${i}.entity.read`, `Duty${i % DUTY_COUNT}`));
 
 function dutyOf(i: number): string {
   return `Duty${i % DUTY_COUNT}`;
@@ -23,11 +23,11 @@ describe("gateway permission contract over 400 tools (FR-47.2, AC-47.1)", () => 
   it("tools/list returns exactly the tools whose duty the caller holds", async () => {
     const r = rig(buildCatalog(tools));
     const reply = (await handleRpc(r.deps, principal([...HELD]), { jsonrpc: "2.0", id: 1, method: "tools/list" })) as unknown as {
-      result: { tools: Array<{ name: string; "x-passage-duty": string }> };
+      result: { tools: Array<{ name: string; "x-depot-duty": string }> };
     };
     const listed = reply.result.tools;
     expect(listed).toHaveLength(TOOL_COUNT / 2);
-    expect(listed.every((t) => HELD.has(t["x-passage-duty"]))).toBe(true);
+    expect(listed.every((t) => HELD.has(t["x-depot-duty"]))).toBe(true);
   });
 
   it("every tool without the duty is refused with -32003 and never reaches upstream", async () => {
@@ -40,7 +40,7 @@ describe("gateway permission contract over 400 tools (FR-47.2, AC-47.1)", () => 
         jsonrpc: "2.0",
         id: i,
         method: "tools/call",
-        params: { name: `passage.dom${i}.entity.read`, arguments: {} },
+        params: { name: `depot.dom${i}.entity.read`, arguments: {} },
       });
       expect(reply && "error" in reply ? reply.error.code : undefined).toBe(RPC.forbidden);
       refused += 1;
@@ -58,7 +58,7 @@ describe("gateway permission contract over 400 tools (FR-47.2, AC-47.1)", () => 
         jsonrpc: "2.0",
         id: i,
         method: "tools/call",
-        params: { name: `passage.dom${i}.entity.read`, arguments: {} },
+        params: { name: `depot.dom${i}.entity.read`, arguments: {} },
       });
       expect(reply && "error" in reply ? reply.error.code : undefined).not.toBe(RPC.forbidden);
     }

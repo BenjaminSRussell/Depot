@@ -4,7 +4,7 @@
 // and the mapping to warehouse events and commands (events.go). No socket is opened here; the
 // link runs over any net.Conn, so tests use net.Pipe and the plant runtime dials the PLC.
 //
-// Telegram profile v1 (Passage's own; a plant's PLC vendor profile is mapped onto it, see
+// Telegram profile v1 (Depot's own; a plant's PLC vendor profile is mapped onto it, see
 // NOT-IMPLEMENTED.md):
 //
 //	frame    STX(0x02) LLLL body ETX(0x03)       LLLL: body length, 4 ASCII digits

@@ -44,11 +44,11 @@ CREATE INDEX IF NOT EXISTS lease_modification_lease ON lease_modification (tenan
 ALTER TABLE lease_modification ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lease_modification FORCE ROW LEVEL SECURITY;
 CREATE POLICY lease_modification_tenant_access ON lease_modification AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY lease_modification_legal_entity_scope ON lease_modification AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- A count session reconciles the scanned barcodes against the Open assets of a
 -- legal entity that carry a barcode (the expected register).
@@ -71,11 +71,11 @@ CREATE INDEX IF NOT EXISTS asset_count_session_entity ON asset_count_session (te
 ALTER TABLE asset_count_session ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_count_session FORCE ROW LEVEL SECURITY;
 CREATE POLICY asset_count_session_tenant_access ON asset_count_session AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY asset_count_session_legal_entity_scope ON asset_count_session AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- One line per distinct barcode: Found and Missing reference the asset,
 -- Unknown has none.
@@ -94,8 +94,8 @@ CREATE TABLE IF NOT EXISTS asset_count_line (
 ALTER TABLE asset_count_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_count_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY asset_count_line_tenant_access ON asset_count_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY asset_count_line_legal_entity_scope ON asset_count_line AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

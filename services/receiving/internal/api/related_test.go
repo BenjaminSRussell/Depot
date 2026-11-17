@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
 )
 
 const relatedPath = "/v1/receiving/related-documents"

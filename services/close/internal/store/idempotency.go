@@ -9,8 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/services/close/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/services/close/internal/domain"
 )
 
 type Outcome struct {
@@ -44,7 +44,7 @@ func (s *Postgres) Idempotent(ctx context.Context, key, requestHash string, fn f
 			return fmt.Errorf("expire idempotency key: %w", err)
 		}
 		claimed, err := tx.Exec(ctx,
-			`insert into idempotency_keys(tenant_id, key, request_hash, locked_until) values (current_setting('passage.tenant_id', true)::uuid, $1, $2, now() + interval '30 seconds') on conflict (tenant_id, key) do nothing`,
+			`insert into idempotency_keys(tenant_id, key, request_hash, locked_until) values (current_setting('depot.tenant_id', true)::uuid, $1, $2, now() + interval '30 seconds') on conflict (tenant_id, key) do nothing`,
 			key, requestHash)
 		if err != nil {
 			return fmt.Errorf("claim idempotency key: %w", err)

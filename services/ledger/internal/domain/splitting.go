@@ -9,7 +9,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // Document splitting (FR-11.23, BR-11.15). For a source type, lines that carry none of the

@@ -1,5 +1,5 @@
 // Command migration-factory serves the migration factory API: open-items pack runs with
-// control totals, the legacy cross-reference and the cutover runbook (PSG-49).
+// control totals, the legacy cross-reference and the cutover runbook (DPT-49).
 package main
 
 import (
@@ -11,15 +11,15 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/api"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/store"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/target"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/migrations"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/api"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/store"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/target"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/migrations"
 )
 
 func main() {
@@ -42,7 +42,7 @@ func newLogger(w io.Writer) *slog.Logger {
 }
 
 // targetConfig reads the base address in envURL and the service signing key the factory's calls are signed with. The
-// key must belong to the service named "migration-factory" (PASSAGE_SERVICE_NAME), the caller the service grants are
+// key must belong to the service named "migration-factory" (DEPOT_SERVICE_NAME), the caller the service grants are
 // written for. With neither set the service starts and the load step answers 503; an address without a key, or a key
 // for another service, stops it, because every call would be refused.
 func targetConfig(getenv func(string) string, envURL string) (target.Config, error) {
@@ -58,7 +58,7 @@ func targetConfig(getenv func(string) string, envURL string) (target.Config, err
 	}
 	switch {
 	case base != "" && signer == nil:
-		return target.Config{}, fmt.Errorf("%s is set but no service signing key is (PASSAGE_SERVICE_SIGNING_KEY or PASSAGE_SERVICE_SIGNING_KEY_FILE)", envURL)
+		return target.Config{}, fmt.Errorf("%s is set but no service signing key is (DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE)", envURL)
 	case signer != nil && getenv(tenant.EnvServiceName) != target.ServiceName:
 		return target.Config{}, fmt.Errorf("%s must be %q for the factory's service grants", tenant.EnvServiceName, target.ServiceName)
 	case base == "" || signer == nil:

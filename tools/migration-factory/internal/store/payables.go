@@ -9,8 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	mfevents "github.com/BenjaminSRussell/passage/tools/migration-factory/internal/events"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	mfevents "github.com/BenjaminSRussell/depot/tools/migration-factory/internal/events"
 )
 
 // ErrNoPayablesLoad is returned when the run was not started with a payables load.
@@ -43,11 +43,11 @@ func stagePayables(ctx context.Context, tx pgx.Tx, runID string, st *TargetStage
 		}
 	}
 	if _, err := tx.Exec(ctx, `insert into payables_load (tenant_id, run_id, legal_entity_id, import_source, status, staged, rejected, pending)
-		values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7)`,
+		values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7)`,
 		runID, st.LegalEntityID, st.ImportSource, domain.LoadStaged, total, rejected, pending); err != nil {
 		return fmt.Errorf("insert payables_load: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `update pack_run set payables_staged = $2 where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID, total); err != nil {
+	if _, err := tx.Exec(ctx, `update pack_run set payables_staged = $2 where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID, total); err != nil {
 		return fmt.Errorf("update pack_run payables_staged: %w", err)
 	}
 	return nil
@@ -58,10 +58,10 @@ func (s *Postgres) GetPayablesLoad(ctx context.Context, runID string) (domain.Pa
 	var l domain.PayablesLoad
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		var err error
-		l, err = scanPayablesLoad(tx.QueryRow(ctx, `select `+payablesColumns+` from payables_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID))
+		l, err = scanPayablesLoad(tx.QueryRow(ctx, `select `+payablesColumns+` from payables_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID))
 		if errors.Is(err, pgx.ErrNoRows) {
 			var exists bool
-			if qerr := tx.QueryRow(ctx, `select exists (select 1 from pack_run where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1)`, runID).Scan(&exists); qerr != nil {
+			if qerr := tx.QueryRow(ctx, `select exists (select 1 from pack_run where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1)`, runID).Scan(&exists); qerr != nil {
 				return qerr
 			}
 			if !exists {
@@ -92,21 +92,21 @@ func (s *Postgres) ClaimPayablesLoad(ctx context.Context, runID, startedBy strin
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		var leaseUntil *time.Time
 		var err error
-		load, err = scanPayablesLoad(tx.QueryRow(ctx, `select `+payablesColumns+` from payables_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 for update`, runID))
+		load, err = scanPayablesLoad(tx.QueryRow(ctx, `select `+payablesColumns+` from payables_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 for update`, runID))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNoPayablesLoad
 		}
 		if err != nil {
 			return err
 		}
-		if err := tx.QueryRow(ctx, `select lease_until from payables_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&leaseUntil); err != nil {
+		if err := tx.QueryRow(ctx, `select lease_until from payables_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&leaseUntil); err != nil {
 			return err
 		}
 		if load.Status == domain.LoadLoading && leaseUntil != nil && leaseUntil.After(time.Now()) {
 			return ErrLoadBusy
 		}
 		var runStatus string
-		if err := tx.QueryRow(ctx, `select status from pack_run where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&runStatus); err != nil {
+		if err := tx.QueryRow(ctx, `select status from pack_run where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&runStatus); err != nil {
 			return err
 		}
 		if domain.RunStatus(runStatus) == domain.StatusRolledBack {
@@ -121,7 +121,7 @@ func (s *Postgres) ClaimPayablesLoad(ctx context.Context, runID, startedBy strin
 				coalesce(bool_or(o.attempts > 0 and o.created_at > l.created_at), false)
 			from payables_load l join payables_load o on o.tenant_id = l.tenant_id and o.import_source = l.import_source
 			  and o.legal_entity_id = l.legal_entity_id and o.run_id <> l.run_id
-			where l.tenant_id = current_setting('passage.tenant_id', true)::uuid and l.run_id = $1`, runID).Scan(&busy, &superseded); err != nil {
+			where l.tenant_id = current_setting('depot.tenant_id', true)::uuid and l.run_id = $1`, runID).Scan(&busy, &superseded); err != nil {
 			return fmt.Errorf("check other payables loads: %w", err)
 		}
 		if busy {
@@ -130,14 +130,14 @@ func (s *Postgres) ClaimPayablesLoad(ctx context.Context, runID, startedBy strin
 		if superseded {
 			return ErrLoadSuperseded
 		}
-		if _, err := tx.Exec(ctx, `update target_row r set status = 'SKIPPED', outcome = 'UNCHANGED', passage_id = l.batch_id, updated_at = now()
+		if _, err := tx.Exec(ctx, `update target_row r set status = 'SKIPPED', outcome = 'UNCHANGED', depot_id = l.batch_id, updated_at = now()
 			from payables_loaded l
-			where r.tenant_id = current_setting('passage.tenant_id', true)::uuid and r.run_id = $1 and r.status = 'PENDING' and r.ledger = 'AP'
+			where r.tenant_id = current_setting('depot.tenant_id', true)::uuid and r.run_id = $1 and r.status = 'PENDING' and r.ledger = 'AP'
 			  and l.tenant_id = r.tenant_id and l.import_source = $2 and l.reference = r.legacy_id and l.row_hash = r.row_hash`, runID, load.ImportSource); err != nil {
 			return fmt.Errorf("skip rows payables already holds: %w", err)
 		}
 		rows, err := tx.Query(ctx, `select seq, legacy_id, row_hash, payload from target_row
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 and status = 'PENDING' and ledger = 'AP' order by seq`, runID)
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 and status = 'PENDING' and ledger = 'AP' order by seq`, runID)
 		if err != nil {
 			return err
 		}
@@ -160,10 +160,10 @@ func (s *Postgres) ClaimPayablesLoad(ctx context.Context, runID, startedBy strin
 		}
 		if _, err := tx.Exec(ctx, `update payables_load set status = $2, lease_until = now() + $3::int * interval '1 second', started_by = $4, started_at = now(), finished_at = null,
 				attempts = attempts + 1, last_error = '', version = version + 1
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID, domain.LoadLoading, int32(lease.Seconds()), startedBy); err != nil {
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID, domain.LoadLoading, int32(lease.Seconds()), startedBy); err != nil {
 			return err
 		}
-		load, err = scanPayablesLoad(tx.QueryRow(ctx, `select `+payablesColumns+` from payables_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID))
+		load, err = scanPayablesLoad(tx.QueryRow(ctx, `select `+payablesColumns+` from payables_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID))
 		return err
 	})
 	return load, pending, err
@@ -185,7 +185,7 @@ func (s *Postgres) RecordPayablesBatch(ctx context.Context, runID string, lease 
 	return s.tx(ctx, func(tx pgx.Tx) error {
 		var importSource, le string
 		if err := tx.QueryRow(ctx, `select import_source, legal_entity_id::text from payables_load
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 for update`, runID).Scan(&importSource, &le); err != nil {
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 for update`, runID).Scan(&importSource, &le); err != nil {
 			return fmt.Errorf("read payables_load: %w", err)
 		}
 		n := len(b.Rows)
@@ -200,13 +200,13 @@ func (s *Postgres) RecordPayablesBatch(ctx context.Context, runID string, lease 
 		if b.Replayed {
 			status, outcome = domain.RowUnchanged, "UNCHANGED"
 		}
-		if _, err := tx.Exec(ctx, `update target_row set status = $3, outcome = $4, passage_id = $5::uuid, code = '', detail = '', updated_at = now()
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 and ledger = 'AP' and seq = any($2::int[])`,
+		if _, err := tx.Exec(ctx, `update target_row set status = $3, outcome = $4, depot_id = $5::uuid, code = '', detail = '', updated_at = now()
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 and ledger = 'AP' and seq = any($2::int[])`,
 			runID, seqs, status, outcome, b.BatchID); err != nil {
 			return fmt.Errorf("update target_row: %w", err)
 		}
 		if _, err := tx.Exec(ctx, `insert into payables_loaded (tenant_id, import_source, reference, legal_entity_id, currency, amount_minor, row_hash, batch_key, batch_id, run_id)
-			select current_setting('passage.tenant_id', true)::uuid, $1, r, $2, c, a, h, $3, $4::uuid, $5
+			select current_setting('depot.tenant_id', true)::uuid, $1, r, $2, c, a, h, $3, $4::uuid, $5
 			from unnest($6::text[], $7::text[], $8::bigint[], $9::text[]) as t(r, c, a, h)
 			on conflict (tenant_id, import_source, reference) do update
 			set currency = excluded.currency, amount_minor = excluded.amount_minor, row_hash = excluded.row_hash, batch_key = excluded.batch_key,
@@ -219,11 +219,11 @@ func (s *Postgres) RecordPayablesBatch(ctx context.Context, runID string, lease 
 			return err
 		}
 		if _, err := tx.Exec(ctx, `insert into payables_batch (tenant_id, run_id, batch_key, import_source, legal_entity_id, batch_id, item_count, totals_minor, replayed)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5::uuid, $6, $7::jsonb, $8)
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5::uuid, $6, $7::jsonb, $8)
 			on conflict (tenant_id, run_id, batch_key) do nothing`, runID, b.BatchKey, importSource, le, b.BatchID, n, string(raw), b.Replayed); err != nil {
 			return fmt.Errorf("insert payables_batch: %w", err)
 		}
-		_, err = tx.Exec(ctx, `update payables_load set lease_until = now() + $2::int * interval '1 second' where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`,
+		_, err = tx.Exec(ctx, `update payables_load set lease_until = now() + $2::int * interval '1 second' where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`,
 			runID, int32(lease.Seconds()))
 		return err
 	})
@@ -248,11 +248,11 @@ func (s *Postgres) RejectPayablesRows(ctx context.Context, runID string, lease t
 		}
 		if _, err := tx.Exec(ctx, `update target_row r set status = 'REJECTED', outcome = 'REJECTED', code = t.c, detail = t.d, updated_at = now()
 			from unnest($2::int[], $3::text[], $4::text[]) as t(s, c, d)
-			where r.tenant_id = current_setting('passage.tenant_id', true)::uuid and r.run_id = $1 and r.ledger = 'AP' and r.seq = t.s and r.status = 'PENDING'`,
+			where r.tenant_id = current_setting('depot.tenant_id', true)::uuid and r.run_id = $1 and r.ledger = 'AP' and r.seq = t.s and r.status = 'PENDING'`,
 			runID, seqs, codes, details); err != nil {
 			return fmt.Errorf("reject target_row: %w", err)
 		}
-		_, err := tx.Exec(ctx, `update payables_load set lease_until = now() + $2::int * interval '1 second' where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`,
+		_, err := tx.Exec(ctx, `update payables_load set lease_until = now() + $2::int * interval '1 second' where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`,
 			runID, int32(lease.Seconds()))
 		return err
 	})
@@ -272,18 +272,18 @@ type PayablesFinish struct {
 
 // FinishPayablesLoad ends a pass: it recounts the rows, compares the batches payables holds with what the factory
 // sent, stores the comparison as control totals and the status, keeps the run's payables_staged count at every AP
-// line until the load reconciled, and writes dev.passage.migration.pack.loaded.v1.
+// line until the load reconciled, and writes dev.depot.migration.pack.loaded.v1.
 func (s *Postgres) FinishPayablesLoad(ctx context.Context, runID string, fin PayablesFinish) (domain.PayablesLoad, []domain.ControlTotal, error) {
 	var load domain.PayablesLoad
 	var totals []domain.ControlTotal
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		var err error
-		load, err = scanPayablesLoad(tx.QueryRow(ctx, `select `+payablesColumns+` from payables_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 for update`, runID))
+		load, err = scanPayablesLoad(tx.QueryRow(ctx, `select `+payablesColumns+` from payables_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 for update`, runID))
 		if err != nil {
 			return err
 		}
 		counts := map[string]int{}
-		rows, err := tx.Query(ctx, `select status, outcome, count(*) from target_row where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 and ledger = 'AP' group by status, outcome`, runID)
+		rows, err := tx.Query(ctx, `select status, outcome, count(*) from target_row where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 and ledger = 'AP' group by status, outcome`, runID)
 		if err != nil {
 			return err
 		}
@@ -328,7 +328,7 @@ func (s *Postgres) FinishPayablesLoad(ctx context.Context, runID string, fin Pay
 		}
 		if _, err := tx.Exec(ctx, `update payables_load set status = $2, loaded = $3, unchanged = $4, skipped = $5, rejected = $6, pending = $7, last_error = $8,
 				lease_until = null, finished_at = now(), version = version + 1
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`,
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`,
 			runID, load.Status, load.Loaded, load.Unchanged, load.Skipped, load.Rejected, load.Pending, load.LastError); err != nil {
 			return err
 		}
@@ -338,7 +338,7 @@ func (s *Postgres) FinishPayablesLoad(ctx context.Context, runID string, fin Pay
 		if load.Status == domain.LoadReconciled {
 			staged = load.Rejected
 		}
-		if _, err := tx.Exec(ctx, `update pack_run set payables_staged = $2 where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID, staged); err != nil {
+		if _, err := tx.Exec(ctx, `update pack_run set payables_staged = $2 where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID, staged); err != nil {
 			return fmt.Errorf("update pack_run payables_staged: %w", err)
 		}
 		match, mismatch := domain.CountTotals(totals)
@@ -348,7 +348,7 @@ func (s *Postgres) FinishPayablesLoad(ctx context.Context, runID string, fin Pay
 		}); err != nil {
 			return fmt.Errorf("enqueue pack.loaded: %w", err)
 		}
-		load, err = scanPayablesLoad(tx.QueryRow(ctx, `select `+payablesColumns+` from payables_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID))
+		load, err = scanPayablesLoad(tx.QueryRow(ctx, `select `+payablesColumns+` from payables_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID))
 		return err
 	})
 	return load, totals, err
@@ -359,7 +359,7 @@ func (s *Postgres) FinishPayablesLoad(ctx context.Context, runID string, fin Pay
 func expectedPayablesTotals(ctx context.Context, tx pgx.Tx, importSource, le string) (domain.PayablesTotals, error) {
 	out := domain.PayablesTotals{TotalMinor: map[string]int64{}}
 	rows, err := tx.Query(ctx, `select distinct on (batch_key) item_count, totals_minor from payables_batch
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and import_source = $1 and legal_entity_id = $2 order by batch_key, sent_at`, importSource, le)
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and import_source = $1 and legal_entity_id = $2 order by batch_key, sent_at`, importSource, le)
 	if err != nil {
 		return out, err
 	}

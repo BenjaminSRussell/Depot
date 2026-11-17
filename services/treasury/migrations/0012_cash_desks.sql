@@ -1,4 +1,4 @@
--- Wave 36 (PSG-36) FR-36.16: cash desks and the cash journal. A desk holds physical cash in one currency; each
+-- Wave 36 (DPT-36) FR-36.16: cash desks and the cash journal. A desk holds physical cash in one currency; each
 -- business day is opened with the counted cash carried over, takes receipts and payments, and is closed against a count.
 
 create table cash_desk (
@@ -61,36 +61,36 @@ create table cash_desk_entry (
 alter table cash_desk enable row level security;
 alter table cash_desk force row level security;
 create policy cash_desk_tenant_access on cash_desk as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy cash_desk_legal_entity_scope on cash_desk as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 alter table cash_desk_day enable row level security;
 alter table cash_desk_day force row level security;
 create policy cash_desk_day_tenant_access on cash_desk_day as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy cash_desk_day_legal_entity_scope on cash_desk_day as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 alter table cash_desk_entry enable row level security;
 alter table cash_desk_entry force row level security;
 create policy cash_desk_entry_tenant_access on cash_desk_entry as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy cash_desk_entry_legal_entity_scope on cash_desk_entry as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The journal is append-only; a day moves from open to closed once.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON cash_desk, cash_desk_day TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON cash_desk_entry TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON cash_desk, cash_desk_day TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON cash_desk_entry TO depot_app';
   END IF;
 END
 $$;

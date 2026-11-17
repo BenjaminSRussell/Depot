@@ -111,7 +111,7 @@ func as2Unquote(s string) string {
 func randomBoundary() string {
 	b := make([]byte, 18)
 	_, _ = rand.Read(b)
-	return "----=_passage_" + hex.EncodeToString(b)
+	return "----=_depot_" + hex.EncodeToString(b)
 }
 
 // payloadEntity is the MIME entity that is signed: headers, blank line and

@@ -6,14 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/api"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/api"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 func orderScheduledEvent(t *testing.T, eventID, tenantID, orderID string, version int, jobs []map[string]any) events.Event {
@@ -32,7 +32,7 @@ func orderEventWithReason(t *testing.T, eventID, tenantID, orderID, reason strin
 	if err != nil {
 		t.Fatal(err)
 	}
-	return events.Event{SpecVersion: "1.0", ID: eventID, Source: "/passage/production", Type: api.OrderScheduledType, Time: time.Now().UTC(),
+	return events.Event{SpecVersion: "1.0", ID: eventID, Source: "/depot/production", Type: api.OrderScheduledType, Time: time.Now().UTC(),
 		DataContentType: "application/json", Data: data, TenantID: tenantID}
 }
 
@@ -87,7 +87,7 @@ func TestOrderIntake_RegistersOperationsAndIgnoresAnOlderVersion(t *testing.T) {
 	if err != nil || imp.Status != store.ImportPartial || imp.OrderVersion != 2 || len(imp.Skipped) != 1 || imp.Skipped[0].OperNumber != 20 {
 		t.Fatalf("import = %+v err=%v, want partial at version 2 with operation 20 skipped", imp, err)
 	}
-	if n := count(`select count(*) from outbox where type = 'dev.passage.scheduling.orderimport.recorded.v1' and aggregate_id = $1`, orderID); n != 1 {
+	if n := count(`select count(*) from outbox where type = 'dev.depot.scheduling.orderimport.recorded.v1' and aggregate_id = $1`, orderID); n != 1 {
 		t.Fatalf("%d import events, want 1 (the older version changes nothing)", n)
 	}
 }
@@ -167,7 +167,7 @@ func TestOrderIntake_IgnoresProductionsEchoOfScheduledDates(t *testing.T) {
 	if n := count(`select order_version from scheduling_order_import where order_id = $1::uuid`, orderID); n != 1 {
 		t.Fatalf("import row at version %d, want 1: the finite echo records nothing", n)
 	}
-	if n := count(`select count(*) from outbox where type = 'dev.passage.scheduling.orderimport.recorded.v1' and aggregate_id = $1`, orderID); n != 1 {
+	if n := count(`select count(*) from outbox where type = 'dev.depot.scheduling.orderimport.recorded.v1' and aggregate_id = $1`, orderID); n != 1 {
 		t.Fatalf("%d import events, want 1", n)
 	}
 	// An order scheduling never saw is not created by its echo either.
@@ -190,7 +190,7 @@ func orderStatusChangedEvent(t *testing.T, orderID, to string, dates bool) event
 	if err != nil {
 		t.Fatal(err)
 	}
-	return events.Event{SpecVersion: "1.0", ID: ids.New(), Source: "/passage/production", Type: api.OrderStatusChangedType, Time: time.Now().UTC(),
+	return events.Event{SpecVersion: "1.0", ID: ids.New(), Source: "/depot/production", Type: api.OrderStatusChangedType, Time: time.Now().UTC(),
 		DataContentType: "application/json", Data: data, TenantID: testkit.TenantID(1)}
 }
 
@@ -238,7 +238,7 @@ func TestOrderIntake_WithdrawsAnOrderProductionTookOutOfSchedule(t *testing.T) {
 	if err != nil || imp.Status != store.ImportWithdrawn || imp.Removed != 1 || imp.WithdrawnTo == nil || *imp.WithdrawnTo != "Estimated" {
 		t.Fatalf("import = %+v err=%v, want withdrawn to Estimated with 1 removed", imp, err)
 	}
-	if n := count(`select count(*) from outbox where type = 'dev.passage.scheduling.orderimport.recorded.v1' and aggregate_id = $1`, orderID); n != 2 {
+	if n := count(`select count(*) from outbox where type = 'dev.depot.scheduling.orderimport.recorded.v1' and aggregate_id = $1`, orderID); n != 2 {
 		t.Fatalf("%d import events, want 2 (import and withdrawal)", n)
 	}
 	// A schedule event older than the withdrawal (delivered late) does not

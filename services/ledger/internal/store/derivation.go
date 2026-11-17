@@ -9,11 +9,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/domain"
-	ledgerevents "github.com/BenjaminSRussell/passage/services/ledger/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/domain"
+	ledgerevents "github.com/BenjaminSRussell/depot/services/ledger/internal/events"
 )
 
 // Problem codes of derivation maintenance (FR-11.22).

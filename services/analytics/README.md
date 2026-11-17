@@ -1,6 +1,6 @@
 # analytics
 
-Wave 46 (PSG-46): data platform, analytics and embedded BI. This service owns
+Wave 46 (DPT-46): data platform, analytics and embedded BI. This service owns
 the governed metric catalog, the row-scope mirror that compiles every query
 into Cube filters, and the daily metric reconciliation against the ledger. The
 lakehouse, dbt models and Cube semantic layer live in `../../data/`.
@@ -36,7 +36,7 @@ lakehouse, dbt models and Cube semantic layer live in `../../data/`.
   with `If-Match` of the current version; the version is the `ETag`), and
   `GET /v1/catalog/dq-rules/scores` for history. `RecordDQScore` stores one
   evaluation per rule and day with the below-threshold streak and writes
-  `dev.passage.catalog.dq.scored.v1` in the same transaction: one owner task per
+  `dev.depot.catalog.dq.scored.v1` in the same transaction: one owner task per
   rule and day, one steward escalation per run of three or more failures, and
   nothing while the rule is muted (7 days). Its caller, the hourly evaluation
   job, is a later slice.
@@ -44,7 +44,7 @@ lakehouse, dbt models and Cube semantic layer live in `../../data/`.
   (PENDING, VERIFIED, DROPPED, RESTORED). The store registers a partition,
   records the mover's counts and content hashes (a mismatch stays PENDING with
   both copies and returns `ANA-0110`; a match is VERIFIED and writes
-  `dev.passage.archive.partition.moved.v1`), drops, and restores.
+  `dev.depot.archive.partition.moved.v1`), drops, and restores.
   `GET /v1/archive/partitions[/{id}]` and `POST /v1/archive/partitions/{id}/restore`
   (30 days, idempotent by partition id) are served to `analytics.archive.admin`.
 - **Report schedules (FR-46.10).** Five-field time-zone aware cron with `L`,
@@ -93,7 +93,7 @@ on the existing endpoints:
   a `Deliverer`, writes one `report_delivery` row per attempt (attempts of one
   run share `run_id`), retries after 1, 4 and 16 minutes, marks the fourth
   failure FAILED and moves to the next cron slot, and writes
-  `dev.passage.analytics.report.delivered.v1` with a delivered attempt.
+  `dev.depot.analytics.report.delivered.v1` with a delivered attempt.
   `GET /v1/analytics/schedules/{id}/deliveries?status=` lists the attempts.
 - Saved explorer queries (#500, migration 0006): `POST/GET /v1/analytics/saved-queries` and `GET/DELETE /v1/analytics/saved-queries/{id}`
   keep a named query per user (metrics, dimensions and a look-back of 1 to 1826 days, so the range stays current). The list and
@@ -131,7 +131,7 @@ The web app reports how people move through its flows so the team can see where 
 - `POST /v1/analytics/ux-events` (duty `analytics.ux.record`) takes 1 to 50 events and answers 202 with `accepted` and `dropped`. Types: `funnel_step` (flow and step), `validation_error` (page and field name), `search_no_results` (the query), `form_abandoned` (page). The flows and their steps are `domain.Funnels`: `procure_to_pay` and `onboarding` (which ends at `first_transaction`).
 - `GET /v1/analytics/ux-funnels?flow=&from=&to=&release=` (duty `analytics.ux.view`) returns the sessions that reached each step, the share that went on from the previous step, and the median seconds from a session's first event to its last step. For `onboarding` that last number is the time to first transaction.
 - `GET /v1/analytics/ux-signals?from=&to=&release=&routePrefix=` returns the 20 most frequent validation errors, no-result searches and abandoned forms. `routePrefix` (one route segment such as `/purchasing`) keeps the validation errors and abandoned forms of that workspace, so each list is the top 20 within it; searches have no page and stay counted across every workspace.
-- Privacy: an event holds a random per-tab session id and the release, never a user id or a record id. A search query with an at sign or seven or more digits is dropped and counted in `dropped`; the rest is lower-cased and cut to 80 characters. Fields are names, never values, and routes are templates without a query string. The table (`ux_event`, migration 0005) is write-once for the application role. Retention is an operations job on `received_at` (13 months). The web app sends nothing when the person has opted out (Home page, "Help improve Passage") or does not hold the record duty.
+- Privacy: an event holds a random per-tab session id and the release, never a user id or a record id. A search query with an at sign or seven or more digits is dropped and counted in `dropped`; the rest is lower-cased and cut to 80 characters. Fields are names, never values, and routes are templates without a query string. The table (`ux_event`, migration 0005) is write-once for the application role. Retention is an operations job on `received_at` (13 months). The web app sends nothing when the person has opted out (Home page, "Help improve Depot") or does not hold the record duty.
 - Assign `analytics.ux.record` to every role that uses the web app, and `analytics.ux.view` to the people who read the funnels. The web page `/analytics/ux` (UX telemetry) reads both funnels and the signals.
 
 ## Nightly revenue reconciliation (FR-46.13)
@@ -174,16 +174,16 @@ charts/analytics/         Helm chart
 DATABASE_URL=postgres://... MIGRATE_ON_START=true HTTP_ADDR=:8080 go run ./cmd/analytics
 ```
 
-Requests need the gateway headers `X-Passage-Tenant`, `X-Passage-Duties`
+Requests need the gateway headers `X-Depot-Tenant`, `X-Depot-Duties`
 (`analytics.view`, `analytics.finance.view`, `analytics.catalog.steward`, `analytics.catalog.view`,
-`analytics.author`, `analytics.export`, `analytics.archive.admin`) and optionally `X-Passage-Legal-Entity`.
+`analytics.author`, `analytics.export`, `analytics.archive.admin`) and optionally `X-Depot-Legal-Entity`.
 
 ## Test
 
 ```
 go vet ./... && go test ./...
-PASSAGE_TEST_DATABASE_URL=postgres://... go test ./...   # adds store and API database tests
-PASSAGE_TEST_APP_DATABASE_URL=postgres://app-role@... # adds the RLS isolation test
+DEPOT_TEST_DATABASE_URL=postgres://... go test ./...   # adds store and API database tests
+DEPOT_TEST_APP_DATABASE_URL=postgres://app-role@... # adds the RLS isolation test
 node --test ../../data/cube/cube.test.js                # Cube queryRewrite RLS tests (CI runs it)
 ```
 

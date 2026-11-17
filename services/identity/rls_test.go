@@ -9,10 +9,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/identity/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/identity/migrations"
 )
 
 const (
@@ -121,7 +121,7 @@ func TestIdentityTablesAreForcedRLSOwnedByMigrator(t *testing.T) {
 	if err := app.QueryRow(ctx, `select current_user, rolsuper, rolbypassrls from pg_roles where rolname = current_user`).Scan(&user, &super, &bypass); err != nil {
 		t.Fatal(err)
 	}
-	if user != "passage_app" || super || bypass {
+	if user != "depot_app" || super || bypass {
 		t.Fatalf("role=%q super=%v bypassrls=%v", user, super, bypass)
 	}
 	for _, table := range rlsTables {
@@ -154,7 +154,7 @@ func TestUnscopedAndResetSessionsSeeNoRows(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true)`, tenantA); err != nil {
+			if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true)`, tenantA); err != nil {
 				t.Fatal(err)
 			}
 			if err := tx.Commit(ctx); err != nil {
@@ -329,7 +329,7 @@ func TestAppRoleCannotWriteTenants(t *testing.T) {
 			_, err := tx.Exec(ctx, stmt, tenantA)
 			return err
 		})
-		requireDenied(t, err, "passage_app "+name+" on identity_tenants")
+		requireDenied(t, err, "depot_app "+name+" on identity_tenants")
 	}
 	if got := count(t, app, tenantA, "*", `select count(*) from identity_tenants`); got != 1 {
 		t.Errorf("tenant A sees %d tenant rows, want 1", got)
@@ -352,7 +352,7 @@ func TestAppRoleCannotDeleteIdentityHistory(t *testing.T) {
 			_, err := tx.Exec(context.Background(), `delete from `+table+` where tenant_id = $1`, tenantA)
 			return err
 		})
-		requireDenied(t, err, "passage_app delete on "+table)
+		requireDenied(t, err, "depot_app delete on "+table)
 	}
 }
 
@@ -364,7 +364,7 @@ func TestAppRoleCannotRewriteAuditOrOutbox(t *testing.T) {
 				_, err := tx.Exec(context.Background(), stmt)
 				return err
 			})
-			requireDenied(t, err, "passage_app "+stmt)
+			requireDenied(t, err, "depot_app "+stmt)
 		}
 	}
 }
@@ -414,7 +414,7 @@ func TestTenantInsertNeedsOperatorContext(t *testing.T) {
 	insertAs := func(session, operator string) error {
 		return asTenant(t, app, session, "*", func(tx pgx.Tx) error {
 			if operator != "" {
-				if _, err := tx.Exec(ctx, `select set_config('passage.operator_context', $1, true)`, operator); err != nil {
+				if _, err := tx.Exec(ctx, `select set_config('depot.operator_context', $1, true)`, operator); err != nil {
 					return err
 				}
 			}

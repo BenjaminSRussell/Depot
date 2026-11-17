@@ -1,6 +1,6 @@
 // Package events holds the event types and payloads the processmfg service
 // publishes through its outbox. Types follow the kernel rule
-// dev.passage.<context>.<entity>.<verb>.v<n>; the context is "production",
+// dev.depot.<context>.<entity>.<verb>.v<n>; the context is "production",
 // as in PRD 4.24.5, and the entity drops the PRD's hyphen (batch-order →
 // batchorder) because the kernel rule allows none.
 package events
@@ -10,46 +10,46 @@ const Source = "processmfg"
 
 // Event types.
 const (
-	FormulaCreated     = "dev.passage.production.formula.created.v1"
-	BatchOrderCreated  = "dev.passage.production.batchorder.created.v1"
-	BatchOrderRescaled = "dev.passage.production.batchorder.rescaled.v1"
+	FormulaCreated     = "dev.depot.production.formula.created.v1"
+	BatchOrderCreated  = "dev.depot.production.batchorder.created.v1"
+	BatchOrderRescaled = "dev.depot.production.batchorder.rescaled.v1"
 	// BatchOrderStateChanged covers release, start, report-as-finished and end.
-	BatchOrderStateChanged = "dev.passage.production.batchorder.statechanged.v1"
+	BatchOrderStateChanged = "dev.depot.production.batchorder.statechanged.v1"
 	// CoProductAllocated is written when an order ends (PRD 4.24.5 co-product.allocated).
-	CoProductAllocated = "dev.passage.production.coproduct.allocated.v1"
+	CoProductAllocated = "dev.depot.production.coproduct.allocated.v1"
 	// BatchAttributeDefined is written when an item gets a batch attribute (FR-24.5).
-	BatchAttributeDefined = "dev.passage.production.batchattribute.defined.v1"
+	BatchAttributeDefined = "dev.depot.production.batchattribute.defined.v1"
 	// BatchRegistered is written when a batch gets its quality record.
-	BatchRegistered = "dev.passage.production.batch.registered.v1"
+	BatchRegistered = "dev.depot.production.batch.registered.v1"
 	// BatchAttributesRecorded is the PRD's batch.attributes-recorded (no hyphen).
-	BatchAttributesRecorded = "dev.passage.production.batch.attributesrecorded.v1"
+	BatchAttributesRecorded = "dev.depot.production.batch.attributesrecorded.v1"
 	// BatchDispositionChanged is written when a batch's disposition changes (AC-24.10).
-	BatchDispositionChanged = "dev.passage.production.batch.dispositionchanged.v1"
+	BatchDispositionChanged = "dev.depot.production.batch.dispositionchanged.v1"
 	// BatchMerged is written when stored batches are merged into a new one (FR-24.16).
-	BatchMerged = "dev.passage.production.batch.merged.v1"
+	BatchMerged = "dev.depot.production.batch.merged.v1"
 	// BatchRequirementDefined and BatchRequirementRetired cover the customer
 	// batch requirements (FR-24.19): sales and picking read the rules from them.
-	BatchRequirementDefined = "dev.passage.production.batchrequirement.defined.v1"
-	BatchRequirementRetired = "dev.passage.production.batchrequirement.retired.v1"
+	BatchRequirementDefined = "dev.depot.production.batchrequirement.defined.v1"
+	BatchRequirementRetired = "dev.depot.production.batchrequirement.retired.v1"
 	// InheritanceRuleDefined and InheritanceRuleRetired cover the attribute
 	// inheritance rules (FR-24.15); BatchDerived is written when a batch's
 	// attributes are derived from its senders.
-	InheritanceRuleDefined = "dev.passage.production.inheritancerule.defined.v1"
-	InheritanceRuleRetired = "dev.passage.production.inheritancerule.retired.v1"
-	BatchDerived           = "dev.passage.production.batch.derived.v1"
+	InheritanceRuleDefined = "dev.depot.production.inheritancerule.defined.v1"
+	InheritanceRuleRetired = "dev.depot.production.inheritancerule.retired.v1"
+	BatchDerived           = "dev.depot.production.batch.derived.v1"
 	// The electronic batch record (FR-24.21): its profile, compilation, review
 	// by exception, approval and seal.
-	BatchRecordProfileDefined    = "dev.passage.production.batchrecordprofile.defined.v1"
-	BatchRecordProfileRetired    = "dev.passage.production.batchrecordprofile.retired.v1"
-	BatchRecordCompiled          = "dev.passage.production.batchrecord.compiled.v1"
-	BatchRecordExceptionRaised   = "dev.passage.production.batchrecord.exceptionraised.v1"
-	BatchRecordExceptionDisposed = "dev.passage.production.batchrecord.exceptiondispositioned.v1"
-	BatchRecordApproved          = "dev.passage.production.batchrecord.approved.v1"
-	BatchRecordSealed            = "dev.passage.production.batchrecord.sealed.v1"
+	BatchRecordProfileDefined    = "dev.depot.production.batchrecordprofile.defined.v1"
+	BatchRecordProfileRetired    = "dev.depot.production.batchrecordprofile.retired.v1"
+	BatchRecordCompiled          = "dev.depot.production.batchrecord.compiled.v1"
+	BatchRecordExceptionRaised   = "dev.depot.production.batchrecord.exceptionraised.v1"
+	BatchRecordExceptionDisposed = "dev.depot.production.batchrecord.exceptiondispositioned.v1"
+	BatchRecordApproved          = "dev.depot.production.batchrecord.approved.v1"
+	BatchRecordSealed            = "dev.depot.production.batchrecord.sealed.v1"
 	// The rework batch order (FR-24.18): created from a stored batch, received
 	// when its output goes back to the batch register.
-	ReworkOrderCreated  = "dev.passage.production.reworkorder.created.v1"
-	ReworkOrderReceived = "dev.passage.production.reworkorder.received.v1"
+	ReworkOrderCreated  = "dev.depot.production.reworkorder.created.v1"
+	ReworkOrderReceived = "dev.depot.production.reworkorder.received.v1"
 )
 
 // All lists every event type this service publishes.

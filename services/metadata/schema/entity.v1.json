@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://passage.dev/schemas/metadata/entity.v1.json",
-  "title": "Passage Entity Definition v1",
+  "$id": "https://depot.dev/schemas/metadata/entity.v1.json",
+  "title": "Depot Entity Definition v1",
   "type": "object",
   "additionalProperties": false,
   "required": ["name", "domain", "table_group", "fields"],

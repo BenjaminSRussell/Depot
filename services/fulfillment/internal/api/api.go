@@ -9,7 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/BenjaminSRussell/passage/platform/customsdata"
+	"github.com/BenjaminSRussell/depot/platform/customsdata"
 	"io"
 	"net/http"
 	"regexp"
@@ -21,12 +21,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/carrier"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/carrier"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 // Error codes owned by the API layer (service catalog FUL-*, plus kernel codes).
@@ -81,7 +81,7 @@ func New(s store.Store, opts Options) *API {
 func (a *API) SetClock(now func() time.Time) { a.now = now }
 
 // Routes mounts every fulfillment endpoint on r. Each route carries the duty
-// named by its operation's x-passage-duty.
+// named by its operation's x-depot-duty.
 func (a *API) Routes(r chi.Router) {
 	r.With(authz.RequireDuty("fulfillment.warehouse.release")).Post("/v1/fulfillment/releases:run", a.runRelease)
 	r.With(authz.RequireDuty("fulfillment.warehouse.view")).Get("/v1/fulfillment/shipments", a.listShipments)

@@ -4,7 +4,7 @@ package events
 import (
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 )
 
 // Context is the event context of the controlling services.

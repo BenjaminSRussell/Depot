@@ -9,12 +9,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
 )
 
 // Absence code problem codes (see README).
@@ -77,7 +77,7 @@ func absenceEvent(ctx context.Context, tx pgx.Tx, tenantID string, a AbsenceCode
 }
 
 // CreateAbsenceCode stores an absence code under the Idempotency-Key and publishes
-// dev.passage.shopfloor.absencecode.saved.v1 in the same transaction. A code already used
+// dev.depot.shopfloor.absencecode.saved.v1 in the same transaction. A code already used
 // is SF-0142.
 func (s *Postgres) CreateAbsenceCode(ctx context.Context, in AbsenceCodeInput, createdBy string, idem Idem) (AbsenceCode, error) {
 	p, _ := tenant.FromContext(ctx)

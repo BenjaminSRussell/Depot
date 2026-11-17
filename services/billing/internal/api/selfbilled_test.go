@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/billing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/store"
 )
 
 func (f *fakeStore) PostSelfBilled(_ context.Context, inv store.Invoice, number, documentNumber string) (store.Invoice, bool, error) {

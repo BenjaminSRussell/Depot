@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/probe"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/probe"
 )
 
 // fakeDatetime stands in for a SQL Server table with an int key and a datetime change stamp, which SQL Server keeps

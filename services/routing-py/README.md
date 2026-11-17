@@ -1,4 +1,4 @@
-# routing-py: transportation route optimizer (wave 34, PSG-34)
+# routing-py: transportation route optimizer (wave 34, DPT-34)
 
 Python numeric service for wave 34. It solves capacitated vehicle routing with time windows
 using Google OR-Tools (`RoutingModel`). The transport service (`services/transport`) owns

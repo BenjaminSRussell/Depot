@@ -14,10 +14,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/domain"
-	icevents "github.com/BenjaminSRussell/passage/services/intercompany/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/domain"
+	icevents "github.com/BenjaminSRussell/depot/services/intercompany/internal/events"
 )
 
 const uniqueViolation = "23505"

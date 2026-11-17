@@ -38,7 +38,7 @@ func xrefChunks(keys []string) [][]string {
 	return out
 }
 
-// Xref resolves legacy keys through the migration service's cross-reference (services/migration, H-S8-6): the Passage ids the
+// Xref resolves legacy keys through the migration service's cross-reference (services/migration, H-S8-6): the Depot ids the
 // party migration loaded, so an open item's legacy customer needs no hand-made map.
 type Xref struct{ c *Receivables }
 
@@ -52,7 +52,7 @@ func NewXref(cfg Config) *Xref {
 // Configured reports whether a lookup can be attempted: an address and a signing key.
 func (x *Xref) Configured() bool { return x != nil && x.c.Configured() }
 
-// Resolve returns the Passage id of each key of the entity from the source system that the cross-reference holds, within the
+// Resolve returns the Depot id of each key of the entity from the source system that the cross-reference holds, within the
 // legal entity's scope; keys it does not hold are left out. Keys are sent up to 500 (and about 6 KB encoded) to a request.
 func (x *Xref) Resolve(ctx context.Context, tenantID, legalEntityID, system, entity string, keys []string) (map[string]string, error) {
 	if !x.Configured() {

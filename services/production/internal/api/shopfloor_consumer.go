@@ -10,21 +10,21 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/production/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/production/internal/store"
 )
 
 const (
 	// RegistrationPostedType is the shop floor's registration.posted.v1 (w25): a registration
 	// was stored; a closed job-stop carries its hours, order, operation and worker rate.
-	RegistrationPostedType  = "dev.passage.shopfloor.registration.posted.v1"
-	RegistrationPostedTopic = "passage.shopfloor.registration"
+	RegistrationPostedType  = "dev.depot.shopfloor.registration.posted.v1"
+	RegistrationPostedTopic = "depot.shopfloor.registration"
 	// RegistrationCorrectedType is the shop floor's registration.corrected.v1: a supervisor
 	// correction, or a replayed kiosk stop superseding a server stop, changed a registration's hours.
-	RegistrationCorrectedType  = "dev.passage.shopfloor.registration.corrected.v1"
-	RegistrationCorrectedTopic = "passage.shopfloor.registration-corrected"
+	RegistrationCorrectedType  = "dev.depot.shopfloor.registration.corrected.v1"
+	RegistrationCorrectedTopic = "depot.shopfloor.registration-corrected"
 	// ShopfloorSource is the CloudEvents source the shop floor writes on its events.
 	ShopfloorSource = "shopfloor"
 	// ShopfloorConsumerName is the consumer (and Kafka group) that posts shop-floor labor as job

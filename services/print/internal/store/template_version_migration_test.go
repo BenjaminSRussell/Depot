@@ -11,10 +11,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/print/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/print/migrations"
 )
 
 // Migration 0008 backfills the version history of the templates saved before it. Deployed, the migrations run as the
@@ -75,7 +75,7 @@ func TestTemplateVersionBackfillRunsAsANonSuperuserOwner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true)`, tenant); err != nil {
+	if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true)`, tenant); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := tx.Exec(ctx, `insert into print_document_template (tenant_id, code, name, document_type, version, config)

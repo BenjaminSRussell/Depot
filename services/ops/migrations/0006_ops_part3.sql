@@ -1,4 +1,4 @@
--- Ops control plane part 3 (PSG-50, FR-50.1, FR-50.8, FR-50.9, FR-50.12): tenant provisioning, tenant cost statements, the hourly
+-- Ops control plane part 3 (DPT-50, FR-50.1, FR-50.8, FR-50.9, FR-50.12): tenant provisioning, tenant cost statements, the hourly
 -- licence check with reported user counts, SLO breach state, and the outbox for the ops events. The ops tables are platform
 -- state, not tenant data: the tenant they describe is a key column (customer_tenant, licensee_id), never tenant_id, and they
 -- have no RLS (allowlisted in tools/rlscheck). The outbox is the platform shape with tenant RLS; the store sets the event's
@@ -79,15 +79,15 @@ CREATE TABLE outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid)
-  WITH CHECK (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
+  USING (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid)
+  WITH CHECK (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT UPDATE (completed_at) ON ops_failover TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ops_tenant_provision, ops_tenant_provision_step, ops_tenant_cost, ops_license_check, ops_slo_state TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON outbox TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT UPDATE (completed_at) ON ops_failover TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ops_tenant_provision, ops_tenant_provision_step, ops_tenant_cost, ops_license_check, ops_slo_state TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON outbox TO depot_app';
   END IF;
 END
 $$;

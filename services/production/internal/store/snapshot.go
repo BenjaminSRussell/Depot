@@ -7,9 +7,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	prodevents "github.com/BenjaminSRussell/passage/services/production/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	prodevents "github.com/BenjaminSRussell/depot/services/production/internal/events"
 )
 
 // CostSnapshotRun is one run of the order cost snapshot (PRD 4.21.16 `order-cost-snapshot`).

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 func batchCall(t *testing.T, signer *tenant.ServiceSigner, method, path, body string, headers map[string]string, only ...string) *httptest.ResponseRecorder {

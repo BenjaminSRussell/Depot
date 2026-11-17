@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/store"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/store"
 )
 
 type stubGate struct{}

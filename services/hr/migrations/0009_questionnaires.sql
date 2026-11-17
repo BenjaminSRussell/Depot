@@ -71,40 +71,40 @@ CREATE UNIQUE INDEX IF NOT EXISTS hr_questionnaire_session_one_per_worker
 ALTER TABLE hr_questionnaire ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_questionnaire FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_questionnaire_tenant_access ON hr_questionnaire AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE hr_questionnaire_schedule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_questionnaire_schedule FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_questionnaire_schedule_tenant_access ON hr_questionnaire_schedule AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE hr_questionnaire_responded ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_questionnaire_responded FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_questionnaire_responded_tenant_access ON hr_questionnaire_responded AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE hr_questionnaire_session ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_questionnaire_session FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_questionnaire_session_tenant_access ON hr_questionnaire_session AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE POLICY hr_questionnaire_responded_legal_entity_scope ON hr_questionnaire_responded AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 CREATE POLICY hr_questionnaire_session_legal_entity_scope ON hr_questionnaire_session AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Everything is write-once: a questionnaire, its schedule, an answer session
 -- and the response marker. Nothing is updated or deleted.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON hr_questionnaire, hr_questionnaire_schedule, hr_questionnaire_responded, hr_questionnaire_session TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON hr_questionnaire, hr_questionnaire_schedule, hr_questionnaire_responded, hr_questionnaire_session TO depot_app';
   END IF;
 END
 $$;

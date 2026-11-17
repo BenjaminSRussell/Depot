@@ -1,4 +1,4 @@
-// Command receivables runs the Passage receivables service: cash application,
+// Command receivables runs the Depot receivables service: cash application,
 // open items and aging (wave 30 slice 1).
 package main
 
@@ -11,16 +11,16 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/billingclient"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/fxclient"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/store"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/taxclient"
-	"github.com/BenjaminSRussell/passage/services/receivables/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/billingclient"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/fxclient"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/store"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/taxclient"
+	"github.com/BenjaminSRussell/depot/services/receivables/migrations"
 )
 
 func main() {
@@ -195,7 +195,7 @@ func run() error {
 	go func() { errs <- httpx.Serve(ctx, addr, r) }()
 	go func() { errs <- httpx.Serve(ctx, adminAddr, admin) }()
 	if gw != nil {
-		// The payment provider's webhooks reach their own listener, exposed through a route without a Passage token (#30).
+		// The payment provider's webhooks reach their own listener, exposed through a route without a Depot token (#30).
 		go func() { errs <- httpx.Serve(ctx, webhookAddr, h.WebhookRoutes()) }()
 	}
 	return <-errs

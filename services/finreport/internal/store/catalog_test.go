@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/events"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/events"
 )
 
 func countType(types []string, typ string) int {

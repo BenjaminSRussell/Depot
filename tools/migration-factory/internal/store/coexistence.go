@@ -9,8 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	mfevents "github.com/BenjaminSRussell/passage/tools/migration-factory/internal/events"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	mfevents "github.com/BenjaminSRussell/depot/tools/migration-factory/internal/events"
 )
 
 // CoexistChange sets one entity kind's coexistence mode as the signed-in user By, against the
@@ -41,7 +41,7 @@ func (s *Postgres) ListCoexistence(ctx context.Context, system domain.SourceSyst
 	stored := map[string]domain.CoexistFlag{}
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `select `+flagColumns+` from coexistence_entity
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_system = $1 and source_company = $2`, string(system), company)
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_system = $1 and source_company = $2`, string(system), company)
 		if err != nil {
 			return err
 		}
@@ -82,7 +82,7 @@ func (s *Postgres) GetCoexistence(ctx context.Context, system domain.SourceSyste
 
 func lockFlag(ctx context.Context, tx pgx.Tx, system domain.SourceSystem, company, entity string, forUpdate bool) (domain.CoexistFlag, error) {
 	q := `select ` + flagColumns + ` from coexistence_entity
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and entity = $3`
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and entity = $3`
 	if forUpdate {
 		q += ` for update`
 	}
@@ -101,7 +101,7 @@ func (s *Postgres) SetCoexistence(ctx context.Context, idem Idem, c CoexistChang
 		var err error
 		out, replayed, err = idempotent(ctx, tx, idem, http.StatusOK, func() (domain.CoexistFlag, error) {
 			// Serialize the first write of a kind too: there is no row to lock yet.
-			if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('coexist|' || current_setting('passage.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`,
+			if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('coexist|' || current_setting('depot.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`,
 				string(c.System), c.Company, c.Entity); err != nil {
 				return domain.CoexistFlag{}, err
 			}
@@ -125,11 +125,11 @@ func (s *Postgres) SetCoexistence(ctx context.Context, idem Idem, c CoexistChang
 	return out, replayed, err
 }
 
-// saveFlag writes a changed flag and dev.passage.migration.coexistence.changed.v1 in the caller's
+// saveFlag writes a changed flag and dev.depot.migration.coexistence.changed.v1 in the caller's
 // transaction; planID names the rollback that flipped it back, if any.
 func saveFlag(ctx context.Context, tx pgx.Tx, f domain.CoexistFlag, planID string) error {
 	if _, err := tx.Exec(ctx, `insert into coexistence_entity (tenant_id, source_system, source_company, entity, mode, cutover_at, version, changed_by, changed_at)
-		values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8)
+		values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8)
 		on conflict (tenant_id, source_system, source_company, entity) do update
 		set mode = excluded.mode, cutover_at = excluded.cutover_at, version = excluded.version, changed_by = excluded.changed_by, changed_at = excluded.changed_at`,
 		string(f.SourceSystem), f.Company, f.Entity, string(f.Mode), f.CutoverAt, f.Version, f.ChangedBy, f.ChangedAt); err != nil {
@@ -144,13 +144,13 @@ func saveFlag(ctx context.Context, tx pgx.Tx, f domain.CoexistFlag, planID strin
 	return nil
 }
 
-// resumeLegacy flips every entity kind of the plan's legacy companies that Passage masters back to
+// resumeLegacy flips every entity kind of the plan's legacy companies that Depot masters back to
 // LEGACY, as the rollback's executing approver, under the flags' row locks (FR-49.7, AC-49.7: the
 // rollback restores legacy coexistence). A plan names its legacy companies, not their system, so a
 // company is handed back in every system it is cut over in. It returns the flags it changed.
 func resumeLegacy(ctx context.Context, tx pgx.Tx, plan domain.Plan, by string, now time.Time) ([]domain.CoexistFlag, error) {
 	rows, err := tx.Query(ctx, `select `+flagColumns+` from coexistence_entity
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_company = any($1) and mode = 'PASSAGE'
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_company = any($1) and mode = 'DEPOT'
 		order by source_system, source_company, entity for update`, plan.Entities)
 	if err != nil {
 		return nil, fmt.Errorf("read coexistence_entity: %w", err)
@@ -170,24 +170,24 @@ func resumeLegacy(ctx context.Context, tx pgx.Tx, plan domain.Plan, by string, n
 	return flags, nil
 }
 
-// KnownXrefs returns the Passage ids legacy_xref holds for legacy ids of one source table, keyed
+// KnownXrefs returns the Depot ids legacy_xref holds for legacy ids of one source table, keyed
 // "table|legacy id" as domain.RouteInbound reads them.
 func (s *Postgres) KnownXrefs(ctx context.Context, system domain.SourceSystem, company, table string, legacyIDs []string) (map[string]string, error) {
 	out := map[string]string{}
 	err := s.tx(ctx, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `select source_id, passage_id::text from legacy_xref
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and source_table = $3 and source_id = any($4)`,
+		rows, err := tx.Query(ctx, `select source_id, depot_id::text from legacy_xref
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and source_table = $3 and source_id = any($4)`,
 			string(system), company, table, legacyIDs)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var id, passage string
-			if err := rows.Scan(&id, &passage); err != nil {
+			var id, depot string
+			if err := rows.Scan(&id, &depot); err != nil {
 				return err
 			}
-			out[table+"|"+id] = passage
+			out[table+"|"+id] = depot
 		}
 		return rows.Err()
 	})

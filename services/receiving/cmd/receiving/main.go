@@ -11,12 +11,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
-	"github.com/BenjaminSRussell/passage/services/receiving/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/services/receiving/migrations"
 )
 
 const (

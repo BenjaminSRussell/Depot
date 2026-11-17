@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS dimension_combination (
 ALTER TABLE dimension_combination ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dimension_combination FORCE ROW LEVEL SECURITY;
 CREATE POLICY dimension_combination_tenant_access ON dimension_combination AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Journal entries (FR-11.5, FR-11.6). Append-only: see the trigger below.
 CREATE TABLE IF NOT EXISTS journal_entry (
@@ -49,11 +49,11 @@ CREATE TABLE IF NOT EXISTS journal_entry (
 ALTER TABLE journal_entry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE journal_entry FORCE ROW LEVEL SECURITY;
 CREATE POLICY journal_entry_tenant_access ON journal_entry AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY journal_entry_legal_entity_scope ON journal_entry AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS journal_line (
   tenant_id uuid NOT NULL,
@@ -80,11 +80,11 @@ CREATE TABLE IF NOT EXISTS journal_line (
 ALTER TABLE journal_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE journal_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY journal_line_tenant_access ON journal_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY journal_line_legal_entity_scope ON journal_line AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Append-only enforcement: UPDATE and DELETE raise for every role, superuser included.
 CREATE OR REPLACE FUNCTION ledger_reject_mutation() RETURNS trigger LANGUAGE plpgsql AS $$

@@ -9,12 +9,12 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/migrations"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/migrations"
 )
 
 func validatedRun(t *testing.T, tenantID string, records []domain.Record) OpenItemsRun {

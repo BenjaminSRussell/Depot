@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { NewRfidRulePage, RfidReadsPage, RfidRuleDetailPage, RfidRulesPage, TransportOrderDetailPage, TransportOrdersPage } from "./AutomationPages";
 import { DockSchedulePage, NewAppointmentPage } from "./DockPages";
 import { DirectiveSimulatorPage } from "./pages";
@@ -7,7 +7,7 @@ import { NewReceiptPage, ReceiptDetailPage, ReceiptsPage } from "./ReceivingPage
 import { DirectivesPage, LocationsPage, NewDirectivePage, NewLocationsPage } from "./SetupPages";
 import { NewWorkPage, WorkDetailPage, WorkListPage } from "./WorkPages";
 
-const warehouse: PassageModule = {
+const warehouse: DepotModule = {
   id: "warehouse",
   title: "Warehouse management",
   description:

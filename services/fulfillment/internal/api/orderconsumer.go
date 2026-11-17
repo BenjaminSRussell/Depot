@@ -11,25 +11,25 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	platformtenant "github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	platformtenant "github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 const (
 	// OrderConfirmedType is sales' order.confirmed.v1 (w27).
-	OrderConfirmedType  = "dev.passage.sales.order.confirmed.v1"
-	OrderConfirmedTopic = "passage.sales.order"
+	OrderConfirmedType  = "dev.depot.sales.order.confirmed.v1"
+	OrderConfirmedTopic = "depot.sales.order"
 	// OrderHoldAppliedType and OrderHoldReleasedType are sales' orderhold events (w27), on
 	// OrderHoldTopic. A post is refused while an order has an active hold (section 5.28.5).
-	OrderHoldAppliedType  = "dev.passage.sales.orderhold.applied.v1"
-	OrderHoldReleasedType = "dev.passage.sales.orderhold.released.v1"
-	OrderHoldTopic        = "passage.sales.orderhold"
+	OrderHoldAppliedType  = "dev.depot.sales.orderhold.applied.v1"
+	OrderHoldReleasedType = "dev.depot.sales.orderhold.released.v1"
+	OrderHoldTopic        = "depot.sales.orderhold"
 	// OrderRemainderCancelledType is sales' order.remaindercancelled.v1 (w27 slice 23), on the order topic.
-	OrderRemainderCancelledType = "dev.passage.sales.order.remaindercancelled.v1"
+	OrderRemainderCancelledType = "dev.depot.sales.order.remaindercancelled.v1"
 	// OrderConfirmedSource is the CloudEvents source sales writes on its events. Who may write
 	// to the topic at all is the broker's ACL (only sales' outbox relay); the check keeps an
 	// event another service mislabels or misroutes from deciding what ships.

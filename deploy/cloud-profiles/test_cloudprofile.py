@@ -125,7 +125,7 @@ class ResolveTests(unittest.TestCase):
         for host in ("events.pagerduty.com", "api.anthropic.com", "api.openai.com", "ghcr.io"):
             self.assertFalse(cp.host_allowed(host, allow), host)
         self.assertTrue(cp.host_allowed("res.openai.azure.com", allow))
-        self.assertTrue(cp.host_allowed("passage.azurecr.io", allow))
+        self.assertTrue(cp.host_allowed("depot.azurecr.io", allow))
 
 
 class CloudEnvironmentTests(unittest.TestCase):
@@ -244,10 +244,10 @@ class GeneratedCopiesTests(unittest.TestCase):
 
     def test_cli_values_and_errors(self) -> None:
         run = lambda *a: subprocess.run([sys.executable, str(HERE / "cloudprofile.py"), *a], capture_output=True, text=True)
-        ok = run("values", "gcc+hipaa", "--registry", "passage.azurecr.io")
+        ok = run("values", "gcc+hipaa", "--registry", "depot.azurecr.io")
         self.assertEqual(ok.returncode, 0, ok.stderr)
         self.assertIn('cloudOverlays: ["hipaa"]', ok.stdout)
-        self.assertIn('imageRegistry: "passage.azurecr.io"', ok.stdout)
+        self.assertIn('imageRegistry: "depot.azurecr.io"', ok.stdout)
         bad = run("values", "gcc+eu-data-boundary")
         self.assertEqual(bad.returncode, 2)
         self.assertEqual(run("check").returncode, 0)

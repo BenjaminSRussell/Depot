@@ -6,9 +6,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/costacct/internal/domain"
-	ccevents "github.com/BenjaminSRussell/passage/services/costacct/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/costacct/internal/domain"
+	ccevents "github.com/BenjaminSRussell/depot/services/costacct/internal/events"
 )
 
 func (f ledgerFixture) hierarchy(t *testing.T, code, kind string) string {

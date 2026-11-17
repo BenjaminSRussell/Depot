@@ -49,7 +49,7 @@ export async function handleRpc(deps: GatewayDeps, p: Principal, req: RpcRequest
       return ok(id, {
         protocolVersion: PROTOCOL_VERSION,
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "passage-mcp", version: "0.1.0" },
+        serverInfo: { name: "depot-mcp", version: "0.1.0" },
       });
     case "tools/list":
       return ok(id, { tools: visibleTools(deps.catalog, p.duties) });

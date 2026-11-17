@@ -9,13 +9,13 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/analytics/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/analytics/internal/store"
-	"github.com/BenjaminSRussell/passage/services/analytics/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/analytics/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/analytics/internal/store"
+	"github.com/BenjaminSRussell/depot/services/analytics/migrations"
 )
 
 const testTenant = "00000000-0000-7000-8000-000000000001"

@@ -4,35 +4,35 @@ info:
   version: 0.1.0
   description: CloudEvents 1.0 envelope from platform/go/events; payloads below are the data member. Emitted through the transactional outbox in the same transaction as the state change.
 channels:
-  passage.budget.register:
-    address: passage.budget.register
+  depot.budget.register:
+    address: depot.budget.register
     messages:
       posted:
         $ref: '#/components/messages/registerPosted'
-  passage.budget.check:
-    address: passage.budget.check
+  depot.budget.check:
+    address: depot.budget.check
     messages:
       completed:
         $ref: '#/components/messages/checkCompleted'
-  passage.budget.encumbrance:
-    address: passage.budget.encumbrance
+  depot.budget.encumbrance:
+    address: depot.budget.encumbrance
     messages:
       relieved:
         $ref: '#/components/messages/encumbranceRelieved'
       released:
         $ref: '#/components/messages/encumbranceReleased'
-  passage.budget.reservation:
-    address: passage.budget.reservation
+  depot.budget.reservation:
+    address: depot.budget.reservation
     messages:
       consumed:
         $ref: '#/components/messages/reservationConsumed'
-  passage.budget.program:
-    address: passage.budget.program
+  depot.budget.program:
+    address: depot.budget.program
     messages:
       carriedforward:
         $ref: '#/components/messages/programCarriedForward'
-  passage.budget.plan:
-    address: passage.budget.plan
+  depot.budget.plan:
+    address: depot.budget.plan
     messages:
       submitted:
         $ref: '#/components/messages/planSubmitted'
@@ -43,40 +43,40 @@ channels:
 operations:
   onPlanSubmitted:
     action: send
-    channel: { $ref: '#/channels/passage.budget.plan' }
-    messages: [{ $ref: '#/channels/passage.budget.plan/messages/submitted' }]
+    channel: { $ref: '#/channels/depot.budget.plan' }
+    messages: [{ $ref: '#/channels/depot.budget.plan/messages/submitted' }]
   onPlanApproved:
     action: send
-    channel: { $ref: '#/channels/passage.budget.plan' }
-    messages: [{ $ref: '#/channels/passage.budget.plan/messages/approved' }]
+    channel: { $ref: '#/channels/depot.budget.plan' }
+    messages: [{ $ref: '#/channels/depot.budget.plan/messages/approved' }]
   onPlanRejected:
     action: send
-    channel: { $ref: '#/channels/passage.budget.plan' }
-    messages: [{ $ref: '#/channels/passage.budget.plan/messages/rejected' }]
+    channel: { $ref: '#/channels/depot.budget.plan' }
+    messages: [{ $ref: '#/channels/depot.budget.plan/messages/rejected' }]
   onRegisterPosted:
     action: send
-    channel: { $ref: '#/channels/passage.budget.register' }
-    messages: [{ $ref: '#/channels/passage.budget.register/messages/posted' }]
+    channel: { $ref: '#/channels/depot.budget.register' }
+    messages: [{ $ref: '#/channels/depot.budget.register/messages/posted' }]
   onCheckCompleted:
     action: send
-    channel: { $ref: '#/channels/passage.budget.check' }
-    messages: [{ $ref: '#/channels/passage.budget.check/messages/completed' }]
+    channel: { $ref: '#/channels/depot.budget.check' }
+    messages: [{ $ref: '#/channels/depot.budget.check/messages/completed' }]
   onEncumbranceRelieved:
     action: send
-    channel: { $ref: '#/channels/passage.budget.encumbrance' }
-    messages: [{ $ref: '#/channels/passage.budget.encumbrance/messages/relieved' }]
+    channel: { $ref: '#/channels/depot.budget.encumbrance' }
+    messages: [{ $ref: '#/channels/depot.budget.encumbrance/messages/relieved' }]
   onEncumbranceReleased:
     action: send
-    channel: { $ref: '#/channels/passage.budget.encumbrance' }
-    messages: [{ $ref: '#/channels/passage.budget.encumbrance/messages/released' }]
+    channel: { $ref: '#/channels/depot.budget.encumbrance' }
+    messages: [{ $ref: '#/channels/depot.budget.encumbrance/messages/released' }]
   onReservationConsumed:
     action: send
-    channel: { $ref: '#/channels/passage.budget.reservation' }
-    messages: [{ $ref: '#/channels/passage.budget.reservation/messages/consumed' }]
+    channel: { $ref: '#/channels/depot.budget.reservation' }
+    messages: [{ $ref: '#/channels/depot.budget.reservation/messages/consumed' }]
   onProgramCarriedForward:
     action: send
-    channel: { $ref: '#/channels/passage.budget.program' }
-    messages: [{ $ref: '#/channels/passage.budget.program/messages/carriedforward' }]
+    channel: { $ref: '#/channels/depot.budget.program' }
+    messages: [{ $ref: '#/channels/depot.budget.program/messages/carriedforward' }]
 components:
   messages:
     registerPosted:
@@ -98,7 +98,7 @@ components:
                 dimension_key: { type: string }
                 span_key: { type: string }
                 amount: { type: string }
-      x-passage-type: dev.passage.budget.register.posted.v1
+      x-depot-type: dev.depot.budget.register.posted.v1
     checkCompleted:
       name: completed
       title: Budget check completed
@@ -120,7 +120,7 @@ components:
                 result: { type: string, enum: [pass, warn, fail] }
                 available: { type: string }
                 amount: { type: string }
-      x-passage-type: dev.passage.budget.check.completed.v1
+      x-depot-type: dev.depot.budget.check.completed.v1
     encumbranceRelieved:
       name: relieved
       title: Encumbrance relieved
@@ -133,7 +133,7 @@ components:
           invoice_id: { type: string, format: uuid }
           amount: { type: string }
           remaining: { type: string }
-      x-passage-type: dev.passage.budget.encumbrance.relieved.v1
+      x-depot-type: dev.depot.budget.encumbrance.relieved.v1
     encumbranceReleased:
       name: released
       title: Encumbrance released
@@ -148,7 +148,7 @@ components:
           document_id: { type: string, format: uuid }
           reason: { type: string, enum: [Cancelled, Closed] }
           amount: { type: string }
-      x-passage-type: dev.passage.budget.encumbrance.released.v1
+      x-depot-type: dev.depot.budget.encumbrance.released.v1
     reservationConsumed:
       name: consumed
       title: Budget reservation consumed
@@ -167,7 +167,7 @@ components:
           encumbrance_id: { type: string, format: uuid }
           amount: { type: string }
           remaining: { type: string }
-      x-passage-type: dev.passage.budget.reservation.consumed.v1
+      x-depot-type: dev.depot.budget.reservation.consumed.v1
     programCarriedForward:
       name: carriedforward
       title: Investment program carried forward
@@ -191,7 +191,7 @@ components:
                 position_id: { type: string, format: uuid }
                 code: { type: string }
                 amount: { type: string }
-      x-passage-type: dev.passage.budget.program.carriedforward.v1
+      x-depot-type: dev.depot.budget.program.carriedforward.v1
 
     planSubmitted:
       name: submitted
@@ -209,7 +209,7 @@ components:
           fiscal_year: { type: integer }
           submission: { type: integer, minimum: 1 }
           submitted_by: { type: string }
-      x-passage-type: dev.passage.budget.plan.submitted.v1
+      x-depot-type: dev.depot.budget.plan.submitted.v1
     planApproved:
       name: approved
       title: Budget plan approved
@@ -224,7 +224,7 @@ components:
           scenario_id: { type: string, format: uuid }
           register_entry_id: { type: string, format: uuid }
           total: { type: string }
-      x-passage-type: dev.passage.budget.plan.approved.v1
+      x-depot-type: dev.depot.budget.plan.approved.v1
     planRejected:
       name: rejected
       title: Budget plan rejected
@@ -238,4 +238,4 @@ components:
           stage: { type: string, enum: [Review, Approve] }
           rejected_by: { type: string }
           reason: { type: string }
-      x-passage-type: dev.passage.budget.plan.rejected.v1
+      x-depot-type: dev.depot.budget.plan.rejected.v1

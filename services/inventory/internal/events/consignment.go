@@ -3,7 +3,7 @@ package events
 // ConsignmentClosed is emitted when a vendor replenishment order is closed
 // short or cancelled (FR-16.17): the order takes no further receipt and the
 // open quantity is no longer expected. Wave 18 and planning read it.
-const ConsignmentClosed = "dev.passage.inventory.consignment.closed.v1"
+const ConsignmentClosed = "dev.depot.inventory.consignment.closed.v1"
 
 // ConsignmentClosedLine is one order line at closing: the ordered and received
 // quantities and the quantity given up.

@@ -7,9 +7,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/sales/internal/domain"
-	salesevents "github.com/BenjaminSRussell/passage/services/sales/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/domain"
+	salesevents "github.com/BenjaminSRussell/depot/services/sales/internal/events"
 )
 
 func toleranceAgreement(t *testing.T, s *Postgres, ctx context.Context, le string, commitment int64, pct string) Agreement {

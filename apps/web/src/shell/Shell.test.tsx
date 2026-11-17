@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, vi } from "vitest";
-import type { PassageModule } from "../modules/registry";
+import type { DepotModule } from "../modules/registry";
 import { checkAxeAA } from "./a11y";
 import { FormRenderer } from "./forms";
 import { demoNote } from "./metadata";
@@ -24,7 +24,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const modules: PassageModule[] = [
+const modules: DepotModule[] = [
   {
     id: "admin",
     title: "Admin",
@@ -415,7 +415,7 @@ describe("shell principal", () => {
   }
 
   it("falls back to the dev duties when no duties prop is given", () => {
-    vi.stubGlobal("__PASSAGE_DEV_DUTIES__", "org.read, org.hierarchy.write");
+    vi.stubGlobal("__DEPOT_DEV_DUTIES__", "org.read, org.hierarchy.write");
     render(
       <MemoryRouter>
         <Routes>
@@ -457,7 +457,7 @@ describe("route error boundary", () => {
 });
 
 describe("duty gating", () => {
-  const gated: PassageModule[] = [
+  const gated: DepotModule[] = [
     {
       id: "ledger",
       title: "Ledger",
@@ -526,7 +526,7 @@ describe("duty gating", () => {
     const first = renderGated("/ledger/journal-batches", []);
     expect(screen.getByRole("heading", { name: "This page isn't available to you" })).toBeInTheDocument();
     expect(screen.queryByText("Journals page")).not.toBeInTheDocument();
-    expect(document.title).toBe("Page not available · Passage");
+    expect(document.title).toBe("Page not available · Depot");
     expect(pageViolations(first.container)).toEqual([]);
     first.unmount();
     renderGated("/ledger/journal-batches/42", []);

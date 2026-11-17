@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/domain"
 )
 
 var ErrNotFound = errors.New("metadata definition not found")

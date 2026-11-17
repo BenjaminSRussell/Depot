@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
-	"github.com/BenjaminSRussell/passage/services/org/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/services/org/migrations"
 )
 
 func TestEscapeLike(t *testing.T) {

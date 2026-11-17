@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/iot-edge/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/iot-edge/internal/domain"
 )
 
 // File names inside a CertStore directory.

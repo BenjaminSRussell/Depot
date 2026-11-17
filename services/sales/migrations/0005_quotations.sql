@@ -56,16 +56,16 @@ CREATE TABLE IF NOT EXISTS sales_quotation_line (
 ALTER TABLE sales_quotation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales_quotation FORCE ROW LEVEL SECURITY;
 CREATE POLICY sales_quotation_tenant_access ON sales_quotation AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY sales_quotation_legal_entity_scope ON sales_quotation AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Lines carry no legal entity of their own, like sales_order_line; they are
 -- read only through their quotation, which the legal-entity policy scopes.
 ALTER TABLE sales_quotation_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales_quotation_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY sales_quotation_line_tenant_access ON sales_quotation_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

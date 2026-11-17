@@ -1,6 +1,6 @@
 # scheduler-py (scheduler-opt)
 
-Stateless CP-SAT optimizer for Passage finite scheduling (wave 23, PSG-23,
+Stateless CP-SAT optimizer for Depot finite scheduling (wave 23, DPT-23,
 FR-23.6 and BR-23.9). It solves a classic job shop: each job is an ordered
 chain of operations, each operation runs on one machine for a whole number of
 minutes, and a machine runs one operation at a time. The objective is

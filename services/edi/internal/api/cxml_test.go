@@ -11,7 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
 )
 
 const cxmlSecret = "correct-horse-battery"
@@ -83,7 +83,7 @@ func TestCXML_InboundDocumentsAreRecordedAndMapped(t *testing.T) {
 	if err := pool.QueryRow(context.Background(), `select count(*) from interchange where standard = 'CXML' and direction = 'IN'`).Scan(&n); err != nil || n != 3 {
 		t.Fatalf("interchanges: %d %v", n, err)
 	}
-	if got := outboxCount(t, pool, "dev.passage.edi.message.received.v1"); got != 3 {
+	if got := outboxCount(t, pool, "dev.depot.edi.message.received.v1"); got != 3 {
 		t.Fatalf("message.received events: %d", got)
 	}
 	var canonical string
@@ -119,7 +119,7 @@ func TestCXML_PayloadIDReplayAndConflict(t *testing.T) {
 	}
 	var n int
 	_ = pool.QueryRow(context.Background(), `select count(*) from message where transaction_set = 'InvoiceDetailRequest'`).Scan(&n)
-	if n != 1 || outboxCount(t, pool, "dev.passage.edi.message.received.v1") != 1 {
+	if n != 1 || outboxCount(t, pool, "dev.depot.edi.message.received.v1") != 1 {
 		t.Fatalf("a replay must record nothing: %d messages", n)
 	}
 	// The same payloadID with another invoice number: EDI-0135 and nothing recorded.
@@ -178,7 +178,7 @@ func TestCXML_UnmappableDocumentIsRecordedFailedAndAnsweredTheSameOnReplay(t *te
 	if err := pool.QueryRow(context.Background(), `select count(*), min(status) from message where transaction_set = 'InvoiceDetailRequest'`).Scan(&n, &status); err != nil || n != 1 || status != "FAILED" {
 		t.Fatalf("failed message: %d %s %v", n, status, err)
 	}
-	if outboxCount(t, pool, "dev.passage.edi.message.failed.v1") != 1 {
+	if outboxCount(t, pool, "dev.depot.edi.message.failed.v1") != 1 {
 		t.Fatal("one message.failed event expected")
 	}
 	// The interchange list shows the CXML interchange rejected.

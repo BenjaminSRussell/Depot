@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/revrec/internal/store"
+	"github.com/BenjaminSRussell/depot/services/revrec/internal/store"
 )
 
 // modifyFake records what the handler forwards; the SQL and the arithmetic are covered by the store and domain tests.

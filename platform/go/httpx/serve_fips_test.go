@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
+	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
 )
 
 // Serve is the one start-up path every service goes through; a FIPS profile on a process that is not in FIPS

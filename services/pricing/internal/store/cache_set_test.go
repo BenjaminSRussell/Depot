@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
 )
 
 // gatedStore holds every load until release is closed and counts loads atomically.

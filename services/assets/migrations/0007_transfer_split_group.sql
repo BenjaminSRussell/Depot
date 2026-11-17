@@ -36,11 +36,11 @@ CREATE INDEX IF NOT EXISTS asset_transfer_source ON asset_transfer (tenant_id, s
 ALTER TABLE asset_transfer ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_transfer FORCE ROW LEVEL SECURITY;
 CREATE POLICY asset_transfer_tenant_access ON asset_transfer AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY asset_transfer_legal_entity_scope ON asset_transfer AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- One row per target asset of a transfer or split with the share it took.
 -- legal_entity_id is the target's legal entity (a transfer may move the asset
@@ -60,11 +60,11 @@ CREATE TABLE IF NOT EXISTS asset_transfer_part (
 ALTER TABLE asset_transfer_part ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_transfer_part FORCE ROW LEVEL SECURITY;
 CREATE POLICY asset_transfer_part_tenant_access ON asset_transfer_part AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY asset_transfer_part_legal_entity_scope ON asset_transfer_part AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- GroupAsset (FR-37.16): members of one class and tax year pooled on one tax
 -- book. The group's depreciation profile is its own; its basis is the sum of
@@ -95,11 +95,11 @@ CREATE INDEX IF NOT EXISTS group_asset_list ON group_asset (tenant_id, legal_ent
 ALTER TABLE group_asset ENABLE ROW LEVEL SECURITY;
 ALTER TABLE group_asset FORCE ROW LEVEL SECURITY;
 CREATE POLICY group_asset_tenant_access ON group_asset AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY group_asset_legal_entity_scope ON group_asset AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- BR-37.11: a book belongs to at most one group asset (a member asset has one
 -- book per book code, so this is one group per book).
@@ -118,18 +118,18 @@ CREATE TABLE IF NOT EXISTS group_asset_member (
 ALTER TABLE group_asset_member ENABLE ROW LEVEL SECURITY;
 ALTER TABLE group_asset_member FORCE ROW LEVEL SECURITY;
 CREATE POLICY group_asset_member_tenant_access ON group_asset_member AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY group_asset_member_legal_entity_scope ON group_asset_member AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Application role privileges for the transfer and group-asset tables (0006_grants.sql
 -- covers the earlier tables). All four are written once and only read afterwards.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON asset_transfer, asset_transfer_part, group_asset, group_asset_member TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON asset_transfer, asset_transfer_part, group_asset, group_asset_member TO depot_app';
   END IF;
 END
 $$;

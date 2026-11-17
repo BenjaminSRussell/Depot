@@ -6,8 +6,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 // The overlap quantity (BR-23.5) lets the next operation start once that share
@@ -65,7 +65,7 @@ func TestOperationOverlap_RunMovePatchAndChecks(t *testing.T) {
 	if err != nil || !upd.JobsRemoved || upd.OverlapQuantity != nil || upd.Quantity == nil {
 		t.Fatalf("clear = %+v err=%v, want jobs removed, no overlap, quantity kept", upd, err)
 	}
-	if got := outboxCount(t, admin, "dev.passage.scheduling.operation.updated.v1"); got != 1 {
+	if got := outboxCount(t, admin, "dev.depot.scheduling.operation.updated.v1"); got != 1 {
 		t.Fatalf("operation.updated events = %d, want 1", got)
 	}
 	if _, _, err := s.RunSchedule(ctx, siteRun(at(0, 6, 0)), store.Idem{}); err != nil {

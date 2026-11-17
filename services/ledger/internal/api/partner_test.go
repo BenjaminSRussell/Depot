@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/store"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/store"
 )
 
 const testPartner = "0c5d3b0e-6b0a-4c43-9d57-3c1a3a7a1d11"

@@ -3,7 +3,7 @@ package store_test
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/store"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/store"
 )
 
 // A recipe target is per item and legal entity, replaced by a new put, invisible to another tenant and

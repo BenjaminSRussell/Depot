@@ -178,13 +178,13 @@ describe("planned order detail (FR-22.10)", () => {
   const path = `/production/planned-intake/${rowId}`;
 
   it("shows the facts and opens the convert form", async () => {
-    rememberOption("legalEntity", { id: uuid(1), name: "Passage Works", number: "LE1" });
+    rememberOption("legalEntity", { id: uuid(1), name: "Depot Works", number: "LE1" });
     stubFetch(() => json(row()));
     const { container, location } = renderAt(path);
     expect(await screen.findByRole("heading", { name: "Planned order of 40" })).toBeInTheDocument();
     expect(screen.getByText("Waiting")).toBeInTheDocument();
     expect(screen.getByText(uuid(4))).toBeInTheDocument();
-    expect(await screen.findByText("Passage Works (LE1)")).toBeInTheDocument();
+    expect(await screen.findByText("Depot Works (LE1)")).toBeInTheDocument();
     expect(checkAxeAA(container)).toEqual([]);
     await userEvent.click(screen.getByRole("button", { name: "Convert to production order" }));
     expect(location.pathname).toBe(`${path}/convert`);

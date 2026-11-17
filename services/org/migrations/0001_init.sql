@@ -16,8 +16,8 @@ CREATE TABLE IF NOT EXISTS legal_entity (
 ALTER TABLE legal_entity ENABLE ROW LEVEL SECURITY;
 ALTER TABLE legal_entity FORCE ROW LEVEL SECURITY;
 CREATE POLICY legal_entity_tenant_access ON legal_entity AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY legal_entity_legal_entity_scope ON legal_entity AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

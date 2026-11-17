@@ -1,6 +1,6 @@
 {
-  "name": "Passage Customer Portal",
-  "short_name": "Passage",
+  "name": "Depot Customer Portal",
+  "short_name": "Depot",
   "description": "Your orders, invoices, payments and returns.",
   "id": "/",
   "start_url": "/",

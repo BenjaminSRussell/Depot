@@ -27,13 +27,13 @@ CREATE TABLE IF NOT EXISTS scheduling_cleanout_counter (
 ALTER TABLE scheduling_cleanout_counter ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduling_cleanout_counter FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduling_cleanout_counter_tenant_access ON scheduling_cleanout_counter AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON scheduling_cleanout_counter TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON scheduling_cleanout_counter TO depot_app';
   END IF;
 END
 $$;

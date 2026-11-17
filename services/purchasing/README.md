@@ -1,6 +1,6 @@
 # purchasing
 
-Passage purchasing service. Wave 17 (PSG-17), slices 1 to 8 of the procurement
+Depot purchasing service. Wave 17 (DPT-17), slices 1 to 8 of the procurement
 context: purchase requisitions with amount/category approval routing,
 consolidation of approved requisition lines into purchase orders, purchase orders
 with persisted totals, the PO approval lifecycle with versioned change
@@ -25,7 +25,7 @@ internal/domain/       pure rules: approval bands, trade agreement lookup, PO to
                        scheduling agreements: zones (BR-17.13), schedule changes, FRC/JIT releases with cumulative quantities
 internal/store/        Postgres repositories (pgx), every transaction via dbx.WithTenantTx
 internal/api/          HTTP handlers under /v1/procurement, duties via authz.RequireDuty
-internal/events/       event types and payloads (dev.passage.procurement.*)
+internal/events/       event types and payloads (dev.depot.procurement.*)
 migrations/            0001_init.sql (tables, sequences, RLS, outbox, idempotency, total trigger)
                        0002_agreements_consolidation.sql (purchase agreements, PO line and requisition line links)
                        0003_po_lifecycle.sql (PO versions, received/invoiced quantities on PO lines)
@@ -51,7 +51,7 @@ DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/purchasing
 
 Environment: `DATABASE_URL` (required), `MIGRATE_ON_START` (dev only), `HTTP_ADDR`
 (default `:8080`), `ADMIN_ADDR` (default `:9090`, serves `/metrics`). The gateway
-supplies `X-Passage-Tenant`, legal-entity scope, user and duties (the kernel tenant
+supplies `X-Depot-Tenant`, legal-entity scope, user and duties (the kernel tenant
 middleware until JWT validation lands).
 
 ## Test
@@ -62,13 +62,13 @@ go vet ./... && go test ./...
 
 Domain tests are pure (table-driven plus `rapid` property tests). `internal/api`
 tests drive the real router over an in-memory store. `internal/store` tests use
-`platform/go/testkit` and skip unless `PASSAGE_TEST_DATABASE_URL` is set. That
+`platform/go/testkit` and skip unless `DEPOT_TEST_DATABASE_URL` is set. That
 URL must name a role without SUPERUSER or BYPASSRLS (as in `services/org`): the
 tables FORCE row-level security, and the legal-entity scope assertions (for
 example in `TestRFQ_CreateReplayListAndTenantIsolation`) fail under a superuser,
 which skips every policy. The
-row-level-security test also needs `PASSAGE_TEST_APP_DATABASE_URL` (a non-owner
-`passage_app` role) and skips without it.
+row-level-security test also needs `DEPOT_TEST_APP_DATABASE_URL` (a non-owner
+`depot_app` role) and skips without it.
 
 ## Routes (`/v1/procurement`; browser: `/api/v1/procurement` via the BFF)
 
@@ -170,7 +170,7 @@ row-level-security test also needs `PASSAGE_TEST_APP_DATABASE_URL` (a non-owner
 | GET `/vendor/purchase-orders`, GET `/vendor/purchase-orders/{id}` | procurement.vendor-portal.read (service-only) | The calling vendor's confirmed POs and its commercial view of one; the vendor comes from the verified `VendorPrincipal`, never from a header, query parameter or body; another vendor's order is 404 |
 | POST `/vendor/purchase-orders/{id}/acknowledgements` | procurement.vendor-portal.acknowledge (service-only) | Idempotency-Key required (namespaced by vendor); accept, reject with a reason, or propose per-line `qty`, `unitPrice`, `deliveryDate`; 201 |
 
-Writes for a legal entity outside the caller's `X-Passage-Legal-Entity` scope are
+Writes for a legal entity outside the caller's `X-Depot-Legal-Entity` scope are
 refused with AUTH-0003 before they reach the database (RLS would refuse them too).
 
 Health: `GET /healthz` (kernel) and `GET /readyz` (pings Postgres, 503 when it is
@@ -530,15 +530,15 @@ duties, `procurement.vendor-portal.read` and `procurement.vendor-portal.acknowle
 ## Inbound changes from planning and fulfillment (slice 18)
 
 `purchasing consume` (a second process from the same image; Helm `consumer.enabled`) follows two topics with the
-platform at-least-once consumer (inbox `consumer_inbox`, retries, one dead-letter topic `passage.procurement.inbound.dlq` for both source topics)
+platform at-least-once consumer (inbox `consumer_inbox`, retries, one dead-letter topic `depot.procurement.inbound.dlq` for both source topics)
 and runs as the service principal `service:purchasing-inbound` with the duty `purchasing.inbound.apply`. It does not
 start until that principal is seeded in `platform/go/tenant` and `policies/authz/data.json` (see NOT-IMPLEMENTED.md).
 
 | Event | Effect on the purchase order |
 |---|---|
-| fulfillment `dropship.closed.v1` (topic `passage.fulfillment.dropship`) | The PO line named by `purchase_order_line_id` (the `id` of a line of `GET /purchase-orders/{id}`) is lowered by what the closing adds: `qty_closed` is the drop-ship's running closed total (a drop-ship can be closed more than once, for example when sales cuts the order back and the buyer later closes the rest), so the line goes down by `qty_closed` less the closings of that drop-ship already recorded. A line left with nothing and no receipts is cancelled, and the PO with it when it was the last open line. The drop-ship id with the total is the idempotency key. |
+| fulfillment `dropship.closed.v1` (topic `depot.fulfillment.dropship`) | The PO line named by `purchase_order_line_id` (the `id` of a line of `GET /purchase-orders/{id}`) is lowered by what the closing adds: `qty_closed` is the drop-ship's running closed total (a drop-ship can be closed more than once, for example when sales cuts the order back and the buyer later closes the rest), so the line goes down by `qty_closed` less the closings of that drop-ship already recorded. A line left with nothing and no receipts is cancelled, and the PO with it when it was the last open line. The drop-ship id with the total is the idempotency key. |
 | fulfillment `dropship.cancelled.v1` (same topic, slice 19) | The same line is lowered by the quantity the vendor will never ship: `qty` (the drop-ship's ordered quantity) less `qty_confirmed` and less what earlier closings of that drop-ship took off. A line left with nothing and no receipts is cancelled, the PO with it when it was the last open line. The drop-ship id is the idempotency key. |
-| planning `message.applied.v1` (topic `passage.planning.plan`, planning's plan channel, beside its other plan and message events, which are skipped) | `supply_ref` names the PO (by number) and `item_id` the line. `postpone` and `advance` move the delivery date to `suggested_date` (a postpone must be later, an advance earlier); `decrease` and `increase` take or add `qty` (the message quantity is the delta); `cancel` cancels the line. With several open lines of the item a date move is narrowed to the line whose open quantity equals `qty`; otherwise the message is refused as ambiguous. A `warehouse_id` narrows the lines to that warehouse. The message id is the idempotency key. Any other action, a `supply_ref` that is no PO of the legal entity (a planned order, production or transfer) and a plan with no legal entity record nothing. |
+| planning `message.applied.v1` (topic `depot.planning.plan`, planning's plan channel, beside its other plan and message events, which are skipped) | `supply_ref` names the PO (by number) and `item_id` the line. `postpone` and `advance` move the delivery date to `suggested_date` (a postpone must be later, an advance earlier); `decrease` and `increase` take or add `qty` (the message quantity is the delta); `cancel` cancels the line. With several open lines of the item a date move is narrowed to the line whose open quantity equals `qty`; otherwise the message is refused as ambiguous. A `warehouse_id` narrows the lines to that warehouse. The message id is the idempotency key. Any other action, a `supply_ref` that is no PO of the legal entity (a planned order, production or transfer) and a plan with no legal entity record nothing. |
 
 Every change goes through the PO change management path (FR-17.8): the next version, confirmed at once or waiting for
 re-approval when a rule fires (a quantity increase over 5 %); totals, percentage charges and tax follow the new

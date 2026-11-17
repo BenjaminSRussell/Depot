@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 )
 
 // nextMessage finds the heading of the next message in components.messages.

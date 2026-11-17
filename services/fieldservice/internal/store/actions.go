@@ -12,10 +12,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/domain"
-	svcevents "github.com/BenjaminSRussell/passage/services/fieldservice/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/domain"
+	svcevents "github.com/BenjaminSRussell/depot/services/fieldservice/internal/events"
 )
 
 // ActionInput is one action as the device recorded it. The id is client-generated and
@@ -435,7 +435,7 @@ func decide(wo *WorkOrder, technicianID string, a ActionInput, st *mergeState) (
 	return domain.OutcomeApplied, "", ""
 }
 
-// enqueueCompleted writes dev.passage.service.workorder.completed.v1 in the caller's
+// enqueueCompleted writes dev.depot.service.workorder.completed.v1 in the caller's
 // transaction. The duration comes from the applied work marks of the action log.
 func enqueueCompleted(ctx context.Context, tx pgx.Tx, tenantID string, wo WorkOrder, now time.Time) error {
 	consumed, err := consumedQty(ctx, tx, tenantID, wo.ID)

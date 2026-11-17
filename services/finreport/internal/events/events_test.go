@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 )
 
 // Every event type the service publishes is a valid CloudEvents type and is
@@ -27,7 +27,7 @@ func TestAsyncAPIListsEveryEvent(t *testing.T) {
 			t.Errorf("asyncapi.yaml has no channel at %s for %s", events.Topic(typ), typ)
 		}
 	}
-	if n := strings.Count(doc, "name: dev.passage."); n != len(All()) {
+	if n := strings.Count(doc, "name: dev.depot."); n != len(All()) {
 		t.Errorf("asyncapi.yaml documents %d events, the service publishes %d", n, len(All()))
 	}
 }

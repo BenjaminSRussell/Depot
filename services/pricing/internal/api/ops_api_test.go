@@ -13,9 +13,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
 )
 
 const (
@@ -29,9 +29,9 @@ const (
 func callRaw(t *testing.T, h http.Handler, method, path, duties string) (int, string, http.Header) {
 	t.Helper()
 	req := httptest.NewRequest(method, path, nil)
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
 	if duties != "" {
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Duties", duties)
 	}
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -195,8 +195,8 @@ func importJournal(t *testing.T, h http.Handler, query, body string, headers ...
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, importURL+"?"+query, strings.NewReader(body))
 	req.Header.Set("Content-Type", "text/csv")
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", "pricing.journal.post,pricing.view")
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", "pricing.journal.post,pricing.view")
 	for i := 0; i+1 < len(headers); i += 2 {
 		req.Header.Set(headers[i], headers[i+1])
 	}
@@ -293,8 +293,8 @@ func TestJournalCSVImport_RefusesOversizedFilesAndBadFlags(t *testing.T) {
 
 func TestJournalCSVImport_NeedsJournalPostDuty(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, importURL+"?legalEntityId="+legalEntity+"&name=X", strings.NewReader(csvHeader+"\n"))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", "pricing.maintain")
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", "pricing.maintain")
 	rec := httptest.NewRecorder()
 	router(newFake()).ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {

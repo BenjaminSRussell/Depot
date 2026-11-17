@@ -9,7 +9,7 @@
 // FIELDCRYPT_CURRENT_KEY_ID); an entry wrapped by a key vault (wrapped:...) cannot be unwrapped here and counts as no key.
 //
 // This is a copy of services/agents-ts/src/logging/pseudonymize.ts for a service without the cloud profile table: the overlay is read
-// from PASSAGE_CLOUD_PROFILE ("commercial+eu-data-boundary") directly. Keep the two in step (the known-answer test fails on drift).
+// from DEPOT_CLOUD_PROFILE ("commercial+eu-data-boundary") directly. Keep the two in step (the known-answer test fails on drift).
 //
 // Limits: a person's name in free text or under a key that does not name a person is not recognised; log it under name,
 // displayName or user. A nested value that is not a plain object or array is checked as text for email addresses only.
@@ -187,7 +187,7 @@ export function pseudonymizeRecord(record: Record<string, unknown>, keys: MacKey
 /** Whether logs are pseudonymized: always under the eu-data-boundary overlay of the cloud profile, and with LOG_PSEUDONYMIZE=true. */
 export function pseudonymizationEnabled(env: Record<string, string | undefined>): boolean {
   // Like platform/go/cloudprofile ParseSelector: each part is trimmed ("commercial + eu-data-boundary").
-  if ((env.PASSAGE_CLOUD_PROFILE ?? "").trim().split("+").map((p) => p.trim()).slice(1).includes("eu-data-boundary")) {
+  if ((env.DEPOT_CLOUD_PROFILE ?? "").trim().split("+").map((p) => p.trim()).slice(1).includes("eu-data-boundary")) {
     return true;
   }
   return (env[ENV_PSEUDONYMIZE] ?? "").trim().toLowerCase() === "true";

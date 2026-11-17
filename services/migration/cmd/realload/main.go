@@ -2,7 +2,7 @@
 // items and 10k BOMs go through the pipeline and target.Loader over HTTP into running party, product and engineering
 // services, are read back through their detail routes (target.Reader, the *.import.read duties) and reconciled, then
 // re-run with no change. scripts/real-load.sh starts the services on a local Postgres and runs it; the services'
-// addresses, the tenant and the seeded reference ids come from flags, the signing key from PASSAGE_SERVICE_SIGNING_KEY.
+// addresses, the tenant and the seeded reference ids come from flags, the signing key from DEPOT_SERVICE_SIGNING_KEY.
 package main
 
 import (
@@ -14,14 +14,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/ac1load"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/target"
-	"github.com/BenjaminSRussell/passage/services/migration/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/ac1load"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/target"
+	"github.com/BenjaminSRussell/depot/services/migration/migrations"
 )
 
 const sourceSystem = "ax2012"
@@ -139,7 +139,7 @@ func dataset(c config, v ac1load.Volumes) []struct {
 func run(ctx context.Context, c config) error {
 	signer, err := tenant.ServiceSignerFromEnv(os.Getenv)
 	if err != nil || signer == nil {
-		return fmt.Errorf("PASSAGE_SERVICE_SIGNING_KEY with PASSAGE_SERVICE_NAME=migration is required (%v)", err)
+		return fmt.Errorf("DEPOT_SERVICE_SIGNING_KEY with DEPOT_SERVICE_NAME=migration is required (%v)", err)
 	}
 	v := ac1load.FullSize
 	if c.scale != 1 {

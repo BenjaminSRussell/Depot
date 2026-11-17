@@ -12,13 +12,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/api"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/forecastclient"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/store"
-	"github.com/BenjaminSRussell/passage/services/planning/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/api"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/forecastclient"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/store"
+	"github.com/BenjaminSRussell/depot/services/planning/migrations"
 )
 
 const (

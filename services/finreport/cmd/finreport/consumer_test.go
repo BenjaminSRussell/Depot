@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/consumer"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/consumer"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
 )
 
 func env(m map[string]string) func(string) string { return func(k string) string { return m[k] } }
@@ -21,7 +21,7 @@ func TestKafkaConfigDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Brokers) != 2 || cfg.Group != "reporting-balances" || len(cfg.Topics) != 1 || cfg.Topics[0] != "passage.ledger.journal" {
+	if len(cfg.Brokers) != 2 || cfg.Group != "reporting-balances" || len(cfg.Topics) != 1 || cfg.Topics[0] != "depot.ledger.journal" {
 		t.Fatalf("config = %+v", cfg)
 	}
 	cfg, err = kafkaConfig(env(map[string]string{"KAFKA_BROKERS": "a:9093", "KAFKA_GROUP": "other"}))
@@ -46,10 +46,10 @@ func TestLedgerSourceNeedsURLAndKey(t *testing.T) {
 	if _, err := ledgerSource(env(map[string]string{"LEDGER_URL": "http://ledger:8080"})); err == nil {
 		t.Error("no signing key accepted")
 	}
-	if _, err := ledgerSource(env(map[string]string{"PASSAGE_SERVICE_NAME": "finreport", "PASSAGE_SERVICE_SIGNING_KEY_FILE": key})); err == nil {
+	if _, err := ledgerSource(env(map[string]string{"DEPOT_SERVICE_NAME": "finreport", "DEPOT_SERVICE_SIGNING_KEY_FILE": key})); err == nil {
 		t.Error("no LEDGER_URL accepted")
 	}
-	if _, err := ledgerSource(env(map[string]string{"LEDGER_URL": "http://ledger:8080", "PASSAGE_SERVICE_NAME": "finreport", "PASSAGE_SERVICE_SIGNING_KEY_FILE": key})); err != nil {
+	if _, err := ledgerSource(env(map[string]string{"LEDGER_URL": "http://ledger:8080", "DEPOT_SERVICE_NAME": "finreport", "DEPOT_SERVICE_SIGNING_KEY_FILE": key})); err != nil {
 		t.Errorf("complete config refused: %v", err)
 	}
 }

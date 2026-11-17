@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { BackordersPage } from "./BackordersPage";
 import { ContainerTypesPage } from "./ContainerTypesPage";
 import { DeliveryTolerancesPage } from "./DeliveryTolerancesPage";
@@ -32,7 +32,7 @@ import { WavesPage } from "./WavesPage";
 import { WorkbenchPage } from "./WorkbenchPage";
 import { WorkspacePage } from "./WorkspacePage";
 
-const fulfillment: PassageModule = {
+const fulfillment: DepotModule = {
   id: "fulfillment",
   title: "Fulfillment",
   description: "Release orders to the warehouse, group them into pick waves, pick, pack into SSCC-labelled containers by packing rule, post full or partial packing slips with packaging fees, ship drop-ships from vendors, report delivered-not-invoiced cost and short picks, track carriers and returnable packaging with its aging.",

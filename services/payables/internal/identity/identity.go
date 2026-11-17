@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 func Forward(req *http.Request, p tenant.Principal) {

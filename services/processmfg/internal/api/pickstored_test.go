@@ -8,10 +8,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/store"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/store"
 )
 
 const (

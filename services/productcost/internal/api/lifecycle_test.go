@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 const cleanConversion = `"conversionDate":"2026-11-01","closeThrough":"2026-10-31","currency":"USD",

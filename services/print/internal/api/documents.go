@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
 )
 
 const (
@@ -21,8 +21,8 @@ const (
 // purchase order, customer invoice, packing slip or remittance advice (#528) as data; the
 // answer is the PDF. Nothing
 // is stored and no printer is involved, so the call needs no idempotency key and repeating
-// it returns the same bytes. X-Passage-Document-Pages carries the page count, and
-// X-Passage-Unprintable-Characters, when present, the number of characters the document
+// it returns the same bytes. X-Depot-Document-Pages carries the page count, and
+// X-Depot-Unprintable-Characters, when present, the number of characters the document
 // fonts lack (each printed as the replacement character), so the caller can tell the user.
 func (a *API) renderDocument(w http.ResponseWriter, r *http.Request) {
 	if _, ok := principal(w, r); !ok {
@@ -45,9 +45,9 @@ func (a *API) renderDocument(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", `attachment; filename="document.pdf"`)
-	w.Header().Set("X-Passage-Document-Pages", strconv.Itoa(doc.Pages))
+	w.Header().Set("X-Depot-Document-Pages", strconv.Itoa(doc.Pages))
 	if doc.MissingGlyphs > 0 {
-		w.Header().Set("X-Passage-Unprintable-Characters", strconv.Itoa(doc.MissingGlyphs))
+		w.Header().Set("X-Depot-Unprintable-Characters", strconv.Itoa(doc.MissingGlyphs))
 	}
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(doc.PDF)

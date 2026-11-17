@@ -222,22 +222,22 @@ BEGIN
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
-    EXECUTE format($p$CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-      WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid)$p$, t || '_tenant_access', t);
+    EXECUTE format($p$CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+      WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid)$p$, t || '_tenant_access', t);
     IF t NOT IN ('cxml_payload', 'self_billing_line') THEN
-      EXECUTE format($p$CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting('passage.legal_entity_scopes', true) = '*'
-        OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')))$p$, t || '_legal_entity_scope', t);
+      EXECUTE format($p$CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting('depot.legal_entity_scopes', true) = '*'
+        OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')))$p$, t || '_legal_entity_scope', t);
     END IF;
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-      EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON %I TO passage_app', t);
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+      EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON %I TO depot_app', t);
     END IF;
   END LOOP;
 END
 $do$;
 
 -- The two public endpoints (the cXML URL of a partner and the punchout return URL of a session) are called by a partner's
--- network or browser with no Passage identity, so the tenant and partner come from this index, like transport_work: no
--- passage_app grant, kept by SECURITY DEFINER triggers and read only by the SECURITY DEFINER function below.
+-- network or browser with no Depot identity, so the tenant and partner come from this index, like transport_work: no
+-- depot_app grant, kept by SECURITY DEFINER triggers and read only by the SECURITY DEFINER function below.
 CREATE TABLE IF NOT EXISTS public_endpoint (
   kind text NOT NULL CHECK (kind IN ('CXML_ENDPOINT', 'PUNCHOUT_RETURN')),
   ref uuid NOT NULL,
@@ -286,8 +286,8 @@ CREATE TRIGGER punchout_session_endpoint AFTER INSERT ON punchout_session FOR EA
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT EXECUTE ON FUNCTION edi_public_endpoint(text, uuid) TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT EXECUTE ON FUNCTION edi_public_endpoint(text, uuid) TO depot_app';
   END IF;
 END
 $$;

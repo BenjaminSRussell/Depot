@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/budgeting/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/budgeting/internal/store"
 )
 
 func (f *fakeStore) CreateProgram(context.Context, string, string, store.NewProgram) (int, []byte, error) {

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/store"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/store"
 )
 
 const lockboxSampleFile = `01,BANKX,LOCKBOX,260101,1200,1,,/

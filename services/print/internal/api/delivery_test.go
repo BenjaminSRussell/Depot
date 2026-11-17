@@ -10,13 +10,13 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/print/internal/api"
-	"github.com/BenjaminSRussell/passage/services/print/internal/delivery"
-	"github.com/BenjaminSRussell/passage/services/print/internal/store"
-	"github.com/BenjaminSRussell/passage/services/print/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/print/internal/api"
+	"github.com/BenjaminSRussell/depot/services/print/internal/delivery"
+	"github.com/BenjaminSRussell/depot/services/print/internal/store"
+	"github.com/BenjaminSRussell/depot/services/print/migrations"
 )
 
 const (
@@ -157,7 +157,7 @@ func (p *portalCaller) get(customer, path string) *httptest.ResponseRecorder {
 		panic(err)
 	}
 	req := httptest.NewRequest(http.MethodGet, path, nil)
-	req.Header.Set("X-Passage-Service-Token", token)
+	req.Header.Set("X-Depot-Service-Token", token)
 	rec := httptest.NewRecorder()
 	p.h.ServeHTTP(rec, req)
 	return rec
@@ -179,9 +179,9 @@ func TestDeliverDocument_ChecksItsRequest(t *testing.T) {
 	}
 	// A legal entity outside the caller's scope is refused.
 	req := httptest.NewRequest(http.MethodPost, "/print/v1/documents:deliver", strings.NewReader(invoiceDoc+`,"sourceKey":"k","legalEntityId":"`+leA+`"}`))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", "print.document.deliver")
-	req.Header.Set("X-Passage-Legal-Entity", "0190a5f2-7b1c-7d3e-8a4f-123456789a77")
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", "print.document.deliver")
+	req.Header.Set("X-Depot-Legal-Entity", "0190a5f2-7b1c-7d3e-8a4f-123456789a77")
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
@@ -291,10 +291,10 @@ func TestDeliverDocument_NeedsALegalEntityAndACustomerOfIt(t *testing.T) {
 	h := dbRouter(t, &fakeSender{}, api.WithMailer(&outbox{}), api.WithAccountChecker(fakeAccounts{custA: true}))
 	two := func(le string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPost, "/print/v1/documents:deliver", strings.NewReader(invoiceDoc+`,"sourceKey":"k","accountId":"`+custB+`"}`))
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-Duties", "print.document.deliver")
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-Duties", "print.document.deliver")
 		if le != "" {
-			req.Header.Set("X-Passage-Legal-Entity", le)
+			req.Header.Set("X-Depot-Legal-Entity", le)
 		}
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)

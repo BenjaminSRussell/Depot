@@ -3,33 +3,33 @@ info:
   title: expense
   version: 0.5.0
   description: >-
-    CloudEvents 1.0 envelope from platform/go/events (source /passage/expense/expense,
+    CloudEvents 1.0 envelope from platform/go/events (source /depot/expense/expense,
     subject the aggregate id); payloads below are the data member. Events are written to
     the outbox in the transaction of the change and relayed to Kafka keyed by aggregate
-    (expense_report or cash_advance). Slice 4 of PSG-43 publishes
-    dev.passage.expense.policy.violated.v1: one message per BLOCK result when a report
+    (expense_report or cash_advance). Slice 4 of DPT-43 publishes
+    dev.depot.expense.policy.violated.v1: one message per BLOCK result when a report
     submit is refused. The refusal commits the evaluation and the messages, and a retry
     with the same Idempotency-Key replays the refusal without publishing again. Slice 5
-    publishes dev.passage.expense.cashadvance.paid.v1 when an APPROVED advance is recorded
+    publishes dev.depot.expense.cashadvance.paid.v1 when an APPROVED advance is recorded
     as paid by its AP prepayment, in the transaction that moves it to PAID (the PRD's
-    cash-advance.paid.v1; the kernel naming rule allows no hyphen in the entity). PSG-43 AC3
-    publishes dev.passage.expense.report.approved.v1 once an approved report's reimbursable
+    cash-advance.paid.v1; the kernel naming rule allows no hyphen in the entity). DPT-43 AC3
+    publishes dev.depot.expense.report.approved.v1 once an approved report's reimbursable
     amount is booked as a liability in the general ledger (POST /v1/expense/gl-postings);
     payables turns it into the employee's vendor open item. The payload
     type is platform/go/reimbursement.ReportApproved.
 channels:
-  passage.expense.policy:
-    address: passage.expense.policy
+  depot.expense.policy:
+    address: depot.expense.policy
     messages:
       violated:
         $ref: '#/components/messages/policyViolated'
-  passage.expense.cashadvance:
-    address: passage.expense.cashadvance
+  depot.expense.cashadvance:
+    address: depot.expense.cashadvance
     messages:
       paid:
         $ref: '#/components/messages/cashAdvancePaid'
-  passage.expense.report:
-    address: passage.expense.report
+  depot.expense.report:
+    address: depot.expense.report
     messages:
       approved:
         $ref: '#/components/messages/reportApproved'
@@ -37,28 +37,28 @@ operations:
   publishPolicyViolated:
     action: send
     channel:
-      $ref: '#/channels/passage.expense.policy'
+      $ref: '#/channels/depot.expense.policy'
     summary: A report submit was refused and at least one line has a BLOCK outcome.
     messages:
-      - $ref: '#/channels/passage.expense.policy/messages/violated'
+      - $ref: '#/channels/depot.expense.policy/messages/violated'
   publishCashAdvancePaid:
     action: send
     channel:
-      $ref: '#/channels/passage.expense.cashadvance'
+      $ref: '#/channels/depot.expense.cashadvance'
     summary: An approved cash advance was paid as an AP prepayment to the employee vendor (FR-43.15).
     messages:
-      - $ref: '#/channels/passage.expense.cashadvance/messages/paid'
+      - $ref: '#/channels/depot.expense.cashadvance/messages/paid'
   publishReportApproved:
     action: send
     channel:
-      $ref: '#/channels/passage.expense.report'
+      $ref: '#/channels/depot.expense.report'
     summary: An approved report's liability is in the general ledger (Dr expense, Cr AP control); its reimbursable amount is payable to the worker through AP (FR-43.14).
     messages:
-      - $ref: '#/channels/passage.expense.report/messages/approved'
+      - $ref: '#/channels/depot.expense.report/messages/approved'
 components:
   messages:
     policyViolated:
-      name: dev.passage.expense.policy.violated.v1
+      name: dev.depot.expense.policy.violated.v1
       title: Policy violated at submit
       contentType: application/json
       payload:
@@ -71,7 +71,7 @@ components:
           ruleId: { type: string, example: EXP-DUP-001 }
           outcome: { type: string, enum: [BLOCK] }
     cashAdvancePaid:
-      name: dev.passage.expense.cashadvance.paid.v1
+      name: dev.depot.expense.cashadvance.paid.v1
       title: Cash advance paid
       contentType: application/json
       payload:
@@ -85,7 +85,7 @@ components:
           currency: { type: string, pattern: '^[A-Z]{3}$' }
           prepaymentId: { type: string, format: uuid, description: The wave-18 AP prepayment that paid the advance. }
     reportApproved:
-      name: dev.passage.expense.report.approved.v1
+      name: dev.depot.expense.report.approved.v1
       title: Expense report approved
       contentType: application/json
       payload:

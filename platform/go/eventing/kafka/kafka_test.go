@@ -6,11 +6,11 @@ import (
 
 	"github.com/twmb/franz-go/pkg/kgo"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
 )
 
 func TestFromKgoLowercasesHeadersAndKeepsHandle(t *testing.T) {
-	raw := &kgo.Record{Topic: "passage.receiving.receipt", Partition: 2, Offset: 41, Key: []byte("k"), Value: []byte("v"),
+	raw := &kgo.Record{Topic: "depot.receiving.receipt", Partition: 2, Offset: 41, Key: []byte("k"), Value: []byte("v"),
 		Headers: []kgo.RecordHeader{{Key: "TenantId", Value: []byte("t1")}}}
 	r := fromKgo(raw)
 	if r.Headers["tenantid"] != "t1" || r.Partition != 2 || r.Offset != 41 || r.Raw != raw {

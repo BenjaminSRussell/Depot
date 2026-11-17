@@ -19,9 +19,9 @@ describe("sign-in", () => {
   it("redirects to the identity provider with PKCE S256, a state and a nonce", async () => {
     rig = await startRig();
     const url = await begin(rig);
-    expect(url.origin + url.pathname).toBe("https://keycloak.example.invalid/realms/passage/protocol/openid-connect/auth");
+    expect(url.origin + url.pathname).toBe("https://keycloak.example.invalid/realms/depot/protocol/openid-connect/auth");
     expect(url.searchParams.get("response_type")).toBe("code");
-    expect(url.searchParams.get("client_id")).toBe("passage-portal-supplier");
+    expect(url.searchParams.get("client_id")).toBe("depot-portal-supplier");
     expect(url.searchParams.get("code_challenge_method")).toBe("S256");
     expect(url.searchParams.get("code_challenge")).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(url.searchParams.get("state")?.length).toBeGreaterThan(20);
@@ -34,7 +34,7 @@ describe("sign-in", () => {
     const cb = await fetch(`${rig.base}/bff/callback?code=abc&state=${url.searchParams.get("state")}`, { redirect: "manual" });
     expect(cb.status).toBe(302);
     const cookie = cb.headers.get("set-cookie") ?? "";
-    expect(cookie).toMatch(/^__Host-passage_supplier=[A-Za-z0-9_-]{40,};/);
+    expect(cookie).toMatch(/^__Host-depot_supplier=[A-Za-z0-9_-]{40,};/);
     expect(cookie).toMatch(/HttpOnly/);
     expect(cookie).toMatch(/Secure/);
     expect(cookie).toMatch(/SameSite=Lax/);
@@ -67,7 +67,7 @@ describe("sign-in", () => {
     ["a nil vendor", { vendor_id: "00000000-0000-0000-0000-000000000000" }],
     ["no tenant", { tid: undefined }],
     ["no legal entity", { le: "" }],
-    ["another client", { aud: "passage-web" }],
+    ["another client", { aud: "depot-web" }],
     ["another issuer", { iss: "https://evil.example.invalid" }],
     ["an expired token", { exp: 1 }],
     ["another nonce", { nonce: "someone-elses" }],
@@ -123,7 +123,7 @@ describe("sign-in", () => {
     expect(down.status).toBe(503);
     expect(down.headers.get("set-cookie")).toMatch(/Max-Age=0/);
     store.get = real;
-    const gone = await fetch(`${rig.base}/bff/logout`, { method: "POST", headers: { cookie: "__Host-passage_supplier=unknown" } });
+    const gone = await fetch(`${rig.base}/bff/logout`, { method: "POST", headers: { cookie: "__Host-depot_supplier=unknown" } });
     expect(gone.status).toBe(200);
     expect(gone.headers.get("set-cookie")).toMatch(/Max-Age=0/);
     expect((await fetch(`${rig.base}/bff/logout`, { method: "POST", headers: { cookie: s.cookie, origin: "https://evil.example" } })).status).toBe(403);

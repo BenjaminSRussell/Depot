@@ -1,4 +1,4 @@
--- Wave 36 (PSG-36) FR-36.5: the bank reconciliation of one statement (one account and period) with its close and reopen,
+-- Wave 36 (DPT-36) FR-36.5: the bank reconciliation of one statement (one account and period) with its close and reopen,
 -- lines excluded with a reason, and bank transactions created from a statement line and posted to the ledger.
 -- Closing locks the statement's lines and matches against change: the triggers below refuse any write to them while the
 -- header is closed. No row is deleted.
@@ -175,44 +175,44 @@ create trigger reconciliation_match_line_pending_guard before insert on reconcil
 alter table bank_reconciliation enable row level security;
 alter table bank_reconciliation force row level security;
 create policy bank_reconciliation_tenant_access on bank_reconciliation as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy bank_reconciliation_legal_entity_scope on bank_reconciliation as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 alter table bank_reconciliation_event enable row level security;
 alter table bank_reconciliation_event force row level security;
 create policy bank_reconciliation_event_tenant_access on bank_reconciliation_event as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy bank_reconciliation_event_legal_entity_scope on bank_reconciliation_event as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 alter table reconciliation_line_exclusion enable row level security;
 alter table reconciliation_line_exclusion force row level security;
 create policy reconciliation_line_exclusion_tenant_access on reconciliation_line_exclusion as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy reconciliation_line_exclusion_legal_entity_scope on reconciliation_line_exclusion as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 alter table bank_line_transaction enable row level security;
 alter table bank_line_transaction force row level security;
 create policy bank_line_transaction_tenant_access on bank_line_transaction as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy bank_line_transaction_legal_entity_scope on bank_line_transaction as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON bank_reconciliation, reconciliation_line_exclusion, bank_line_transaction TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON bank_reconciliation_event TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON bank_reconciliation, reconciliation_line_exclusion, bank_line_transaction TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON bank_reconciliation_event TO depot_app';
   END IF;
 END
 $$;

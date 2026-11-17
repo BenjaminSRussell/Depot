@@ -68,20 +68,20 @@ export default defineConfig({
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: [/warehouse-mobile/, /\.demo\.spec/] },
     // Procure-to-pay and order-to-cash flows run against the demo build: a fake backend and every duty held.
-    { name: "demo-flows", use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${DEMO_PORT}/Passage/` }, testMatch: /\.demo\.spec/ },
+    { name: "demo-flows", use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${DEMO_PORT}/Depot/` }, testMatch: /\.demo\.spec/ },
     { name: "warehouse-mobile", use: { ...devices["Pixel 5"] }, testMatch: /warehouse-mobile/ },
   ],
   webServer: [
     {
       command: `npx vite --port ${PORT} --strictPort`,
       url: `http://localhost:${PORT}`,
-      env: { PASSAGE_DEV_DUTIES: E2E_DUTIES, PASSAGE_DEV_SHOW_ALL_NAV: "", PASSAGE_MOBILE_STUB: "1" },
+      env: { DEPOT_DEV_DUTIES: E2E_DUTIES, DEPOT_DEV_SHOW_ALL_NAV: "", DEPOT_MOBILE_STUB: "1" },
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
     {
       command: `npx vite --mode demo --port ${DEMO_PORT} --strictPort`,
-      url: `http://localhost:${DEMO_PORT}/Passage/`,
+      url: `http://localhost:${DEMO_PORT}/Depot/`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

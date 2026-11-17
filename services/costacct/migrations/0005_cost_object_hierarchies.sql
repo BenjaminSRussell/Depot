@@ -92,27 +92,27 @@ ALTER TABLE hierarchy_distribution_run FORCE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS cost_object_hierarchy_tenant_access ON cost_object_hierarchy;
 CREATE POLICY cost_object_hierarchy_tenant_access ON cost_object_hierarchy AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS cost_object_hierarchy_legal_entity_scope ON cost_object_hierarchy;
 CREATE POLICY cost_object_hierarchy_legal_entity_scope ON cost_object_hierarchy AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DROP POLICY IF EXISTS cost_hierarchy_node_tenant_access ON cost_hierarchy_node;
 CREATE POLICY cost_hierarchy_node_tenant_access ON cost_hierarchy_node AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS cost_hierarchy_node_legal_entity_scope ON cost_hierarchy_node;
 CREATE POLICY cost_hierarchy_node_legal_entity_scope ON cost_hierarchy_node AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DROP POLICY IF EXISTS hierarchy_distribution_run_tenant_access ON hierarchy_distribution_run;
 CREATE POLICY hierarchy_distribution_run_tenant_access ON hierarchy_distribution_run AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS hierarchy_distribution_run_legal_entity_scope ON hierarchy_distribution_run;
 CREATE POLICY hierarchy_distribution_run_legal_entity_scope ON hierarchy_distribution_run AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

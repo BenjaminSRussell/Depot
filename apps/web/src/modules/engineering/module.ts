@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { holdsDuty } from "../../shell/dutyGate";
 import { usePrincipalDuties } from "../../shell/principal";
 import { EngineeringHome, WhereUsedPage } from "./pages";
@@ -311,7 +311,7 @@ function EbomImportRoute() {
   });
 }
 
-const engineering: PassageModule = {
+const engineering: DepotModule = {
   id: "engineering",
   title: "Engineering data",
   description: "Bills of material, routings and change orders.",

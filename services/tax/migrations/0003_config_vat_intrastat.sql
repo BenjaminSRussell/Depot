@@ -18,8 +18,8 @@ create table tax_jurisdiction (
 alter table tax_jurisdiction enable row level security;
 alter table tax_jurisdiction force row level security;
 create policy tax_jurisdiction_tenant_access on tax_jurisdiction as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 
 create table tax_code (
@@ -41,8 +41,8 @@ create table tax_code (
 alter table tax_code enable row level security;
 alter table tax_code force row level security;
 create policy tax_code_tenant_access on tax_code as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 
 -- Party tax groups and item tax groups; the codes a group selects are the determination:
@@ -60,8 +60,8 @@ create table tax_group (
 alter table tax_group enable row level security;
 alter table tax_group force row level security;
 create policy tax_group_tenant_access on tax_group as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 
 -- 13-2 settings of one legal entity: its country (the EU sales list leaves it out) and VAT number.
@@ -76,11 +76,11 @@ create table tax_entity_setting (
 alter table tax_entity_setting enable row level security;
 alter table tax_entity_setting force row level security;
 create policy tax_entity_setting_tenant_access on tax_entity_setting as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy tax_entity_setting_legal_entity_scope on tax_entity_setting as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 
 alter table tax_transaction
@@ -102,8 +102,8 @@ create table tax_vat_box (
 alter table tax_vat_box enable row level security;
 alter table tax_vat_box force row level security;
 create policy tax_vat_box_tenant_access on tax_vat_box as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 
 create table tax_vat_box_code (
@@ -117,8 +117,8 @@ create table tax_vat_box_code (
 alter table tax_vat_box_code enable row level security;
 alter table tax_vat_box_code force row level security;
 create policy tax_vat_box_code_tenant_access on tax_vat_box_code as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 
 -- 13-3 Intrastat master data. One table, one row per kind and code; attrs holds the kind's extras
@@ -136,8 +136,8 @@ create table tax_intrastat_master (
 alter table tax_intrastat_master enable row level security;
 alter table tax_intrastat_master force row level security;
 create policy tax_intrastat_master_tenant_access on tax_intrastat_master as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 
 -- 13-4 Intrastat journal.
@@ -158,11 +158,11 @@ create index tax_intrastat_journal_period_idx on tax_intrastat_journal (tenant_i
 alter table tax_intrastat_journal enable row level security;
 alter table tax_intrastat_journal force row level security;
 create policy tax_intrastat_journal_tenant_access on tax_intrastat_journal as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy tax_intrastat_journal_legal_entity_scope on tax_intrastat_journal as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 
 create table tax_intrastat_line (
@@ -198,11 +198,11 @@ create table tax_intrastat_transferred (
 alter table tax_intrastat_transferred enable row level security;
 alter table tax_intrastat_transferred force row level security;
 create policy tax_intrastat_transferred_tenant_access on tax_intrastat_transferred as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 alter table tax_intrastat_line enable row level security;
 alter table tax_intrastat_line force row level security;
 create policy tax_intrastat_line_tenant_access on tax_intrastat_line as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 

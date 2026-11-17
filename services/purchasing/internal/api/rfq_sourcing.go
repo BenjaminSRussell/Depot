@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
 
 // rfqFromRequisitionsBody is the body of POST /rfqs:from-requisitions (FR-17.3): approved requisition lines that

@@ -6,20 +6,20 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/testdb"
-	"github.com/BenjaminSRussell/passage/services/migration/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/testdb"
+	"github.com/BenjaminSRussell/depot/services/migration/migrations"
 )
 
 func sqlProfile(name string) store.ConnectionProfile {
 	return store.ConnectionProfile{Name: name, Kind: domain.ConnSQL, SourceSystem: "custom_acme", Status: domain.ConnActive,
-		Config: map[string]any{"driver": "postgres", "host": "erp.acme.example", "port": float64(5432), "database": "erp", "user": "passage"}}
+		Config: map[string]any{"driver": "postgres", "host": "erp.acme.example", "port": float64(5432), "database": "erp", "user": "depot"}}
 }
 
 func testKeys(t *testing.T) *fieldcrypt.Keys {

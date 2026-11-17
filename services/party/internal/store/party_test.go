@@ -11,10 +11,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/party/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/party/internal/store"
 )
 
 type numberSource struct{ calls int }
@@ -92,7 +92,7 @@ func TestCreateParty_WritesPartyAndOneCreatedEvent(t *testing.T) {
 		t.Fatalf("got %+v", created)
 	}
 	rows := outboxRows(t, ctx, app)
-	if len(rows) != 1 || rows[0].typ != "dev.passage.party.party.created.v1" || !strings.Contains(rows[0].payload, created.ID) || !strings.Contains(rows[0].payload, `"version": 1`) {
+	if len(rows) != 1 || rows[0].typ != "dev.depot.party.party.created.v1" || !strings.Contains(rows[0].payload, created.ID) || !strings.Contains(rows[0].payload, `"version": 1`) {
 		t.Fatalf("got %+v", rows)
 	}
 }
@@ -166,7 +166,7 @@ func TestCreateParty_ReconcilesPartiesWithCreatedEvents(t *testing.T) {
 		t.Fatalf("parties=%d outbox=%d", countParties(t, ctx, app), len(rows))
 	}
 	for _, r := range rows {
-		if r.typ != "dev.passage.party.party.created.v1" {
+		if r.typ != "dev.depot.party.party.created.v1" {
 			t.Fatalf("unexpected %s", r.typ)
 		}
 	}
@@ -338,7 +338,7 @@ func TestUpdateParty_NameChangeRecomputesAndEmitsSortedFields(t *testing.T) {
 	}
 	rows := outboxRows(t, ctx, app)
 	last := rows[len(rows)-1]
-	if last.typ != "dev.passage.party.party.updated.v1" || !strings.Contains(last.payload, `"changed_fields": ["familyName", "givenName", "timeZone"]`) || !strings.Contains(last.payload, `"version": 2`) {
+	if last.typ != "dev.depot.party.party.updated.v1" || !strings.Contains(last.payload, `"changed_fields": ["familyName", "givenName", "timeZone"]`) || !strings.Contains(last.payload, `"version": 2`) {
 		t.Fatalf("got %+v", last)
 	}
 	for _, want := range []string{`"party_number": "` + updated.PartyNumber + `"`, `"name": "Grace Hopper"`, `"party_type": "` + updated.PartyType + `"`, `"status": "`} {

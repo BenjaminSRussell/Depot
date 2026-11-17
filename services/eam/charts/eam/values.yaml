@@ -1,5 +1,5 @@
 image:
-  repository: ghcr.io/benjaminsrussell/passage-eam
+  repository: ghcr.io/benjaminsrussell/depot-eam
   # Pin by digest in GitOps overlays (rollback by digest).
   tag: "0.1.0"
   digest: ""

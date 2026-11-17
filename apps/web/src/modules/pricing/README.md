@@ -1,4 +1,4 @@
-# Pricing web module (PSG-26, wave 26)
+# Pricing web module (DPT-26, wave 26)
 
 Routes, all on the pricing service API (`services/pricing/api/openapi.yaml`):
 

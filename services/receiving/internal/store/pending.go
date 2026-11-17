@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
 )
 
 type PendingError struct {

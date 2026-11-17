@@ -12,7 +12,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/fx/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/domain"
 )
 
 const (

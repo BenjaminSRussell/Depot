@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { ActivationPreviewPage } from "./ActivationPreviewPage";
 import { AdHocEstimatePage } from "./AdHocEstimatePage";
 import { ComparePage } from "./ComparePage";
@@ -15,7 +15,7 @@ import { SalesVersionsPage } from "./SalesVersionsPage";
 import { VariancePage } from "./VariancePage";
 import { VersionsPage } from "./VersionsPage";
 
-const productcost: PassageModule = {
+const productcost: DepotModule = {
   id: "productcost",
   title: "Product costing",
   description:

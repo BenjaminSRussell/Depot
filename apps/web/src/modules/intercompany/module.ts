@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { CentralPaymentsPage } from "./CentralPaymentsPage";
 import { ChainsPage } from "./ChainsPage";
 import { ChargeLogPage } from "./ChargeLogPage";
@@ -16,7 +16,7 @@ import { ReconRunPage, ReconRunsPage } from "./ReconRunsPage";
 import { EntitiesPage, EntityFormPage, LedgerReconcilePage, MatrixPage, NewTransferPricePage, SettingsPage, TransferPricesPage } from "./SetupPages";
 import { TransferPricingPage } from "./TransferPricingPage";
 
-const intercompany: PassageModule = {
+const intercompany: DepotModule = {
   id: "intercompany",
   title: "Intercompany",
   description:

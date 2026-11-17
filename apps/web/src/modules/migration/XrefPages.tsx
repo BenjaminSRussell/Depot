@@ -14,19 +14,19 @@ const columns: DataTableColumn<XrefEntry>[] = [
   { key: "sourceSystem", header: "Source system", mono: true },
   { key: "entity", header: "Entity", mono: true },
   { key: "sourceKey", header: "Legacy key", mono: true },
-  { key: "targetId", header: "Passage identifier", mono: true },
+  { key: "targetId", header: "Depot identifier", mono: true },
   { key: "mergedIntoTargetId", header: "Merged into", mono: true, render: (row) => row.mergedIntoTargetId ?? "" },
   // No legal entity: tenant-wide master data, or a row loaded before legal entities were recorded; both resolve in every legal entity.
   { key: "legalEntityId", header: "Legal entity", mono: true, render: (row) => row.legalEntityId ?? "All legal entities" },
   { key: "updatedAt", header: "Updated", render: (row) => formatDateTime(row.updatedAt) },
 ];
 
-/** Legacy key cross-reference: where did AX or SAP record X land in Passage, and which legacy keys feed a Passage record. */
+/** Legacy key cross-reference: where did AX or SAP record X land in Depot, and which legacy keys feed a Depot record. */
 export function XrefPage() {
   const [form, setForm] = useState({ sourceSystem: "", entity: "", keyPrefix: "", targetId: "" });
   const targetId = form.targetId.trim();
   // A partly typed or pasted id is not sent: the service would refuse it, so the table keeps the last valid result.
-  const targetIdError = targetId && !UUID.test(targetId) ? "Enter a full Passage id (UUID)." : undefined;
+  const targetIdError = targetId && !UUID.test(targetId) ? "Enter a full Depot id (UUID)." : undefined;
   const [filter, setFilter] = useState<XrefFilter>({ limit: PAGE });
   useEffect(() => {
     if (targetIdError) return;
@@ -83,7 +83,7 @@ export function XrefPage() {
     <div className={styles.stack}>
       <PageHeader
         title="Legacy key cross-reference"
-        description="Every legacy record the migration has mapped, with the Passage id it became. Search by legacy key prefix, or paste a Passage id to see which legacy keys feed it."
+        description="Every legacy record the migration has mapped, with the Depot id it became. Search by legacy key prefix, or paste a Depot id to see which legacy keys feed it."
         actions={
           <Link className={buttonClassName("ghost")} to="/migration">
             Runs
@@ -115,7 +115,7 @@ export function XrefPage() {
         <FormField id="xref-prefix" label="Legacy key starts with">
           {(control) => <Input {...control} value={form.keyPrefix} onChange={(event) => change("keyPrefix", event.target.value)} />}
         </FormField>
-        <FormField id="xref-target" label="Passage identifier" error={targetIdError}>
+        <FormField id="xref-target" label="Depot identifier" error={targetIdError}>
           {(control) => <Input {...control} value={form.targetId} onChange={(event) => change("targetId", event.target.value)} />}
         </FormField>
       </div>

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 func TestVersionSpec_NormalizeAppliesParameterDefaults(t *testing.T) {

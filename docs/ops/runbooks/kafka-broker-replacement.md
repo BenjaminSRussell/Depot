@@ -1,12 +1,12 @@
 # Runbook: Kafka broker replacement (FR-50.3)
 
-Platform: Strimzi cluster `passage` in namespace `kafka` (`deploy/kafka/kafka.yaml`), one node pool
+Platform: Strimzi cluster `depot` in namespace `kafka` (`deploy/kafka/kafka.yaml`), one node pool
 `dual-role` with 3 nodes that are both brokers and KRaft controllers, `min.insync.replicas=2`, producers
 use `acks=all`. FR-50.3 sizes production at 6 brokers; that change belongs to the `deploy/kafka` owner
-(`docs/ops/NOT-IMPLEMENTED.md`). Pods are `passage-dual-role-<n>`.
+(`docs/ops/NOT-IMPLEMENTED.md`). Pods are `depot-dual-role-<n>`.
 
 Symptom sources: under-replicated partitions, produce errors (`NotEnoughReplicas`), MM2 lag
-(`PassageMirrorMaker2LagHigh`), or a broker pod stuck in `CrashLoopBackOff` or with a failed disk.
+(`DepotMirrorMaker2LagHigh`), or a broker pod stuck in `CrashLoopBackOff` or with a failed disk.
 
 Rule: never take a second node down while one is unhealthy. With 3 nodes and `min.insync.replicas=2`,
 one loss keeps every partition writable; a second loss blocks produces to the affected partitions and
@@ -16,9 +16,9 @@ relay publishes them once the ISR recovers. Business writes continue; only event
 
 ## 1. Assess (before touching anything)
 1. `kubectl get pods -n kafka -l strimzi.io/pool-name=dual-role` and
-   `kubectl get kafka passage -n kafka -o jsonpath='{.status.conditions}'`: note the nodes that are not Ready.
+   `kubectl get kafka depot -n kafka -o jsonpath='{.status.conditions}'`: note the nodes that are not Ready.
 2. List under-replicated partitions from a healthy node:
-   `kubectl exec -n kafka passage-dual-role-0 -- bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --under-replicated-partitions`
+   `kubectl exec -n kafka depot-dual-role-0 -- bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --under-replicated-partitions`
    and partitions below the in-sync minimum with `--under-min-isr-partitions`.
 3. If any partition is under min ISR, produce is blocked for it: go to section 3 at once.
 4. If two or more nodes are unhealthy, stop: open a Sev-2, do not start reassignments, and escalate to the
@@ -41,7 +41,7 @@ relay publishes them once the ISR recovers. Business writes continue; only event
    when done, which also removes the throttle.
 
 ## 4. Verify
-1. `kafka-topics.sh --describe` shows ISR size >= 2 for every partition of the `passage.*` topics, and
+1. `kafka-topics.sh --describe` shows ISR size >= 2 for every partition of the `depot.*` topics, and
    `--under-min-isr-partitions` is empty.
 2. Produce a test message with `kafka-console-producer.sh --producer-property acks=all` to a scratch
    topic created with replication factor 3; it succeeds. Delete the topic.

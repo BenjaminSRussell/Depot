@@ -29,11 +29,11 @@
 - **Filters** apply with the "Apply filters" button. Applied filters show as chips (remove one, or "Clear all filters").
 - **Sorting**: header buttons cycle ascending, descending, none. `aria-sort` is set on the header.
 - **Columns**: the Columns menu shows or hides columns, keeps at least one, and resets to the defaults.
-- **Views**: the Views menu saves the current filters, sort and columns under a name, updates or deletes a view, and marks one as the default (applied when the list opens). Views live behind `PreferenceStorage` (`src/shell/preferenceStorage.ts`), keyed `passage.list.v1.{person}.{list id}` and stored as `{ version: 1, views, defaultId }`. A record of another version, or an unreadable one, is ignored. A saved view remembers which columns existed when it was saved, so a column added later appears and a removed one is dropped without breaking the view. To move views to a server, implement `PreferenceStorage` over the API and pass it as `storage`; no page changes.
+- **Views**: the Views menu saves the current filters, sort and columns under a name, updates or deletes a view, and marks one as the default (applied when the list opens). Views live behind `PreferenceStorage` (`src/shell/preferenceStorage.ts`), keyed `depot.list.v1.{person}.{list id}` and stored as `{ version: 1, views, defaultId }`. A record of another version, or an unreadable one, is ignored. A saved view remembers which columns existed when it was saved, so a column added later appears and a removed one is dropped without breaking the view. To move views to a server, implement `PreferenceStorage` over the API and pass it as `storage`; no page changes.
 - **Export CSV** writes the visible columns of the rows loaded now, in the order shown, with a UTF-8 byte order mark, quoted fields and `CRLF` line ends. A cell that starts with `=`, `+`, `-` or `@` (or a tab or return) gets a leading `'` so a spreadsheet does not run it; a plain number such as `-15.00` is left alone. When more rows exist the page says the file holds only the loaded rows.
 - **States**: loading (busy table), first-run empty with a next step, filtered-empty with "Clear filters", error with "Try again" (the rows already loaded stay), and no access (403) with no retry and no list tools.
 - **Paging**: keyset "Load more {noun}" under the table.
-- **Density** is the shell's Compact view button; it is remembered per person (`passage.density.v1.{person}`) and every table follows it.
+- **Density** is the shell's Compact view button; it is remembered per person (`depot.density.v1.{person}`) and every table follows it.
 
 ## Text search
 

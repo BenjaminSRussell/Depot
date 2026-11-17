@@ -12,12 +12,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/api"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/ledger"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/api"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/ledger"
 )
 
 const (
@@ -98,11 +98,11 @@ func get(r http.Handler, path, duties, legalEntity string) *httptest.ResponseRec
 
 func getScoped(r http.Handler, path, duties, legalEntity string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodGet, path, nil)
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", duties)
 	req.Header.Set(tenant.HeaderLegalEntityScopeAll, tenant.LegalEntityScopeAll)
 	if legalEntity != "" {
-		req.Header.Set("X-Passage-Legal-Entity", legalEntity)
+		req.Header.Set("X-Depot-Legal-Entity", legalEntity)
 	}
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)

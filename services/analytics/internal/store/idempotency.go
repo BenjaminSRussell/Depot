@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/services/analytics/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/analytics/internal/domain"
 )
 
 // Created is the outcome of an idempotent create. Replayed is true when the

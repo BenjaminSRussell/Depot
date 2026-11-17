@@ -6,8 +6,8 @@ ALTER TABLE rfid_rule ADD COLUMN IF NOT EXISTS updated_by text;
 ALTER TABLE rfid_rule ADD COLUMN IF NOT EXISTS updated_at timestamptz;
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT UPDATE ON rfid_rule TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT UPDATE ON rfid_rule TO depot_app';
   END IF;
 END
 $$;

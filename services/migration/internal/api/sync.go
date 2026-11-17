@@ -7,12 +7,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
 )
 
 const (
@@ -23,7 +23,7 @@ const (
 )
 
 // registerSync wires the sync monitor: reads and conflict resolution need migration.run (resolving applies legacy
-// values to Passage records, as a run does); pause, resume and source of truth edit the schedule and need
+// values to Depot records, as a run does); pause, resume and source of truth edit the schedule and need
 // migration.project.write.
 func (a *API) registerSync(r chi.Router) {
 	r.With(authz.RequireDuty(dutyRun)).Get(syncPath, a.listSync)
@@ -128,7 +128,7 @@ func (a *API) updateSync(w http.ResponseWriter, r *http.Request) {
 		bad["version"] = "is required (0 for a binding that was never scheduled)"
 	}
 	if req.SourceOfTruth != nil && !domain.ValidSourceOfTruth(*req.SourceOfTruth) {
-		bad["sourceOfTruth"] = "must be legacy or passage"
+		bad["sourceOfTruth"] = "must be legacy or depot"
 	}
 	if req.KeyCheckHours != nil && !domain.ValidKeyCheckHours(*req.KeyCheckHours) {
 		bad["keyCheckHours"] = fmt.Sprintf("must be between 0 (off) and %d", domain.MaxKeyCheckHours)
@@ -163,7 +163,7 @@ func (a *API) updateSync(w http.ResponseWriter, r *http.Request) {
 }
 
 // listAbsent lists the source keys a full read of the binding did not find in the legacy system. Nothing is
-// deactivated in Passage: the list is for the operator to act on.
+// deactivated in Depot: the list is for the operator to act on.
 func (a *API) listAbsent(w http.ResponseWriter, r *http.Request) {
 	if !tenantWide(w, r) {
 		return
@@ -246,9 +246,9 @@ type resolveRequest struct {
 	Version *int `json:"version"`
 }
 
-// resolveConflict closes an open conflict. keep_passage leaves the Passage record as it is and remembers the legacy
+// resolveConflict closes an open conflict. keep_depot leaves the Depot record as it is and remembers the legacy
 // row's hash, so the same row is not reported again until it changes. accept_legacy writes the held legacy values to
-// the Passage record through the loader (under the version recorded at the last load) and closes the conflict only
+// the Depot record through the loader (under the version recorded at the last load) and closes the conflict only
 // when the target accepted them.
 func (a *API) resolveConflict(w http.ResponseWriter, r *http.Request) {
 	if !tenantWide(w, r) {
@@ -260,8 +260,8 @@ func (a *API) resolveConflict(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	bad := map[string]string{}
-	if req.Resolution != domain.ResolveAcceptLegacy && req.Resolution != domain.ResolveKeepPassage {
-		bad["resolution"] = "must be accept_legacy or keep_passage"
+	if req.Resolution != domain.ResolveAcceptLegacy && req.Resolution != domain.ResolveKeepDepot {
+		bad["resolution"] = "must be accept_legacy or keep_depot"
 	}
 	if req.Version == nil || *req.Version < 1 {
 		bad["version"] = "is required: the version of the conflict you reviewed"
@@ -307,7 +307,7 @@ func (a *API) resolveConflict(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, saved)
 }
 
-// applyLegacy loads the conflict's held values into the Passage record and moves the cross-reference to them.
+// applyLegacy loads the conflict's held values into the Depot record and moves the cross-reference to them.
 func (a *API) applyLegacy(ctx context.Context, c store.SyncConflict) error {
 	if !a.live() {
 		return httpx.NewProblem(http.StatusNotImplemented, CodeAcceptUnavailable, "accepting legacy values needs the loader (MIG_TARGET_*_URL and a service signing key)")
@@ -350,7 +350,7 @@ func (a *API) applyLegacy(ctx context.Context, c store.SyncConflict) error {
 	if res[0].Code != "" {
 		hint := ""
 		if res[0].Code == domain.CodeSourceOfTruth {
-			hint = " (the Passage record changed after the last load, and the loader cannot yet read its current version to overwrite it; edit it in Passage, or keep Passage)"
+			hint = " (the Depot record changed after the last load, and the loader cannot yet read its current version to overwrite it; edit it in Depot, or keep Depot)"
 		}
 		return httpx.NewProblem(http.StatusConflict, CodeAcceptFailed, fmt.Sprintf("the target refused the legacy values: %s %s%s", res[0].Code, res[0].Detail, hint))
 	}

@@ -28,7 +28,7 @@ spec:
             capabilities:
               drop: [ALL]
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -41,7 +41,7 @@ spec:
               value: {{ .Values.captureStore.kind | quote }}
             {{- if eq .Values.captureStore.kind "fs" }}
             - name: FIELDSERVICE_CAPTURE_DIR
-              value: /var/lib/passage/captures
+              value: /var/lib/depot/captures
             {{- else if eq .Values.captureStore.kind "s3" }}
             - name: FIELDSERVICE_S3_ENDPOINT
               value: {{ required "captureStore.s3.endpoint is required" .Values.captureStore.s3.endpoint | quote }}
@@ -76,7 +76,7 @@ spec:
             {{- end }}
           {{- if and (eq .Values.captureStore.kind "fs") .Values.captureStore.fs.claimName }}
           volumeMounts:
-            - { name: captures, mountPath: /var/lib/passage/captures }
+            - { name: captures, mountPath: /var/lib/depot/captures }
           {{- end }}
           ports:
             - { name: http, containerPort: 8080 }

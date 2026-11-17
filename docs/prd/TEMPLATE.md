@@ -20,7 +20,7 @@ Why this wave exists, what a user can do at the end of it that they could not be
 and what is explicitly out of scope for this wave.
 
 ### N.W.2 AX / SAP parity map
-Table: Capability | AX 2012 / D365 F&SCM (form, table, class, menu item) | SAP ECC / S/4 (transaction code, table, module) | Passage equivalent (service / entity / screen) | Parity level (full / partial / improved / dropped-with-reason)
+Table: Capability | AX 2012 / D365 F&SCM (form, table, class, menu item) | SAP ECC / S/4 (transaction code, table, module) | Depot equivalent (service / entity / screen) | Parity level (full / partial / improved / dropped-with-reason)
 Minimum 8 rows. Use real object names (e.g. CustTable, LedgerJournalTrans, InventTrans, BKPF/BSEG, MARA, VA01, ME21N, F110).
 
 ### N.W.3 Functional requirements
@@ -61,7 +61,7 @@ Helm chart(s), config/env, database migrations, feature flags, scheduled jobs,
 SLOs, alerts, runbook entries, rollback procedure.
 
 ### N.W.11 Migration from AX / SAP
-Source tables → Passage entities mapping table; transformation notes; validation rules;
+Source tables → Depot entities mapping table; transformation notes; validation rules;
 what is NOT migrated and why.
 
 ### N.W.12 Dependencies, risks, open questions

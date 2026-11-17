@@ -8,15 +8,15 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/store"
 )
 
 // ReauthHeader carries the step-up assertion of a signing (21 CFR 11.200), the
 // same header engineering's document signing reads.
-const ReauthHeader = "X-Passage-Reauth-Assertion"
+const ReauthHeader = "X-Depot-Reauth-Assertion"
 
 const (
 	maxPrintedName = 200
@@ -42,7 +42,7 @@ func (FailClosedReauth) Verify(context.Context, string, domain.Reauth) (string, 
 		"signing is unavailable: no re-authentication service is configured")
 }
 
-// DevReauth verifies nothing; it is bound only when PASSAGE_ENV=dev, and every
+// DevReauth verifies nothing; it is bound only when DEPOT_ENV=dev, and every
 // signature it admits records domain.AuthDevUnverified, so a sealed record
 // signed with it says signaturesVerified false.
 type DevReauth struct{}

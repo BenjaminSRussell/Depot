@@ -6,8 +6,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
 )
 
 // The feed lists open invoices and, separately, settled ones with the day of their settlement; a change moves updated_at, so an

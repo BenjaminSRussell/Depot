@@ -14,19 +14,19 @@ CREATE TABLE IF NOT EXISTS ap_employee_vendor (
 ALTER TABLE ap_employee_vendor ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ap_employee_vendor FORCE ROW LEVEL SECURITY;
 CREATE POLICY ap_employee_vendor_tenant_access ON ap_employee_vendor AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY ap_employee_vendor_legal_entity_scope ON ap_employee_vendor AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE ap_open_item ADD COLUMN IF NOT EXISTS payee_worker_id uuid;
 ALTER TABLE ap_payment_proposal ADD COLUMN IF NOT EXISTS excluded_items jsonb NOT NULL DEFAULT '[]'::jsonb;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON ap_employee_vendor TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON ap_employee_vendor TO depot_app';
   END IF;
 END
 $$;

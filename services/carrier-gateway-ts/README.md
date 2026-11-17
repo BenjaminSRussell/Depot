@@ -1,6 +1,6 @@
 # carrier-gateway
 
-The service between Passage and the carriers (wave 28 AC4, #482; parent #28): rate shopping, label purchase and
+The service between Depot and the carriers (wave 28 AC4, #482; parent #28): rate shopping, label purchase and
 tracking behind one carrier adapter interface. fulfillment and transport call it with signed service tokens; there
 is no person-facing route.
 
@@ -31,7 +31,7 @@ The three duties are service-only in `policies/authz/data.json`. The grants are 
 `serviceGrants` in `platform/go/tenant/service.go`. `test/grants.test.ts` keeps both, `src/serviceToken.ts` and
 `api/openapi.yaml` equal.
 
-A token is accepted when it is signed by a key in `PASSAGE_SERVICE_PUBLIC_KEYS`, is addressed to `carrier-gateway`,
+A token is accepted when it is signed by a key in `DEPOT_SERVICE_PUBLIC_KEYS`, is addressed to `carrier-gateway`,
 lives at most 60 s (5 s skew), names a canonical tenant and legal entity, carries only duties the issuer's grant
 holds, and its id is new. A `service:` actor is refused: no background principal holds a carrier duty.
 
@@ -55,7 +55,7 @@ npm ci
 npm run typecheck
 npm test
 RECORD_FIXTURES=1 npx vitest --run test/record.test.ts   # re-record testdata/sandbox-recorded.json (review the diff)
-PASSAGE_SERVICE_PUBLIC_KEYS=fulfillment=<base64> npm start  # HTTP_ADDR defaults to :8080, CARRIER_ADAPTERS to sandbox
+DEPOT_SERVICE_PUBLIC_KEYS=fulfillment=<base64> npm start  # HTTP_ADDR defaults to :8080, CARRIER_ADAPTERS to sandbox
 ```
 
 `CARRIER_GATEWAY_WRITE_VECTOR=1 go test ./internal/carrier/` in `services/fulfillment` re-mints

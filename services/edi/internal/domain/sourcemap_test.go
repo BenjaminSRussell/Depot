@@ -53,7 +53,7 @@ func sourceInvoice() SourceInvoice {
 
 func golden(t *testing.T, name string, tr Transaction, setID string) {
 	t.Helper()
-	env, err := OutboundEnvelope(tr, Party{Qualifier: "ZZ", ID: "PASSAGE"}, Party{Qualifier: "ZZ", ID: "DISTRIBUTOR"}, "T", 1, time.Date(2026, 10, 21, 8, 30, 0, 0, time.UTC))
+	env, err := OutboundEnvelope(tr, Party{Qualifier: "ZZ", ID: "DEPOT"}, Party{Qualifier: "ZZ", ID: "DISTRIBUTOR"}, "T", 1, time.Date(2026, 10, 21, 8, 30, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)
 	}

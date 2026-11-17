@@ -16,10 +16,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/eam/internal/store"
-	"github.com/BenjaminSRussell/passage/services/eam/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/eam/internal/store"
+	"github.com/BenjaminSRussell/depot/services/eam/migrations"
 )
 
 // TestIoTStream_BreachToRequestLatency covers AC-44.4 / ticket Proof 3 on a
@@ -33,7 +33,7 @@ import (
 // request, with 87), a reading of exactly 85 that must not breach, and an
 // asset whose readings never breach. Expected requests come from scanning the
 // stream with the rule operators (first value above each threshold), not from
-// the engine. PASSAGE_EAM_IOT_READINGS sets the stream length (default 200,
+// the engine. DEPOT_EAM_IOT_READINGS sets the stream length (default 200,
 // 20 s). Not covered: the wave-25 Kafka bridge (not built) and production
 // latency.
 func TestIoTStream_BreachToRequestLatency(t *testing.T) {
@@ -42,10 +42,10 @@ func TestIoTStream_BreachToRequestLatency(t *testing.T) {
 		t.Fatal(err)
 	}
 	n := 200
-	if v := os.Getenv("PASSAGE_EAM_IOT_READINGS"); v != "" {
+	if v := os.Getenv("DEPOT_EAM_IOT_READINGS"); v != "" {
 		var err error
 		if n, err = strconv.Atoi(v); err != nil || n < 10 {
-			t.Fatalf("PASSAGE_EAM_IOT_READINGS=%q: want an integer >= 10", v)
+			t.Fatalf("DEPOT_EAM_IOT_READINGS=%q: want an integer >= 10", v)
 		}
 	}
 	srv := httptest.NewServer(New(store.New(pool), nil).Routes())
@@ -164,7 +164,7 @@ func TestIoTStream_BreachToRequestLatency(t *testing.T) {
 				return err
 			}
 			return tx.QueryRow(ctx, `select count(*) from outbox o join maintenance_request m on m.id::text = o.aggregate_id
-			  where m.condition_rule_id = $1 and o.type = 'dev.passage.eam.request.created.v1'`, ruleID).Scan(&events)
+			  where m.condition_rule_id = $1 and o.type = 'dev.depot.eam.request.created.v1'`, ruleID).Scan(&events)
 		})
 		if err != nil {
 			t.Fatal(err)

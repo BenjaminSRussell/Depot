@@ -1,16 +1,16 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Payables Events
+  title: Depot Payables Events
   version: 1.0.0
   description: |
     CloudEvents 1.0 published through the transactional outbox (Debezium relays
     rows to Kafka). Each event is written in the same database transaction as the
-    state change it announces. Types follow dev.passage.<context>.<entity>.<verb>.v<n>.
+    state change it announces. Types follow dev.depot.<context>.<entity>.<verb>.v<n>.
     Additive-only schema evolution.
 defaultContentType: application/cloudevents+json
 channels:
   openItemEvents:
-    address: passage.payables.openitem
+    address: depot.payables.openitem
     messages:
       openItemCreated:
         $ref: "#/components/messages/OpenItemCreated"
@@ -23,14 +23,14 @@ channels:
       openItemReleased:
         $ref: "#/components/messages/OpenItemReleased"
   vendorEvents:
-    address: passage.payables.vendor
+    address: depot.payables.vendor
     messages:
       vendorBlocked:
         $ref: "#/components/messages/VendorBlocked"
       vendorUnblocked:
         $ref: "#/components/messages/VendorUnblocked"
   paymentProposalEvents:
-    address: passage.payables.paymentproposal
+    address: depot.payables.paymentproposal
     messages:
       proposalCreated:
         $ref: "#/components/messages/ProposalCreated"
@@ -92,15 +92,15 @@ operations:
 components:
   messages:
     OpenItemCreated:
-      name: dev.passage.payables.openitem.created.v1
+      name: dev.depot.payables.openitem.created.v1
       summary: >-
-        A dev.passage.payables.invoice.posted.v1 event opened a vendor open item. Redelivery of the same source invoice
+        A dev.depot.payables.invoice.posted.v1 event opened a vendor open item. Redelivery of the same source invoice
         emits nothing. Consumers: aging, payment proposals.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/OpenItemData"
     OpenItemSettled:
-      name: dev.passage.payables.openitem.settled.v1
+      name: dev.depot.payables.openitem.settled.v1
       summary: >-
         A settlement reduced the open amount of a vendor open item; status is PARTIALLY_SETTLED or SETTLED.
         Consumers: aging, ledger posting.
@@ -108,15 +108,15 @@ components:
       payload:
         $ref: "#/components/schemas/OpenItemSettledData"
     OpenItemGrouped:
-      name: dev.passage.payables.openitem.grouped.v1
+      name: dev.depot.payables.openitem.grouped.v1
       summary: >-
-        A redelivered dev.passage.payables.invoice.posted.v1 carried the vendor group (id or code) of an open item that was created
+        A redelivered dev.depot.payables.invoice.posted.v1 carried the vendor group (id or code) of an open item that was created
         without one, and the group was assigned. Emitted once per open item; a group is never overwritten.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/OpenItemData"
     OpenItemHeld:
-      name: dev.passage.payables.openitem.held.v1
+      name: dev.depot.payables.openitem.held.v1
       summary: >-
         A user placed a payment hold on an open item (POST /v1/payables/open-items/{id}:hold). Held items are excluded from
         payment proposals. Emitted only when the hold changes.
@@ -124,7 +124,7 @@ components:
       payload:
         $ref: "#/components/schemas/OpenItemHoldData"
     OpenItemReleased:
-      name: dev.passage.payables.openitem.released.v1
+      name: dev.depot.payables.openitem.released.v1
       summary: >-
         A user released the payment hold of an open item (POST /v1/payables/open-items/{id}:release). Emitted only when the
         hold changes.
@@ -132,7 +132,7 @@ components:
       payload:
         $ref: "#/components/schemas/OpenItemHoldData"
     VendorBlocked:
-      name: dev.passage.payables.vendor.blocked.v1
+      name: dev.depot.payables.vendor.blocked.v1
       summary: >-
         A user blocked a vendor for payment in one legal entity (POST /v1/payables/vendors/{id}:block). Re-blocking
         replaces the reason and emits again.
@@ -140,13 +140,13 @@ components:
       payload:
         $ref: "#/components/schemas/VendorBlockData"
     VendorUnblocked:
-      name: dev.passage.payables.vendor.unblocked.v1
+      name: dev.depot.payables.vendor.unblocked.v1
       summary: A user removed the payment block of a vendor (POST /v1/payables/vendors/{id}:unblock).
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/VendorBlockData"
     ProposalCreated:
-      name: dev.passage.payables.paymentproposal.created.v1
+      name: dev.depot.payables.paymentproposal.created.v1
       summary: >-
         A DRAFT payment proposal was stored. An idempotent replay of the same run emits nothing. Consumers: approval
         notification.
@@ -154,14 +154,14 @@ components:
       payload:
         $ref: "#/components/schemas/ProposalData"
     ProposalApproved:
-      name: dev.passage.payables.paymentproposal.approved.v1
+      name: dev.depot.payables.paymentproposal.approved.v1
       summary: >-
         A DRAFT proposal was approved by a user other than its creator. Consumers: payment run workflow.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/ProposalData"
     ProposalCancelled:
-      name: dev.passage.payables.paymentproposal.cancelled.v1
+      name: dev.depot.payables.paymentproposal.cancelled.v1
       summary: >-
         A DRAFT proposal was cancelled (the rejection path of the approval flow) and its open items were released for
         another proposal.

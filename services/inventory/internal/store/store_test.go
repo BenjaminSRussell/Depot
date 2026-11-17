@@ -12,14 +12,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
-	"github.com/BenjaminSRussell/passage/services/inventory/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/services/inventory/migrations"
 )
 
 const (
@@ -161,7 +161,7 @@ func TestOpeningBalancePostsOnHandGLAndEvents(t *testing.T) {
 		counts[typ] = n
 	}
 	rows.Close()
-	want := map[string]int{"dev.passage.inventory.transaction.posted.v1": 2, "dev.passage.inventory.onhand.changed.v1": 1, "dev.passage.inventory.journal.posted.v1": 1}
+	want := map[string]int{"dev.depot.inventory.transaction.posted.v1": 2, "dev.depot.inventory.onhand.changed.v1": 1, "dev.depot.inventory.journal.posted.v1": 1}
 	for typ, n := range want {
 		if counts[typ] != n {
 			t.Errorf("outbox %s = %d, want %d (all: %v)", typ, counts[typ], n, counts)
@@ -539,7 +539,7 @@ func TestTransactionsAreAppendOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
-	if _, err := tx.Exec(context.Background(), `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', '*', true)`, testkit.TenantID(1)); err != nil {
+	if _, err := tx.Exec(context.Background(), `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true)`, testkit.TenantID(1)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := tx.Exec(context.Background(), `savepoint s`); err != nil {

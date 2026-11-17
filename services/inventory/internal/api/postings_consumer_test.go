@@ -10,13 +10,13 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/productunits"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/productunits"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 const (
@@ -244,7 +244,7 @@ func TestPostingsConsumer_RetriesTransientAndParksPermanentFailures(t *testing.T
 		ctx context.Context
 		evt events.Event
 	}{
-		"foreign source": {ctx, postingEvent(t, ReceiptPostedType, "/passage/other/other", twoReceiptLines)},
+		"foreign source": {ctx, postingEvent(t, ReceiptPostedType, "/depot/other/other", twoReceiptLines)},
 		"malformed":      {ctx, postingEvent(t, ReceiptPostedType, ReceiptSource, `{"lines":"x"}`)},
 		"no principal":   {context.Background(), evt},
 	} {

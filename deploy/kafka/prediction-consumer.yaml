@@ -10,26 +10,26 @@ metadata:
   name: prediction-consumer
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage
+    strimzi.io/cluster: depot
 spec:
   authentication:
     type: scram-sha-512
   authorization:
     type: simple
     acls:
-      - resource: {type: topic, name: passage.receivables.payment, patternType: literal}
+      - resource: {type: topic, name: depot.receivables.payment, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.receivables.creditsettlement, patternType: literal}
+      - resource: {type: topic, name: depot.receivables.creditsettlement, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.receivables.dispute, patternType: literal}
+      - resource: {type: topic, name: depot.receivables.dispute, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.receivables.dunningletter, patternType: literal}
+      - resource: {type: topic, name: depot.receivables.dunningletter, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.receivables.deduction, patternType: literal}
+      - resource: {type: topic, name: depot.receivables.deduction, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.receivables.downpayment, patternType: literal}
+      - resource: {type: topic, name: depot.receivables.downpayment, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.receivables.openitem, patternType: literal}
+      - resource: {type: topic, name: depot.receivables.openitem, patternType: literal}
         operations: [Read, Describe]
       - resource: {type: group, name: prediction, patternType: literal}
         operations: [Read, Describe]

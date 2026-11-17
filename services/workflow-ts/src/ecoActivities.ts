@@ -17,7 +17,7 @@ export function createEcoActivities(baseUrl: string, signer: ServiceTokenSigner,
       const response = await fetchImpl(`${baseUrl}/v1/engineering/ecos/${encodeURIComponent(ref.ecoId)}:${action}`, {
         method: "POST",
         headers: {
-          "X-Passage-Service-Token": mintOrReject(() => signer.mintForEngineering({ tenantId: ref.tenantId, legalEntityId: ref.legalEntityId, actor: ref.actor, scope: ref.scope })),
+          "X-Depot-Service-Token": mintOrReject(() => signer.mintForEngineering({ tenantId: ref.tenantId, legalEntityId: ref.legalEntityId, actor: ref.actor, scope: ref.scope })),
           ...(ref.reason ? { "Content-Type": "application/json" } : {}),
         },
         ...(ref.reason ? { body: JSON.stringify({ reason: ref.reason }) } : {}),

@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/fx/internal/provider"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/store"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/provider"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/store"
 )
 
 var (

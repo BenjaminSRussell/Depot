@@ -11,11 +11,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/ledgerbalances"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/ledgerbalances"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/store"
 )
 
 // CodeLedgerUnavailable is a slice-local code (not in the PRD catalog yet): the

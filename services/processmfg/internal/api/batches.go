@@ -8,8 +8,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/domain"
 )
 
 // Duties of the slice-2 batch rules (PRD 4.24.17): "Maintain batch attributes"

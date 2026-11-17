@@ -71,7 +71,7 @@ export async function paymentRunWorkflow(input: PaymentRunInput): Promise<Paymen
   if (started.status !== "RUNNING") return summary(started);
   const ref: PaymentRunRef = { tenantId: input.tenantId, legalEntityId: input.legalEntityId, executedBy: input.executedBy, runId: started.id };
 
-  const stuck = metricMeter.createCounter("passage_payment_run_stuck", "1", "Payment runs that could not finish after their journal was requested");
+  const stuck = metricMeter.createCounter("depot_payment_run_stuck", "1", "Payment runs that could not finish after their journal was requested");
   try {
     await bounded.generatePaymentFile(ref);
     await durable.postPaymentJournal(ref);

@@ -1,7 +1,7 @@
 # projects
 
-Project operations for Passage: project master and hierarchy, stages, WBS and CPM scheduling,
-POC and EVM arithmetic, billing selection rules and posting-profile resolution. Wave 41, ticket PSG-41.
+Project operations for Depot: project master and hierarchy, stages, WBS and CPM scheduling,
+POC and EVM arithmetic, billing selection rules and posting-profile resolution. Wave 41, ticket DPT-41.
 
 **Slice 1** exposes the project master over HTTP (create with sub-project inheritance, read, list, stage
 transitions), persists it with RLS and an outbox event per change, and ships the pure domain rules that later
@@ -38,9 +38,9 @@ migrations/              0001_init.sql (project + RLS), 0002_outbox.sql (outbox,
                          wbs_dependency, all with RLS and legal-entity scope through the project),
                          0004_risk_change_order.sql (project.contract_value, superseded baselines,
                          project_change_order + lines, project_risk_issue), 0005_grants.sql and
-                         0006_revoke_unused_delete.sql (passage_app privileges), 0007_transactions_billing.sql
+                         0006_revoke_unused_delete.sql (depot_app privileges), 0007_transactions_billing.sql
                          (project_category, project_transaction, project_invoice_proposal + lines, with RLS,
-                         legal-entity scope and passage_app grants), migrations.go (embed)
+                         legal-entity scope and depot_app grants), migrations.go (embed)
 api/openapi.yaml         OpenAPI 3.1 for every endpoint
 events/asyncapi.yaml     AsyncAPI 3 for every event published
 charts/projects/         Helm chart (deployment, service, optional ServiceMonitor)
@@ -123,7 +123,7 @@ CLOSED, MITIGATED → OPEN | CLOSED; a CLOSED entry is final.
 ## Run
 
 ```
-DATABASE_URL=postgres://passage_app:...@localhost:5432/passage_projects \
+DATABASE_URL=postgres://depot_app:...@localhost:5432/depot_projects \
 MIGRATE_ON_START=true HTTP_ADDR=:8080 go run ./cmd/projects
 ```
 
@@ -133,7 +133,7 @@ MIGRATE_ON_START=true HTTP_ADDR=:8080 go run ./cmd/projects
 
 ```
 go vet ./... && go test ./...
-PASSAGE_TEST_DATABASE_URL=postgres://... go test ./internal/store/...   # DB-backed tests
+DEPOT_TEST_DATABASE_URL=postgres://... go test ./internal/store/...   # DB-backed tests
 ```
 
 - `internal/domain`: table-driven and property tests (pgregory.net/rapid). No database needed.
@@ -149,7 +149,7 @@ PASSAGE_TEST_DATABASE_URL=postgres://... go test ./internal/store/...   # DB-bac
   scope on change orders, lines and risks; for slice 4 category type lock, transaction rules, keys and
   scope, proposal build, replay, remove line, cancel and the finish gate, fixed-price milestones over a
   scheduled WBS (also after a WBS replace), six concurrent builds staying disjoint (BR-41.8), and that the
-  app role cannot delete transactions, proposals or categories. Skipped without `PASSAGE_TEST_DATABASE_URL`; also needs `PASSAGE_TEST_APP_DATABASE_URL`
+  app role cannot delete transactions, proposals or categories. Skipped without `DEPOT_TEST_DATABASE_URL`; also needs `DEPOT_TEST_APP_DATABASE_URL`
   (uses `testkit.DBWithApp`, so the app role has no BYPASSRLS).
 
 Web: `npx vitest --run src/modules/projects` and `npx tsc --noEmit` from `apps/web` (tests in `module.test.tsx`,
@@ -164,7 +164,7 @@ No new third-party modules.
 
 ## Error codes
 
-Problem details are RFC 9457 (`application/problem+json`), `type` = `https://passage.dev/problems/<code>`.
+Problem details are RFC 9457 (`application/problem+json`), `type` = `https://depot.dev/problems/<code>`.
 
 | Code | HTTP | Meaning |
 |---|---|---|
@@ -207,11 +207,11 @@ Other wave-41 codes from PRD §8.41.18 are not raised yet; they arrive with the 
 
 ## Events
 
-`dev.passage.projects.project.created.v1` and `dev.passage.projects.project.updated.v1` are written to the outbox
+`dev.depot.projects.project.created.v1` and `dev.depot.projects.project.updated.v1` are written to the outbox
 in the same transaction as the change, with `subject` = project id and `actor` = the caller's user id.
-`dev.passage.projects.wbs.scheduled.v1` (subject = plan version id; data `projectId`, `planVersionId`,
+`dev.depot.projects.wbs.scheduled.v1` (subject = plan version id; data `projectId`, `planVersionId`,
 `criticalPath[]`, `finishDate`) is written by each scheduler run over a non-empty plan
-(see `events/asyncapi.yaml`). `dev.passage.projects.changeorder.applied.v1` (subject = change order id; data
+(see `events/asyncapi.yaml`). `dev.depot.projects.changeorder.applied.v1` (subject = change order id; data
 `changeOrderId`, `changeOrderNumber`, `projectId`, `type`, `currency`, `contractValueDelta`, `budgetDelta`,
 `contractValue`, `newBaselineVersionId`, `vendorPartyId` for vendor claims) is written by each apply, with a
 `project.updated` for the contract value. The PRD writes the type `change-order.applied`; the platform type rule
@@ -220,7 +220,7 @@ change-order create/submit/decide and risk changes publish no event yet; the PRD
 
 ## Wave reference
 
-PRD §8.41 (`docs/prd/phase-8-projects-people-service.md`), ticket PSG-41, depends on PSG-40.
+PRD §8.41 (`docs/prd/phase-8-projects-people-service.md`), ticket DPT-41, depends on DPT-40.
 Rules implemented in the domain: BR-41.1, BR-41.2, BR-41.3 (base predicate), BR-41.7 (rule only), BR-41.10 (amount
 and trigger), BR-41.12 (charge), FR-41.1 (stages, inheritance and project groups, wired to the API), FR-41.2 (plan versions, WBS and CPM, wired
 to the API), FR-41.5 (posting profiles, wired to the API), FR-41.10, FR-41.17 (simulation copies only), FR-41.18 and BR-41.13 (wired to the API; budget and

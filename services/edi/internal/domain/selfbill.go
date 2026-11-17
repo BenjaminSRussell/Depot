@@ -28,7 +28,7 @@ const (
 	selfBillMaxWaitDays     = 120
 )
 
-// SBShipment is a Passage shipment line the customer may self-bill against. The
+// SBShipment is a Depot shipment line the customer may self-bill against. The
 // key is (delivery note or ASN number, PO line, item); the customer is implicit.
 type SBShipment struct {
 	ID           string
@@ -66,7 +66,7 @@ func DefaultSBTolerance() SBTolerance {
 	return SBTolerance{Quantity: decimal.Zero, Price: decimal.RequireFromString("0.01")}
 }
 
-// SBDifference names one field that differs between the document and Passage.
+// SBDifference names one field that differs between the document and Depot.
 type SBDifference struct {
 	Field  string `json:"field"`
 	Theirs string `json:"theirs"`

@@ -9,10 +9,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/store"
 )
 
 const ledger = "22222222-2222-2222-2222-222222222222"

@@ -1,6 +1,6 @@
 # lean
 
-Lean manufacturing for Passage (wave 24, PSG-24, slices 1, 2, 4, 5, 6, 7 and 8). Production flows with their
+Lean manufacturing for Depot (wave 24, DPT-24, slices 1, 2, 4, 5, 6, 7 and 8). Production flows with their
 activities and activation, kanban rules (fixed, scheduled, event), kanban generation, the
 kanban card state machine and the kanban board (slice 1). Slice 2 adds takt vs cycle on the
 board (FR-24.14) and the lean subcontracting price rule as a preview of the purchase order
@@ -61,17 +61,17 @@ DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/lean
 ```
 
 `DATABASE_URL` is required. `HTTP_ADDR` defaults to `:8080`. The gateway sets
-`X-Passage-Tenant`, `X-Passage-User` and `X-Passage-Duties`.
+`X-Depot-Tenant`, `X-Depot-User` and `X-Depot-Duties`.
 
 ## Test
 
 ```
 go vet ./... && go test ./...
-PASSAGE_TEST_DATABASE_URL=postgres://owner@... PASSAGE_TEST_APP_DATABASE_URL=postgres://passage_app@... go test ./...
+DEPOT_TEST_DATABASE_URL=postgres://owner@... DEPOT_TEST_APP_DATABASE_URL=postgres://depot_app@... go test ./...
 ```
 
-Store tests use `testkit.DBWithApp` (queries as the `passage_app` role under RLS) and are
-skipped when `PASSAGE_TEST_DATABASE_URL` is unset.
+Store tests use `testkit.DBWithApp` (queries as the `depot_app` role under RLS) and are
+skipped when `DEPOT_TEST_DATABASE_URL` is unset.
 
 - AC-24.6 (`lean-kanban-sim`): an event rule with fixed qty 20 and a sales line of 50 creates
   three Planned cards that complete for 60 in total (domain and store).
@@ -149,12 +149,12 @@ Duties are enforced with the kernel `authz.RequireDuty`. The OPA entries are a h
 
 | Type | When |
 |---|---|
-| `dev.passage.lean.flow.activated.v1` | a flow is activated; with `flowVersion` and `previousFlowId` |
-| `dev.passage.lean.flow.expired.v1` | a flow version is replaced by a newer version that went active (`activeTo`, `supersededBy`), in the same transaction |
-| `dev.passage.lean.kanban.created.v1` | a card is generated (one event per card) |
-| `dev.passage.lean.kanban.statechanged.v1` | a card moves (PRD `kanban.state-changed`); when a job moved it, with `jobId` and, on completion, the job's quantities and handling units |
-| `dev.passage.lean.kanbanjob.statechanged.v1` | a job is started or completed on the work-cell board |
-| `dev.passage.lean.flowperiod.settled.v1` | a costing period is settled (PRD `flow-period.settled`): amounts, variance, card count; `journalEntryId` null until the ledger posts it |
+| `dev.depot.lean.flow.activated.v1` | a flow is activated; with `flowVersion` and `previousFlowId` |
+| `dev.depot.lean.flow.expired.v1` | a flow version is replaced by a newer version that went active (`activeTo`, `supersededBy`), in the same transaction |
+| `dev.depot.lean.kanban.created.v1` | a card is generated (one event per card) |
+| `dev.depot.lean.kanban.statechanged.v1` | a card moves (PRD `kanban.state-changed`); when a job moved it, with `jobId` and, on completion, the job's quantities and handling units |
+| `dev.depot.lean.kanbanjob.statechanged.v1` | a job is started or completed on the work-cell board |
+| `dev.depot.lean.flowperiod.settled.v1` | a costing period is settled (PRD `flow-period.settled`): amounts, variance, card count; `journalEntryId` null until the ledger posts it |
 
 ## Error codes
 

@@ -2,7 +2,7 @@
 
 ## 2.0 Phase overview
 
-**Business outcome at phase exit.** At the end of wave 15 a controller closes a fiscal period for the demo manufacturer's three legal entities entirely inside Passage: every financial fact lives in one append-only universal journal (`ledger` service, Go + Postgres) that balances by construction; each line carries transaction, accounting and reporting currency amounts and is posted simultaneously to the leading, local-GAAP and tax ledgers; tax is determined and settled to the cent; periods are controlled per ledger × module; allocations, accruals and year-end carry-forward are automated; and the balance sheet, income statement and cash flow statement are generated from the journal with drill-down to the originating document. Every later module (inventory, AP, AR, assets, projects) posts only through the wave 11 posting API — there is no second path to the general ledger.
+**Business outcome at phase exit.** At the end of wave 15 a controller closes a fiscal period for the demo manufacturer's three legal entities entirely inside Depot: every financial fact lives in one append-only universal journal (`ledger` service, Go + Postgres) that balances by construction; each line carries transaction, accounting and reporting currency amounts and is posted simultaneously to the leading, local-GAAP and tax ledgers; tax is determined and settled to the cent; periods are controlled per ledger × module; allocations, accruals and year-end carry-forward are automated; and the balance sheet, income statement and cash flow statement are generated from the journal with drill-down to the originating document. Every later module (inventory, AP, AR, assets, projects) posts only through the wave 11 posting API — there is no second path to the general ledger.
 
 **Phase-exit sign-off criteria**
 - Trial balance for each demo entity and each ledger sums to 0.00 in all three currencies after 1M synthetic lines; balance projection equals a full re-aggregation of the journal (zero rows differ).
@@ -32,19 +32,19 @@
 
 | Event (CloudEvents type) | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| dev.passage.ledger.journal.posted.v1 | ledger | reporting, tax, audit, lakehouse, all subledgers (waves 16+) | entry id, ledger id, document id, posting date, period, line count, totals per currency type, source ref, trace id |
-| dev.passage.ledger.journal.reversed.v1 | ledger | reporting, tax, subledgers | original entry id, reversing entry id, reason code |
-| dev.passage.ledger.balance.rebuilt.v1 | ledger | reporting, ops alerting | ledger id, high-water sequence, rows, diffs |
-| dev.passage.fx.rate.published.v1 | fx | ledger, reporting, AP/AR (later) | rate type, pair, valid_from, rate, source, previous rate |
-| dev.passage.fx.provider.degraded.v1 | fx | ops alerting | provider, last success, fallback mode |
-| dev.passage.ledger.revaluation.completed.v1 | ledger | reporting, close | run id, ledger, period, unrealized gain/loss totals, entry ids |
-| dev.passage.tax.calculated.v1 | tax | document services (waves 17+, 26+) | document ref, lines, tax amounts, provider used, fallback flag |
-| dev.passage.tax.settled.v1 | tax | reporting, ledger | settlement period, payable/receivable totals, entry id |
-| dev.passage.close.period.status-changed.v1 | ledger | all posting services, close, reporting | ledger, period, module, old → new status, actor, approvals |
-| dev.passage.close.task.completed.v1 | close | close board, notifications | run id, task id, assignee, evidence link |
-| dev.passage.ledger.allocation.completed.v1 | ledger | reporting, close | run id, rule ids, iterations, entry ids |
-| dev.passage.ledger.year-end.closed.v1 | ledger | reporting, close | ledger, fiscal year, opening entry ids, retained earnings per dimension |
-| dev.passage.reporting.statement.generated.v1 | reporting | distribution, audit | run id, definition id, period, hash, output URIs |
+| dev.depot.ledger.journal.posted.v1 | ledger | reporting, tax, audit, lakehouse, all subledgers (waves 16+) | entry id, ledger id, document id, posting date, period, line count, totals per currency type, source ref, trace id |
+| dev.depot.ledger.journal.reversed.v1 | ledger | reporting, tax, subledgers | original entry id, reversing entry id, reason code |
+| dev.depot.ledger.balance.rebuilt.v1 | ledger | reporting, ops alerting | ledger id, high-water sequence, rows, diffs |
+| dev.depot.fx.rate.published.v1 | fx | ledger, reporting, AP/AR (later) | rate type, pair, valid_from, rate, source, previous rate |
+| dev.depot.fx.provider.degraded.v1 | fx | ops alerting | provider, last success, fallback mode |
+| dev.depot.ledger.revaluation.completed.v1 | ledger | reporting, close | run id, ledger, period, unrealized gain/loss totals, entry ids |
+| dev.depot.tax.calculated.v1 | tax | document services (waves 17+, 26+) | document ref, lines, tax amounts, provider used, fallback flag |
+| dev.depot.tax.settled.v1 | tax | reporting, ledger | settlement period, payable/receivable totals, entry id |
+| dev.depot.close.period.status-changed.v1 | ledger | all posting services, close, reporting | ledger, period, module, old → new status, actor, approvals |
+| dev.depot.close.task.completed.v1 | close | close board, notifications | run id, task id, assignee, evidence link |
+| dev.depot.ledger.allocation.completed.v1 | ledger | reporting, close | run id, rule ids, iterations, entry ids |
+| dev.depot.ledger.year-end.closed.v1 | ledger | reporting, close | ledger, fiscal year, opening entry ids, retained earnings per dimension |
+| dev.depot.reporting.statement.generated.v1 | reporting | distribution, audit | run id, definition id, period, hash, output URIs |
 
 **Phase-level risks**
 
@@ -69,18 +69,18 @@ Out of scope: multiple currencies beyond a single accounting currency (wave 12),
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX `LedgerJournalTable` form: posting a 2,000-line journal runs `LedgerJournalCheckPost` synchronously; validation errors surface one at a time in the Infolog after minutes of processing, forcing repeated post attempts | Validation and posting interleaved in X++ with per-line dimension lookups against `DimensionAttributeValueCombination` | `POST /ledger/validate` returns every violation with `line_index` in one pass; posting is a single atomic transaction | Validation of 2,000 lines < 1 s (vs 2–5 min); all errors in one response (vs 1 per attempt) |
 | SAP FB50/F-02: a document that fails mid-posting (dump, lock on `NRIV` number range) can consume a document number or leave a parked `VBKPF` that is re-keyed | Number assignment and insert into `BKPF`/`BSEG` are not one atomic unit with the application-level checks | Gap-free `posting_sequence` assigned inside the same Postgres transaction; idempotency key makes retries safe | 0 lost numbers; 0 duplicate postings under crash test; retry needs 0 user action |
 | Integrations double-post when a timeout hides a success (AIF/IDoc retries, Data management framework re-runs) | No idempotency contract on `LedgerJournalTrans` import or BAPI_ACC_DOCUMENT_POST | `Idempotency-Key` header with 400-day retention; same key + same payload → replay, different payload → 409 | Duplicate-post incidents 1–3/month typical → 0 |
 | AX trial balance list page / SAP FAGLB03 are read from totals tables (`FAGLFLEXT`) that drift from line items after failed batches; reconciliation jobs (RFINDEX) run for hours | Totals maintained by separate update paths from line inserts | `Balance` upserted in the posting transaction; rebuild-and-compare job emits a diff count | Balance vs journal drift = 0 rows; rebuild of 10M lines < 15 min (vs multi-hour RFINDEX) |
 | Reaching the source document from a GL line takes 6–10 clicks (AX voucher transactions → origin → subledger; SAP FB03 → environment → document flow) | Linkage stored in `SubledgerVoucherGeneralJournalEntry` / `BKPF-AWKEY` with per-module resolution logic | Every entry carries `source.uri`; UI resolves it as one link; `trace_id` on every entry | Clicks to source 8 → 1; any posting traceable through Tempo end-to-end |
-| External systems (MES, BI, PLM) need custom X++/ABAP or middleware to learn that a posting happened | No event stream from the ledger; polling on `GeneralJournalEntry`/`ACDOCA` timestamps | `dev.passage.ledger.journal.posted.v1` on Kafka via outbox, AsyncAPI-described, plus REST/MCP | Integration lead time weeks → same day; event lag p95 < 2 s (vs 15-min+ polling) |
+| External systems (MES, BI, PLM) need custom X++/ABAP or middleware to learn that a posting happened | No event stream from the ledger; polling on `GeneralJournalEntry`/`ACDOCA` timestamps | `dev.depot.ledger.journal.posted.v1` on Kafka via outbox, AsyncAPI-described, plus REST/MCP | Integration lead time weeks → same day; event lag p95 < 2 s (vs 15-min+ polling) |
 
 ### 2.11.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Chart of accounts and main accounts | `MainAccount`, `LedgerChartOfAccounts`, form MainAccountListPage | `SKA1` (chart), `SKB1` (company-code view), FS00, OB13 | `ledger.MainAccount`, `ledger.ChartOfAccounts`; screen Chart of accounts | full |
 | Financial dimensions | `DimensionAttribute`, `DimensionAttributeValue`, `DimensionFinancialTag` | CO objects (cost center `CSKS`, profit center `CEPC`), ACDOCA fields `RCNTR`, `PRCTR`, `RBUSA` | `ledger.DimensionAttribute`, `ledger.DimensionValue` (up to 20 per ledger) | full |
@@ -111,7 +111,7 @@ Out of scope: multiple currencies beyond a single accounting currency (wave 12),
   - A chart of accounts may be shared across legal entities (SAP `SKA1` semantics); company-specific attributes (`SKB1` semantics: suspended, posting allowed, default dimensions) live on `MainAccountLedgerSetting`.
   - Main account id is 1–20 characters, alphanumeric, unique per chart; type ∈ {asset, liability, equity, revenue, expense, profit_and_loss_total, balance_sheet_total, reporting}; totals and reporting types are non-postable.
   - Maximum 50,000 main accounts per chart; 500 charts per tenant.
-- **FR-11.2 Financial dimensions** — Must. The system shall support up to 20 dimension attributes per ledger, each backed either by a Passage entity (department, cost center, site, project, customer, vendor, item) or by a custom value list.
+- **FR-11.2 Financial dimensions** — Must. The system shall support up to 20 dimension attributes per ledger, each backed either by a Depot entity (department, cost center, site, project, customer, vendor, item) or by a custom value list.
   - Dimension values are effective-dated (`active_from`, `active_to`) and may be suspended; values from backing entities are synchronized by consuming that entity's CloudEvents.
   - Default dimensions on master data (party, product, site) are stored as a `DimensionCombination` id and merged at posting time by precedence: explicit line > source document header > master data default > account default.
 - **FR-11.3 Account structures and validation** — Must. The system shall validate every line's (main account, dimensions) tuple against the ledger's active account structures before posting.
@@ -232,7 +232,7 @@ Out of scope: multiple currencies beyond a single accounting currency (wave 12),
 | fiscal_period_id | uuid | yes | FK FiscalPeriod (wave 6) resolved from posting_date |
 | document_date | date | no | |
 | description | text(255) | no | |
-| source_system / source_type / source_id / source_uri | text | yes | e.g. `ledger`, `manual_journal`, batch id, `passage://ledger/journal-batches/{id}` |
+| source_system / source_type / source_id / source_uri | text | yes | e.g. `ledger`, `manual_journal`, batch id, `depot://ledger/journal-batches/{id}` |
 | idempotency_key | text(128) | yes | unique (tenant_id, legal_entity_id, idempotency_key) |
 | payload_hash | bytea(32) | yes | SHA-256 of canonical request |
 | reversal_of_entry_id | uuid | no | FK JournalEntry |
@@ -360,7 +360,7 @@ Idempotency-Key: ap-invoice-7F3A-post
 { "ledger_group": "ALL" | "ledger_id": "...",
   "document_id": "uuid", "posting_date": "2026-03-31", "document_date": "2026-03-28",
   "description": "Vendor invoice 7F3A",
-  "source": {"system":"ap","type":"vendor_invoice","id":"7F3A","uri":"passage://ap/invoices/7F3A"},
+  "source": {"system":"ap","type":"vendor_invoice","id":"7F3A","uri":"depot://ap/invoices/7F3A"},
   "lines": [
     {"line_number":1,"account":"6010","dimensions":{"DEPT":"D100","CC":"C200"},
      "debit_credit":"D","amount":{"currency":"USD","value":"1250.00"},"text":"Freight"},
@@ -373,14 +373,14 @@ Response 201: `{ "entries":[{"id","ledger_id","voucher","posting_sequence","fisc
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.ledger.journal.posted.v1 | entry committed | entry_id, ledger_id, document_id, voucher, posting_sequence, posting_date, fiscal_period_id, line_count, totals{txn[],acct,rpt}, source, trace_id | reporting, tax, audit, lakehouse, subledgers |
-| dev.passage.ledger.journal.reversed.v1 | reversal committed | original_entry_id, reversing_entry_id, reason_code, posting_date | reporting, subledgers |
-| dev.passage.ledger.batch.status-changed.v1 | batch transition | batch_id, journal_name, from, to, actor, workflow_run_id | notifications, audit |
-| dev.passage.ledger.balance.rebuilt.v1 | rebuild finished | ledger_id, high_water_sequence, rows_written, rows_differing, duration_ms | ops alerting |
-| dev.passage.ledger.account.changed.v1 | account/structure change | chart_id, account_number, change_type, effective_from | reporting, dimension sync |
-| dev.passage.ledger.open-item.cleared.v1 | clearing document committed or reset | clearing_document_id, ledger_id, account, mode, item_ids, difference_amount, fx_difference_entry_id, status (cleared/reset), reason_code | bank reconciliation (wave 36), AP/AR (waves 19/30), reporting, audit |
-| dev.passage.ledger.realignment.completed.v1 | realignment posted or reversed | run_id, ledger_id, period_range, combinations_affected, entry_ids, reversal | reporting, audit |
-| dev.passage.ledger.rules.changed.v1 | validation rule, derivation strategy or splitting rule activated | ledger_id, kind, id, version, actor | posting cache, audit |
+| dev.depot.ledger.journal.posted.v1 | entry committed | entry_id, ledger_id, document_id, voucher, posting_sequence, posting_date, fiscal_period_id, line_count, totals{txn[],acct,rpt}, source, trace_id | reporting, tax, audit, lakehouse, subledgers |
+| dev.depot.ledger.journal.reversed.v1 | reversal committed | original_entry_id, reversing_entry_id, reason_code, posting_date | reporting, subledgers |
+| dev.depot.ledger.batch.status-changed.v1 | batch transition | batch_id, journal_name, from, to, actor, workflow_run_id | notifications, audit |
+| dev.depot.ledger.balance.rebuilt.v1 | rebuild finished | ledger_id, high_water_sequence, rows_written, rows_differing, duration_ms | ops alerting |
+| dev.depot.ledger.account.changed.v1 | account/structure change | chart_id, account_number, change_type, effective_from | reporting, dimension sync |
+| dev.depot.ledger.open-item.cleared.v1 | clearing document committed or reset | clearing_document_id, ledger_id, account, mode, item_ids, difference_amount, fx_difference_entry_id, status (cleared/reset), reason_code | bank reconciliation (wave 36), AP/AR (waves 19/30), reporting, audit |
+| dev.depot.ledger.realignment.completed.v1 | realignment posted or reversed | run_id, ledger_id, period_range, combinations_affected, entry_ids, reversal | reporting, audit |
+| dev.depot.ledger.rules.changed.v1 | validation rule, derivation strategy or splitting rule activated | ledger_id, kind, id, version, actor | posting cache, audit |
 
 Open-item contract for subledgers (used by waves 18/19/30): a service registers an item source `{source_type, resolver_uri}`; the clearing engine calls `resolver_uri` to fetch candidate items and posts the clearing through the same `ClearingDocument` path; the source service consumes `open-item.cleared` to update its own status. The posting request accepts per line `"clear_item_ids": [...]` (FR-11.19) and the derivation/splitting/validation stages run in the order shown in the command pipeline below.
 
@@ -468,20 +468,20 @@ Reconciliation checks: Σ Balance per (ledger, period) = 0; Σ Balance per accou
 
 ### 2.11.10 Deployment and operations
 
-Helm chart `passage-ledger` (deployment, HPA 3–12 pods on CPU 60%, PodDisruptionBudget 2, CloudNativePG cluster `ledger-db` 3 instances, Kafka topics `ledger.journal`, `ledger.batch`, Debezium outbox connector). Config: `LEDGER_MAX_LINES=10000`, `LEDGER_IDEMPOTENCY_TTL_DAYS=400`, `LEDGER_REBUILD_CHUNK_LINES=5000000`, `LEDGER_FUTURE_DATE_DAYS=366`. Migrations via Atlas generated from entity metadata; partitions for the next fiscal year created by a monthly job. Feature flags: `ledger.recurring_journals`, `ledger.advanced_rules`. Scheduled jobs (Temporal): nightly `balance-verify` (rebuild into shadow, compare, no swap unless diff), monthly `create-partitions`, recurring journal generator. SLOs: posting availability 99.9%; posting p99 < 200 ms; `journal.posted` publish lag p95 < 2 s. Alerts: balance verify diff > 0 (P1), sequence gap detected (P1), outbox lag > 60 s (P2), posting error rate > 1% over 5 min (P2). Runbook: rebuild procedure, sequence gap investigation, idempotency table growth. Rollback: Argo CD previous digest; schema migrations are additive-only in this wave; no data rollback required because the journal is append-only.
+Helm chart `depot-ledger` (deployment, HPA 3–12 pods on CPU 60%, PodDisruptionBudget 2, CloudNativePG cluster `ledger-db` 3 instances, Kafka topics `ledger.journal`, `ledger.batch`, Debezium outbox connector). Config: `LEDGER_MAX_LINES=10000`, `LEDGER_IDEMPOTENCY_TTL_DAYS=400`, `LEDGER_REBUILD_CHUNK_LINES=5000000`, `LEDGER_FUTURE_DATE_DAYS=366`. Migrations via Atlas generated from entity metadata; partitions for the next fiscal year created by a monthly job. Feature flags: `ledger.recurring_journals`, `ledger.advanced_rules`. Scheduled jobs (Temporal): nightly `balance-verify` (rebuild into shadow, compare, no swap unless diff), monthly `create-partitions`, recurring journal generator. SLOs: posting availability 99.9%; posting p99 < 200 ms; `journal.posted` publish lag p95 < 2 s. Alerts: balance verify diff > 0 (P1), sequence gap detected (P1), outbox lag > 60 s (P2), posting error rate > 1% over 5 min (P2). Runbook: rebuild procedure, sequence gap investigation, idempotency table growth. Rollback: Argo CD previous digest; schema migrations are additive-only in this wave; no data rollback required because the journal is append-only.
 
 ### 2.11.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX `MainAccount`, `LedgerChartOfAccounts`, `MainAccountLegalEntity` | MainAccount, ChartOfAccounts, MainAccountLedgerSetting | type mapping from `MainAccountType`; suspended → `suspended_from` |
-| AX `DimensionAttribute`, `DimensionAttributeValue`, `DimensionFinancialTag` | DimensionAttribute, DimensionValue | entity-backed attributes re-bound to Passage parties/sites; custom lists copied |
+| AX `DimensionAttribute`, `DimensionAttributeValue`, `DimensionFinancialTag` | DimensionAttribute, DimensionValue | entity-backed attributes re-bound to Depot parties/sites; custom lists copied |
 | AX `DimensionHierarchy` (account structures), `DimensionConstraintTree/Node` | AccountStructure(+Constraint) | advanced rules flattened into constraint rows; activated version 1 |
 | AX `DimensionAttributeValueCombination` | DimensionCombination | recomputed from tuples; `RecId` kept in `legacy_ref` for cross-reference |
 | AX `GeneralJournalEntry`/`GeneralJournalAccountEntry` (closing balances only) | JournalEntry (period 0) | opening balances per combination; detail history not migrated in Phase 2 (wave 49 transactional packs) |
 | SAP `SKA1`/`SKAT`/`SKB1` | ChartOfAccounts, MainAccount, MainAccountLedgerSetting | `XSPEB` (blocked) → suspended; `MITKZ` → reconciliation_account_type |
 | SAP `CSKS`, `CEPC`, `TGSB` | DimensionValue (CC, PC, BA attributes) | validity dates preserved |
-| SAP `FAGLFLEXT`/`ACDOCA` closing balances by period | JournalEntry (period 0) | per ledger (`RLDNR`) → Passage ledger |
+| SAP `FAGLFLEXT`/`ACDOCA` closing balances by period | JournalEntry (period 0) | per ledger (`RLDNR`) → Depot ledger |
 | AX `ReasonTable`, `ReasonTableRef` | ReasonCode | `applies_to` from the Ledger/Bank/Cust/Vend/Asset flags |
 | AX `DimensionHierarchy` (advanced rule structures), `DimensionAdvancedRule`, `DimensionRuleCriteria` | AdvancedRule (+ structure) | criteria → filter; structure segments → appended segments |
 | AX `TransactionTxt` (default descriptions) | DescriptionTemplate | `%1`–`%3` mapped to field bindings per transaction type |
@@ -715,7 +715,7 @@ After this wave a user can post a EUR invoice into a USD-accounting entity with 
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | SAP OB08 / `TCURR`: rates entered per 100 units with `TCURF` factors; a wrong factor silently converts amounts 100x; no deviation check | Factor table separate from rate table; no validation against the previous rate | Rates stored as plain `numeric(20,10)` "1 from = rate to"; > 10% deviation requires confirmation and emits a warning event | Factor-related misposting incidents → 0; deviation flagged in < 100 ms at entry |
 | AX `ExchangeRate` import batch (`ExchangeRateProviderImport`) runs on a batch group; a failed run leaves no rate and postings fail hours later with "no exchange rate" | Batch framework with no fallback or alerting | Temporal schedule with retries; last-known rate stays valid; `fx.provider.degraded` alerts immediately | Posting failures from missing rates → 0; outage detected < 1 min (vs discovered at posting) |
@@ -725,7 +725,7 @@ After this wave a user can post a EUR invoice into a USD-accounting entity with 
 
 ### 2.12.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Exchange rate types | `ExchangeRateType`, Currency exchange rate types form | `TCURV` (rate types M, EURX, P), OB07 | `fx.ExchangeRateType` | full |
 | Exchange rates | `ExchangeRate`, `ExchangeRateCurrencyPair`, OB08-style form | `TCURR`, OB08, `TCURF` (factors) | `fx.ExchangeRate` with `from`, `to`, `valid_from`, `rate` numeric(20,10); factor handled by rate precision | full |
@@ -859,11 +859,11 @@ Commands: `PublishRate` (rate > 0, currencies enabled, 10% deviation warning), `
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.fx.rate.published.v1 | rate committed | rate_type, from, to, valid_from, rate, previous_rate, source, deviation_pct | ledger cache, reporting, AP/AR |
-| dev.passage.fx.provider.degraded.v1 | import failure after retries | provider, last_success_at, rate_type, error | ops alerting |
-| dev.passage.ledger.revaluation.completed.v1 | run posted | run_id, ledger_id, period, rate_type, gain_total, loss_total, posting_entry_id, reversal_entry_id | reporting, close |
-| dev.passage.ledger.translation.completed.v1 | translation posted | run_id, ledger_id, period, cta_amount, entry_id | reporting, close |
-| dev.passage.fx.series.published.v1 | market data point committed | series_code, kind, valid_from, value, previous_value, source, deviation_pct | treasury (wave 36), budgeting (wave 38), subscription pricing (wave 29) |
+| dev.depot.fx.rate.published.v1 | rate committed | rate_type, from, to, valid_from, rate, previous_rate, source, deviation_pct | ledger cache, reporting, AP/AR |
+| dev.depot.fx.provider.degraded.v1 | import failure after retries | provider, last_success_at, rate_type, error | ops alerting |
+| dev.depot.ledger.revaluation.completed.v1 | run posted | run_id, ledger_id, period, rate_type, gain_total, loss_total, posting_entry_id, reversal_entry_id | reporting, close |
+| dev.depot.ledger.translation.completed.v1 | translation posted | run_id, ledger_id, period, cta_amount, entry_id | reporting, close |
+| dev.depot.fx.series.published.v1 | market data point committed | series_code, kind, valid_from, value, previous_value, source, deviation_pct | treasury (wave 36), budgeting (wave 38), subscription pricing (wave 29) |
 
 ### 2.12.6 User experience
 
@@ -936,11 +936,11 @@ Reconciliation: per ledger per currency type TB = 0; Σ revaluation adjustments 
 
 ### 2.12.10 Deployment and operations
 
-Helm chart `passage-fx` (deployment 2–6 pods, CloudNativePG `fx-db`, topics `fx.rates`, `fx.providers`); `passage-ledger` upgraded with currency policy tables. Config: `FX_MAX_RATE_AGE_DAYS=5`, `FX_PROVIDER_TIMEOUT_S=10`, `FX_DEVIATION_WARN_PCT=10`, `LEDGER_ROUNDING_MODE=half_away_from_zero`. Migrations: add `amount_rpt`/`currency_txn` backfill for wave 11 entries (= accounting amounts), add `ledger_group`, `currency_policy`, `revaluation_*`. Feature flags: `fx.triangulation`, `ledger.parallel_ledgers`, `ledger.translation`. Scheduled jobs: ECB import 16:30 CET business days; OXR hourly (if licensed); month-end revaluation on the close checklist (wave 14). SLOs: rate lookup p99 < 5 ms; import success ≥ 99% of business days. Alerts: provider degraded (P2), stale rate used in posting > 100/h (P3), revaluation run failure (P2). Runbook: manual rate entry during provider outage; re-run revaluation after rate correction (reverse then re-run). Rollback: digest rollback; feature flags off disable parallel posting (entries then go only to the leading ledger — documented as a degraded mode, not for production).
+Helm chart `depot-fx` (deployment 2–6 pods, CloudNativePG `fx-db`, topics `fx.rates`, `fx.providers`); `depot-ledger` upgraded with currency policy tables. Config: `FX_MAX_RATE_AGE_DAYS=5`, `FX_PROVIDER_TIMEOUT_S=10`, `FX_DEVIATION_WARN_PCT=10`, `LEDGER_ROUNDING_MODE=half_away_from_zero`. Migrations: add `amount_rpt`/`currency_txn` backfill for wave 11 entries (= accounting amounts), add `ledger_group`, `currency_policy`, `revaluation_*`. Feature flags: `fx.triangulation`, `ledger.parallel_ledgers`, `ledger.translation`. Scheduled jobs: ECB import 16:30 CET business days; OXR hourly (if licensed); month-end revaluation on the close checklist (wave 14). SLOs: rate lookup p99 < 5 ms; import success ≥ 99% of business days. Alerts: provider degraded (P2), stale rate used in posting > 100/h (P3), revaluation run failure (P2). Runbook: manual rate entry during provider outage; re-run revaluation after rate correction (reverse then re-run). Rollback: digest rollback; feature flags off disable parallel posting (entries then go only to the leading ledger — documented as a degraded mode, not for production).
 
 ### 2.12.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX `ExchangeRateType`, `ExchangeRateCurrencyPair`, `ExchangeRate` | ExchangeRateType, ExchangeRate | AX stores rate per 100 units by default → divided; `ValidFrom` preserved |
 | AX `Ledger` (accounting/reporting currency, posting layers) | Ledger, LedgerGroup | Current → leading; Operations/Tax layers → additional ledgers only if the customer used them |
@@ -1112,7 +1112,7 @@ After this wave a manual journal or any later document gets correct tax lines fo
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | SAP FTXP: a tax code is a single rate per procedure step with no validity dates; a rate change (e.g., DE 19% → 16% in 2020) forces new codes and mass master-data updates in `KNVI`/`MLAN` | `T007A` has no effective dating | `TaxRate` rows are effective-dated under a stable `TaxCode`; groups and parties keep their assignments | Rate change rollout 2–5 days of config → 1 rate row; zero master-data touches |
 | AX `TaxTrans` and SAP `BSET` show the result but not why: users cannot see which group intersection, exemption or jurisdiction produced the amount; support tickets replay the document in a test client | Determination logic in X++ `Tax` class / condition technique with no trace output | `POST /tax/calculate:explain` returns `determination_trace[]` step by step; tester screen renders it | "Why this tax?" investigation 30–60 min → < 1 min |
@@ -1122,7 +1122,7 @@ After this wave a manual journal or any later document gets correct tax lines fo
 
 ### 2.13.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Tax codes and rates | `TaxTable`, `TaxData` (effective-dated values, limits) | `T007A` (tax codes), FTXP, condition records `KONP`/`A003` | `tax.TaxCode`, `tax.TaxRate` (effective-dated, bracketed) | full |
 | Party-side tax group | `TaxGroupHeading`, `TaxGroupData`, Sales tax groups form | Customer/vendor tax classification (`KNVI`/`LFA1-STKZU`), tax category on BP | `tax.TaxGroup` (N:M TaxCode) | full |
@@ -1290,13 +1290,13 @@ Validation: every line has resolvable groups or an override; dates within code v
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.tax.calculated.v1 | calculate with commit intent | document ref, engine, fallback, totals per code, trace_id | document services, audit |
-| dev.passage.tax.transaction.recorded.v1 | TaxTransaction linked to journal line | transaction id, code, period, base, tax, direction, journal_line_id | reporting, lakehouse |
-| dev.passage.tax.settled.v1 | settlement posted | run id, authority, period, output, input, net, entry_id, version | reporting, ledger |
-| dev.passage.tax.provider.fallback.v1 | provider failure | provider, document ref, error, retry_after | ops, AP/AR recommit job |
-| dev.passage.tax.rate.changed.v1 | rate row created | code, valid_from, rate_pct, previous | document services cache |
-| dev.passage.tax.intrastat.exported.v1 | declaration export completed | export_run_id, legal_entity, period, direction, line_count, total_value, format, hash | audit, wave 48 submission connectors |
-| dev.passage.tax.withholding.remitted.v1 | remittance run posted | run_id, authority, section, period, total_withheld, entry_id, remittance_reference | AP (wave 19), reporting, wave 48 returns |
+| dev.depot.tax.calculated.v1 | calculate with commit intent | document ref, engine, fallback, totals per code, trace_id | document services, audit |
+| dev.depot.tax.transaction.recorded.v1 | TaxTransaction linked to journal line | transaction id, code, period, base, tax, direction, journal_line_id | reporting, lakehouse |
+| dev.depot.tax.settled.v1 | settlement posted | run id, authority, period, output, input, net, entry_id, version | reporting, ledger |
+| dev.depot.tax.provider.fallback.v1 | provider failure | provider, document ref, error, retry_after | ops, AP/AR recommit job |
+| dev.depot.tax.rate.changed.v1 | rate row created | code, valid_from, rate_pct, previous | document services cache |
+| dev.depot.tax.intrastat.exported.v1 | declaration export completed | export_run_id, legal_entity, period, direction, line_count, total_value, format, hash | audit, wave 48 submission connectors |
+| dev.depot.tax.withholding.remitted.v1 | remittance run posted | run_id, authority, section, period, total_withheld, entry_id, remittance_reference | AP (wave 19), reporting, wave 48 returns |
 
 `IntrastatSource` contract (used by waves 18/27/28/29): a document service registers `{source_type, resolver_uri}`; at transfer the tax service calls the resolver for posted documents in the period and receives lines with trade fields; documents reversed after transfer produce negative lines on the next transfer.
 
@@ -1376,11 +1376,11 @@ Reconciliation: Σ TaxTransaction per code and period = GL tax account movement;
 
 ### 2.13.10 Deployment and operations
 
-Helm chart `passage-tax` (deployment 3–10 pods, CloudNativePG `tax-db`, topics `tax.calculations`, `tax.transactions`, `tax.settlements`; Kafka consumer of `ledger.journal`). Config: `TAX_PROVIDER_TIMEOUT_MS=2000`, `TAX_PROVIDER_RETRIES=1`, `TAX_PAYLOAD_RETENTION_DAYS=395`, `TAX_DEFAULT_ROUNDING=per_document`. Secrets: provider credentials in Vault paths `tax/providers/{le}`. Migrations: tax schema; partitions per fiscal year. Feature flags: `tax.provider.avalara`, `tax.provider.vertex`, `tax.extracts.saft`. Scheduled jobs: provider recommit retry (hourly), certificate expiry notifications (daily), settlement reminders per period. SLOs: calculate p99 < 50 ms (internal), availability 99.9%, provider fallback rate < 0.5%/day. Alerts: fallback rate > 2% over 1 h (P2), commit retry queue > 100 (P2), settlement mismatch (P2). Runbook: provider outage, re-commit queue drain, rate correction after posting (reverse documents, never edit transactions). Rollback: digest rollback; flags disable providers (internal engine only).
+Helm chart `depot-tax` (deployment 3–10 pods, CloudNativePG `tax-db`, topics `tax.calculations`, `tax.transactions`, `tax.settlements`; Kafka consumer of `ledger.journal`). Config: `TAX_PROVIDER_TIMEOUT_MS=2000`, `TAX_PROVIDER_RETRIES=1`, `TAX_PAYLOAD_RETENTION_DAYS=395`, `TAX_DEFAULT_ROUNDING=per_document`. Secrets: provider credentials in Vault paths `tax/providers/{le}`. Migrations: tax schema; partitions per fiscal year. Feature flags: `tax.provider.avalara`, `tax.provider.vertex`, `tax.extracts.saft`. Scheduled jobs: provider recommit retry (hourly), certificate expiry notifications (daily), settlement reminders per period. SLOs: calculate p99 < 50 ms (internal), availability 99.9%, provider fallback rate < 0.5%/day. Alerts: fallback rate > 2% over 1 h (P2), commit retry queue > 100 (P2), settlement mismatch (P2). Runbook: provider outage, re-commit queue drain, rate correction after posting (reverse documents, never edit transactions). Rollback: digest rollback; flags disable providers (internal engine only).
 
 ### 2.13.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX `TaxTable`, `TaxData`, `TaxAuthorityAddress`, `TaxPeriodHead` | TaxCode, TaxRate, authority Party, TaxSettlementPeriod | `TaxData` intervals → brackets; ledger posting group `TaxLedgerAccountGroup` → accounts |
 | AX `TaxGroupHeading`/`TaxGroupData`, `TaxItemGroupHeading`/`TaxItemGroupData` | TaxGroup, ItemTaxGroup | exempt flags preserved |
@@ -1397,7 +1397,7 @@ Helm chart `passage-tax` (deployment 3–10 pods, CloudNativePG `tax-db`, topics
 | SAP `T604`, `T605`, `T616`, `T618`, `MARC-STAWN`, `VEIAV` (open period) | CommodityCode, IntrastatTransactionCode, TransportMode, Port, product commodity code, IntrastatLine | `VEIAV` rows for the current period only |
 | SAP `T059P`/`T059Z` sections, J1INCHLN challan history (open quarter) | WithholdingRemittanceRun (posted, historical reference only) | prior certificates not re-issued |
 
-Validation: code counts; a 200-document sample recalculated in Passage matches the source tax to the cent; unsettled totals per code match. Not migrated: settled history (kept in the legacy archive), provider transaction logs.
+Validation: code counts; a 200-document sample recalculated in Depot matches the source tax to the cent; unsettled totals per code match. Not migrated: settled history (kept in the legacy archive), provider transaction logs.
 
 ### 2.13.12 Dependencies, risks, open questions
 
@@ -1575,13 +1575,13 @@ Open questions: (1) Settlement counterpart as tax authority Party (vendor role) 
 
 ### 2.14.1 Scope and business context
 
-AX controls posting through `LedgerPeriod` statuses (open, on hold, closed) per module (`LedgerPeriodModuleAccessControl`) and offers the financial period close workspace, allocation rules (`LedgerAllocation`), accrual schemes and year-end close; SAP uses OB52 posting period intervals per account type with authorization groups, the Financial Closing Cockpit, assessment/distribution cycles (KSV5/KSU5), the accrual engine and balance carry-forward (FAGLGVTR). Wave 14 adds to Passage: a period-control matrix enforced inside the posting API; a close checklist run on Temporal with templates, dependencies and a cross-entity board; an allocation engine (fixed, basis, iterative) with reversal; accrual schemes and recurring journal scheduling (completing FR-11.10); and year-end close with carry-forward per dimension.
+AX controls posting through `LedgerPeriod` statuses (open, on hold, closed) per module (`LedgerPeriodModuleAccessControl`) and offers the financial period close workspace, allocation rules (`LedgerAllocation`), accrual schemes and year-end close; SAP uses OB52 posting period intervals per account type with authorization groups, the Financial Closing Cockpit, assessment/distribution cycles (KSV5/KSU5), the accrual engine and balance carry-forward (FAGLGVTR). Wave 14 adds to Depot: a period-control matrix enforced inside the posting API; a close checklist run on Temporal with templates, dependencies and a cross-entity board; an allocation engine (fixed, basis, iterative) with reversal; accrual schemes and recurring journal scheduling (completing FR-11.10); and year-end close with carry-forward per dimension.
 
 After this wave a controller can close March 2026 for three entities from one board, with every subledger path rejected after close, allocations and accruals posted and reversed on schedule, and year-end producing opening balances. Out of scope: subledger-specific close tasks (inventory close wave 20, AP/AR aging waves 19/30), consolidation (wave 40), budget vs actual (wave 38).
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | SAP OB52 (`T001B`): closing a period is an edit of interval rows per account type and company code, done by Basis/FI power users across many company codes; a typo opens the wrong range and postings land in a closed month | Period control is a maintenance view, not a controlled transition with validation | Period-control grid with state machine (BR-14.3), GL-closes-last rule, bulk close across ledgers with confirmation | Close of 3 entities × 10 modules: 30 OB52 edits → 1 bulk action; wrong-period postings → 0 |
 | Reopening a closed period in AX (Ledger calendar form) or SAP is a single-user action with no approval; auditors find silent reopenings in the database log weeks later | No workflow on period status | Reopen requires two approvers, a reason, an expiry timer and emits `close.period.status-changed` | Unapproved reopenings → 0; audit evidence available in < 1 s rather than at audit time |
@@ -1591,7 +1591,7 @@ After this wave a controller can close March 2026 for three entities from one bo
 
 ### 2.14.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Period status | `LedgerPeriod` (Open/On hold/Closed), Ledger calendar form | `T001B` intervals via OB52 (periods 1–12, 13–16 special) | `ledger.PeriodStatus` per ledger × period × module | full |
 | Module access control | `LedgerPeriodModuleAccessControl`, user groups per module | OB52 authorization group (`BRGRU`), account type (+, A, D, K, M, S) | PeriodStatus.module × `allowed_group_id` | full |
@@ -1617,7 +1617,7 @@ After this wave a controller can close March 2026 for three entities from one bo
   - Each reopen increments `reopen_count` and emits `close.period.status-changed` with both approvers.
 - **FR-14.4 Close templates and runs** — Must. The system shall define close templates (tasks with module, description, assignee role, due offset in business days from period end, dependencies, evidence requirement, automation hook) and instantiate a `CloseRun` per (template, period, set of legal entities).
   - Maximum 500 tasks per template; dependencies form a DAG (cycle rejected on save).
-  - Automation hooks call Passage jobs (revaluation, allocation, accrual, settlement, year-end, statement pack) and mark the task complete when the job emits its completion event.
+  - Automation hooks call Depot jobs (revaluation, allocation, accrual, settlement, year-end, statement pack) and mark the task complete when the job emits its completion event.
 - **FR-14.5 Close board** — Must. The system shall show tasks across entities by status (not started, in progress, blocked, completed, skipped) with due dates, owners, overdue counts, and allow bulk reassignment and evidence attachment.
 - **FR-14.6 Allocation rules** — Must. The system shall define allocation rules with source (account/dimension filter, period, ledger), destination (account/dimension targets), method ∈ {fixed_percentage, fixed_weight, equally, basis}, basis source (balances of statistical or financial accounts by dimension, e.g., headcount), offset account, and `allocate_from_zero` behavior.
   - Percentages must sum to 100.000000 (tolerance 0); weights normalized; basis computed from the Balance projection for the period.
@@ -1731,13 +1731,13 @@ Commands: `TransitionPeriodStatus` (validates FR-14.2 ordering; closing with unp
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.close.period.status-changed.v1 | PeriodStatus transition | ledger_id, fiscal_period_id, module, from, to, actor, approvals[], reason | all posting services (cache), close, reporting, audit |
-| dev.passage.close.run.created.v1 | run instantiated | run_id, template_id, period, legal_entity_ids, task_count | notifications |
-| dev.passage.close.task.completed.v1 | task completed/skipped | run_id, task_id, status, actor, evidence_uri, late (bool) | board, notifications, reporting |
-| dev.passage.ledger.allocation.completed.v1 | run posted/reversed | run_id, rule_ids, period, iterations, entry_ids, reversal | reporting, close |
-| dev.passage.ledger.accrual.scheduled.v1 | scheme applied | source_entry_id, scheme, occurrences[] (dates, amounts) | close board |
-| dev.passage.ledger.year-end.closed.v1 | year-end posted | ledger_id, fiscal_year_id, closing_entry_ids, opening_entry_ids, retained_earnings_total | reporting, close |
-| dev.passage.ledger.regrouping.completed.v1 | regrouping posted or reversed | run_id, ledger_id, key_date, rule_ids, totals per adjustment account, entry_ids, reversal | reporting, close |
+| dev.depot.close.period.status-changed.v1 | PeriodStatus transition | ledger_id, fiscal_period_id, module, from, to, actor, approvals[], reason | all posting services (cache), close, reporting, audit |
+| dev.depot.close.run.created.v1 | run instantiated | run_id, template_id, period, legal_entity_ids, task_count | notifications |
+| dev.depot.close.task.completed.v1 | task completed/skipped | run_id, task_id, status, actor, evidence_uri, late (bool) | board, notifications, reporting |
+| dev.depot.ledger.allocation.completed.v1 | run posted/reversed | run_id, rule_ids, period, iterations, entry_ids, reversal | reporting, close |
+| dev.depot.ledger.accrual.scheduled.v1 | scheme applied | source_entry_id, scheme, occurrences[] (dates, amounts) | close board |
+| dev.depot.ledger.year-end.closed.v1 | year-end posted | ledger_id, fiscal_year_id, closing_entry_ids, opening_entry_ids, retained_earnings_total | reporting, close |
+| dev.depot.ledger.regrouping.completed.v1 | regrouping posted or reversed | run_id, ledger_id, key_date, rule_ids, totals per adjustment account, entry_ids, reversal | reporting, close |
 
 ### 2.14.6 User experience
 
@@ -1814,11 +1814,11 @@ Reconciliation: Σ allocation destinations = Σ sources per run; Σ accrual occu
 
 ### 2.14.10 Deployment and operations
 
-Helm charts: `passage-close` (TypeScript service, 2–4 pods, CloudNativePG `close-db`, Temporal namespace `close`), `passage-ledger` upgraded (period status, allocation, accrual, year-end). Config: `CLOSE_REOPEN_DEFAULT_DAYS=3`, `CLOSE_LOCK_WAIT_MS=5000`, `ALLOC_MAX_ITERATIONS=100`, `ALLOC_CONVERGENCE_FRACTION=0.5`. Migrations: `period_status` seeded from fiscal calendars (`never_opened`), existing demo periods set `open`. Feature flags: `close.reopen_workflow` (always on in prod), `ledger.iterative_allocations`. Scheduled jobs: accrual and recurring journal generators (Temporal schedules), reopen expiry timers, close reminder notifications (daily 08:00 entity time zone). SLOs: period decision adds < 2 ms to posting p99; close board p95 < 500 ms for 1,000 tasks. Alerts: reopen without expiry (P2), posting rejected rate for closed periods > 50/h (P3, indicates a subledger misconfiguration), allocation non-convergence (P3). Runbook: emergency reopen, stuck close lock, re-running year-end. Rollback: digest rollback; period status rows are retained; disabling the flag never bypasses period control.
+Helm charts: `depot-close` (TypeScript service, 2–4 pods, CloudNativePG `close-db`, Temporal namespace `close`), `depot-ledger` upgraded (period status, allocation, accrual, year-end). Config: `CLOSE_REOPEN_DEFAULT_DAYS=3`, `CLOSE_LOCK_WAIT_MS=5000`, `ALLOC_MAX_ITERATIONS=100`, `ALLOC_CONVERGENCE_FRACTION=0.5`. Migrations: `period_status` seeded from fiscal calendars (`never_opened`), existing demo periods set `open`. Feature flags: `close.reopen_workflow` (always on in prod), `ledger.iterative_allocations`. Scheduled jobs: accrual and recurring journal generators (Temporal schedules), reopen expiry timers, close reminder notifications (daily 08:00 entity time zone). SLOs: period decision adds < 2 ms to posting p99; close board p95 < 500 ms for 1,000 tasks. Alerts: reopen without expiry (P2), posting rejected rate for closed periods > 50/h (P3, indicates a subledger misconfiguration), allocation non-convergence (P3). Runbook: emergency reopen, stuck close lock, re-running year-end. Rollback: digest rollback; period status rows are retained; disabling the flag never bypasses period control.
 
 ### 2.14.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX `LedgerPeriod`, `LedgerPeriodModuleAccessControl`, `LedgerFiscalCalendarPeriod` | PeriodStatus | statuses copied; modules mapped (Ledger→GL, VendInvoice→AP, CustInvoice→AR, Inventory→INV, Asset→FA, Project→PROJ, Sales tax→TAX, Bank→BANK) |
 | AX `LedgerAllocation`, `LedgerAllocationRule*` (basis/destination/source) | AllocationRule | basis "statistical" → basis spec on statistical accounts |
@@ -1989,23 +1989,23 @@ No external electronic documents in this wave.
 
 ### 2.15.1 Scope and business context
 
-AX ships Management Reporter (row, column, reporting tree definitions over dimensions) plus trial balance and ledger transaction inquiries; SAP uses financial statement versions (OB58, `T011`/`T011T`, `FAGL_011*`), Fiori financial statement apps and document-flow drill-down. Wave 15 builds the `reporting` service (Go, with its own Postgres read model fed by ledger events) with a row/column/tree report designer, standard statements (trial balance, balance sheet, P&L, cash flow indirect, comparatives, by-entity consolidated view), drill-down to the journal line and source document, scheduled distribution with row-level security on dimensions, and the audit trail report. This is the Phase 2 exit wave: finance stakeholders sign off a closed period produced entirely from Passage.
+AX ships Management Reporter (row, column, reporting tree definitions over dimensions) plus trial balance and ledger transaction inquiries; SAP uses financial statement versions (OB58, `T011`/`T011T`, `FAGL_011*`), Fiori financial statement apps and document-flow drill-down. Wave 15 builds the `reporting` service (Go, with its own Postgres read model fed by ledger events) with a row/column/tree report designer, standard statements (trial balance, balance sheet, P&L, cash flow indirect, comparatives, by-entity consolidated view), drill-down to the journal line and source document, scheduled distribution with row-level security on dimensions, and the audit trail report. This is the Phase 2 exit wave: finance stakeholders sign off a closed period produced entirely from Depot.
 
 Out of scope: group consolidation with eliminations and translation (wave 40), budgets (wave 38), lakehouse analytics and dashboards (wave 46), XBRL/iXBRL (wave 48).
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Management Reporter reads from its own data mart refreshed by an integration service; statements lag the GL by 15–60 min and the mart silently breaks after AX upgrades or dimension changes | Separate ETL (MR integration) with no "as of" stamping | Read model fed by `journal.posted` events with per-ledger HWM; every statement shows the sequence it reflects; nightly zero-diff verify | Statement lag p95 < 10 s (vs 15–60 min); "mart out of sync" incidents → 0 |
 | SAP F.01/RFBILA00 and FSV (OB58) drill to FAGLL03 but lose the FSV context; reaching the source document from a balance-sheet line is 7+ screens and often impossible for migrated items | Hierarchy, totals and line items are separate programs without a shared key | Drill-down contract (BR-15.4): cell → balance keys → lines → `source_uri` → trace id, with sums that must equal the cell | Clicks balance → document 7 → 3; drill sum mismatches → 0 (property-tested) |
-| Report designer in MR requires a Windows client, separate security (tree security) and definitions that cannot be versioned or promoted between environments except by manual export | Desktop tooling, no API, no versioning | Web designer, JSON export/import with schema version, immutable published versions, OPA dimension security shared with the rest of Passage | Definition promotion dev → prod 1 h manual → < 1 min API call; security rule sets 2 → 1 |
+| Report designer in MR requires a Windows client, separate security (tree security) and definitions that cannot be versioned or promoted between environments except by manual export | Desktop tooling, no API, no versioning | Web designer, JSON export/import with schema version, immutable published versions, OPA dimension security shared with the rest of Depot | Definition promotion dev → prod 1 h manual → < 1 min API call; security rule sets 2 → 1 |
 | Cash flow statement is hand-built in Excel from the trial balance because MR/FSV cash flow setups are fragile and do not reconcile | No tagging model linking balance movements to cash flow categories with an enforced check | `cash_flow_tag` on rows, `CF-STD` indirect derivation with `CF_UNRECONCILED` failure and a "not classified" check row | Cash flow preparation 1–2 days/period → generated in < 20 s with 0.00 reconciliation enforced |
 | Audit requests ("who posted, who approved, when was the period reopened") require pulling `SysDatabaseLog` / `CDHDR` extracts and workflow history separately, usually by IT | Audit data spread across logs with no finance-facing report | Audit trail report over CDC audit + ledger events with hashed export | Audit evidence turnaround days → minutes; controller self-service, 0 IT tickets |
 
 ### 2.15.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Report definitions | Management Reporter row/column/tree definitions, report definitions | Financial statement version (OB58, `T011`, `FAGL_011PC/ZC`), Report Painter/Writer | `reporting.ReportDefinition` (rows, columns, tree) | full |
 | Row definitions | MR row: description, link to financial dimensions, format codes (TOT, CAL), normal balance | FSV nodes with account intervals, debit/credit split, net result | `ReportRow` with kind ∈ {account_range, dimension_filter, total, calculation, header} | full |
@@ -2036,13 +2036,13 @@ Out of scope: group consolidation with eliminations and translation (wave 40), b
   - Consolidated-by-entity view: side-by-side columns per legal entity and a simple sum column in reporting currency (no eliminations; wave 40).
 - **FR-15.6 Statement runs** — Must. A run evaluates a definition for parameters and stores `StatementCell` values with the balance keys used, the HWM, duration, and a SHA-256 of the result; outputs rendered as HTML (interactive), PDF, XLSX and CSV.
   - 2,000-row × 12-column statement over 200k balances completes in < 20 s.
-- **FR-15.7 Drill-down** — Must. From any cell: (1) balances view listing the (account, combination, period) keys with amounts summing to the cell; (2) journal lines for a selected key or the whole cell, paginated, with `voucher`, date, D/C, amounts, source; (3) source document link (`source_uri` resolved to a Passage route or external URL) and `trace_id` link to Tempo.
+- **FR-15.7 Drill-down** — Must. From any cell: (1) balances view listing the (account, combination, period) keys with amounts summing to the cell; (2) journal lines for a selected key or the whole cell, paginated, with `voucher`, date, D/C, amounts, source; (3) source document link (`source_uri` resolved to a Depot route or external URL) and `trace_id` link to Tempo.
   - Drill honors the viewer's dimension security; the line sum shown equals the cell value exactly or the UI displays a reconciliation warning with the filtered-out amount (never silently).
 - **FR-15.8 Scheduling and distribution** — Must. Definitions can be scheduled (cron or close-checklist hook) to run per entity set and distribute via email (PDF/XLSX attachments ≤ 20 MB, else link), shared link with expiry, and a report library with retention (default 7 years for statements run against closed periods, 90 days for ad-hoc).
 - **FR-15.9 Row-level security on dimensions** — Must. OPA policies grant dimension values (e.g., cost centers) per user; balance queries, statements, drill-down and exports are filtered server-side; a report run by a scheduler uses the recipient's permissions per rendered copy.
 - **FR-15.10 Audit trail report** — Must. The system shall report for a period and ledger: entries posted (who, when, source, idempotency replay flag), batch approvals (submitter, approvers, timestamps), reversals, period status changes including reopen approvals, rate overrides, tax fallbacks, allocation and year-end runs; exportable to CSV/PDF with a hash.
 - **FR-15.11 Definition import/export** — Must. Definitions round-trip as JSON (schema-versioned) for backup, environment promotion and Management Reporter conversion.
-- **FR-15.12 Management Reporter and FSV converters** — Should. The migration framework shall convert MR row/column/tree definitions (from the MR database `ControlRowDetail`, `ControlColumnDetail`, `ControlTreeDetail`) and SAP FSV (`T011`, `FAGL_011PC`, `FAGL_011ZC`) into Passage definitions with a conversion report of unsupported constructs.
+- **FR-15.12 Management Reporter and FSV converters** — Should. The migration framework shall convert MR row/column/tree definitions (from the MR database `ControlRowDetail`, `ControlColumnDetail`, `ControlTreeDetail`) and SAP FSV (`T011`, `FAGL_011PC`, `FAGL_011ZC`) into Depot definitions with a conversion report of unsupported constructs.
 - **FR-15.13 Derived financial hierarchies** — Must. The system shall maintain derived hierarchies: trees whose leaf assignment is derived by rules rather than listed, over (a) main account categories (each main account carries `category_id`; categories nest under hierarchy nodes) and (b) dimension values (nodes with membership rules: value ranges, wildcards, attribute filters such as `cost_center.region = EMEA`), with effective-dated versions.
   - A derived hierarchy can be used as a row set (one row per node, totals rolled up, leaves expanded on demand) and as a reporting tree (FR-15.4); statements record the hierarchy version used.
   - Validation on publish: every postable account (or every active dimension value) maps to exactly one leaf node, or is listed in an "unassigned" check node that must be empty for `strict = true` hierarchies (`REPORT_HIERARCHY_UNASSIGNED`); overlaps are rejected (`REPORT_HIERARCHY_OVERLAP`).
@@ -2143,12 +2143,12 @@ Queries and validation: `RunStatement` requires a published definition, period e
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.reporting.statement.generated.v1 | run completed | run_id, definition code/version, parameters, hwm_by_ledger, result_hash, outputs[] | distribution, close (automation hook), audit |
-| dev.passage.reporting.statement.failed.v1 | run failed | run_id, error, stage | ops, requester notification |
-| dev.passage.reporting.definition.published.v1 | publish | code, version, actor, diff_summary | audit, cache |
-| dev.passage.reporting.lag.exceeded.v1 | lag > threshold for 60 s | ledger_id, lag_seconds, hwm_ledger, hwm_reporting | ops alerting, close board |
-| dev.passage.reporting.distribution.sent.v1 | email/link delivered | run_id, recipients (hashed), format, size | audit |
-| dev.passage.reporting.hierarchy.unassigned.v1 | new account or dimension value matches no leaf | hierarchy code, version, member_id, member kind | hierarchy owner notification, close board |
+| dev.depot.reporting.statement.generated.v1 | run completed | run_id, definition code/version, parameters, hwm_by_ledger, result_hash, outputs[] | distribution, close (automation hook), audit |
+| dev.depot.reporting.statement.failed.v1 | run failed | run_id, error, stage | ops, requester notification |
+| dev.depot.reporting.definition.published.v1 | publish | code, version, actor, diff_summary | audit, cache |
+| dev.depot.reporting.lag.exceeded.v1 | lag > threshold for 60 s | ledger_id, lag_seconds, hwm_ledger, hwm_reporting | ops alerting, close board |
+| dev.depot.reporting.distribution.sent.v1 | email/link delivered | run_id, recipients (hashed), format, size | audit |
+| dev.depot.reporting.hierarchy.unassigned.v1 | new account or dimension value matches no leaf | hierarchy code, version, member_id, member kind | hierarchy owner notification, close board |
 
 ### 2.15.6 User experience
 
@@ -2193,7 +2193,7 @@ Interaction rules: designer previews render within 3 s against the demo dataset 
 - **AC-15.8** (FR-15.8) Given a nightly schedule for 3 entities, when it fires, then PDF and XLSX outputs are in the library and the email is sent with attachments < 20 MB.
 - **AC-15.9** (FR-15.10) Given a reopened period with a posting and re-close, when the audit trail runs, then it lists the reopen with both approvers, the posting, and the re-close in order with trace ids.
 - **AC-15.10** (FR-15.6) Given 200k balances, when a 2,000 × 12 statement runs, then it completes in < 20 s.
-- **AC-15.11** (Phase exit) Given the finance stakeholders' review, when they compare the Passage statement pack to the AX/SAP-derived expectations for the demo period, then every line ties and sign-off is recorded in the wave 15 issue.
+- **AC-15.11** (Phase exit) Given the finance stakeholders' review, when they compare the Depot statement pack to the AX/SAP-derived expectations for the demo period, then every line ties and sign-off is recorded in the wave 15 issue.
 - **AC-15.12** (FR-15.13, BR-15.13) Given a derived hierarchy over main account categories with `strict = true`, when a new postable account without a category is created, then publish of the next version is rejected with `REPORT_HIERARCHY_UNASSIGNED` naming the account and `hierarchy.unassigned` is emitted; after assigning the category, `BS-STD` run with the hierarchy as row set ties to `TB-STD` to the cent.
 - **AC-15.13** (FR-15.14) Given the demo period with every P&L line carrying `FUNC_AREA`, when `PL-FUNC` runs, then its net result equals `PL-STD` net result to the cent and the check row is 0.00.
 
@@ -2217,11 +2217,11 @@ Reconciliation: `ReportingBalance` = `ledger.Balance` nightly (0 diffs); TB clos
 
 ### 2.15.10 Deployment and operations
 
-Helm chart `passage-reporting` (Go service 3–8 pods, CloudNativePG `reporting-db` 3 instances with 1 read replica for statement runs, Kafka consumer group `reporting-balances`, renderer sidecar for PDF (Chromium headless) with 2 CPU limit). Config: `REPORTING_MAX_LAG_S=30`, `REPORTING_PAGE_SIZE=500`, `REPORTING_CELL_KEY_LIMIT=50000`, `REPORTING_RETENTION_CLOSED_YEARS=7`, `REPORTING_RETENTION_ADHOC_DAYS=90`. Migrations: reporting schema; backfill of `ReportingBalance` from the ledger via a one-time replay of `ledger.journal` topic (compacted snapshot + replay). Feature flags: `reporting.cash_flow`, `reporting.multi_ledger_columns`, `reporting.pdf`. Scheduled jobs: nightly `reporting-balance-verify`, nightly statement pack for demo entities (23:00 UTC), library retention sweep (weekly), audit completeness check (daily). SLOs: read-model lag p95 < 10 s; statement run p95 < 20 s (reference size); drill level 2 first page p95 < 300 ms; availability 99.9%. Alerts: lag > 60 s (P2), verify diff > 0 (P1), audit completeness diff (P1), PDF renderer failures > 5% (P3). Runbook: rebuild read model from ledger replay (≈ 15 min per 10M lines), stuck run cancellation, retention restore from object storage. Rollback: digest rollback; read model can be rebuilt from the journal at any time, so no data rollback is needed.
+Helm chart `depot-reporting` (Go service 3–8 pods, CloudNativePG `reporting-db` 3 instances with 1 read replica for statement runs, Kafka consumer group `reporting-balances`, renderer sidecar for PDF (Chromium headless) with 2 CPU limit). Config: `REPORTING_MAX_LAG_S=30`, `REPORTING_PAGE_SIZE=500`, `REPORTING_CELL_KEY_LIMIT=50000`, `REPORTING_RETENTION_CLOSED_YEARS=7`, `REPORTING_RETENTION_ADHOC_DAYS=90`. Migrations: reporting schema; backfill of `ReportingBalance` from the ledger via a one-time replay of `ledger.journal` topic (compacted snapshot + replay). Feature flags: `reporting.cash_flow`, `reporting.multi_ledger_columns`, `reporting.pdf`. Scheduled jobs: nightly `reporting-balance-verify`, nightly statement pack for demo entities (23:00 UTC), library retention sweep (weekly), audit completeness check (daily). SLOs: read-model lag p95 < 10 s; statement run p95 < 20 s (reference size); drill level 2 first page p95 < 300 ms; availability 99.9%. Alerts: lag > 60 s (P2), verify diff > 0 (P1), audit completeness diff (P1), PDF renderer failures > 5% (P3). Runbook: rebuild read model from ledger replay (≈ 15 min per 10M lines), stuck run cancellation, retention restore from object storage. Rollback: digest rollback; read model can be rebuilt from the journal at any time, so no data rollback is needed.
 
 ### 2.15.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | Management Reporter `ControlRowDetail`, `ControlColumnDetail`, `ControlTreeDetail`, `ControlReport` | ReportRow, ReportColumn, ReportTree, ReportDefinition | row link types (FD, dimension sets) → account_range/dimension_filter; CALC with +−×÷ converted; unsupported: XBRL tags, cross-report links (listed) |
 | AX trial balance / inquiry saved queries | not migrated | standard definitions replace them |
@@ -2229,7 +2229,7 @@ Helm chart `passage-reporting` (Go service 3–8 pods, CloudNativePG `reporting-
 | SAP Report Painter libraries | not migrated | re-authored in the designer; conversion report lists them |
 | AX `MainAccountCategory`, `DimensionHierarchy` (derived hierarchies), MR reporting trees | MainAccountCategory, DerivedHierarchy, HierarchyNode | category → `MainAccount.category_id`; derived hierarchy rules copied as membership rules |
 | SAP account groups / G/L hierarchies (`SETHEADER`/`SETNODE`/`SETLEAF` class 0109), profit center groups (KCH1) | DerivedHierarchy (subject main_account or dimension_value) | set intervals → range rules |
-| AX database log / SAP CDHDR history | not migrated | legacy audit remains in the archive; Passage audit begins at cutover |
+| AX database log / SAP CDHDR history | not migrated | legacy audit remains in the archive; Depot audit begins at cutover |
 
 Validation: converted definitions run against migrated opening balances and are compared to the legacy final statements for the cutover period (tolerance 0.00 after sign normalization); conversion report reviewed by the controller.
 

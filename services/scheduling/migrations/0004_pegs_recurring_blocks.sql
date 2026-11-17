@@ -23,8 +23,8 @@ CREATE INDEX IF NOT EXISTS scheduling_order_peg_dependent ON scheduling_order_pe
 ALTER TABLE scheduling_order_peg ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduling_order_peg FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduling_order_peg_tenant_access ON scheduling_order_peg AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- A capacity block is weekly windows, one dated window, or a recurrence: an
 -- RRULE subset (FREQ=DAILY|WEEKLY, INTERVAL, BYDAY, COUNT, UNTIL) from a start
@@ -45,8 +45,8 @@ ALTER TABLE scheduling_capacity_block ADD CONSTRAINT scheduling_capacity_block_s
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON scheduling_order_peg TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON scheduling_order_peg TO depot_app';
   END IF;
 END
 $$;

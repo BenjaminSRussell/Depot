@@ -10,16 +10,16 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/production/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/production/internal/store"
-	"github.com/BenjaminSRussell/passage/services/production/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/production/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/production/internal/store"
+	"github.com/BenjaminSRussell/depot/services/production/migrations"
 )
 
 // The HTTP surface over a real database: create, the AC-21.2 refusal, estimate,
-// the AC-21.3 cost read, and the order list. Skipped without PASSAGE_TEST_DATABASE_URL.
+// the AC-21.3 cost read, and the order list. Skipped without DEPOT_TEST_DATABASE_URL.
 func TestHTTP_OrderThroughTheDatabase(t *testing.T) {
 	pool := testkit.DB(t)
 	if err := dbx.Migrate(context.Background(), pool, migrations.FS); err != nil {

@@ -687,7 +687,7 @@ export function checkExport(input: ExportCheckInput): Promise<ExportResult> {
 }
 
 // Subject requests, retention, certification campaigns, incident steps and
-// export governance (PSG-48 slice 5).
+// export governance (DPT-48 slice 5).
 
 export const privacyBase = "/api/v1/privacy";
 

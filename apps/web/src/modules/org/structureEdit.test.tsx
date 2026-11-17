@@ -201,7 +201,7 @@ describe("edit forms", () => {
     await waitFor(() => expect(callsTo(fetchMock, "PATCH", "/sites/s-1")).toHaveLength(1));
     const call = callsTo(fetchMock, "PATCH", "/sites/s-1")[0];
     expect(bodyOf(call as never)).toEqual({ version: 3, name: "Detroit plant", defaultWarehouseId: "" });
-    expect(new Headers(call[1]?.headers).get("X-Passage-LegalEntity")).toBe("le-1");
+    expect(new Headers(call[1]?.headers).get("X-Depot-LegalEntity")).toBe("le-1");
     expect(await within(table).findByText("Detroit plant")).toBeInTheDocument();
     expect(within(table).queryByText("w-1")).toBeNull();
   });
@@ -252,7 +252,7 @@ describe("edit forms", () => {
     await waitFor(() => expect(callsTo(fetchMock, "PATCH", "/warehouses/w-1")).toHaveLength(1));
     const call = callsTo(fetchMock, "PATCH", "/warehouses/w-1")[0];
     expect(bodyOf(call as never)).toEqual({ version: 5, type: "quarantine" });
-    expect(new Headers(call[1]?.headers).get("X-Passage-LegalEntity")).toBe("le-1");
+    expect(new Headers(call[1]?.headers).get("X-Depot-LegalEntity")).toBe("le-1");
     expect(await within(table).findByText("quarantine")).toBeInTheDocument();
   });
 

@@ -5,9 +5,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
 )
 
 // D2a': dated cost rates are append-only, one per date, listed newest first, loaded oldest

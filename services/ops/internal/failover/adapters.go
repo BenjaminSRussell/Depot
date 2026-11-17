@@ -212,7 +212,7 @@ type MirrorMaker struct {
 func (m MirrorMaker) StopInto(ctx context.Context, newPrimary string) error {
 	name := m.Name
 	if name == "" {
-		name = "passage-mm2"
+		name = "depot-mm2"
 	}
 	return m.Kube.Delete(ctx, newPrimary, fmt.Sprintf("/apis/kafka.strimzi.io/v1beta2/namespaces/%s/kafkamirrormaker2s/%s", url.PathEscape(m.Namespace), url.PathEscape(name)))
 }

@@ -50,8 +50,8 @@ func TestGLBalances_LoadReconcileAndRerunLoadsNothing(t *testing.T) {
 	if n := count(t, admin, `select count(*) from gl_opening_balance where run_id = $1 and account = '1100' and dimensions = 'USMF-200' and balance = 450`, run.RunID); n != 1 {
 		t.Fatalf("opening balance rows for 1100/USMF-200 = %d", n)
 	}
-	if n := count(t, admin, `select count(*) from legacy_xref x join gl_opening_balance b on b.legacy_xref_id = x.xref_id and b.balance_id = x.passage_id
-		where x.source_table = 'gl_balances' and x.passage_entity = 'gl_opening_balance'`); n != 3 {
+	if n := count(t, admin, `select count(*) from legacy_xref x join gl_opening_balance b on b.legacy_xref_id = x.xref_id and b.balance_id = x.depot_id
+		where x.source_table = 'gl_balances' and x.depot_entity = 'gl_opening_balance'`); n != 3 {
 		t.Fatalf("xref rows tied to their opening balances = %d, want 3", n)
 	}
 	xref := do(t, h, request{method: "GET", path: "/api/v1/migration/xref?system=AX2012&company=USMF&table=gl_balances&id=GL-2", tenant: tenantA})
@@ -70,7 +70,7 @@ func TestGLBalances_LoadReconcileAndRerunLoadsNothing(t *testing.T) {
 	if n := count(t, admin, `select count(*) from gl_opening_balance`); n != 3 {
 		t.Fatalf("opening balances after the re-run = %d, want 3", n)
 	}
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.migration.pack.reconciled.v1'`); n != 2 {
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.migration.pack.reconciled.v1'`); n != 2 {
 		t.Fatalf("pack.reconciled events = %d, want one per run", n)
 	}
 

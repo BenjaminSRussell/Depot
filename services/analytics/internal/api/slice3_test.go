@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/analytics/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/analytics/internal/domain"
 )
 
 // The scorecard and archive inquiry filters (§9.46.14) are validated before the

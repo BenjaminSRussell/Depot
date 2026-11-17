@@ -20,14 +20,14 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const (
 	// EnvReadAudit switches read auditing for a service: "true" or "false" force it, anything else (including unset)
-	// follows the cloud profile: on when PASSAGE_CLOUD_PROFILE includes the hipaa overlay.
-	EnvReadAudit = "PASSAGE_PHI_READ_AUDIT"
+	// follows the cloud profile: on when DEPOT_CLOUD_PROFILE includes the hipaa overlay.
+	EnvReadAudit = "DEPOT_PHI_READ_AUDIT"
 
 	// DutyWrite is the service-only duty of POST /v1/audit/reads.
 	DutyWrite = "audit.read-log.write"
@@ -195,7 +195,7 @@ func (f *Fake) Reads() []Recorded {
 }
 
 // Enabled reports whether read auditing is on: EnvReadAudit "true" or "false" decides; otherwise it is on exactly when
-// PASSAGE_CLOUD_PROFILE includes the hipaa overlay. An unknown profile name is an error (the profile fails closed).
+// DEPOT_CLOUD_PROFILE includes the hipaa overlay. An unknown profile name is an error (the profile fails closed).
 func Enabled(getenv func(string) string) (bool, error) {
 	switch strings.ToLower(strings.TrimSpace(getenv(EnvReadAudit))) {
 	case "true":

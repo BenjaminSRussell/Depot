@@ -463,11 +463,11 @@ describe("plan.submitted trigger", () => {
       "workflow"
     >;
     expect(
-      await handlePlanSubmitted(client, "passage-approvals", event),
+      await handlePlanSubmitted(client, "depot-approvals", event),
     ).toEqual({ workflowId: `budget-plan:${PLAN_ID}:2`, started: true });
     expect(start).toHaveBeenCalledWith(budgetPlanWorkflow, {
       workflowId: `budget-plan:${PLAN_ID}:2`,
-      taskQueue: "passage-approvals",
+      taskQueue: "depot-approvals",
       args: [
         {
           tenantId: TENANT,
@@ -502,12 +502,12 @@ describe("plan.submitted trigger", () => {
 
   it("refuses an event from another source or of another type", () => {
     expect(() =>
-      toBudgetPlanInput({ ...event, source: "/passage/other" }),
+      toBudgetPlanInput({ ...event, source: "/depot/other" }),
     ).toThrow(/only from/);
     expect(() =>
       toBudgetPlanInput({
         ...event,
-        type: "dev.passage.budget.plan.approved.v1",
+        type: "dev.depot.budget.plan.approved.v1",
       }),
     ).toThrow(/expected/);
   });

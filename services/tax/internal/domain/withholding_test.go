@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/tax/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/domain"
 )
 
 func whRequest(mutate func(*domain.WithholdingRequest)) domain.WithholdingRequest {

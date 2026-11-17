@@ -15,14 +15,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/store"
-	"github.com/BenjaminSRussell/passage/services/fx/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/store"
+	"github.com/BenjaminSRussell/depot/services/fx/migrations"
 )
 
 var valid = time.Now().UTC().Truncate(24*time.Hour).AddDate(0, 0, -3)
@@ -176,7 +176,7 @@ func TestPostRatesBatchAtomicityAndOutboxReconciliation(t *testing.T) {
 		t.Fatal(err)
 	}
 	rates := count(t, ctx, pool, `select count(*) from exchange_rate`)
-	published := count(t, ctx, pool, `select count(*) from outbox where type = 'dev.passage.fx.rate.published.v1'`)
+	published := count(t, ctx, pool, `select count(*) from outbox where type = 'dev.depot.fx.rate.published.v1'`)
 	if rates != 3 || published != rates {
 		t.Fatalf("rates=%d events=%d", rates, published)
 	}
@@ -252,7 +252,7 @@ func TestRLSHidesOtherTenantRates(t *testing.T) {
 	if err := admin.QueryRow(ctx, "select current_schema()").Scan(&schema); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := admin.Exec(ctx, "grant usage on schema "+schema+" to passage_app; grant select, insert, update, delete on all tables in schema "+schema+" to passage_app"); err != nil {
+	if _, err := admin.Exec(ctx, "grant usage on schema "+schema+" to depot_app; grant select, insert, update, delete on all tables in schema "+schema+" to depot_app"); err != nil {
 		t.Fatal(err)
 	}
 	s := store.New(app)
@@ -384,7 +384,7 @@ func TestFinishRunFailedEnqueuesDegradedEventAndAllowsRestart(t *testing.T) {
 	if err != nil || len(runs) != 1 || runs[0].Status != store.RunFailed || runs[0].Attempts != 4 || runs[0].Error != "ecb: request failed: timeout" || runs[0].FinishedAt == nil {
 		t.Fatalf("failed run = %+v, %v", runs, err)
 	}
-	if n := count(t, ctx, pool, `select count(*) from outbox where type = 'dev.passage.fx.provider.degraded.v1' and aggregate_type = 'provider_import_run' and aggregate_id = '`+run.ID+`'`); n != 1 {
+	if n := count(t, ctx, pool, `select count(*) from outbox where type = 'dev.depot.fx.provider.degraded.v1' and aggregate_type = 'provider_import_run' and aggregate_id = '`+run.ID+`'`); n != 1 {
 		t.Fatalf("degraded events = %d, want 1", n)
 	}
 	if n := count(t, ctx, pool, `select count(*) from outbox where payload->'data'->>'provider' = 'ecb' and payload->'data'->>'rate_type' = 'CLOSING'
@@ -411,7 +411,7 @@ func TestFinishRunFailedEnqueuesDegradedEventAndAllowsRestart(t *testing.T) {
 	if err := s.FinishRunFailed(ctx, next.ID, 4, errors.New("down"), true); err != nil {
 		t.Fatal(err)
 	}
-	if n := count(t, ctx, pool, `select count(*) from outbox where type = 'dev.passage.fx.provider.degraded.v1' and payload->'data'->>'last_success_at' is not null`); n != 1 {
+	if n := count(t, ctx, pool, `select count(*) from outbox where type = 'dev.depot.fx.provider.degraded.v1' and payload->'data'->>'last_success_at' is not null`); n != 1 {
 		t.Fatalf("degraded events carrying last_success_at = %d, want 1", n)
 	}
 	missing := ids.New()
@@ -446,7 +446,7 @@ func TestFinishRunDegradedMarksRunAndEnqueuesDegradedEvent(t *testing.T) {
 	if err != nil || len(runs) != 2 || runs[0].Status != store.RunDegraded || runs[0].Attempts != 4 || runs[0].FinishedAt == nil {
 		t.Fatalf("runs = %+v, %v", runs, err)
 	}
-	if n := count(t, ctx, pool, `select count(*) from outbox where type = 'dev.passage.fx.provider.degraded.v1' and aggregate_id = '`+run.ID+`'
+	if n := count(t, ctx, pool, `select count(*) from outbox where type = 'dev.depot.fx.provider.degraded.v1' and aggregate_id = '`+run.ID+`'
 		and payload->'data'->>'last_success_at' is not null and payload->'data'->>'fallback' = 'last_known' and payload->'data'->>'retryable' = 'true' and payload->'data'->>'status' = 'degraded'`); n != 1 {
 		t.Fatalf("degraded events = %d, want 1", n)
 	}
@@ -469,7 +469,7 @@ func TestFinishRunAbortedMarksFailedWithoutDegradedEvent(t *testing.T) {
 	if err != nil || len(runs) != 1 || runs[0].Status != store.RunFailed || runs[0].Attempts != 2 || runs[0].Error != "context canceled" || runs[0].FinishedAt == nil {
 		t.Fatalf("runs = %+v, %v", runs, err)
 	}
-	if n := count(t, ctx, pool, `select count(*) from outbox where type = 'dev.passage.fx.provider.degraded.v1'`); n != 0 {
+	if n := count(t, ctx, pool, `select count(*) from outbox where type = 'dev.depot.fx.provider.degraded.v1'`); n != 0 {
 		t.Fatalf("degraded events = %d, want 0", n)
 	}
 	if err := s.FinishRunAborted(ctx, ids.New(), 1, errors.New("x")); !errors.Is(err, store.ErrRunNotFound) {
@@ -505,7 +505,7 @@ func TestPostRatesReportsUnchanged(t *testing.T) {
 		t.Fatalf("mixed batch = %+v, %v", mixed, err)
 	}
 	rates := count(t, ctx, pool, `select count(*) from exchange_rate`)
-	published := count(t, ctx, pool, `select count(*) from outbox where type = 'dev.passage.fx.rate.published.v1'`)
+	published := count(t, ctx, pool, `select count(*) from outbox where type = 'dev.depot.fx.rate.published.v1'`)
 	if rates != 4 || published != rates {
 		t.Fatalf("rates=%d published=%d, want 4 and equal", rates, published)
 	}
@@ -582,7 +582,7 @@ func TestRLSHidesOtherTenantRunsAndIdempotencyKeys(t *testing.T) {
 	if err := admin.QueryRow(ctx, "select current_schema()").Scan(&schema); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := admin.Exec(ctx, "grant usage on schema "+schema+" to passage_app; grant select, insert, update, delete on all tables in schema "+schema+" to passage_app"); err != nil {
+	if _, err := admin.Exec(ctx, "grant usage on schema "+schema+" to depot_app; grant select, insert, update, delete on all tables in schema "+schema+" to depot_app"); err != nil {
 		t.Fatal(err)
 	}
 	s := store.New(app)
@@ -654,7 +654,7 @@ func TestMigrationGrantsKeepRatesAppendOnlyForAppRole(t *testing.T) {
 		})
 		var pgErr *pgconn.PgError
 		if !errors.As(err, &pgErr) || pgErr.Code != "42501" {
-			t.Fatalf("%q must be denied for passage_app, got %v", statement, err)
+			t.Fatalf("%q must be denied for depot_app, got %v", statement, err)
 		}
 	}
 }

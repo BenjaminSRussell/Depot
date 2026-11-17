@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const vendorID = "0b1c2d3e-0000-4000-8000-0000000000aa"
@@ -102,7 +102,7 @@ func TestVendorlessPortalTokenForAnotherDutyIsRefusedByTheVerifier(t *testing.T)
 		Iat: epoch.Unix(), Exp: epoch.Unix() + 30, Jti: "j1",
 	})
 	body := base64.RawURLEncoding.EncodeToString(claims)
-	forged := body + "." + base64.RawURLEncoding.EncodeToString(ed25519.Sign(priv, []byte("passage.service-token.v1."+body)))
+	forged := body + "." + base64.RawURLEncoding.EncodeToString(ed25519.Sign(priv, []byte("depot.service-token.v1."+body)))
 	if _, err := verifier.Verify(forged); err == nil {
 		t.Error("a supplier portal token without a vendor was accepted for a read duty")
 	}

@@ -32,14 +32,14 @@
     "slug": "manufacturing",
     "name": "Manufacturing & Planning",
     "waves": [21, 25],
-    "intent": "Production orders and WIP, MRP/MPS, capacity and scheduling, process and lean manufacturing, shop-floor execution and IoT. A discrete or process manufacturer can build product on Passage."
+    "intent": "Production orders and WIP, MRP/MPS, capacity and scheduling, process and lean manufacturing, shop-floor execution and IoT. A discrete or process manufacturer can build product on Depot."
   },
   {
     "phase": 5,
     "slug": "order-to-cash",
     "name": "Order-to-Cash",
     "waves": [26, 30],
-    "intent": "Pricing, sales orders with ATP, fulfillment, billing and revenue recognition, accounts receivable and collections. At the end of wave 30 a manufacturer runs the full buy-make-sell-collect loop on Passage — the first go-live milestone."
+    "intent": "Pricing, sales orders with ATP, fulfillment, billing and revenue recognition, accounts receivable and collections. At the end of wave 30 a manufacturer runs the full buy-make-sell-collect loop on Depot — the first go-live milestone."
   },
   {
     "phase": 6,

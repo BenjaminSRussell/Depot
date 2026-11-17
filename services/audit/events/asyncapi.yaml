@@ -3,8 +3,8 @@ info:
   title: audit
   version: 0.1.0
 channels:
-  passage.audit.change:
-    address: passage.audit.change
+  depot.audit.change:
+    address: depot.audit.change
     messages:
       recorded:
         $ref: '#/components/messages/recorded'
@@ -12,9 +12,9 @@ operations:
   onRecorded:
     action: send
     channel:
-      $ref: '#/channels/passage.audit.change'
+      $ref: '#/channels/depot.audit.change'
     messages:
-      - $ref: '#/channels/passage.audit.change/messages/recorded'
+      - $ref: '#/channels/depot.audit.change/messages/recorded'
 components:
   messages:
     recorded:
@@ -31,4 +31,4 @@ components:
           newValue: { type: string }
           userId: { type: string }
           traceId: { type: string }
-      x-passage-type: dev.passage.audit.change.recorded.v1
+      x-depot-type: dev.depot.audit.change.recorded.v1

@@ -12,10 +12,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/store"
 )
 
 const (
@@ -124,7 +124,7 @@ func (p *portalHarness) get(t *testing.T, customer, path string, extra map[strin
 		t.Fatal(err)
 	}
 	req := httptest.NewRequest(http.MethodGet, path, nil)
-	req.Header.Set("X-Passage-Service-Token", token)
+	req.Header.Set("X-Depot-Service-Token", token)
 	for k, v := range extra {
 		req.Header.Set(k, v)
 	}
@@ -233,7 +233,7 @@ func TestCustomerPortal_OnlyTheCustomerPortalTokenReachesTheRoutes(t *testing.T)
 		"/v1/receivables/customer-portal/payments", "/v1/receivables/customer-portal/statement"}
 	for _, path := range paths {
 		// A staff user with every receivables duty is not a customer: no customer comes from a header or a query.
-		rec := do(h, http.MethodGet, path+"?customer="+custA, "", "receivables.view,receivables.customer-portal.read", map[string]string{"X-Passage-Customer": custA})
+		rec := do(h, http.MethodGet, path+"?customer="+custA, "", "receivables.view,receivables.customer-portal.read", map[string]string{"X-Depot-Customer": custA})
 		if rec.Code != http.StatusForbidden {
 			t.Errorf("%s as a user with the duty: %d %s, want 403", path, rec.Code, rec.Body)
 		}
@@ -249,7 +249,7 @@ func TestCustomerPortal_OnlyTheCustomerPortalTokenReachesTheRoutes(t *testing.T)
 func TestCustomerPortal_TokenCannotReachStaffRoutes(t *testing.T) {
 	p := newPortalHarness(t, newTwoCustomerStore())
 	for _, path := range []string{"/v1/receivables/open-items", "/v1/receivables/payments", "/v1/receivables/statements?legalEntityId=" + portalLE + "&customer=" + custB, "/v1/receivables/aging", "/v1/receivables/open-items/" + itemB} {
-		if rec := p.get(t, custA, path, map[string]string{"X-Passage-Duties": "receivables.view"}); rec.Code != http.StatusForbidden {
+		if rec := p.get(t, custA, path, map[string]string{"X-Depot-Duties": "receivables.view"}); rec.Code != http.StatusForbidden {
 			t.Errorf("%s with a customer portal token: %d %s, want 403", path, rec.Code, rec.Body)
 		}
 	}

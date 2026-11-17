@@ -81,7 +81,7 @@ func TestEntraIdPRefusesMultiTenantAuthoritiesAndStaysDisabledWithPlaceholders(t
 			t.Errorf("tenant %q must be refused: only a tenant GUID pins the issuer", tenant)
 		}
 	}
-	idp, err := EntraOIDC(p, PlaceholderEntraTenant, PlaceholderClientID, PlaceholderPassageTID)
+	idp, err := EntraOIDC(p, PlaceholderEntraTenant, PlaceholderClientID, PlaceholderDepotTID)
 	if err != nil || idp.Provider["enabled"] != false {
 		t.Errorf("a placeholder render must ship disabled: %v %v", idp, err)
 	}
@@ -117,7 +117,7 @@ func TestEntraIdPMappersNeverWriteTokenAttributesFromClaims(t *testing.T) {
 // rewrites them.
 func TestRenderedEntraExamplesAreCurrent(t *testing.T) {
 	for _, name := range ProfileNames() {
-		want := render(t, name, PlaceholderEntraTenant, PlaceholderClientID, PlaceholderPassageTID)
+		want := render(t, name, PlaceholderEntraTenant, PlaceholderClientID, PlaceholderDepotTID)
 		path := goldenDir + "entra-oidc." + name + ".json"
 		if os.Getenv("UPDATE_GOLDEN") == "1" {
 			if err := os.WriteFile(path, []byte(want), 0o644); err != nil {

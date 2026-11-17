@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: Passage Field Service API
+  title: Depot Field Service API
   version: 0.1.0
   description: |
     Service agreements, SLA profiles, cases with their status lifecycle and SLA monitor,
@@ -23,7 +23,7 @@ info:
     with the current aggregate version. Errors are RFC 9457 problem details whose
     `code` is listed in the service README.
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env:
         default: dev
@@ -32,7 +32,7 @@ paths:
     post:
       operationId: createSlaProfile
       summary: Create an SLA profile with business-hour calendar, holidays and priority targets
-      x-passage-duty: fieldservice.agreement.maintain
+      x-depot-duty: fieldservice.agreement.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -55,7 +55,7 @@ paths:
     get:
       operationId: listSlaProfiles
       summary: List the tenant's SLA profiles by code (at most 500)
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       responses:
         "200":
           description: The profiles
@@ -72,7 +72,7 @@ paths:
     get:
       operationId: getSlaProfile
       summary: Read an SLA profile
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -88,7 +88,7 @@ paths:
     post:
       operationId: createAgreement
       summary: Create a service agreement with covered lines and billing model
-      x-passage-duty: fieldservice.agreement.maintain
+      x-depot-duty: fieldservice.agreement.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -112,7 +112,7 @@ paths:
     get:
       operationId: listAgreements
       summary: List agreements newest first inside the caller's legal-entity scope
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [DRAFT, ACTIVE, SUSPENDED, EXPIRED, CANCELED] } }
         - { name: customerPartyId, in: query, schema: { type: string, format: uuid } }
@@ -131,7 +131,7 @@ paths:
     get:
       operationId: getAgreement
       summary: Read a service agreement with its consumed included hours
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -155,9 +155,9 @@ paths:
         Suspending and canceling need a reason. Activating or resuming an agreement whose
         validTo is behind today is refused (SVC-AGR-006). EXPIRED is not requested; the
         expiry pass sets it. CANCELED and EXPIRED are final. Writes
-        `dev.passage.service.agreement.changed.v1` and a status history row in the same
+        `dev.depot.service.agreement.changed.v1` and a status history row in the same
         transaction.
-      x-passage-duty: fieldservice.agreement.maintain
+      x-depot-duty: fieldservice.agreement.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -198,9 +198,9 @@ paths:
       summary: Expire ACTIVE and SUSPENDED agreements whose validTo is behind today (FR-45.3)
       description: |
         One pass for the caller's tenant and legal-entity scope. Each expired agreement
-        writes `dev.passage.service.agreement.changed.v1` and a history row. Repeating the
+        writes `dev.depot.service.agreement.changed.v1` and a history row. Repeating the
         pass changes nothing. A daily scheduler calls it.
-      x-passage-duty: fieldservice.agreement.maintain
+      x-depot-duty: fieldservice.agreement.maintain
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 5000, default: 500 }, description: Agreements handled in this pass }
       responses:
@@ -226,8 +226,8 @@ paths:
         the line must exist (SVC-AGR-009) and still have an included visit (SVC-AGR-010). A
         visit tied to a work order requires an order of this agreement (SVC-AGR-011) and
         consumes at most one visit per order (SVC-AGR-012). Writes
-        `dev.passage.service.agreementvisit.recorded.v1`.
-      x-passage-duty: fieldservice.agreement.maintain
+        `dev.depot.service.agreementvisit.recorded.v1`.
+      x-depot-duty: fieldservice.agreement.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -260,7 +260,7 @@ paths:
     get:
       operationId: listAgreementVisits
       summary: List the visits consumed from an agreement, oldest first
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -280,7 +280,7 @@ paths:
     get:
       operationId: listAgreementHistory
       summary: List the status changes of an agreement, oldest first
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -300,7 +300,7 @@ paths:
     post:
       operationId: openCase
       summary: Open a service case; resolves the entitlement and starts the SLA clocks (BR-45.1, BR-45.2)
-      x-passage-duty: fieldservice.service-case.create
+      x-depot-duty: fieldservice.service-case.create
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -324,7 +324,7 @@ paths:
     get:
       operationId: listCases
       summary: List cases newest first inside the caller's legal-entity scope
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [NEW, IN_PROGRESS, WAITING_CUSTOMER, WAITING_PARTS, RESOLVED, CLOSED, CANCELED] } }
         - { name: slaState, in: query, schema: { type: string, enum: [RUNNING, PAUSED, MET, BREACHED] } }
@@ -344,7 +344,7 @@ paths:
     get:
       operationId: getCase
       summary: Read a service case with its SLA state
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -370,7 +370,7 @@ paths:
         A clock found past due becomes BREACHED and emits `sla.breached` once; a
         case resolved in time is MET. NEW cannot be requested; CLOSED only follows
         RESOLVED and is final.
-      x-passage-duty: fieldservice.service-case.maintain
+      x-depot-duty: fieldservice.service-case.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -415,7 +415,7 @@ paths:
         breach due and not yet emitted, oldest resolution due first, records each
         alert on the case and writes `sla.warning` / `sla.breached` to the outbox in
         the same transaction. Repeating a pass emits nothing new.
-      x-passage-duty: fieldservice.service-case.maintain
+      x-depot-duty: fieldservice.service-case.maintain
       parameters:
         - { name: limit, in: query, description: cases per pass, schema: { type: integer, minimum: 1, maximum: 5000, default: 500 } }
       responses:
@@ -437,7 +437,7 @@ paths:
     get:
       operationId: getKpis
       summary: Service KPIs over a window - SLA attainment, mean time to respond and resolve, first-time fix (FR-45.11)
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - { name: from, in: query, required: true, description: inclusive, schema: { type: string, format: date-time } }
         - { name: to, in: query, required: true, description: exclusive; at most 366 days after from, schema: { type: string, format: date-time } }
@@ -455,7 +455,7 @@ paths:
     post:
       operationId: createWorkOrder
       summary: Create a service work order; from a case it inherits the case's agreement (FR-45.6)
-      x-passage-duty: fieldservice.work-order.maintain
+      x-depot-duty: fieldservice.work-order.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -479,7 +479,7 @@ paths:
     get:
       operationId: listWorkOrders
       summary: List work orders newest first inside the caller's legal-entity scope
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [UNSCHEDULED, SCHEDULED, DISPATCHED, TRAVELING, IN_PROGRESS, ON_HOLD, COMPLETED, POSTED, CANCELED] } }
         - { name: territoryId, in: query, schema: { type: string, format: uuid } }
@@ -500,7 +500,7 @@ paths:
     get:
       operationId: getWorkOrder
       summary: Read a service work order
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -522,8 +522,8 @@ paths:
         The office override for the technician's own actions. SCHEDULED is reached only through `:assign` and
         DISPATCHED only by publishing the territory-day, so neither is accepted here. Completing needs the
         customer's signature unless the work order is `signatureExempt` (SVC-WO-001) and writes
-        dev.passage.service.workorder.completed.v1 (without working minutes when no action log exists).
-      x-passage-duty: fieldservice.work-order.maintain
+        dev.depot.service.workorder.completed.v1 (without working minutes when no action log exists).
+      x-depot-duty: fieldservice.work-order.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -558,7 +558,7 @@ paths:
     post:
       operationId: postWorkOrder
       summary: Post a completed work order to billing (billable lines) and warranty cost (BR-45.4)
-      x-passage-duty: fieldservice.billing.post
+      x-depot-duty: fieldservice.billing.post
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -582,7 +582,7 @@ paths:
     post:
       operationId: followUpWorkOrder
       summary: Open the follow-up of a COMPLETED or POSTED work order; clears its first-time fix (BR-45.5)
-      x-passage-duty: fieldservice.work-order.maintain
+      x-depot-duty: fieldservice.work-order.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -608,7 +608,7 @@ paths:
       operationId: updateWorkOrderScheduling
       summary: Set the skills, customer window, address, position and estimate of an UNSCHEDULED work order
       description: A scheduled order is unassigned first, so assignment checks never run against data that changed afterwards.
-      x-passage-duty: fieldservice.work-order.maintain
+      x-depot-duty: fieldservice.work-order.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -641,8 +641,8 @@ paths:
         `errors`, keyed by code (SVC-DSP-003 skills, 004 technician not eligible, 005 customer window,
         006 shift, 007 overlap or buffer, 008 daily load); `code` is the first of them. An UNSCHEDULED or
         SCHEDULED order can be assigned or moved; a dispatched one cannot. Writes
-        dev.passage.service.assignment.changed.v1.
-      x-passage-duty: fieldservice.technician.dispatch
+        dev.depot.service.assignment.changed.v1.
+      x-depot-duty: fieldservice.technician.dispatch
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -670,8 +670,8 @@ paths:
     post:
       operationId: unassignWorkOrder
       summary: Take a SCHEDULED work order off the schedule; it is UNSCHEDULED again
-      description: A pinned assignment is released too; the pin protects it from the optimizer, not from the dispatcher. Writes dev.passage.service.assignment.changed.v1.
-      x-passage-duty: fieldservice.technician.dispatch
+      description: A pinned assignment is released too; the pin protects it from the optimizer, not from the dispatcher. Writes dev.depot.service.assignment.changed.v1.
+      x-depot-duty: fieldservice.technician.dispatch
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -708,9 +708,9 @@ paths:
         PART_USED is idempotent per action id and cannot exceed the PART line quantity; a part action that
         arrives after the work order completed is REJECTED (SVC-SYNC-002). A COMPLETE completes the work order
         (dated no later than the server clock and no earlier than the last applied status move) and writes
-        dev.passage.service.workorder.completed.v1 once; the work order is locked, so concurrent batches merge in
+        dev.depot.service.workorder.completed.v1 once; the work order is locked, so concurrent batches merge in
         turn. `message` carries SVC-SYNC-001 when conflicts were resolved.
-      x-passage-duty: fieldservice.work-order.execute
+      x-depot-duty: fieldservice.work-order.execute
       parameters:
         - $ref: "#/components/parameters/Id"
       requestBody:
@@ -739,7 +739,7 @@ paths:
       operationId: listWorkOrderActions
       summary: Read the action log of a work order in merge order
       description: The timeline a dispatcher reviews, ordered by device time then receipt order, with each action's outcome.
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -769,7 +769,7 @@ paths:
         consumed so far, the checklist with its ticks, the photos attached and the signature state. Only the
         technician's own worker, or office staff holding fieldservice.work-order.maintain or
         fieldservice.technician.dispatch, may read a technician's day (403 SVC-SYNC-003).
-      x-passage-duty: fieldservice.work-order.execute
+      x-depot-duty: fieldservice.work-order.execute
       parameters:
         - $ref: "#/components/parameters/TechnicianOrMe"
         - { name: date, in: query, required: false, schema: { type: string, format: date } }
@@ -796,7 +796,7 @@ paths:
         on every (re)connect and keep a slow poll, because a notification sent while a pod is reconnecting is not replayed.
         The pods share changes through a Postgres NOTIFY raised in the transaction of the change. 503 SVC-RTE-001 when the
         service has no feed: the device falls back to polling.
-      x-passage-duty: fieldservice.work-order.execute
+      x-depot-duty: fieldservice.work-order.execute
       parameters:
         - $ref: "#/components/parameters/TechnicianOrMe"
       responses:
@@ -822,7 +822,7 @@ paths:
         SVC-CAP-003), and the caller must be that technician's worker or office staff with
         fieldservice.work-order.maintain (403 SVC-SYNC-003). The returned `ref` is what a PHOTO or SIGNATURE
         action names the capture by.
-      x-passage-duty: fieldservice.work-order.execute
+      x-depot-duty: fieldservice.work-order.execute
       parameters:
         - $ref: "#/components/parameters/Id"
         - { name: captureId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -856,7 +856,7 @@ paths:
     get:
       operationId: getWorkOrderCapture
       summary: Read a stored photo or signature image
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - $ref: "#/components/parameters/Id"
         - { name: captureId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -877,7 +877,7 @@ paths:
         Up to 40 items; an item without an id gets one. A technician ticks items with CHECKLIST actions (the
         latest device time per item wins); a COMPLETE action is REJECTED with SVC-WO-003 while a required item is
         open. Items that keep their id keep their tick.
-      x-passage-duty: fieldservice.work-order.maintain
+      x-depot-duty: fieldservice.work-order.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -910,7 +910,7 @@ paths:
     post:
       operationId: createTechnician
       summary: Register a field technician with territories, skills, shift, home position and daily maximum
-      x-passage-duty: fieldservice.technician.dispatch
+      x-depot-duty: fieldservice.technician.dispatch
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -939,7 +939,7 @@ paths:
     get:
       operationId: listTechnicians
       summary: List technicians newest first inside the caller's legal-entity scope
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - { name: territoryId, in: query, description: Only technicians who cover this territory., schema: { type: string, format: uuid } }
         - { name: active, in: query, schema: { type: string, enum: ["true", "false"] } }
@@ -958,7 +958,7 @@ paths:
     get:
       operationId: getTechnician
       summary: Read a technician
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -976,7 +976,7 @@ paths:
       operationId: updateTechnician
       summary: Replace a technician's editable fields; the code and legal entity do not change
       description: A technician with work orders still ahead of them cannot be deactivated (SVC-TECH-003). An edit that would put a SCHEDULED visit of the technician in breach of the BR-45.3 hard constraints is refused with SVC-TECH-005, listing each broken work order by number in errors.
-      x-passage-duty: fieldservice.technician.dispatch
+      x-depot-duty: fieldservice.technician.dispatch
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -1005,7 +1005,7 @@ paths:
       operationId: getDispatchBoard
       summary: Read the dispatch board of a territory and local day (FR-45.7)
       description: The active technicians who cover the territory with their assignments of the local day and booked minutes, and the territory's unscheduled work orders (at most 200 of each).
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - { name: territoryId, in: query, required: true, schema: { type: string, format: uuid } }
         - { name: date, in: query, required: true, description: The local calendar day., schema: { type: string, format: date } }
@@ -1026,9 +1026,9 @@ paths:
       description: |
         Moves every SCHEDULED work order with a technician that starts on the local day in the territory and
         legal entity to DISPATCHED (which stops the response clock of its case), records the run with the
-        route order per technician and writes dev.passage.service.dispatch.published.v1. Nothing to dispatch
+        route order per technician and writes dev.depot.service.dispatch.published.v1. Nothing to dispatch
         is SVC-DSP-009.
-      x-passage-duty: fieldservice.technician.dispatch
+      x-depot-duty: fieldservice.technician.dispatch
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1051,7 +1051,7 @@ paths:
     get:
       operationId: listDispatchRuns
       summary: List published dispatch runs newest first
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - { name: territoryId, in: query, schema: { type: string, format: uuid } }
         - $ref: "#/components/parameters/Cursor"
@@ -1069,7 +1069,7 @@ paths:
     get:
       operationId: getDispatchRun
       summary: Read a published dispatch run with its assignments
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -1100,7 +1100,7 @@ paths:
         A failed call is retried by :sync after min(3600, 60 * 2^attempts) seconds and the optimization is
         PARKED after five failures or a refusal that cannot change. Nothing to place is SVC-DSP-016; a
         service without DISPATCH_URL or signing key is SVC-DSP-017.
-      x-passage-duty: fieldservice.technician.dispatch
+      x-depot-duty: fieldservice.technician.dispatch
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1123,7 +1123,7 @@ paths:
     get:
       operationId: listDispatchOptimizations
       summary: List dispatch optimizations newest first
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - { name: territoryId, in: query, schema: { type: string, format: uuid } }
         - { name: status, in: query, schema: { type: string, enum: [PENDING, RUNNING, SUCCEEDED, ACCEPTED, PARKED] } }
@@ -1142,7 +1142,7 @@ paths:
     get:
       operationId: getDispatchOptimization
       summary: Read an optimization with its plan and, once accepted, its outcome
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -1159,7 +1159,7 @@ paths:
       operationId: syncDispatchOptimization
       summary: Take the next step of an optimization
       description: Submits a PENDING optimization whose back-off has passed, or polls the RUNNING run at the dispatch service and stores its plan. Any other state is returned unchanged.
-      x-passage-duty: fieldservice.technician.dispatch
+      x-depot-duty: fieldservice.technician.dispatch
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -1176,7 +1176,7 @@ paths:
     post:
       operationId: retryDispatchOptimization
       summary: Put a PARKED optimization back at attempt zero and try it now
-      x-passage-duty: fieldservice.technician.dispatch
+      x-depot-duty: fieldservice.technician.dispatch
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -1196,11 +1196,11 @@ paths:
       summary: Write the plan of a SUCCEEDED optimization as assignments
       description: |
         Each planned visit goes through the manual assignment checks of BR-45.3 in route order and becomes a
-        SCHEDULED work order (dev.passage.service.assignment.changed.v1 per visit). A visit that fails the checks,
+        SCHEDULED work order (dev.depot.service.assignment.changed.v1 per visit). A visit that fails the checks,
         or whose work order is no longer UNSCHEDULED, is listed in outcome.rejected and does not stop the others.
         Orders assigned when the snapshot was taken keep their assignment. A second accept returns the first
         outcome. Any status but SUCCEEDED and ACCEPTED is SVC-DSP-015.
-      x-passage-duty: fieldservice.technician.dispatch
+      x-depot-duty: fieldservice.technician.dispatch
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -1217,7 +1217,7 @@ paths:
     post:
       operationId: createServiceObject
       summary: "Register a service object by hand with its warranty term (FR-45.1, FR-45.2)"
-      x-passage-duty: fieldservice.service-object.maintain
+      x-depot-duty: fieldservice.service-object.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1242,7 +1242,7 @@ paths:
     get:
       operationId: listServiceObjects
       summary: "Installed base explorer: service objects newest first, by customer, item, serial or parent"
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - { name: customerPartyId, in: query, schema: { type: string, format: uuid } }
         - { name: itemId, in: query, schema: { type: string, format: uuid } }
@@ -1264,7 +1264,7 @@ paths:
     post:
       operationId: receiveShipment
       summary: "Create one ACTIVE service object per serial of a confirmed serialized shipment (FR-45.1, AC-45.8)"
-      x-passage-duty: fieldservice.service-object.maintain
+      x-depot-duty: fieldservice.service-object.maintain
       requestBody:
         required: true
         content:
@@ -1283,7 +1283,7 @@ paths:
     get:
       operationId: getServiceObject
       summary: "Read a service object with its warranty term, start and end"
-      x-passage-duty: fieldservice.inquire
+      x-depot-duty: fieldservice.inquire
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -1301,7 +1301,7 @@ paths:
     post:
       operationId: installServiceObject
       summary: "Record the installation day; an INSTALL warranty starts that day (FR-45.1, FR-45.2)"
-      x-passage-duty: fieldservice.service-object.maintain
+      x-depot-duty: fieldservice.service-object.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -1329,7 +1329,7 @@ paths:
     post:
       operationId: createActivity
       summary: "Create an OPEN activity on any record (FR-45.14)"
-      x-passage-duty: fieldservice.activity.maintain
+      x-depot-duty: fieldservice.activity.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1353,7 +1353,7 @@ paths:
     get:
       operationId: listActivities
       summary: "My activities (owner) or the activities of one record, earliest due first, undated last (PRD 8.45.14); owner or entityType with entityId is required"
-      x-passage-duty: fieldservice.activity.maintain
+      x-depot-duty: fieldservice.activity.maintain
       parameters:
         - { name: owner, in: query, schema: { type: string, format: uuid }, description: "owner worker (My activities)" }
         - { name: entityType, in: query, schema: { type: string, enum: [case, work_order, agreement, service_object, knowledge_article, project, customer, vendor, worker, invoice, item, asset, audit_finding] }, description: "with entityId, the activities of one record" }
@@ -1374,7 +1374,7 @@ paths:
     get:
       operationId: exportActivityCalendar
       summary: "Export up to 500 dated activities of the filter as an RFC 5545 iCalendar (FR-45.14)"
-      x-passage-duty: fieldservice.activity.maintain
+      x-depot-duty: fieldservice.activity.maintain
       parameters:
         - { name: owner, in: query, schema: { type: string, format: uuid }, description: "owner worker (My activities)" }
         - { name: entityType, in: query, schema: { type: string, enum: [case, work_order, agreement, service_object, knowledge_article, project, customer, vendor, worker, invoice, item, asset, audit_finding] }, description: "with entityId, the activities of one record" }
@@ -1393,7 +1393,7 @@ paths:
     get:
       operationId: getActivity
       summary: "Read an activity"
-      x-passage-duty: fieldservice.activity.maintain
+      x-depot-duty: fieldservice.activity.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -1411,7 +1411,7 @@ paths:
     post:
       operationId: completeActivity
       summary: "Mark an OPEN activity DONE with a timestamp (AC-45.15); completing a DONE activity is a no-op"
-      x-passage-duty: fieldservice.activity.maintain
+      x-depot-duty: fieldservice.activity.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -1434,7 +1434,7 @@ paths:
     post:
       operationId: cancelActivity
       summary: "Cancel an OPEN activity; canceling a CANCELED activity is a no-op"
-      x-passage-duty: fieldservice.activity.maintain
+      x-depot-duty: fieldservice.activity.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -1457,7 +1457,7 @@ paths:
     post:
       operationId: rescheduleActivity
       summary: "Replace the due, start and end of an OPEN activity"
-      x-passage-duty: fieldservice.activity.maintain
+      x-depot-duty: fieldservice.activity.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -1485,7 +1485,7 @@ paths:
     post:
       operationId: createArticle
       summary: "Start a knowledge article (KB-{seq}) at version 1 in DRAFT with the caller as author (FR-45.13)"
-      x-passage-duty: fieldservice.knowledge-article.author
+      x-depot-duty: fieldservice.knowledge-article.author
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1508,7 +1508,7 @@ paths:
     get:
       operationId: listArticles
       summary: "Article versions newest first, by status, language or number"
-      x-passage-duty: fieldservice.knowledge-article.read
+      x-depot-duty: fieldservice.knowledge-article.read
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [DRAFT, IN_REVIEW, PUBLISHED, RETIRED] } }
         - { name: lang, in: query, schema: { type: string, example: en } }
@@ -1528,7 +1528,7 @@ paths:
     get:
       operationId: searchArticles
       summary: "Search and suggest PUBLISHED articles for a case (BR-45.11): 0.6 text rank plus item, incident type and asset type matches"
-      x-passage-duty: fieldservice.knowledge-article.read
+      x-depot-duty: fieldservice.knowledge-article.read
       parameters:
         - { name: q, in: query, schema: { type: string, maxLength: 500 }, description: "case description or search text; an article matching any of its words is a candidate" }
         - { name: itemId, in: query, schema: { type: string, format: uuid } }
@@ -1549,7 +1549,7 @@ paths:
     get:
       operationId: getArticle
       summary: "Read one article version"
-      x-passage-duty: fieldservice.knowledge-article.read
+      x-depot-duty: fieldservice.knowledge-article.read
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -1566,7 +1566,7 @@ paths:
     put:
       operationId: updateArticle
       summary: "Replace the content of a DRAFT version (the language is fixed)"
-      x-passage-duty: fieldservice.knowledge-article.author
+      x-depot-duty: fieldservice.knowledge-article.author
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -1594,7 +1594,7 @@ paths:
     post:
       operationId: newArticleVersion
       summary: "Start the next DRAFT version of a PUBLISHED or RETIRED article with the caller as author; one version is open at a time (KB-ART-003)"
-      x-passage-duty: fieldservice.knowledge-article.author
+      x-depot-duty: fieldservice.knowledge-article.author
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -1617,7 +1617,7 @@ paths:
     post:
       operationId: submitArticle
       summary: "Send a DRAFT version to review"
-      x-passage-duty: fieldservice.knowledge-article.author
+      x-depot-duty: fieldservice.knowledge-article.author
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -1640,7 +1640,7 @@ paths:
     post:
       operationId: rejectArticle
       summary: "Send an IN_REVIEW version back to DRAFT"
-      x-passage-duty: fieldservice.knowledge-article.publish
+      x-depot-duty: fieldservice.knowledge-article.publish
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -1663,7 +1663,7 @@ paths:
     post:
       operationId: retireArticle
       summary: "Retire a PUBLISHED version without a successor"
-      x-passage-duty: fieldservice.knowledge-article.publish
+      x-depot-duty: fieldservice.knowledge-article.publish
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -1685,8 +1685,8 @@ paths:
   /v1/service/knowledge/articles/{id}:publish:
     post:
       operationId: publishArticle
-      summary: "Publish an IN_REVIEW version with the caller as reviewer, who must differ from the author (KB-PUB-001); retires the earlier PUBLISHED version (KB-PUB-002) and emits dev.passage.knowledge.article.published.v1"
-      x-passage-duty: fieldservice.knowledge-article.publish
+      summary: "Publish an IN_REVIEW version with the caller as reviewer, who must differ from the author (KB-PUB-001); retires the earlier PUBLISHED version (KB-PUB-002) and emits dev.depot.knowledge.article.published.v1"
+      x-depot-duty: fieldservice.knowledge-article.publish
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -1709,7 +1709,7 @@ paths:
     post:
       operationId: voteArticle
       summary: "Record the caller's helpful or not-helpful vote on a PUBLISHED version; voting again replaces it"
-      x-passage-duty: fieldservice.knowledge-article.read
+      x-depot-duty: fieldservice.knowledge-article.read
       parameters:
         - $ref: "#/components/parameters/Id"
       requestBody:
@@ -1734,7 +1734,7 @@ paths:
     post:
       operationId: createCaseProcess
       summary: Define a case process with ordered stages and the activities each stage requires (FR-45.12, BR-45.9)
-      x-passage-duty: fieldservice.case-setup.admin
+      x-depot-duty: fieldservice.case-setup.admin
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1757,7 +1757,7 @@ paths:
     get:
       operationId: listCaseProcesses
       summary: List the case processes ordered by code (at most 500); any one of the listed duties suffices
-      x-passage-duty: [fieldservice.case.maintain, fieldservice.case.create, fieldservice.case-setup.admin]
+      x-depot-duty: [fieldservice.case.maintain, fieldservice.case.create, fieldservice.case-setup.admin]
       responses:
         "200":
           description: The processes
@@ -1774,7 +1774,7 @@ paths:
     post:
       operationId: createCaseCategory
       summary: Define a node of the case category tree with its type, process, SLA profile, resolution codes and access duty (FR-45.12, BR-45.10)
-      x-passage-duty: fieldservice.case-setup.admin
+      x-depot-duty: fieldservice.case-setup.admin
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1797,7 +1797,7 @@ paths:
     get:
       operationId: listCaseCategories
       summary: List the case categories ordered by code (at most 500); any one of the listed duties suffices
-      x-passage-duty: [fieldservice.case.maintain, fieldservice.case.create, fieldservice.case-setup.admin]
+      x-depot-duty: [fieldservice.case.maintain, fieldservice.case.create, fieldservice.case-setup.admin]
       responses:
         "200":
           description: The categories
@@ -1821,7 +1821,7 @@ paths:
         entitlement and SLA. COLLECTIONS needs customerPartyId (CASE-CUS-001). A category
         SLA profile sets the response and resolution dues. Priority defaults to the
         category's default priority.
-      x-passage-duty: fieldservice.case.create
+      x-depot-duty: fieldservice.case.create
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1845,7 +1845,7 @@ paths:
     get:
       operationId: listGenericCases
       summary: List the cases the caller may read (BR-45.10) newest first inside the caller's legal-entity scope
-      x-passage-duty: fieldservice.case.maintain
+      x-depot-duty: fieldservice.case.maintain
       parameters:
         - { name: categoryId, in: query, schema: { type: string, format: uuid } }
         - { name: status, in: query, schema: { type: string, enum: [OPEN, RESOLVED, CLOSED, CANCELED] } }
@@ -1868,7 +1868,7 @@ paths:
     get:
       operationId: getGenericCase
       summary: Read a case with its associations and log; 403 CASE-SEC-001 outside the category's access (AC-45.11)
-      x-passage-duty: fieldservice.case.maintain
+      x-depot-duty: fieldservice.case.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -1891,8 +1891,8 @@ paths:
         on the case (an activity whose associations hold {entityType case, entityId the
         case id} and whose subject equals the template), else CASE-STG-001 naming the
         missing activities. Any other target is CASE-STG-002. Emits
-        dev.passage.case.stage.changed.v1 in the same transaction.
-      x-passage-duty: fieldservice.case.maintain
+        dev.depot.case.stage.changed.v1 in the same transaction.
+      x-depot-duty: fieldservice.case.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -1931,7 +1931,7 @@ paths:
         OPEN to RESOLVED (resolutionCode required, from the category's list when it has
         one: CASE-RES-001, CASE-RES-002) or CANCELED; RESOLVED to CLOSED. CLOSED and
         CANCELED are final; see :reopen.
-      x-passage-duty: fieldservice.case.maintain
+      x-depot-duty: fieldservice.case.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -1973,7 +1973,7 @@ paths:
         disables it) the case itself returns to OPEN at its stage with its resolution
         cleared (200). After the window a new OPEN case is created at the first stage,
         linked by reopenedFrom and carrying the original's associations (201).
-      x-passage-duty: fieldservice.case.maintain
+      x-depot-duty: fieldservice.case.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -2015,7 +2015,7 @@ paths:
       operationId: associateCase
       summary: Associate any registry record with a case that is not CLOSED or CANCELED (FR-45.12)
       description: Associating the same record again replaces its role. The case version moves; no If-Match is needed (PRD 8.45.5).
-      x-passage-duty: fieldservice.case.maintain
+      x-depot-duty: fieldservice.case.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -2049,7 +2049,7 @@ paths:
         consumer) carries one line per source and its legal entity, currency and completion date. Each line
         claims partAmount + laborHours × laborRate, rounded half-even to the currency (laborRate 0 when the
         vendor does not cover labor). A work order is claimed once (SVC-SWC-009).
-      x-passage-duty: fieldservice.supplier-claim.maintain
+      x-depot-duty: fieldservice.supplier-claim.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -2099,7 +2099,7 @@ paths:
     get:
       operationId: listSupplierClaims
       summary: List supplier claims newest first
-      x-passage-duty: fieldservice.supplier-claim.maintain or fieldservice.inquire
+      x-depot-duty: fieldservice.supplier-claim.maintain or fieldservice.inquire
       parameters:
         - { name: vendorPartyId, in: query, schema: { type: string, format: uuid } }
         - { name: status, in: query, schema: { type: string, enum: [DRAFT, SUBMITTED, ACCEPTED, PARTIALLY_ACCEPTED, REJECTED, SETTLED, CLOSED] } }
@@ -2123,7 +2123,7 @@ paths:
     get:
       operationId: getSupplierClaim
       summary: Read one supplier claim; ETag carries its version
-      x-passage-duty: fieldservice.supplier-claim.maintain or fieldservice.inquire
+      x-depot-duty: fieldservice.supplier-claim.maintain or fieldservice.inquire
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -2142,7 +2142,7 @@ paths:
       operationId: submitSupplierClaim
       summary: Submit a DRAFT claim to the vendor today (BR-45.12)
       description: Refused after the vendor's claim window (SVC-SWC-001) and, when the vendor requires the failed part back, without a return order (SVC-SWC-002).
-      x-passage-duty: fieldservice.supplier-claim.maintain
+      x-depot-duty: fieldservice.supplier-claim.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -2172,7 +2172,7 @@ paths:
         ACCEPTED accepts every line in full (acceptedAmounts may be omitted); PARTIALLY_ACCEPTED needs one
         amount per line totalling more than zero and less than the claim; REJECTED needs a reason and
         accepts nothing. No line accepts more than it claimed (SVC-SWC-003).
-      x-passage-duty: fieldservice.supplier-claim.maintain
+      x-depot-duty: fieldservice.supplier-claim.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -2205,9 +2205,9 @@ paths:
       description: |
         The credit note quotes the claim's vendor reference (SVC-SWC-010) and credits exactly the accepted
         total in the claim currency (SVC-SWC-005). The claim becomes SETTLED with the credit as the recovered
-        amount, and `dev.passage.service.supplierclaim.settled.v1` goes to the outbox for the GL warranty
+        amount, and `dev.depot.service.supplierclaim.settled.v1` goes to the outbox for the GL warranty
         recovery.
-      x-passage-duty: fieldservice.supplier-claim.maintain
+      x-depot-duty: fieldservice.supplier-claim.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -2237,7 +2237,7 @@ paths:
     post:
       operationId: closeSupplierClaim
       summary: Close a REJECTED (with its reason, no posting) or SETTLED claim
-      x-passage-duty: fieldservice.supplier-claim.maintain
+      x-depot-duty: fieldservice.supplier-claim.maintain
       parameters:
         - $ref: "#/components/parameters/Id"
         - $ref: "#/components/parameters/IfMatch"
@@ -2258,7 +2258,7 @@ paths:
         The lower-cased address is the natural key, so the call is idempotent without an Idempotency-Key.
         The default category cannot be SERVICE or CUSTOMER_SERVICE (CASE-CAT-002) or require a customer
         (COLLECTIONS, CASE-MAIL-003).
-      x-passage-duty: fieldservice.case-setup.admin
+      x-depot-duty: fieldservice.case-setup.admin
       requestBody:
         required: true
         content:
@@ -2288,7 +2288,7 @@ paths:
     get:
       operationId: listCaseMailboxes
       summary: List the case mailboxes by address
-      x-passage-duty: fieldservice.case.maintain, fieldservice.case.create or fieldservice.case-setup.admin
+      x-depot-duty: fieldservice.case.maintain, fieldservice.case.create or fieldservice.case-setup.admin
       responses:
         "200":
           description: Every mailbox in the caller's legal-entity scope
@@ -2314,7 +2314,7 @@ paths:
         (Auto-Submitted other than "no", or X-Autoreply); the hub sends the acknowledgment. An attached
         message answers 200 with the info message CASE-MAIL-001. The Message-ID is the idempotency key: a
         redelivery answers 200 with Idempotent-Replayed true and the stored result.
-      x-passage-duty: fieldservice.case.create
+      x-depot-duty: fieldservice.case.create
       requestBody:
         required: true
         content:
@@ -2352,7 +2352,7 @@ paths:
     get:
       operationId: listInboundMessages
       summary: List inbound email newest first, without the messages of cases the caller may not read
-      x-passage-duty: fieldservice.case.maintain
+      x-depot-duty: fieldservice.case.maintain
       parameters:
         - { name: mailbox, in: query, schema: { type: string, format: email } }
         - { name: caseId, in: query, schema: { type: string, format: uuid } }
@@ -2430,7 +2430,7 @@ components:
       type: object
       required: [type, title, status]
       properties:
-        type: { type: string, example: "https://passage.dev/problems/SVC-WO-011" }
+        type: { type: string, example: "https://depot.dev/problems/SVC-WO-011" }
         title: { type: string }
         status: { type: integer }
         detail: { type: string }

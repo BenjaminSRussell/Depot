@@ -12,9 +12,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/golden"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/store"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/golden"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/store"
 )
 
 // AC-9.1 through the HTTP handler: the adversarial fixture exploded for site

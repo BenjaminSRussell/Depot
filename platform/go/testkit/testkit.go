@@ -1,5 +1,5 @@
 // Package testkit gives integration tests a Postgres pool scoped to a fresh
-// schema. Tests call DB(t) and are skipped when PASSAGE_TEST_DATABASE_URL is
+// schema. Tests call DB(t) and are skipped when DEPOT_TEST_DATABASE_URL is
 // unset, so `go test ./...` always passes on a laptop without Postgres.
 package testkit
 
@@ -14,15 +14,15 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 // EnvURL is the environment variable that enables database tests.
-const EnvURL = "PASSAGE_TEST_DATABASE_URL"
+const EnvURL = "DEPOT_TEST_DATABASE_URL"
 
 // EnvAppURL is the application-role database URL used by RLS integration tests.
-const EnvAppURL = "PASSAGE_TEST_APP_DATABASE_URL"
+const EnvAppURL = "DEPOT_TEST_APP_DATABASE_URL"
 
 // sharedExtensions runs sharedExtensionsSQL once per test binary.
 var sharedExtensions sync.Once

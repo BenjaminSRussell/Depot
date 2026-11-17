@@ -89,26 +89,26 @@ CREATE INDEX IF NOT EXISTS shipment_tracking_event_time_idx ON shipment_tracking
 ALTER TABLE wave ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wave FORCE ROW LEVEL SECURITY;
 CREATE POLICY wave_tenant_access ON wave AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY wave_legal_entity_scope ON wave AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE wave_shipment ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wave_shipment FORCE ROW LEVEL SECURITY;
 CREATE POLICY wave_shipment_tenant_access ON wave_shipment AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE wave_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wave_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY wave_line_tenant_access ON wave_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE shipment_tracking_event ENABLE ROW LEVEL SECURITY;
 ALTER TABLE shipment_tracking_event FORCE ROW LEVEL SECURITY;
 CREATE POLICY shipment_tracking_event_tenant_access ON shipment_tracking_event AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

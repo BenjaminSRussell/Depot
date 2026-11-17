@@ -8,19 +8,19 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/eventing/kafka"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/api"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
-	"github.com/BenjaminSRussell/passage/services/purchasing/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/eventing/kafka"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/api"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/purchasing/migrations"
 )
 
 // deadLetterTopic takes the records the consumer cannot handle from either source topic; the origin
 // topic, partition and offset travel in the x-origin-* headers, so one topic serves both.
-const deadLetterTopic = "passage.procurement.inbound.dlq"
+const deadLetterTopic = "depot.procurement.inbound.dlq"
 
 // inboundTopics are the topics the consumer follows: fulfillment's drop-ship events and planning's
 // message decisions.

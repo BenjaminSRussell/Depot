@@ -8,7 +8,7 @@ import (
 )
 
 // Database tests for slice 13: releasing quarantined bank_balances and onhand lines (S11-a). They
-// skip without PASSAGE_TEST_DATABASE_URL and run as passage_app when PASSAGE_TEST_APP_DATABASE_URL is set.
+// skip without DEPOT_TEST_DATABASE_URL and run as depot_app when DEPOT_TEST_APP_DATABASE_URL is set.
 
 // bankFiller adds n clean lines on accounts F0..F(n-1) so a single quarantined line stays under the
 // 10 % limit; the returned master lists them with the accounts bankBody already knows.
@@ -66,11 +66,11 @@ func TestBankBalances_ReleaseCorrectsAccountAndReconciles(t *testing.T) {
 	if r := after.Quarantined[0]; r.Status != "RELEASED" || r.ReleasedBy != "ops" || r.Released == nil || r.Released.Account != "SAV-USD" {
 		t.Fatalf("released row %+v", r)
 	}
-	if n := count(t, admin, `select count(*) from bank_opening_balance b join legacy_xref x on x.xref_id = b.legacy_xref_id and x.passage_id = b.balance_id
+	if n := count(t, admin, `select count(*) from bank_opening_balance b join legacy_xref x on x.xref_id = b.legacy_xref_id and x.depot_id = b.balance_id
 		where b.run_id = $1 and b.legacy_id = 'BK-2' and b.bank_account = 'SAV-USD' and b.balance = -20.25 and x.source_table = 'bank_balances'`, run.RunID); n != 1 {
 		t.Fatalf("released balance rows tied to their cross-reference = %d", n)
 	}
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.migration.pack.reconciled.v1' and aggregate_id = $1`, run.RunID); n != 2 {
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.migration.pack.reconciled.v1' and aggregate_id = $1`, run.RunID); n != 2 {
 		t.Fatalf("pack.reconciled events = %d, want the run's and the release's", n)
 	}
 	// The release is idempotent by record, and a re-run of the same extract finds the balance held.
@@ -155,7 +155,7 @@ func TestOnhand_ReleaseCorrectsItemAndReconcilesWithTheGLAccount(t *testing.T) {
 	if acct != 1 {
 		t.Fatalf("inventory account totals = %d", acct)
 	}
-	if n := count(t, admin, `select count(*) from onhand_opening_balance b join legacy_xref x on x.xref_id = b.legacy_xref_id and x.passage_id = b.balance_id
+	if n := count(t, admin, `select count(*) from onhand_opening_balance b join legacy_xref x on x.xref_id = b.legacy_xref_id and x.depot_id = b.balance_id
 		where b.run_id = $1 and b.legacy_id = 'OH-2' and b.item = 'BOLT-10' and b.site = 'S2' and b.quantity = 40 and b.value = 100 and x.amount = 100`, run.RunID); n != 1 {
 		t.Fatalf("released stock rows = %d", n)
 	}

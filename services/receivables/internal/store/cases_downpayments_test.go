@@ -9,9 +9,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
-	rcvevents "github.com/BenjaminSRussell/passage/services/receivables/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
+	rcvevents "github.com/BenjaminSRussell/depot/services/receivables/internal/events"
 )
 
 func customer(n int) string { return fmt.Sprintf("00000000-0000-0000-0000-%012d", 9000+n) }

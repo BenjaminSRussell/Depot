@@ -34,7 +34,7 @@ var ErrBadCursor = errors.New("finreport: malformed drill-down cursor")
 // and credit are at the currency type's scale; the line belongs to the balance
 // (ledger, period, account, combination, currency type). ClosingEntry marks
 // lines of closing entries, which income statements and cash flows leave out
-// (BR-15.2). SourceURI is a Passage route ("/ap/invoices/…") or an http(s) URL
+// (BR-15.2). SourceURI is a Depot route ("/ap/invoices/…") or an http(s) URL
 // of the source document; TraceID is the posting's trace.
 type JournalLine struct {
 	LedgerID        string
@@ -81,13 +81,13 @@ func (l JournalLine) Validate() error {
 		return errf(CodeLineInvalid, "posting date %q is not YYYY-MM-DD", l.PostingDate)
 	}
 	if !SafeSourceURI(l.SourceURI) {
-		return errf(CodeLineInvalid, "source %q is neither a Passage route nor an http(s) URL", l.SourceURI)
+		return errf(CodeLineInvalid, "source %q is neither a Depot route nor an http(s) URL", l.SourceURI)
 	}
 	return nil
 }
 
 // SafeSourceURI reports whether a source link can be offered to a browser: an
-// empty value, an absolute Passage route ("/…", not "//…"), or an http or https
+// empty value, an absolute Depot route ("/…", not "//…"), or an http or https
 // URL with a host. Anything else (javascript:, data:, relative paths) is
 // refused so a drill-down link can never run script.
 func SafeSourceURI(s string) bool {

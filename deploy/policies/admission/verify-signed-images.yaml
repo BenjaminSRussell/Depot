@@ -17,7 +17,7 @@ spec:
         any:
           - resources:
               kinds: [Pod, Pod/ephemeralcontainers]
-              namespaces: [hello-ledger, passage-*]
+              namespaces: [hello-ledger, depot-*]
       validate:
         failureAction: Enforce
         message: Images under ghcr.io/benjaminsrussell/ must be referenced by @sha256 digest, not a mutable tag.
@@ -72,7 +72,7 @@ spec:
         any:
           - resources:
               kinds: [Pod, Pod/ephemeralcontainers]
-              namespaces: [hello-ledger, passage-*]
+              namespaces: [hello-ledger, depot-*]
       verifyImages:
         - type: Cosign
           failureAction: Enforce
@@ -87,9 +87,9 @@ spec:
               entries:
                 - keyless:
                     issuer: https://token.actions.githubusercontent.com
-                    subjectRegExp: ^https://github\.com/BenjaminSRussell/Passage/\.github/workflows/ci\.yml@refs/(heads/main|tags/v.+)$
+                    subjectRegExp: ^https://github\.com/BenjaminSRussell/Depot/\.github/workflows/ci\.yml@refs/(heads/main|tags/v.+)$
                     additionalExtensions:
-                      githubWorkflowRepository: BenjaminSRussell/Passage
+                      githubWorkflowRepository: BenjaminSRussell/Depot
                     rekor:
                       url: https://rekor.sigstore.dev
           attestations:
@@ -99,8 +99,8 @@ spec:
                   entries:
                     - keyless:
                         issuer: https://token.actions.githubusercontent.com
-                        subjectRegExp: ^https://github\.com/BenjaminSRussell/Passage/\.github/workflows/ci\.yml@refs/(heads/main|tags/v.+)$
+                        subjectRegExp: ^https://github\.com/BenjaminSRussell/Depot/\.github/workflows/ci\.yml@refs/(heads/main|tags/v.+)$
                         additionalExtensions:
-                          githubWorkflowRepository: BenjaminSRussell/Passage
+                          githubWorkflowRepository: BenjaminSRussell/Depot
                         rekor:
                           url: https://rekor.sigstore.dev

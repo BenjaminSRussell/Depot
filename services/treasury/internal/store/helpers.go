@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/domain"
 )
 
 // Problem codes raised by the check, facility and loan stores (see README).
@@ -27,7 +27,7 @@ const (
 	MaxChecksListed        = 200
 )
 
-// unprocessable is a 422 problem with a Passage code.
+// unprocessable is a 422 problem with a Depot code.
 func unprocessable(code, detail string) error {
 	return httpx.NewProblem(http.StatusUnprocessableEntity, code, detail)
 }

@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/identity"
+	"github.com/BenjaminSRussell/depot/services/identity"
 )
 
 const (
 	defaultAddr     = "127.0.0.1:8088"
-	defaultAudience = "passage-api"
-	upstreamPrefix  = "PASSAGE_SVC_"
+	defaultAudience = "depot-api"
+	upstreamPrefix  = "DEPOT_SVC_"
 	upstreamSuffix  = "_URL"
 
 	allowNonLocalEnv = "DEVGATEWAY_ALLOW_NONLOCAL"
@@ -108,7 +108,7 @@ func upstreamsFrom(environ []string) (map[string]*url.URL, error) {
 		out[strings.ToLower(name)] = target
 	}
 	if len(out) == 0 {
-		return nil, errors.New("no upstream configured: set PASSAGE_SVC_<NAME>_URL")
+		return nil, errors.New("no upstream configured: set DEPOT_SVC_<NAME>_URL")
 	}
 	return out, nil
 }

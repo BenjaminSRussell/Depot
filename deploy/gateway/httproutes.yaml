@@ -5,7 +5,7 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-api
+    - name: depot-api
   rules:
     - matches:
         - path:
@@ -35,7 +35,7 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-api
+    - name: depot-api
   rules:
     - matches:
         - path:
@@ -65,7 +65,7 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-api
+    - name: depot-api
   rules:
     - matches:
         - path:
@@ -95,7 +95,7 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-api
+    - name: depot-api
   rules:
     - matches:
         - path:
@@ -125,7 +125,7 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-api
+    - name: depot-api
   rules:
     - matches:
         - path:
@@ -155,7 +155,7 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-api
+    - name: depot-api
   rules:
     - matches:
         - path:
@@ -185,7 +185,7 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-api
+    - name: depot-api
   rules:
     - matches:
         - path:
@@ -215,7 +215,7 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-api
+    - name: depot-api
   rules:
     - matches:
         - path:
@@ -245,7 +245,7 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-api
+    - name: depot-api
   rules:
     - matches:
         - path:
@@ -275,7 +275,7 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-api
+    - name: depot-api
   rules:
     - matches:
         - path:
@@ -305,7 +305,7 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-api
+    - name: depot-api
   rules:
     - matches:
         - path:
@@ -335,7 +335,7 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-api
+    - name: depot-api
   rules:
     - matches:
         - path:
@@ -365,7 +365,7 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-api
+    - name: depot-api
   rules:
     - matches:
         - path:
@@ -395,7 +395,7 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-api
+    - name: depot-api
   rules:
     - matches:
         - path:
@@ -425,7 +425,7 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-api
+    - name: depot-api
   rules:
     - matches:
         - path:
@@ -455,7 +455,7 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-api
+    - name: depot-api
   rules:
     - matches:
         - path:
@@ -485,7 +485,7 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-api
+    - name: depot-api
   rules:
     - matches:
         - path:

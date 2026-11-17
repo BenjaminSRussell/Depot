@@ -35,7 +35,7 @@ export function createAgentRunActivities(baseUrl: string, signer: ServiceTokenSi
     const response = await fetchImpl(`${baseUrl}/api/v1/agents/runs/${encodeURIComponent(ref.runId)}/steps/${step}`, {
       method: "POST",
       headers: {
-        "X-Passage-Service-Token": mintOrReject(() => signer.mintForAgents({ tenantId: ref.tenantId, actor: ref.actor })),
+        "X-Depot-Service-Token": mintOrReject(() => signer.mintForAgents({ tenantId: ref.tenantId, actor: ref.actor })),
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),

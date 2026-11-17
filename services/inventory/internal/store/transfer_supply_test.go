@@ -9,9 +9,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 // buckets returns the ON_ORDER and ORDERED quantities of a product at one warehouse (and site).
@@ -51,7 +51,7 @@ func eventCount(t *testing.T, admin *pgxpool.Pool, typ, aggregate string) int {
 	return n
 }
 
-const transferChangedType = "dev.passage.inventory.transfer.changed.v1"
+const transferChangedType = "dev.depot.inventory.transfer.changed.v1"
 
 // Creating a CREATED order books demand at the shipping warehouse and the expected receipt at the
 // receiving one and announces the order; a draft books and announces nothing until confirmed.
@@ -280,7 +280,7 @@ func TestTransferSupplyEventsCarryFinalAvailability(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows, err := admin.Query(context.Background(), `select payload->'data'->>'deltaBucket', payload->'data'->>'deltaQty', payload->'data'->>'availOrdered'
-		from outbox where type = 'dev.passage.inventory.onhand.changed.v1' and payload->'data'->>'productId' = $1
+		from outbox where type = 'dev.depot.inventory.onhand.changed.v1' and payload->'data'->>'productId' = $1
 		  and payload->'data'->'dimensionSet'->>'warehouse' = 'W2'`, p)
 	if err != nil {
 		t.Fatal(err)

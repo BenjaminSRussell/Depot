@@ -85,44 +85,44 @@ CREATE TABLE IF NOT EXISTS batch_disposition_history (
 ALTER TABLE batch_attribute_def ENABLE ROW LEVEL SECURITY;
 ALTER TABLE batch_attribute_def FORCE ROW LEVEL SECURITY;
 CREATE POLICY batch_attribute_def_tenant_access ON batch_attribute_def AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE batch_record ENABLE ROW LEVEL SECURITY;
 ALTER TABLE batch_record FORCE ROW LEVEL SECURITY;
 CREATE POLICY batch_record_tenant_access ON batch_record AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY batch_record_legal_entity_scope ON batch_record AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE batch_attribute_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE batch_attribute_history FORCE ROW LEVEL SECURITY;
 CREATE POLICY batch_attribute_history_tenant_access ON batch_attribute_history AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY batch_attribute_history_legal_entity_scope ON batch_attribute_history AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE batch_disposition_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE batch_disposition_history FORCE ROW LEVEL SECURITY;
 CREATE POLICY batch_disposition_history_tenant_access ON batch_disposition_history AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY batch_disposition_history_legal_entity_scope ON batch_disposition_history AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Definitions and both histories are only read and inserted; batch_record is
 -- also updated (disposition, expiry, version) under a row lock.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT ON batch_attribute_def, batch_attribute_history, batch_disposition_history TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON batch_record TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT ON batch_attribute_def, batch_attribute_history, batch_disposition_history TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON batch_record TO depot_app';
   END IF;
 END
 $$;

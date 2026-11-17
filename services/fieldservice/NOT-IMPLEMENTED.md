@@ -1,4 +1,4 @@
-# NOT-IMPLEMENTED — PSG-45 (wave 45), slices 1 to 10
+# NOT-IMPLEMENTED — DPT-45 (wave 45), slices 1 to 10
 
 Slice 10 (issue #45: technician day, captures, truck stock) delivers: `GET /v1/service/technicians/{id|me}/day`
 (the published route of a local day with each visit's customer, case, address, window, lines with the quantity
@@ -54,7 +54,7 @@ greedy dispatch checker and solver in `services/dispatch-py`; the web service mo
 with list, create and detail screens for cases, agreements, work orders and SLA
 profiles; OpenAPI, AsyncAPI, chart, Dockerfile.
 
-Slice 2 (PSG-4502) delivers: the case status machine (`POST /cases/{id}:transition`,
+Slice 2 (DPT-4502) delivers: the case status machine (`POST /cases/{id}:transition`,
 If-Match) with SLA pause and resume (WAITING_CUSTOMER, WAITING_PARTS under
 `pauseOnParts`), the response stamp from leaving NEW or the first DISPATCHED work
 order, MET/BREACHED resolution; one SLA monitor pass (`POST /sla:scan`) that emits
@@ -64,7 +64,7 @@ BR-45.5); `GET /kpis` with SLA attainment, mean time to respond and resolve and 
 first-time-fix rate; and in the web module the case status actions, SLA alerts, the
 follow-up action and a KPI dashboard.
 
-Slice 3 (PSG-4503) delivers: the installed base (`service_object`) registered by hand
+Slice 3 (DPT-4503) delivers: the installed base (`service_object`) registered by hand
 or from a confirmed serialized shipment (`:receive-shipment`, one ACTIVE object per
 serial, idempotent per item and serial) with parent/child structure, installation and
 a warranty term per object (parts, labor and travel flags, months from SHIP, INSTALL
@@ -74,26 +74,26 @@ of its work orders to warranty when posted (FR-45.2, BR-45.4, AC-45.6); activiti
 complete, cancel, reschedule and an iCalendar export (FR-45.14, AC-45.15); the
 knowledge base with versioned per-language articles, the DRAFT → IN_REVIEW →
 PUBLISHED → RETIRED lifecycle, reviewer ≠ author (`KB-PUB-001`), publishing retiring
-the previous version (`KB-PUB-002`) with `dev.passage.knowledge.article.published.v1`
+the previous version (`KB-PUB-002`) with `dev.depot.knowledge.article.published.v1`
 through the outbox, helpfulness votes and ranked suggestions (BR-45.11, AC-45.12);
 and in the web module the installed-base explorer, "My activities", the knowledge
 base screens, and activities and suggested articles on the case detail.
 
-Slice 4 (PSG-4504) delivers generic case management (FR-45.12): case processes with
+Slice 4 (DPT-4504) delivers generic case management (FR-45.12): case processes with
 ordered stages and the activities each stage requires; the case category tree (type,
 parent, process, SLA profile, default priority, reopen window, resolution codes and an
 access duty); cases in any non-service category (`POST /v1/cases`, starting at the
 first stage, the category's SLA profile setting the dues, COLLECTIONS requiring a
 customer) with associations to any registry record and a case log; the stage gate
 (`CASE-STG-001` until the stage's required activities are DONE on the case, back one
-stage with a reason) emitting `dev.passage.case.stage.changed.v1` through the outbox;
+stage with a reason) emitting `dev.depot.case.stage.changed.v1` through the outbox;
 resolve with a category resolution code, close, cancel and reopen (in place within
 the window, else a new case linked by `reopenedFrom`) (BR-45.9, AC-45.10); category
 security by access duty and ownership on open, read, list and every change (BR-45.10,
 AC-45.11 403); and in the web module the case list, open case, case detail and case
 setup screens.
 
-Slice 5 (PSG-4505) delivers supplier warranty claims (FR-45.15, BR-45.12): claims
+Slice 5 (DPT-4505) delivers supplier warranty claims (FR-45.15, BR-45.12): claims
 created from the WARRANTY lines of POSTED service work orders (one line per order with
 the warranty part cost, the warranty labor hours, the service object's item and serial)
 or with given lines for EAM work orders, each line claiming part + hours × the
@@ -101,7 +101,7 @@ vendor's labor rate; one claim per work order; submission inside the vendor's cl
 window (`SVC-SWC-001`) with the failed-part return when the vendor requires it
 (`SVC-SWC-002`); the vendor decision ACCEPTED, PARTIALLY_ACCEPTED or REJECTED with
 accepted amounts per line (`SVC-SWC-003`); settlement by matching the credit note's
-vendor reference and amount, which writes `dev.passage.service.supplierclaim.settled.v1`
+vendor reference and amount, which writes `dev.depot.service.supplierclaim.settled.v1`
 through the outbox; close (AC-45.13). And email-to-case intake (FR-45.16, BR-45.13):
 case mailboxes with a default category; inbound messages threaded by `[CS-n]` token
 or In-Reply-To onto an open case and logged there (`CASE-MAIL-001`), a new case linked
@@ -111,17 +111,17 @@ auto-replies; Message-ID redelivery answered from the stored message; attachment
 metadata (AC-45.14). In the web module: the supplier claim list, create and detail
 with every action, and the case mailbox screen. Everything below is not built yet.
 
-Slice 6 (PSG-4506) delivers the service agreement lifecycle and included-visit
+Slice 6 (DPT-4506) delivers the service agreement lifecycle and included-visit
 consumption (FR-45.3): `POST /agreements/{id}:transition` (If-Match, optional
 Idempotency-Key) activates a DRAFT, suspends and resumes (SUSPENDED entitles nothing),
 and cancels, with a required reason for suspend and cancel, activation refused once
 `validTo` is behind today (`SVC-AGR-006`) and every move written to a status history
-and to `dev.passage.service.agreement.changed.v1` through the outbox; the expiry pass
+and to `dev.depot.service.agreement.changed.v1` through the outbox; the expiry pass
 (`POST /agreements:expire`, ACTIVE and SUSPENDED past `validTo` become EXPIRED, once,
 `SKIP LOCKED`); visits (`POST /agreements/{id}/visits`) that consume a line's
 `includedVisits` (ACTIVE agreement, inside the term, a line with a visit left, a work
 order of the agreement consuming at most one; the agreement row is locked) and write
-`dev.passage.service.agreementvisit.recorded.v1`; visit and history lists; the agreement
+`dev.depot.service.agreementvisit.recorded.v1`; visit and history lists; the agreement
 version and ETag on read and create; and in the web module the status actions with a
 reason form, the visits table with per-line usage, the record-visit form, the status
 history and an "Expire ended agreements" action. The AsyncAPI doc gate is at zero FAIL
@@ -133,7 +133,7 @@ ended before a work order's completion day cover nothing even while it is still
 ACTIVE (so a late expiry pass changes no billing), and reloads the detail page after
 a version conflict that follows an earlier move.
 
-Slice 7 (PSG-4507) delivers manual dispatch (FR-45.7, BR-45.3): technicians (code, name,
+Slice 7 (DPT-4507) delivers manual dispatch (FR-45.7, BR-45.3): technicians (code, name,
 legal entity, territories, skill codes, time zone, working weekdays, shift, home position,
 daily maximum, overtime flag; create with Idempotency-Key, read, list by territory and
 status, update with If-Match, no deactivation while work orders are ahead, and no edit that
@@ -145,15 +145,15 @@ window); `:assign` and `:unassign` with the hard constraints enforced in
 skills `SVC-DSP-003`, customer window `SVC-DSP-005`, shift with overtime `SVC-DSP-006`,
 5 minute buffer `SVC-DSP-007`, daily maximum `SVC-DSP-008`), every broken rule returned
 together, the technician row locked so simultaneous bookings cannot overlap, and
-`dev.passage.service.assignment.changed.v1`; the dispatch board (technicians with the
+`dev.depot.service.assignment.changed.v1`; the dispatch board (technicians with the
 day's visits and booked minutes, unscheduled orders); publishing a territory-day
 (`POST /dispatch/publish`: SCHEDULED to DISPATCHED, response clock stopped, route
-sequence per technician, a stored run, `dev.passage.service.dispatch.published.v1`) with
+sequence per technician, a stored run, `dev.depot.service.dispatch.published.v1`) with
 run list and read; and in the web module the technician list, create and detail, the
 dispatch board and a scheduling panel on the work-order detail. The OpenAPI and AsyncAPI
 doc gates are at zero FAIL lines.
 
-Slice 8 (PSG-4508) delivers the technician's action log (BR-45.6, FR-45.8 server side):
+Slice 8 (DPT-4508) delivers the technician's action log (BR-45.6, FR-45.8 server side):
 `POST /work-orders/{id}/actions` (duty `fieldservice.work-order.execute`) merges a batch of append-only
 actions (TRAVEL_START, WORK_START, HOLD, RESUME, PART_USED, SIGNATURE, NOTE, COMPLETE)
 with client UUIDs and device timestamps: ordered by (device time, batch position), each
@@ -171,7 +171,7 @@ part consumption per PART line, capped at the line quantity; the customer signat
 (reference to the object store) and the technician note on the work order;
 `GET /work-orders/{id}/actions` reads the log. The completion (action or manual
 transition) needs the signature unless the work order is `signatureExempt` (`SVC-WO-001`)
-and writes `dev.passage.service.workorder.completed.v1` once (lines with consumed
+and writes `dev.depot.service.workorder.completed.v1` once (lines with consumed
 quantity, first-time fix, working minutes from the log). Posting now refuses a work order
 whose PART lines were not all consumed (`SVC-WO-002`). The old `:transition` bypass is
 closed: SCHEDULED comes only from `:assign` and DISPATCHED only from publishing. In the
@@ -179,7 +179,7 @@ web module the work-order detail shows the action log with each outcome and take
 on a technician's behalf (office entry for a device that cannot sync). Migration 0010.
 
 
-Status values: **later slice of PSG-45** (planned in this wave) or **handoff** (needs
+Status values: **later slice of DPT-45** (planned in this wave) or **handoff** (needs
 another owner, or lives outside my owned paths).
 
 ## Ticket deliverables
@@ -239,7 +239,7 @@ another owner, or lives outside my owned paths).
 
 | AC | Status | Reason |
 |---|---|---|
-| AC-45.1 Entitlement fixtures (50) | partial | `svc-entitlement-50` (`internal/domain/testdata/`, answers from the independent `reference_entitlement.py`): 50/50 resolve to the reference agreement, specificity, SLA profile and four clock instants in `TestResolve_SvcEntitlement50`, and the 46 that case open can express do so through `OpenCase` as passage_app in `TestStore_SvcEntitlement50OpensCases` (overlapping agreements, every status, validity edges, other customers and legal entities, fallback and refusals, holidays, US and EU DST ends, 24x7, a midnight close, Tokyo). Not covered: parent-party agreements (BR-45.1 parent match needs the party hierarchy, handoff), and category lines through case open (service objects carry no category; the four category and id-tie cases run in the domain test only). Validity is checked on the UTC day of `openedAt` (E17, E18); the PRD does not say which time zone a validity date is in. |
+| AC-45.1 Entitlement fixtures (50) | partial | `svc-entitlement-50` (`internal/domain/testdata/`, answers from the independent `reference_entitlement.py`): 50/50 resolve to the reference agreement, specificity, SLA profile and four clock instants in `TestResolve_SvcEntitlement50`, and the 46 that case open can express do so through `OpenCase` as depot_app in `TestStore_SvcEntitlement50OpensCases` (overlapping agreements, every status, validity edges, other customers and legal entities, fallback and refusals, holidays, US and EU DST ends, 24x7, a midnight close, Tokyo). Not covered: parent-party agreements (BR-45.1 parent match needs the party hierarchy, handoff), and category lines through case open (service objects carry no category; the four category and id-tie cases run in the domain test only). Validity is checked on the UTC day of `openedAt` (E17, E18); the PRD does not say which time zone a validity date is in. |
 | AC-45.2 Pause 120 min to 2026-10-27T12:00-05:00 | partial | The pause and resume are built and tested against Postgres (`TestStore_CaseTransitionPausesAndResumes`). Open question for the PRD owner: under the BR-45.2 example calendar (Mon–Fri 08:00–18:00) 480 + 120 business minutes from Fri 2026-10-23 16:00 end Mon 2026-10-26 16:00, not Tue 12:00 (Tue 12:00 needs 960 minutes). `sla_test.go` and the store test assert Mon 16:00; the AC text should be corrected or the example calendar stated. |
 | AC-45.3 Warning at 75 % and single breach event | built | Domain tests (`TestDueAlerts*`) and `TestStore_SLAMonitorWarnsOnceThenBreachesOnce` (one warning, then one breach, nothing on later passes). The 60 s schedule is not built (see scheduled jobs). |
 | AC-45.4 1,000 territory-days, p95 < 30 s | partial | Hypothesis properties prove greedy and CP-SAT plans feasible and a seeded benchmark shows CP-SAT never worse than greedy. The timed scale run (1,000 territory-days of 200 orders x 25 technicians) is not done; the solver time limit is 20 s by default (`timeLimitSeconds`, 1 to 120) with the greedy plan as fallback. |
@@ -248,15 +248,15 @@ another owner, or lives outside my owned paths).
 | AC-45.7 Offline replay equals device state | built (slice 10) | `TestStore_OfflineActionsMergeToDeviceState` replays a shuffled start, part and complete batch and checks the state, one consumed quantity per part action and one completed event; `TestTruckConsumer_IssuesConsumedPartsFromTheTruck` and `TestTruckStockIssueAndReplenishment` (inventory) book one issue per consumed line from the truck, a replay books nothing, and the on-hand projection still equals a replay of the ledger. |
 | AC-45.8 10 active service objects from shipment | partial | `TestStore_ShipmentCreatesObjectsAndInstallStartsWarranty`: 10 serials give 10 ACTIVE objects with the warranty starting on the ship date, and a re-delivery creates none. The trigger is the receive endpoint until wave 28 publishes the shipment event (handoff). |
 | AC-45.9 Phase-8 exit walkthrough | handoff | Spans waves 41, 42, 43, 44 and this wave. Owned by the phase-exit demo. |
-| AC-45.10 HR stage gate `CASE-STG-001` | built | `TestStore_GenericCaseStageGate` (as passage_app): INTAKE → INVESTIGATION, RESOLUTION refused with `CASE-STG-001` while the "Interview" activity on the case is OPEN (a DONE "Interview" on another record does not count), then accepted once it is DONE; `TestAPI_GenericCaseFlow` checks the code over HTTP. |
+| AC-45.10 HR stage gate `CASE-STG-001` | built | `TestStore_GenericCaseStageGate` (as depot_app): INTAKE → INVESTIGATION, RESOLUTION refused with `CASE-STG-001` while the "Interview" activity on the case is OPEN (a DONE "Interview" on another record does not count), then accepted once it is DONE; `TestAPI_GenericCaseFlow` checks the code over HTTP. |
 | AC-45.11 HR case category 403 | partial | `TestStore_GenericCaseCategorySecurity` and `TestAPI_GenericCaseFlow`: a collector without the HR category's access duty gets 403 `CASE-SEC-001` on read and write and no list row, while duty holders and the owner can read it. Not built: the subject's manager reading the case (needs the wave-42 manager chain; see BR-45.10). |
 | AC-45.12 KB ranking and `KB-PUB-001` | built | `TestStore_KnowledgeLifecycleAndSuggestions`: the article that applies to the case item ranks first for a case description, and the author cannot publish (`KB-PUB-001`). |
-| AC-45.13 Supplier claim settlement | partial | `TestStore_SupplierClaimSettlesAC45_13` (as passage_app): a posted work order with a WARRANTY part of 180.00 and 1.5 WARRANTY labor hours claims 270.00 at a vendor rate of 60.00; the vendor accepts 250.00; the matched credit note makes the claim SETTLED with recovered 250.00 and writes the settled event with recoveredAmount 250.00. The credit of 250.00 to the warranty expense account is posted by the GL consumer of that event (handoff). |
+| AC-45.13 Supplier claim settlement | partial | `TestStore_SupplierClaimSettlesAC45_13` (as depot_app): a posted work order with a WARRANTY part of 180.00 and 1.5 WARRANTY labor hours claims 270.00 at a vendor rate of 60.00; the vendor accepts 250.00; the matched credit note makes the claim SETTLED with recovered 250.00 and writes the settled event with recoveredAmount 250.00. The credit of 250.00 to the warranty expense account is posted by the GL consumer of that event (handoff). |
 | AC-45.14 Email threading | built | `TestStore_EmailIntakeThreadsAC45_14` and `TestAPI_ClaimAndEmailIntakeFlow`: an email with no token from an unknown sender opens a case in the mailbox's default category with the acknowledgment; "Re: [CS-n] pump noise" on the open case is logged on it with no new case and no acknowledgment (200 with `CASE-MAIL-001`). |
 | AC-45.15 My activities | built | `TestStore_ActivitiesListCompleteAndReschedule`: a project task and a case task of one owner both appear with their records, and completing one sets DONE with its timestamp. The project is referenced by id; wave 41 is not called. |
 | Ticket AC1 entitlement fixtures | met (customer agreements) | See AC-45.1; parent-party fixtures wait for the party hierarchy. |
 | Ticket AC2 dispatch feasibility (property) | met for the greedy solver and CP-SAT | `services/dispatch-py/tests/test_feasibility_proof.py` (derandomized Hypothesis, run in CI): greedy plans pass an oracle written from BR-45.3 on the original and an adversarial generator, `plan_violations` agrees with that oracle rule for rule on mutated plans, and nothing is left unassigned that an idle technician could serve. CP-SAT plans pass the same oracle (`tests/test_cpsat.py`); the AC-45.4 scale and timing run is not done (see AC-45.4). |
-| Ticket AC3 billable vs warranty posting | met | `svc-billing-30` (`internal/domain/testdata/`, answers from the independent `reference_billing.py`): 30/30 orders post the reference lines and totals in `TestPost_SvcBilling30` and as real work orders through `PostWorkOrder` as passage_app in `TestStore_SvcBilling30PostsWorkOrders` (warranty term edges, warranty before agreement, FIFO hours across lines and across three orders, half-even per line in USD, JPY and KWD, the posted event's totals and billable lines). Invoices from the posted event are wave 29 (handoff). |
+| Ticket AC3 billable vs warranty posting | met | `svc-billing-30` (`internal/domain/testdata/`, answers from the independent `reference_billing.py`): 30/30 orders post the reference lines and totals in `TestPost_SvcBilling30` and as real work orders through `PostWorkOrder` as depot_app in `TestStore_SvcBilling30PostsWorkOrders` (warranty term edges, warranty before agreement, FIFO hours across lines and across three orders, half-even per line in USD, JPY and KWD, the posted event's totals and billable lines). Invoices from the posted event are wave 29 (handoff). |
 | Ticket AC4 phase-8 exit | handoff | See AC-45.9. |
 | Ticket AC5 every deliverable has code or a row here | met | This file. |
 | Ticket AC6 vet/test, web tests, specs match, chart lints | met (slice 5 included) | Service `go vet`/`go test` pass; web module vitest and tsc pass; `api/openapi.yaml` and `events/asyncapi.yaml` match the handlers and events; chart lints (see README). |
@@ -265,14 +265,14 @@ another owner, or lives outside my owned paths).
 
 | Item | Status | Reason |
 |---|---|---|
-| `svc-installed-base` (2,000 objects) | later slice of PSG-45 | The installed base is built; the 2,000-object fixture is not. |
+| `svc-installed-base` (2,000 objects) | later slice of DPT-45 | The installed base is built; the 2,000-object fixture is not. |
 | `svc-entitlement-50` | built | `internal/domain/testdata/svc-entitlement-50` (see AC-45.1). |
 | `svc-dispatch-gen` | partial | Hypothesis generator in `services/dispatch-py/tests/test_properties.py`; seeded OSRM matrix not built. |
 | `svc-mobile-replay` | partial | The replay scenario is a store test (above); the 8 h offline fixture file is not written. |
 | `svc-billing-30` | built (domain and store) | `internal/domain/testdata/svc-billing-30` (see Ticket AC3). The PRD's "contract against the invoicing API" waits for wave 29. |
-| Reconciliation: Σ posted billable = wave-29 invoices; Σ warranty = GL; truck issues = part actions | later slice of PSG-45 (and handoff for the wave-29 and GL sides) | Needs invoice creation, truck stock and warranty sourcing. |
+| Reconciliation: Σ posted billable = wave-29 invoices; Σ warranty = GL; truck issues = part actions | later slice of DPT-45 (and handoff for the wave-29 and GL sides) | Needs invoice creation, truck stock and warranty sourcing. |
 | PWA Playwright offline E2E | partial | The PWA exists; its offline behaviour is covered by vitest (`technicianApp.test.tsx`: cached day opens offline, work queues and is sent on reconnect, rejections show) and a manual headless walk of the demo build. A Playwright run on an emulated device is not in CI. |
-| Breach monitor performance (100k cases < 60 s) | later slice of PSG-45 | The pass is built on the partial index `service_case_sla_running` and batches with `limit`; the 100k-case timing run is not. |
+| Breach monitor performance (100k cases < 60 s) | later slice of DPT-45 | The pass is built on the partial index `service_case_sla_running` and batches with `limit`; the 100k-case timing run is not. |
 
 ## Data model and operations (PRD 8.45.4, 8.45.10, 8.45.13, 8.45.19)
 
@@ -280,60 +280,60 @@ another owner, or lives outside my owned paths).
 |---|---|---|
 | ServiceObject, Warranty | partial | `service_object` (migration 0005) carries the warranty term inline; there is no separate Warranty table, `warranty_id` or `shipment_line_id`. |
 | KnowledgeArticle, Activity | partial | `service_kb_article` (one row per version, `revision` as the ETag, generated `tsvector` with a GIN index), `service_kb_vote` (one vote per user and version) and `service_activity` (associations as jsonb with a GIN index) in migration 0005. The tsvector uses the `simple` configuration for every language; per-language dictionaries and the title-only fallback index (8.45.18) are not built. `CaseArticleLink` and `views` are not built. |
-| Technician, DispatchRun, ServiceWorkOrder assignment fields, geo | partial (migration 0009) | `service_technician` (territories, skills as text codes, shift, daily maximum, home position, `truck_location_id` and `worker_id` stored but not checked against waves 16 and 42), the scheduling and assignment columns on `service_work_order`, and `service_dispatch_run` (published territory-days with their route order), each with RLS and passage_app grants; migration 0011 adds `service_dispatch_optimization` (problem snapshot, plan, attempts and next attempt, accept outcome). Geo is two `numeric` columns; the PostGIS point index waits for the platform to enable PostGIS. Skills are free codes until wave 42. |
-| SupplierWarrantyClaim, InboundMessage | built (migration 0007) | `service_supplier_claim` (lines as jsonb, legal-entity scope policy) with `service_supplier_claim_source` (one row per claimed work order), `service_case_mailbox` and `service_inbound_message` (Message-ID unique per tenant, legal-entity scope policy), with tenant RLS and passage_app grants. InboundMessage carries the route, the continued case and the acknowledgment flag beside the PRD fields. |
-| `Case` category fields, stages, CaseAssociation, case log | partial | `service_case_process`, `service_case_category`, `service_generic_case`, `service_case_association` and `service_case_log` (migration 0006, with tenant RLS, the legal-entity policy on cases and passage_app grants). `CaseCategory.opa_policy_ref` is `access_duty`; `CaseProcess` stages are jsonb without entry/exit criteria; `service_case` itself gained no category fields (see FR-45.12). |
+| Technician, DispatchRun, ServiceWorkOrder assignment fields, geo | partial (migration 0009) | `service_technician` (territories, skills as text codes, shift, daily maximum, home position, `truck_location_id` and `worker_id` stored but not checked against waves 16 and 42), the scheduling and assignment columns on `service_work_order`, and `service_dispatch_run` (published territory-days with their route order), each with RLS and depot_app grants; migration 0011 adds `service_dispatch_optimization` (problem snapshot, plan, attempts and next attempt, accept outcome). Geo is two `numeric` columns; the PostGIS point index waits for the platform to enable PostGIS. Skills are free codes until wave 42. |
+| SupplierWarrantyClaim, InboundMessage | built (migration 0007) | `service_supplier_claim` (lines as jsonb, legal-entity scope policy) with `service_supplier_claim_source` (one row per claimed work order), `service_case_mailbox` and `service_inbound_message` (Message-ID unique per tenant, legal-entity scope policy), with tenant RLS and depot_app grants. InboundMessage carries the route, the continued case and the acknowledgment flag beside the PRD fields. |
+| `Case` category fields, stages, CaseAssociation, case log | partial | `service_case_process`, `service_case_category`, `service_generic_case`, `service_case_association` and `service_case_log` (migration 0006, with tenant RLS, the legal-entity policy on cases and depot_app grants). `CaseCategory.opa_policy_ref` is `access_duty`; `CaseProcess` stages are jsonb without entry/exit criteria; `service_case` itself gained no category fields (see FR-45.12). |
 | ETag on reads and `If-Match` on PUT/PATCH/custom methods | built for work orders, cases, service objects, activities, articles and agreements | Their create, read and custom methods set `ETag` (articles: the revision), and the updates require `If-Match`. Publishing takes If-Match but no Idempotency-Key (the PRD lists "key + ETag"): a replay fails the If-Match check instead of returning the stored result. Agreement status changes take If-Match; agreements have no field update endpoint yet. SLA profiles have no update endpoint, so they carry no version. |
 | Number sequences from wave-5 definitions | partial | Fixed prefixes `SA`, `CS`, `SWO`, `KB` allocated by the store; per-legal-entity definitions are not read yet. |
 | Parameters 8.45.13 (default SLA profile, warning threshold, dispatch time, solver limits, buffer, overtime, negative truck, reopen window, parent-party match) | partial | The business calendar and holidays per SLA profile are built. The legal entity's default SLA profile is not stored; the case request carries the fallback. `pauseOnParts` is applied by the case transitions (slice 2). The SLA warning threshold is fixed at the 75 % default (no tenant parameter yet). The rest wait for the features above. |
 | `service-sla-monitor` schedule | handoff (platform scheduler) and later slice | One pass per tenant is built (`POST /v1/service/sla:scan`); running it every 60 s for every tenant needs the platform scheduler (wave-23 patterns) or a chart CronJob with a service principal per tenant, and the "monitor lag > 2 min" alert waits for that. |
-| Event `dev.passage.service.workorder.completed.v1` | built (slice 8) | Written by the complete action and by a manual completion (0 working minutes without a log); documented in `events/asyncapi.yaml`. Inventory (truck consumption) is the consumer, a handoff. |
-| Scheduled jobs (`service-dispatch-auto`, `service-truck-replenish`, `service-ib-from-shipments`, `service-agreement-visits`, `case-email-ingest`, `case-consolidate`, `supplier-claim-deadline`, `kb-reindex`) | later slice of PSG-45 (and handoff) | Each depends on a feature above. `case-email-ingest` is the wave-35 hub calling `POST /v1/inbound-messages` (handoff); `supplier-claim-deadline` (drafts within 5 days of the window end) needs the platform scheduler: the claims carry `windowEndsOn` for it. |
-| Feature flag `service.allow-negative-truck` | later slice of PSG-45 | Needs BR-45.7. |
-| Chart `passage-service` (TS API, breach monitor, mobile BFF) and `passage-dispatch` (Python worker, OSRM sidecar) | partial | Chart `services/fieldservice/charts/fieldservice` is built. The dispatch worker chart and OSRM sidecar are later. |
-| Privacy: technician location retention (90 days) and works-council flag; HR `hr_pii` protection; DSR purge of inbound email bodies | later slice of PSG-45 | Needs live tracking; HR categories exist (slice 4) but their free text is not yet in a protected column set. Inbound email bodies are stored (slice 5) but the data-subject purge with the case is not built. |
-| Migration from AX/SAP (PRD 8.45.11) | later slice of PSG-45 | Needs the entities above. |
+| Event `dev.depot.service.workorder.completed.v1` | built (slice 8) | Written by the complete action and by a manual completion (0 working minutes without a log); documented in `events/asyncapi.yaml`. Inventory (truck consumption) is the consumer, a handoff. |
+| Scheduled jobs (`service-dispatch-auto`, `service-truck-replenish`, `service-ib-from-shipments`, `service-agreement-visits`, `case-email-ingest`, `case-consolidate`, `supplier-claim-deadline`, `kb-reindex`) | later slice of DPT-45 (and handoff) | Each depends on a feature above. `case-email-ingest` is the wave-35 hub calling `POST /v1/inbound-messages` (handoff); `supplier-claim-deadline` (drafts within 5 days of the window end) needs the platform scheduler: the claims carry `windowEndsOn` for it. |
+| Feature flag `service.allow-negative-truck` | later slice of DPT-45 | Needs BR-45.7. |
+| Chart `depot-service` (TS API, breach monitor, mobile BFF) and `depot-dispatch` (Python worker, OSRM sidecar) | partial | Chart `services/fieldservice/charts/fieldservice` is built. The dispatch worker chart and OSRM sidecar are later. |
+| Privacy: technician location retention (90 days) and works-council flag; HR `hr_pii` protection; DSR purge of inbound email bodies | later slice of DPT-45 | Needs live tracking; HR categories exist (slice 4) but their free text is not yet in a protected column set. Inbound email bodies are stored (slice 5) but the data-subject purge with the case is not built. |
+| Migration from AX/SAP (PRD 8.45.11) | later slice of DPT-45 | Needs the entities above. |
 
 ## Handoffs (outside owned paths)
 
 | Owner | Request | Why |
 |---|---|---|
-| Policies (`policies/`) | Define OPA duty mappings for `fieldservice.agreement.maintain`, `fieldservice.service-case.create`, `fieldservice.service-case.maintain`, `fieldservice.inquire`, `fieldservice.work-order.maintain`, `fieldservice.billing.post`, `fieldservice.technician.dispatch`, `fieldservice.work-order.execute`, `fieldservice.service-object.maintain`, `fieldservice.supplier-claim.maintain`, `fieldservice.activity.maintain`, `fieldservice.knowledge-article.read`, `fieldservice.knowledge-article.author`, `fieldservice.knowledge-article.publish`, `fieldservice.case.create`, `fieldservice.case.maintain`, `fieldservice.case-setup.admin`, and the per-category access duties set up in case categories (for example an HR partner duty) | Operations declare these duties in `x-passage-duty`; enforcement is via OPA. The PRD duty table (8.45.17) names no installed-base duty, so `fieldservice.service-object.maintain` is this service's proposal. A per-category OPA policy (BR-45.10) would replace the access duty. |
+| Policies (`policies/`) | Define OPA duty mappings for `fieldservice.agreement.maintain`, `fieldservice.service-case.create`, `fieldservice.service-case.maintain`, `fieldservice.inquire`, `fieldservice.work-order.maintain`, `fieldservice.billing.post`, `fieldservice.technician.dispatch`, `fieldservice.work-order.execute`, `fieldservice.service-object.maintain`, `fieldservice.supplier-claim.maintain`, `fieldservice.activity.maintain`, `fieldservice.knowledge-article.read`, `fieldservice.knowledge-article.author`, `fieldservice.knowledge-article.publish`, `fieldservice.case.create`, `fieldservice.case.maintain`, `fieldservice.case-setup.admin`, and the per-category access duties set up in case categories (for example an HR partner duty) | Operations declare these duties in `x-depot-duty`; enforcement is via OPA. The PRD duty table (8.45.17) names no installed-base duty, so `fieldservice.service-object.maintain` is this service's proposal. A per-category OPA policy (BR-45.10) would replace the access duty. |
 | Policies (`policies/authz/data.json`), authz seed for slice 6 | No new duty and no service principal. Add to `fieldservice.agreement.maintain`: `{"resource": "/v1/service/agreements/*:transition", "methods": ["POST"]}`, `{"resource": "/v1/service/agreements:expire", "methods": ["POST"]}`, `{"resource": "/v1/service/agreements/*/visits", "methods": ["POST"]}`. Add to `fieldservice.inquire`: `{"resource": "/v1/service/agreements/*/visits", "methods": ["GET"]}`, `{"resource": "/v1/service/agreements/*/history", "methods": ["GET"]}` (the existing `/v1/service/agreements/*` glob stops at `/` and `:`, so it covers none of these) | FR-45.3 |
 | Policies (`policies/authz/data.json`), authz seed for slice 7 | **New duty `fieldservice.technician.dispatch`** (PRD 8.45.17 "SvcWoMaintain / SvcDispatch"; Dispatcher, Service coordinator), enforced in the service on every operation below and on the web actions; the dispatch nav items are gated on the existing `fieldservice.inquire`. Add `"fieldservice.technician.dispatch": {"permissions": [{"resource": "/v1/service/technicians", "methods": ["POST"]}, {"resource": "/v1/service/technicians/*", "methods": ["PUT"]}, {"resource": "/v1/service/work-orders/*:assign", "methods": ["POST"]}, {"resource": "/v1/service/work-orders/*:unassign", "methods": ["POST"]}, {"resource": "/v1/service/dispatch/publish", "methods": ["POST"]}]}`. Add to `fieldservice.work-order.maintain`: `{"resource": "/v1/service/work-orders/*/scheduling", "methods": ["PUT"]}`. Add to `fieldservice.inquire`: `{"resource": "/v1/service/technicians", "methods": ["GET"]}`, `{"resource": "/v1/service/technicians/*", "methods": ["GET"]}`, `{"resource": "/v1/service/dispatch/board", "methods": ["GET"]}`, `{"resource": "/v1/service/dispatch/runs", "methods": ["GET"]}`, `{"resource": "/v1/service/dispatch/runs/*", "methods": ["GET"]}`. No service principal. Grant `fieldservice.technician.dispatch` to the dispatcher roles and to #313's duty list (SoD: none per PRD 8.45.17) | FR-45.7 |
 | Policies (`policies/authz/data.json`), authz seed for slice 8 | **New duty `fieldservice.work-order.execute`** (PRD 8.45.17; Technician), enforced in the service on `POST /work-orders/{id}/actions` and on the web action entry; no new nav item. Add `"fieldservice.work-order.execute": {"permissions": [{"resource": "/v1/service/work-orders/*/actions", "methods": ["POST"]}]}`. Add to `fieldservice.inquire`: `{"resource": "/v1/service/work-orders/*/actions", "methods": ["GET"]}`. No service principal. Grant `fieldservice.work-order.execute` to the technician role and to #313's duty list; office staff who key actions in for a device need it as well as `fieldservice.work-order.maintain` (the service lets a `fieldservice.work-order.maintain` holder post for any technician, and anyone else only for the technician whose `workerId` equals their user id) | BR-45.6, FR-45.8 |
 | Identity and wave 42 (workers) | The action log binds a technician to the signed-in user by `service_technician.worker_id` = the principal's user id. Identity must issue technicians' tokens with the wave-42 worker id as the user id (or a worker claim the service can read instead) | BR-45.6, 8.45.17 |
-| Technician PWA (done) and wave 16 (inventory) | Done in slice 10; the original request: the PWA posts action batches to `POST /v1/service/work-orders/{id}/actions` (keeps its queue until each action id has an outcome) and uploads the signature PNG to the object store, sending its reference as `signatureRef`. Inventory consumes `dev.passage.service.workorder.completed.v1` and issues each line's `consumedQty` from the technician's truck | BR-45.6, BR-45.7, AC-45.7 |
+| Technician PWA (done) and wave 16 (inventory) | Done in slice 10; the original request: the PWA posts action batches to `POST /v1/service/work-orders/{id}/actions` (keeps its queue until each action id has an outcome) and uploads the signature PNG to the object store, sending its reference as `signatureRef`. Inventory consumes `dev.depot.service.workorder.completed.v1` and issues each line's `consumedQty` from the technician's truck | BR-45.6, BR-45.7, AC-45.7 |
 | Incident-type owner | An incident-type entity with its signature rule; until then the work order carries `signatureExempt` set by whoever creates it | SVC-WO-001 |
-| Technician apps and customer notifications (wave 32 mobile, wave 35 notification hub) | Consume `dev.passage.service.dispatch.published.v1` (technician route per day, in sequence) and `dev.passage.service.assignment.changed.v1` (a moved or released visit) | FR-45.7, FR-45.8 |
+| Technician apps and customer notifications (wave 32 mobile, wave 35 notification hub) | Consume `dev.depot.service.dispatch.published.v1` (technician route per day, in sequence) and `dev.depot.service.assignment.changed.v1` (a moved or released visit) | FR-45.7, FR-45.8 |
 | Wave 42 (workers and skills) | Replace the free skill codes of technicians and work orders with wave-42 skills and check `workerId`; certification expiry joins `CheckAssignment` (BR-42.8) | BR-45.3 |
 | Wave 16 (locations) | Check `truckLocationId` is a TRUCK location, and parts availability on the truck at assignment | BR-45.3, BR-45.7 |
 | Platform scheduler | `service-dispatch-auto`: calls `POST /v1/service/dispatch/optimizations` per territory-day and then `:sync` on every PENDING or RUNNING optimization (the optimizer API exists; fieldservice has no timer of its own). A scheduler needs a service principal holding `fieldservice.technician.dispatch` in the legal entity | 8.45.16 |
-| Deployment of `passage-dispatch` | Run `python -m passage_dispatch` with `PASSAGE_SERVICE_NAME=dispatch` and `PASSAGE_SERVICE_PUBLIC_KEYS=fieldservice=<public key>`; give fieldservice `DISPATCH_URL` and the service signing key (`PASSAGE_SERVICE_SIGNING_KEY`, name `fieldservice`). Helm chart, Dockerfile and NetworkPolicy for dispatch are not written (`services/dispatch-py/NOT-IMPLEMENTED.md`), and its deploy values must pin `replicas: 1` because runs live in the process | BR-45.3 |
-| Wave 29 (billing, subscriptions) | Consume `dev.passage.service.agreement.changed.v1` (start the subscription of a SUBSCRIPTION agreement on ACTIVE, stop it on SUSPENDED, CANCELED or EXPIRED) and `dev.passage.service.agreementvisit.recorded.v1` (bill PER_VISIT agreements) | FR-45.3 |
+| Deployment of `depot-dispatch` | Run `python -m depot_dispatch` with `DEPOT_SERVICE_NAME=dispatch` and `DEPOT_SERVICE_PUBLIC_KEYS=fieldservice=<public key>`; give fieldservice `DISPATCH_URL` and the service signing key (`DEPOT_SERVICE_SIGNING_KEY`, name `fieldservice`). Helm chart, Dockerfile and NetworkPolicy for dispatch are not written (`services/dispatch-py/NOT-IMPLEMENTED.md`), and its deploy values must pin `replicas: 1` because runs live in the process | BR-45.3 |
+| Wave 29 (billing, subscriptions) | Consume `dev.depot.service.agreement.changed.v1` (start the subscription of a SUBSCRIPTION agreement on ACTIVE, stop it on SUSPENDED, CANCELED or EXPIRED) and `dev.depot.service.agreementvisit.recorded.v1` (bill PER_VISIT agreements) | FR-45.3 |
 | Platform scheduler | Run the agreement expiry pass daily for every tenant, with the `service-sla-monitor` schedule. A scheduler that calls `POST /v1/service/agreements:expire` over HTTP needs a service principal holding `fieldservice.agreement.maintain` with every legal entity in scope (seed it then); a chart CronJob running the pass in the service binary against its own database (the costacct `gl-reconcile` pattern) needs none | FR-45.3 |
 | Wave 28 (serialized shipments) | Publish a shipment-confirmed event (shipment, ship date, customer, legal entity, site, item lines with serials) that the service can consume to create service objects; until then a caller posts it to `:receive-shipment` | FR-45.1, AC-45.8 |
-| Wave 29 (invoicing) | Consume `dev.passage.service.workorder.posted.v1` to create invoices (billable lines only, source SWO) | FR-45.10 and the reconciliation |
+| Wave 29 (invoicing) | Consume `dev.depot.service.workorder.posted.v1` to create invoices (billable lines only, source SWO) | FR-45.10 and the reconciliation |
 | Wave 16 (locations) | TRUCK location type per technician; consumption issue API | FR-45.9, BR-45.7 |
 | Wave 27 (pricing) | Price list lookup for labor and parts (BR-45.8) | BR-45.8 |
 | Wave 35 (notification hub, mailboxes) | Poll or receive each case mailbox and call `POST /v1/inbound-messages` (Message-ID, In-Reply-To, Auto-Submitted, X-Autoreply, body, attachments stored in the object store) with a principal holding fieldservice.case.create and the categories' access duties; match the sender to a party contact and pass `customerPartyId`; send the acknowledgment when the answer says `acknowledge` (with the `[CS-n]` token in the subject); send outbound replies and the supplier claim document (PDF, email or EDI); activity reminders (`reminderMinutes` before the start or due time) | FR-45.16, FR-45.15, FR-45.14 |
-| Wave 44 (EAM) | Publish `dev.passage.eam.warranty.claimable.v1` for the service to create EAM_WO claims from | FR-45.15 |
+| Wave 44 (EAM) | Publish `dev.depot.eam.warranty.claimable.v1` for the service to create EAM_WO claims from | FR-45.15 |
 | Wave 18 (AP credit notes) | Credit note with the vendor's claim reference, to call `:settle` (or an event this service consumes) | BR-45.12 |
 | Waves 30/17 (vendor returns) | Vendor return of the failed part; its id goes on the claim before submission | BR-45.12 |
-| GL (warranty recovery) | Consume `dev.passage.service.supplierclaim.settled.v1` and credit the warranty expense account of the legal entity with `recoveredAmount` | BR-45.12, AC-45.13 |
-| Event catalog owner | The PRD names `dev.passage.service.supplier-claim.settled.v1`; the kernel's event type rule allows no hyphen, so it is published as `supplierclaim` | PRD 8.45.5 |
-| Wave 47 (copilot) and search | Consume `dev.passage.knowledge.article.published.v1` (its `retiredArticleId` drops the version it replaced) | FR-45.13 |
+| GL (warranty recovery) | Consume `dev.depot.service.supplierclaim.settled.v1` and credit the warranty expense account of the legal entity with `recoveredAmount` | BR-45.12, AC-45.13 |
+| Event catalog owner | The PRD names `dev.depot.service.supplier-claim.settled.v1`; the kernel's event type rule allows no hyphen, so it is published as `supplierclaim` | PRD 8.45.5 |
+| Wave 47 (copilot) and search | Consume `dev.depot.knowledge.article.published.v1` (its `retiredArticleId` drops the version it replaced) | FR-45.13 |
 | Wave 42 (workers and skills) | Technician entity links to workers; skills and certification expiry (BR-42.8) | BR-45.3 |
 | Wave 5 (sequences) | Per-legal-entity number sequences `SA`, `CS`, `SWO`, `SWC`, `KB` | Parameters 8.45.13 |
-| Web BFF (`services/web-bff-ts`) and the dev proxy (`apps/web/src/shell/devProxy.ts`) | Rewrite `/api/v1/service/...` to `/v1/service/...`, and route `/api/v1/cases`, `/api/v1/case-categories`, `/api/v1/case-processes`, `/api/v1/case-mailboxes` and `/api/v1/inbound-messages` to this service as `/v1/...`; set `X-Passage-CSRF` | Web module calls; the generic case routes follow the PRD paths (8.45.5) outside `/service` |
+| Web BFF (`services/web-bff-ts`) and the dev proxy (`apps/web/src/shell/devProxy.ts`) | Rewrite `/api/v1/service/...` to `/v1/service/...`, and route `/api/v1/cases`, `/api/v1/case-categories`, `/api/v1/case-processes`, `/api/v1/case-mailboxes` and `/api/v1/inbound-messages` to this service as `/v1/...`; set `X-Depot-CSRF` | Web module calls; the generic case routes follow the PRD paths (8.45.5) outside `/service` |
 | Wave 42 (workers) | Manager chain as of a date for a worker (BR-42.1) | BR-45.10: the HR case subject's manager may read the case (AC-45.11) |
 | Wave 30 (disputes) and wave 9 (product change requests) | An export or event of their open minimal cases with ids, so `case-consolidate` can create COLLECTIONS and PRODUCT_CHANGE cases keeping the ids as associations; the collector of a customer (BR-45.10) | FR-45.12 |
 | Wave 3 (metadata registry) | Read check and existence lookup by registry entity type and id | Case associations: "restricted record" display and checking an associated record exists (FR-45.12, BR-45.10) |
 | Platform kernel | CEL evaluator over a record and its associations | BR-45.9 stage entry and exit criteria |
-| Workflow and notifications | Consume `dev.passage.case.stage.changed.v1` | PRD 8.45.5 consumers (workflow, notifications, HR, collections, audit owners) |
+| Workflow and notifications | Consume `dev.depot.case.stage.changed.v1` | PRD 8.45.5 consumers (workflow, notifications, HR, collections, audit owners) |
 | Deploy (`deploy/`) | Helm umbrella entry and Argo CD app for `fieldservice` | Deployment |
 | Platform scheduler | Run `POST /v1/service/sla:scan` every 60 s per tenant with a service principal holding `fieldservice.service-case.maintain` (`service-sla-monitor`) | BR-45.2, 8.45.16 |
-| Notifications (wave 35) | Consume `dev.passage.service.sla.warning.v1` and `sla.breached.v1` to notify (messages `SVC-SLA-001`, `SVC-SLA-002`) | AC-45.3 "warning notification fires" |
+| Notifications (wave 35) | Consume `dev.depot.service.sla.warning.v1` and `sla.breached.v1` to notify (messages `SVC-SLA-001`, `SVC-SLA-002`) | AC-45.3 "warning notification fires" |
 | Platform kernel | Shared ETag helper (the service sets the header itself today) | Convention |
 | Wave 8 (calendars) | Public-holiday calendars per site that SLA profiles can reference instead of their own date list | BR-45.2, 8.45.20 |
 | Party hierarchy owner | Parent party lookup for the parent-party entitlement match | BR-45.1 |

@@ -3,7 +3,7 @@ import { isSourceSystem } from "./domain";
 
 /** A starting point for a sales order pushed to a legacy ERP: the customer's legacy number comes from the cross-reference. */
 export const STARTER_DEFINITION: OutboundDefinition = {
-  eventType: "dev.passage.sales.order.*.v1",
+  eventType: "dev.depot.sales.order.*.v1",
   subject: { entity: "salesOrder", idPath: "data.order_id" },
   xrefs: [{ name: "customer", entity: "customer", idPath: "data.customer_id" }],
   // Array iteration: every line of data.lines becomes an object of the body's Lines array, with its own product key.
@@ -32,8 +32,8 @@ export const STARTER_DEFINITION: OutboundDefinition = {
 export const STARTER_EVENT = {
   specversion: "1.0",
   id: "evt-sample-1",
-  type: "dev.passage.sales.order.confirmed.v1",
-  source: "/passage/sales",
+  type: "dev.depot.sales.order.confirmed.v1",
+  source: "/depot/sales",
   time: "2027-01-05T10:00:00Z",
   data: { order_id: "0195f0a0-0000-7000-8000-0000000000a1", customer_id: "0195f0a0-0000-7000-8000-0000000000c1", number: "SO-100", total: "125.50",
     lines: [{ product_id: "0195f0a0-0000-7000-8000-0000000000b1", qty: "2" }],
@@ -58,7 +58,7 @@ function parseObject(text: string, label: string): { value?: Record<string, unkn
 export function parseDefinitionText(text: string): { value?: OutboundDefinition; error?: string } {
   const parsed = parseObject(text, "definition");
   if (!parsed.value) return { error: parsed.error };
-  if (typeof parsed.value.eventType !== "string" || parsed.value.eventType === "") return { error: "The definition needs an eventType, for example dev.passage.sales.order.*.v1." };
+  if (typeof parsed.value.eventType !== "string" || parsed.value.eventType === "") return { error: "The definition needs an eventType, for example dev.depot.sales.order.*.v1." };
   if (typeof parsed.value.mapping !== "object" || parsed.value.mapping === null) return { error: "The definition needs a mapping object with an entity and fields." };
   return { value: parsed.value as unknown as OutboundDefinition };
 }

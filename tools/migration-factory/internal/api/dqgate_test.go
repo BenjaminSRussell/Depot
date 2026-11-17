@@ -6,8 +6,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/dq"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/dq"
 )
 
 // The suite gates the load: a line the validator let through but the suite flags is quarantined with the suite's checks, and a

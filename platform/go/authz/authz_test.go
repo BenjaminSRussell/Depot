@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 func call(mw func(http.Handler) http.Handler, p *tenant.Principal) *httptest.ResponseRecorder {

@@ -69,7 +69,7 @@ func TestKeycloakCreatesMinimalRealm(t *testing.T) {
 	r := &rec{}
 	k := keycloakServer(t, r, 404, 201, 204)
 	d, err := k.EnsureRealm(context.Background(), tn, false)
-	if err != nil || !strings.Contains(d, "created realm passage-"+tn.ID) {
+	if err != nil || !strings.Contains(d, "created realm depot-"+tn.ID) {
 		t.Fatalf("%q %v", d, err)
 	}
 	var post call
@@ -79,10 +79,10 @@ func TestKeycloakCreatesMinimalRealm(t *testing.T) {
 		}
 	}
 	var body map[string]any
-	if err := json.Unmarshal([]byte(post.Body), &body); err != nil || body["realm"] != "passage-"+tn.ID || body["displayName"] != tn.Name {
+	if err := json.Unmarshal([]byte(post.Body), &body); err != nil || body["realm"] != "depot-"+tn.ID || body["displayName"] != tn.Name {
 		t.Fatalf("body %s %v", post.Body, err)
 	}
-	if !strings.Contains(post.Body, tn.ID) || !strings.Contains(post.Body, "audience-passage-api") {
+	if !strings.Contains(post.Body, tn.ID) || !strings.Contains(post.Body, "audience-depot-api") {
 		t.Fatalf("the realm lacks the tenant claim or audience mapper: %s", post.Body)
 	}
 }
@@ -90,7 +90,7 @@ func TestKeycloakCreatesMinimalRealm(t *testing.T) {
 func TestKeycloakTemplateSubstitutesTenantAndDropsIdPs(t *testing.T) {
 	dir := t.TempDir()
 	tpl := filepath.Join(dir, "realm.json")
-	_ = os.WriteFile(tpl, []byte(`{"realm":"passage","displayName":"Passage","clients":[{"clientId":"c"}],"identityProviders":[{"alias":"x"}],"identityProviderMappers":[{"a":"REPLACE_WITH_TENANT_ID"}],"attr":"REPLACE_WITH_TENANT_ID"}`), 0o600)
+	_ = os.WriteFile(tpl, []byte(`{"realm":"depot","displayName":"Depot","clients":[{"clientId":"c"}],"identityProviders":[{"alias":"x"}],"identityProviderMappers":[{"a":"REPLACE_WITH_TENANT_ID"}],"attr":"REPLACE_WITH_TENANT_ID"}`), 0o600)
 	r := &rec{}
 	k := keycloakServer(t, r, 404, 201, 204)
 	k.TemplatePath = tpl
@@ -103,7 +103,7 @@ func TestKeycloakTemplateSubstitutesTenantAndDropsIdPs(t *testing.T) {
 			post = c
 		}
 	}
-	if strings.Contains(post.Body, "identityProviders") || strings.Contains(post.Body, "REPLACE_WITH") || !strings.Contains(post.Body, `"attr":"`+tn.ID+`"`) || !strings.Contains(post.Body, `"realm":"passage-`+tn.ID+`"`) {
+	if strings.Contains(post.Body, "identityProviders") || strings.Contains(post.Body, "REPLACE_WITH") || !strings.Contains(post.Body, `"attr":"`+tn.ID+`"`) || !strings.Contains(post.Body, `"realm":"depot-`+tn.ID+`"`) {
 		t.Fatalf("%s", post.Body)
 	}
 	_ = os.WriteFile(tpl, []byte(`{"realm":"p","x":"REPLACE_WITH_SECRET"}`), 0o600)
@@ -272,7 +272,7 @@ func TestFromEnv(t *testing.T) {
 func TestKeycloakRealRealmTemplate(t *testing.T) {
 	r := &rec{}
 	k := keycloakServer(t, r, 404, 201, 204)
-	k.TemplatePath = filepath.Join("..", "..", "..", "..", "deploy", "keycloak", "realm-passage.json")
+	k.TemplatePath = filepath.Join("..", "..", "..", "..", "deploy", "keycloak", "realm-depot.json")
 	if _, err := k.EnsureRealm(context.Background(), tn, true); err != nil {
 		t.Fatalf("the repo's realm template is refused (dry run): %v", err)
 	}
@@ -289,13 +289,13 @@ func TestKeycloakRealRealmTemplate(t *testing.T) {
 	if err := json.Unmarshal([]byte(post.Body), &doc); err != nil {
 		t.Fatal(err)
 	}
-	if doc["realm"] != "passage-"+tn.ID || doc["identityProviders"] != nil || strings.Contains(post.Body, "REPLACE_WITH") {
+	if doc["realm"] != "depot-"+tn.ID || doc["identityProviders"] != nil || strings.Contains(post.Body, "REPLACE_WITH") {
 		t.Fatalf("%v", doc["realm"])
 	}
 	var tid, usermodelTid int
 	for _, c := range doc["clients"].([]any) {
 		cl := c.(map[string]any)
-		if cl["clientId"] != "passage-services" {
+		if cl["clientId"] != "depot-services" {
 			continue
 		}
 		for _, m := range cl["protocolMappers"].([]any) {
@@ -309,9 +309,9 @@ func TestKeycloakRealRealmTemplate(t *testing.T) {
 		}
 	}
 	if tid != 1 || usermodelTid != 0 {
-		t.Fatalf("passage-services needs one hard-coded tid mapper and no attribute-based one: %d %d", tid, usermodelTid)
+		t.Fatalf("depot-services needs one hard-coded tid mapper and no attribute-based one: %d %d", tid, usermodelTid)
 	}
-	if !strings.Contains(post.Body, "audience-passage-api") {
+	if !strings.Contains(post.Body, "audience-depot-api") {
 		t.Fatal("the audience mapper is missing")
 	}
 }

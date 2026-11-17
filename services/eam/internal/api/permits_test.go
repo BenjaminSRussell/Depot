@@ -9,16 +9,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/eam/internal/store"
-	"github.com/BenjaminSRussell/passage/services/eam/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/eam/internal/store"
+	"github.com/BenjaminSRussell/depot/services/eam/migrations"
 )
 
 // permitRouterNoDB serves the permit routes with a nil store: every case below
 // is rejected by validation, a missing If-Match or a duty check before the store
-// is touched, so the tests run without PASSAGE_TEST_DATABASE_URL.
+// is touched, so the tests run without DEPOT_TEST_DATABASE_URL.
 func permitRouterNoDB() http.Handler {
 	return New(nil, func(context.Context) error { return nil }).Routes()
 }
@@ -26,9 +26,9 @@ func permitRouterNoDB() http.Handler {
 func permitRequest(method, path, duties, body string, headers map[string]string) *http.Request {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-User", ids.New())
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-User", ids.New())
+	req.Header.Set("X-Depot-Duties", duties)
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
@@ -91,7 +91,7 @@ func TestPermitRoutes_ValidationBeforeStore(t *testing.T) {
 
 // TestHTTP_PermitFlowAC4411 runs AC-44.11 over HTTP against a database: the
 // requester, approver, technicians and issuer are different signed-in users
-// (X-Passage-User), so separation of duties and personal locks come from the
+// (X-Depot-User), so separation of duties and personal locks come from the
 // caller, not the body. Two of three verified locks keep the job from starting
 // (EAM-PMT-002); three plus an ISSUED permit let it start; closing with a lock
 // still applied returns EAM-PMT-003.
@@ -104,7 +104,7 @@ func TestHTTP_PermitFlowAC4411(t *testing.T) {
 	all := "eam.asset.maintain,eam.setup.admin,eam.work.plan,eam.permit.issue,eam.work-order.execute,eam.inquire"
 	send := func(user, method, path, body, key string, extra map[string]string) *httptest.ResponseRecorder {
 		hdr := headers(all)
-		hdr["X-Passage-User"] = user
+		hdr["X-Depot-User"] = user
 		hdr["Idempotency-Key"] = key
 		for k, v := range extra {
 			hdr[k] = v

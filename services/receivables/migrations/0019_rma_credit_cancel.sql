@@ -2,8 +2,8 @@
 -- The store deletes only PENDING rows; a POSTED credit stays for good.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT DELETE ON rma_credit, rma_credit_tax TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT DELETE ON rma_credit, rma_credit_tax TO depot_app';
   END IF;
 END
 $$;

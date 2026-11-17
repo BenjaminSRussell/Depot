@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 func TestDailyLoadAndDrillDown_ReconcileWithTheWeek(t *testing.T) {

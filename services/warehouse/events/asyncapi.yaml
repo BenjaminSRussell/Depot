@@ -1,6 +1,6 @@
 asyncapi: 3.0.0
 info:
-  title: Passage warehouse events (wave 31, slice 4)
+  title: Depot warehouse events (wave 31, slice 4)
   version: 0.4.0
   description: >
     Work and receipt events, written to the outbox in the same transaction as
@@ -11,19 +11,19 @@ info:
 defaultContentType: application/json
 channels:
   wmsWork:
-    address: passage.wms.work
+    address: depot.wms.work
     description: Topic of every work event (platform events.Topic).
     messages:
       workCreated: { $ref: "#/components/messages/workCreated" }
       workCompleted: { $ref: "#/components/messages/workCompleted" }
       workReleased: { $ref: "#/components/messages/workReleased" }
   wmsReceipt:
-    address: passage.wms.receipt
+    address: depot.wms.receipt
     description: Topic of every receipt event (platform events.Topic).
     messages:
       receiptRegistered: { $ref: "#/components/messages/receiptRegistered" }
   wmsShipment:
-    address: passage.wms.shipment
+    address: depot.wms.shipment
     description: Topic of the shipment events (platform events.Topic); the EDI engine's outbound consumer reads it.
     messages:
       shipmentShipped: { $ref: "#/components/messages/shipmentShipped" }
@@ -51,7 +51,7 @@ operations:
 components:
   messages:
     shipmentShipped:
-      name: dev.passage.wms.shipment.shipped.v1
+      name: dev.depot.wms.shipment.shipped.v1
       title: Shipment shipped
       summary: >
         The warehouse confirmed that a fulfillment shipment left the dock
@@ -62,7 +62,7 @@ components:
         warehouse recorded when the confirmation carries it.
       payload: { $ref: "#/components/schemas/ShipmentShipped" }
     workCreated:
-      name: dev.passage.wms.work.created.v1
+      name: dev.depot.wms.work.created.v1
       title: Work created
       summary: >
         A work header was committed: by POST /v1/warehouse/work, or as the OPEN
@@ -70,7 +70,7 @@ components:
         analytics.
       payload: { $ref: "#/components/schemas/WorkCreated" }
     workCompleted:
-      name: dev.passage.wms.work.completed.v1
+      name: dev.depot.wms.work.completed.v1
       title: Work completed
       summary: >
         The last open line was confirmed or short picked: status COMPLETED or
@@ -78,7 +78,7 @@ components:
         inventory (post the transfer), sales fulfillment, production.
       payload: { $ref: "#/components/schemas/WorkCompleted" }
     workReleased:
-      name: dev.passage.wms.work.released.v1
+      name: dev.depot.wms.work.released.v1
       title: Work released
       summary: >
         A WAITING work (a pick that needs a refill) became OPEN because the
@@ -86,7 +86,7 @@ components:
         passes the wait on to its remainder work instead. Consumers: wms-mobile.
       payload: { $ref: "#/components/schemas/WorkReleased" }
     receiptRegistered:
-      name: dev.passage.wms.receipt.registered.v1
+      name: dev.depot.wms.receipt.registered.v1
       title: Receipt registered
       summary: >
         One ASN pallet (license plate) was received by

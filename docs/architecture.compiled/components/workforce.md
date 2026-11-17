@@ -1,7 +1,7 @@
 # Workforce
 
 ## Purpose & Boundaries
-Context `workforce` (database `passage_workforce`; waves 25 time, 42-43). Deployables `workforce` (Go: payroll calculation) and `workforce-ts` (HR, absence, self-service, expenses). Owns workers, positions, jobs, employment, absence, benefits, payroll, expense reports. Posts payroll run to GL via `ledger.Post`. Does NOT post AP: expense approval triggers procurement to create the reimbursement vendor invoice.
+Context `workforce` (database `depot_workforce`; waves 25 time, 42-43). Deployables `workforce` (Go: payroll calculation) and `workforce-ts` (HR, absence, self-service, expenses). Owns workers, positions, jobs, employment, absence, benefits, payroll, expense reports. Posts payroll run to GL via `ledger.Post`. Does NOT post AP: expense approval triggers procurement to create the reimbursement vendor invoice.
 
 ## Interfaces
 Prefix `/v1/workforce/`: `me` (self-service), `absence-requests/{id}:submit|:approve`, `positions/{id}:fill`, `payroll-runs` (202), `payroll-runs/{id}:calculate` (202; country-pack engine or provider adapter), `:approve`, `:post` (ledger.Post; gap-free `PAYR`; emits `payrollrun.posted.v1`), `pay-statements/{id}` (own, or `ViewSensitivePayroll`), `expense-reports/{id}:submit|:approve` (approve emits `expensereport.approved.v1` — the ONLY trigger of the reimbursement invoice; `:reimburse` deleted), `card-feeds:import` (202), `GET /reconciliation/{check}` (payroll; aggregate only, never P3). Generated CRUD: workers, positions, jobs, employments (effective-dated), absence types/requests, benefit plans/enrollments, pay rules, pay statements (read), expense reports, expense policies.

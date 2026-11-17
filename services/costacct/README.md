@@ -1,6 +1,6 @@
 # costacct
 
-Cost accounting for Passage (PRD 7.38, ticket PSG-38, wave 38, slices 1 to 5). The service keeps cost objects and cost
+Cost accounting for Depot (PRD 7.38, ticket DPT-38, wave 38, slices 1 to 5). The service keeps cost objects and cost
 elements, mirrors primary costs from journal lines into cost entries, runs reciprocal assessment allocations
 that conserve cost to the cent, distributes aggregated amounts top-down, settles internal orders, runs template
 (driver-formula) allocations over statistical measures, reruns allocations by reversal, classifies cost as fixed
@@ -106,12 +106,12 @@ or variable, and collects and distributes cost through cost object hierarchies.
   down with its own run. Every collected or distributed entry carries the node that owns it, so a node's balance is
   its own entries even if its cost object is in another hierarchy too; `GET /cost-object-hierarchies/{id}/balances`
   lists them per period. The node row is locked during a collection or a run, so two runs cannot both distribute
-  the same balance. The run emits `dev.passage.controlling.hierarchy.distributed.v1` plus `costentry.created` per
+  the same balance. The run emits `dev.depot.controlling.hierarchy.distributed.v1` plus `costentry.created` per
   entry.
 
 Costs are `numeric(19,4)` with a currency. Commands require `Idempotency-Key` and write outbox events
-(`dev.passage.controlling.costentry.created.v1`, `dev.passage.controlling.allocation.completed.v1`,
-`dev.passage.controlling.hierarchy.distributed.v1`; a top-down run
+(`dev.depot.controlling.costentry.created.v1`, `dev.depot.controlling.allocation.completed.v1`,
+`dev.depot.controlling.hierarchy.distributed.v1`; a top-down run
 emits `allocation.completed` with method `TopDown`, a template run with method `Template`).
 
 ## Algorithm note
@@ -128,7 +128,7 @@ A closed cycle with no leakage is singular (`CST-0005`) and is detected from the
 ```sh
 cd services/costacct
 go test ./...                      # domain and API tests; store tests skip without a database
-PASSAGE_TEST_DATABASE_URL=postgres://... go test ./...   # runs the store tests against Postgres
+DEPOT_TEST_DATABASE_URL=postgres://... go test ./...   # runs the store tests against Postgres
 DATABASE_URL=postgres://... MIGRATE_ON_START=true HTTP_ADDR=:8080 go run ./cmd/costacct
 ```
 
@@ -219,4 +219,4 @@ rapid for property tests). No new dependency needs a justification.
 
 ## Wave reference
 
-Wave 38 of PSG-38. Remaining scope is listed in `NOT-IMPLEMENTED.md`.
+Wave 38 of DPT-38. Remaining scope is listed in `NOT-IMPLEMENTED.md`.

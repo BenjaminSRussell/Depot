@@ -9,7 +9,7 @@ import styles from "./pages.module.css";
 /** SF-0188: the service wants a sign-in from the last few minutes before it accepts a signature (21 CFR 11.200). */
 export const CODE_SIGNATURE_REAUTH = "SF-0188";
 
-const resumeKey = (recipeId: string) => `passage.pi.resume.${recipeId}`;
+const resumeKey = (recipeId: string) => `depot.pi.resume.${recipeId}`;
 
 /** The step a person was on when they left to sign in again, once; reading it forgets it. */
 function takeResume(recipeId: string, count: number): number {
@@ -23,7 +23,7 @@ function takeResume(recipeId: string, count: number): number {
   }
 }
 
-const timersKey = (recipeId: string) => `passage.pi.timers.${recipeId}`;
+const timersKey = (recipeId: string) => `depot.pi.timers.${recipeId}`;
 
 /** The end times of the timers started so far on this recipe, kept so a reload does not restart a running timer. */
 function loadTimers(recipeId: string): Record<string, number> {
@@ -43,7 +43,7 @@ function saveTimers(recipeId: string, all: RunningTimer[]) {
   }
 }
 
-const valuesKey = (recipeId: string) => `passage.pi.values.${recipeId}`;
+const valuesKey = (recipeId: string) => `depot.pi.values.${recipeId}`;
 
 /** The step values of the steps done before leaving to sign in again, once. */
 function takeValues(recipeId: string): StepValues {

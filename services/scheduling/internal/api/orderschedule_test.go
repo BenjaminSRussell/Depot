@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 const scheduleOrderID = "00000000-0000-0000-0000-0000000000c1"

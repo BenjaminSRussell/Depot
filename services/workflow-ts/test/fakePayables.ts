@@ -40,7 +40,7 @@ export class FakePayables {
   readonly tokens: ServiceClaims[] = [];
 
   readonly fetch: typeof fetch = async (input, init) => {
-    const claims = decodeClaims(new Headers(init?.headers).get("X-Passage-Service-Token"));
+    const claims = decodeClaims(new Headers(init?.headers).get("X-Depot-Service-Token"));
     if (!claims || claims.iss !== "workflow-ts" || claims.aud !== "payables" || claims.duties.join() !== "payment-run.execute" || !claims.act) {
       return problem(401, "missing or wrong service token");
     }

@@ -19,14 +19,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 // EnvAC2Transactions sets the AC2 fixture size; the issue's scale is 1000000.
-const EnvAC2Transactions = "PASSAGE_INVENTORY_AC2_TXNS"
+const EnvAC2Transactions = "DEPOT_INVENTORY_AC2_TXNS"
 
 // ac2Book is the generator's own record of one projection row: quantities
 // summed from what it asked the store to do and the store accepted. It never
@@ -418,7 +418,7 @@ func (w *ac2Worker) run(maxLines int) {
 
 // TestAC2ProjectionEqualsSumOfTransactions is AC2 and the PRD's inv-1m-txn
 // rebuild check. Sixteen workers, each owning a disjoint slice of the products,
-// write exactly N transactions (default 40,000; PASSAGE_INVENTORY_AC2_TXNS=1000000
+// write exactly N transactions (default 40,000; DEPOT_INVENTORY_AC2_TXNS=1000000
 // for the issue's scale) through the store over two legal entities and twelve
 // months of posting dates: opening balances, MOVEMENT and ADJUSTMENT journals
 // mixing receipts and issues (issues drawn Zipf-skewed over a few hundred to

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/production/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/production/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/production/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/production/internal/store"
 )
 
 func (f *fakeStore) ApplyFiniteDates(_ context.Context, in store.FiniteDates) (store.Order, bool, error) {

@@ -10,12 +10,12 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/autosend"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/autosend"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
 )
 
 type fakeAccessPoint struct {
@@ -190,7 +190,7 @@ func TestEInvoice_PartyRoutesValidateAndScope(t *testing.T) {
 		t.Fatalf("get: %d %s", rec.Code, rec.Body.String())
 	}
 	// A caller of another legal entity cannot write this entity's profile.
-	other := map[string]string{"X-Passage-Legal-Entity": "00000000-0000-0000-0000-0000000000e2"}
+	other := map[string]string{"X-Depot-Legal-Entity": "00000000-0000-0000-0000-0000000000e2"}
 	if rec := do(t, h, http.MethodPut, "/edi/v1/einvoice/parties/BUYER/"+srcCustomer, buyerProfile, "edi.einvoice.operate", other); rec.Code != http.StatusBadRequest {
 		t.Fatalf("outside scope: %d", rec.Code)
 	}

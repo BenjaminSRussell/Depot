@@ -9,7 +9,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
 )
 
 // TestApprovalMatrix is AC1: 30 requisitions across six amounts and five

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""N / N-1 API compatibility check for OpenAPI documents (PSG-50, FR-50.7, AC-50.5).
+"""N / N-1 API compatibility check for OpenAPI documents (DPT-50, FR-50.7, AC-50.5).
 
 A rolling deploy runs release N+1 next to release N, and clients still on N-1 keep calling the
 API. This check compares the previous release's OpenAPI document (N-1) with the new one (N) and

@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.passage.dev/dev.passage.tms.load.released.v1.json",
-  "description": "A planner released a load for tendering. Published only by transport. Transport MUST fill data.releasedBy and data.legalEntityScope from the gateway-verified principal of the release request (X-Passage-User and X-Passage-Legal-Entity), never from the request body or the load row, and MUST NOT publish the event when the load's legal entity is outside that scope. workflow-ts mints the tender's scoped=true transport token from these two fields, so they are the only evidence of the releasing user's scope.",
+  "$id": "https://schemas.depot.dev/dev.depot.tms.load.released.v1.json",
+  "description": "A planner released a load for tendering. Published only by transport. Transport MUST fill data.releasedBy and data.legalEntityScope from the gateway-verified principal of the release request (X-Depot-User and X-Depot-Legal-Entity), never from the request body or the load row, and MUST NOT publish the event when the load's legal entity is outside that scope. workflow-ts mints the tender's scoped=true transport token from these two fields, so they are the only evidence of the releasing user's scope.",
   "type": "object",
   "required": ["specversion", "id", "source", "type", "tenantid", "data"],
   "properties": {
     "specversion": { "type": "string", "enum": ["1.0"] },
     "id": { "type": "string" },
-    "source": { "type": "string", "enum": ["/passage/tms/transport"] },
-    "type": { "type": "string", "enum": ["dev.passage.tms.load.released.v1"] },
+    "source": { "type": "string", "enum": ["/depot/tms/transport"] },
+    "type": { "type": "string", "enum": ["dev.depot.tms.load.released.v1"] },
     "subject": { "type": "string", "description": "load id" },
     "time": { "type": "string" },
     "tenantid": { "type": "string", "description": "tenant of the verified principal" },
@@ -21,10 +21,10 @@
         "releaseId": { "type": "string", "description": "transport's id of the release; workflow-ts keys the tender start on it, so a redelivered release replays the same tender" },
         "loadId": { "type": "string" },
         "legalEntityId": { "type": "string", "description": "the load's legal entity; must be in legalEntityScope" },
-        "releasedBy": { "type": "string", "description": "user id of the verified principal that released the load (X-Passage-User), not a body field" },
+        "releasedBy": { "type": "string", "description": "user id of the verified principal that released the load (X-Depot-User), not a body field" },
         "legalEntityScope": {
           "type": "array",
-          "description": "legal entities of the verified principal (X-Passage-Legal-Entity), not a body field",
+          "description": "legal entities of the verified principal (X-Depot-Legal-Entity), not a body field",
           "items": { "type": "string" }
         },
         "carriers": {

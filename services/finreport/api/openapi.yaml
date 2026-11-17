@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
-  title: Passage Financial Reporting API
+  title: Depot Financial Reporting API
   version: 1.0.0
-  description: Report definitions, standard statements, derived hierarchies, statement runs and drill-down, CSV, HTML and XLSX outputs and distribution schedules (PSG-15, wave 15 slices 1-4).
+  description: Report definitions, standard statements, derived hierarchies, statement runs and drill-down, CSV, HTML and XLSX outputs and distribution schedules (DPT-15, wave 15 slices 1-4).
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env:
         default: dev
@@ -15,7 +15,7 @@ paths:
     get:
       operationId: listDefinitions
       summary: One summary per definition code (designer list)
-      x-passage-duty: reporting.statement.view
+      x-depot-duty: reporting.statement.view
       responses:
         '200':
           description: Definition summaries ordered by code
@@ -34,7 +34,7 @@ paths:
     get:
       operationId: getDefinition
       summary: Read a definition (draft, latest published, or an exact version)
-      x-passage-duty: reporting.statement.view
+      x-depot-duty: reporting.statement.view
       parameters:
         - name: version
           in: query
@@ -57,7 +57,7 @@ paths:
     put:
       operationId: putDraft
       summary: Create or replace the draft of a definition (idempotent)
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       parameters:
         - name: If-Match
           in: header
@@ -87,7 +87,7 @@ paths:
     get:
       operationId: exportDefinition
       summary: Export the latest published version as schema-versioned JSON (FR-15.11)
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       responses:
         '200':
           description: Definition JSON
@@ -99,7 +99,7 @@ paths:
     post:
       operationId: importDefinition
       summary: Import an exported definition as a draft (FR-15.11)
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       description: >-
         A code that already has a draft or a published version is refused with
         REPORT-0011 unless overwrite=true. An optional Idempotency-Key replays
@@ -142,7 +142,7 @@ paths:
     post:
       operationId: publishDefinition
       summary: Publish the draft as the next immutable version (BR-15.8)
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       responses:
         '200':
           description: Published definition
@@ -157,7 +157,7 @@ paths:
     post:
       operationId: validateDefinition
       summary: Validate a definition's shape, expressions and references (stateless)
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       requestBody:
         required: true
         content:
@@ -185,7 +185,7 @@ paths:
         run stored while a user pages through is neither skipped nor repeated.
         Filtered by definition code, ledger and period. Visibility follows the
         caller's legal-entity scope.
-      x-passage-duty: reporting.statement.view
+      x-depot-duty: reporting.statement.view
       parameters:
         - name: definition
           in: query
@@ -223,7 +223,7 @@ paths:
     post:
       operationId: createRun
       summary: Run a published definition over the reporting read model (FR-15.6)
-      x-passage-duty: reporting.statement.run
+      x-depot-duty: reporting.statement.run
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -262,7 +262,7 @@ paths:
     get:
       operationId: getRun
       summary: Read a run
-      x-passage-duty: reporting.statement.view
+      x-depot-duty: reporting.statement.view
       responses:
         '200':
           description: The run
@@ -280,7 +280,7 @@ paths:
         The published definition version of an ordinary run. For a run over a hierarchy
         (POST /runs with hierarchy) the expanded definition that was evaluated: one row per
         hierarchy node, an Unassigned row and a grand total. It never changes after the run.
-      x-passage-duty: reporting.statement.view
+      x-depot-duty: reporting.statement.view
       responses:
         '200':
           description: The definition with its rows and columns
@@ -302,7 +302,7 @@ paths:
         whole trees stays with reporting.definition.maintain. 404 REPORT-0037 when the run was
         not limited to a tree, or when that revision was not kept (a revision replaced before
         revisions were stored).
-      x-passage-duty: reporting.statement.view
+      x-depot-duty: reporting.statement.view
       responses:
         '200':
           description: The tree at the run's revision
@@ -318,7 +318,7 @@ paths:
     get:
       operationId: listCells
       summary: All cells of a run
-      x-passage-duty: reporting.statement.view
+      x-depot-duty: reporting.statement.view
       responses:
         '200':
           description: Cells in evaluation order
@@ -351,7 +351,7 @@ paths:
         with no keys; drill into the cells they reference. A key sum that
         differs from the cell value is an invariant failure (500 REPORT-0099)
         and is never served.
-      x-passage-duty: reporting.statement.view
+      x-depot-duty: reporting.statement.view
       responses:
         '200':
           description: Balance keys and their sum
@@ -397,7 +397,7 @@ paths:
         the lines against the balance keys: reconciled is false, with the
         difference, when the read model is missing lines - never hidden.
         Computed cells answer computed=true with no lines.
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - name: key
           in: query
@@ -467,7 +467,7 @@ paths:
         self-contained document without scripts; xlsx is a workbook with one
         sheet, Statement, with amounts as numbers and text as inline strings.
         pdf is not rendered yet and answers 404 COM-0404.
-      x-passage-duty: reporting.statement.view
+      x-depot-duty: reporting.statement.view
       responses:
         '200':
           description: The file
@@ -492,7 +492,7 @@ paths:
     get:
       operationId: listBalanceVerifications
       summary: Balance verifications against the ledger, newest first (FR-15.1)
-      x-passage-duty: reporting.audit.view
+      x-depot-duty: reporting.audit.view
       parameters:
         - name: ledgerId
           in: query
@@ -533,7 +533,7 @@ paths:
         inconclusive: repeat the check. Writes balance.verified.v1 to the outbox in the same transaction.
         The ledger sees only the finreport service's duty, so the caller must also hold the ledger duty
         ledger.balance.read (403 AUTH-0003 otherwise).
-      x-passage-duty: reporting.balance.verify
+      x-depot-duty: reporting.balance.verify
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -597,7 +597,7 @@ paths:
       description: >-
         The differing accounts carry ledger balances; a caller without ledger.balance.read gets them withheld
         (diffs empty, diffsWithheld true).
-      x-passage-duty: reporting.audit.view
+      x-depot-duty: reporting.audit.view
       parameters:
         - name: id
           in: path
@@ -624,7 +624,7 @@ paths:
     get:
       operationId: getLag
       summary: Read-model high-water mark per ledger (FR-15.1)
-      x-passage-duty: reporting.statement.view
+      x-depot-duty: reporting.statement.view
       responses:
         '200':
           description: Lag rows and the lag gate in force
@@ -646,7 +646,7 @@ paths:
     post:
       operationId: retireDefinition
       summary: Retire every published version (BR-15.8). Runs can no longer use the code; its versions and past runs stay readable and an open draft is kept. Repeating the call on a retired code succeeds with retiredVersions 0.
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       responses:
         '200':
           description: Retired
@@ -664,7 +664,7 @@ paths:
     get:
       operationId: listStandardDefinitions
       summary: The statutory definitions the service ships (TB-STD, BS-STD, PL-STD, PL-FUNC; FR-15.5, FR-15.14)
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       responses:
         '200':
           description: Shipped definitions
@@ -681,7 +681,7 @@ paths:
     post:
       operationId: installStandardDefinitions
       summary: Publish, as version 1 and in one transaction, every shipped definition whose code the tenant does not use yet. Codes with any draft, published or retired version are skipped, so repeating the call is safe.
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       responses:
         '200':
           description: Per-code result
@@ -702,7 +702,7 @@ paths:
         Maintainers see every code, drafts included. A caller with reporting.statement.run
         and without reporting.definition.maintain (a statement runner picking the rows of a
         run, FR-15.4) sees only codes with a published version, and hasDraft is always false.
-      x-passage-duty: reporting.definition.maintain or reporting.statement.run
+      x-depot-duty: reporting.definition.maintain or reporting.statement.run
       responses:
         '200':
           description: Hierarchy summaries ordered by code
@@ -721,7 +721,7 @@ paths:
     get:
       operationId: getHierarchy
       summary: Read a derived hierarchy (draft, latest published or an exact version) (FR-15.13)
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       parameters:
         - name: version
           in: query
@@ -742,7 +742,7 @@ paths:
     put:
       operationId: putHierarchy
       summary: Create or replace the draft hierarchy (idempotent). The body is the JSON a GET returns, so this is also the import path. Omitted strict defaults to true for account and category hierarchies.
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       parameters:
         - name: If-Match
           in: header
@@ -772,7 +772,7 @@ paths:
     post:
       operationId: publishHierarchy
       summary: Publish the draft as the next version and materialize its membership over the supplied members. Refuses overlapping members (REPORT-0014) and, for strict hierarchies, unassigned members (REPORT-0013); a non-strict publish emits hierarchy.unassigned.v1 per unassigned member.
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       requestBody:
         required: false
         content:
@@ -801,7 +801,7 @@ paths:
     get:
       operationId: getHierarchyMembers
       summary: Materialized membership of a published version (latest by default)
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       parameters:
         - name: version
           in: query
@@ -825,7 +825,7 @@ paths:
     get:
       operationId: listSchedules
       summary: Distribution schedules ordered by code (FR-15.8)
-      x-passage-duty: reporting.statement.schedule
+      x-depot-duty: reporting.statement.schedule
       responses:
         '200':
           description: Schedules
@@ -844,7 +844,7 @@ paths:
     get:
       operationId: getSchedule
       summary: Read a distribution schedule
-      x-passage-duty: reporting.statement.schedule
+      x-depot-duty: reporting.statement.schedule
       responses:
         '200':
           description: The schedule
@@ -864,7 +864,7 @@ paths:
         errors answer 422 REPORT-0018. Omitted attachmentLimitMb defaults to
         20 and currencyType to acct; recipients are lower-cased. nextRunAt and
         updatedBy are read-only and ignored when sent.
-      x-passage-duty: reporting.statement.schedule
+      x-depot-duty: reporting.statement.schedule
       parameters:
         - name: If-Match
           in: header
@@ -894,7 +894,7 @@ paths:
     get:
       operationId: listRowSets
       summary: RowSets ordered by code (FR-15.2)
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       responses:
         '200':
           description: RowSets
@@ -913,7 +913,7 @@ paths:
     get:
       operationId: getRowSet
       summary: Read a row set
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       responses:
         '200':
           description: The row set
@@ -932,7 +932,7 @@ paths:
         The rows follow the row rules of a definition: at most 2,000, unique codes, totals over known rows, no cycles. Field errors answer 422 REPORT-0038 for the code and name and
         REPORT-0002 for expressions and references. updatedBy is read-only and
         ignored when sent.
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       parameters:
         - name: If-Match
           in: header
@@ -967,7 +967,7 @@ paths:
         Maintainers and statement runners (the run form picks a tree and a unit from this list,
         which carries every tree's units) list trees; reading one tree and changing it take
         reporting.definition.maintain.
-      x-passage-duty: reporting.definition.maintain or reporting.statement.run
+      x-depot-duty: reporting.definition.maintain or reporting.statement.run
       responses:
         '200':
           description: Trees
@@ -988,7 +988,7 @@ paths:
     get:
       operationId: getTree
       summary: Read a reporting tree
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       responses:
         '200':
           description: The tree
@@ -1012,7 +1012,7 @@ paths:
         value belongs to at most one unit, so a roll-up never counts it twice. Field errors
         answer 422 REPORT-0039. updatedBy is read-only and ignored when sent. A statement run
         names a tree and a unit (POST /runs with tree).
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       parameters:
         - name: If-Match
           in: header
@@ -1050,7 +1050,7 @@ paths:
         Every save of a tree keeps the revision it produced, newest first, so that a run made on
         an older revision can still show its units (GET /runs/{id}/tree). Trees saved before
         revisions were kept have only their then-current revision.
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       responses:
         '200':
           description: The revisions, newest first, without their bodies
@@ -1077,7 +1077,7 @@ paths:
     get:
       operationId: getTreeRevision
       summary: Read a reporting tree as it was at one revision
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       responses:
         '200':
           description: The tree at that revision
@@ -1095,7 +1095,7 @@ paths:
     get:
       operationId: listColumnSets
       summary: ColumnSets ordered by code (FR-15.3)
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       responses:
         '200':
           description: ColumnSets
@@ -1114,7 +1114,7 @@ paths:
     get:
       operationId: getColumnSet
       summary: Read a column set
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       responses:
         '200':
           description: The column set
@@ -1133,7 +1133,7 @@ paths:
         The columns follow the column rules of a definition: at most 60, supported period expressions, CALC columns over known columns, no cycles. Field errors answer 422 REPORT-0038 for the code and name and
         REPORT-0002 for expressions and references. updatedBy is read-only and
         ignored when sent.
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       parameters:
         - name: If-Match
           in: header
@@ -1172,7 +1172,7 @@ paths:
         comparative is zero, sign reversed when it is below zero). Save one under a tenant code with
         PUT /column-sets/{code} to edit it, or name it as the columnSet of
         a compose request.
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       responses:
         '200':
           description: Templates ordered by code
@@ -1194,7 +1194,7 @@ paths:
         stored one, else a shipped template of that code) into a draft body and
         validates it. Nothing is stored: save the body with PUT /definitions/{code}.
         An unknown set answers 404 REPORT-0037, an invalid result 422.
-      x-passage-duty: reporting.definition.maintain
+      x-depot-duty: reporting.definition.maintain
       requestBody:
         required: true
         content:
@@ -1229,7 +1229,7 @@ paths:
         period, or both from and to at most 366 days apart; otherwise 400
         COM-0002. Ledger kinds come from other services' events (later slice);
         reporting kinds are written with the change they record.
-      x-passage-duty: reporting.audit.view
+      x-depot-duty: reporting.audit.view
       parameters:
         - $ref: '#/components/parameters/AuditLedger'
         - $ref: '#/components/parameters/AuditPeriod'
@@ -1276,7 +1276,7 @@ paths:
         count and digest) under the export id. More than 50,000 matching
         entries is refused with 422 REPORT-0030 rather than cut short. PDF is a
         later slice.
-      x-passage-duty: reporting.audit.view
+      x-depot-duty: reporting.audit.view
       parameters:
         - $ref: '#/components/parameters/AuditLedger'
         - $ref: '#/components/parameters/AuditPeriod'
@@ -1291,13 +1291,13 @@ paths:
             Content-Disposition:
               description: attachment; filename="audit-trail-<export id>.csv"
               schema: {type: string}
-            X-Passage-Export-Id:
+            X-Depot-Export-Id:
               description: Id of the audit_exported entry that records this export
               schema: {type: string, format: uuid}
-            X-Passage-Export-Sha256:
+            X-Depot-Export-Sha256:
               description: Hex SHA-256 of the response body
               schema: {type: string, pattern: '^[0-9a-f]{64}$'}
-            X-Passage-Export-Entries:
+            X-Depot-Export-Entries:
               description: Number of entries in the file
               schema: {type: integer}
           content:
@@ -1316,7 +1316,7 @@ paths:
         failed with the problem code and detail of its last attempt (one retry
         is made). With latest=true it is the "last run" of the Schedules
         screen. A firing is recorded once per schedule, ledger and cron time.
-      x-passage-duty: reporting.statement.schedule
+      x-depot-duty: reporting.statement.schedule
       parameters:
         - name: schedule
           in: query
@@ -1358,7 +1358,7 @@ paths:
         date until which it is retained. The files are not in the list; download
         one from its content link. Visibility follows the caller's legal-entity
         scope.
-      x-passage-duty: reporting.statement.view
+      x-depot-duty: reporting.statement.view
       parameters:
         - {name: definition, in: query, required: false, description: Definition code, schema: {type: string}}
         - {name: ledger, in: query, required: false, description: Ledger id, schema: {type: string, format: uuid}}
@@ -1398,7 +1398,7 @@ paths:
       operationId: getLibraryEntry
       summary: One report library entry (FR-15.8)
       description: The metadata of a stored file, with its SHA-256 and retention date.
-      x-passage-duty: reporting.statement.view
+      x-depot-duty: reporting.statement.view
       responses:
         '200':
           description: The library entry
@@ -1419,9 +1419,9 @@ paths:
       summary: Download a stored statement file (FR-15.8)
       description: >-
         Exactly the bytes that were distributed. The SHA-256 of the body is in
-        the ETag and in X-Passage-Content-Sha256, so a download can be checked
+        the ETag and in X-Depot-Content-Sha256, so a download can be checked
         against the entry.
-      x-passage-duty: reporting.statement.view
+      x-depot-duty: reporting.statement.view
       responses:
         '200':
           description: The file
@@ -1432,7 +1432,7 @@ paths:
             ETag:
               description: The SHA-256 of the body in quotes
               schema: {type: string}
-            X-Passage-Content-Sha256:
+            X-Depot-Content-Sha256:
               description: Hex SHA-256 of the response body
               schema: {type: string, pattern: '^[0-9a-f]{64}$'}
           content:
@@ -1457,7 +1457,7 @@ paths:
       description: >-
         The links made to the file, newest first, with their status (active, expired or revoked), expiry and
         download count. The secret of a link is never listed; it is shown once, when the link is created.
-      x-passage-duty: reporting.library.share
+      x-depot-duty: reporting.library.share
       responses:
         '200':
           description: The share links of the file
@@ -1481,13 +1481,13 @@ paths:
       summary: Share a stored statement file with a link that expires (FR-15.8)
       description: >-
         Makes a bearer link to the file. Anyone who holds the link can download the file until it expires or is
-        revoked, with no Passage sign-in, so hand it only to the people who should see the statement. The
+        revoked, with no Depot sign-in, so hand it only to the people who should see the statement. The
         link works for expiresInDays (1 to 90; the default is REPORTING_SHARE_LINK_EXPIRY_DAYS, 14), or until
         the file's retention date when that is sooner. The response carries the secret token and the download
         path once; only a hash of the secret is stored. A repeated request with the same Idempotency-Key
         returns the stored link with 200 and without the token. The link, an audit trail entry and
         sharelink.created.v1 are written in one transaction.
-      x-passage-duty: reporting.library.share
+      x-depot-duty: reporting.library.share
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1541,7 +1541,7 @@ paths:
         Ends the link at once; a download with it answers 410 from then on. If-Match carries the revision read
         (428 when missing, 412 conflict_version when stale). The revocation, an audit trail entry and
         sharelink.revoked.v1 are written in one transaction.
-      x-passage-duty: reporting.library.share
+      x-depot-duty: reporting.library.share
       parameters:
         - {name: If-Match, in: header, required: true, description: Revision of the link as read (the ETag), schema: {type: string}}
       responses:
@@ -1587,14 +1587,14 @@ paths:
       operationId: getSharedFile
       summary: Download a file through a share link (FR-15.8)
       description: >-
-        Public: no Passage sign-in. The token is the only credential; the gateway route for this path must not
+        Public: no Depot sign-in. The token is the only credential; the gateway route for this path must not
         require a JWT. Serves exactly the stored file, with its SHA-256 in the ETag and in
-        X-Passage-Content-Sha256, and counts the download on the link. Answers are never cached, framed or
+        X-Depot-Content-Sha256, and counts the download on the link. Answers are never cached, framed or
         run as a page (Cache-Control no-store, Content-Disposition attachment, a sandbox Content-Security-Policy,
         X-Frame-Options DENY, nosniff, Referrer-Policy no-referrer). The token is never logged: the access log
         and problem instance carry /v1/reporting/shared/{token}. A token that names no link answers 404
         REPORT-0050; a link that expired or was revoked answers 410 REPORT-0051.
-      x-passage-duty: public
+      x-depot-duty: public
       security: []
       responses:
         '200':
@@ -1606,7 +1606,7 @@ paths:
             ETag:
               description: The SHA-256 of the body in quotes
               schema: {type: string}
-            X-Passage-Content-Sha256:
+            X-Depot-Content-Sha256:
               description: Hex SHA-256 of the response body
               schema: {type: string, pattern: '^[0-9a-f]{64}$'}
             Cache-Control:
@@ -1637,7 +1637,7 @@ paths:
         The holds placed on the report library of a legal entity, in force or released, newest first, for the
         legal entities in the caller's scope. While a hold is in force the retention sweep deletes none of
         the entity's files.
-      x-passage-duty: reporting.statement.view
+      x-depot-duty: reporting.statement.view
       parameters:
         - {name: active, in: query, required: false, description: 'true keeps the holds still in force', schema: {type: boolean}}
       responses:
@@ -1662,7 +1662,7 @@ paths:
         retention date or not, until the hold is released. One hold can be in force per entity (409
         REPORT-0045). The hold, an audit trail entry and legalhold.placed.v1 are written in one transaction.
         A repeated request with the same Idempotency-Key returns the stored hold.
-      x-passage-duty: reporting.library.hold
+      x-depot-duty: reporting.library.hold
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1716,7 +1716,7 @@ paths:
       operationId: getLegalHold
       summary: One legal hold (FR-15.8)
       description: A hold on the report library of a legal entity, with its revision in the ETag.
-      x-passage-duty: reporting.statement.view
+      x-depot-duty: reporting.statement.view
       responses:
         '200':
           description: The legal hold
@@ -1743,7 +1743,7 @@ paths:
         Ends the hold; the retention sweep deletes the entity's past-retention files again at its next pass.
         If-Match carries the revision read (428 when missing, 412 conflict_version when stale). The release,
         an audit trail entry and legalhold.released.v1 are written in one transaction.
-      x-passage-duty: reporting.library.hold
+      x-depot-duty: reporting.library.hold
       parameters:
         - {name: If-Match, in: header, required: true, description: Revision of the hold as read (the ETag), schema: {type: string}}
       requestBody:
@@ -1800,7 +1800,7 @@ paths:
         One row per legal entity pass of the weekly sweep that deleted files past their retention date or
         found some kept by a legal hold: how many files and bytes were deleted, how many a hold kept. Passes
         that found nothing past retention are not recorded. Visibility follows the caller's legal-entity scope.
-      x-passage-duty: reporting.statement.view
+      x-depot-duty: reporting.statement.view
       parameters:
         - name: limit
           in: query
@@ -1831,7 +1831,7 @@ paths:
         legal hold. An ad-hoc run is one that no schedule firing and no library file refers to; scheduled runs
         are not deleted by this sweep. Passes that found nothing past retention are not recorded. Visibility
         follows the caller's legal-entity scope.
-      x-passage-duty: reporting.statement.view
+      x-depot-duty: reporting.statement.view
       parameters:
         - name: limit
           in: query
@@ -1944,7 +1944,7 @@ components:
       type: object
       required: [type, title, status, code]
       properties:
-        type: {type: string, format: uri, example: 'https://passage.dev/problems/REPORT-0001'}
+        type: {type: string, format: uri, example: 'https://depot.dev/problems/REPORT-0001'}
         title: {type: string}
         status: {type: integer}
         detail: {type: string}
@@ -2401,7 +2401,7 @@ components:
         credit: {$ref: '#/components/schemas/Decimal'}
         amount: {$ref: '#/components/schemas/Decimal'}
         closingEntry: {type: boolean}
-        sourceUri: {type: string, description: Passage route (/...) or http(s) URL of the source document}
+        sourceUri: {type: string, description: Depot route (/...) or http(s) URL of the source document}
         traceId: {type: string}
         traceUrl: {type: string, description: Trace viewer link when REPORTING_TRACE_URL is set}
     BalanceVerificationSummary:

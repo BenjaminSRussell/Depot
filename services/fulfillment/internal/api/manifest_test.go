@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 var (
@@ -59,7 +59,7 @@ func TestManifest_CloseValidatesAndPassesTheInput(t *testing.T) {
 	body := func(carrier, date, extra string) string {
 		return `{"warehouseId":"` + wh + `","legalEntityId":"` + le + `","carrier":"` + carrier + `","pickupDate":"` + date + `"` + extra + `}`
 	}
-	ship := map[string]string{"Idempotency-Key": "m1", "X-Passage-Duties": "fulfillment.warehouse.ship"}
+	ship := map[string]string{"Idempotency-Key": "m1", "X-Depot-Duties": "fulfillment.warehouse.ship"}
 	rec := do(t, h, http.MethodPost, "/v1/fulfillment/manifests", body("ups", today, `,"providerManifestId":" PM-1 "`), ship)
 	if rec.Code != http.StatusCreated || rec.Header().Get("ETag") != `"1"` || manifestIn.Carrier != "ups" || manifestIn.ProviderManifestID != "PM-1" ||
 		manifestIn.WarehouseID != wh || manifestIn.LegalEntityID != le || manifestIn.PickupDate.Format("2006-01-02") != today {
@@ -81,10 +81,10 @@ func TestManifest_CloseValidatesAndPassesTheInput(t *testing.T) {
 			t.Errorf("%s: %d, want 400", name, rec.Code)
 		}
 	}
-	if rec := do(t, h, http.MethodPost, "/v1/fulfillment/manifests", body("ups", today, ""), map[string]string{"X-Passage-Duties": "fulfillment.warehouse.ship"}); rec.Code != http.StatusBadRequest {
+	if rec := do(t, h, http.MethodPost, "/v1/fulfillment/manifests", body("ups", today, ""), map[string]string{"X-Depot-Duties": "fulfillment.warehouse.ship"}); rec.Code != http.StatusBadRequest {
 		t.Errorf("missing Idempotency-Key: %d", rec.Code)
 	}
-	if rec := do(t, h, http.MethodPost, "/v1/fulfillment/manifests", body("ups", today, ""), map[string]string{"Idempotency-Key": "m2", "X-Passage-Duties": "fulfillment.warehouse.view"}); rec.Code != http.StatusForbidden {
+	if rec := do(t, h, http.MethodPost, "/v1/fulfillment/manifests", body("ups", today, ""), map[string]string{"Idempotency-Key": "m2", "X-Depot-Duties": "fulfillment.warehouse.view"}); rec.Code != http.StatusForbidden {
 		t.Errorf("without the ship duty: %d, want 403", rec.Code)
 	}
 }
@@ -114,7 +114,7 @@ func TestManifest_ReadListAndCancel(t *testing.T) {
 		t.Errorf("bad id: %d", rec.Code)
 	}
 	ship := func(version string) map[string]string {
-		m := map[string]string{"Idempotency-Key": "c1", "X-Passage-Duties": "fulfillment.warehouse.ship"}
+		m := map[string]string{"Idempotency-Key": "c1", "X-Depot-Duties": "fulfillment.warehouse.ship"}
 		if version != "" {
 			m["If-Match"] = version
 		}

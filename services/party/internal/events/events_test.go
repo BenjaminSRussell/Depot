@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/party/internal/events"
+	"github.com/BenjaminSRussell/depot/services/party/internal/events"
 )
 
 func TestAllEmittedTypesAreInAsyncAPI(t *testing.T) {
@@ -15,7 +15,7 @@ func TestAllEmittedTypesAreInAsyncAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, typ := range events.All() {
-		if !strings.Contains(string(raw), "x-passage-type: "+typ) {
+		if !strings.Contains(string(raw), "x-depot-type: "+typ) {
 			t.Errorf("%s is not listed in events/asyncapi.yaml", typ)
 		}
 	}

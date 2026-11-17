@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: Passage warehouse (wave 31, slice 4)
+  title: Depot warehouse (wave 31, slice 4)
   version: 0.4.0
   description: >
     Location-directive simulation (stateless, with optional hazmat compliance
@@ -14,7 +14,7 @@ info:
     pallet into put-away work). Waves, replenishment, loads and the other
     wave-31 endpoints are later slices (see NOT-IMPLEMENTED.md).
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env: { default: dev }
 paths:
@@ -35,7 +35,7 @@ paths:
         for example "hazmat: class 3 vs 5.1 prohibited in FCS-02". A PICK
         candidate holds at least the line quantity of the item (no split picks
         yet). The body is capped at 4 MiB by the platform decoder.
-      x-passage-duty: warehouse.setup.view
+      x-depot-duty: warehouse.setup.view
       requestBody:
         required: true
         content:
@@ -78,7 +78,7 @@ paths:
         stock (stock arrives through confirmed PUT work). Status defaults to
         ACTIVE. A name already used in the warehouse refuses the whole batch
         (409 WMS-DUPLICATE). Updating locations is a later slice.
-      x-passage-duty: warehouse.setup.maintain
+      x-depot-duty: warehouse.setup.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -102,7 +102,7 @@ paths:
     get:
       operationId: listLocations
       summary: List a warehouse's locations with their stock, by name
-      x-passage-duty: warehouse.setup.view
+      x-depot-duty: warehouse.setup.view
       parameters:
         - { name: warehouseId, in: query, required: true, schema: { type: string, format: uuid } }
         - { name: zone, in: query, schema: { type: string } }
@@ -122,7 +122,7 @@ paths:
     get:
       operationId: getLocation
       summary: One location with its stock (the location lookup's resolve)
-      x-passage-duty: warehouse.setup.view
+      x-depot-duty: warehouse.setup.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -142,7 +142,7 @@ paths:
         The server assigns the id. The sequence must be unique per warehouse,
         work type and direction (409 WMS-DUPLICATE). Quantity bands must not
         overlap. Versioning and effective dating are a later slice.
-      x-passage-duty: warehouse.setup.maintain
+      x-depot-duty: warehouse.setup.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -165,7 +165,7 @@ paths:
     get:
       operationId: listLocationDirectives
       summary: List a warehouse's directives in evaluation order
-      x-passage-duty: warehouse.setup.view
+      x-depot-duty: warehouse.setup.view
       parameters:
         - { name: warehouseId, in: query, required: true, schema: { type: string, format: uuid } }
         - { name: workType, in: query, schema: { $ref: "#/components/schemas/WorkType" } }
@@ -192,8 +192,8 @@ paths:
         (BR-31.1) with remaining capacity and stock net of every open line
         (BR-31.2). A line no directive can place has no location and reason
         WMS-0101, and the work is BLOCKED_NO_LOCATION. Emits
-        dev.passage.wms.work.created.v1. Priority defaults to 50 (1 highest).
-      x-passage-duty: warehouse.work.supervise
+        dev.depot.wms.work.created.v1. Priority defaults to 50 (1 highest).
+      x-depot-duty: warehouse.work.supervise
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -215,7 +215,7 @@ paths:
     get:
       operationId: listWork
       summary: List a warehouse's work headers, highest priority then oldest first
-      x-passage-duty: warehouse.inquiry.view
+      x-depot-duty: warehouse.inquiry.view
       parameters:
         - { name: warehouseId, in: query, required: true, schema: { type: string, format: uuid } }
         - { name: status, in: query, schema: { $ref: "#/components/schemas/WorkStatus" } }
@@ -234,7 +234,7 @@ paths:
     get:
       operationId: getWork
       summary: Read one work with its lines
-      x-passage-duty: warehouse.inquiry.view
+      x-depot-duty: warehouse.inquiry.view
       parameters:
         - $ref: "#/components/parameters/WorkId"
       responses:
@@ -254,9 +254,9 @@ paths:
         ASSIGNED work idle past WMS_LOCK_TIMEOUT_MIN (default 30) returns to
         OPEN first (BR-31.3). The OPEN work with the best priority, then the
         oldest, is taken with FOR UPDATE SKIP LOCKED (BR-31.8), so no work goes
-        to two users. The user is X-Passage-User. work is null when nothing is
+        to two users. The user is X-Depot-User. work is null when nothing is
         assignable. Work class and user filters are a later slice.
-      x-passage-duty: warehouse.work.execute
+      x-depot-duty: warehouse.work.execute
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -298,9 +298,9 @@ paths:
         quantity is a short pick). The stock moves at the line's location under
         a row lock: a PUT receives with capacity and mixing checked again
         (422 WMS-0102, WMS-0103), a PICK issues. The last open line completes the
-        work and emits dev.passage.wms.work.completed.v1. A second confirmation
+        work and emits dev.depot.wms.work.completed.v1. A second confirmation
         of the line with another key is 409 WMS-0105 (BR-31.8).
-      x-passage-duty: warehouse.work.execute
+      x-depot-duty: warehouse.work.execute
       parameters:
         - $ref: "#/components/parameters/WorkId"
         - { name: n, in: path, required: true, schema: { type: integer, minimum: 1 } }
@@ -342,7 +342,7 @@ paths:
         Only a work held by an automation station can be reassigned (409 WMS-WORK-NOT-AUTOMATION), and only while no
         order of the work is PENDING or SENT (409 WMS-AUTO-ORDER-STATE: cancel the order first, with `plcCleared`).
         A work that is not ASSIGNED or IN_PROGRESS is 409 WMS-0110. The person then confirms the lines like any assigned work.
-      x-passage-duty: warehouse.work.supervise
+      x-depot-duty: warehouse.work.supervise
       parameters:
         - $ref: "#/components/parameters/WorkId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -379,7 +379,7 @@ paths:
         (AC-31.5). CANCEL is allowed from OPEN, ASSIGNED and BLOCKED_NO_LOCATION
         while no line is confirmed; the assignee, or a holder of
         warehouse.work.supervise, may cancel. Skip location is a later slice.
-      x-passage-duty: warehouse.work.execute
+      x-depot-duty: warehouse.work.execute
       parameters:
         - $ref: "#/components/parameters/WorkId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -423,7 +423,7 @@ paths:
       operationId: createDockDoor
       summary: Add a dock door to a warehouse (FR-31.8)
       description: The code is unique in the warehouse (409 WMS-DUPLICATE).
-      x-passage-duty: warehouse.setup.maintain
+      x-depot-duty: warehouse.setup.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -452,7 +452,7 @@ paths:
     get:
       operationId: listDockDoors
       summary: List a warehouse's dock doors by code (at most 200)
-      x-passage-duty: warehouse.inquiry.view
+      x-depot-duty: warehouse.inquiry.view
       parameters:
         - { name: warehouseId, in: query, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -479,7 +479,7 @@ paths:
         WMS-0108 (AC-31.8 DOOR_SLOT_OVERLAP); a door that is not in the
         warehouse is 404 WMS-DOOR-NOT-FOUND. INBOUND needs
         warehouse.receipt.register, OUTBOUND needs warehouse.shipment.confirm.
-      x-passage-duty: warehouse.receipt.register or warehouse.shipment.confirm
+      x-depot-duty: warehouse.receipt.register or warehouse.shipment.confirm
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -513,7 +513,7 @@ paths:
     get:
       operationId: listDockAppointments
       summary: List a warehouse's appointments overlapping a window, earliest first (at most 500); the gate guard reads them for check-in
-      x-passage-duty: warehouse.inquiry.view or transport.gate.operate
+      x-depot-duty: warehouse.inquiry.view or transport.gate.operate
       parameters:
         - { name: warehouseId, in: query, required: true, schema: { type: string, format: uuid } }
         - { name: doorId, in: query, schema: { type: string, format: uuid } }
@@ -536,7 +536,7 @@ paths:
     get:
       operationId: getDockAppointment
       summary: Read one dock appointment with its door code (the appointment lookup of the gate check-in)
-      x-passage-duty: warehouse.inquiry.view or transport.gate.operate
+      x-depot-duty: warehouse.inquiry.view or transport.gate.operate
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -560,7 +560,7 @@ paths:
         ASN in the warehouse under another key is 409 WMS-DUPLICATE.
         tolerancePct is the ASN variance tolerance (default 2, 0–20, BR-31.10).
         weight and volume are for the expected quantity.
-      x-passage-duty: warehouse.receipt.register
+      x-depot-duty: warehouse.receipt.register
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -617,7 +617,7 @@ paths:
       summary: Confirm that a shipment left the dock without a packing slip (#35, 35-1)
       description: >
         Records that the fulfillment shipment {id} left the warehouse without a
-        packing slip posted for it and emits dev.passage.wms.shipment.shipped.v1
+        packing slip posted for it and emits dev.depot.wms.shipment.shipped.v1
         in the same transaction, so the EDI engine still sends the shipment's
         856 or DESADV to the partners that receive it automatically. ssccs are
         the containers that left (left out: every closed container of the
@@ -626,7 +626,7 @@ paths:
         shipment is confirmed once: a second confirmation under another
         Idempotency-Key is 409 WMS-SHIPMENT-SHIPPED (a shipment that leaves in
         several loads is shipped by packing slips in fulfillment).
-      x-passage-duty: warehouse.shipment.confirm
+      x-depot-duty: warehouse.shipment.confirm
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -689,7 +689,7 @@ paths:
     get:
       operationId: getShipmentShipped
       summary: Read the warehouse's ship confirmation of a shipment
-      x-passage-duty: warehouse.inquiry.view
+      x-depot-duty: warehouse.inquiry.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -705,7 +705,7 @@ paths:
     get:
       operationId: listReceipts
       summary: List a warehouse's receipts by ASN reference, with pallet counts
-      x-passage-duty: warehouse.inquiry.view
+      x-depot-duty: warehouse.inquiry.view
       parameters:
         - { name: warehouseId, in: query, required: true, schema: { type: string, format: uuid } }
         - { name: status, in: query, schema: { $ref: "#/components/schemas/ReceiptStatus" } }
@@ -729,7 +729,7 @@ paths:
     get:
       operationId: getReceipt
       summary: Read one receipt with its pallets
-      x-passage-duty: warehouse.inquiry.view
+      x-depot-duty: warehouse.inquiry.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -754,15 +754,15 @@ paths:
         warehouse's directives (BLOCKED_NO_LOCATION when none places it), with
         the LP id, receipt id and ASN line as line attributes; stock reaches the
         location when the put-away is confirmed. Emits
-        dev.passage.wms.work.created.v1 and dev.passage.wms.receipt.registered.v1.
+        dev.depot.wms.work.created.v1 and dev.depot.wms.receipt.registered.v1.
         A pallet already received is 409 WMS-RECEIPT-LINE-RECEIVED. The user is
-        X-Passage-User. The warehouse gives the pallet its identity (#32): the
+        X-Depot-User. The warehouse gives the pallet its identity (#32): the
         ASN's license plate stays, an SSCC in it is the pallet's SSCC, and a
         pallet with neither gets the next SSCC of the tenant's GS1 company prefix,
         which is also its license plate id; the put-away work line carries lpId,
         sscc, lot and expiry, so a device prints the label from the work with no
         second scan. 422 WMS-GS1-NOT-SET when it must generate one and no prefix is set.
-      x-passage-duty: warehouse.receipt.register
+      x-depot-duty: warehouse.receipt.register
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: n, in: path, required: true, schema: { type: integer, minimum: 1 } }
@@ -826,7 +826,7 @@ paths:
       description: >
         The prefix is 7 to 11 digits, the extension digit 0 to 9. Once SSCCs were issued the prefix cannot change
         (409 WMS-GS1-LOCKED); the extension digit can.
-      x-passage-duty: warehouse.setup.maintain
+      x-depot-duty: warehouse.setup.maintain
       requestBody:
         required: true
         content:
@@ -848,7 +848,7 @@ paths:
     get:
       operationId: getGS1Settings
       summary: The GS1 company prefix and how many SSCCs were issued
-      x-passage-duty: warehouse.setup.view
+      x-depot-duty: warehouse.setup.view
       responses:
         "200":
           description: The settings.
@@ -863,7 +863,7 @@ paths:
         The license plate, item, lot and expiry date the receipt holds for the pallet, and the put-away work it created, so
         a device prints the label from the warehouse's own data with no second scan. 404 WMS-PALLET-NOT-FOUND for an SSCC
         that is not a pallet of this tenant.
-      x-passage-duty: warehouse.inquiry.view
+      x-depot-duty: warehouse.inquiry.view
       parameters:
         - { name: sscc, in: path, required: true, schema: { type: string, pattern: "^[0-9]{18}$" } }
       responses:
@@ -905,7 +905,7 @@ paths:
         receives the expected ASN pallet with that SSCC at its announced quantity, CONFIRM_PUTAWAY confirms the open
         put-away of that pallet bound for the rule's location. Each read lists what its rules did in `actions`
         (DONE, SKIPPED or REFUSED with the reason); a refusal does not stop the batch.
-      x-passage-duty: warehouse.rfid.ingest
+      x-depot-duty: warehouse.rfid.ingest
       requestBody:
         required: true
         content:
@@ -940,7 +940,7 @@ paths:
     get:
       operationId: listRFIDReads
       summary: Stored RFID reads, newest first
-      x-passage-duty: warehouse.inquiry.view
+      x-depot-duty: warehouse.inquiry.view
       parameters:
         - { name: key, in: query, required: false, description: A GS1 key, an SSCC for example., schema: { type: string } }
         - { name: readerId, in: query, required: false, schema: { type: string } }
@@ -963,7 +963,7 @@ paths:
         12 characters, the width of a telegram's field (WMS-AUTO-LOCATION, 422). The work is assigned to the station's
         identity (`automation:<station>`), so the PLC's arrival confirms the line. 409 WMS-AUTO-ORDER-EXISTS when the line
         has an order.
-      x-passage-duty: warehouse.work.supervise
+      x-depot-duty: warehouse.work.supervise
       requestBody:
         required: true
         content:
@@ -991,7 +991,7 @@ paths:
       operationId: listTransportOrders
       summary: Transport orders, oldest first
       description: The connector of a station reads its PENDING orders; people read all of them.
-      x-passage-duty: warehouse.inquiry.view or warehouse.automation.execute
+      x-depot-duty: warehouse.inquiry.view or warehouse.automation.execute
       parameters:
         - { name: station, in: query, required: false, schema: { type: string } }
         - { name: status, in: query, required: false, schema: { type: string, enum: [PENDING, SENT, REFUSED, ARRIVED, DIVERTED, FAULT, CANCELLED] } }
@@ -1007,7 +1007,7 @@ paths:
       operationId: reportTransportOrder
       summary: The connector reports a PENDING order sent to the PLC, or refused by it
       description: Repeating the status it has changes nothing. Any other state is 409 WMS-AUTO-ORDER-STATE. A refused order gives its work back to people, as a fault does (the line notes the PLC's reason and a work still assigned to the station returns to OPEN).
-      x-passage-duty: warehouse.automation.execute
+      x-depot-duty: warehouse.automation.execute
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -1033,7 +1033,7 @@ paths:
     get:
       operationId: getTransportOrder
       summary: Read one automation order
-      x-passage-duty: warehouse.inquiry.view or warehouse.automation.execute
+      x-depot-duty: warehouse.inquiry.view or warehouse.automation.execute
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1052,7 +1052,7 @@ paths:
         `plcCleared: true`, else 409 WMS-AUTO-ORDER-STATE. An ARRIVED order is done (409).
         Cancelling a cancelled order changes nothing. The work line notes the reason, and a work still ASSIGNED to the
         station with no other live order there returns to OPEN.
-      x-passage-duty: warehouse.work.supervise
+      x-depot-duty: warehouse.work.supervise
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -1078,7 +1078,7 @@ paths:
     get:
       operationId: listRFIDRules
       summary: What a read at each reader does (FR-32.9)
-      x-passage-duty: warehouse.setup.view
+      x-depot-duty: warehouse.setup.view
       parameters:
         - { name: readerId, in: query, required: false, schema: { type: string, maxLength: 64 } }
       responses:
@@ -1099,7 +1099,7 @@ paths:
         the line is bound for that location of the warehouse: like a PLC station, the reader takes an OPEN work as
         `rfid:<reader>` and confirms it; a work a person holds is left for that person (SKIPPED). A reader (antenna) has
         at most one rule per action: 409 WMS-RFID-RULE-EXISTS.
-      x-passage-duty: warehouse.setup.maintain
+      x-depot-duty: warehouse.setup.maintain
       requestBody:
         required: true
         content:
@@ -1117,7 +1117,7 @@ paths:
       operationId: updateRFIDRule
       summary: Edit an RFID rule (reader, antenna, action, warehouse, location, posting identity)
       description: Takes the same body as creating a rule and replaces all of it; who created the rule and when stay, and `version`, `updatedBy` and `updatedAt` record the edit. `If-Match` (the rule's `version`) is checked when sent; a stale one is 409 WMS-VERSION-CONFLICT.
-      x-passage-duty: warehouse.setup.maintain
+      x-depot-duty: warehouse.setup.maintain
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: If-Match, in: header, required: false, schema: { type: string } }
@@ -1137,7 +1137,7 @@ paths:
     delete:
       operationId: deleteRFIDRule
       summary: Remove an RFID rule; reads already acted on keep what was done
-      x-passage-duty: warehouse.setup.maintain
+      x-depot-duty: warehouse.setup.maintain
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1156,7 +1156,7 @@ paths:
         line as the station's identity in the same transaction, so the stock moves; `confirmed` counts those. A
         confirmation the warehouse refuses leaves the order ARRIVED with the reason in `confirmError`; any other failure
         is an error for the whole batch, nothing is stored, and the connector has the PLC send it again.
-      x-passage-duty: warehouse.automation.execute
+      x-depot-duty: warehouse.automation.execute
       requestBody:
         required: true
         content:
@@ -1237,7 +1237,7 @@ components:
       schema: { type: string, enum: ["true"] }
   responses:
     Validation:
-      description: Validation failed (COM-0001); errors names the fields, including Idempotency-Key and X-Passage-User.
+      description: Validation failed (COM-0001); errors names the fields, including Idempotency-Key and X-Depot-User.
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }

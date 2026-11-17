@@ -1,7 +1,7 @@
 // Generated from deploy/cloud-profiles/profiles.json by deploy/cloud-profiles/cloudprofile.py; do not edit.
 export const CLOUD_PROFILE_DATA = {
   "schemaVersion": 1,
-  "comment": "Single source of truth for the Passage cloud profile (#599). Go (platform/go/cloudprofile), TypeScript (services/agents-ts/src/cloudprofile) and Helm global values (deploy/cloud-profiles/values) are generated from this file by `python3 deploy/cloud-profiles/cloudprofile.py sync`; tests fail when they drift. Every endpoint carries the Microsoft Learn page it comes from. status 'unverified' means the page does not list the value and it must be confirmed before that cloud ships.",
+  "comment": "Single source of truth for the Depot cloud profile (#599). Go (platform/go/cloudprofile), TypeScript (services/agents-ts/src/cloudprofile) and Helm global values (deploy/cloud-profiles/values) are generated from this file by `python3 deploy/cloud-profiles/cloudprofile.py sync`; tests fail when they drift. Every endpoint carries the Microsoft Learn page it comes from. status 'unverified' means the page does not list the value and it must be confirmed before that cloud ships.",
   "endpointKeys": [
     "entraAuthority",
     "appRegistrationPortal",
@@ -101,7 +101,7 @@ export const CLOUD_PROFILE_DATA = {
       }
     },
     "gcc": {
-      "description": "Microsoft 365 GCC. GCC is a Microsoft 365 environment on the worldwide Entra ID, so the authority and Graph are the commercial ones; Passage adds FIPS builds and US-only regions (#601). Do not switch to .us endpoints for GCC.",
+      "description": "Microsoft 365 GCC. GCC is a Microsoft 365 environment on the worldwide Entra ID, so the authority and Graph are the commercial ones; Depot adds FIPS builds and US-only regions (#601). Do not switch to .us endpoints for GCC.",
       "cloud": "AzurePublic",
       "fips": true,
       "allowedRegions": [

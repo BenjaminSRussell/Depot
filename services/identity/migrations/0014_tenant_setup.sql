@@ -20,20 +20,20 @@ create table identity_tenant_settings (
 alter table identity_tenant_setup_steps enable row level security;
 alter table identity_tenant_setup_steps force row level security;
 create policy identity_tenant_setup_steps_tenant_access on identity_tenant_setup_steps as permissive
-  using (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid)
-  with check (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
+  using (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid)
+  with check (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
 
 alter table identity_tenant_settings enable row level security;
 alter table identity_tenant_settings force row level security;
 create policy identity_tenant_settings_tenant_access on identity_tenant_settings as permissive
-  using (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid)
-  with check (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
+  using (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid)
+  with check (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON identity_tenant_setup_steps TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON identity_tenant_settings TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON identity_tenant_setup_steps TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON identity_tenant_settings TO depot_app';
   END IF;
 END
 $$;

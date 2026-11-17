@@ -51,8 +51,8 @@ func TestOpenOrders_LoadReconcileAndRerunLoadsNothing(t *testing.T) {
 		and delivery_date = '2027-01-15'`, run.RunID); n != 1 {
 		t.Fatalf("opening line = %d", n)
 	}
-	if n := count(t, admin, `select count(*) from legacy_xref x join open_order_opening_line l on l.legacy_xref_id = x.xref_id and l.line_id = x.passage_id
-		where x.source_table in ('open_orders.sales', 'open_orders.purchase') and x.passage_entity = 'open_order_opening_line'`); n != 3 {
+	if n := count(t, admin, `select count(*) from legacy_xref x join open_order_opening_line l on l.legacy_xref_id = x.xref_id and l.line_id = x.depot_id
+		where x.source_table in ('open_orders.sales', 'open_orders.purchase') and x.depot_entity = 'open_order_opening_line'`); n != 3 {
 		t.Fatalf("xref rows tied to their line = %d, want 3", n)
 	}
 	again := do(t, h, request{method: "POST", path: ordersPath, tenant: tenantA, duties: allDuties, body: ordersBody("", cleanOrders...)})

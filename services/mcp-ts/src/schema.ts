@@ -11,7 +11,7 @@ import { isObject, type JsonObject } from "./tool.js";
  */
 export function schemaViolations(schema: JsonObject, value: unknown, path = "$"): string[] {
   const out: string[] = [];
-  // OpenAPI 3.0 `nullable: true` (still used in Passage's 3.1 documents) admits null.
+  // OpenAPI 3.0 `nullable: true` (still used in Depot's 3.1 documents) admits null.
   if (value === null && schema.nullable === true) return out;
   const types = schema.type;
   if (types !== undefined) {

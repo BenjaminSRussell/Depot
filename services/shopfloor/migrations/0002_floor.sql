@@ -1,5 +1,5 @@
 -- Shop floor machines, machine events, downtime and andon, and payroll export
--- batches (PSG-25 slice 2). Every table is tenant scoped with forced RLS.
+-- batches (DPT-25 slice 2). Every table is tenant scoped with forced RLS.
 
 CREATE TABLE IF NOT EXISTS machine (
   tenant_id uuid NOT NULL,
@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS machine (
 ALTER TABLE machine ENABLE ROW LEVEL SECURITY;
 ALTER TABLE machine FORCE ROW LEVEL SECURITY;
 CREATE POLICY machine_tenant_access ON machine AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- BR-25.4: (machine, seq) is unique. Monthly range partitions are a later slice.
 CREATE TABLE IF NOT EXISTS machine_event (
@@ -44,8 +44,8 @@ CREATE INDEX IF NOT EXISTS machine_event_machine_ts ON machine_event (tenant_id,
 ALTER TABLE machine_event ENABLE ROW LEVEL SECURITY;
 ALTER TABLE machine_event FORCE ROW LEVEL SECURITY;
 CREATE POLICY machine_event_tenant_access ON machine_event AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS downtime_record (
   tenant_id uuid NOT NULL,
@@ -67,8 +67,8 @@ CREATE INDEX IF NOT EXISTS downtime_record_started ON downtime_record (tenant_id
 ALTER TABLE downtime_record ENABLE ROW LEVEL SECURITY;
 ALTER TABLE downtime_record FORCE ROW LEVEL SECURITY;
 CREATE POLICY downtime_record_tenant_access ON downtime_record AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- BR-25.10: one open alert per (resource, kind).
 CREATE TABLE IF NOT EXISTS andon_alert (
@@ -89,8 +89,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS andon_alert_open ON andon_alert (tenant_id, re
 ALTER TABLE andon_alert ENABLE ROW LEVEL SECURITY;
 ALTER TABLE andon_alert FORCE ROW LEVEL SECURITY;
 CREATE POLICY andon_alert_tenant_access ON andon_alert AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- FR-25.8: a pay line joins at most one export batch. Approved lines are not
 -- edited, so exports are tracked in a side table rather than on pay_line.
@@ -108,8 +108,8 @@ CREATE TABLE IF NOT EXISTS pay_export_batch (
 ALTER TABLE pay_export_batch ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pay_export_batch FORCE ROW LEVEL SECURITY;
 CREATE POLICY pay_export_batch_tenant_access ON pay_export_batch AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS pay_export_line (
   tenant_id uuid NOT NULL,
@@ -122,14 +122,14 @@ CREATE TABLE IF NOT EXISTS pay_export_line (
 ALTER TABLE pay_export_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pay_export_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY pay_export_line_tenant_access ON pay_export_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE INDEX IF NOT EXISTS pay_export_line_batch ON pay_export_line (tenant_id, batch_id);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON machine, machine_event, downtime_record, andon_alert, pay_export_batch, pay_export_line TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON machine, machine_event, downtime_record, andon_alert, pay_export_batch, pay_export_line TO depot_app';
   END IF;
 END
 $$;

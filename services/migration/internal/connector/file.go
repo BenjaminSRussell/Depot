@@ -20,7 +20,7 @@ import (
 	"golang.org/x/text/encoding/ianaindex"
 	"golang.org/x/text/transform"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 const (

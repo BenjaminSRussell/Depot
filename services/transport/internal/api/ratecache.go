@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/transport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/domain"
 )
 
 // Rate-shop cache (FR-34.4 "results cached 10 min per input hash", parameter
@@ -19,7 +19,7 @@ const (
 	defaultRatingCacheMin = 10
 	maxRatingCacheMin     = 60
 	rateCacheMaxEntries   = 10_000
-	headerRateCache       = "X-Passage-Cache"
+	headerRateCache       = "X-Depot-Cache"
 )
 
 type cachedQuotes struct {

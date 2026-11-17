@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 )
 
 func TestEventTypesAreValidAndDocumented(t *testing.T) {
@@ -16,7 +16,7 @@ func TestEventTypesAreValidAndDocumented(t *testing.T) {
 	}
 	for _, typ := range All() {
 		if !events.ValidType(typ) {
-			t.Errorf("%s does not follow dev.passage.<ctx>.<entity>.<verb>.v<n>", typ)
+			t.Errorf("%s does not follow dev.depot.<ctx>.<entity>.<verb>.v<n>", typ)
 		}
 		if !strings.Contains(string(spec), "name: "+typ) {
 			t.Errorf("%s is not a message in events/asyncapi.yaml", typ)

@@ -9,7 +9,7 @@ import { MemState } from "./memstate.js";
 import { apAgent, APPROVER, codingDescriptor, FakeTools, INVOKER, postDescriptor, proposal, REAL_IBAN, ScriptedProvider, TENANT, usd } from "./fakes.js";
 
 const RUN = "run-1";
-const CODING = "passage.ap.invoice.propose_coding";
+const CODING = "depot.ap.invoice.propose_coding";
 
 /** Behaves like PgApprovalStore: one request per (run, seq) that keeps the FIRST proposal, ids per request, first decision wins. */
 class MemInbox {
@@ -99,7 +99,7 @@ function setup(over: Partial<{ provider: ScriptedProvider; tools: FakeTools; hal
   };
   const started = new Set<string>();
   const provider = over.provider ?? new ScriptedProvider([proposal(0.8)]);
-  const tools = over.tools ?? new FakeTools({ "passage.ap.invoice.post": postDescriptor, [CODING]: codingDescriptor });
+  const tools = over.tools ?? new FakeTools({ "depot.ap.invoice.post": postDescriptor, [CODING]: codingDescriptor });
   const halted = over.halted ?? { on: false };
   const clock = over.nowMs ?? state.clock;
   const connects: string[] = [];
@@ -309,7 +309,7 @@ describe("resumable run steps", () => {
   });
 
   it("a tool failure after approval ends FAILED with the tool's code and one row", async () => {
-    const tools = new FakeTools({ "passage.ap.invoice.post": postDescriptor }, { ok: false, code: "AGT-0214", message: "posting refused" });
+    const tools = new FakeTools({ "depot.ap.invoice.post": postDescriptor }, { ok: false, code: "AGT-0214", message: "posting refused" });
     const s = setup({ tools });
     await toAwaiting(s);
     s.inbox.decided = { decision: "APPROVED", approverUserId: APPROVER, decidedAt: "2026-10-21T01:00:00.000Z" };
@@ -330,7 +330,7 @@ describe("resumable run steps", () => {
   });
 
   it("a disallowed tool fails the run with a DENIED row; abort ends a run the workflow gave up on", async () => {
-    const s = setup({ provider: new ScriptedProvider([proposal(0.8, "1200", "passage.other.tool")]) });
+    const s = setup({ provider: new ScriptedProvider([proposal(0.8, "1200", "depot.other.tool")]) });
     await toAwaiting(s);
     expect(s.rows[0]).toMatchObject({ decision: "DENIED" });
     expect(s.finished[0]?.status).toBe("FAILED");
@@ -363,8 +363,8 @@ describe("resumable run steps survive a failure partway through a step", () => {
   });
 
   it("plan: a save lost after the answer is kept resumes from it; a lost save after the approval was opened still shows the approver the proposal that will be committed", async () => {
-    const p1 = proposal(0.8, "1200", "passage.ap.invoice.post", { invoiceId: "INV-7", remitTo: "[IBAN-1]", amount: "1200" });
-    const p2 = proposal(0.8, "9800", "passage.ap.invoice.post", { invoiceId: "INV-7", remitTo: "[IBAN-1]", amount: "9800" });
+    const p1 = proposal(0.8, "1200", "depot.ap.invoice.post", { invoiceId: "INV-7", remitTo: "[IBAN-1]", amount: "1200" });
+    const p2 = proposal(0.8, "9800", "depot.ap.invoice.post", { invoiceId: "INV-7", remitTo: "[IBAN-1]", amount: "9800" });
     const s = setup({ provider: new ScriptedProvider([p1, p2]) });
     await s.pod().create(TENANT, RUN, input(), starter(), far);
     await s.pod().begin(TENANT, RUN);

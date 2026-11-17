@@ -1,4 +1,4 @@
--- PSG-35 slice 3: message monitor and partner SLA dashboard (FR-35.10, §6.35.14).
+-- DPT-35 slice 3: message monitor and partner SLA dashboard (FR-35.10, §6.35.14).
 
 -- When the partner's 997 was matched to an outbound interchange. The SLA
 -- dashboard measures ack latency as acked_at - received_at (the interchange is

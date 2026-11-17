@@ -15,5 +15,5 @@ create table "roles" (
 alter table roles enable row level security;
 alter table roles force row level security;
 create policy roles_tenant_access on roles as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);

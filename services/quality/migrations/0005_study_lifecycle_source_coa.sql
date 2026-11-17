@@ -47,8 +47,8 @@ CREATE INDEX IF NOT EXISTS quality_receipt_check_line ON quality_receipt_check (
 ALTER TABLE quality_receipt_check ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_receipt_check FORCE ROW LEVEL SECURITY;
 CREATE POLICY quality_receipt_check_tenant_access ON quality_receipt_check AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Certificates of analysis: immutable revisions per (order, shipment); shipment_key
 -- is '' for the batch CoA. The document is stored as issued.
@@ -77,5 +77,5 @@ CREATE INDEX IF NOT EXISTS quality_coa_order ON quality_coa (tenant_id, quality_
 ALTER TABLE quality_coa ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_coa FORCE ROW LEVEL SECURITY;
 CREATE POLICY quality_coa_tenant_access ON quality_coa AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
 )
 
 // pdfBody builds a PDF job request for queue with the given base64 document.

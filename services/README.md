@@ -8,8 +8,8 @@ Minimal Go service skeleton (copy, do not share code between services):
 
 ```
 services/<name>/
-  go.mod                 module github.com/BenjaminSRussell/passage/services/<name>
-                         replace github.com/BenjaminSRussell/passage/platform => ../../platform/go
+  go.mod                 module github.com/BenjaminSRussell/depot/services/<name>
+                         replace github.com/BenjaminSRussell/depot/platform => ../../platform/go
   cmd/<name>/main.go
   internal/domain/
   internal/store/

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/domain"
 )
 
 func TestPromSourceReadsTheThreeQueries(t *testing.T) {

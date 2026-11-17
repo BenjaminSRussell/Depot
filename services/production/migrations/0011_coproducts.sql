@@ -22,11 +22,11 @@ CREATE TABLE IF NOT EXISTS production_coproduct (
 ALTER TABLE production_coproduct ENABLE ROW LEVEL SECURITY;
 ALTER TABLE production_coproduct FORCE ROW LEVEL SECURITY;
 CREATE POLICY production_coproduct_tenant_access ON production_coproduct AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY production_coproduct_legal_entity_scope ON production_coproduct AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The journal line that receipts a co-product names its co-product line.
 ALTER TABLE production_journal_line ADD COLUMN IF NOT EXISTS coproduct_line_number text;
@@ -39,8 +39,8 @@ ALTER TABLE production_journal_line ADD CONSTRAINT production_journal_line_copro
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON production_coproduct TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON production_coproduct TO depot_app';
   END IF;
 END
 $$;

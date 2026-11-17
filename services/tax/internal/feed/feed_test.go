@@ -8,16 +8,16 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/tax/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/tax/internal/feed"
-	"github.com/BenjaminSRussell/passage/services/tax/internal/store"
-	"github.com/BenjaminSRussell/passage/services/tax/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/feed"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/store"
+	"github.com/BenjaminSRussell/depot/services/tax/migrations"
 )
 
 const pump = "0190f0a0-0000-7000-8000-0000000000a1"
@@ -197,7 +197,7 @@ func TestFeed_ReceiptIsAnArrival(t *testing.T) {
 			map[string]any{"line_no": 1, "product_id": pump, "qty": "9", "amount_acct": "900.0000"},
 			map[string]any{"line_no": 2, "product_id": pump, "qty": "0", "amount_acct": "0"},
 		}}
-	if applied, err := f.deliver(t, ids.New(), feed.ReceiptPostedType, "/passage/receiving/receiving", data); err != nil || !applied {
+	if applied, err := f.deliver(t, ids.New(), feed.ReceiptPostedType, "/depot/receiving/receiving", data); err != nil || !applied {
 		t.Fatalf("%v %v", applied, err)
 	}
 	staged := f.movements(t, "staged")
@@ -279,7 +279,7 @@ func TestFeed_LookupFailedEventsAreParked(t *testing.T) {
 	}
 	receipt := map[string]any{"receipt_number": "RCV-F1", "legal_entity_id": f.entity, "partner_country": "AT", "posting_date": "2026-03-05", "customs_lookup_failed": true,
 		"lines": []any{map[string]any{"product_id": pump, "qty": "1", "amount_acct": "1"}}}
-	if _, err := f.deliver(t, ids.New(), feed.ReceiptPostedType, "/passage/receiving/receiving", receipt); !isPermanent(err) {
+	if _, err := f.deliver(t, ids.New(), feed.ReceiptPostedType, "/depot/receiving/receiving", receipt); !isPermanent(err) {
 		t.Fatalf("receipt: %v", err)
 	}
 	if n := len(f.movements(t, "staged")); n != 0 {

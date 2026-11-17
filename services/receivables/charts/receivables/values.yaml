@@ -1,5 +1,5 @@
 image:
-  repository: ghcr.io/benjaminsrussell/passage-receivables
+  repository: ghcr.io/benjaminsrussell/depot-receivables
   tag: "0.1.0"
   # Pin by digest in Argo CD overlays; tag is a dev default only.
   digest: ""
@@ -13,7 +13,7 @@ service:
   adminPort: 9090
 
 database:
-  # Secret holding DATABASE_URL (passage_app role, no BYPASSRLS).
+  # Secret holding DATABASE_URL (depot_app role, no BYPASSRLS).
   secretName: receivables-db
   secretKey: DATABASE_URL
 
@@ -68,9 +68,9 @@ sftpPoll:
 # secret store path externalSecret.key. The publishable key is not a secret. accounts maps a legal entity id to its Stripe Connect
 # account (acct_...); empty takes every entity's payments on the platform account. bankAccountRef is the ar_bank_account
 # account_ref of the Stripe clearing account the receipts debit (finance maps it, #512). Stripe calls the webhook listener
-# (webhookPort, RECEIVABLES_WEBHOOK_ADDR) without a Passage token: route https://<host>/webhooks/v1/stripe to the Service
-# <release>-receivables-webhook only, never through passage-api: the edge for that is deploy/gateway/payments-webhook (Gateway
-# passage-payments-webhook), and the NetworkPolicy below admits only its Envoy proxies to the webhook port (#213). Register these
+# (webhookPort, RECEIVABLES_WEBHOOK_ADDR) without a Depot token: route https://<host>/webhooks/v1/stripe to the Service
+# <release>-receivables-webhook only, never through depot-api: the edge for that is deploy/gateway/payments-webhook (Gateway
+# depot-payments-webhook), and the NetworkPolicy below admits only its Envoy proxies to the webhook port (#213). Register these
 # events on the Stripe endpoint: payment_intent.succeeded, .processing, .payment_failed, .canceled, charge.refunded,
 # charge.dispute.created, .updated, .closed, .funds_withdrawn and .funds_reinstated.
 payments:
@@ -79,21 +79,21 @@ payments:
   existingSecret: ""            # e.g. receivables-stripe; required when provider is set
   secretKeyKey: STRIPE_SECRET_KEY
   webhookSecretKey: STRIPE_WEBHOOK_SECRET
-  externalSecret: { enabled: false, storeName: passage, key: "", refreshInterval: 1h }
+  externalSecret: { enabled: false, storeName: depot, key: "", refreshInterval: 1h }
   accounts: {}
   bankAccountRef: STRIPE
   webhookPort: 8081
 
 # With payments.provider set, a NetworkPolicy selects the receivables pods: the API and admin ports stay open to apiFrom (any
 # source when empty, as without a policy), and the token-less webhook port is admitted only from the payment webhook edge's
-# Envoy proxies (Gateway passage-payments-webhook, deploy/gateway/payments-webhook).
+# Envoy proxies (Gateway depot-payments-webhook, deploy/gateway/payments-webhook).
 networkPolicy:
   enabled: true
   apiFrom: []
   webhookGateway:
     namespaces: [envoy-gateway-system]
     podLabels:
-      gateway.envoyproxy.io/owning-gateway-name: passage-payments-webhook
+      gateway.envoyproxy.io/owning-gateway-name: depot-payments-webhook
       gateway.envoyproxy.io/owning-gateway-namespace: hello-ledger
 
 serviceMonitor:
@@ -113,7 +113,7 @@ alerts:
 # service:receivables-billing is seeded in the service principal table. Its KafkaUser,
 # ACLs and dead-letter topic are deploy/kafka/receivables-consumer.yaml; off by default,
 # like the other consumers in dev, until it is turned on per environment (billing's
-# outbox connector, which creates passage.billing.invoice, is not deployed yet).
+# outbox connector, which creates depot.billing.invoice, is not deployed yet).
 podSecurityContext:
   runAsNonRoot: true
   seccompProfile:
@@ -131,7 +131,7 @@ consumer:
     brokers: ""
     group: receivables-billing
     username: receivables-consumer
-    dlqTopic: passage.receivables.invoices.dlq
+    dlqTopic: depot.receivables.invoices.dlq
     secret: ""
   resources:
     requests:

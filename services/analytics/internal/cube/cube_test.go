@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/analytics/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/analytics/internal/domain"
 )
 
 func query() domain.CubeQuery {

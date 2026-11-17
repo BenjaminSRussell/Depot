@@ -9,11 +9,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	ediev "github.com/BenjaminSRussell/passage/services/edi/internal/events"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	ediev "github.com/BenjaminSRussell/depot/services/edi/internal/events"
 )
 
 func outbound(partnerID, set string) Outbound {

@@ -9,12 +9,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/production/internal/domain"
-	prodevents "github.com/BenjaminSRussell/passage/services/production/internal/events"
-	"github.com/BenjaminSRussell/passage/services/production/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/production/internal/domain"
+	prodevents "github.com/BenjaminSRussell/depot/services/production/internal/events"
+	"github.com/BenjaminSRussell/depot/services/production/migrations"
 )
 
 // scheduledRoute is a two-operation route with queue and transit hours on a quantity of 100:
@@ -418,7 +418,7 @@ func TestSchedule_OrderWithoutOperations(t *testing.T) {
 	st.must(domain.CmdRelease, nil)
 }
 
-// RLS as passage_app: the jobs carry the order's legal entity, a principal scoped to one legal
+// RLS as depot_app: the jobs carry the order's legal entity, a principal scoped to one legal
 // entity lists only its jobs, and the reset that deletes jobs needs only the slice's grants.
 func TestListJobs_LegalEntityScopeAsAppRole(t *testing.T) {
 	if os.Getenv(testkit.EnvURL) == "" || os.Getenv(testkit.EnvAppURL) == "" {

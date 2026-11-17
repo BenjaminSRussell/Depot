@@ -8,13 +8,13 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/eventing/kafka"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/tax/internal/feed"
-	"github.com/BenjaminSRussell/passage/services/tax/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/eventing/kafka"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/feed"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/store"
 )
 
 func intrastatKafkaConfig(getenv func(string) string) (kafka.Config, error) {
@@ -29,7 +29,7 @@ func intrastatSeeded(table map[string][]string) bool {
 
 // consume runs the Intrastat feed consumer (#13): it stages the EU cross-border movements of fulfillment's packingslip.posted and
 // receiving's receipt.posted through the store behind POST /v1/tax/intrastat/movements, one transaction per event with its consumer_inbox
-// row, and parks what it cannot map on passage.tax.intrastat.dlq. It serves only its admin port.
+// row, and parks what it cannot map on depot.tax.intrastat.dlq. It serves only its admin port.
 func consume(ctx context.Context, getenv func(string) string) error {
 	if !intrastatSeeded(tenant.ServicePrincipalTable()) {
 		return errors.New("Intrastat consumer not started: service principal " + tenant.ServiceActor(feed.ConsumerName) + " is not seeded")

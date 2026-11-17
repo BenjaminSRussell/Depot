@@ -29,7 +29,7 @@ type Line struct {
 	Area      Area
 	Key       string
 	Legacy    decimal.Decimal
-	Passage   decimal.Decimal
+	Depot     decimal.Decimal
 	Documents int
 }
 
@@ -63,7 +63,7 @@ type Variance struct {
 	Area      Area
 	Key       string
 	Legacy    decimal.Decimal
-	Passage   decimal.Decimal
+	Depot     decimal.Decimal
 	Delta     decimal.Decimal
 	Documents int
 	Class     string
@@ -87,11 +87,11 @@ func (e Explanations) Explain(area Area, key, reason string) error {
 	return nil
 }
 
-// Diff outer-joins the legacy and Passage tuples on (area, key), skips equal pairs and
+// Diff outer-joins the legacy and Depot tuples on (area, key), skips equal pairs and
 // classifies each remaining difference. Missing on one side counts as zero. Repeated tuples of a
 // side add up, amounts and document counts alike; the two sides describe the same documents, so the
 // tuple's document count is the larger of the two.
-func Diff(legacy, passage []Line, rules []Rule, ex Explanations) []Variance {
+func Diff(legacy, depot []Line, rules []Rule, ex Explanations) []Variance {
 	type pair struct {
 		l, p   decimal.Decimal
 		ld, pd int
@@ -106,10 +106,10 @@ func Diff(legacy, passage []Line, rules []Rule, ex Explanations) []Variance {
 		joined[k] = p
 		areas[k] = l.Area
 	}
-	for _, l := range passage {
+	for _, l := range depot {
 		k := explanationKey(l.Area, l.Key)
 		p := joined[k]
-		p.p = p.p.Add(l.Passage)
+		p.p = p.p.Add(l.Depot)
 		p.pd += max(l.Documents, 0)
 		joined[k] = p
 		areas[k] = l.Area
@@ -132,8 +132,8 @@ func Diff(legacy, passage []Line, rules []Rule, ex Explanations) []Variance {
 	return out
 }
 
-func classify(area Area, key string, legacy, passage decimal.Decimal, documents int, rules []Rule, ex Explanations) Variance {
-	v := Variance{Area: area, Key: key, Legacy: legacy, Passage: passage, Delta: passage.Sub(legacy), Documents: documents}
+func classify(area Area, key string, legacy, depot decimal.Decimal, documents int, rules []Rule, ex Explanations) Variance {
+	v := Variance{Area: area, Key: key, Legacy: legacy, Depot: depot, Delta: depot.Sub(legacy), Documents: documents}
 	for _, r := range rules {
 		if (r.Area == "" || r.Area == area) && v.Delta.Abs().LessThanOrEqual(r.Allowed(documents)) {
 			v.Class, v.RuleID = ClassExpected, r.ID

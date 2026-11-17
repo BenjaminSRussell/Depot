@@ -1,4 +1,4 @@
--- Scheduled delta sync (PSG-10 integration track S4). The scheduler runs inside this service; a binding's schedule is
+-- Scheduled delta sync (DPT-10 integration track S4). The scheduler runs inside this service; a binding's schedule is
 -- the scheduleCron of the migrate project that names its connection profile.
 --
 -- sync_state: one row per entity binding that has been scheduled or configured (version 0 until an operator edits it). The watermark is written by the same
@@ -10,7 +10,7 @@ CREATE TABLE migration.sync_state (
   binding_id uuid NOT NULL,
   project_id uuid,
   schedule_cron text,
-  source_of_truth text NOT NULL DEFAULT 'legacy' CHECK (source_of_truth IN ('legacy', 'passage')),
+  source_of_truth text NOT NULL DEFAULT 'legacy' CHECK (source_of_truth IN ('legacy', 'depot')),
   paused boolean NOT NULL DEFAULT false,
   watermark text NOT NULL DEFAULT '',
   -- The entity binding version the watermark was read under: after the binding is edited (another table, query or
@@ -36,7 +36,7 @@ CREATE TABLE migration.sync_state (
 );
 CREATE INDEX sync_state_due_idx ON migration.sync_state (next_due_at) WHERE NOT paused AND schedule_cron IS NOT NULL;
 
--- sync_conflict: a legacy row held back because Passage is the source of truth. One row per (binding, source key);
+-- sync_conflict: a legacy row held back because Depot is the source of truth. One row per (binding, source key);
 -- "kept" remembers the legacy content hash the operator left out so the same row is not reported again.
 CREATE TABLE migration.sync_conflict (
   tenant_id uuid NOT NULL,
@@ -82,10 +82,10 @@ BEGIN
   FOREACH t IN ARRAY ARRAY['sync_state', 'sync_conflict', 'outbox'] LOOP
     EXECUTE format('ALTER TABLE migration.%I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE migration.%I FORCE ROW LEVEL SECURITY', t);
-    EXECUTE format('CREATE POLICY %I ON migration.%I AS PERMISSIVE USING (tenant_id = current_setting(''passage.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)', t || '_tenant_access', t);
+    EXECUTE format('CREATE POLICY %I ON migration.%I AS PERMISSIVE USING (tenant_id = current_setting(''depot.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)', t || '_tenant_access', t);
   END LOOP;
-  EXECUTE 'CREATE POLICY sync_state_legal_entity_scope ON migration.sync_state AS RESTRICTIVE USING (current_setting(''passage.legal_entity_scopes'', true) = ''*'')';
-  EXECUTE 'CREATE POLICY sync_conflict_legal_entity_scope ON migration.sync_conflict AS RESTRICTIVE USING (current_setting(''passage.legal_entity_scopes'', true) = ''*'')';
+  EXECUTE 'CREATE POLICY sync_state_legal_entity_scope ON migration.sync_state AS RESTRICTIVE USING (current_setting(''depot.legal_entity_scopes'', true) = ''*'')';
+  EXECUTE 'CREATE POLICY sync_conflict_legal_entity_scope ON migration.sync_conflict AS RESTRICTIVE USING (current_setting(''depot.legal_entity_scopes'', true) = ''*'')';
 END
 $$;
 
@@ -130,13 +130,13 @@ REVOKE ALL ON FUNCTION migration.sync_can_scan() FROM PUBLIC;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
     -- UPDATE: the claim, the end of a run and pause/resume change sync_state; a conflict is resolved in place and
     -- re-opened when the legacy row changes again. Nothing is deleted. The outbox is append-only.
-    GRANT SELECT, INSERT, UPDATE ON migration.sync_state, migration.sync_conflict TO passage_app;
-    GRANT SELECT, INSERT ON migration.outbox TO passage_app;
-    GRANT EXECUTE ON FUNCTION migration.sync_candidates(int) TO passage_app;
-    GRANT EXECUTE ON FUNCTION migration.sync_can_scan() TO passage_app;
+    GRANT SELECT, INSERT, UPDATE ON migration.sync_state, migration.sync_conflict TO depot_app;
+    GRANT SELECT, INSERT ON migration.outbox TO depot_app;
+    GRANT EXECUTE ON FUNCTION migration.sync_candidates(int) TO depot_app;
+    GRANT EXECUTE ON FUNCTION migration.sync_can_scan() TO depot_app;
   END IF;
 END
 $$;

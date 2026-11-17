@@ -7,7 +7,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // FormatBAI2 is the Statement.Format of a parsed BAI2 account.

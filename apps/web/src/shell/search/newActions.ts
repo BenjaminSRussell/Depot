@@ -1,5 +1,5 @@
 import type { RouteObject } from "react-router-dom";
-import type { PassageModule } from "../../modules/registry";
+import type { DepotModule } from "../../modules/registry";
 import { holdsDuty, requiredDuty } from "../dutyGate";
 
 /** One "New …" action: a create page the caller may open. */
@@ -28,7 +28,7 @@ const titled = (title: string | undefined): string | undefined => (title !== und
  * The create pages of the visible modules that the caller holds the duty for, as "New …" actions. A page whose title
  * does not start with "New" is left out: the palette would have no honest name for it.
  */
-export function newActions(modules: PassageModule[], allModules: PassageModule[], duties: readonly string[]): NewAction[] {
+export function newActions(modules: DepotModule[], allModules: DepotModule[], duties: readonly string[]): NewAction[] {
   const seen = new Set<string>();
   return modules
     .flatMap((module) => newPaths(module.routes).map((found) => ({ ...found, moduleTitle: module.title })))

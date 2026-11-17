@@ -8,14 +8,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/inventory"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/ledger"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/ocr"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/party"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/periods"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/purchasing"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/inventory"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/ledger"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/ocr"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/party"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/periods"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/purchasing"
 )
 
 func TestRun(t *testing.T) {
@@ -25,7 +25,7 @@ func TestRun(t *testing.T) {
 		wantErr string
 	}{
 		{"missing database url", map[string]string{}, "DATABASE_URL is required"},
-		{"unparseable database url", map[string]string{"DATABASE_URL": "://bad", "PASSAGE_ALLOW_FAKES": "1"}, "connect database"},
+		{"unparseable database url", map[string]string{"DATABASE_URL": "://bad", "DEPOT_ALLOW_FAKES": "1"}, "connect database"},
 		{"real adapters required without the fakes flag", map[string]string{"DATABASE_URL": "://bad"}, "LEDGER_URL is required"},
 	}
 	for _, tc := range tests {
@@ -128,9 +128,9 @@ func TestBuildPorts(t *testing.T) {
 		{"both urls and accounts", withAccounts(map[string]string{"LEDGER_URL": "http://ledger", "CLOSE_URL": "http://close", "PURCHASING_URL": "http://purchasing"}), ""},
 		{"purchasing url empty without the flag", withAccounts(map[string]string{"LEDGER_URL": "http://ledger", "CLOSE_URL": "http://close"}), "PURCHASING_URL is required"},
 		{"both urls without accounts", map[string]string{"LEDGER_URL": "http://ledger", "CLOSE_URL": "http://close", "PURCHASING_URL": "http://purchasing"}, "POSTING_LEDGER_ID is required"},
-		{"fakes allowed with both urls empty", map[string]string{"PASSAGE_ALLOW_FAKES": "1"}, ""},
+		{"fakes allowed with both urls empty", map[string]string{"DEPOT_ALLOW_FAKES": "1"}, ""},
 		{"empty urls without the flag", map[string]string{}, "LEDGER_URL is required"},
-		{"flag must be exactly 1", map[string]string{"PASSAGE_ALLOW_FAKES": "true"}, "LEDGER_URL is required"},
+		{"flag must be exactly 1", map[string]string{"DEPOT_ALLOW_FAKES": "true"}, "LEDGER_URL is required"},
 		{"ledger set but close empty", map[string]string{"LEDGER_URL": "http://ledger"}, "CLOSE_URL is required"},
 		{"close set but ledger empty", map[string]string{"CLOSE_URL": "http://close"}, "LEDGER_URL is required"},
 	}
@@ -152,7 +152,7 @@ func TestBuildPorts(t *testing.T) {
 
 func TestBuildPortsUsesRealAdaptersWhenConfigured(t *testing.T) {
 	ports, err := buildPorts(func(k string) string {
-		return map[string]string{"LEDGER_URL": "http://l", "CLOSE_URL": "http://c", "PURCHASING_URL": "http://p", "PASSAGE_ALLOW_FAKES": "1"}[k]
+		return map[string]string{"LEDGER_URL": "http://l", "CLOSE_URL": "http://c", "PURCHASING_URL": "http://p", "DEPOT_ALLOW_FAKES": "1"}[k]
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -163,7 +163,7 @@ func TestBuildPortsUsesRealAdaptersWhenConfigured(t *testing.T) {
 	if _, real := ports.Periods.(*periods.Client); !real {
 		t.Fatalf("periods is %T despite CLOSE_URL", ports.Periods)
 	}
-	fakes, err := buildPorts(func(k string) string { return map[string]string{"PASSAGE_ALLOW_FAKES": "1"}[k] })
+	fakes, err := buildPorts(func(k string) string { return map[string]string{"DEPOT_ALLOW_FAKES": "1"}[k] })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +180,7 @@ func TestBuildPortsUsesRealAdaptersWhenConfigured(t *testing.T) {
 
 func TestBuildPortsIgnoresTheRemovedLegacyPOLineFlag(t *testing.T) {
 	ports, err := buildPorts(func(k string) string {
-		return map[string]string{"LEDGER_URL": "http://l", "CLOSE_URL": "http://c", "PURCHASING_URL": "http://p", "PASSAGE_ALLOW_FAKES": "1", "RECEIVING_ALLOW_LEGACY_PO_LINE": "1"}[k]
+		return map[string]string{"LEDGER_URL": "http://l", "CLOSE_URL": "http://c", "PURCHASING_URL": "http://p", "DEPOT_ALLOW_FAKES": "1", "RECEIVING_ALLOW_LEGACY_PO_LINE": "1"}[k]
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -191,7 +191,7 @@ func TestBuildPortsIgnoresTheRemovedLegacyPOLineFlag(t *testing.T) {
 }
 
 func TestBuildPortsSelectsTheOCRProvider(t *testing.T) {
-	env := map[string]string{"PASSAGE_ALLOW_FAKES": "1"}
+	env := map[string]string{"DEPOT_ALLOW_FAKES": "1"}
 	get := func(k string) string { return env[k] }
 	if ports, err := buildPorts(get); err != nil || ports.Extractor != nil {
 		t.Fatalf("no OCR_PROVIDER: extractor %T err %v", ports.Extractor, err)
@@ -246,11 +246,11 @@ func TestBuildPortsWiresPlanAndOwnershipLookups(t *testing.T) {
 	if unset := build(nil); unset.OwnershipChanges != nil {
 		t.Fatalf("ownership changes is %T with INVENTORY_URL unset and no fakes: the endpoint must answer 503", unset.OwnershipChanges)
 	}
-	fakes := build(map[string]string{"PASSAGE_ALLOW_FAKES": "1"})
+	fakes := build(map[string]string{"DEPOT_ALLOW_FAKES": "1"})
 	if _, ok := fakes.OwnershipChanges.(domain.FakeOwnershipChanges); !ok {
 		t.Fatalf("ownership changes is %T with fakes allowed", fakes.OwnershipChanges)
 	}
-	noPurchasing, err := buildPorts(func(k string) string { return map[string]string{"PASSAGE_ALLOW_FAKES": "1"}[k] })
+	noPurchasing, err := buildPorts(func(k string) string { return map[string]string{"DEPOT_ALLOW_FAKES": "1"}[k] })
 	if _, ok := noPurchasing.InvoicingPlans.(domain.FakeInvoicingPlans); !ok || err != nil {
 		t.Fatalf("invoicing plans is %T err %v with fakes allowed", noPurchasing.InvoicingPlans, err)
 	}
@@ -261,15 +261,15 @@ func TestBuildPortsWiresPlanAndOwnershipLookups(t *testing.T) {
 
 func TestSmallPoolConfigCapsConnectionsForURLAndKeywordDSNs(t *testing.T) {
 	for name, dsn := range map[string]string{
-		"url":     "postgres://passage_app:pw@db:5432/passage_receiving?sslmode=disable",
-		"keyword": "host=db port=5432 user=passage_app password=pw dbname=passage_receiving sslmode=disable",
+		"url":     "postgres://depot_app:pw@db:5432/depot_receiving?sslmode=disable",
+		"keyword": "host=db port=5432 user=depot_app password=pw dbname=depot_receiving sslmode=disable",
 	} {
 		t.Run(name, func(t *testing.T) {
 			cfg, err := smallPoolConfig(dsn)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if cfg.MaxConns != pendingPoolConns || cfg.ConnConfig.Host != "db" || cfg.ConnConfig.User != "passage_app" || cfg.ConnConfig.Database != "passage_receiving" {
+			if cfg.MaxConns != pendingPoolConns || cfg.ConnConfig.Host != "db" || cfg.ConnConfig.User != "depot_app" || cfg.ConnConfig.Database != "depot_receiving" {
 				t.Fatalf("max %d host %s user %s db %s", cfg.MaxConns, cfg.ConnConfig.Host, cfg.ConnConfig.User, cfg.ConnConfig.Database)
 			}
 		})
@@ -296,7 +296,7 @@ func TestBuildPortsRequiresTheAuditSampleSeed(t *testing.T) {
 	if ports, err := buildPorts(env("0123456789abcdef")); err != nil || ports.AuditSampler == nil {
 		t.Fatalf("ports %+v err %v", ports, err)
 	}
-	fakes, err := buildPorts(func(k string) string { return map[string]string{"PASSAGE_ALLOW_FAKES": "1"}[k] })
+	fakes, err := buildPorts(func(k string) string { return map[string]string{"DEPOT_ALLOW_FAKES": "1"}[k] })
 	if err != nil || fakes.AuditSampler == nil {
 		t.Fatalf("fakes %+v err %v", fakes, err)
 	}
@@ -304,7 +304,7 @@ func TestBuildPortsRequiresTheAuditSampleSeed(t *testing.T) {
 
 func TestBuildPorts_MalformedServiceSigningKeyStopsStartup(t *testing.T) {
 	_, err := buildPorts(func(k string) string {
-		return map[string]string{"PASSAGE_ALLOW_FAKES": "1", "PASSAGE_SERVICE_SIGNING_KEY": "not-a-seed"}[k]
+		return map[string]string{"DEPOT_ALLOW_FAKES": "1", "DEPOT_SERVICE_SIGNING_KEY": "not-a-seed"}[k]
 	})
 	if err == nil {
 		t.Fatal("a malformed service signing key must fail startup, not silently fall back to forwarding user duties")

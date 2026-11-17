@@ -1,7 +1,7 @@
 // Package events holds the production event types and payloads.
 package events
 
-import "github.com/BenjaminSRussell/passage/platform/events"
+import "github.com/BenjaminSRussell/depot/platform/events"
 
 // Context is the bounded context name used in event types.
 const Context = "production"

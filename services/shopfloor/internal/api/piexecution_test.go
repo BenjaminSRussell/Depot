@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
 )
 
 func (f *fakeStore) ListPIExecutions(context.Context, store.PIExecutionFilter) ([]store.PIExecution, error) {

@@ -14,11 +14,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/api"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/api"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
 )
 
 type rowsExtractor struct{ rows []domain.Record }
@@ -58,8 +58,8 @@ func router(s store.Store, ex domain.Extractor, loader *domain.MemLoader) *chi.M
 func do(r http.Handler, method, path, payload, userDuties string, withTenant bool, headers ...string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(payload))
 	if withTenant {
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-Duties", userDuties)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-Duties", userDuties)
 	}
 	for i := 0; i < len(headers); i += 2 {
 		req.Header.Set(headers[i], headers[i+1])
@@ -124,7 +124,7 @@ func TestCreateRun_Rejections(t *testing.T) {
 
 func TestCreateRun_LegalEntityScopedCallerForbidden(t *testing.T) {
 	r := router(store.NewMem(), rowsExtractor{}, domain.NewMemLoader())
-	rec := do(r, http.MethodPost, runsPath, body, duties, true, "X-Passage-Legal-Entity", testkit.TenantID(7))
+	rec := do(r, http.MethodPost, runsPath, body, duties, true, "X-Depot-Legal-Entity", testkit.TenantID(7))
 	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "AUTH-0003") {
 		t.Fatalf("got %d %s", rec.Code, rec.Body)
 	}
@@ -400,8 +400,8 @@ func TestCreateRun_ClientDisconnectStillRecordsRunAndLogsLifecycle(t *testing.T)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	req := httptest.NewRequest(http.MethodPost, runsPath, strings.NewReader(body)).WithContext(ctx)
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", duties)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	got := decode(t, rec)

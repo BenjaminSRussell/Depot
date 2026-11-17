@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS forecast_allocation_key (
 ALTER TABLE forecast_allocation_key ENABLE ROW LEVEL SECURITY;
 ALTER TABLE forecast_allocation_key FORCE ROW LEVEL SECURITY;
 CREATE POLICY forecast_allocation_key_tenant_access ON forecast_allocation_key AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- share is a percentage of the aggregate (the lines of a key sum to 100); uom_factor
 -- is the item's inventory units per one forecast unit.
@@ -42,18 +42,18 @@ CREATE TABLE IF NOT EXISTS forecast_allocation_key_line (
 ALTER TABLE forecast_allocation_key_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE forecast_allocation_key_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY forecast_allocation_key_line_tenant_access ON forecast_allocation_key_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Application role privileges, in the style of 0010_grants.sql. A key is updated in
 -- place (version, name, unit); its lines are replaced on update, so they need DELETE.
 -- Skipped when the role does not exist (developer databases without the role split).
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON forecast_allocation_key TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON forecast_allocation_key_line TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON forecast_allocation_key TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON forecast_allocation_key_line TO depot_app';
   END IF;
 END
 $$;

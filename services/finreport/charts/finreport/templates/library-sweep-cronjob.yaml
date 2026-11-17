@@ -5,7 +5,7 @@
 # FR-15.8 library retention (PRD job `library-retention-sweep`): `finreport
 # sweep-library` deletes the report library files past their retention date,
 # entity by entity, except for entities under legal hold, and writes
-# dev.passage.reporting.library.swept.v1 per entity pass. It runs in process
+# dev.depot.reporting.library.swept.v1 per entity pass. It runs in process
 # against the database (no route, no service call, no signing key).
 apiVersion: batch/v1
 kind: CronJob
@@ -37,7 +37,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: finreport-library-sweep
-              image: {{ if .Values.image.digest }}{{ printf "%s@%s" (include "passage.imageRepository" $) .Values.image.digest | quote }}{{ else }}{{ printf "%s:%s" (include "passage.imageRepository" $) (.Values.image.tag | default "latest") | quote }}{{ end }}
+              image: {{ if .Values.image.digest }}{{ printf "%s@%s" (include "depot.imageRepository" $) .Values.image.digest | quote }}{{ else }}{{ printf "%s:%s" (include "depot.imageRepository" $) (.Values.image.tag | default "latest") | quote }}{{ end }}
               imagePullPolicy: {{ .Values.image.pullPolicy }}
               args:
                 - sweep-library
@@ -50,7 +50,7 @@ spec:
                 capabilities:
                   drop: [ALL]
               env:
-                {{- include "passage.cloudEnv" $ | nindent 16 }}
+                {{- include "depot.cloudEnv" $ | nindent 16 }}
                 - name: DATABASE_URL
                   valueFrom:
                     secretKeyRef:

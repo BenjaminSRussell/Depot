@@ -9,9 +9,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 const consignmentAccount = "2190"
@@ -140,7 +140,7 @@ func TestConsignmentReceiptAndOwnershipChange(t *testing.T) {
 			DimensionSet map[string]string `json:"dimensionSet"`
 		} `json:"lines"`
 	}
-	eventData(t, admin, "dev.passage.inventory.ownership.changed.v1", "'journalId'", j.ID, &evt)
+	eventData(t, admin, "dev.depot.inventory.ownership.changed.v1", "'journalId'", j.ID, &evt)
 	if evt.VendorID != "V1" || !dec(evt.TotalAmount).Equal(dec("480")) || len(evt.Lines) != 1 || !dec(evt.Lines[0].AmountAcct).Equal(dec("480")) ||
 		evt.Lines[0].DimensionSet["owner"] != "" {
 		t.Fatalf("ownership.changed %+v, want V1, 480.00, one line without owner", evt)
@@ -276,11 +276,11 @@ func TestJournalApprovalWorkflowAndValidate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	events := outboxCount(t, admin, "dev.passage.inventory.transaction.posted.v1")
+	events := outboxCount(t, admin, "dev.depot.inventory.transaction.posted.v1")
 	if v, err := s.ValidateJournal(ctx, j.ID, postParams()); err != nil || v.ID != j.ID || v.Status != domain.JournalDraft {
 		t.Fatalf("validate: %v %+v", err, v)
 	}
-	if qty, _ := onHandFor(t, s, ctx, product); !qty.Equal(dec("10")) || outboxCount(t, admin, "dev.passage.inventory.transaction.posted.v1") != events {
+	if qty, _ := onHandFor(t, s, ctx, product); !qty.Equal(dec("10")) || outboxCount(t, admin, "dev.depot.inventory.transaction.posted.v1") != events {
 		t.Fatalf("validate wrote something: on-hand %s", qty)
 	}
 	if got, _ := s.GetJournal(ctx, j.ID); got.Status != domain.JournalDraft || got.Version != j.Version {

@@ -12,11 +12,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/party/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/party/internal/store"
 )
 
 type mergeFixture struct {
@@ -109,7 +109,7 @@ func TestMerge_RewritesAtomicallyAndAuditIsClean(t *testing.T) {
 		{"references to loser", `select count(*)::text from customer_role where invoice_account_party_id = $1`, "0", []any{f.loser}},
 		{"loser soft-merged", `select status || ':' || (merged_into_id = $2)::text from party where id = $1`, "merged:true", []any{f.loser, f.winner}},
 		{"survivorship", `select time_zone || '/' || org_trade_name from party where id = $1`, "CET/Acme Trading", []any{f.winner}},
-		{"outbox event", `select count(*)::text from outbox where type = 'dev.passage.party.party.merged.v1' and aggregate_id = $1`, "1", []any{f.winner}},
+		{"outbox event", `select count(*)::text from outbox where type = 'dev.depot.party.party.merged.v1' and aggregate_id = $1`, "1", []any{f.winner}},
 		{"merge record", `select count(*)::text from party_merge where merged_party_id = $1 and survivor_party_id = $2`, "1", []any{f.loser, f.winner}},
 	}
 	for _, c := range checks {

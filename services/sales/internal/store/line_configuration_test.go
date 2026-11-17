@@ -8,12 +8,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	salesevents "github.com/BenjaminSRussell/passage/services/sales/internal/events"
-	"github.com/BenjaminSRussell/passage/services/sales/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	salesevents "github.com/BenjaminSRussell/depot/services/sales/internal/events"
+	"github.com/BenjaminSRussell/depot/services/sales/migrations"
 )
 
 func scopedPrincipalCtx(le string) context.Context {

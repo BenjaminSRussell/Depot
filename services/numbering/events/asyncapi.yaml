@@ -3,8 +3,8 @@ info:
   title: numbering
   version: 0.1.0
 channels:
-  passage.numbering.sequence:
-    address: passage.numbering.sequence
+  depot.numbering.sequence:
+    address: depot.numbering.sequence
     messages:
       allocated:
         $ref: '#/components/messages/allocated'
@@ -12,9 +12,9 @@ operations:
   onAllocated:
     action: send
     channel:
-      $ref: '#/channels/passage.numbering.sequence'
+      $ref: '#/channels/depot.numbering.sequence'
     messages:
-      - $ref: '#/channels/passage.numbering.sequence/messages/allocated'
+      - $ref: '#/channels/depot.numbering.sequence/messages/allocated'
 components:
   messages:
     allocated:
@@ -28,4 +28,4 @@ components:
           value: { type: integer }
           formatted: { type: string }
           legalEntityId: { type: string, format: uuid }
-      x-passage-type: dev.passage.numbering.sequence.allocated.v1
+      x-depot-type: dev.depot.numbering.sequence.allocated.v1

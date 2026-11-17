@@ -16,9 +16,9 @@ func TestRun_RequiresDatabaseURL(t *testing.T) {
 }
 
 func TestRun_StopsOnMalformedServicePublicKeys(t *testing.T) {
-	env := map[string]string{"PASSAGE_SERVICE_NAME": "purchasing", "PASSAGE_SERVICE_PUBLIC_KEYS": "receiving=zzz", "DATABASE_URL": "://bad"}
+	env := map[string]string{"DEPOT_SERVICE_NAME": "purchasing", "DEPOT_SERVICE_PUBLIC_KEYS": "receiving=zzz", "DATABASE_URL": "://bad"}
 	err := run(context.Background(), func(k string) string { return env[k] })
-	if err == nil || !strings.Contains(err.Error(), "PASSAGE_SERVICE_PUBLIC_KEYS") {
+	if err == nil || !strings.Contains(err.Error(), "DEPOT_SERVICE_PUBLIC_KEYS") {
 		t.Fatalf("run with a malformed key = %v", err)
 	}
 }

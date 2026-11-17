@@ -11,10 +11,10 @@ import (
 	"github.com/shopspring/decimal"
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/production/internal/domain"
-	prodevents "github.com/BenjaminSRussell/passage/services/production/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/production/internal/domain"
+	prodevents "github.com/BenjaminSRussell/depot/services/production/internal/events"
 )
 
 // Accounts of testProfile (All × All, WIP 1450).

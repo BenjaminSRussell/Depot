@@ -13,15 +13,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/target"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/target/targettest"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/testdb"
-	"github.com/BenjaminSRussell/passage/services/migration/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/target"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/target/targettest"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/testdb"
+	"github.com/BenjaminSRussell/depot/services/migration/migrations"
 )
 
 const (

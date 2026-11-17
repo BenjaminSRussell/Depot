@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
 )
 
 func bulkBody(t *testing.T, list []string) string {

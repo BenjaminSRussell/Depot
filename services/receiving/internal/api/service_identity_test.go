@@ -10,16 +10,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/ledger"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/periods"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store/memstore"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/ledger"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/periods"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store/memstore"
 )
 
 type seenCall struct{ user, service, legalEntity string }
@@ -87,7 +87,7 @@ func TestServiceIdentity_UserWithoutLedgerDutiesPostsReceiptAndInvoice(t *testin
 	h, ledgerSeen, closeSeen := signedRig(t, signer, pub)
 	rg := &rig{h: h}
 	as := func(hdr headers) headers {
-		hdr["X-Passage-User"] = "warehouse-user"
+		hdr["X-Depot-User"] = "warehouse-user"
 		hdr[entityHeader] = legalEntityID
 		return hdr
 	}
@@ -130,7 +130,7 @@ func TestServiceIdentity_ForgedSignerIsRejectedByDownstream(t *testing.T) {
 	forger, _ := tenant.NewServiceSigner("receiving", otherPriv)
 	h, ledgerSeen, _ := signedRig(t, forger, pub)
 	rg := &rig{h: h}
-	hdr := func(h headers) headers { h["X-Passage-User"] = "u"; h[entityHeader] = legalEntityID; return h }
+	hdr := func(h headers) headers { h["X-Depot-User"] = "u"; h[entityHeader] = legalEntityID; return h }
 	receipt := decode[receiptJSON](t, rg.call(http.MethodPost, receiptsPath, directBody("PS-1", 10, 4, ""), hdr(rg.maintain())), http.StatusCreated)
 	rec := rg.call(http.MethodPost, receiptsPath+"/"+receipt.ID+":post", "", hdr(rg.poster(receipt.Version)))
 	if rec.Code == http.StatusOK || strings.Contains(rec.Body.String(), "je-1") || len(ledgerSeen.snapshot()) != 0 {
@@ -151,7 +151,7 @@ func TestServiceIdentity_AnAdminOfOneEntityCannotResolveAnotherEntitysPendingPos
 	}
 	rg := &rig{h: h}
 	hdr := admin("k1")
-	hdr["X-Passage-User"] = "admin-a"
+	hdr["X-Depot-User"] = "admin-a"
 	hdr[entityHeader] = legalEntityID
 	rec := rg.call(http.MethodPost, resolvePath("post:b"), "", hdr)
 	if rec.Code == http.StatusOK || len(ledgerSeen.snapshot()) != 0 {

@@ -129,7 +129,7 @@ export function TransferPricingPage() {
     <div className={styles.stack}>
       <PageHeader
         title="Transfer-pricing evidence"
-        description="The evidence file lists each priced intercompany line between two entities for a period: quantity, price, cost, margin and the pricing basis. Passage documents the prices; it does not compute arm's-length ranges. Reading the lines from stored links and charges arrives with the persistence slice."
+        description="The evidence file lists each priced intercompany line between two entities for a period: quantity, price, cost, margin and the pricing basis. Depot documents the prices; it does not compute arm's-length ranges. Reading the lines from stored links and charges arrives with the persistence slice."
       />
       <Card title="Entity pair and lines" headingLevel={3}>
         <form className={styles.form} onSubmit={submit} noValidate>

@@ -12,7 +12,7 @@ import (
 var fixedNow = time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC)
 
 func manifestArgs(extra ...string) []string {
-	return append([]string{"scratch-manifest", "--name", "passage-pg-restore", "--target-time", "2026-11-09T10:30:00+02:00"}, extra...)
+	return append([]string{"scratch-manifest", "--name", "depot-pg-restore", "--target-time", "2026-11-09T10:30:00+02:00"}, extra...)
 }
 
 func TestScratchManifestRecoversToTheTargetTime(t *testing.T) {
@@ -21,12 +21,12 @@ func TestScratchManifestRecoversToTheTargetTime(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"name: passage-pg-restore",
+		"name: depot-pg-restore",
 		`targetTime: "2026-11-09 08:30:00+00"`,
-		"barmanObjectName: passage-pg-backup",
-		"serverName: passage-pg",
+		"barmanObjectName: depot-pg-backup",
+		"serverName: depot-pg",
 		"name: barman-cloud.cloudnative-pg.io",
-		"namespace: passage-data",
+		"namespace: depot-data",
 	} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("manifest lacks %q:\n%s", want, out.String())
@@ -39,7 +39,7 @@ func TestScratchManifestRejectsUnsafeOrNonsenseInput(t *testing.T) {
 		"future target":        {"scratch-manifest", "--name", "x", "--target-time", "2026-11-10T00:00:00Z"},
 		"bad time":             {"scratch-manifest", "--name", "x", "--target-time", "yesterday"},
 		"name injection":       manifestArgs("--namespace", "a\nkind: Secret"),
-		"overwrites source":    {"scratch-manifest", "--name", "passage-pg", "--target-time", "2026-11-09T00:00:00Z"},
+		"overwrites source":    {"scratch-manifest", "--name", "depot-pg", "--target-time", "2026-11-09T00:00:00Z"},
 		"image injection":      manifestArgs("--image", "x\n  foo: bar"),
 		"storage not a volume": manifestArgs("--storage", "lots"),
 	} {

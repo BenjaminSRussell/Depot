@@ -5,7 +5,7 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { SupplierIdentity } from "./oidc.ts";
 
-export const SESSION_COOKIE = "__Host-passage_supplier";
+export const SESSION_COOKIE = "__Host-depot_supplier";
 export const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 export const ABSOLUTE_TIMEOUT_MS = 8 * 60 * 60 * 1000;
 export const LOGIN_TTL_MS = 10 * 60 * 1000;

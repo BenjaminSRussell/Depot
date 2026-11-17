@@ -5,11 +5,11 @@ package events
 const (
 	// ServiceSpecChanged is written when the service specification of a PO line is saved or
 	// removed. Wave 18 reads the limits of a service line from it.
-	ServiceSpecChanged = "dev.passage.procurement.servicespec.changed.v1"
+	ServiceSpecChanged = "dev.depot.procurement.servicespec.changed.v1"
 	// ModelServiceSpecCreated is written when a model service specification is created.
-	ModelServiceSpecCreated = "dev.passage.procurement.modelservicespec.created.v1"
+	ModelServiceSpecCreated = "dev.depot.procurement.modelservicespec.created.v1"
 	// ModelServiceSpecChanged is written when a model service specification is changed or deactivated.
-	ModelServiceSpecChanged = "dev.passage.procurement.modelservicespec.changed.v1"
+	ModelServiceSpecChanged = "dev.depot.procurement.modelservicespec.changed.v1"
 )
 
 // ServiceSpecData is the data member of servicespec.changed.v1. Removed is true when the line is

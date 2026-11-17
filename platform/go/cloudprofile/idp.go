@@ -13,9 +13,9 @@ const (
 	// stays disabled while either is a placeholder.
 	PlaceholderEntraTenant = "REPLACE_WITH_ENTRA_TENANT_ID"
 	PlaceholderClientID    = "REPLACE_WITH_CLIENT_ID"
-	PlaceholderPassageTID  = "REPLACE_WITH_TENANT_ID"
-	// PostBrokerFlow is the realm flow that applies Passage's second factor after a federated login.
-	PostBrokerFlow = "passage-post-broker-mfa"
+	PlaceholderDepotTID    = "REPLACE_WITH_TENANT_ID"
+	// PostBrokerFlow is the realm flow that applies Depot's second factor after a federated login.
+	PostBrokerFlow = "depot-post-broker-mfa"
 )
 
 var guid = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
@@ -32,15 +32,15 @@ type IdPExport struct {
 // tenant from the profile's authority and Graph root. entraTenantID must be a tenant GUID (or the placeholder):
 // "common" and "organizations" would accept any tenant. clientID is the app registration's application
 // (client) ID; the client secret is never rendered, set it through the admin API or Key Vault.
-// passageTenantID is the realm's Passage tenant, written by a hardcoded mapper: the tid comes from the realm,
+// depotTenantID is the realm's Depot tenant, written by a hardcoded mapper: the tid comes from the realm,
 // never from the Entra tid claim, and no upstream claim may write tenant_id, legal_entity_id, duties or tier.
-func EntraOIDC(p *Profile, entraTenantID, clientID, passageTenantID string) (*IdPExport, error) {
+func EntraOIDC(p *Profile, entraTenantID, clientID, depotTenantID string) (*IdPExport, error) {
 	if entraTenantID != PlaceholderEntraTenant && !guid.MatchString(entraTenantID) {
 		return nil, fmt.Errorf("cloudprofile: Entra tenant %q is not a tenant GUID", entraTenantID)
 	}
 	authority := strings.TrimRight(p.Endpoint("entraAuthority"), "/") + "/" + entraTenantID
 	graph := strings.TrimRight(p.Endpoint("graphRoot"), "/")
-	placeholder := entraTenantID == PlaceholderEntraTenant || clientID == PlaceholderClientID || passageTenantID == PlaceholderPassageTID
+	placeholder := entraTenantID == PlaceholderEntraTenant || clientID == PlaceholderClientID || depotTenantID == PlaceholderDepotTID
 	provider := map[string]any{
 		"alias":                    EntraAlias,
 		"displayName":              "Microsoft Entra ID",
@@ -73,7 +73,7 @@ func EntraOIDC(p *Profile, entraTenantID, clientID, passageTenantID string) (*Id
 	return &IdPExport{
 		Provider: provider,
 		Mappers: []map[string]any{
-			mapper("tenant", "hardcoded-attribute-idp-mapper", map[string]string{"syncMode": "FORCE", "attribute": "tenant_id", "attribute.value": passageTenantID}),
+			mapper("tenant", "hardcoded-attribute-idp-mapper", map[string]string{"syncMode": "FORCE", "attribute": "tenant_id", "attribute.value": depotTenantID}),
 			mapper("given-name", "oidc-user-attribute-idp-mapper", map[string]string{"syncMode": "INHERIT", "claim": "given_name", "user.attribute": "firstName"}),
 			mapper("family-name", "oidc-user-attribute-idp-mapper", map[string]string{"syncMode": "INHERIT", "claim": "family_name", "user.attribute": "lastName"}),
 		},

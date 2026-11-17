@@ -9,12 +9,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
 )
 
 const (
@@ -108,7 +108,7 @@ func TestOneTimePayee_FieldsAreSealedBoundToTenantAndFieldAndIsolated(t *testing
 		"a delete":  `delete from ` + payeeTable,
 	} {
 		if err := db.run(db.one, sql); err == nil {
-			t.Errorf("passage_app must not run %s: the payee is immutable", name)
+			t.Errorf("depot_app must not run %s: the payee is immutable", name)
 		}
 	}
 	var forced bool

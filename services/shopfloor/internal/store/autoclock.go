@@ -6,11 +6,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
 )
 
 // AutoClosed is one clock-in the auto clock-out sweep closed.
@@ -25,7 +25,7 @@ type AutoClosed struct {
 // AutoClockOut closes the clock-ins that are still open afterHours after they were
 // punched (D2h). For each such worker it writes a clock-out at clock-in plus
 // afterHours, flagged auto-clock-out for supervisor review, and publishes
-// dev.passage.shopfloor.registration.posted.v1 in the same transaction. The worker
+// dev.depot.shopfloor.registration.posted.v1 in the same transaction. The worker
 // rows are locked with skip locked, so concurrent sweeps close each shift once, and
 // the insert re-checks that no later clock punch exists, so a clock-out that arrives
 // meanwhile wins. Workers who were deactivated are closed too: an open shift must not

@@ -10,12 +10,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/eam/internal/domain"
-	eamevents "github.com/BenjaminSRussell/passage/services/eam/internal/events"
-	"github.com/BenjaminSRussell/passage/services/eam/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/eam/internal/domain"
+	eamevents "github.com/BenjaminSRussell/depot/services/eam/internal/events"
+	"github.com/BenjaminSRussell/depot/services/eam/migrations"
 )
 
 // as returns the fixture context acting as user, for the separation-of-duty checks.
@@ -375,7 +375,7 @@ func TestPermit_RequestRules(t *testing.T) {
 }
 
 // TestGrants_AppRolePermitsAndLocks runs the permit and LOTO path as
-// passage_app (no BYPASSRLS, migration 0005 grants): numbering from the permit
+// depot_app (no BYPASSRLS, migration 0005 grants): numbering from the permit
 // and lock sequences, row locks on permits and locks, the expiry job, and the
 // append-only audit logs refusing updates and deletes.
 func TestGrants_AppRolePermitsAndLocks(t *testing.T) {
@@ -398,11 +398,11 @@ func TestGrants_AppRolePermitsAndLocks(t *testing.T) {
 	p, err := s.RequestPermit(f.as("planner-1"), PermitRequest{WorkOrderID: woID, PermitTypeCode: "ELECTRICAL_ISOLATION",
 		ValidFrom: clock.Add(-time.Hour), ValidTo: clock.Add(time.Hour)}, "g-permit")
 	if err != nil {
-		t.Fatalf("permit number sequence as passage_app: %v", err)
+		t.Fatalf("permit number sequence as depot_app: %v", err)
 	}
 	ap, err := s.TransitionPermit(f.as("issuer-1"), p.ID, domain.PermitApproved, p.Version, "g-approve")
 	if err != nil {
-		t.Fatalf("permit row lock and update as passage_app: %v", err)
+		t.Fatalf("permit row lock and update as depot_app: %v", err)
 	}
 	f.lock(t, p.ID, "tech-1", points)
 	issued, err := s.TransitionPermit(f.as("issuer-1"), p.ID, domain.PermitIssued, ap.Version, "g-issue")
@@ -412,10 +412,10 @@ func TestGrants_AppRolePermitsAndLocks(t *testing.T) {
 	f.advance(t, woID, v, domain.StatusInProgress)
 	later := NewWithClock(app, func() time.Time { return clock.Add(time.Hour) })
 	if got, err := later.ExpirePermits(ctx); err != nil || len(got) != 1 {
-		t.Fatalf("expiry job as passage_app = %+v %v, want one suspension", got, err)
+		t.Fatalf("expiry job as depot_app = %+v %v, want one suspension", got, err)
 	}
 	if d, err := later.GetPermit(ctx, p.ID); err != nil || d.Permit.Version != issued.Version+1 || len(d.Locks) != 1 {
-		t.Fatalf("permit detail as passage_app = %+v %v", d, err)
+		t.Fatalf("permit detail as depot_app = %+v %v", d, err)
 	}
 	for _, stmt := range []string{
 		`update permit_transition set actor = actor`,

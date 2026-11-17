@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// Tenant decommission and masked-clone schedules (PSG-50, part 4). A decommission is the reverse of a provision, runs only for a
+// Tenant decommission and masked-clone schedules (DPT-50, part 4). A decommission is the reverse of a provision, runs only for a
 // tenant that identity reports as suspended, and is audited. A clone schedule is a recurring masked copy of one tenant's schema.
 const (
 	CodeDecommissionUnavailable  = "OPS-1730" // identity cannot be asked whether the tenant is suspended

@@ -6,9 +6,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/eam/internal/domain"
-	eamevents "github.com/BenjaminSRussell/passage/services/eam/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/eam/internal/domain"
+	eamevents "github.com/BenjaminSRussell/depot/services/eam/internal/events"
 )
 
 // Request is a maintenance request (FR-44.6): from users, mobile or a condition rule.

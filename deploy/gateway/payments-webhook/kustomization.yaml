@@ -1,5 +1,5 @@
-# The payment webhook edge (#30): Stripe posts signed webhook events to the receivables webhook listener without a Passage
-# token. A Gateway of its own, outside SecurityPolicy/passage-api-jwt, with one route. Applied by its own Argo CD Application
+# The payment webhook edge (#30): Stripe posts signed webhook events to the receivables webhook listener without a Depot
+# token. A Gateway of its own, outside SecurityPolicy/depot-api-jwt, with one route. Applied by its own Argo CD Application
 # (deploy/envs/dev/apps/payments-webhook-gateway.yaml) so it stays apart from the API gateway's kustomization.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization

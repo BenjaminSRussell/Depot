@@ -1,12 +1,12 @@
-"""Every service's OpenAPI file parses and has no undocumented operation (PSG-50, AC-50.11, issue #50 subtask 50-4).
+"""Every service's OpenAPI file parses and has no undocumented operation (DPT-50, AC-50.11, issue #50 subtask 50-4).
 
 Reads services/*/api/openapi.yaml with PyYAML (skipped when it is not installed; `pip install pyyaml`) and applies the
-gate of api_reference.py: operationId, summary or description, x-passage-duty, a 2xx response, every response described.
+gate of api_reference.py: operationId, summary or description, x-depot-duty, a 2xx response, every response described.
 A spec that is not valid YAML (an unquoted ": " in a description, for example) fails here, because the reference build
 parses the same file.
 
 The portal BFFs are the open exceptions: supplier-portal-ts (the vendor portal) and customer-portal-ts (the customer
-portal, #30) document session and proxy routes that carry neither operationId nor x-passage-duty; the duty is the owning
+portal, #30) document session and proxy routes that carry neither operationId nor x-depot-duty; the duty is the owning
 service's, checked on the service token the BFF signs, and which duty to document on each BFF route is the portal owner's
 call (see docs/ops/NOT-IMPLEMENTED.md).
 

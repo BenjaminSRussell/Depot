@@ -9,7 +9,7 @@ import (
 
 // legacy_xref.amount and the project_opening_line amounts are numeric(28,6). An open item or an
 // opening line with a seventh decimal used to reconcile against its unrounded value in memory
-// while Passage stored it rounded, so the first run reported RECONCILED and a re-run of the same
+// while Depot stored it rounded, so the first run reported RECONCILED and a re-run of the same
 // extract read the rounded value back and reported MISMATCH (AC-49.4: totals must be unchanged).
 // Such a value is now refused before anything is stored, as gl_balances already did.
 func TestPackRun_AmountFinerThanStoredScaleRefused(t *testing.T) {

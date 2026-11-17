@@ -1,38 +1,38 @@
 image:
-  repository: ghcr.io/benjaminsrussell/passage-workflow
+  repository: ghcr.io/benjaminsrussell/depot-workflow
   digest: ""
   tag: ""
   pullPolicy: IfNotPresent
 replicaCount: 1
 temporal:
   address: temporal-frontend.temporal.svc:7233
-  namespace: passage
-  taskQueue: passage-approvals
+  namespace: depot
+  taskQueue: depot-approvals
 resources:
   requests: { cpu: 50m, memory: 128Mi }
   limits: { cpu: 500m, memory: 512Mi }
 # Each target Service listens on 8080. payables, engineering, quality and party name their Service after the
 # release (these defaults assume the release is named like the chart); transport names it after the chart.
-payablesUrl: http://payables.passage.svc:8080
-engineeringUrl: http://engineering.passage.svc:8080
+payablesUrl: http://payables.depot.svc:8080
+engineeringUrl: http://engineering.depot.svc:8080
 # Where the agent-run workflow's steps call the agents service (AGENTS_RUN_ENGINE=temporal there).
-agentsUrl: http://agent-runtime.passage.svc:8080
-qualityUrl: http://quality.passage.svc:8080
-transportUrl: http://transport.passage.svc:8080
-partyUrl: http://party.passage.svc:8080
+agentsUrl: http://agent-runtime.depot.svc:8080
+qualityUrl: http://quality.depot.svc:8080
+transportUrl: http://transport.depot.svc:8080
+partyUrl: http://party.depot.svc:8080
 serviceIdentity:
   signingKeySecret: ""
   keyId: ""
-# The tender trigger (#426): with brokers set, the worker consumes transport's passage.tms.load and passage.tms.tender,
+# The tender trigger (#426): with brokers set, the worker consumes transport's depot.tms.load and depot.tms.tender,
 # starts tenderWorkflow on load.released and signals it on tender.accepted and tender.declined. The secret holds the
 # KafkaUser's password and the cluster CA (keys password, ca.crt); deploy/kafka/workflow-ts-consumer.yaml grants the user.
 kafka:
   brokers: ""
   group: workflow-ts-tender
-  dlqTopic: passage.workflow.tender.dlq
+  dlqTopic: depot.workflow.tender.dlq
   username: workflow-ts-consumer
   secret: ""
-# The agents service starts and wakes agent-run workflows under its own signed service token (these routes ignore the X-Passage-*
+# The agents service starts and wakes agent-run workflows under its own signed service token (these routes ignore the X-Depot-*
 # headers, which this port trusts only from the edge). agentsPublicKeys is its Ed25519 public key as "agents=<base64>"; with it
 # set, agents' pods are admitted to port 8080 and the agent-run routes answer, otherwise they answer 404.
 agentsPublicKeys: ""

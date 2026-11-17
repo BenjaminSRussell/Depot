@@ -51,7 +51,7 @@ const mapping: OutboundMapping = {
   id: ID,
   name: "Orders to Acme",
   sourceSystem: "custom_acme",
-  eventType: "dev.passage.sales.order.*.v1",
+  eventType: "dev.depot.sales.order.*.v1",
   status: "active",
   version: 2,
   checksum: "abc",
@@ -97,7 +97,7 @@ describe("outbound mapping domain", () => {
     expect(parseDefinitionText("{").error).toMatch(/not valid JSON/);
     expect(parseDefinitionText('{"mapping":{}}').error).toMatch(/eventType/);
     expect(parseDefinitionText('{"eventType":"a.b"}').error).toMatch(/mapping/);
-    expect(parseDefinitionText(toJsonText(STARTER_DEFINITION)).value?.eventType).toBe("dev.passage.sales.order.*.v1");
+    expect(parseDefinitionText(toJsonText(STARTER_DEFINITION)).value?.eventType).toBe("dev.depot.sales.order.*.v1");
     expect(parseEventText('{"id":"e"}').error).toMatch(/id and type/);
     expect(parseOutboundForm({ name: "", sourceSystem: "", definition: "" }).errors).toMatchObject({ name: expect.any(String), sourceSystem: expect.any(String), definition: expect.any(String) });
     expect(parseOutboundForm({ name: " Orders ", sourceSystem: "custom_acme", definition: toJsonText(STARTER_DEFINITION) }).value).toMatchObject({ name: "Orders", sourceSystem: "custom_acme" });
@@ -110,7 +110,7 @@ describe("outbound mappings list", () => {
     const { container } = renderAt("/migration/outbound");
     const table = await findTable({ name: "Outbound mappings" });
     expect(within(table).getByText("Orders to Acme")).toBeInTheDocument();
-    expect(within(table).getByText("dev.passage.sales.order.*.v1")).toBeInTheDocument();
+    expect(within(table).getByText("dev.depot.sales.order.*.v1")).toBeInTheDocument();
     expect(within(table).getByText("Custom: acme")).toBeInTheDocument();
     expect(violations(container)).toEqual([]);
     fireEvent.change(screen.getByLabelText("Status"), { target: { value: "archived" } });
@@ -158,7 +158,7 @@ describe("new outbound mapping", () => {
     expect(screen.getByText("mig-ob-v1-abc")).toBeInTheDocument();
     expect(screen.getByText("unit-codes v3")).toBeInTheDocument();
     const draft = calls.find((c) => c.url.pathname.endsWith("/outbound-mappings:preview"));
-    expect(draft?.body).toMatchObject({ sourceSystem: "custom_acme", definition: { eventType: "dev.passage.sales.order.*.v1" }, event: { id: "evt-sample-1" } });
+    expect(draft?.body).toMatchObject({ sourceSystem: "custom_acme", definition: { eventType: "dev.depot.sales.order.*.v1" }, event: { id: "evt-sample-1" } });
     expect(calls.filter((c) => c.method === "POST" && !c.url.pathname.includes(":preview"))).toHaveLength(0);
 
     fireEvent.click(screen.getByRole("button", { name: "Create mapping" }));
@@ -195,7 +195,7 @@ describe("outbound mapping detail", () => {
     expect(within(refs).getByText("no legacy key is recorded for this record yet")).toBeInTheDocument();
     expect(screen.getByText("Unresolved references", { selector: "span" })).toBeInTheDocument();
     const call = calls.find((c) => c.url.pathname.endsWith(`${ID}:preview`));
-    expect(call?.body).toMatchObject({ event: { type: "dev.passage.sales.order.confirmed.v1" } });
+    expect(call?.body).toMatchObject({ event: { type: "dev.depot.sales.order.confirmed.v1" } });
     expect(call?.body).not.toHaveProperty("version");
   });
 
@@ -224,7 +224,7 @@ describe("outbound mapping detail", () => {
     fireEvent.change(screen.getByLabelText("Definition"), { target: { value: toJsonText(STARTER_DEFINITION) } });
     fireEvent.click(screen.getByRole("button", { name: "Save as version 3" }));
     await waitFor(() => expect(calls.some((c) => c.method === "PATCH")).toBe(true));
-    expect(calls.find((c) => c.method === "PATCH")?.body).toMatchObject({ version: 2, definition: { eventType: "dev.passage.sales.order.*.v1" } });
+    expect(calls.find((c) => c.method === "PATCH")?.body).toMatchObject({ version: 2, definition: { eventType: "dev.depot.sales.order.*.v1" } });
     fireEvent.click(await screen.findByRole("button", { name: "Archive" }));
     await waitFor(() => expect(calls.filter((c) => c.method === "PATCH")).toHaveLength(2));
     expect(calls.filter((c) => c.method === "PATCH")[1]?.body).toMatchObject({ status: "archived" });

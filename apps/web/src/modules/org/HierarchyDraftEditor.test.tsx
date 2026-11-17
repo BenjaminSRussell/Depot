@@ -71,7 +71,7 @@ describe("draft editor shell", () => {
     expect(screen.getByRole("button", { name: "Move down" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Indent" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Outdent" })).toBeDisabled();
-    await user.click(screen.getByText("Passage Inc"));
+    await user.click(screen.getByText("Depot Inc"));
     expect(screen.getByRole("button", { name: "Move down" })).toBeDisabled();
     expect(screen.getByLabelText("Move under")).toBeDisabled();
   });
@@ -82,14 +82,14 @@ describe("reparenting without a pointer", () => {
     const { fetchMock, user } = await openDraft();
     await user.click(screen.getByText("Alpha"));
     await user.click(screen.getByRole("button", { name: "Move down" }));
-    expect(order()).toEqual(["1Passage Inc", "2Beta", "3Gamma", "2Alpha"]);
-    expect(announcement()).toBe("Alpha is now under Passage Inc, position 2 of 2");
+    expect(order()).toEqual(["1Depot Inc", "2Beta", "3Gamma", "2Alpha"]);
+    expect(announcement()).toBe("Alpha is now under Depot Inc, position 2 of 2");
     expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Publish…" })).toBeDisabled();
     expect(screen.getByText("Save your changes before publishing.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Move down" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Move up" }));
-    expect(order()).toEqual(["1Passage Inc", "2Alpha", "2Beta", "3Gamma"]);
+    expect(order()).toEqual(["1Depot Inc", "2Alpha", "2Beta", "3Gamma"]);
 
     await user.click(screen.getByRole("button", { name: "Move down" }));
     await user.click(screen.getByRole("button", { name: "Save draft" }));
@@ -105,13 +105,13 @@ describe("reparenting without a pointer", () => {
     const { user } = await openDraft();
     await user.click(screen.getByText("Beta"));
     await user.click(screen.getByRole("button", { name: "Indent" }));
-    expect(order()).toEqual(["1Passage Inc", "2Alpha", "3Beta", "4Gamma"]);
+    expect(order()).toEqual(["1Depot Inc", "2Alpha", "3Beta", "4Gamma"]);
     await user.click(screen.getByText("Gamma"));
     await user.click(screen.getByRole("button", { name: "Outdent" }));
-    expect(order()).toEqual(["1Passage Inc", "2Alpha", "3Beta", "3Gamma"]);
+    expect(order()).toEqual(["1Depot Inc", "2Alpha", "3Beta", "3Gamma"]);
     await user.click(screen.getByText("Beta"));
     await user.click(screen.getByRole("button", { name: "Outdent" }));
-    expect(order()).toEqual(["1Passage Inc", "2Alpha", "3Gamma", "2Beta"]);
+    expect(order()).toEqual(["1Depot Inc", "2Alpha", "3Gamma", "2Beta"]);
   });
 
   it("moves under a parent chosen from the list, which never offers the node, its parent or its descendants", async () => {
@@ -119,12 +119,12 @@ describe("reparenting without a pointer", () => {
     await user.click(screen.getByText("Beta"));
     const choices = within(screen.getByLabelText("Move under"));
     expect(choices.queryByRole("option", { name: "Beta (BETA)" })).toBeNull();
-    expect(choices.queryByRole("option", { name: "Passage Inc (PI)" })).toBeNull();
+    expect(choices.queryByRole("option", { name: "Depot Inc (PI)" })).toBeNull();
     expect(choices.queryByRole("option", { name: "Gamma (GAMMA)" })).toBeNull();
     expect(screen.getByRole("button", { name: "Move" })).toBeDisabled();
     await user.selectOptions(screen.getByLabelText("Move under"), "ou-a");
     await user.click(screen.getByRole("button", { name: "Move" }));
-    expect(order()).toEqual(["1Passage Inc", "2Alpha", "3Beta", "4Gamma"]);
+    expect(order()).toEqual(["1Depot Inc", "2Alpha", "3Beta", "4Gamma"]);
     await user.click(screen.getByRole("button", { name: "Save draft" }));
     await screen.findByText("Draft version 3 saved");
     expect(saveBody(fetchMock).nodes.find((entry) => entry.orgUnitId === "ou-b")?.parentOrgUnitId).toBe("ou-a");
@@ -134,7 +134,7 @@ describe("reparenting without a pointer", () => {
     const { user } = await openDraft();
     act(() => screen.getByRole("treeitem", { name: "Beta" }).focus());
     await user.keyboard("{Alt>}{ArrowUp}{/Alt}");
-    expect(order()).toEqual(["1Passage Inc", "2Beta", "3Gamma", "2Alpha"]);
+    expect(order()).toEqual(["1Depot Inc", "2Beta", "3Gamma", "2Alpha"]);
     expect(screen.getByRole("treeitem", { name: "Beta" })).toHaveFocus();
     await user.keyboard("{Alt>}{ArrowRight}{/Alt}");
     expect(screen.getByRole("treeitem", { name: "Beta" })).toHaveFocus();
@@ -145,20 +145,20 @@ describe("reparenting without a pointer", () => {
 describe("drag and drop", () => {
   it("reparents a node dropped on a valid target and refuses its own descendants", async () => {
     await openDraft();
-    expect(rowOf("Passage Inc")).toHaveAttribute("draggable", "false");
+    expect(rowOf("Depot Inc")).toHaveAttribute("draggable", "false");
     expect(rowOf("Gamma")).toHaveAttribute("draggable", "true");
 
     fireEvent.dragStart(rowOf("Beta"));
     expect(fireEvent.dragOver(rowOf("Gamma"))).toBe(true);
     expect(fireEvent.dragOver(rowOf("Beta"))).toBe(true);
     fireEvent.drop(rowOf("Gamma"));
-    expect(order()).toEqual(["1Passage Inc", "2Alpha", "2Beta", "3Gamma"]);
+    expect(order()).toEqual(["1Depot Inc", "2Alpha", "2Beta", "3Gamma"]);
     fireEvent.dragEnd(rowOf("Beta"));
 
     fireEvent.dragStart(rowOf("Gamma"), { dataTransfer: { setData: vi.fn(), effectAllowed: "" } });
     expect(fireEvent.dragOver(rowOf("Alpha"))).toBe(false);
     fireEvent.drop(rowOf("Alpha"));
-    expect(order()).toEqual(["1Passage Inc", "2Alpha", "3Gamma", "2Beta"]);
+    expect(order()).toEqual(["1Depot Inc", "2Alpha", "3Gamma", "2Beta"]);
     expect(screen.getByRole("treeitem", { name: "Gamma" })).toHaveAttribute("aria-selected", "true");
     expect(announcement()).toBe("Gamma is now under Alpha, position 1 of 1");
     expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
@@ -178,7 +178,7 @@ describe("adding and replacing from a picker", () => {
     expect(screen.getByText("It is added under Alpha.")).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("Add org unit"), "ou-d");
     await user.click(screen.getByRole("button", { name: "Add" }));
-    expect(order()).toEqual(["1Passage Inc", "2Alpha", "3Delta", "2Beta", "3Gamma"]);
+    expect(order()).toEqual(["1Depot Inc", "2Alpha", "3Delta", "2Beta", "3Gamma"]);
     expect(announcement()).toBe("Delta added under Alpha");
     expect(within(screen.getByLabelText("Add org unit")).queryByRole("option", { name: "Delta (DELTA)" })).toBeNull();
 
@@ -194,7 +194,7 @@ describe("adding and replacing from a picker", () => {
     await user.click(screen.getByText("Beta"));
     await user.selectOptions(screen.getByLabelText("Replace selected with"), "ou-d");
     await user.click(screen.getByRole("button", { name: "Replace" }));
-    expect(order()).toEqual(["1Passage Inc", "2Alpha", "2Delta", "3Gamma"]);
+    expect(order()).toEqual(["1Depot Inc", "2Alpha", "2Delta", "3Gamma"]);
     expect(screen.getByRole("treeitem", { name: "Delta" })).toHaveAttribute("aria-selected", "true");
     expect(announcement()).toBe("Beta replaced by Delta");
     await user.click(screen.getByRole("button", { name: "Save draft" }));
@@ -212,7 +212,7 @@ describe("adding and replacing from a picker", () => {
     expect(screen.getByText("It becomes the root of this hierarchy.")).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("Add org unit"), "le1");
     await user.click(screen.getByRole("button", { name: "Add" }));
-    expect(order()).toEqual(["1Passage Inc"]);
+    expect(order()).toEqual(["1Depot Inc"]);
     expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
   });
 });
@@ -230,11 +230,11 @@ describe("saving", () => {
     await user.click(screen.getByRole("button", { name: "Save draft" }));
     expect(await screen.findByText("This draft changed elsewhere")).toBeInTheDocument();
     expect(screen.getByText(/Stale version/)).toBeInTheDocument();
-    expect(order()).toEqual(["1Passage Inc", "2Beta", "3Gamma", "2Alpha"]);
+    expect(order()).toEqual(["1Depot Inc", "2Beta", "3Gamma", "2Alpha"]);
     await user.click(screen.getByRole("button", { name: "Reload draft" }));
     await waitFor(() => expect(callsTo(fetchMock, "/hierarchy-versions/v3", "GET")).toHaveLength(2));
     expect(await screen.findByText("No unsaved changes")).toBeInTheDocument();
-    expect(order()).toEqual(["1Passage Inc", "2Alpha", "2Beta", "3Gamma"]);
+    expect(order()).toEqual(["1Depot Inc", "2Alpha", "2Beta", "3Gamma"]);
   });
 
   it("explains a missing permission", async () => {
@@ -250,7 +250,7 @@ describe("saving", () => {
     await user.click(screen.getByRole("button", { name: "Save draft" }));
     expect(await screen.findByText("Could not save the draft")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Discard changes" }));
-    expect(order()).toEqual(["1Passage Inc", "2Alpha", "2Beta", "3Gamma"]);
+    expect(order()).toEqual(["1Depot Inc", "2Alpha", "2Beta", "3Gamma"]);
     expect(screen.queryByText("Could not save the draft")).toBeNull();
     expect(screen.getByText("No unsaved changes")).toBeInTheDocument();
     expect(announcement()).toBe("Changes discarded");
@@ -407,7 +407,7 @@ describe("removed since the previous version", () => {
     await user.click(screen.getByRole("checkbox", { name: "Show draft" }));
     const section = await screen.findByRole("region", { name: "Removed since v2" });
     expect(within(section).getByText("Beta")).toBeInTheDocument();
-    expect(within(section).getByText("was under Passage Inc")).toBeInTheDocument();
+    expect(within(section).getByText("was under Depot Inc")).toBeInTheDocument();
     expect(within(section).getByText("ou-x")).toBeInTheDocument();
     expect(within(section).getByText("was under no parent (root)")).toBeInTheDocument();
   });
@@ -427,7 +427,7 @@ describe("removed since the previous version", () => {
     await user.click(screen.getByRole("button", { name: "Remove" }));
     const section = screen.getByRole("region", { name: "Removed since v2" });
     expect(within(section).getByText("Beta")).toBeInTheDocument();
-    expect(within(section).getByText("was under Passage Inc")).toBeInTheDocument();
+    expect(within(section).getByText("was under Depot Inc")).toBeInTheDocument();
 
     await user.click(screen.getByText("Alpha"));
     await user.selectOptions(screen.getByLabelText("Add org unit"), "ou-d");
@@ -465,7 +465,7 @@ describe("export", () => {
       expect(blobs[0].type).toBe("text/csv;charset=utf-8");
       expect(Array.from(new Uint8Array(await blobs[0].arrayBuffer()).slice(0, 3))).toEqual([0xef, 0xbb, 0xbf]);
       expect(await blobs[0].text()).toBe(
-        ["Level,Name,Code,Kind,Parent code", "1,Passage Inc,PI,legal_entity,", "2,Alpha,ALPHA,operating_unit,PI", "3,ou-c,ou-c,operating_unit,ALPHA", "2,Beta,BETA,operating_unit,PI"].join("\r\n"),
+        ["Level,Name,Code,Kind,Parent code", "1,Depot Inc,PI,legal_entity,", "2,Alpha,ALPHA,operating_unit,PI", "3,ou-c,ou-c,operating_unit,ALPHA", "2,Beta,BETA,operating_unit,PI"].join("\r\n"),
       );
     } finally {
       click.mockRestore();
@@ -507,7 +507,7 @@ describe("export", () => {
         "REP · Reporting",
         "Purpose: reporting, security    As of: 2026-06-01",
         "PI",
-        "Passage Inc",
+        "Depot Inc",
         "ALPHA",
         "Alpha",
         "Manager: assigned",
@@ -575,7 +575,7 @@ describe("unsaved changes guard", () => {
     expect(within(dialog()).getByRole("button", { name: "Keep editing" })).toHaveFocus();
     await user.click(within(dialog()).getByRole("button", { name: "Keep editing" }));
     expect(screen.queryByRole("alertdialog")).toBeNull();
-    expect(order()).toEqual(["1Passage Inc", "2Beta", "3Gamma", "2Alpha"]);
+    expect(order()).toEqual(["1Depot Inc", "2Beta", "3Gamma", "2Alpha"]);
     expect(screen.getByLabelText("Hierarchy type")).toHaveValue("t1");
     expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
   });
@@ -634,7 +634,7 @@ describe("unsaved changes guard", () => {
     expect(router.state.location.pathname).toBe("/org/hierarchy");
     await clickInDialog("Keep editing");
     expect(router.state.location.pathname).toBe("/org/hierarchy");
-    expect(order()).toEqual(["1Passage Inc", "2Beta", "3Gamma", "2Alpha"]);
+    expect(order()).toEqual(["1Depot Inc", "2Beta", "3Gamma", "2Alpha"]);
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 });
@@ -720,7 +720,7 @@ describe("removing a node", () => {
     const { fetchMock, user } = await openDraft();
     await user.click(screen.getByText("Gamma"));
     await user.click(screen.getByRole("button", { name: "Remove" }));
-    expect(order()).toEqual(["1Passage Inc", "2Alpha", "2Beta"]);
+    expect(order()).toEqual(["1Depot Inc", "2Alpha", "2Beta"]);
     expect(announcement()).toBe("Gamma removed");
     expect(screen.getByRole("treeitem", { name: "Beta" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("treeitem", { name: "Beta" })).toHaveFocus();
@@ -734,13 +734,13 @@ describe("removing a node", () => {
     const { user } = await openDraft();
     await user.click(screen.getByText("Beta"));
     await user.click(screen.getByRole("button", { name: "Remove" }));
-    expect(order()).toEqual(["1Passage Inc", "2Alpha", "2Gamma"]);
-    expect(announcement()).toBe("Beta removed, its child moved up under Passage Inc");
+    expect(order()).toEqual(["1Depot Inc", "2Alpha", "2Gamma"]);
+    expect(announcement()).toBe("Beta removed, its child moved up under Depot Inc");
   });
 
   it("never removes the root", async () => {
     const { user } = await openDraft();
-    await user.click(screen.getByText("Passage Inc"));
+    await user.click(screen.getByText("Depot Inc"));
     expect(screen.getByRole("button", { name: "Remove" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Remove" })).toBeDisabled();
   });
@@ -810,10 +810,10 @@ describe("keyboard shortcuts and focus", () => {
     expect(dialog()).toHaveAccessibleName("Discard your changes?");
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("alertdialog")).toBeNull();
-    expect(order()).toEqual(["1Passage Inc", "2Beta", "3Gamma", "2Alpha"]);
+    expect(order()).toEqual(["1Depot Inc", "2Beta", "3Gamma", "2Alpha"]);
     await user.keyboard("{Escape}");
     await user.click(within(dialog()).getByRole("button", { name: "Discard changes" }));
-    expect(order()).toEqual(["1Passage Inc", "2Alpha", "2Beta", "3Gamma"]);
+    expect(order()).toEqual(["1Depot Inc", "2Alpha", "2Beta", "3Gamma"]);
     expect(announcement()).toBe("Changes discarded");
   });
 
@@ -859,7 +859,7 @@ describe("accessibility of the open states", () => {
     expect(clean(document.body)).toEqual(expect.not.arrayContaining([expect.objectContaining({ id: "button-name" })]));
     await user.selectOptions(screen.getByLabelText("Add org unit"), "le1");
     await user.click(screen.getByRole("button", { name: "Add" }));
-    act(() => screen.getByRole("treeitem", { name: "Passage Inc" }).focus());
+    act(() => screen.getByRole("treeitem", { name: "Depot Inc" }).focus());
     await user.keyboard("{Escape}");
     expect(clean(dialog())).toEqual([]);
     expect(dialog()).toHaveAttribute("aria-modal", "true");
@@ -922,7 +922,7 @@ describe("focus after an action disables the pressed button", () => {
     expect(screen.getByRole("treeitem", { name: "Delta" })).toHaveFocus();
     await user.click(screen.getByRole("button", { name: "Discard changes" }));
     expect(screen.getByRole("button", { name: "Discard changes" })).toBeDisabled();
-    expect(screen.getByRole("treeitem", { name: "Passage Inc" })).toHaveFocus();
+    expect(screen.getByRole("treeitem", { name: "Depot Inc" })).toHaveFocus();
   });
 });
 

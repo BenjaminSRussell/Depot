@@ -261,17 +261,17 @@ BEGIN
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
-    EXECUTE format('CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting(''passage.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)', t || '_tenant_access', t);
+    EXECUTE format('CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting(''depot.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)', t || '_tenant_access', t);
   END LOOP;
   FOREACH scoped IN ARRAY ARRAY['released_product', 'released_product_site_default'] LOOP
-    EXECUTE format('CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting(''passage.legal_entity_scopes'', true) = ''*'' OR legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '','')))', scoped || '_legal_entity_scope', scoped);
+    EXECUTE format('CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting(''depot.legal_entity_scopes'', true) = ''*'' OR legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '','')))', scoped || '_legal_entity_scope', scoped);
   END LOOP;
 END
 $$;
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
     EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON
       dimension_group, item_group, item_model_group, lifecycle_state, product,
       released_product, released_product_site_default, product_identifier,
@@ -279,7 +279,7 @@ BEGIN
       category_hierarchy, category, product_relation, configuration_model,
       saved_configuration, catalog, document_info_record, gs1_prefix,
       idempotency_keys, outbox
-    TO passage_app';
+    TO depot_app';
   END IF;
 END
 $$;

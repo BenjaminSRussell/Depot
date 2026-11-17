@@ -12,13 +12,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/domain"
-	ledgerevents "github.com/BenjaminSRussell/passage/services/ledger/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/domain"
+	ledgerevents "github.com/BenjaminSRussell/depot/services/ledger/internal/events"
 )
 
 const clearingAggregate = "clearing"
@@ -434,7 +434,7 @@ func postClearingDifference(ctx context.Context, tx pgx.Tx, p tenant.Principal, 
 	hash := sha256.Sum256([]byte(key))
 	entry, _, err := postToLedger(ctx, tx, p.TenantID, ledger, PostInput{
 		LedgerID: ledger.ID, DocumentID: ids.New(), PostingDate: in.ClearingDate, Description: "Clearing difference",
-		Source: ledgerevents.Source{System: "ledger", Type: "clearing_difference", ID: docID, URI: "passage://ledger/clearings/" + docID},
+		Source: ledgerevents.Source{System: "ledger", Type: "clearing_difference", ID: docID, URI: "depot://ledger/clearings/" + docID},
 		Lines: []domain.LineInput{
 			{Account: sel.account, Dimensions: dims, Side: itemSide, Amount: amount, Currency: ledger.Currency, Text: "Clearing difference", SourceLineRef: "clearing:" + docID},
 			{Account: sel.tolerance.differenceAccount, Side: diffSide, Amount: amount, Currency: ledger.Currency, Text: "Clearing difference"},

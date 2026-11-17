@@ -1,10 +1,10 @@
 package events
 
 const (
-	POAckAccepted = "dev.passage.procurement.poack.accepted.v1"
-	POAckRejected = "dev.passage.procurement.poack.rejected.v1"
-	POAckProposed = "dev.passage.procurement.poack.proposed.v1"
-	POAckDecided  = "dev.passage.procurement.poack.decided.v1"
+	POAckAccepted = "dev.depot.procurement.poack.accepted.v1"
+	POAckRejected = "dev.depot.procurement.poack.rejected.v1"
+	POAckProposed = "dev.depot.procurement.poack.proposed.v1"
+	POAckDecided  = "dev.depot.procurement.poack.decided.v1"
 )
 
 type POAckChange struct {

@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	prodevents "github.com/BenjaminSRussell/passage/services/production/internal/events"
-	"github.com/BenjaminSRussell/passage/services/production/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	prodevents "github.com/BenjaminSRussell/depot/services/production/internal/events"
+	"github.com/BenjaminSRussell/depot/services/production/migrations"
 )
 
 func salesLineOrder(key, legalEntity, product, line, configuration string) NewOrder {

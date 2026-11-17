@@ -1,6 +1,6 @@
 apiVersion: v2
 name: intercompany
-description: Passage intercompany (wave 40; trading partners stored in Postgres, stateless previews)
+description: Depot intercompany (wave 40; trading partners stored in Postgres, stateless previews)
 type: application
 version: 0.2.0
 appVersion: "0.4.0"

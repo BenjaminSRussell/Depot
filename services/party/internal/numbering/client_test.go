@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/party/internal/numbering"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/party/internal/numbering"
 )
 
 const entityID = "00000000-0000-0000-0000-0000000000e1"
@@ -46,8 +46,8 @@ func TestNext_PostsWithPrincipalHeadersAndReturnsFormatted(t *testing.T) {
 		t.Fatalf("got %s %s", got.Method, got.URL.Path)
 	}
 	for header, want := range map[string]string{
-		"Idempotency-Key": "key-1", "X-Passage-Tenant": "00000000-0000-0000-0000-000000000001",
-		"X-Passage-Legal-Entity": entityID, "X-Passage-User": "user-1", "X-Passage-Duties": "party.read,party.write",
+		"Idempotency-Key": "key-1", "X-Depot-Tenant": "00000000-0000-0000-0000-000000000001",
+		"X-Depot-Legal-Entity": entityID, "X-Depot-User": "user-1", "X-Depot-Duties": "party.read,party.write",
 	} {
 		if got.Header.Get(header) != want {
 			t.Errorf("%s = %q, want %q", header, got.Header.Get(header), want)

@@ -52,8 +52,8 @@ CREATE TRIGGER cost_transaction_no_update BEFORE UPDATE OR DELETE ON cost_transa
 ALTER TABLE cost_transaction ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cost_transaction FORCE ROW LEVEL SECURITY;
 CREATE POLICY cost_transaction_tenant_access ON cost_transaction AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY cost_transaction_legal_entity_scope ON cost_transaction AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

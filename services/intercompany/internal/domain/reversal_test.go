@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // TestReverseJournal_AC4010Payment reverses the AC-40.10 centralized payment

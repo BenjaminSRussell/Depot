@@ -21,7 +21,7 @@ const entity = (id: string, status: "active" | "inactive"): LegalEntity => ({
 });
 
 const entities = [entity("a", "active"), entity("b", "inactive"), entity("c", "active")];
-const KEY = "passage.org.legalEntity";
+const KEY = "depot.org.legalEntity";
 const mounts = vi.fn();
 let storage: Storage;
 

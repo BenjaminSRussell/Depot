@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/domain"
 )
 
 func closePeriodsBefore(t *testing.T, e env, firstOpen string) {

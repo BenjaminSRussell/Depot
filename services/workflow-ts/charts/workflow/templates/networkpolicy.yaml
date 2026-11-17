@@ -14,7 +14,7 @@ spec:
               kubernetes.io/metadata.name: {{ .Values.networkPolicy.gatewayNamespace | quote }}
           podSelector:
             matchLabels:
-              gateway.envoyproxy.io/owning-gateway-name: passage-api
+              gateway.envoyproxy.io/owning-gateway-name: depot-api
       ports:
         - { protocol: TCP, port: 8080 }
 {{- if and .Values.agentsPublicKeys .Values.networkPolicy.agentsPodLabels }}

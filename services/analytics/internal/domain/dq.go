@@ -6,7 +6,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 	"github.com/shopspring/decimal"
 )
 

@@ -1,7 +1,7 @@
 """Postgres repository (migrations/0001_prediction.sql). Every statement runs in a transaction that sets
-passage.tenant_id and passage.legal_entity_scopes, so row-level security answers only the caller's tenant and, on the tables that carry
+depot.tenant_id and depot.legal_entity_scopes, so row-level security answers only the caller's tenant and, on the tables that carry
 a legal entity (payment_prediction, prediction_sync; migrations/0003_legal_entity_scope.sql), only the legal entities the call acts for:
-a sync job the entity it runs for, an API read the caller's X-Passage-Legal-Entity ('*' for a caller who holds the all-scope duty)."""
+a sync job the entity it runs for, an API read the caller's X-Depot-Legal-Entity ('*' for a caller who holds the all-scope duty)."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ class PgRepository:
         scopes = "*" if entities is None else ",".join(str(uuid.UUID(e)) for e in entities)  # never set a malformed entity
         with psycopg.connect(self.url) as conn:
             with conn.transaction():
-                conn.execute("select set_config('passage.tenant_id', %s, true), set_config('passage.legal_entity_scopes', %s, true)", (tenant_id, scopes))
+                conn.execute("select set_config('depot.tenant_id', %s, true), set_config('depot.legal_entity_scopes', %s, true)", (tenant_id, scopes))
                 yield conn
 
     @contextmanager

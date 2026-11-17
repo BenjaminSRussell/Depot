@@ -5,11 +5,11 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/edi/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/migrations"
 )
 
 func TestTradeProfile_UpsertAsAppRoleAndTenantIsolated(t *testing.T) {
@@ -28,11 +28,11 @@ func TestTradeProfile_UpsertAsAppRoleAndTenantIsolated(t *testing.T) {
 		ShipFrom: domain.Location{Name: "F", GLN: "0614141000012"}, ShipTo: domain.Location{Name: "T", GLN: "0614141000029"},
 		BillTo: domain.Location{Name: "B", GLN: "0614141000036"}, RemitTo: domain.Location{Name: "R", GLN: "0614141000043"}}
 	if _, err := st.PutTradeProfile(a, p.ID, tp); err != nil {
-		t.Fatalf("insert as passage_app: %v", err)
+		t.Fatalf("insert as depot_app: %v", err)
 	}
 	tp.DefaultSCAC = "UPSN"
 	if _, err := st.PutTradeProfile(a, p.ID, tp); err != nil {
-		t.Fatalf("update as passage_app: %v", err)
+		t.Fatalf("update as depot_app: %v", err)
 	}
 	got, err := st.GetTradeProfile(a, p.ID)
 	if err != nil || got != tp {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 // The sales and purchasing clients (#49) send open orders to POST /v1/sales/opening-orders and POST /v1/procurement/opening-orders

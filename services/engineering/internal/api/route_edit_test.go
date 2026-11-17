@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/store"
 )
 
 // UpdateRouteDraft mimics the store: draft only, version must match, identity fields are kept.

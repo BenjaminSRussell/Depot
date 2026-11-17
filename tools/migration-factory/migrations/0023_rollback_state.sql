@@ -1,6 +1,6 @@
 -- Migration factory, wave 49 (#49): what a cutover rollback leaves behind besides the re-keying
 -- export. The pack runs of the plan's entities and packs move to ROLLED_BACK (BR-49.1), and the
--- coexistence flags of the plan's entities that Passage mastered go back to LEGACY, so the legacy
+-- coexistence flags of the plan's entities that Depot mastered go back to LEGACY, so the legacy
 -- coexistence adapters resume (FR-49.7, AC-49.7). Both happen in the rollback's transaction.
 SET LOCAL lock_timeout = '5s';
 

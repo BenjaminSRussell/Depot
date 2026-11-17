@@ -5,17 +5,17 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/store"
 )
 
 // TestRunCoverages reads the stored coverage a plan run uses (FR-22.2,
 // FR-22.5): the site-scope row of an item with its coverage group's settings
 // and exact decimals; warehouse and subcontractor scopes, other sites, items
 // without coverage and other tenants are absent. Skipped without
-// PASSAGE_TEST_DATABASE_URL.
+// DEPOT_TEST_DATABASE_URL.
 func TestRunCoverages(t *testing.T) {
 	st, _, _ := setup(t)
 	ctx := testkit.Ctx(testkit.TenantID(1), "planning.setup.maintain", "planning.read")

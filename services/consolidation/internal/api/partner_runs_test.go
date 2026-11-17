@@ -8,8 +8,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/services/consolidation/internal/api"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/services/consolidation/internal/api"
 )
 
 const leFR = "00000000-0000-0000-0000-0000000000a3"

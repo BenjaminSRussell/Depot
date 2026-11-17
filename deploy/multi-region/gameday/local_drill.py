@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local failover drill: the game-day toolchain run end to end against real Postgres replication (PSG-50).
+"""Local failover drill: the game-day toolchain run end to end against real Postgres replication (DPT-50).
 
     python3 deploy/multi-region/gameday/local_drill.py [--mode sync|async] [--out DIR] [--pg-bin DIR]
 

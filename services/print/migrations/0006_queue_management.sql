@@ -8,9 +8,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS print_device_active_rank ON print_device (tena
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT UPDATE ON print_device TO passage_app';
-    EXECUTE 'GRANT UPDATE, DELETE ON print_routing_rule TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT UPDATE ON print_device TO depot_app';
+    EXECUTE 'GRANT UPDATE, DELETE ON print_routing_rule TO depot_app';
   END IF;
 END
 $$;

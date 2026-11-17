@@ -30,18 +30,18 @@ begin
   -- 0016 only, replaced below before the commit: the move of an open_items row to its side.
   if old.source_table = 'open_items' and new.source_table in ('open_items.receivable', 'open_items.payable')
      and (new.tenant_id, new.xref_id, new.source_system, new.source_company, new.source_id,
-          new.passage_entity, new.passage_id, new.run_id, new.amount, new.currency, new.created_at, new.target_confirmed)
+          new.depot_entity, new.depot_id, new.run_id, new.amount, new.currency, new.created_at, new.target_confirmed)
          is not distinct from
          (old.tenant_id, old.xref_id, old.source_system, old.source_company, old.source_id,
-          old.passage_entity, old.passage_id, old.run_id, old.amount, old.currency, old.created_at, old.target_confirmed) then
+          old.depot_entity, old.depot_id, old.run_id, old.amount, old.currency, old.created_at, old.target_confirmed) then
     return new;
   end if;
   if old.target_confirmed or not new.target_confirmed
      or (new.tenant_id, new.xref_id, new.source_system, new.source_company, new.source_table, new.source_id,
-         new.passage_entity, new.run_id, new.amount, new.currency, new.created_at)
+         new.depot_entity, new.run_id, new.amount, new.currency, new.created_at)
         is distinct from
         (old.tenant_id, old.xref_id, old.source_system, old.source_company, old.source_table, old.source_id,
-         old.passage_entity, old.run_id, old.amount, old.currency, old.created_at) then
+         old.depot_entity, old.run_id, old.amount, old.currency, old.created_at) then
     raise exception 'legacy_xref is append-only: only the one-time confirmation of the target id may update a row';
   end if;
   return new;
@@ -81,10 +81,10 @@ create or replace function legacy_xref_confirm_target() returns trigger language
 begin
   if old.target_confirmed or not new.target_confirmed
      or (new.tenant_id, new.xref_id, new.source_system, new.source_company, new.source_table, new.source_id,
-         new.passage_entity, new.run_id, new.amount, new.currency, new.created_at)
+         new.depot_entity, new.run_id, new.amount, new.currency, new.created_at)
         is distinct from
         (old.tenant_id, old.xref_id, old.source_system, old.source_company, old.source_table, old.source_id,
-         old.passage_entity, old.run_id, old.amount, old.currency, old.created_at) then
+         old.depot_entity, old.run_id, old.amount, old.currency, old.created_at) then
     raise exception 'legacy_xref is append-only: only the one-time confirmation of the target id may update a row';
   end if;
   return new;

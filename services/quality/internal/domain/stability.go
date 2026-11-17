@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // Stability study statuses (FR-33.16).

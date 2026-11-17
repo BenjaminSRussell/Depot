@@ -3,7 +3,7 @@ package domain_test
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/product/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/product/internal/domain"
 	"github.com/shopspring/decimal"
 	"pgregory.net/rapid"
 )

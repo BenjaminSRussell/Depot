@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: Passage global search
+  title: Depot global search
   version: 0.1.0
   description: >
     One ranked list of records the caller may open, across parties, products,
@@ -18,7 +18,7 @@ info:
     number and title. An exact number ranks first, then a number prefix, then
     similarity. Errors are RFC 7807 problems.
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env: { default: dev }
 paths:
@@ -26,8 +26,8 @@ paths:
     get:
       operationId: searchRecords
       summary: Search records by number or name
-      x-passage-duty: party.read
-      x-passage-duty-alternatives: [product.read, procurement.purchase-order.inquire, receiving.receipt.maintain, receiving.ap.inquire, sales.order.read, fulfillment.warehouse.view, billing.invoice.view, production.order.read, hr.worker.inquire]
+      x-depot-duty: party.read
+      x-depot-duty-alternatives: [product.read, procurement.purchase-order.inquire, receiving.receipt.maintain, receiving.ap.inquire, sales.order.read, fulfillment.warehouse.view, billing.invoice.view, production.order.read, hr.worker.inquire]
       parameters:
         - { name: q, in: query, required: true, description: Two to 100 characters after trimming., schema: { type: string, minLength: 2, maxLength: 100 } }
         - { name: types, in: query, description: Comma separated record types; all readable types when empty., schema: { type: string, examples: ["party,product"] } }

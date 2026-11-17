@@ -1,7 +1,7 @@
 # Analytics (supporting context + lakehouse)
 
 ## Purpose & Boundaries
-Context `analytics` (TS only: `analytics-ts`; database `passage_analytics`, operational tables only; wave 46). Semantic-layer API facade (Cube), dashboards, document designer, catalog/lineage. Lakehouse: Debezium table CDC -> Kafka -> Apache Iceberg (S3-compatible) -> Trino / ClickHouse; dbt; Cube semantic layer; OpenMetadata tags. Backend only exposes the `analytics` facade.
+Context `analytics` (TS only: `analytics-ts`; database `depot_analytics`, operational tables only; wave 46). Semantic-layer API facade (Cube), dashboards, document designer, catalog/lineage. Lakehouse: Debezium table CDC -> Kafka -> Apache Iceberg (S3-compatible) -> Trino / ClickHouse; dbt; Cube semantic layer; OpenMetadata tags. Backend only exposes the `analytics` facade.
 
 ## Interfaces
 `POST /v1/analytics/query` (governed metric query proxied to Cube; tenant row filter, P3 exclusion; User:`analytics.query`; limits <= 10 measures, <= 8 dimensions, 50k rows), `GET /metrics`, `GET|POST /dashboards`, `GET /catalog` (catalog + lineage), `POST /document-templates/{id}:render` (fiscal docs stored with object lock), `POST /document-templates`.

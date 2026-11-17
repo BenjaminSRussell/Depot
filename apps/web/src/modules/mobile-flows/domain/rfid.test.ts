@@ -39,7 +39,7 @@ describe("RFID rounds", () => {
     expect(agg.accept([{ epc: SGTIN }]).scans).toHaveLength(1);
   });
 
-  it("listens for the shell's passage:rfid events", () => {
+  it("listens for the shell's depot:rfid events", () => {
     const target = new EventTarget();
     const got: unknown[] = [];
     const stop = listenForRfid(target, (r) => got.push(r));

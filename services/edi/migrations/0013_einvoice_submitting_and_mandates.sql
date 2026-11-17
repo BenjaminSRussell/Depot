@@ -41,12 +41,12 @@ DECLARE
 BEGIN
   EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
   EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
-  EXECUTE format($p$CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid)$p$, t || '_tenant_access', t);
-  EXECUTE format($p$CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting('passage.legal_entity_scopes', true) = '*'
-    OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')))$p$, t || '_legal_entity_scope', t);
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON %I TO passage_app', t);
+  EXECUTE format($p$CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid)$p$, t || '_tenant_access', t);
+  EXECUTE format($p$CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting('depot.legal_entity_scopes', true) = '*'
+    OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')))$p$, t || '_legal_entity_scope', t);
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON %I TO depot_app', t);
   END IF;
 END
 $do$;

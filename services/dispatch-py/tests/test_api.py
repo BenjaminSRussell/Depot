@@ -13,13 +13,13 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from fastapi.testclient import TestClient
 
-from passage_dispatch import auth, plan_violations
-from passage_dispatch.api import build_problem, create_app, RunIn
-from passage_dispatch.auth import ServiceVerifier
-from passage_dispatch.cpsat import SolveResult
-from passage_dispatch.model import Assignment
-from passage_dispatch.objective import Cost
-from passage_dispatch.runs import RunStore
+from depot_dispatch import auth, plan_violations
+from depot_dispatch.api import build_problem, create_app, RunIn
+from depot_dispatch.auth import ServiceVerifier
+from depot_dispatch.cpsat import SolveResult
+from depot_dispatch.model import Assignment
+from depot_dispatch.objective import Cost
+from depot_dispatch.runs import RunStore
 
 TENANT = "11111111-1111-4111-8111-111111111111"
 ENTITY = "22222222-2222-4222-8222-222222222222"
@@ -45,7 +45,7 @@ def headers(**kw) -> dict[str, str]:
 
 
 def verifier() -> ServiceVerifier:
-    return ServiceVerifier.from_env({"PASSAGE_SERVICE_PUBLIC_KEYS": f"fieldservice={PUBLIC}"}.get)
+    return ServiceVerifier.from_env({"DEPOT_SERVICE_PUBLIC_KEYS": f"fieldservice={PUBLIC}"}.get)
 
 
 TRAVEL = [[0, 10, 30], [10, 0, 20], [30, 20, 0]]
@@ -221,9 +221,9 @@ def test_finished_runs_are_evicted_beyond_the_cap():
 
 def test_public_keys_must_be_well_formed():
     with pytest.raises(ValueError):
-        ServiceVerifier.from_env({"PASSAGE_SERVICE_PUBLIC_KEYS": "fieldservice=notbase64!"}.get)
+        ServiceVerifier.from_env({"DEPOT_SERVICE_PUBLIC_KEYS": "fieldservice=notbase64!"}.get)
     with pytest.raises(ValueError):
-        ServiceVerifier.from_env({"PASSAGE_SERVICE_PUBLIC_KEYS": f"fieldservice={PUBLIC},fieldservice={PUBLIC}"}.get)
+        ServiceVerifier.from_env({"DEPOT_SERVICE_PUBLIC_KEYS": f"fieldservice={PUBLIC},fieldservice={PUBLIC}"}.get)
     assert ServiceVerifier.from_env({}.get) is None
 
 

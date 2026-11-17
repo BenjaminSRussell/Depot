@@ -19,5 +19,5 @@ CREATE TABLE IF NOT EXISTS net_requirement (
 ALTER TABLE net_requirement ENABLE ROW LEVEL SECURITY;
 ALTER TABLE net_requirement FORCE ROW LEVEL SECURITY;
 CREATE POLICY net_requirement_tenant_access ON net_requirement AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

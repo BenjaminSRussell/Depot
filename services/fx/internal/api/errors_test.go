@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/provider"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/provider"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/store"
 )
 
 func TestToProblem(t *testing.T) {

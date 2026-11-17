@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
 )
 
 func newEcr() domain.Ecr {

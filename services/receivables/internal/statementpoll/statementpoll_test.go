@@ -10,8 +10,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/store"
 )
 
 const camtFile = `<?xml version="1.0" encoding="UTF-8"?>

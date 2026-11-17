@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { AbsencePlanDetailPage } from "./AbsencePlanDetailPage";
 import { AbsencePlansPage } from "./AbsencePlansPage";
 import { AbsenceRequestsPage } from "./AbsenceRequestsPage";
@@ -50,7 +50,7 @@ import { NewRequisitionPage, RequisitionsPage } from "./RequisitionsPage";
 import { ScheduleResultsPage } from "./ScheduleResultsPage";
 import { WorksheetPage } from "./WorksheetPage";
 
-const hr: PassageModule = {
+const hr: DepotModule = {
   id: "hr",
   title: "Human resources",
   description:

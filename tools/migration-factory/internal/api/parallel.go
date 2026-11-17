@@ -8,11 +8,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/store"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/store"
 )
 
 // parallelBodyLimit bounds a parallel-run start: both sides' tuples travel in the body.
@@ -33,7 +33,7 @@ type parallelRequest struct {
 	Revenue           string     `json:"revenue"`
 	ExplainedMaxPct   string     `json:"explainedMaxPct,omitempty"`
 	Legacy            []tupleDTO `json:"legacy"`
-	Passage           []tupleDTO `json:"passage"`
+	Depot             []tupleDTO `json:"depot"`
 }
 
 type varianceDTO struct {
@@ -41,7 +41,7 @@ type varianceDTO struct {
 	Area        string     `json:"area"`
 	Key         string     `json:"key"`
 	Legacy      string     `json:"legacy"`
-	Passage     string     `json:"passage"`
+	Depot       string     `json:"depot"`
 	Delta       string     `json:"delta"`
 	Documents   int        `json:"documents,omitempty"`
 	Class       string     `json:"class"`
@@ -96,7 +96,7 @@ func toParallelDTO(p domain.ParallelRun, withVariances bool) parallelDTO {
 		out.Variances = make([]varianceDTO, 0, len(p.Variances))
 		for _, v := range p.Variances {
 			out.Variances = append(out.Variances, varianceDTO{VarianceID: v.ID, Area: string(v.Area), Key: v.Key,
-				Legacy: v.Legacy.StringFixed(6), Passage: v.Passage.StringFixed(6), Delta: v.Delta.StringFixed(6), Documents: v.Documents, Class: v.Class,
+				Legacy: v.Legacy.StringFixed(6), Depot: v.Depot.StringFixed(6), Delta: v.Delta.StringFixed(6), Documents: v.Documents, Class: v.Class,
 				RuleID: v.RuleID, Reason: v.Reason, ExplainedBy: v.ExplainedBy, ExplainedAt: v.ExplainedAt})
 		}
 	}
@@ -125,7 +125,7 @@ func toLines(in []tupleDTO, side string, documentsReplayed int) ([]domain.Line, 
 		if side == "legacy" {
 			line.Legacy = amt
 		} else {
-			line.Passage = amt
+			line.Depot = amt
 		}
 		out = append(out, line)
 	}
@@ -133,7 +133,7 @@ func toLines(in []tupleDTO, side string, documentsReplayed int) ([]domain.Line, 
 }
 
 // startParallelRun diffs a replayed period against the legacy period and stores the variances
-// for review (FR-49.5). The caller supplies the legacy tuples and the Passage tuples the replay
+// for review (FR-49.5). The caller supplies the legacy tuples and the Depot tuples the replay
 // produced. Starting is idempotent by (period, system): the same input returns the stored run
 // with Idempotent-Replayed: true, and other input for a stored (period, system) is MIG-0009.
 func (s *Server) startParallelRun(w http.ResponseWriter, r *http.Request) {
@@ -167,13 +167,13 @@ func (s *Server) startParallelRun(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, err)
 		return
 	}
-	passage, err := toLines(req.Passage, "passage", req.DocumentsReplayed)
+	depot, err := toLines(req.Depot, "depot", req.DocumentsReplayed)
 	if err != nil {
 		fail(w, r, err)
 		return
 	}
 	in := domain.ParallelInput{Period: strings.TrimSpace(req.Period), SourceSystem: sys, DocumentsReplayed: req.DocumentsReplayed,
-		Revenue: revenue, ExplainedMaxPct: maxPct, Legacy: legacy, Passage: passage}
+		Revenue: revenue, ExplainedMaxPct: maxPct, Legacy: legacy, Depot: depot}
 	run, err := domain.StartParallelRun(ids.New(), in, domain.DefaultRules(), p.UserID, ids.New)
 	if err != nil {
 		fail(w, r, err)

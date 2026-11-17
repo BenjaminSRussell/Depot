@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/store"
 )
 
 const (

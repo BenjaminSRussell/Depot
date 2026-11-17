@@ -7,9 +7,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	pevents "github.com/BenjaminSRussell/passage/services/pricing/internal/events"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	pevents "github.com/BenjaminSRussell/depot/services/pricing/internal/events"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
 )
 
 func testCampaign(group string) domain.Campaign {

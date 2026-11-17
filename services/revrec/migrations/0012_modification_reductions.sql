@@ -32,13 +32,13 @@ CREATE INDEX IF NOT EXISTS modification_reversal_due_idx ON modification_reversa
 ALTER TABLE modification_reversal ENABLE ROW LEVEL SECURITY;
 ALTER TABLE modification_reversal FORCE ROW LEVEL SECURITY;
 CREATE POLICY modification_reversal_tenant_access ON modification_reversal AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY modification_reversal_legal_entity_scope ON modification_reversal AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')))
-  WITH CHECK (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')))
+  WITH CHECK (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE contract_modification ADD COLUMN IF NOT EXISTS reversal_amount numeric(20,6) NOT NULL DEFAULT 0 CHECK (reversal_amount >= 0);
 -- Obligations the modification removed or reduced: [{"obligationId", "scope"}].
@@ -74,14 +74,14 @@ CREATE INDEX IF NOT EXISTS modification_billing_pending_idx ON modification_bill
 ALTER TABLE modification_billing ENABLE ROW LEVEL SECURITY;
 ALTER TABLE modification_billing FORCE ROW LEVEL SECURITY;
 CREATE POLICY modification_billing_tenant_access ON modification_billing AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY modification_billing_legal_entity_scope ON modification_billing AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The reporter finds the tenants with due rows through this cross-tenant index, kept by a trigger and read only by the SECURITY
--- DEFINER function (FORCE RLS binds the owner of modification_billing too). passage_app has no grant on the index.
+-- DEFINER function (FORCE RLS binds the owner of modification_billing too). depot_app has no grant on the index.
 CREATE TABLE IF NOT EXISTS modification_billing_due (
   tenant_id uuid NOT NULL,
   billing_id uuid NOT NULL,
@@ -119,10 +119,10 @@ CREATE TRIGGER modification_billing_due AFTER INSERT OR UPDATE OF status, next_a
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON modification_reversal, modification_billing TO passage_app';
-    EXECUTE 'GRANT UPDATE ON contract_modification TO passage_app';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION revrec_modification_billing_due_tenants() TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON modification_reversal, modification_billing TO depot_app';
+    EXECUTE 'GRANT UPDATE ON contract_modification TO depot_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION revrec_modification_billing_due_tenants() TO depot_app';
   END IF;
 END
 $$;

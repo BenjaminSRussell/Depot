@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/residency"
+	"github.com/BenjaminSRussell/depot/platform/residency"
 )
 
-// Tenant provisioning (PSG-50, FR-50.8, AC-50.6; docs/ops/tenant-provisioning.md). A provision is recorded with its ordered
+// Tenant provisioning (DPT-50, FR-50.8, AC-50.6; docs/ops/tenant-provisioning.md). A provision is recorded with its ordered
 // plan; the provisioning runner executes each step and reports it, every step is idempotent so a retry resumes, and the
 // provision is complete when every step is DONE. The residency check (OPS-1705) runs before anything is recorded.
 const (

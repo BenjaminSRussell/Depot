@@ -1,7 +1,7 @@
 # ADR-0003: The setup checklist stays a read composition in the web app
 
 **Status:** Proposed — 2026-11-10
-**Issues:** [#503](https://github.com/BenjaminSRussell/Passage/issues/503)
+**Issues:** [#503](https://github.com/BenjaminSRussell/Depot/issues/503)
 
 ## Context
 

@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/dq"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/store"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/dq"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/store"
 )
 
 // bankBalanceDTO is one legacy bank account balance at the cutoff.

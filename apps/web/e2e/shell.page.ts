@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 
-/** Page Object for the Passage shell: landmarks, search palette and mobile drawer. */
+/** Page Object for the Depot shell: landmarks, search palette and mobile drawer. */
 export class ShellPage {
   readonly skipLink: Locator;
   readonly main: Locator;

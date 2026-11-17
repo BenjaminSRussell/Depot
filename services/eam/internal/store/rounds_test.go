@@ -11,10 +11,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/eam/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/eam/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/eam/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/eam/migrations"
 )
 
 // activeAssets creates n more ACTIVE assets on the fixture site.
@@ -101,7 +101,7 @@ func TestRound_AC449(t *testing.T) {
 	if detail.WarrantyCovered {
 		t.Fatal("a ROUND order is never warranty covered")
 	}
-	if n := f.count(t, `select count(*) from outbox where type = 'dev.passage.eam.workorder.created.v1' and aggregate_id = $1`, woID); n != 1 {
+	if n := f.count(t, `select count(*) from outbox where type = 'dev.depot.eam.workorder.created.v1' and aggregate_id = $1`, woID); n != 1 {
 		t.Fatalf("workorder.created events for the round order = %d, want 1", n)
 	}
 
@@ -149,7 +149,7 @@ func TestRound_AC449(t *testing.T) {
 	if n := f.count(t, `select count(*) from maintenance_request where source = 'ROUND'`); n != 1 {
 		t.Fatalf("ROUND requests = %d, want 1 (only the skipped mandatory stop)", n)
 	}
-	if n := f.count(t, `select count(*) from outbox where type = 'dev.passage.eam.request.created.v1' and aggregate_id = $1`, reqID); n != 1 {
+	if n := f.count(t, `select count(*) from outbox where type = 'dev.depot.eam.request.created.v1' and aggregate_id = $1`, reqID); n != 1 {
 		t.Fatalf("request.created events = %d, want 1", n)
 	}
 	// The line reset once for the whole round (BR-44.2 on the round's completion)
@@ -463,7 +463,7 @@ func TestKPIs_CostAndBacklog(t *testing.T) {
 	}
 }
 
-// TestGrants_AppRoleRounds runs the slice 5 paths as passage_app (no BYPASSRLS,
+// TestGrants_AppRoleRounds runs the slice 5 paths as depot_app (no BYPASSRLS,
 // migration 0007 grants): a round and a ROUND plan line, the generated order
 // with its stops, a stop row lock and update that raises a request, completion,
 // the reminders and KPIs; rounds and stops refuse updates and deletes, and
@@ -479,17 +479,17 @@ func TestGrants_AppRoleRounds(t *testing.T) {
 	round, err := s.CreateRound(ctx, Round{Code: "APP", Name: "App round", SiteID: fixtureSite, Stops: []domain.RoundStop{
 		{Sequence: 1, AssetID: assets[0], JobType: "INSPECT", Mandatory: true}, {Sequence: 2, AssetID: assets[1], JobType: "INSPECT"}}}, "g-round")
 	if err != nil {
-		t.Fatalf("round insert as passage_app: %v", err)
+		t.Fatalf("round insert as depot_app: %v", err)
 	}
 	one, weeks, start := 1, "WEEKS", clock.AddDate(0, 0, -7)
 	_, err = s.CreatePlan(ctx, PlanInput{Code: "APP", Name: "App", Currency: "USD", Lines: []PlanLineInput{{Kind: "ROUND", RoundID: &round.ID,
 		IntervalValue: &one, IntervalUnit: &weeks, StartAt: &start}}}, "g-plan")
 	if err != nil {
-		t.Fatalf("ROUND plan line as passage_app: %v", err)
+		t.Fatalf("ROUND plan line as depot_app: %v", err)
 	}
 	orders, err := s.ListWorkOrders(ctx, ListOptions{Limit: 10})
 	if err != nil || len(orders.Items) != 1 || orders.Items[0].Type != "ROUND" {
-		t.Fatalf("generated orders as passage_app = %+v %v", orders, err)
+		t.Fatalf("generated orders as depot_app = %+v %v", orders, err)
 	}
 	wo := orders.Items[0]
 	v := wo.Version
@@ -501,13 +501,13 @@ func TestGrants_AppRoleRounds(t *testing.T) {
 		v = next.Version
 	}
 	if st, err := s.RecordStopOutcome(ctx, wo.ID, 1, StopOutcome{Outcome: domain.StopSkipped, Reason: "blocked"}, "g-s1"); err != nil || st.RequestID == nil {
-		t.Fatalf("stop lock, update and request as passage_app = %+v %v", st, err)
+		t.Fatalf("stop lock, update and request as depot_app = %+v %v", st, err)
 	}
 	if _, err := s.RecordStopOutcome(ctx, wo.ID, 2, StopOutcome{Outcome: domain.StopDone}, "g-s2"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.TransitionWorkOrder(ctx, wo.ID, Transition{To: domain.StatusCompleted, Version: v}, ""); err != nil {
-		t.Fatalf("round completion and line reset as passage_app: %v", err)
+		t.Fatalf("round completion and line reset as depot_app: %v", err)
 	}
 	if _, err := s.ListPlans(ctx, ListOptions{Limit: 10}); err != nil {
 		t.Fatal(err)

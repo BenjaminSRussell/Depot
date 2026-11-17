@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/projects/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/projects/internal/store"
+	"github.com/BenjaminSRussell/depot/services/projects/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/projects/internal/store"
 )
 
 func riskOf(t *testing.T, body []byte) domain.RiskIssue {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthetic journal-line generator for fx-load-10k growth (PSG-50, PRD 9.50.9, BR-50.5).
+"""Synthetic journal-line generator for fx-load-10k growth (DPT-50, PRD 9.50.9, BR-50.5).
 
 Writes a deterministic, balanced journal-line CSV that the load campaign uses as synthetic growth on top
 of the first customer's masked copy. The masked copy itself is NOT produced here; this generator only
@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TextIO
 
-SCHEMA = "passage.load.fixture-synthetic/v1"
+SCHEMA = "depot.load.fixture-synthetic/v1"
 COLUMNS = ["tenant_id", "journal_id", "line_no", "period", "account", "currency", "debit", "credit"]
 CURRENCIES = ["EUR", "USD", "GBP"]
 ACCOUNTS = [f"{n:04d}" for n in range(1000, 10000, 37)]  # 245 synthetic account numbers

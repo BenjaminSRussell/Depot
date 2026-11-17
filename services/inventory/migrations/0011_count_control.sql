@@ -2,7 +2,7 @@
 -- sample percent), stock freeze while a sheet is open (INV-CNT-002), recount
 -- flags, and the COUNTED / APPROVED / CANCELLED sheet statuses with an
 -- optional four-eyes rule. No new tables: the existing count tables already
--- carry the passage_app grants (SELECT, INSERT, UPDATE) from 0003.
+-- carry the depot_app grants (SELECT, INSERT, UPDATE) from 0003.
 ALTER TABLE count_plan
   ADD COLUMN IF NOT EXISTS freeze_stock boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS four_eyes boolean NOT NULL DEFAULT false,

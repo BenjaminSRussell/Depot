@@ -1,4 +1,4 @@
-# Default values for passage-multiregion. Per-region overrides live in
+# Default values for depot-multiregion. Per-region overrides live in
 # deploy/multi-region/values/<region>.yaml. Exactly one region may be PRIMARY
 # for a tenant at any time (BR-50.1); the other is PASSIVE or FENCED.
 # values.schema.json enforces the enums and the PRD 9.50.13 ranges.
@@ -7,10 +7,10 @@ region:
   id: eu-west                 # region_id, e.g. eu-west, eu-central
   role: PRIMARY               # PRIMARY | PASSIVE | FENCED (REGION_ROLE)
   provider: bare              # eks | gke | aks | bare
-  namespace: passage-data     # namespace of the CNPG cluster, pooler, fence and alert rules
+  namespace: depot-data     # namespace of the CNPG cluster, pooler, fence and alert rules
 
 postgres:
-  clusterName: passage-pg
+  clusterName: depot-pg
   imageName: ghcr.io/cloudnative-pg/postgresql:17
   instances: 3                # 1 primary + 2 standbys (FR-50.2)
   storageSize: 500Gi
@@ -19,17 +19,17 @@ postgres:
   synchronous:
     method: any
     number: 1
-  # cnpg.cross_region_sync.ledger: published to passage-ops only. CNPG replica
+  # cnpg.cross_region_sync.ledger: published to depot-ops only. CNPG replica
   # clusters replicate asynchronously, so cross-region sync is not rendered here
   # (docs/ops/NOT-IMPLEMENTED.md).
   crossRegionSyncLedger: false
   # Used only when role is PASSIVE: the current PRIMARY region's read-write endpoint.
   primary:
-    host: passage-pg-rw.eu-central.passage.internal
+    host: depot-pg-rw.eu-central.depot.internal
     port: 5432
     user: streaming_replica
-    replicationSecret: passage-pg-replication   # key: password
-    tlsSecret: passage-pg-replication-tls       # keys: tls.crt, tls.key, ca.crt
+    replicationSecret: depot-pg-replication   # key: password
+    tlsSecret: depot-pg-replication-tls       # keys: tls.crt, tls.key, ca.crt
   # PgBouncer in transaction mode (FR-50.2). platform/go/dbx sets the tenant with
   # set_config(..., true), which is transaction-local and so pooler-safe.
   pooler:
@@ -43,11 +43,11 @@ backup:
   enabled: true
   # s3 (default) or azure-blob (#600). azure-blob archives to Azure Blob storage through barman-cloud.
   store: s3
-  # Empty derives s3://passage-pg-backups-<region.id>/ so each region archives to its own bucket, or for azure-blob
+  # Empty derives s3://depot-pg-backups-<region.id>/ so each region archives to its own bucket, or for azure-blob
   # https://<azure.storageAccount>.<global.endpoints.blobSuffix>/<azure.container>/ (the suffix comes from the cloud profile).
   destinationPath: ""
   endpointURL: ""             # S3-compatible stores only
-  credentialsSecret: passage-pg-backup-s3   # keys: ACCESS_KEY_ID, ACCESS_SECRET_KEY (azure-blob without workload identity: AZURE_STORAGE_ACCOUNT, AZURE_STORAGE_KEY)
+  credentialsSecret: depot-pg-backup-s3   # keys: ACCESS_KEY_ID, ACCESS_SECRET_KEY (azure-blob without workload identity: AZURE_STORAGE_ACCOUNT, AZURE_STORAGE_KEY)
   azure:
     # Workload identity: no storage key; the managed identity needs Storage Blob Data Contributor on the account.
     useWorkloadIdentity: true
@@ -63,20 +63,20 @@ backup:
 
 kafka:
   namespace: kafka                          # namespace of the Strimzi Kafka cluster (deploy/kafka)
-  clusterName: passage                      # Strimzi Kafka name; its CA secret is <name>-cluster-ca-cert
+  clusterName: depot                      # Strimzi Kafka name; its CA secret is <name>-cluster-ca-cert
   localAlias: eu-west
-  localBootstrap: passage-kafka-bootstrap.kafka.svc:9093
-  localTrustSecret: passage-cluster-ca-cert # key: ca.crt
+  localBootstrap: depot-kafka-bootstrap.kafka.svc:9093
+  localTrustSecret: depot-cluster-ca-cert # key: ca.crt
   remoteAlias: eu-central
-  remoteBootstrap: passage-kafka-bootstrap.kafka.passage-eu-central.internal:9093
-  remoteTrustSecret: passage-kafka-remote-ca     # key: ca.crt, copy of the peer's cluster CA
-  remoteMm2Secret: passage-mm2-remote            # key: password, copy of the peer's passage-mm2 KafkaUser secret
+  remoteBootstrap: depot-kafka-bootstrap.kafka.depot-eu-central.internal:9093
+  remoteTrustSecret: depot-kafka-remote-ca     # key: ca.crt, copy of the peer's cluster CA
+  remoteMm2Secret: depot-mm2-remote            # key: password, copy of the peer's depot-mm2 KafkaUser secret
 
 mm2:
   enabled: true
   # The SCRAM KafkaUser this chart creates in every region; the User Operator
   # writes its password to a Secret of the same name.
-  user: passage-mm2
+  user: depot-mm2
   version: 4.0.0
   replicas: 3
   replicationFactor: 3
@@ -86,7 +86,7 @@ mm2:
   # kafka.localAlias == mm2.targetAlias.
   sourceAlias: eu-west
   targetAlias: eu-central
-  topicsPattern: "passage\\.(?!internal\\.).*"
+  topicsPattern: "depot\\.(?!internal\\.).*"
   groupsPattern: ".*"
   lagAlertMessages: 100000    # mm2.lag_alert_messages, >= 1000
 
@@ -103,7 +103,7 @@ slo:
   availabilityTarget: 0.999
   burnFast: 14.4              # 1 h window (with 5 m confirmation), page (BR-50.6)
   burnSlow: 6                 # 6 h window (with 30 m confirmation), ticket (BR-50.6)
-  # Render the passage:slo_burn_rate:* recording rules from http_requests_total,
+  # Render the depot:slo_burn_rate:* recording rules from http_requests_total,
   # the series the observability chart's alerts already use.
   recordingRules: true
 

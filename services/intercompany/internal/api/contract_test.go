@@ -17,7 +17,7 @@ func TestOpenAPIMatchesRoutes(t *testing.T) {
 	}
 	pathLine := regexp.MustCompile(`^  (/v1/[^:]+(?::[a-z]+)?):$`)
 	methodLine := regexp.MustCompile(`^    (get|post|put|patch|delete):$`)
-	dutyLine := regexp.MustCompile(`^      x-passage-duty: (\S+)$`)
+	dutyLine := regexp.MustCompile(`^      x-depot-duty: (\S+)$`)
 	var documented []string
 	var path, method string
 	for _, line := range strings.Split(string(raw), "\n") {

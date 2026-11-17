@@ -1,4 +1,4 @@
--- PSG-1505 (wave 15, slice 5): journal line read model for drill level 2
+-- DPT-1505 (wave 15, slice 5): journal line read model for drill level 2
 -- (FR-15.7, BR-15.4). One row per ledger line, keyed like the ledger's own
 -- order (posting sequence, line number). A line belongs to the reporting
 -- balance (ledger, period, account, combination, currency type); net is
@@ -31,5 +31,5 @@ CREATE INDEX IF NOT EXISTS reporting_journal_line_balance
 ALTER TABLE reporting_journal_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reporting_journal_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY reporting_journal_line_tenant_access ON reporting_journal_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

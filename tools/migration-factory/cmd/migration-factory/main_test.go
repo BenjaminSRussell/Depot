@@ -17,13 +17,13 @@ func TestReceivablesTarget(t *testing.T) {
 		configured bool
 	}{
 		"nothing configured starts the service": {env: map[string]string{}},
-		"address and key for the factory":       {env: map[string]string{"RECEIVABLES_URL": "http://receivables:8080", "PASSAGE_SERVICE_NAME": "migration-factory", "PASSAGE_SERVICE_SIGNING_KEY": key}, configured: true},
-		"address without a key":                 {env: map[string]string{"RECEIVABLES_URL": "http://receivables:8080", "PASSAGE_SERVICE_NAME": "migration-factory"}, wantErr: "no service signing key"},
-		"key for another service":               {env: map[string]string{"RECEIVABLES_URL": "http://receivables:8080", "PASSAGE_SERVICE_NAME": "migration", "PASSAGE_SERVICE_SIGNING_KEY": key}, wantErr: `must be "migration-factory"`},
-		"address without scheme":                {env: map[string]string{"RECEIVABLES_URL": "receivables:8080", "PASSAGE_SERVICE_NAME": "migration-factory", "PASSAGE_SERVICE_SIGNING_KEY": key}, wantErr: "RECEIVABLES_URL must be"},
-		"address with credentials":              {env: map[string]string{"RECEIVABLES_URL": "http://u:p@receivables:8080", "PASSAGE_SERVICE_NAME": "migration-factory", "PASSAGE_SERVICE_SIGNING_KEY": key}, wantErr: "RECEIVABLES_URL must be"},
-		"malformed key":                         {env: map[string]string{"RECEIVABLES_URL": "http://receivables:8080", "PASSAGE_SERVICE_SIGNING_KEY": "not-base64"}, wantErr: "PASSAGE_SERVICE_SIGNING_KEY"},
-		"key without an address":                {env: map[string]string{"PASSAGE_SERVICE_NAME": "migration-factory", "PASSAGE_SERVICE_SIGNING_KEY": key}},
+		"address and key for the factory":       {env: map[string]string{"RECEIVABLES_URL": "http://receivables:8080", "DEPOT_SERVICE_NAME": "migration-factory", "DEPOT_SERVICE_SIGNING_KEY": key}, configured: true},
+		"address without a key":                 {env: map[string]string{"RECEIVABLES_URL": "http://receivables:8080", "DEPOT_SERVICE_NAME": "migration-factory"}, wantErr: "no service signing key"},
+		"key for another service":               {env: map[string]string{"RECEIVABLES_URL": "http://receivables:8080", "DEPOT_SERVICE_NAME": "migration", "DEPOT_SERVICE_SIGNING_KEY": key}, wantErr: `must be "migration-factory"`},
+		"address without scheme":                {env: map[string]string{"RECEIVABLES_URL": "receivables:8080", "DEPOT_SERVICE_NAME": "migration-factory", "DEPOT_SERVICE_SIGNING_KEY": key}, wantErr: "RECEIVABLES_URL must be"},
+		"address with credentials":              {env: map[string]string{"RECEIVABLES_URL": "http://u:p@receivables:8080", "DEPOT_SERVICE_NAME": "migration-factory", "DEPOT_SERVICE_SIGNING_KEY": key}, wantErr: "RECEIVABLES_URL must be"},
+		"malformed key":                         {env: map[string]string{"RECEIVABLES_URL": "http://receivables:8080", "DEPOT_SERVICE_SIGNING_KEY": "not-base64"}, wantErr: "DEPOT_SERVICE_SIGNING_KEY"},
+		"key without an address":                {env: map[string]string{"DEPOT_SERVICE_NAME": "migration-factory", "DEPOT_SERVICE_SIGNING_KEY": key}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

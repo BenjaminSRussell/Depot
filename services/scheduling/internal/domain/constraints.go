@@ -5,7 +5,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // DefaultNetworkDelayDays is the BR-23.11 limit on delaying a predecessor to

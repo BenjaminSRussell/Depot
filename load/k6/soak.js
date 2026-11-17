@@ -1,6 +1,6 @@
-// Passage soak test (PSG-50, PRD 9.50.9 "Soak": 24 h at 50% load, no memory growth > 10%).
+// Depot soak test (DPT-50, PRD 9.50.9 "Soak": 24 h at 50% load, no memory growth > 10%).
 //
-// Run:  k6 run --env BASE_URL=https://api.perf.passage.dev --env TOKEN=$TOKEN \
+// Run:  k6 run --env BASE_URL=https://api.perf.depot.dev --env TOKEN=$TOKEN \
 //         --env POOL_FILE=/path/to/pool.json --env CAMPAIGN_ID=soak-2026-10 \
 //         --summary-export=results/soak-summary.json load/k6/soak.js
 // Then: python3 load/tools/check_campaign.py --profile soak results/soak-summary.json

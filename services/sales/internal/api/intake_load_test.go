@@ -20,12 +20,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/sales/internal/store"
-	"github.com/BenjaminSRussell/passage/services/sales/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/store"
+	"github.com/BenjaminSRussell/depot/services/sales/migrations"
 )
 
 // Shape of the intake proof's tenant: three legal entities sharing a product
@@ -139,10 +139,10 @@ func loadPost(client *http.Client, url, path, le, duties, key string, body []byt
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-User", "intake")
-	req.Header.Set("X-Passage-Duties", duties)
-	req.Header.Set("X-Passage-Legal-Entity", le)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-User", "intake")
+	req.Header.Set("X-Depot-Duties", duties)
+	req.Header.Set("X-Depot-Legal-Entity", le)
 	if key != "" {
 		req.Header.Set(idempotencyKey, key)
 	}
@@ -166,7 +166,7 @@ func loadPercentile(sorted []time.Duration, p float64) time.Duration {
 // retried after 100 ms. Asserted: every new order 201 with its lines and the
 // MANDATORY supplementary lines counted independently here, every re-delivery
 // 200 with the original order, exactly one stored order per new order, no 5xx,
-// and p99 < 500 ms over every request. PASSAGE_SALES_INTAKE_MINUTES (default 1)
+// and p99 < 500 ms over every request. DEPOT_SALES_INTAKE_MINUTES (default 1)
 // runs the same rate for longer (10 is AC-27.5's 5,000-order soak).
 func TestPostgres_OrderIntake500PerMinuteP99Under500ms(t *testing.T) {
 	if testing.Short() {
@@ -178,10 +178,10 @@ func TestPostgres_OrderIntake500PerMinuteP99Under500ms(t *testing.T) {
 		t.Fatal(err)
 	}
 	minutes := 1
-	if v := os.Getenv("PASSAGE_SALES_INTAKE_MINUTES"); v != "" {
+	if v := os.Getenv("DEPOT_SALES_INTAKE_MINUTES"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 {
-			t.Fatalf("PASSAGE_SALES_INTAKE_MINUTES=%q", v)
+			t.Fatalf("DEPOT_SALES_INTAKE_MINUTES=%q", v)
 		}
 		minutes = n
 	}

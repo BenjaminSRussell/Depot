@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 const outboundDef = `{
-  "eventType": "dev.passage.sales.order.*.v1",
+  "eventType": "dev.depot.sales.order.*.v1",
   "subject": {"entity": "salesOrder", "idPath": "data.order_id"},
   "xrefs": [{"name": "customer", "entity": "customer", "idPath": "data.customer_id"}],
   "decimalsAsNumbers": true,
@@ -20,7 +20,7 @@ const outboundDef = `{
     {"source": "data.number", "target": "Header.CustomerRef", "type": "string", "required": true},
     {"source": "data.total", "target": "Header.Total", "type": "decimal", "scale": 2},
     {"source": "xref.self", "target": "ExistingNo", "type": "string"},
-    {"rule": "const", "value": "PASSAGE", "target": "Origin", "type": "string"}
+    {"rule": "const", "value": "DEPOT", "target": "Origin", "type": "string"}
   ]}
 }`
 
@@ -43,7 +43,7 @@ func (f fakeKeys) LegacyKeys(_ context.Context, _ string, entity string, ids []s
 
 func orderEvent(t *testing.T) map[string]any {
 	t.Helper()
-	ev, err := domain.DecodeEvent(json.RawMessage(`{"specversion":"1.0","id":"evt-1","type":"dev.passage.sales.order.confirmed.v1","data":{"order_id":"0b7c1e52-4a7f-4c3e-9f51-2a4d6b8c9e01","customer_id":"5f0e2d3c-1b4a-4e6f-8a7b-9c0d1e2f3a4b","number":"SO-9","total":12.5}}`))
+	ev, err := domain.DecodeEvent(json.RawMessage(`{"specversion":"1.0","id":"evt-1","type":"dev.depot.sales.order.confirmed.v1","data":{"order_id":"0b7c1e52-4a7f-4c3e-9f51-2a4d6b8c9e01","customer_id":"5f0e2d3c-1b4a-4e6f-8a7b-9c0d1e2f3a4b","number":"SO-9","total":12.5}}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestOutbound_RenderNestsAndResolves(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw, _ := json.Marshal(got.Body)
-	if string(raw) != `{"CustAccount":"C-1001","Header":{"CustomerRef":"SO-9","Total":12.50},"Origin":"PASSAGE"}` {
+	if string(raw) != `{"CustAccount":"C-1001","Header":{"CustomerRef":"SO-9","Total":12.50},"Origin":"DEPOT"}` {
 		t.Fatalf("body = %s", raw)
 	}
 	if len(got.Refs) != 1 || got.Refs[0] != (domain.OutboundRef{Entity: "salesOrder", ID: orderID}) {
@@ -100,14 +100,14 @@ func TestOutbound_IdempotencyKeyStableAcrossVersions(t *testing.T) {
 	v2, _ := domain.ParseOutboundDefinition([]byte(strings.Replace(outboundDef, `"target": "Origin"`, `"target": "Source"`, 1)), 2)
 	r1, err1 := v1.Render(context.Background(), "custom_acme", m1, orderEvent(t), fakeKeys{"customer|" + custID: "C-1"})
 	r2, err2 := v2.Render(context.Background(), "custom_acme", m1, orderEvent(t), fakeKeys{"customer|" + custID: "C-1"})
-	if err1 != nil || err2 != nil || r1.IdempotencyKey != r2.IdempotencyKey || r1.Body["Origin"] != "PASSAGE" || r2.Body["Source"] != "PASSAGE" {
+	if err1 != nil || err2 != nil || r1.IdempotencyKey != r2.IdempotencyKey || r1.Body["Origin"] != "DEPOT" || r2.Body["Source"] != "DEPOT" {
 		t.Fatalf("v1 %+v %v, v2 %+v %v", r1, err1, r2, err2)
 	}
 }
 
-func TestOutbound_SubjectMustBeAPassageID(t *testing.T) {
+func TestOutbound_SubjectMustBeADepotID(t *testing.T) {
 	def, _ := domain.ParseOutboundDefinition([]byte(outboundDef), 1)
-	ev, _ := domain.DecodeEvent(json.RawMessage(`{"id":"e","type":"dev.passage.sales.order.confirmed.v1","data":{"order_id":"SO-9","customer_id":"` + custID + `","number":"n"}}`))
+	ev, _ := domain.DecodeEvent(json.RawMessage(`{"id":"e","type":"dev.depot.sales.order.confirmed.v1","data":{"order_id":"SO-9","customer_id":"` + custID + `","number":"n"}}`))
 	_, err := def.Render(context.Background(), "custom_acme", "m", ev, fakeKeys{"customer|" + custID: "C-1"})
 	var u *domain.UnresolvedError
 	if !errors.As(err, &u) || len(u.Refs) != 1 || u.Refs[0].Name != "subject" || u.Refs[0].ID != "SO-9" {
@@ -135,7 +135,7 @@ func TestOutbound_HostileEvents(t *testing.T) {
 		"data is a list":  `[1,2,3]`,
 		"no data":         `null`,
 	} {
-		ev, err := domain.DecodeEvent(json.RawMessage(`{"id":"e","type":"dev.passage.sales.order.confirmed.v1","data":` + data + `}`))
+		ev, err := domain.DecodeEvent(json.RawMessage(`{"id":"e","type":"dev.depot.sales.order.confirmed.v1","data":` + data + `}`))
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
@@ -150,19 +150,19 @@ func TestOutbound_EventTypeMatching(t *testing.T) {
 		pattern, typ string
 		want         bool
 	}{
-		{"dev.passage.sales.order.*.v1", "dev.passage.sales.order.confirmed.v1", true},
-		{"dev.passage.sales.order.*.v1", "dev.passage.sales.order.confirmed.v2", false},
-		{"dev.passage.billing.invoice.**", "dev.passage.billing.invoice.posted.v1", true},
-		{"dev.passage.billing.invoice.**", "dev.passage.billing.invoice", false},
-		{"dev.passage.sales.order.confirmed.v1", "dev.passage.sales.order.confirmed.v1", true},
-		{"dev.passage.sales.order.confirmed.v1", "dev.passage.sales.order.confirmed", false},
+		{"dev.depot.sales.order.*.v1", "dev.depot.sales.order.confirmed.v1", true},
+		{"dev.depot.sales.order.*.v1", "dev.depot.sales.order.confirmed.v2", false},
+		{"dev.depot.billing.invoice.**", "dev.depot.billing.invoice.posted.v1", true},
+		{"dev.depot.billing.invoice.**", "dev.depot.billing.invoice", false},
+		{"dev.depot.sales.order.confirmed.v1", "dev.depot.sales.order.confirmed.v1", true},
+		{"dev.depot.sales.order.confirmed.v1", "dev.depot.sales.order.confirmed", false},
 	} {
 		if got := domain.MatchesEventType(c.pattern, c.typ); got != c.want {
 			t.Errorf("%s ~ %s = %v", c.pattern, c.typ, got)
 		}
 	}
 	def, _ := domain.ParseOutboundDefinition([]byte(outboundDef), 1)
-	ev, _ := domain.DecodeEvent(json.RawMessage(`{"id":"e","type":"dev.passage.billing.invoice.posted.v1","data":{}}`))
+	ev, _ := domain.DecodeEvent(json.RawMessage(`{"id":"e","type":"dev.depot.billing.invoice.posted.v1","data":{}}`))
 	_, err := def.Render(context.Background(), "custom_acme", "m", ev, fakeKeys{})
 	var de *domain.Error
 	if !errors.As(err, &de) || de.Code != domain.CodeOutboundMismatch {
@@ -172,14 +172,14 @@ func TestOutbound_EventTypeMatching(t *testing.T) {
 
 func TestOutbound_RejectsAndValidation(t *testing.T) {
 	def, _ := domain.ParseOutboundDefinition([]byte(outboundDef), 1)
-	ev, _ := domain.DecodeEvent(json.RawMessage(`{"id":"e","type":"dev.passage.sales.order.confirmed.v1","data":{"order_id":"0b7c1e52-4a7f-4c3e-9f51-2a4d6b8c9e01","customer_id":"5f0e2d3c-1b4a-4e6f-8a7b-9c0d1e2f3a4b"}}`))
+	ev, _ := domain.DecodeEvent(json.RawMessage(`{"id":"e","type":"dev.depot.sales.order.confirmed.v1","data":{"order_id":"0b7c1e52-4a7f-4c3e-9f51-2a4d6b8c9e01","customer_id":"5f0e2d3c-1b4a-4e6f-8a7b-9c0d1e2f3a4b"}}`))
 	_, err := def.Render(context.Background(), "custom_acme", "m", ev, fakeKeys{"customer|" + custID: "C-1"})
 	var rej *domain.RejectedError
 	if !errors.As(err, &rej) || rej.Rejects[0].Code != domain.CodeMapRequired {
 		t.Fatalf("missing required field = %v", err)
 	}
 	for name, mutate := range map[string]func(string) string{
-		"bad pattern":      func(s string) string { return strings.Replace(s, "dev.passage.sales.order.*.v1", "dev.**.x", 1) },
+		"bad pattern":      func(s string) string { return strings.Replace(s, "dev.depot.sales.order.*.v1", "dev.**.x", 1) },
 		"reserved xref":    func(s string) string { return strings.Replace(s, `"name": "customer"`, `"name": "self"`, 1) },
 		"bad subject path": func(s string) string { return strings.Replace(s, "data.order_id", "data..x", 1) },
 		"unknown key": func(s string) string {

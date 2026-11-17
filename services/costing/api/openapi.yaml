@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
-  title: Passage Costing API
+  title: Depot Costing API
   version: 0.6.0
   description: >-
-    Inventory costing (PSG-20, wave 20), slices 1 to 6. Settlement preview under the
+    Inventory costing (DPT-20, wave 20), slices 1 to 6. Settlement preview under the
     item model group's costing method (with marking and split valuation types),
     parallel valuation ledger preview, inventory aging preview, costing versions with
     item-cost import (JSON or CSV), copy with percent change, standard cost activation
@@ -17,7 +17,7 @@ info:
     ledger, aging previews and PPV are stateless; versions, item costs, valuation setup, bucket
     sets, snapshots, cost transactions, adjustments and reconciliation runs are persisted with RLS.
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env: { default: dev }
 paths:
@@ -25,7 +25,7 @@ paths:
     get:
       operationId: readyz
       summary: Readiness (own Postgres reachable within 500 ms)
-      x-passage-duty: none
+      x-depot-duty: none
       responses:
         "200": { description: ready, content: { application/json: { schema: { $ref: "#/components/schemas/Status" } } } }
         "503": { description: not ready, content: { application/json: { schema: { $ref: "#/components/schemas/Status" } } } }
@@ -33,7 +33,7 @@ paths:
     post:
       operationId: previewSettlements
       summary: Settle issues against receipts under a costing method (no persistence)
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -56,7 +56,7 @@ paths:
     post:
       operationId: previewValuationLedgers
       summary: Settle the same transactions under each parallel valuation ledger (no persistence)
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -79,7 +79,7 @@ paths:
     post:
       operationId: previewAging
       summary: Inventory aging of remaining cost as of a date, bucketed by receipt age (no persistence)
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -102,7 +102,7 @@ paths:
     post:
       operationId: createCostingVersion
       summary: Create a DRAFT costing version
-      x-passage-duty: costing.version.write
+      x-depot-duty: costing.version.write
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -134,7 +134,7 @@ paths:
     get:
       operationId: listCostingVersions
       summary: List costing versions visible to the caller, ordered by code
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -161,7 +161,7 @@ paths:
     get:
       operationId: getCostingVersion
       summary: One costing version with its item count; the ETag is its optimistic version
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -181,7 +181,7 @@ paths:
     get:
       operationId: listItemCosts
       summary: A version's item costs by site and product, each compared to the standard cost active in another version
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -207,7 +207,7 @@ paths:
     post:
       operationId: importItemCosts
       summary: Import pending item costs into a DRAFT version from JSON or CSV (all or nothing; idempotent per product and site; bumps the version's optimistic version)
-      x-passage-duty: costing.version.write
+      x-depot-duty: costing.version.write
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -245,7 +245,7 @@ paths:
     post:
       operationId: copyItemCosts
       summary: Copy another version's item costs into a DRAFT version, moved by a percent change (idempotent per product and site; bumps the optimistic version)
-      x-passage-duty: costing.version.write
+      x-depot-duty: costing.version.write
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -281,7 +281,7 @@ paths:
     post:
       operationId: previewActivation
       summary: Revaluation of activating a version, without writing anything (the UI requires it before activation); for an ACTIVE version, the revaluation it recorded
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -313,7 +313,7 @@ paths:
         product and site is superseded, the pending costs become ACTIVE with their revaluation
         recorded, and cost.changed is emitted per product and site. Idempotent per version id:
         an ACTIVE version answers ALREADY_ACTIVE with the recorded revaluation.
-      x-passage-duty: costing.version.activate
+      x-depot-duty: costing.version.activate
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -348,7 +348,7 @@ paths:
     get:
       operationId: getProductCost
       summary: Standard cost of a product at a site in force at the end of a date (waves 21 and 27)
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -379,7 +379,7 @@ paths:
     get:
       operationId: listValuationLedgers
       summary: Valuation ledgers in the caller's scope, primary first (FR-20.15)
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -400,7 +400,7 @@ paths:
         A code or ledger group already used in the legal entity is refused, and so is a
         second primary ledger. Re-sending the same ledger is refused as a duplicate, so a
         retried create cannot add a second ledger.
-      x-passage-duty: costing.valuation.write
+      x-depot-duty: costing.valuation.write
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -423,7 +423,7 @@ paths:
     get:
       operationId: listValuationCategories
       summary: Valuation categories of the tenant by code (FR-20.16)
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -438,7 +438,7 @@ paths:
     post:
       operationId: createValuationCategory
       summary: Register a split or batch valuation category (FR-20.16, BR-20.14)
-      x-passage-duty: costing.valuation.write
+      x-depot-duty: costing.valuation.write
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -462,7 +462,7 @@ paths:
     get:
       operationId: listAgingBucketSets
       summary: Saved aging bucket sets in the caller's scope, by name (FR-20.17)
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -479,7 +479,7 @@ paths:
     post:
       operationId: createAgingBucketSet
       summary: Save an aging bucket set for a legal entity (FR-20.17)
-      x-passage-duty: costing.aging.write
+      x-depot-duty: costing.aging.write
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -502,7 +502,7 @@ paths:
     get:
       operationId: listAgingSnapshots
       summary: Stored aging snapshots in the caller's scope, newest as-of date first, without their lines
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -525,10 +525,10 @@ paths:
         Each line is aged the way the aging preview ages one product (per valuation type
         when split). Buckets come from a saved bucket set, from bucketBounds, or default to
         30/90/180/365 days. With valuationLedgerId the snapshot takes the ledger's method
-        and currency. Writes dev.passage.costing.agingsnapshot.created.v1 to the outbox in
+        and currency. Writes dev.depot.costing.agingsnapshot.created.v1 to the outbox in
         the same transaction. A replayed Idempotency-Key returns the stored snapshot with
         200 and writes nothing.
-      x-passage-duty: costing.aging.write
+      x-depot-duty: costing.aging.write
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -558,7 +558,7 @@ paths:
     get:
       operationId: getAgingSnapshot
       summary: One stored aging snapshot with its lines
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -576,7 +576,7 @@ paths:
     post:
       operationId: calculatePpv
       summary: Purchase price variance for a STANDARD item at receipt or invoice (internal hook); with the reference fields it also appends the PPV cost transaction
-      x-passage-duty: costing.ppv.post
+      x-depot-duty: costing.ppv.post
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -606,7 +606,7 @@ paths:
         the report is the primary valuation, in the primary ledger's currency when one exists.
         CST-RPT-001 for an unknown grouping, CST-RPT-004 when the ledger holds rows in another
         currency, CST-VLG-005 (404) for a ledger the legal entity does not have.
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -639,7 +639,7 @@ paths:
         the grouping dimensions (CST-RPT-002) and at most once (CST-RPT-003). A group on one side only
         is compared with zero. It only reads; POST /v1/costing/reconciliations runs the same
         tie-out, stores it and emits reconciliation.diff.
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -663,7 +663,7 @@ paths:
     get:
       operationId: listCostTransactions
       summary: Cost transactions of one legal entity and valuation ledger, newest financial date first (value report drill-down)
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -694,7 +694,7 @@ paths:
         content the batch is refused with CST-CTX-001. A valuationLedgerId must be a ledger of the
         row's legal entity (CST-VLG-005); rows of the primary ledger are stored as the primary
         valuation. Every row is in its ledger's currency (CST-CTX-002). Rows are never updated.
-      x-passage-duty: costing.cost-transaction.post
+      x-depot-duty: costing.cost-transaction.post
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -734,7 +734,7 @@ paths:
         Reads the current quantity and value of the stock (ON_HAND) or the receipt (RECEIPT) up to
         financialDate in the valuation ledger and returns the new value and the delta the post would
         write. A reason is not needed. The same refusals as the post apply.
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -758,7 +758,7 @@ paths:
     get:
       operationId: listAdjustments
       summary: Posted manual cost adjustments in the caller's scope, newest financial date first
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -786,12 +786,12 @@ paths:
         on the next close. The post appends one MANUAL_ADJ cost transaction (qty 0, amount = delta,
         source key manual-adjustment:<id>) in the same transaction, so the value report moves at once.
         An ON_HAND adjustment of the primary valuation that changes the unit cost of positive stock
-        writes dev.passage.costing.cost.changed.v1 to the outbox. Adjustments of one product x site
+        writes dev.depot.costing.cost.changed.v1 to the outbox. Adjustments of one product x site
         are serialised; with expectedValue (the value the caller previewed) a value that moved since
         is refused with CST-ADJ-006. A replayed Idempotency-Key returns the stored adjustment with 200
         and writes nothing; the same key with another body is idempotency_key_reuse. The ledger
         voucher (inventory / cost adjustment account) is not posted yet.
-      x-passage-duty: costing.adjust
+      x-depot-duty: costing.adjust
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -822,7 +822,7 @@ paths:
     get:
       operationId: getAdjustment
       summary: One posted manual cost adjustment
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -840,7 +840,7 @@ paths:
     get:
       operationId: listReconciliations
       summary: Stored reconciliation runs in the caller's scope, newest as-of date first, without their rows
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -861,12 +861,12 @@ paths:
       summary: Run the value report tie-out against ledger balances and store it (FR-20.4, costing.reconcile)
       description: >-
         The same tie-out as POST /v1/costing/value-report:tie-out, stored as a run. Every group whose
-        difference is not zero writes one dev.passage.costing.reconciliation.diff.v1 to the outbox in
+        difference is not zero writes one dev.depot.costing.reconciliation.diff.v1 to the outbox in
         the same transaction. The caller (the daily costing.reconcile job, or a cost accountant)
         supplies the ledger balances until the ledger balance read exists. A replayed Idempotency-Key
         returns the stored run with 200 and emits nothing, even if the inventory moved since; the same
         key with another body is idempotency_key_reuse. The job uses "<entity>|<ledger>|<asOf>" as its key.
-      x-passage-duty: costing.reconcile
+      x-depot-duty: costing.reconcile
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -896,7 +896,7 @@ paths:
     get:
       operationId: getReconciliation
       summary: One stored reconciliation run with its rows
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -914,7 +914,7 @@ paths:
     get:
       operationId: getPostingProfile
       summary: The legal entity's posting profile (general ledger and accounts of the PPV and close vouchers)
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -935,7 +935,7 @@ paths:
       description: >-
         The ledger must belong to the legal entity (checked with the ledger service, 409 CST-GL-005 otherwise).
         Saving unparks the entity's parked vouchers, which are then derived again from the new profile.
-      x-passage-duty: costing.posting-profile.write
+      x-depot-duty: costing.posting-profile.write
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -965,7 +965,7 @@ paths:
         stored cost transactions, accounts and ledger from the posting profile; the body names the entity only.
         Only due vouchers are tried: a failing voucher backs off and is parked after five attempts, so it does not
         hold back newer ones. At most 200 per call; more=true asks for another call.
-      x-passage-duty: costing.gl.post
+      x-depot-duty: costing.gl.post
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -993,7 +993,7 @@ paths:
     get:
       operationId: listCloses
       summary: Inventory closes of a legal entity, newest period first
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -1019,7 +1019,7 @@ paths:
         one), appends one SETTLEMENT_ADJ cost transaction per adjusted product, site and valuation type, and
         books their net on the profile's inventory and adjustment accounts. Running it again resumes a close
         that stopped and returns a completed one unchanged. A close cannot precede an earlier-dated one (CST-CLS-002).
-      x-passage-duty: costing.close.run
+      x-depot-duty: costing.close.run
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -1052,7 +1052,7 @@ paths:
         Reads the balance itself through the ledger by calendar month, so asOf must be a month end. ties is true only when the difference is zero and no PPV
         voucher is unposted or parked; bookedByCosting is the net this service booked on the account, shown for
         explanation and not compared with the whole-account balance.
-      x-passage-duty: costing.read
+      x-depot-duty: costing.read
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
         - $ref: "#/components/parameters/Duties"
@@ -1074,13 +1074,13 @@ paths:
 components:
   parameters:
     TenantHeader:
-      name: X-Passage-Tenant
+      name: X-Depot-Tenant
       in: header
       required: true
       description: Tenant id set by the gateway until JWT validation lands (kernel tenant middleware).
       schema: { type: string, format: uuid }
     Duties:
-      name: X-Passage-Duties
+      name: X-Depot-Duties
       in: header
       required: false
       description: Comma-separated duties of the caller; checked per operation.
@@ -1222,7 +1222,7 @@ components:
       type: object
       required: [type, title, status, code]
       properties:
-        type: { type: string, format: uri, example: "https://passage.dev/problems/CST-TXN-001" }
+        type: { type: string, format: uri, example: "https://depot.dev/problems/CST-TXN-001" }
         title: { type: string }
         status: { type: integer }
         detail: { type: string }

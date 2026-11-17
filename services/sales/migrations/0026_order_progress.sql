@@ -43,17 +43,17 @@ CREATE INDEX IF NOT EXISTS order_progress_recent ON order_progress (tenant_id, r
 ALTER TABLE order_progress ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_progress FORCE ROW LEVEL SECURITY;
 CREATE POLICY order_progress_tenant_access ON order_progress AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY order_progress_legal_entity_scope ON order_progress AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Records are inserted and read; the store never updates or deletes them.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON order_progress TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON order_progress TO depot_app';
   END IF;
 END
 $$;

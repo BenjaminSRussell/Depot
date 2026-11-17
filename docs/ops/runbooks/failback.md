@@ -1,6 +1,6 @@
 # Runbook: fail-back to the original primary
 
-Alert: `PassageRegionFenced` (info). Runs in a planned window, never during an incident.
+Alert: `DepotRegionFenced` (info). Runs in a planned window, never during an incident.
 
 A fenced former primary cannot follow the new primary in place: its timeline diverged at promotion. It is
 re-seeded as a fresh replica, then switched back like a failover.

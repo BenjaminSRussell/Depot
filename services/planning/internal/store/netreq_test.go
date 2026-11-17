@@ -7,10 +7,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/domain"
-	planevents "github.com/BenjaminSRussell/passage/services/planning/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/domain"
+	planevents "github.com/BenjaminSRussell/depot/services/planning/internal/events"
 )
 
 // latePlan is a purchased item with on-hand 5, an open PO of 10 on day 3 and a

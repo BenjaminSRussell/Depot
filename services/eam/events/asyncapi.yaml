@@ -1,52 +1,52 @@
 asyncapi: 3.0.0
 info:
-  title: Passage EAM events
+  title: Depot EAM events
   version: 0.1.0
   description: CloudEvents published through the transactional outbox (Debezium relay). Budget events arrive in later slices.
 defaultContentType: application/cloudevents+json
 channels:
   requestCreated:
-    address: passage.eam.request
+    address: depot.eam.request
     messages:
       requestCreated:
         $ref: "#/components/messages/RequestCreated"
   workOrderCreated:
-    address: passage.eam.workorder
+    address: depot.eam.workorder
     messages:
       workOrderCreated:
         $ref: "#/components/messages/WorkOrderCreated"
   workOrderCompleted:
-    address: passage.eam.workorder
+    address: depot.eam.workorder
     messages:
       workOrderCompleted:
         $ref: "#/components/messages/WorkOrderCompleted"
   workOrderStatusChanged:
-    address: passage.eam.workorderstatus
+    address: depot.eam.workorderstatus
     messages:
       workOrderStatusChanged:
         $ref: "#/components/messages/WorkOrderStatusChanged"
   counterReadingRegistered:
-    address: passage.eam.counterreading
+    address: depot.eam.counterreading
     messages:
       counterReadingRegistered:
         $ref: "#/components/messages/CounterReadingRegistered"
   downtimeRecorded:
-    address: passage.eam.downtime
+    address: depot.eam.downtime
     messages:
       downtimeRecorded:
         $ref: "#/components/messages/DowntimeRecorded"
   requestTriaged:
-    address: passage.eam.request
+    address: depot.eam.request
     messages:
       requestTriaged:
         $ref: "#/components/messages/RequestTriaged"
   warrantyClaimable:
-    address: passage.eam.warranty
+    address: depot.eam.warranty
     messages:
       warrantyClaimable:
         $ref: "#/components/messages/WarrantyClaimable"
   permitStatusChanged:
-    address: passage.eam.permitstatus
+    address: depot.eam.permitstatus
     messages:
       permitStatusChanged:
         $ref: "#/components/messages/PermitStatusChanged"
@@ -81,39 +81,39 @@ operations:
 components:
   messages:
     DowntimeRecorded:
-      name: dev.passage.eam.downtime.recorded.v1
+      name: dev.depot.eam.downtime.recorded.v1
       payload:
         $ref: "#/components/schemas/DowntimeRecorded"
     RequestTriaged:
-      name: dev.passage.eam.request.triaged.v1
+      name: dev.depot.eam.request.triaged.v1
       payload:
         $ref: "#/components/schemas/RequestTriaged"
     WarrantyClaimable:
-      name: dev.passage.eam.warranty.claimable.v1
+      name: dev.depot.eam.warranty.claimable.v1
       payload:
         $ref: "#/components/schemas/WarrantyClaimable"
     PermitStatusChanged:
-      name: dev.passage.eam.permitstatus.changed.v1
+      name: dev.depot.eam.permitstatus.changed.v1
       payload:
         $ref: "#/components/schemas/PermitStatusChanged"
     RequestCreated:
-      name: dev.passage.eam.request.created.v1
+      name: dev.depot.eam.request.created.v1
       payload:
         $ref: "#/components/schemas/RequestCreated"
     WorkOrderCreated:
-      name: dev.passage.eam.workorder.created.v1
+      name: dev.depot.eam.workorder.created.v1
       payload:
         $ref: "#/components/schemas/WorkOrderCreated"
     WorkOrderCompleted:
-      name: dev.passage.eam.workorder.completed.v1
+      name: dev.depot.eam.workorder.completed.v1
       payload:
         $ref: "#/components/schemas/WorkOrderCompleted"
     WorkOrderStatusChanged:
-      name: dev.passage.eam.workorderstatus.changed.v1
+      name: dev.depot.eam.workorderstatus.changed.v1
       payload:
         $ref: "#/components/schemas/WorkOrderStatusChanged"
     CounterReadingRegistered:
-      name: dev.passage.eam.counterreading.registered.v1
+      name: dev.depot.eam.counterreading.registered.v1
       payload:
         $ref: "#/components/schemas/CounterReadingRegistered"
   schemas:

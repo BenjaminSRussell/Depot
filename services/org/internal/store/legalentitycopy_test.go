@@ -8,15 +8,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
 const (
-	copiedType      = "dev.passage.org.legalentity.copied.v1"
-	copySiteCreated = "dev.passage.org.site.created.v1"
+	copiedType      = "dev.depot.org.legalentity.copied.v1"
+	copySiteCreated = "dev.depot.org.site.created.v1"
 )
 
 func copyContext() context.Context {
@@ -131,8 +131,8 @@ func TestPostgres_CopyLegalEntityCopiesStructureAndWritesEvents(t *testing.T) {
 	for _, row := range outboxRows(t, ctx, pool)[before:] {
 		counts[row.Type]++
 	}
-	if counts[copiedType] != 1 || counts["dev.passage.org.legalentity.created.v1"] != 1 || counts[copySiteCreated] != 2 ||
-		counts["dev.passage.org.warehouse.created.v1"] != 3 || counts["dev.passage.org.location.created.v1"] != 1 || counts["dev.passage.org.currencyrounding.changed.v1"] != 1 {
+	if counts[copiedType] != 1 || counts["dev.depot.org.legalentity.created.v1"] != 1 || counts[copySiteCreated] != 2 ||
+		counts["dev.depot.org.warehouse.created.v1"] != 3 || counts["dev.depot.org.location.created.v1"] != 1 || counts["dev.depot.org.currencyrounding.changed.v1"] != 1 {
 		t.Fatalf("events = %v", counts)
 	}
 }
@@ -306,7 +306,7 @@ func TestPostgres_CopyLegalEntityCopiesThousandsOfLocations(t *testing.T) {
 	}
 	located := 0
 	for _, row := range outboxRows(t, ctx, pool)[before:] {
-		if row.Type == "dev.passage.org.location.created.v1" {
+		if row.Type == "dev.depot.org.location.created.v1" {
 			located++
 		}
 	}

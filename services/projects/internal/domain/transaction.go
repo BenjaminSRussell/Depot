@@ -8,7 +8,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // Service-specific codes (not in §8.41.18) raised by the transaction rules of slice 4.

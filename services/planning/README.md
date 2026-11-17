@@ -1,6 +1,6 @@
-# planning (wave 22, PSG-22, slices 1 to 10)
+# planning (wave 22, DPT-22, slices 1 to 10)
 
-Master planning for Passage: nets demand against supply level by level through
+Master planning for Depot: nets demand against supply level by level through
 the BOM and writes planned purchase, production and transfer orders, each pegged
 to the demand it serves, with action and delay messages.
 
@@ -132,8 +132,8 @@ Dockerfile             distroless static image, built from the repository root
 ```
 cd services/planning
 go test ./...                # domain + API; store tests skip without a database
-PASSAGE_TEST_DATABASE_URL=postgres://admin@host/db \
-PASSAGE_TEST_APP_DATABASE_URL=postgres://app@host/db go test ./...   # store tests as the RLS-bound app role
+DEPOT_TEST_DATABASE_URL=postgres://admin@host/db \
+DEPOT_TEST_APP_DATABASE_URL=postgres://app@host/db go test ./...   # store tests as the RLS-bound app role
 DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/planning   # HTTP_ADDR (:8080), ADMIN_ADDR (:9090, /metrics), PLANNING_MAX_VERSIONS (20, 2 to 100), PLANNING_HORIZON_DAYS (365, 30 to 1095), PLANNING_FEATURE_FLAGS (comma-separated planning.dynamic, planning.statistical-forecast, planning.mps-scope; unknown names stop startup), PLANNING_MAX_CONCURRENT_RUNS (1, 1 to 16), PLANNING_RUN_TIMEOUT_MINUTES (60, 1 to 720)
 ```
 
@@ -177,15 +177,15 @@ production router (`httpx.NewRouter`, 30 s request timeout), polls `GET /plan-ru
 until the run succeeded, and the version is stored in Postgres through the RLS-bound app role.
 Planning has no item master of its own, so the items, BOMs and demand travel in the request; Postgres
 holds the plan. It fails if the 202 takes as long as the request timeout or a run takes 10 min or
-more. It is skipped unless `PASSAGE_PLANNING_API_SCALE_ITEMS` is set:
+more. It is skipped unless `DEPOT_PLANNING_API_SCALE_ITEMS` is set:
 
 ```
-PASSAGE_TEST_DATABASE_URL=... PASSAGE_TEST_APP_DATABASE_URL=... \
-PASSAGE_PLANNING_API_SCALE_ITEMS=50000 PASSAGE_PLANNING_API_SCALE_RUNS=1 \
+DEPOT_TEST_DATABASE_URL=... DEPOT_TEST_APP_DATABASE_URL=... \
+DEPOT_PLANNING_API_SCALE_ITEMS=50000 DEPOT_PLANNING_API_SCALE_RUNS=1 \
 go test -count=1 -timeout 60m -run TestRunAPI_ScalePostgres -v ./internal/api/
 ```
 
-`PASSAGE_PLANNING_API_SCALE_RUNS` (default 2) repeats the run with a new Idempotency-Key and compares
+`DEPOT_PLANNING_API_SCALE_RUNS` (default 2) repeats the run with a new Idempotency-Key and compares
 the stored plan hashes.
 
 Measured on 2026-11-05 through the asynchronous route and the production router (30 s request timeout in place),
@@ -201,7 +201,7 @@ still the cost (about 16,000 rows per second). Peak RSS is for the whole test pr
 server and plan), so the server alone holds less; the chart's memory limit is 8Gi so one 50k run fits.
 
 The earlier numbers below are from 2026-11-04, on the synchronous route served without the router's
-request timeout (the `PASSAGE_PLANNING_API_SCALE_NO_TIMEOUT` switch this change removed).
+request timeout (the `DEPOT_PLANNING_API_SCALE_NO_TIMEOUT` switch this change removed).
 
 Measured on 2026-11-04 on PostgreSQL 16.15 (local cluster, default settings) and the test process on
 the same host: a shared cloud VM with 4 vCPUs, 15 GB RAM and other workloads running at the same time.
@@ -278,7 +278,7 @@ a replayed step is answered 412 instead of being applied twice.
 - 4.22.17 segregation of duties: Approve forecast consensus conflicts with
   Maintain forecasts on the same version, so publish and reject are refused
   (403 `PLAN-CONSENSUS-SOD`) for the submitter, for anyone who wrote a cell of
-  the model, and for a request without a user (`X-Passage-User`); a submit
+  the model, and for a request without a user (`X-Depot-User`); a submit
   without a user is refused the same way. A wrong status is 409
   `PLAN-CONSENSUS-STATE`.
 
@@ -293,14 +293,14 @@ superseded version (409 `PLAN-ORDER-NOT-EDITABLE`), groups them, and marks each
 purchase orders of one site and vendor merge into one purchase order: all of
 them (`vendor`), per delivery date (`vendor-date`), per Monday-to-Sunday week
 (`vendor-week`), or not at all (`none`); production and transfer orders never
-merge. One `dev.passage.planning.plannedorder.firmed.v1` per order goes to the
+merge. One `dev.depot.planning.plannedorder.firmed.v1` per order goes to the
 outbox in the same transaction (the PRD's `planned-order` entity is spelled
 without the hyphen the kernel's type rule refuses). The response, stored in
 `firming_batch`, lists the target orders; a replay of the key returns it with
 `Idempotent-Replayed: true`.
 
 BR-22.9 describes firming as a saga that creates the target order first. Here
-planning firms and publishes; purchasing (PSG-17) and production (PSG-21)
+planning firms and publishes; purchasing (DPT-17) and production (DPT-21)
 create the orders with the given ids from the event, and the compensation on
 their failure is a handoff (NOT-IMPLEMENTED.md).
 
@@ -538,9 +538,9 @@ swaps the current pointer.
 
 ## Wave reference
 
-PSG-22 (Phase 4, Manufacturing and Planning). PRD section 4.22. Depends on PSG-21
-(production orders, route lead times), PSG-17 (purchase orders), PSG-16 (on-hand),
-PSG-9 (BOM and low-level codes), PSG-27 (sales demand, later).
+DPT-22 (Phase 4, Manufacturing and Planning). PRD section 4.22. Depends on DPT-21
+(production orders, route lead times), DPT-17 (purchase orders), DPT-16 (on-hand),
+DPT-9 (BOM and low-level codes), DPT-27 (sales demand, later).
 
 ## Dependencies
 

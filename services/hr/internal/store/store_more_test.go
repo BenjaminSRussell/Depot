@@ -8,10 +8,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/domain"
 )
 
 type outboxRow struct {
@@ -78,7 +78,7 @@ func TestTerminationDateIsTheLastDayEmployed(t *testing.T) {
 		t.Fatalf("as-of the day after = %+v err=%v; want none", after, err)
 	}
 	events := outboxFor(t, s, ctx, e.ID)
-	if len(events) != 1 || events[0].Type != "dev.passage.hr.employment.changed.v1" || events[0].Data["action"] != "HIRE" ||
+	if len(events) != 1 || events[0].Type != "dev.depot.hr.employment.changed.v1" || events[0].Data["action"] != "HIRE" ||
 		events[0].Data["valid_to"] != "2026-03-17T00:00:00Z" || events[0].Data["worker_id"] != w.ID {
 		t.Fatalf("outbox = %+v; want one HIRE employment.changed ending 2026-03-17", events)
 	}

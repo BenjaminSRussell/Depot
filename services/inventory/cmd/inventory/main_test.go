@@ -67,8 +67,8 @@ func TestLoadConfig_consignmentAccrualIsOptional(t *testing.T) {
 }
 
 func TestRun_StopsOnMalformedServicePublicKeys(t *testing.T) {
-	err := run(context.Background(), env(map[string]string{"PASSAGE_SERVICE_NAME": "inventory", "PASSAGE_SERVICE_PUBLIC_KEYS": "receiving=zzz"}))
-	if err == nil || !strings.Contains(err.Error(), "PASSAGE_SERVICE_PUBLIC_KEYS") {
+	err := run(context.Background(), env(map[string]string{"DEPOT_SERVICE_NAME": "inventory", "DEPOT_SERVICE_PUBLIC_KEYS": "receiving=zzz"}))
+	if err == nil || !strings.Contains(err.Error(), "DEPOT_SERVICE_PUBLIC_KEYS") {
 		t.Fatalf("run with a malformed key = %v", err)
 	}
 }

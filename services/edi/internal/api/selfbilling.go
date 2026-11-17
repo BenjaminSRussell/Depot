@@ -15,14 +15,14 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/sources"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/taxrate"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/sources"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/taxrate"
 )
 
 // Self-billing intake (#35, 35-5). A customer's INVOIC 389 arrives on the normal EDIFACT route and is mapped like any INVOIC

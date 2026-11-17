@@ -1,13 +1,13 @@
 openapi: 3.1.0
 info:
-  title: Passage Metadata Registry API
+  title: Depot Metadata Registry API
   version: 1.0.0
 paths:
   /v1/metadata/entities:
     post:
       operationId: publishEntity
       summary: "Publish an entity definition"
-      x-passage-duty: metadata.write
+      x-depot-duty: metadata.write
       requestBody:
         required: true
         content:
@@ -20,7 +20,7 @@ paths:
     get:
       operationId: getEffectiveEntitySchema
       summary: "Get the effective schema of an entity, extensions included"
-      x-passage-duty: metadata.read
+      x-depot-duty: metadata.read
       parameters:
         - { name: entity, in: path, required: true, schema: { type: string } }
       responses:
@@ -34,7 +34,7 @@ paths:
     post:
       operationId: applyEntityExtension
       summary: "Apply an extension to an entity as a new version"
-      x-passage-duty: metadata.write
+      x-depot-duty: metadata.write
       requestBody:
         required: true
         content:
@@ -47,7 +47,7 @@ paths:
     post:
       operationId: evaluateDecisionTable
       summary: "Evaluate a decision table for an input and explain the matched row"
-      x-passage-duty: metadata.read
+      x-depot-duty: metadata.read
       requestBody:
         required: true
         content:
@@ -62,7 +62,7 @@ paths:
     get:
       operationId: listGeneratedEntityRecords
       summary: "List the records of a generated entity"
-      x-passage-duty: metadata.data.read
+      x-depot-duty: metadata.data.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
       responses:
@@ -74,7 +74,7 @@ paths:
     post:
       operationId: createGeneratedEntityRecord
       summary: "Create a record of a generated entity"
-      x-passage-duty: metadata.data.write
+      x-depot-duty: metadata.data.write
       requestBody:
         required: true
         content:

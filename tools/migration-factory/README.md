@@ -1,8 +1,8 @@
-# Migration factory (wave 49, PSG-49)
+# Migration factory (wave 49, DPT-49)
 
 Tooling for moving a customer off AX 2012 / D365 F&O or SAP ECC / S/4HANA: transactional
 migration packs with control totals, legacy cross-references, parallel-run diffing and the
-cutover runbook generator. Wave reference: PRD section 9.49, ticket PSG-49.
+cutover runbook generator. Wave reference: PRD section 9.49, ticket DPT-49.
 
 ## Slices 1 to 6 (this build)
 
@@ -19,7 +19,7 @@ Built and tested:
   (ISO 4217 currency, control account present), and uniqueness rules, plus the
   `quarantine_max_pct` gate (0-10, default 1; MIG-1504). An amount with more than six decimal
   places (the stored `numeric(28,6)` scale) rejects the open_items, gl_balances, onhand or project_wip
-  request, so a run never reconciles a value Passage stores rounded.
+  request, so a run never reconciles a value Depot stores rounded.
 - **Idempotent loading** (`loader.go`, `internal/store`): records already in `legacy_xref` by natural
   key `(system, company, table, id)` are skipped, so a re-run loads zero records (MIG-1505). Runs of
   one (system, company) serialize on an advisory lock.
@@ -41,11 +41,11 @@ Built and tested:
   become a freeze, extract, load and reconcile chain per legal entity with a sign-off and hypercare
   check, ordered by CUT-1609 (D5a, the 84-step `fx-cutover-plan` golden file in `internal/domain/testdata`).
 - **Rollback plan** (`rollback.go`, FR-49.9): generated from the plan, starting with the decision
-  point at the abort deadline, then stop Passage access, restore legacy write access, resume the
+  point at the abort deadline, then stop Depot access, restore legacy write access, resume the
   coexistence adapters, export the postings since T-0 and re-key them.
 - **Rollback execution** (`internal/store/cutover.go`, BR-49.1, AC-49.7): the second approval
   exports the re-keying files, moves the loaded and reconciled pack runs of the plan's legacy
-  companies and packs to ROLLED_BACK, hands every coexistence flag of those companies that Passage
+  companies and packs to ROLLED_BACK, hands every coexistence flag of those companies that Depot
   masters back to LEGACY (listed on `cutover.plan.rolledback`, on which the integration hub resumes
   the adapters), and with `ledgers` posts the compensating journals (`compensation.go`: one entry per
   re-keying journal with every line flipped, from the stored lines, in the ledger pinned to each
@@ -92,7 +92,7 @@ Built and tested:
   posted, so the go/no-go `packs_reconciled` item stays open for a plan that includes onhand.
 - **Load of open AR into receivables** (`internal/target`, `internal/store/targetload.go`,
   `internal/api/targetload.go`, integration track S8): a run started with a `load` object
-  (`target: receivables`, the legal entity, an optional import source and a legacy party to Passage
+  (`target: receivables`, the legal entity, an optional import source and a legacy party to Depot
   customer map) stages its accepted records as receivables rows (`target_row`). `POST
   /migration/runs/{id}/load` sends them to `POST /v1/receivables/open-items:batch` in batches of at most
   1000 with a stable `Idempotency-Key` per batch, retrying 5xx, 429 and timeouts with backoff, records
@@ -109,7 +109,7 @@ Built and tested:
   load answers 503 `MIG-1520`. Tests run against `internal/target/targettest`, an httptest fake that
   mirrors the receivables handler.
 - **Open AP into payables** (49-3, `internal/target/payables.go`, `migrations/0027_payables_load.sql`): a run
-  started with `load.payables` (legacy vendor to Passage vendor id, or `vendorId` on the record) stages its AP
+  started with `load.payables` (legacy vendor to Depot vendor id, or `vendorId` on the record) stages its AP
   records for the payables opening batches. `POST /migration/runs/{id}/load-payables` sends them to
   `POST /v1/payables/opening-batches` in batches of at most 1000 (all or nothing at payables, a control total per
   currency in minor units, a batch key `mf-ap-<importSource>-<hash>` derived from the rows so a retry is a replay).
@@ -134,7 +134,7 @@ Built and tested:
   `target.bank_balances.*` (item count, minor units per currency). A clean RECONCILED load counts the pack as posted in
   the go/no-go. Configure `INVENTORY_URL` and `TREASURY_URL` (chart `inventory.url`, `treasury.url`); tests use
   `targettest.FakeOpening`.
-- **Legacy cross-reference lookup**: `GET /api/v1/migration/xref` by legacy id or by Passage record.
+- **Legacy cross-reference lookup**: `GET /api/v1/migration/xref` by legacy id or by Depot record.
 - **Store** (`internal/store`, `migrations/`): Postgres with forced row-level security on every
   table, the outbox written in the same transaction, `Idempotency-Key` replay, and an optimistic
   version check on plan commands.
@@ -146,7 +146,7 @@ Built and tested:
   reference lookup, and cutover runbooks (list, generate form, detail with go/no-go checklist,
   step start with the live timer, step completion, the rollback plan, rollback with the re-keying
   postings, and the re-keying file downloads).
-- **Chart** (`charts/passage-migration-factory`): Deployment, Service and ServiceMonitor toggle.
+- **Chart** (`charts/depot-migration-factory`): Deployment, Service and ServiceMonitor toggle.
 
 What is not built yet is listed in `NOT-IMPLEMENTED.md`.
 
@@ -158,15 +158,15 @@ DATABASE_URL=postgres://... MIGRATE_ON_START=true HTTP_ADDR=:8080 go run ./cmd/m
 ```
 
 To load open items into receivables also set `RECEIVABLES_URL=http://receivables:8080`,
-`PASSAGE_SERVICE_NAME=migration-factory` and `PASSAGE_SERVICE_SIGNING_KEY` (base64 32-byte Ed25519
-seed; or `PASSAGE_SERVICE_SIGNING_KEY_FILE`). The receivables service must trust the matching public
+`DEPOT_SERVICE_NAME=migration-factory` and `DEPOT_SERVICE_SIGNING_KEY` (base64 32-byte Ed25519
+seed; or `DEPOT_SERVICE_SIGNING_KEY_FILE`). The receivables service must trust the matching public
 key for `migration-factory` and the grant table must hold `receivables.import.write` and `receivables.view`
 for it (NOT-IMPLEMENTED.md, H-S8-1 and H-S8-2). An address without a key, or a key for another service
 name, stops the start; neither set starts the service with the load step answering 503.
 
-`DATABASE_URL` is required and should use the `passage_app` role (no BYPASSRLS). Requests need the
-gateway headers the kernel reads: `X-Passage-Tenant` (required), `X-Passage-Duties` (comma list),
-and optionally `X-Passage-User`.
+`DATABASE_URL` is required and should use the `depot_app` role (no BYPASSRLS). Requests need the
+gateway headers the kernel reads: `X-Depot-Tenant` (required), `X-Depot-Duties` (comma list),
+and optionally `X-Depot-User`.
 
 ## Test
 
@@ -177,8 +177,8 @@ go vet ./... && go test ./...
 
 Domain tests are table-driven, with `pgregory.net/rapid` property tests for hashing, validation
 partitioning, idempotent re-runs and the 100-variance classifier. Store and API tests that need
-Postgres use `platform/go/testkit` and skip without `PASSAGE_TEST_DATABASE_URL`; the row-level
-security tests also need `PASSAGE_TEST_APP_DATABASE_URL` (the `passage_app` role), and the API tests
+Postgres use `platform/go/testkit` and skip without `DEPOT_TEST_DATABASE_URL`; the row-level
+security tests also need `DEPOT_TEST_APP_DATABASE_URL` (the `depot_app` role), and the API tests
 run as that role when it is set.
 
 The wave proof `TestWave49_SyntheticYearCutoverRehearsal` (database) runs a synthetic AX 2012 and
@@ -187,9 +187,9 @@ The open_items, gl_balances and project_wip extracts and expected values come fr
 `internal/api/testdata/synth/synth_reference.py`, an independent standard-library reference;
 regenerate with `python3 -I internal/api/testdata/synth/synth_reference.py`. The other six packs'
 year is simulated at test time by `internal/api/synth_year_test.go`; the default is a 1/50 year and
-`PASSAGE_SYNTH_SCALE=full` runs the PRD fixture size (about 1.1M AX and 1.3M SAP legacy rows, about
+`DEPOT_SYNTH_SCALE=full` runs the PRD fixture size (about 1.1M AX and 1.3M SAP legacy rows, about
 a minute and a half against a local Postgres). `TestWave49_ReplayMonthHasNoUnexplainedVariances`
-replays the 42k-document `fx-replay-month` (generated, `PASSAGE_REPLAY_DOCUMENTS` overrides the size), and
+replays the 42k-document `fx-replay-month` (generated, `DEPOT_REPLAY_DOCUMENTS` overrides the size), and
 `TestWave49_RollbackRehearsalRestoresLegacyCoexistence` checks the rollback's coexistence and
 compensations.
 
@@ -229,15 +229,15 @@ Duties are checked by the kernel's local `DutyPolicy`. The OPA decision point re
 
 | Type | When |
 |---|---|
-| `dev.passage.migration.pack.reconciled.v1` | every pack run, after its control totals are computed |
-| `dev.passage.migration.pack.loaded.v1` | a pass of the load into the target service ended, with its row counts and reconciliation result |
-| `dev.passage.cutover.step.completed.v1` | a runbook step is marked done |
-| `dev.passage.cutover.plan.rolledback.v1` | a plan's rollback is executed, with the re-keying line counts, the pack runs rolled back and the coexistence flags handed back to LEGACY |
-| `dev.passage.migration.coexistence.changed.v1` | an entity kind's coexistence flag flips (a cutover, a flip back, or a rollback) |
+| `dev.depot.migration.pack.reconciled.v1` | every pack run, after its control totals are computed |
+| `dev.depot.migration.pack.loaded.v1` | a pass of the load into the target service ended, with its row counts and reconciliation result |
+| `dev.depot.cutover.step.completed.v1` | a runbook step is marked done |
+| `dev.depot.cutover.plan.rolledback.v1` | a plan's rollback is executed, with the re-keying line counts, the pack runs rolled back and the coexistence flags handed back to LEGACY |
+| `dev.depot.migration.coexistence.changed.v1` | an entity kind's coexistence flag flips (a cutover, a flip back, or a rollback) |
 
 ## Error codes
 
-Problem details use `type` `https://passage.dev/problems/<code>`. The stable `code` is one of:
+Problem details use `type` `https://depot.dev/problems/<code>`. The stable `code` is one of:
 
 | Code | HTTP | Meaning |
 |---|---|---|

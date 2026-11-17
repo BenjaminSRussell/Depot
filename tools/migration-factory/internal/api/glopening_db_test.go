@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 )
 
 func glCurRec(id, account, currency, balance string) string {

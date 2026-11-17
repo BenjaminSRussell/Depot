@@ -50,7 +50,7 @@ export function ParallelRunDetailPage() {
     { key: "area", header: "Area", mono: true },
     { key: "key", header: "Key", mono: true },
     { key: "legacy", header: "Legacy", align: "end", mono: true, render: (row) => money(row.legacy) },
-    { key: "passage", header: "Passage", align: "end", mono: true, render: (row) => money(row.passage) },
+    { key: "depot", header: "Depot", align: "end", mono: true, render: (row) => money(row.depot) },
     { key: "delta", header: "Delta", align: "end", mono: true, render: (row) => money(row.delta) },
     { key: "class", header: "Class", render: (row) => <StatusPill status={row.class} /> },
     { key: "rule", header: "Rule or reason", render: (row) => row.ruleId ?? row.reason ?? "" },
@@ -175,7 +175,7 @@ export function ParallelRunDetailPage() {
             <Card title={`Explain ${selected.area} ${selected.key}`}>
               <form className={styles.form} onSubmit={submitReason} noValidate>
                 <p className={`${styles.note} ${styles.wide}`}>
-                  Legacy {money(selected.legacy)}, Passage {money(selected.passage)}, delta {money(selected.delta)}.
+                  Legacy {money(selected.legacy)}, Depot {money(selected.depot)}, delta {money(selected.delta)}.
                 </p>
                 <div className={styles.wide}>
                   <FormField id="variance-reason" label="Reason" error={reasonError}>
@@ -216,7 +216,7 @@ export function ParallelRunDetailPage() {
           rows={variances}
           getRowKey={(row) => row.varianceId}
           loading={state.loading}
-          empty={{ title: "No variances", description: filter ? "No variance has this class." : "Legacy and Passage agree on every tuple." }}
+          empty={{ title: "No variances", description: filter ? "No variance has this class." : "Legacy and Depot agree on every tuple." }}
         />
       ) : null}
       {confirming ? (

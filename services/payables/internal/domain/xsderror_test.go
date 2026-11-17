@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/payables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/domain"
 )
 
 func TestParseXmllintLine_MapsSchemaValidityLine(t *testing.T) {

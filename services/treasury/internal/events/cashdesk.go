@@ -2,11 +2,11 @@ package events
 
 // Cash desk events (FR-36.16). The outbox aggregate is the desk id, so the events of one desk stay ordered.
 const (
-	CashDeskCreated     = "dev.passage.treasury.cashdesk.created.v1"
-	CashDeskUpdated     = "dev.passage.treasury.cashdesk.updated.v1"
-	CashDeskDeactivated = "dev.passage.treasury.cashdesk.deactivated.v1"
-	CashDeskDayClosed   = "dev.passage.treasury.cashdeskday.closed.v1"
-	CashDeskEntryPosted = "dev.passage.treasury.cashdeskentry.posted.v1"
+	CashDeskCreated     = "dev.depot.treasury.cashdesk.created.v1"
+	CashDeskUpdated     = "dev.depot.treasury.cashdesk.updated.v1"
+	CashDeskDeactivated = "dev.depot.treasury.cashdesk.deactivated.v1"
+	CashDeskDayClosed   = "dev.depot.treasury.cashdeskday.closed.v1"
+	CashDeskEntryPosted = "dev.depot.treasury.cashdeskentry.posted.v1"
 )
 
 // CashDeskData is the payload of CashDeskCreated, CashDeskUpdated and CashDeskDeactivated.

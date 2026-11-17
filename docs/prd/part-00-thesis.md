@@ -1,8 +1,8 @@
-# Part 0A — The 10× Thesis: What Top-Tier Manufacturing ERPs Get Wrong and How Passage Fixes It
+# Part 0A — The 10× Thesis: What Top-Tier Manufacturing ERPs Get Wrong and How Depot Fixes It
 
-Passage is not a cheaper AX or a friendlier SAP. It emulates the full capability surface of the best manufacturing ERPs — SAP S/4HANA, Dynamics 365 Finance & Supply Chain, Infor LN / CloudSuite Industrial, Epicor Kinetic, IFS Cloud and Plex — and then removes the structural reasons those systems are slow, error-prone, expensive to use and closed. "10×" is measured, per wave, on four axes:
+Depot is not a cheaper AX or a friendlier SAP. It emulates the full capability surface of the best manufacturing ERPs — SAP S/4HANA, Dynamics 365 Finance & Supply Chain, Infor LN / CloudSuite Industrial, Epicor Kinetic, IFS Cloud and Plex — and then removes the structural reasons those systems are slow, error-prone, expensive to use and closed. "10×" is measured, per wave, on four axes:
 
-| Axis | What we measure | Baseline (typical AX 2012 / D365 / S/4 deployment) | Passage target |
+| Axis | What we measure | Baseline (typical AX 2012 / D365 / S/4 deployment) | Depot target |
 |---|---|---|---|
 | **Easier** | Clicks and screens per task; training hours to competence; share of tasks completed without a super-user | Sales order with 5 lines: 40–60 clicks across 4 forms; AP clerk training 3–5 days | ≤ 1/10 of clicks; a new user completes a guided task in < 30 min |
 | **Faster** | Latency of the business answer (not the screen): MRP, inventory close, ATP, period close, report | MRP regeneration 2–8 h nightly; inventory close 1–6 h; month-end close 5–10 business days | MRP incremental < 2 min, full < 10 min; close continuous; statements real-time |
@@ -11,11 +11,11 @@ Passage is not a cheaper AX or a friendlier SAP. It emulates the full capability
 
 ## 0A.1 The structural pain-point ledger
 
-Each pain point below names the AX/SAP mechanism that causes it, the root cause, the Passage design that removes it, and the wave where it ships. Wave files repeat this at wave granularity under "Pain points solved (10× lens)".
+Each pain point below names the AX/SAP mechanism that causes it, the root cause, the Depot design that removes it, and the wave where it ships. Wave files repeat this at wave granularity under "Pain points solved (10× lens)".
 
 ### A. Usability
 
-| # | Pain point today | Where it lives in AX / SAP | Root cause | Passage answer | Wave |
+| # | Pain point today | Where it lives in AX / SAP | Root cause | Depot answer | Wave |
 |---|---|---|---|---|---|
 | U1 | Dozens of forms to complete one business task; fields scattered across tabs and FastTabs | AX `SalesTable` form with 20+ tabs; SAP `VA01` header/item/schedule-line screens | Forms mirror tables, not tasks | Task-oriented screens generated from metadata with the *task* as the unit (order intake, receipt, close task); line grids with inline edit; the full document on one scrollable page | 5, 27 |
 | U2 | Lookups require knowing the code (vendor account, main account, item number) | `MainAccount` lookup in `LedgerJournalTrans`; SAP GL account search help | Keys are the primary identifier; search is secondary | Global typeahead on name/description/any attribute, ranked by recency and role; keys shown but never typed | 5 |
@@ -29,7 +29,7 @@ Each pain point below names the AX/SAP mechanism that causes it, the root cause,
 
 ### B. Speed
 
-| # | Pain point today | Where it lives in AX / SAP | Root cause | Passage answer | Wave |
+| # | Pain point today | Where it lives in AX / SAP | Root cause | Depot answer | Wave |
 |---|---|---|---|---|---|
 | S1 | MRP runs overnight; planners work on stale data; a changed order waits until tomorrow | AX `ReqCalc` regeneration; SAP `MD01` total planning | Full regeneration over all items; pegging recomputed from scratch | Net-change planning engine keyed by events (order/receipt/BOM change) with incremental re-plan of affected low-level codes; full regen < 10 min for 50k items | 22 |
 | S2 | Inventory close/recalculation blocks posting for hours | AX `InventClosing`; SAP material ledger `CKMLCP` | Settlement of issues to receipts is a batch over all transactions | Running costing (continuous settlement on each issue for FIFO/avg) so close is a verification pass, not a computation; partitioned by item | 20 |
@@ -41,7 +41,7 @@ Each pain point below names the AX/SAP mechanism that causes it, the root cause,
 
 ### C. Accuracy
 
-| # | Pain point today | Where it lives in AX / SAP | Root cause | Passage answer | Wave |
+| # | Pain point today | Where it lives in AX / SAP | Root cause | Depot answer | Wave |
 |---|---|---|---|---|---|
 | A1 | Subledgers drift from the GL (inventory value ≠ inventory account; AR aging ≠ AR control) | `InventSum` vs `GeneralJournalAccountEntry`; SAP `BSID` vs `SKB1` balances | Subledgers post to the GL through separate code paths with their own rounding | One posting API; subledgers are projections of the same event stream; daily machine reconciliation with zero unexplained breaks as a release gate | 11, 16, 19, 30 |
 | A2 | Rounding and FX differences appear as "penny" entries | AX `LedgerJournalTrans` rounding to accounting currency; SAP `BSEG` rounding differences | Rounding at line level then summing | Three-currency amounts stored per line; rounding applied once at document level with explicit rounding lines; ISO 4217 minor units enforced | 12 |
@@ -53,7 +53,7 @@ Each pain point below names the AX/SAP mechanism that causes it, the root cause,
 
 ### D. Openness and interoperability
 
-| # | Pain point today | Where it lives in AX / SAP | Root cause | Passage answer | Wave |
+| # | Pain point today | Where it lives in AX / SAP | Root cause | Depot answer | Wave |
 |---|---|---|---|---|---|
 | O1 | Each interface is a project (AIF service, IDoc mapping, custom data entity) | AX AIF/`DMF` entities; SAP `WE20` partner profiles, PI/PO | Integration surface is bespoke per object | Every entity and event is published automatically (OpenAPI, AsyncAPI, MCP) from metadata; new entity ⇒ new API with no work | 3, 4, 35 |
 | O2 | External systems poll for changes | `DMF` change tracking; SAP change pointers (`BDCP2`) | No event stream | Kafka topics per entity with CloudEvents, replay from any offset, webhooks for partners | 4 |
@@ -64,7 +64,7 @@ Each pain point below names the AX/SAP mechanism that causes it, the root cause,
 
 ## 0A.2 Interoperability contract ("all systems on the network can use it")
 
-Passage treats the ERP as a service on the customer's network, not a destination. Every capability is reachable through the same eight surfaces with one identity and one policy engine:
+Depot treats the ERP as a service on the customer's network, not a destination. Every capability is reachable through the same eight surfaces with one identity and one policy engine:
 
 | Surface | Used by | Auth | Guarantee |
 |---|---|---|---|

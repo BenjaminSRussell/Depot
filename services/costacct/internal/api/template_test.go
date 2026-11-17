@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/costacct/internal/store"
+	"github.com/BenjaminSRussell/depot/services/costacct/internal/store"
 )
 
 func (f *fakeStore) CreateMeasure(context.Context, string, string, store.StatisticalMeasure) (int, []byte, error) {

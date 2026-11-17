@@ -27,11 +27,11 @@ CREATE INDEX IF NOT EXISTS credit_reservation_invoice_idx ON credit_reservation 
 ALTER TABLE credit_reservation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credit_reservation FORCE ROW LEVEL SECURITY;
 CREATE POLICY credit_reservation_tenant_access ON credit_reservation AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY credit_reservation_legal_entity_scope ON credit_reservation AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS credit_reservation_line (
   tenant_id uuid NOT NULL,
@@ -46,29 +46,29 @@ CREATE TABLE IF NOT EXISTS credit_reservation_line (
 ALTER TABLE credit_reservation_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credit_reservation_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY credit_reservation_line_tenant_access ON credit_reservation_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY credit_reservation_line_legal_entity_scope ON credit_reservation_line AS RESTRICTIVE
   USING (
-    current_setting('passage.legal_entity_scopes', true) = '*'
+    current_setting('depot.legal_entity_scopes', true) = '*'
     OR EXISTS (
       SELECT 1 FROM credit_reservation AS scope_parent
       WHERE scope_parent.tenant_id = credit_reservation_line.tenant_id
         AND scope_parent.id = credit_reservation_line.reservation_id
-        AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ','))))
+        AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ','))))
   WITH CHECK (
-    current_setting('passage.legal_entity_scopes', true) = '*'
+    current_setting('depot.legal_entity_scopes', true) = '*'
     OR EXISTS (
       SELECT 1 FROM credit_reservation AS scope_parent
       WHERE scope_parent.tenant_id = credit_reservation_line.tenant_id
         AND scope_parent.id = credit_reservation_line.reservation_id
-        AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ','))));
+        AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ','))));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON credit_reservation TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON credit_reservation_line TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON credit_reservation TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON credit_reservation_line TO depot_app';
   END IF;
 END
 $$;

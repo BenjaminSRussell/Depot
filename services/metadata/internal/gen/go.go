@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/domain"
 )
 
 func goRuntime(entity *domain.Entity) (string, string, string) {
@@ -68,7 +68,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 )
 
 func Register%[1]sRoutes(router chi.Router, repository %[1]sRepository) {

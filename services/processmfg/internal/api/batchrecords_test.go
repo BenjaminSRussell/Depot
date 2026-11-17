@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/store"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/store"
 )
 
 const (

@@ -9,8 +9,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/features"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/features"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 )
 
 type stubFeatures struct {

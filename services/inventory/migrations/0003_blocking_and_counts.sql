@@ -49,11 +49,11 @@ CREATE INDEX IF NOT EXISTS inventory_blocking_list_idx ON inventory_blocking (te
 ALTER TABLE inventory_blocking ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_blocking FORCE ROW LEVEL SECURITY;
 CREATE POLICY inventory_blocking_tenant_access ON inventory_blocking AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY inventory_blocking_legal_entity_scope ON inventory_blocking AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- A count plan selects the stock of one legal entity, optionally one warehouse
 -- (the warehouse dimension value), and carries the FR-16.9 tolerances.
@@ -77,11 +77,11 @@ CREATE INDEX IF NOT EXISTS count_plan_list_idx ON count_plan (tenant_id, created
 ALTER TABLE count_plan ENABLE ROW LEVEL SECURITY;
 ALTER TABLE count_plan FORCE ROW LEVEL SECURITY;
 CREATE POLICY count_plan_tenant_access ON count_plan AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY count_plan_legal_entity_scope ON count_plan AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS count_sheet (
   tenant_id uuid NOT NULL,
@@ -108,11 +108,11 @@ CREATE INDEX IF NOT EXISTS count_sheet_list_idx ON count_sheet (tenant_id, creat
 ALTER TABLE count_sheet ENABLE ROW LEVEL SECURITY;
 ALTER TABLE count_sheet FORCE ROW LEVEL SECURITY;
 CREATE POLICY count_sheet_tenant_access ON count_sheet AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY count_sheet_legal_entity_scope ON count_sheet AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS count_sheet_line (
   tenant_id uuid NOT NULL,
@@ -134,13 +134,13 @@ CREATE TABLE IF NOT EXISTS count_sheet_line (
 ALTER TABLE count_sheet_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE count_sheet_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY count_sheet_line_tenant_access ON count_sheet_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON inventory_blocking, count_plan, count_sheet, count_sheet_line TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON inventory_blocking, count_plan, count_sheet, count_sheet_line TO depot_app';
   END IF;
 END
 $$;

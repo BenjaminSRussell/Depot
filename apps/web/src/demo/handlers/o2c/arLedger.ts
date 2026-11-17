@@ -59,7 +59,7 @@ function legacy(n: number, customerId: string, number: string, docAgo: number, t
   };
 }
 
-/** Opening items as imported; their open amounts move as Passage settles them. */
+/** Opening items as imported; their open amounts move as Depot settles them. */
 export const LEGACY = {
   summit: uid(KR.legacy, 1),
   coastal: uid(KR.legacy, 2),

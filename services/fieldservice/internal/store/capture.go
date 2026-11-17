@@ -12,10 +12,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/objectstore"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/objectstore"
 )
 
 // CaptureInput is an image a device uploads for a work order: a photo or the customer's

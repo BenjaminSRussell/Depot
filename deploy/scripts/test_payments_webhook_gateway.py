@@ -16,7 +16,7 @@ DEPLOY = Path(__file__).resolve().parents[1]
 EDGE = DEPLOY / "gateway" / "payments-webhook"
 RECEIVABLES = DEPLOY.parent / "services" / "receivables"
 CHART = RECEIVABLES / "charts" / "receivables"
-GATEWAY = "passage-payments-webhook"
+GATEWAY = "depot-payments-webhook"
 ROUTE = "receivables-payments-webhook"
 WEBHOOK_PATH = "/webhooks/v1/stripe"
 
@@ -115,7 +115,7 @@ class PaymentsWebhookEdge(unittest.TestCase):
     def test_argocd_applies_the_edge(self):
         app = yaml.safe_load((DEPLOY / "envs/dev/apps/payments-webhook-gateway.yaml").read_text())
         self.assertEqual(app["spec"]["source"]["path"], "deploy/gateway/payments-webhook")
-        self.assertIn("#213", app["metadata"]["annotations"]["passage.dev/requires"])
+        self.assertIn("#213", app["metadata"]["annotations"]["depot.dev/requires"])
         self.assertIn("SkipDryRunOnMissingResource=true", app["spec"]["syncPolicy"]["syncOptions"])
 
     def test_receivables_network_policy_admits_only_this_gateway_to_the_webhook_port(self):

@@ -8,12 +8,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
 )
 
 // RevisedDay is one worker-day of a revision. Changed is false for a day whose pay
@@ -41,7 +41,7 @@ type RevisionResult struct {
 // approved day keeps its lines: lines that differ from the recalculation are
 // cancelled by reversal lines (negative hours and amount, reversal_of set) and the
 // new lines are added, all stamped with the day's next revision, and
-// dev.passage.shopfloor.payday.revised.v1 is published in the same transaction. A
+// dev.depot.shopfloor.payday.revised.v1 is published in the same transaction. A
 // revision with no difference in any day is SF-0129; a recalculated approved day
 // with open flags is SF-0006; the worker's own user cannot revise (SF-0106).
 func (s *Postgres) RevisePay(ctx context.Context, calc PayCalculation, reason, revisedBy string, idem Idem) (RevisionResult, error) {

@@ -16,13 +16,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/api"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
-	engevents "github.com/BenjaminSRussell/passage/services/engineering/internal/events"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/api"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
+	engevents "github.com/BenjaminSRussell/depot/services/engineering/internal/events"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/store"
 )
 
 const (
@@ -157,8 +157,8 @@ func newRouter(f *fakeStore, ap domain.Approver) (*chi.Mux, *api.API) {
 func do(r http.Handler, method, path, body, duties string, withTenant bool, headers ...string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	if withTenant {
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-Duties", duties)
 	}
 	for i := 0; i < len(headers); i += 2 {
 		req.Header.Set(headers[i], headers[i+1])
@@ -531,7 +531,7 @@ func TestCreateEco(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			r, _ := newRouter(tc.store, approves)
-			rec := do(r, http.MethodPost, ecos, tc.body, tc.duties, true, "X-Passage-User", "rita")
+			rec := do(r, http.MethodPost, ecos, tc.body, tc.duties, true, "X-Depot-User", "rita")
 			if rec.Code != tc.wantStatus || !strings.Contains(rec.Body.String(), tc.wantBody) {
 				t.Fatalf("got %d %s; want %d containing %s", rec.Code, rec.Body.String(), tc.wantStatus, tc.wantBody)
 			}
@@ -559,7 +559,7 @@ func TestCreateEcoReleaseDateUsesTheUTCDay(t *testing.T) {
 			a := api.New(&fakeStore{}, approves, func() time.Time { return evening })
 			r := httpx.NewRouter()
 			a.Register(r)
-			rec := do(r, http.MethodPost, ecos, `{"number":"ECO-1","releaseDate":"`+tc.date+`","replaces":[`+replace+`]}`, allDuties, true, "X-Passage-User", "rita")
+			rec := do(r, http.MethodPost, ecos, `{"number":"ECO-1","releaseDate":"`+tc.date+`","replaces":[`+replace+`]}`, allDuties, true, "X-Depot-User", "rita")
 			if rec.Code != tc.wantStatus || !strings.Contains(rec.Body.String(), tc.wantBody) {
 				t.Fatalf("got %d %s; want %d containing %s", rec.Code, rec.Body.String(), tc.wantStatus, tc.wantBody)
 			}

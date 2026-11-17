@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PassageModule } from "../../modules/registry";
+import type { DepotModule } from "../../modules/registry";
 import { recordedErrors } from "../telemetry";
 import {
   effectivePrefs,
@@ -13,7 +13,7 @@ import {
   type ResolvedWorkspace,
 } from "./model";
 
-const modules: PassageModule[] = [
+const modules: DepotModule[] = [
   {
     id: "admin",
     title: "Admin",

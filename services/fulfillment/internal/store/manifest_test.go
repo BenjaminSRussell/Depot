@@ -9,10 +9,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/domain"
-	fulevents "github.com/BenjaminSRussell/passage/services/fulfillment/internal/events"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/domain"
+	fulevents "github.com/BenjaminSRussell/depot/services/fulfillment/internal/events"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 // label records a carrier label on the shipment, as :carrier-label does.

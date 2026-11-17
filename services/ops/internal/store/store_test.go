@@ -6,17 +6,17 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/ops/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ops/migrations"
 )
 
 func newStore(t *testing.T) *Postgres {
 	t.Helper()
-	// Migrations run as the admin role; the store runs as passage_app, so a missing grant fails here, not in production.
+	// Migrations run as the admin role; the store runs as depot_app, so a missing grant fails here, not in production.
 	admin, pool := testkit.DBWithApp(t)
 	if err := dbx.Migrate(context.Background(), admin, migrations.FS); err != nil {
 		t.Fatal(err)

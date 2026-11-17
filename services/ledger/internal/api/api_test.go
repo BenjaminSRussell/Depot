@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,9 +12,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/store"
 )
 
 const (
@@ -393,9 +393,9 @@ func server(fs *fakeStore) http.Handler {
 func call(h http.Handler, method, path, body, duties string, headers map[string]string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Passage-Tenant", testTenant)
-	req.Header.Set("X-Passage-User", "clerk-1")
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Tenant", testTenant)
+	req.Header.Set("X-Depot-User", "clerk-1")
+	req.Header.Set("X-Depot-Duties", duties)
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
@@ -415,7 +415,7 @@ func decode(t *testing.T, rec *httptest.ResponseRecorder) map[string]any {
 
 const entryBody = `{"ledgerId":"` + testLedger + `","documentId":"` + testDoc + `","postingDate":"2026-03-31",
   "description":"Vendor invoice 7F3A",
-  "source":{"system":"ap","type":"vendor_invoice","id":"7F3A","uri":"passage://ap/invoices/7F3A"},
+  "source":{"system":"ap","type":"vendor_invoice","id":"7F3A","uri":"depot://ap/invoices/7F3A"},
   "lines":[{"account":"6010","dimensions":{"DEPT":"D100"},"debitCredit":"D","amount":{"currency":"USD","value":"1250.00"},"text":"Freight"},
            {"account":"2100","debitCredit":"C","amount":{"currency":"USD","value":"1250.00"}}]}`
 
@@ -672,12 +672,12 @@ func TestListAccounts_AcceptsTheServiceLookupDutyAndNoOtherNarrowDuty(t *testing
 func TestCreateLedger_ScopeAndValidation(t *testing.T) {
 	h := server(&fakeStore{})
 	body := `{"legalEntityId":"` + testDoc + `","code":"GL","name":"General ledger","chartCode":"STD","currency":"USD","dimensionAttributes":["DEPT","CC"]}`
-	inScope := map[string]string{"X-Passage-Legal-Entity": testDoc}
+	inScope := map[string]string{"X-Depot-Legal-Entity": testDoc}
 	rec := call(h, http.MethodPost, "/v1/ledger/ledgers", body, dutyLedgerWrite, inScope)
 	if rec.Code != http.StatusCreated || decode(t, rec)["futurePostingDays"] != float64(366) {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
-	rec = call(h, http.MethodPost, "/v1/ledger/ledgers", body, dutyLedgerWrite, map[string]string{"X-Passage-Legal-Entity": testLedger})
+	rec = call(h, http.MethodPost, "/v1/ledger/ledgers", body, dutyLedgerWrite, map[string]string{"X-Depot-Legal-Entity": testLedger})
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("a caller scoped to another legal entity must get 403, got %d", rec.Code)
 	}
@@ -770,8 +770,8 @@ func TestRoutes_RejectMalformedTenant(t *testing.T) {
 	for _, path := range []string{"/v1/ledger/journal-entries/" + testEntry, "/v1/ledger/balances?ledger=" + testLedger,
 		"/v1/ledger/ledgers/" + testLedger, "/v1/ledger/charts/STD/accounts"} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
-		req.Header.Set("X-Passage-Tenant", "not-a-uuid")
-		req.Header.Set("X-Passage-Duties", allDuties)
+		req.Header.Set("X-Depot-Tenant", "not-a-uuid")
+		req.Header.Set("X-Depot-Duties", allDuties)
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
 		if rec.Code != http.StatusUnauthorized {

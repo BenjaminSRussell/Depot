@@ -179,7 +179,7 @@ export function parseRecords(text: string, options: { forTarget?: boolean } = {}
 
 /**
  * Parses pasted open items for a run that loads into receivables: the five control columns, the document and due
- * dates (YYYY-MM-DD), and optionally ledger (AR or AP), kind, document number, Passage customer id and original
+ * dates (YYYY-MM-DD), and optionally ledger (AR or AP), kind, document number, Depot customer id and original
  * amount. Blank optional cells keep the service's defaults. A negative amount is a credit.
  */
 function parseTargetRecords(text: string): ParsedRecords {
@@ -508,7 +508,7 @@ const POSTING_HEADER = ["kind", "entity", "documentRef", "postedAt", "account", 
 const POSTED_AT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})$/;
 
 /**
- * Parses the Passage postings since T-0 that a rollback exports for re-keying (FR-49.9), one line
+ * Parses the Depot postings since T-0 that a rollback exports for re-keying (FR-49.9), one line
  * each: kind, entity, documentRef, postedAt, account, dimensions, currency, amount, text.
  * Dimensions and text may be blank and text may be left out. Values are separated by commas,
  * semicolons or tabs, so text cannot hold one. postedAt is an ISO date-time with an offset and is

@@ -14,13 +14,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/pki"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/pki"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/migrations"
 )
 
 // gatewayRouter is the service as cmd/shopfloor mounts it: the public enrollment route, then the certificate identity
@@ -54,7 +54,7 @@ func TestHTTP_EdgeCertificateAllowlistThroughTheGateway(t *testing.T) {
 	if err := dbx.Migrate(context.Background(), admin, migrations.FS); err != nil {
 		t.Fatal(err)
 	}
-	caCert, caKey, err := pki.NewTestCA("Passage test edge CA", time.Now())
+	caCert, caKey, err := pki.NewTestCA("Depot test edge CA", time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,9 +67,9 @@ func TestHTTP_EdgeCertificateAllowlistThroughTheGateway(t *testing.T) {
 	h := gatewayRouter(a, st)
 	supervisor := func(method, path, body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-User", "supervisor-1")
-		req.Header.Set("X-Passage-Duties", DutyEdgeConfigure+","+DutyView)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-User", "supervisor-1")
+		req.Header.Set("X-Depot-Duties", DutyEdgeConfigure+","+DutyView)
 		req.Header.Set("Idempotency-Key", "k-"+method+path+body)
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)

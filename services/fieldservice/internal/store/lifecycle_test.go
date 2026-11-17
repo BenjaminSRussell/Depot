@@ -13,12 +13,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/migrations"
 )
 
 // lifecycle is a migrated store with the BR-45.2 example profile (Mon-Fri
@@ -127,7 +127,7 @@ func TestStore_SLAMonitorWarnsOnceThenBreachesOnce(t *testing.T) {
 	if res := scan(l.at(26, 15, 0)); res != (ScanResult{}) {
 		t.Fatalf("after the breach: %+v, want nothing selected", res)
 	}
-	want := []string{"dev.passage.service.case.opened.v1", "dev.passage.service.sla.breached.v1", "dev.passage.service.sla.warning.v1"}
+	want := []string{"dev.depot.service.case.opened.v1", "dev.depot.service.sla.breached.v1", "dev.depot.service.sla.warning.v1"}
 	if got := l.eventTypes(t, c.ID); !slices.Equal(got, want) {
 		t.Fatalf("outbox %v, want %v", got, want)
 	}
@@ -205,7 +205,7 @@ func TestStore_CaseTransitionPausesAndResumes(t *testing.T) {
 		t.Fatalf("reopen a closed case: %v, want 422 %s", err, CodeCaseTransition)
 	}
 
-	want := []string{"dev.passage.service.case.opened.v1", "dev.passage.service.sla.breached.v1"}
+	want := []string{"dev.depot.service.case.opened.v1", "dev.depot.service.sla.breached.v1"}
 	if got := l.eventTypes(t, c.ID); !slices.Equal(got, want) {
 		t.Fatalf("outbox %v, want the opening and the late-response breach", got)
 	}

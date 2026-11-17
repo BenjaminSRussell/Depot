@@ -4,12 +4,12 @@ info:
   version: 0.2.0
   description: Global party and business partner service. Parties are created, read and updated here; search, roles and duplicate handling follow in later slices.
 servers:
-  - url: https://app.local.passage.dev
+  - url: https://app.local.depot.dev
 paths:
   /v1/party/tax-registrations:validate:
     post:
       operationId: validateTaxRegistration
-      x-passage-duty: party.write
+      x-depot-duty: party.write
       description: Format-checks tax numbers. VAT is checked against VIES when PARTY_VIES_URL is set and returns validationStatus unverified otherwise or when VIES gives no verdict.
       parameters:
         - name: Idempotency-Key
@@ -36,9 +36,9 @@ paths:
   /v1/party/parties:
     post:
       operationId: createParty
-      x-passage-duty: party.write
-      x-passage-duty-alternatives: [party.import.write]
-      description: Creates an organization or person. The party number comes from numbering sequence PARTY. A replay with the same Idempotency-Key and body returns the original party; the same key with another body is 409 idempotency_key_reuse. Emits dev.passage.party.party.created.v1. The optional body field `id` keeps a legacy-stable party id and needs duty party.import.write (403 AUTH-0003 without it; 409 PTY-PARTY-ID-TAKEN when the id exists). The caller must carry exactly one legal entity (X-Passage-Legal-Entity), because the party number is allocated for that entity; a caller with none or several gets 422 PTY-LEGAL-ENTITY-REQUIRED. A caller holding only party.import.write (no party.read or party.write) gets a PartyWriteReceipt (id, partyNumber, partyType, status, version) instead of the party, because that duty opens no read route.
+      x-depot-duty: party.write
+      x-depot-duty-alternatives: [party.import.write]
+      description: Creates an organization or person. The party number comes from numbering sequence PARTY. A replay with the same Idempotency-Key and body returns the original party; the same key with another body is 409 idempotency_key_reuse. Emits dev.depot.party.party.created.v1. The optional body field `id` keeps a legacy-stable party id and needs duty party.import.write (403 AUTH-0003 without it; 409 PTY-PARTY-ID-TAKEN when the id exists). The caller must carry exactly one legal entity (X-Depot-Legal-Entity), because the party number is allocated for that entity; a caller with none or several gets 422 PTY-LEGAL-ENTITY-REQUIRED. A caller holding only party.import.write (no party.read or party.write) gets a PartyWriteReceipt (id, partyNumber, partyType, status, version) instead of the party, because that duty opens no read route.
       parameters:
         - name: Idempotency-Key
           in: header
@@ -72,8 +72,8 @@ paths:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
     get:
       operationId: getParty
-      x-passage-duty: party.read
-      x-passage-duty-alternatives: [party.import.read]
+      x-depot-duty: party.read
+      x-depot-duty-alternatives: [party.import.read]
       description: A merged party answers with its survivor (at most 5 hops), requestedId and redirected true. dob is returned only to callers holding pii.read; others see "••••" when it is set.
       responses:
         '200':
@@ -89,9 +89,9 @@ paths:
         '500': { $ref: '#/components/responses/Problem' }
     patch:
       operationId: updateParty
-      x-passage-duty: party.write
-      x-passage-duty-alternatives: [party.import.write]
-      description: Optimistic update. A PATCH that changes nothing returns 200 with the same version and emits no event. Emits dev.passage.party.party.updated.v1 otherwise; dob and gender are never named in its changed_fields. A caller holding only party.import.write (no party.read or party.write) gets a PartyWriteReceipt (id, partyNumber, partyType, status, version) instead of the party, because that duty opens no read route.
+      x-depot-duty: party.write
+      x-depot-duty-alternatives: [party.import.write]
+      description: Optimistic update. A PATCH that changes nothing returns 200 with the same version and emits no event. Emits dev.depot.party.party.updated.v1 otherwise; dob and gender are never named in its changed_fields. A caller holding only party.import.write (no party.read or party.write) gets a PartyWriteReceipt (id, partyNumber, partyType, status, version) instead of the party, because that duty opens no read route.
       parameters:
         - name: If-Match
           in: header
@@ -127,8 +127,8 @@ paths:
       - { name: id, in: path, required: true, description: Party id., schema: { type: string, format: uuid } }
     post:
       operationId: createVendorRole
-      x-passage-duty: party.write
-      x-passage-duty-alternatives: [party.import.write]
+      x-depot-duty: party.write
+      x-depot-duty-alternatives: [party.import.write]
       description: Adds the vendor role to a party in the caller's single legal entity. A replay with the same Idempotency-Key and body (for the same party and legal entity) returns the original role; the same key with another body is 409 idempotency_key_reuse. 409 PTY-VENDOR-EXISTS when the party already has one there or the account number is taken; 409 PTY-PARTY-MERGED for a merged party; 422 PTY-LEGAL-ENTITY-REQUIRED without exactly one legal entity.
       parameters:
         - name: Idempotency-Key
@@ -155,9 +155,9 @@ paths:
     post:
       operationId: createCustomerRole
       summary: Add the customer role to a party in the caller's legal entity.
-      x-passage-duty: party.write
-      x-passage-duty-alternatives: [party.import.write]
-      description: Adds the customer role to a party in the caller's single legal entity, with its group, payment term, posting profile, currency and optional credit fields. A replay with the same Idempotency-Key and body returns the original role and emits nothing; the same key with another body is 409 idempotency_key_reuse. 409 PTY-CUSTOMER-EXISTS when the party already has a customer role there or the account number is taken; 409 PTY-PARTY-MERGED for a merged party; 422 PTY-CUSTOMER-INVALID for a bad field, an unknown payment term, or a posting profile outside the legal entity; 422 PTY-LEGAL-ENTITY-REQUIRED without exactly one legal entity. The Idempotency-Key is scoped to the party and the legal entity. Initial creditLimit (FR-7.10) - a person (party.write) may set a positive limit only where credit_limit is not protected in the legal entity, under the same 24-hour rule as the credit-limit route, otherwise 422 PTY-CUSTOMER-INVALID on creditLimit (create without it, then use POST /v1/party/customers/{id}/credit-limit); the migration loader (party.import.write) loads the legacy limit as given, and the limit is carried on customer.created.v1. customerGroupId, deliveryTermId and deliveryModeId are not checked against a master yet (no tables). Emits dev.passage.party.customer.created.v1.
+      x-depot-duty: party.write
+      x-depot-duty-alternatives: [party.import.write]
+      description: Adds the customer role to a party in the caller's single legal entity, with its group, payment term, posting profile, currency and optional credit fields. A replay with the same Idempotency-Key and body returns the original role and emits nothing; the same key with another body is 409 idempotency_key_reuse. 409 PTY-CUSTOMER-EXISTS when the party already has a customer role there or the account number is taken; 409 PTY-PARTY-MERGED for a merged party; 422 PTY-CUSTOMER-INVALID for a bad field, an unknown payment term, or a posting profile outside the legal entity; 422 PTY-LEGAL-ENTITY-REQUIRED without exactly one legal entity. The Idempotency-Key is scoped to the party and the legal entity. Initial creditLimit (FR-7.10) - a person (party.write) may set a positive limit only where credit_limit is not protected in the legal entity, under the same 24-hour rule as the credit-limit route, otherwise 422 PTY-CUSTOMER-INVALID on creditLimit (create without it, then use POST /v1/party/customers/{id}/credit-limit); the migration loader (party.import.write) loads the legacy limit as given, and the limit is carried on customer.created.v1. customerGroupId, deliveryTermId and deliveryModeId are not checked against a master yet (no tables). Emits dev.depot.party.customer.created.v1.
       parameters:
         - name: Idempotency-Key
           in: header
@@ -184,16 +184,16 @@ paths:
     post:
       operationId: requestPartyMerge
       summary: Request a merge of a duplicate party into the surviving party; nothing is merged until another user approves it.
-      x-passage-duty: party.merge
-      x-passage-gateway-duty: party.write
+      x-depot-duty: party.merge
+      x-depot-gateway-duty: party.write
       description: >-
         Gateway (policies/authz) - the route is opened by party.write; party.merge is a flag duty the handler checks, from a
         tenant.administer caller with no legal-entity claim (403 AUTH-0003 otherwise). The call records a merge_request
-        (status pending, requestedBy = the caller) and emits dev.passage.party.merge.requested.v1, which starts the workflow-ts merge
+        (status pending, requestedBy = the caller) and emits dev.depot.party.merge.requested.v1, which starts the workflow-ts merge
         approval. A user other than the requester, holding party.merge.approve and tenant.administer with no legal-entity claim and
         holding neither payment-proposal.approve nor payment-run.execute, decides it at POST /v1/workflows/party-merges/{id}:approve or
         :reject; workflow-ts then calls POST /v1/party/merge-requests/{id}:approve, which merges (customer and vendor roles and
-        invoice-account references move to the survivor, the merged party becomes status merged, dev.passage.party.party.merged.v1).
+        invoice-account references move to the survivor, the merged party becomes status merged, dev.depot.party.party.merged.v1).
         The parties are checked now and again on approval. Within the caller's tenant only; a party id from another tenant is 404.
         A malformed id or mergedPartyId, or an unknown survivorship field or rule (keepWinner, keepLoser, newest, nonEmpty), is 422
         PTY-PARTY-INVALID. The same party twice, different types, or an already-merged party is 409 PTY-MERGE-CONFLICT; both holding a
@@ -223,10 +223,10 @@ paths:
     get:
       operationId: getMergeRequest
       summary: "Get a party merge request and its approvals"
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       responses:
         '200': { description: The merge request., content: { application/json: { schema: { $ref: '#/components/schemas/MergeApproval' } } } }
-        '401': { description: 'AUTH-0001: no principal or blank X-Passage-User.', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+        '401': { description: 'AUTH-0001: no principal or blank X-Depot-User.', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { description: 'PTY-MERGE-REQUEST-NOT-FOUND.', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
   /v1/party/merge-requests/{id}:approve:
@@ -234,9 +234,9 @@ paths:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
     post:
       operationId: approveMergeRequest
-      x-passage-duty: party.merge.execute
+      x-depot-duty: party.merge.execute
       description: >-
-        Executes the held merge in one transaction (see :merge) and records the approver; dev.passage.party.party.merged.v1 announces it. Only the workflow-ts merge approval calls it: a workflow-ts service token with the service-only duty
+        Executes the held merge in one transaction (see :merge) and records the approver; dev.depot.party.party.merged.v1 announces it. Only the workflow-ts merge approval calls it: a workflow-ts service token with the service-only duty
         party.merge.execute that names no legal entity, act = the approver workflow-ts authenticated. Any other caller, a person
         included, is 403 AUTH-0003. The approver may not be the requester (403 PTY-MERGE-SELF-APPROVAL; the table refuses it too).
       requestBody:
@@ -260,9 +260,9 @@ paths:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
     post:
       operationId: rejectMergeRequest
-      x-passage-duty: party.merge.execute
+      x-depot-duty: party.merge.execute
       description: >-
-        Closes the request without merging and emits dev.passage.party.merge.rejected.v1. Only the workflow-ts merge approval calls it: a workflow-ts service token with the service-only duty
+        Closes the request without merging and emits dev.depot.party.merge.rejected.v1. Only the workflow-ts merge approval calls it: a workflow-ts service token with the service-only duty
         party.merge.execute that names no legal entity, act = the approver workflow-ts authenticated. Any other caller, a person
         included, is 403 AUTH-0003. The approver may not be the requester (403 PTY-MERGE-SELF-APPROVAL; the table refuses it too).
       requestBody:
@@ -286,7 +286,7 @@ paths:
       - { name: id, in: path, required: true, description: Party id., schema: { type: string, format: uuid } }
     get:
       operationId: listPartyVendors
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       description: The party's vendor roles visible to the caller's legal entities.
       responses:
         '200': { description: 'vendors.', content: { application/json: { schema: { type: object, required: [vendors], properties: { vendors: { type: array, items: { $ref: '#/components/schemas/Vendor' } } } } } } }
@@ -297,8 +297,8 @@ paths:
     post:
       operationId: createVendorGroup
       summary: Register a vendor group with its short code
-      x-passage-duty: party.write
-      description: Registers a vendor group of the tenant. The code (uppercase A-Z, 0-9, dash, underscore, at most 10 characters) is unique per tenant and is posted as the VENDGRP ledger dimension value on the vendor-control credit; it cannot be changed afterwards. A replay with the same Idempotency-Key and body returns the original group and emits nothing; the same key with another body is 409 idempotency_key_reuse. 409 PTY-VENDOR-GROUP-EXISTS when the code (or the given id) is taken; 422 PTY-VENDOR-GROUP-INVALID for a bad field. Emits dev.passage.party.vendorgroup.created.v1. Vendor roles keep a plain vendorGroupId; a role whose group is not registered has no vendorGroupCode.
+      x-depot-duty: party.write
+      description: Registers a vendor group of the tenant. The code (uppercase A-Z, 0-9, dash, underscore, at most 10 characters) is unique per tenant and is posted as the VENDGRP ledger dimension value on the vendor-control credit; it cannot be changed afterwards. A replay with the same Idempotency-Key and body returns the original group and emits nothing; the same key with another body is 409 idempotency_key_reuse. 409 PTY-VENDOR-GROUP-EXISTS when the code (or the given id) is taken; 422 PTY-VENDOR-GROUP-INVALID for a bad field. Emits dev.depot.party.vendorgroup.created.v1. Vendor roles keep a plain vendorGroupId; a role whose group is not registered has no vendorGroupCode.
       parameters:
         - name: Idempotency-Key
           in: header
@@ -320,7 +320,7 @@ paths:
     get:
       operationId: listVendorGroups
       summary: List the tenant's vendor groups
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       description: Every vendor group of the tenant, ordered by code.
       responses:
         '200': { description: 'vendorGroups.', content: { application/json: { schema: { type: object, required: [vendorGroups], properties: { vendorGroups: { type: array, items: { $ref: '#/components/schemas/VendorGroup' } } } } } } }
@@ -332,7 +332,7 @@ paths:
     get:
       operationId: getVendorGroup
       summary: Read one vendor group
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       description: The vendor group with its code.
       responses:
         '200': { description: The vendor group., content: { application/json: { schema: { $ref: '#/components/schemas/VendorGroup' } } } }
@@ -344,8 +344,8 @@ paths:
       - { name: id, in: path, required: true, description: Vendor role id., schema: { type: string, format: uuid } }
     get:
       operationId: getVendor
-      x-passage-duty: party.read
-      x-passage-duty-alternatives: [party.import.read, party.vendor.lookup]
+      x-depot-duty: party.read
+      x-depot-duty-alternatives: [party.import.read, party.vendor.lookup]
       description: The vendor role, including vendorGroupId.
       responses:
         '200': { description: The vendor role., content: { application/json: { schema: { $ref: '#/components/schemas/Vendor' } } } }
@@ -357,8 +357,8 @@ paths:
       - { name: id, in: path, required: true, description: Customer role id., schema: { type: string, format: uuid } }
     get:
       operationId: getCustomer
-      x-passage-duty: party.read
-      x-passage-duty-alternatives: [party.import.read, party.customer.lookup]
+      x-depot-duty: party.read
+      x-depot-duty-alternatives: [party.import.read, party.customer.lookup]
       description: The customer role in the caller's legal entities, with its version as the ETag. The migration loader reads the roles it loaded through this route (service duty party.import.read) to reconcile a run.
       responses:
         '200': { description: The customer role., headers: { ETag: { schema: { type: string } } }, content: { application/json: { schema: { $ref: '#/components/schemas/Customer' } } } }
@@ -368,7 +368,7 @@ paths:
   /v1/party/partners/{id}/tax-registration:
     put:
       operationId: setPartnerTaxRegistration
-      x-passage-duty: party.write
+      x-depot-duty: party.write
       summary: Set the country a customer or vendor is VAT registered in (#13)
       description: >
         The party master held no country for a customer or vendor role, so fulfillment and receiving could not say where a goods movement
@@ -399,8 +399,8 @@ paths:
   /v1/party/partners:tax-registrations:
     get:
       operationId: listPartnerTaxRegistrations
-      x-passage-duty: party.read
-      x-passage-duty-alternatives: [party.tax-registration.read]
+      x-depot-duty: party.read
+      x-depot-duty-alternatives: [party.tax-registration.read]
       summary: Tax registrations of customer and vendor roles (#13)
       description: The registrations of up to 200 roles named in `ids`; a role with none is left out. The service-only duty party.tax-registration.read is what fulfillment and receiving hold to report the partner country of a shipment or receipt.
       parameters:
@@ -421,7 +421,7 @@ paths:
   /v1/party/customers/{id}/portal-access:
     put:
       operationId: setCustomerPortalAccess
-      x-passage-duty: party.write
+      x-depot-duty: party.write
       summary: Let contacts of a ship-to customer also act for its bill-to account in the customer portal.
       description: Off by default. A bill-to contact always reaches the accounts that bill to it; a ship-to contact reaches its bill-to account only when billToAccess is true.
       parameters:
@@ -440,7 +440,7 @@ paths:
     get:
       operationId: customerPortalAccounts
       summary: The accounts a customer portal contact may act for.
-      x-passage-duty: party.customer-portal.read
+      x-depot-duty: party.customer-portal.read
       description: |
         For the customer portal only (#30): the service-only duty, and the customer is the signed `cus` claim of the customer-portal
         service token (a staff caller is 403 PTY-CUS-001). Answers the customer itself ("self") and the accounts that bill to it
@@ -472,8 +472,8 @@ paths:
       - { name: id, in: path, required: true, description: Vendor role id., schema: { type: string, format: uuid } }
     post:
       operationId: addVendorBankAccount
-      x-passage-duty: party.vendor-bank.write
-      description: Stores a bank account; account and routing numbers are encrypted per tenant and field. Needs X-Passage-User. 503 PTY-BANK-ENCRYPTION-UNAVAILABLE when no field encryption keys are configured.
+      x-depot-duty: party.vendor-bank.write
+      description: Stores a bank account; account and routing numbers are encrypted per tenant and field. Needs X-Depot-User. 503 PTY-BANK-ENCRYPTION-UNAVAILABLE when no field encryption keys are configured.
       requestBody:
         required: true
         content:
@@ -488,7 +488,7 @@ paths:
         '503': { $ref: '#/components/responses/Problem' }
     get:
       operationId: listVendorBankAccounts
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       description: Bank accounts with accountLast4 only.
       responses:
         '200': { description: 'bankAccounts, masked.', content: { application/json: { schema: { type: object, required: [bankAccounts], properties: { bankAccounts: { type: array, items: { $ref: '#/components/schemas/BankAccount' } } } } } } }
@@ -500,7 +500,7 @@ paths:
       - { name: id, in: path, required: true, description: Vendor role id., schema: { type: string, format: uuid } }
     get:
       operationId: revealVendorBankAccounts
-      x-passage-duty: party.vendor-bank.reveal
+      x-depot-duty: party.vendor-bank.reveal
       description: Bank accounts with accountNumber and routingNumber decrypted. Each call is logged with the user and vendor id.
       responses:
         '200': { description: 'bankAccounts, unmasked.', content: { application/json: { schema: { type: object, required: [bankAccounts], properties: { bankAccounts: { type: array, items: { $ref: '#/components/schemas/BankAccount' } } } } } } }
@@ -513,8 +513,8 @@ paths:
       - { name: id, in: path, required: true, description: Customer role id., schema: { type: string, format: uuid } }
     post:
       operationId: setCustomerCreditLimit
-      x-passage-duty: party.write
-      description: A decrease (or any value not above the current limit) is applied at once and emits dev.passage.party.customer.updated.v1. An increase never changes the stored limit; it creates a pending_change, answers 202 and emits dev.passage.party.change.requested.v1 for the approval workflow. A limit equal to the current one is a no-op.
+      x-depot-duty: party.write
+      description: A decrease (or any value not above the current limit) is applied at once and emits dev.depot.party.customer.updated.v1. An increase never changes the stored limit; it creates a pending_change, answers 202 and emits dev.depot.party.change.requested.v1 for the approval workflow. A limit equal to the current one is a no-op.
       requestBody:
         required: true
         content:
@@ -543,7 +543,7 @@ paths:
       - { name: id, in: path, required: true, description: Legal entity id., schema: { type: string, format: uuid } }
     get:
       operationId: getProtectedFields
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       description: Fields that need approval in this legal entity. Defaults to credit_limit when never configured.
       responses:
         '200':
@@ -557,8 +557,8 @@ paths:
         '500': { $ref: '#/components/responses/Problem' }
     put:
       operationId: setProtectedFields
-      x-passage-duty: party.approval-policy.write
-      description: Replaces the set of fields that need approval in this legal entity. fields is required; [] is an explicit unprotect-all, and a missing or null fields is 422. Only credit_limit is protectable today; changes already pending stay decidable. Every change enqueues dev.passage.party.protectedfields.updated.v1 with before, after and the actor. A credit limit request by the user who last unprotected the field within 24 hours is still held for approval. The legal entity id is not validated against the org service (party keeps no legal entity table); a scoped caller can only address its own.
+      x-depot-duty: party.approval-policy.write
+      description: Replaces the set of fields that need approval in this legal entity. fields is required; [] is an explicit unprotect-all, and a missing or null fields is 422. Only credit_limit is protectable today; changes already pending stay decidable. Every change enqueues dev.depot.party.protectedfields.updated.v1 with before, after and the actor. A credit limit request by the user who last unprotected the field within 24 hours is still held for approval. The legal entity id is not validated against the org service (party keeps no legal entity table); a scoped caller can only address its own.
       requestBody:
         required: true
         content:
@@ -578,7 +578,7 @@ paths:
   /v1/party/pending-changes:
     get:
       operationId: listPendingChanges
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       description: >-
         The changes still awaiting approval in the caller's tenant and legal entity scope, newest first. Also readable with
         party.inbox.read, the narrow duty the batch service's My work inbox signs; that duty reads this list and nothing else.
@@ -605,7 +605,7 @@ paths:
       - { name: id, in: path, required: true, description: Pending change id., schema: { type: string, format: uuid } }
     get:
       operationId: getPendingChange
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       description: Returns one pending change visible to the caller's tenant and legal entity scope.
       responses:
         '200':
@@ -622,8 +622,8 @@ paths:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
     post:
       operationId: approvePendingChange
-      x-passage-duty: party.approve
-      description: Applies the held change to the customer and emits dev.passage.party.change.approved.v1. The requester cannot approve their own change.
+      x-depot-duty: party.approve
+      description: Applies the held change to the customer and emits dev.depot.party.change.approved.v1. The requester cannot approve their own change.
       requestBody:
         required: false
         content:
@@ -635,7 +635,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PendingChange' }
-        '401': { description: 'AUTH-0001: no principal or blank X-Passage-User.', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+        '401': { description: 'AUTH-0001: no principal or blank X-Depot-User.', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
         '403': { description: 'AUTH-0003 (missing duty) or PTY-PENDING-SELF-APPROVAL.', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
         '404': { description: 'PTY-CHANGE-NOT-FOUND.', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
         '409': { description: 'PTY-CHANGE-DECIDED: the change was already decided differently or by someone else (the same decider repeating the same decision gets 200 with the stored change). PTY-PENDING-STALE: the limit changed after the request; the change stays pending and can only be rejected.', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
@@ -646,8 +646,8 @@ paths:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
     post:
       operationId: rejectPendingChange
-      x-passage-duty: party.approve
-      description: Discards the held change; the stored limit is untouched. Emits dev.passage.party.change.rejected.v1.
+      x-depot-duty: party.approve
+      description: Discards the held change; the stored limit is untouched. Emits dev.depot.party.change.rejected.v1.
       requestBody:
         required: false
         content:
@@ -659,7 +659,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PendingChange' }
-        '401': { description: 'AUTH-0001: no principal or blank X-Passage-User.', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+        '401': { description: 'AUTH-0001: no principal or blank X-Depot-User.', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
         '403': { description: 'AUTH-0003 (missing duty) or PTY-PENDING-SELF-APPROVAL.', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
         '404': { description: 'PTY-CHANGE-NOT-FOUND.', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
         '409': { description: 'PTY-CHANGE-DECIDED: decided differently or by someone else; the same decider repeating the same decision gets 200.', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
@@ -670,7 +670,7 @@ paths:
       operationId: searchParties
       summary: Search parties by name or number
       description: Read-only lookup for pickers. Case-insensitive match on the party name or number; % and _ match themselves. Merged parties are left out. Results are parties (id is the party id), ordered by name and paged by an opaque cursor.
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       parameters:
         - { name: q, in: query, schema: { type: string, maxLength: 100 } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 50 } }
@@ -706,7 +706,7 @@ paths:
       operationId: searchVendors
       summary: Search vendors by name or number
       description: Read-only lookup for pickers. Case-insensitive match on the party name or number and the account number; % and _ match themselves. Merged parties are left out. Results are vendor roles in the caller's legal entities (narrowed to legalEntityId when given; each hit carries its legalEntityId) (id is the vendor role id; partyId the party), ordered by name and paged by an opaque cursor.
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       parameters:
         - { name: q, in: query, schema: { type: string, maxLength: 100 } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 50 } }
@@ -744,7 +744,7 @@ paths:
       operationId: searchCustomers
       summary: Search customers by name or number
       description: Read-only lookup for pickers. Case-insensitive match on the party name or number and the account number; % and _ match themselves. Merged parties are left out. Results are customer roles in the caller's legal entities (narrowed to legalEntityId when given; each hit carries its legalEntityId) (id is the customer role id; partyId the party), ordered by name and paged by an opaque cursor.
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       parameters:
         - { name: q, in: query, schema: { type: string, maxLength: 100 } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 50 } }
@@ -781,7 +781,7 @@ paths:
     post:
       operationId: registerVendorProspect
       summary: "Record a supplier's own registration from the public portal page"
-      x-passage-duty: party.vendor-portal.register
+      x-depot-duty: party.vendor-portal.register
       description: >-
         Called only by the supplier portal BFF with a vendorless supplier-portal service token whose only duty is this one; any other
         caller is refused with PTY-SUP-SCOPE. The registration lands in vendor_prospect for a buyer to accept or reject. The answer is
@@ -811,7 +811,7 @@ paths:
     get:
       operationId: vendorListRequests
       summary: "List the supplier's own requests (supplier portal)"
-      x-passage-duty: party.vendor-portal.read
+      x-depot-duty: party.vendor-portal.read
       parameters:
         - { name: status, in: query, required: false, schema: { type: string } }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
@@ -827,7 +827,7 @@ paths:
     post:
       operationId: vendorCreateRequest
       summary: "Open a draft request: a profile change, a question or another kind"
-      x-passage-duty: party.vendor-portal.write
+      x-depot-duty: party.vendor-portal.write
       requestBody:
         required: true
         content:
@@ -847,7 +847,7 @@ paths:
     get:
       operationId: vendorGetRequest
       summary: "Read one of the supplier's requests"
-      x-passage-duty: party.vendor-portal.read
+      x-depot-duty: party.vendor-portal.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -864,7 +864,7 @@ paths:
     post:
       operationId: vendorSubmitRequest
       summary: "Submit a draft request, with questionnaire answers when it has questions"
-      x-passage-duty: party.vendor-portal.write
+      x-depot-duty: party.vendor-portal.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -888,7 +888,7 @@ paths:
     post:
       operationId: vendorWithdrawRequest
       summary: "Withdraw a request that is not decided yet"
-      x-passage-duty: party.vendor-portal.write
+      x-depot-duty: party.vendor-portal.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -906,7 +906,7 @@ paths:
     get:
       operationId: vendorListDocuments
       summary: "List the documents the supplier and the buyer exchanged"
-      x-passage-duty: party.vendor-portal.read
+      x-depot-duty: party.vendor-portal.read
       parameters:
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
@@ -921,7 +921,7 @@ paths:
     post:
       operationId: vendorUploadDocument
       summary: "Upload a document (base64, at most 5 MiB; scanned before it is stored)"
-      x-passage-duty: party.vendor-portal.write
+      x-depot-duty: party.vendor-portal.write
       requestBody:
         required: true
         content:
@@ -942,7 +942,7 @@ paths:
     get:
       operationId: vendorDocumentContent
       summary: "Download one of the supplier's documents"
-      x-passage-duty: party.vendor-portal.read
+      x-depot-duty: party.vendor-portal.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -959,7 +959,7 @@ paths:
     get:
       operationId: vendorListDistributions
       summary: "List the controlled documents sent to the supplier, with acknowledgement"
-      x-passage-duty: party.vendor-portal.read
+      x-depot-duty: party.vendor-portal.read
       parameters:
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
@@ -975,7 +975,7 @@ paths:
     get:
       operationId: vendorDistributionContent
       summary: "Download a controlled document sent to the supplier"
-      x-passage-duty: party.vendor-portal.read
+      x-depot-duty: party.vendor-portal.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -992,7 +992,7 @@ paths:
     post:
       operationId: vendorAcknowledgeDistribution
       summary: "Acknowledge a controlled document that requires it"
-      x-passage-duty: party.vendor-portal.write
+      x-depot-duty: party.vendor-portal.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1009,7 +1009,7 @@ paths:
     post:
       operationId: createVendorQuestionnaire
       summary: "Create an onboarding questionnaire (a new version of a name keeps the old one)"
-      x-passage-duty: party.write
+      x-depot-duty: party.write
       requestBody:
         required: true
         content:
@@ -1028,7 +1028,7 @@ paths:
     get:
       operationId: listVendorQuestionnaires
       summary: "List onboarding questionnaires"
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       parameters:
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
@@ -1044,7 +1044,7 @@ paths:
     post:
       operationId: inviteVendorOnboarding
       summary: "Send a vendor an onboarding questionnaire as a request to answer"
-      x-passage-duty: party.write
+      x-depot-duty: party.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -1067,7 +1067,7 @@ paths:
     get:
       operationId: listVendorRequests
       summary: "List supplier requests for the buyer, optionally of one vendor or status"
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       parameters:
         - { name: vendorId, in: query, required: false, schema: { type: string, format: uuid } }
         - { name: status, in: query, required: false, schema: { type: string } }
@@ -1085,7 +1085,7 @@ paths:
     get:
       operationId: getVendorRequest
       summary: "Read one supplier request"
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1102,7 +1102,7 @@ paths:
     post:
       operationId: approveVendorRequest
       summary: "Approve a submitted request; a PROFILE_CHANGE applies its changes to the party and also needs party.write"
-      x-passage-duty: party.vendor-request.decide
+      x-depot-duty: party.vendor-request.decide
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -1126,7 +1126,7 @@ paths:
     post:
       operationId: rejectVendorRequest
       summary: "Reject a submitted request with a note"
-      x-passage-duty: party.vendor-request.decide
+      x-depot-duty: party.vendor-request.decide
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -1149,7 +1149,7 @@ paths:
     get:
       operationId: listVendorDocuments
       summary: "List documents exchanged with vendors, optionally of one vendor"
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       parameters:
         - { name: vendorId, in: query, required: false, schema: { type: string, format: uuid } }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
@@ -1166,7 +1166,7 @@ paths:
     get:
       operationId: vendorDocumentContentForBuyer
       summary: "Download a document exchanged with a vendor"
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1183,7 +1183,7 @@ paths:
     post:
       operationId: sendVendorDocument
       summary: "Send a vendor a document (base64, at most 5 MiB)"
-      x-passage-duty: party.write
+      x-depot-duty: party.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -1206,7 +1206,7 @@ paths:
     post:
       operationId: publishControlledDocument
       summary: "Publish a controlled document revision (a new revision of a document number)"
-      x-passage-duty: party.write
+      x-depot-duty: party.write
       requestBody:
         required: true
         content:
@@ -1225,7 +1225,7 @@ paths:
     get:
       operationId: listControlledDocuments
       summary: "List controlled document revisions"
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       parameters:
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
@@ -1241,7 +1241,7 @@ paths:
     post:
       operationId: distributeControlledDocument
       summary: "Send a controlled document revision to vendors"
-      x-passage-duty: party.write
+      x-depot-duty: party.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -1264,7 +1264,7 @@ paths:
     get:
       operationId: listControlledDocumentDistributions
       summary: "List who a revision was sent to and who acknowledged it"
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1281,7 +1281,7 @@ paths:
     get:
       operationId: listSupplierAudit
       summary: "The supplier collaboration audit trail, optionally of one vendor"
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       parameters:
         - { name: vendorId, in: query, required: false, schema: { type: string, format: uuid } }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
@@ -1298,7 +1298,7 @@ paths:
     get:
       operationId: listVendorInvites
       summary: "List the calling vendor's user invitations"
-      x-passage-duty: party.vendor-portal.admin
+      x-depot-duty: party.vendor-portal.admin
       description: The invitations of the vendor in the verified supplier-portal service token, newest first. Tokens are never returned.
       parameters:
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
@@ -1318,7 +1318,7 @@ paths:
     post:
       operationId: createVendorInvite
       summary: "Invite a user to the calling vendor's supplier portal account"
-      x-passage-duty: party.vendor-portal.admin
+      x-depot-duty: party.vendor-portal.admin
       description: >-
         Stores the invitation with a hash of its token and an expiry and emits the created event without the token; a pending
         invitation of the same vendor for the same email is revoked. The token is in this answer only; nothing stores it. Only the vendor administrator's token carries the duty (the supplier-admin role); the portal signs it only for the invitation routes.
@@ -1352,7 +1352,7 @@ paths:
     post:
       operationId: revokeVendorInvite
       summary: "Revoke an open invitation of the calling vendor"
-      x-passage-duty: party.vendor-portal.admin
+      x-depot-duty: party.vendor-portal.admin
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1370,7 +1370,7 @@ paths:
     post:
       operationId: verifyVendorInvite
       summary: "Check an invitation token without using it"
-      x-passage-duty: party.vendor-portal.invite-accept
+      x-depot-duty: party.vendor-portal.invite-accept
       description: The token must name the invitation in the path and the vendor in the verified token, and its secret must match.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1394,7 +1394,7 @@ paths:
     post:
       operationId: acceptVendorInvite
       summary: "Use an invitation token"
-      x-passage-duty: party.vendor-portal.invite-accept
+      x-depot-duty: party.vendor-portal.invite-accept
       description: As verify, then marks the invitation accepted (once) and emits the accepted event without the token.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1418,7 +1418,7 @@ paths:
     get:
       operationId: listVendorProspects
       summary: "List supplier registrations for review"
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       description: Registrations from the public portal page in the caller's tenant, newest first, optionally of one status.
       parameters:
         - { name: status, in: query, required: false, schema: { type: string, enum: [NEW, ACCEPTED, REJECTED] } }
@@ -1444,7 +1444,7 @@ paths:
     get:
       operationId: getVendorProspect
       summary: "Get one supplier registration"
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1461,7 +1461,7 @@ paths:
     post:
       operationId: acceptVendorProspect
       summary: "Accept a supplier registration as a vendor"
-      x-passage-duty: party.write
+      x-depot-duty: party.write
       description: >-
         Claims the registration, then creates the party (organization, legal name and registration number from the registration), a
         vendor role blocked until the onboarding is approved by someone other than the accepting buyer, and the onboarding
@@ -1498,7 +1498,7 @@ paths:
     post:
       operationId: rejectVendorProspect
       summary: "Reject a supplier registration with a note"
-      x-passage-duty: party.vendor-request.decide
+      x-depot-duty: party.vendor-request.decide
       description: Closes a NEW registration as REJECTED with the note; nothing is created.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1528,7 +1528,7 @@ paths:
     get:
       operationId: listPaymentTerms
       summary: "List payment terms"
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       description: The tenant's payment terms by code, for a form to pick the term of a customer or vendor role by name.
       responses:
         '200':
@@ -1547,7 +1547,7 @@ paths:
     get:
       operationId: getPaymentTerm
       summary: "Get one payment term"
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1564,7 +1564,7 @@ paths:
     get:
       operationId: listPostingProfiles
       summary: "List customer posting profiles of the caller's legal entities"
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       description: Posting profiles by code in the caller's legal entities (row security), optionally of one of them.
       parameters:
         - { name: legalEntityId, in: query, required: false, schema: { type: string, format: uuid } }
@@ -1586,7 +1586,7 @@ paths:
     get:
       operationId: getPostingProfile
       summary: "Get one posting profile"
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1603,7 +1603,7 @@ paths:
     get:
       operationId: listCustomerGroups
       summary: "List customer groups"
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       responses:
         '200':
           description: The customer groups by code.
@@ -1620,7 +1620,7 @@ paths:
     post:
       operationId: createCustomerGroup
       summary: "Register a customer group"
-      x-passage-duty: party.write
+      x-depot-duty: party.write
       description: >-
         A short code (1 to 10 of A-Z, 0-9, dash, underscore; upper-cased) and a name. An optional id registers a group id customer roles
         already carry. Also allowed with party.import.write. An Idempotency-Key replays the stored group.
@@ -1653,7 +1653,7 @@ paths:
     get:
       operationId: getCustomerGroup
       summary: "Get one customer group"
-      x-passage-duty: party.read
+      x-depot-duty: party.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1669,20 +1669,20 @@ paths:
   /healthz:
     get:
       operationId: liveness
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Process is alive. }
   /readyz:
     get:
       operationId: readiness
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Service is ready; the database answered a ping. }
         '503': { description: 'The database did not answer a ping within 500 ms. Body is {"status":"unavailable"}.' }
   /metrics:
     get:
       operationId: metrics
-      x-passage-duty: public
+      x-depot-duty: public
       description: Served on the admin port (9090), never through the ingress.
       responses:
         '200':

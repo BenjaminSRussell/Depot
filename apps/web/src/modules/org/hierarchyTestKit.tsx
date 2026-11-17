@@ -54,7 +54,7 @@ export const draftNodes = [node("le1", null, 0, "legal_entity"), node("ou-a", "l
 export const first = [node("le1", null, 0, "legal_entity"), node("ou-a", "le1", 1), node("ou-b", "le1", 2)];
 
 export const defaultRoutes: Record<string, Reply> = {
-  "GET /legal-entities": () => json({ items: [{ id: "le1", code: "PI", name: "Passage Inc", status: "active" }] }),
+  "GET /legal-entities": () => json({ items: [{ id: "le1", code: "PI", name: "Depot Inc", status: "active" }] }),
   "GET /operating-units": () =>
     json({
       items: [

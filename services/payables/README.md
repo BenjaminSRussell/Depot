@@ -31,7 +31,7 @@ DATABASE_URL=postgres://... go run ./cmd/payables
 | `AP_CONTROL_ACCOUNT` | control account of the aging reconciliation, default `2000` (payment runs use their posting profile) |
 | `PAYABLES_POSTING_PROFILES` / `PAYABLES_POSTING_PROFILES_FILE` | JSON map legal entity id to `{ledgerId, bankAccount, controlAccount, discountAccount, file}` where `file` holds the paying side of the pain.001 (debtor, debtorAccount, debtorBic, profile). The mounted file wins over the variable and unknown fields are rejected at startup; a legal entity without a profile cannot run payments (422) |
 | `FIELDCRYPT_KEYS_FILE` / `FIELDCRYPT_KEYS`, `FIELDCRYPT_CURRENT_KEY_ID` | `id=base64(32 bytes)` lines (a mounted secret) and the key id new values use; old ids stay in the file so rotation keeps old values readable. The mounted file wins over `FIELDCRYPT_KEYS`. Without keys a proposal carrying bank details, and a run start, are a 503 |
-| `PASSAGE_SERVICE_NAME`, `PASSAGE_SERVICE_SIGNING_KEY_FILE`, `PASSAGE_SERVICE_PUBLIC_KEYS` | service identity (#303): payables signs its ledger calls (reads and the journal post) and verifies the workflow's token (`workflow-ts=<base64 public key>`) |
+| `DEPOT_SERVICE_NAME`, `DEPOT_SERVICE_SIGNING_KEY_FILE`, `DEPOT_SERVICE_PUBLIC_KEYS` | service identity (#303): payables signs its ledger calls (reads and the journal post) and verifies the workflow's token (`workflow-ts=<base64 public key>`) |
 
 ## API
 
@@ -45,12 +45,12 @@ The preview settles one credit against open invoices per PRD FR-19.2: priority o
 
 ## Payment status for suppliers (#511)
 
-`GET /v1/payables/vendor/payments` (service-only duty `payables.vendor-portal.read`, granted to the `supplier-portal` service; list its public key in `PASSAGE_SERVICE_PUBLIC_KEYS` as `supplier-portal=...`) lists the verified vendor's invoices, newest first, with `status` (`OPEN`, `SCHEDULED` while an approved or running payment proposal holds the item, `PARTIALLY_PAID`, `PAID`, `CANCELLED`), `amount`, `paidAmount`, `openAmount`, `dueDate`, `scheduledFor` (the proposal's run date) and `paidAt` (the run's settlement date, else the last settlement). Query: `status`, `limit` (1 to 200, default 50), `cursor`. The vendor is the token's (`Principal.VendorID`); a caller that is not the supplier portal acting for a vendor is 403 `PAY-VND-001`, and a `vendorId` query is ignored. A payment hold, a vendor block, the proposal and the bank details are not shown (a held item reads `OPEN`). `invoiceId` is the id of the receiving invoice, so it matches `invoiceId` of an invoice submission.
+`GET /v1/payables/vendor/payments` (service-only duty `payables.vendor-portal.read`, granted to the `supplier-portal` service; list its public key in `DEPOT_SERVICE_PUBLIC_KEYS` as `supplier-portal=...`) lists the verified vendor's invoices, newest first, with `status` (`OPEN`, `SCHEDULED` while an approved or running payment proposal holds the item, `PARTIALLY_PAID`, `PAID`, `CANCELLED`), `amount`, `paidAmount`, `openAmount`, `dueDate`, `scheduledFor` (the proposal's run date) and `paidAt` (the run's settlement date, else the last settlement). Query: `status`, `limit` (1 to 200, default 50), `cursor`. The vendor is the token's (`Principal.VendorID`); a caller that is not the supplier portal acting for a vendor is 403 `PAY-VND-001`, and a `vendorId` query is ignored. A payment hold, a vendor block, the proposal and the bank details are not shown (a held item reads `OPEN`). `invoiceId` is the id of the receiving invoice, so it matches `invoiceId` of an invoice submission.
 
 ## Vendor invoices received electronically (#35, 35-4)
 
 `POST /v1/payables/vendor-invoice-intake` (service-only duty `payables.vendor-invoice.intake`, granted to `edi`; list edi's public
-key in `PASSAGE_SERVICE_PUBLIC_KEYS` as `edi=...`) stores a vendor invoice a procurement network sent as a cXML InvoiceDetailRequest:
+key in `DEPOT_SERVICE_PUBLIC_KEYS` as `edi=...`) stores a vendor invoice a procurement network sent as a cXML InvoiceDetailRequest:
 vendor (from the purchase order the invoice names), invoice number and date, purpose, purchase order, currency, lines as sent, net
 (the lines) and gross. Nothing is posted to the ledger and no open item is created: an AP clerk reads the intake
 (`GET /v1/payables/vendor-invoice-intake[/{id}]`, duty `open-item.read`), matches it to receipt lines and posts it in receiving,
@@ -64,7 +64,7 @@ reason. A decision is final (409 `AP-VII-003`), the same call again replays. `GE
 screen is `/ap-invoices/intake`. A vendor's X12 810 arrives as source `X12_810` through edi's vendor route.
 
 `payables consume` (chart `consumer.*`, off by default, #40) reads intercompany's `chargeinvoice.requested` (topic
-`passage.interco.chargeinvoice`, KafkaUser `deploy/kafka/payables-consumer.yaml`, dead-letter topic `passage.payables.iccharge.dlq`)
+`depot.interco.chargeinvoice`, KafkaUser `deploy/kafka/payables-consumer.yaml`, dead-letter topic `depot.payables.iccharge.dlq`)
 and takes the borrower's vendor invoice into the same intake (source `INTERCOMPANY`): the borrower's legal entity, the pairing's
 vendor account, invoice number `IC-<source id>-v<version>`, the charge's price as net and price plus the cross-border tax as gross.
 It runs as the service principal `payables-iccharge` (flag duty `payables.iccharge.from-event`); a redelivery is a no-op.
@@ -90,7 +90,7 @@ It runs as the service principal `payables-iccharge` (flag duty `payables.icchar
 | AP-RUN-013 | 422 | the run cannot be built: no posting profile for the legal entity, a group is not TRANSFER or WIRE or not in the legal-entity currency, a vendor has no approved bank details, a discount has no discount account, or the profile's ledger belongs to another legal entity |
 | AP-RUN-014 | 422 | the ledger rejected the payment journal (4xx); a ledger 5xx is 502 and retryable |
 | AP-RUN-015 | 409 | an open item changed between approval and the file or settlement step; nothing was built or settled (after the journal posted it also raises `payables_payment_run_stuck_total`) |
-| AP-RUN-016 | 403 | a payment run needs an identified user (`X-Passage-User` or a service token's `act`); an application code so the workflow treats it as terminal, not as an auth fault |
+| AP-RUN-016 | 403 | a payment run needs an identified user (`X-Depot-User` or a service token's `act`); an application code so the workflow treats it as terminal, not as an auth fault |
 | AP-PRP-005 | 422 | no open items are due; nothing is stored |
 | AP-PRP-006 | 422 | unknown withholding code for the legal entity, or the tax service refused the calculation |
 | AP-RUN-017 | 422 | vendor bank details from party unusable: unknown vendor, no or several accounts in the currency, no holder or country |
@@ -132,7 +132,7 @@ Configuration: `AP_CONTROL_ACCOUNT` (default `2000`) and `LEDGER_URL` (unset: re
 
 `GET /v1/payables/open-items` and `GET /v1/payables/open-items/{id}` (duty `open-item.read`) read the open-item store. The list filters by `vendor`, `due_from`, `due_to`, `currency` and `status`, is ordered by due date then id and pages with `limit` (1 to 200, default 50) and the opaque `cursor` returned as `nextCursor`. Every request names its legal entity (`legal_entity` or the caller's single legal-entity scope); an unscoped caller without `legal_entity` gets 400, and an entity outside the caller's scope gets 403. With `value_in=USD` each item carries a `valuation` (open amount times the spot rate of today, rounded to the currency's minor unit).
 
-Rates come from `GET /v1/fx/rates` of the fx service (`internal/fx`, same adapter shape as `internal/ledger`). With a service signing key (`PASSAGE_SERVICE_SIGNING_KEY[_FILE]`) the call carries a signed service token holding only `fx.rate.lookup` for the request's legal entity, so the caller needs no fx duty (#305); without a key it forwards the caller's headers and the caller needs `fx.rate.view`. A pair without a rate is a 422 (`PAY-0002`), a caller fx refuses is a 403, anything else is a 502.
+Rates come from `GET /v1/fx/rates` of the fx service (`internal/fx`, same adapter shape as `internal/ledger`). With a service signing key (`DEPOT_SERVICE_SIGNING_KEY[_FILE]`) the call carries a signed service token holding only `fx.rate.lookup` for the request's legal entity, so the caller needs no fx duty (#305); without a key it forwards the caller's headers and the caller needs `fx.rate.view`. A pair without a rate is a 422 (`PAY-0002`), a caller fx refuses is a 403, anything else is a 502.
 
 `POST /v1/payables/payment-proposals` (duty `payment-proposal.write`) builds a payment proposal for a legal entity:
 
@@ -176,7 +176,7 @@ A proposal carries `paymentRunId` once a run starts from it (derived from `ap_pa
 
 Remittance advice (#528): `GET /v1/payables/payment-runs/{id}/remittances/{vendorId}` (duty `payment-run.read`) lists, for a COMPLETED run, each payment to the vendor and the invoices it settled (invoice number and date, open amount, discount taken, tax withheld, amount paid); the lines of a payment add up to its amount. It carries no bank details. A run that is not completed is a 409 `AP-RUN-018`, a vendor the run did not pay a 404. `?format=csv` answers the same as a CSV download (formula-like cells prefixed with an apostrophe). This service renders no PDF: the web app builds one per payment from the JSON and sends it to the print service's `POST /print/v1/documents:render` as document type `REMITTANCE_ADVICE`. The print service accepts purchase orders, customer invoices and packing slips only, so that call is refused with `PRN-0008` until the print service adds the type; the CSV does not depend on it.
 
-Each step locks the run row, so concurrent duplicates serialise; a step already done returns the run unchanged. Steps must run in order (409 `AP-RUN-012`). The workflow retries `generate-file` five times and then fails the run; `post-journal`, `settle` and `complete` retry for 24 hours while the failure is retryable (a payables 401 or authorization 403 is retryable, a business 403 is not). When those retries end after the journal was requested the workflow counts `passage_payment_run_stuck` (Temporal SDK metric) and fails visibly. The workflow authenticates with a short-lived Ed25519 service token (#303) whose only duty is `payment-run.execute` and whose actor is the user who started the run.
+Each step locks the run row, so concurrent duplicates serialise; a step already done returns the run unchanged. Steps must run in order (409 `AP-RUN-012`). The workflow retries `generate-file` five times and then fails the run; `post-journal`, `settle` and `complete` retry for 24 hours while the failure is retryable (a payables 401 or authorization 403 is retryable, a business 403 is not). When those retries end after the journal was requested the workflow counts `depot_payment_run_stuck` (Temporal SDK metric) and fails visibly. The workflow authenticates with a short-lived Ed25519 service token (#303) whose only duty is `payment-run.execute` and whose actor is the user who started the run.
 
 Metrics: `payables_payment_runs_total{outcome}` (started, replayed, completed, failed), `payables_payment_run_ledger_faults_total`, `payables_payment_file_reads_total` and `payables_payment_run_stuck_total`.
 

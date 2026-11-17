@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/store"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/store"
 )
 
 type realignFake struct {

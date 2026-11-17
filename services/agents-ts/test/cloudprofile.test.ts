@@ -40,7 +40,7 @@ describe("cloud profile table (#599)", () => {
   it("parses selectors and rejects unknown profiles instead of widening", () => {
     expect(parseSelector("gcc+hipaa")).toEqual(["gcc", ["hipaa"]]);
     expect(parseSelector(undefined)).toEqual(["commercial", []]);
-    expect(() => profileFromEnv({ PASSAGE_CLOUD_PROFILE: "azure-stack" })).toThrow(/unknown cloud profile/);
+    expect(() => profileFromEnv({ DEPOT_CLOUD_PROFILE: "azure-stack" })).toThrow(/unknown cloud profile/);
     expect(() => resolveProfile("gcc", ["eu-data-boundary"])).toThrow(/cannot be combined/);
   });
 
@@ -52,7 +52,7 @@ describe("cloud profile table (#599)", () => {
 });
 
 describe("provider egress under a cloud profile (#601)", () => {
-  const gcc = { PASSAGE_CLOUD_PROFILE: "gcc" };
+  const gcc = { DEPOT_CLOUD_PROFILE: "gcc" };
 
   it("refuses endpoints outside the gcc allowlist", () => {
     expect(() => assertProviderEndpoint("https://api.anthropic.com", { env: gcc })).toThrow(EgressDenied);
@@ -68,7 +68,7 @@ describe("provider egress under a cloud profile (#601)", () => {
 
   it("leaves a commercial deployment unrestricted", () => {
     expect(() => assertProviderEndpoint("https://api.anthropic.com", { env: {} })).not.toThrow();
-    expect(() => assertProviderEndpoint("https://api.anthropic.com", { env: { PASSAGE_CLOUD_PROFILE: "commercial" } })).not.toThrow();
+    expect(() => assertProviderEndpoint("https://api.anthropic.com", { env: { DEPOT_CLOUD_PROFILE: "commercial" } })).not.toThrow();
   });
 
   it("applies when a provider adapter is built, before any request", () => {

@@ -2,7 +2,7 @@ package domain
 
 import "time"
 
-// Break-glass for ops.failover.execute (PSG-50, FR-48.23 pattern). An operator who does not hold the duty opens a
+// Break-glass for ops.failover.execute (DPT-50, FR-48.23 pattern). An operator who does not hold the duty opens a
 // time-boxed window for themselves with a reason code and a ticket; while it lasts the failover routes accept them, every
 // use is logged, and another operator reviews the window afterwards.
 const (

@@ -1,13 +1,13 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Costing Events
+  title: Depot Costing Events
   version: 0.5.0
   description: >-
-    Costing publishes dev.passage.costing.cost.changed.v1 when a STANDARD costing
+    Costing publishes dev.depot.costing.cost.changed.v1 when a STANDARD costing
     version is activated (one event per product x site) or a manual on-hand
     adjustment of the primary valuation changes the unit cost of positive stock,
-    dev.passage.costing.agingsnapshot.created.v1 when a month-end aging snapshot is
-    stored, and dev.passage.costing.reconciliation.diff.v1 for every differing group
+    dev.depot.costing.agingsnapshot.created.v1 when a month-end aging snapshot is
+    stored, and dev.depot.costing.reconciliation.diff.v1 for every differing group
     of a stored reconciliation run. All are written to the outbox in the same
     transaction as the change and relayed by Debezium (CloudEvents 1.0 envelope with
     tenantid); an idempotent replay emits nothing. Settlement, ledger, aging and
@@ -17,19 +17,19 @@ info:
 defaultContentType: application/json
 channels:
   cost:
-    address: passage.costing.cost
+    address: depot.costing.cost
     description: Standard cost changes per product x site; the Kafka key is "<productId>|<siteId>".
     messages:
       costChanged:
         $ref: "#/components/messages/CostChanged"
   reconciliation:
-    address: passage.costing.reconciliation
+    address: depot.costing.reconciliation
     description: Inventory-to-GL differences of stored reconciliation runs (alerting); the Kafka key is the legal entity id.
     messages:
       reconciliationDiff:
         $ref: "#/components/messages/ReconciliationDiff"
   agingSnapshot:
-    address: passage.costing.agingsnapshot
+    address: depot.costing.agingsnapshot
     description: Stored month-end aging snapshots (Debezium outbox router topic).
     messages:
       agingSnapshotCreated:
@@ -59,7 +59,7 @@ operations:
 components:
   messages:
     ReconciliationDiff:
-      name: dev.passage.costing.reconciliation.diff.v1
+      name: dev.depot.costing.reconciliation.diff.v1
       contentType: application/cloudevents+json
       summary: >-
         One group of a stored reconciliation run whose inventory value differs from the ledger
@@ -80,11 +80,11 @@ components:
           ledgerBalance: { type: string, description: Decimal string. }
           diff: { type: string, description: "Decimal string; inventoryValue - ledgerBalance, never zero." }
     AgingSnapshotCreated:
-      name: dev.passage.costing.agingsnapshot.created.v1
+      name: dev.depot.costing.agingsnapshot.created.v1
       contentType: application/cloudevents+json
       summary: >-
         A month-end aging snapshot was stored (analytics, wave 14 close checklist). The
-        PRD's dev.passage.costing.aging.snapshot.created.v1 has one segment too many for
+        PRD's dev.depot.costing.aging.snapshot.created.v1 has one segment too many for
         the kernel type pattern, so the entity is the single token "agingsnapshot". The
         CloudEvents subject is the snapshot id; the Kafka key is the legal entity id.
       payload:
@@ -110,7 +110,7 @@ components:
           totalQty: { type: string, description: Decimal string. }
           totalValue: { type: string, description: "Decimal string; the sum of the bucket values." }
     CostChanged:
-      name: dev.passage.costing.cost.changed.v1
+      name: dev.depot.costing.cost.changed.v1
       contentType: application/cloudevents+json
       summary: >-
         Consumers (inventory cost price cache, planning, product costing) refresh the product x site
@@ -134,6 +134,6 @@ components:
           onHandQty: { type: string, description: Decimal string; the physical on-hand the activation or adjustment revalued. }
           revaluationAmount: { type: string, description: "Decimal string at the currency's minor unit: (new − old) × on-hand, or new × on-hand − book value for a first standard; for an adjustment, its delta." }
 x-planned-events:
-  - dev.passage.costing.close.completed.v1
-  - dev.passage.costing.close.cancelled.v1
-  - dev.passage.costing.close.failed.v1
+  - dev.depot.costing.close.completed.v1
+  - dev.depot.costing.close.cancelled.v1
+  - dev.depot.costing.close.failed.v1

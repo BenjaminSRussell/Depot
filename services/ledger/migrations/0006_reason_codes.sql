@@ -19,15 +19,15 @@ CREATE TABLE IF NOT EXISTS reason_code (
 ALTER TABLE reason_code ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reason_code FORCE ROW LEVEL SECURITY;
 CREATE POLICY reason_code_tenant_access ON reason_code AS PERMISSIVE
-    USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+    USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- The app role needs the catalogue (0005_grants.sql cannot cover a table created here).
 -- Skipped when the role does not exist, as in 0005_grants.sql.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON reason_code TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON reason_code TO depot_app';
   END IF;
 END
 $$;

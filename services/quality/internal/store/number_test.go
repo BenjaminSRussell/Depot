@@ -8,10 +8,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/quality/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/quality/migrations"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/quality/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/quality/migrations"
 )
 
 // Every quality order gets the next QO number of its tenant on insert (migration

@@ -1,29 +1,29 @@
-# Part 13 — Coverage Inventory: SAP ECC 6.0 / S/4HANA → Passage
+# Part 13 — Coverage Inventory: SAP ECC 6.0 / S/4HANA → Depot
 
-This part is the completeness oracle for the SAP side of the parity goal (PRD §2 goal 1, §5 scope map). It inventories SAP ECC 6.0 and S/4HANA functionality module by module — by transaction code and by IMG (SPRO) node — and maps every row to one of the 50 Passage waves in [roadmap/waves.json](../../roadmap/waves.json). Its purpose is to make "we missed something" a question that can be answered by grep rather than by fear. The companion inventory for Dynamics AX / D365 F&SCM is Part 12.
+This part is the completeness oracle for the SAP side of the parity goal (PRD §2 goal 1, §5 scope map). It inventories SAP ECC 6.0 and S/4HANA functionality module by module — by transaction code and by IMG (SPRO) node — and maps every row to one of the 50 Depot waves in [roadmap/waves.json](../../roadmap/waves.json). Its purpose is to make "we missed something" a question that can be answered by grep rather than by fear. The companion inventory for Dynamics AX / D365 F&SCM is Part 12.
 
 ## 13.0 How to read this inventory
 
 Each SAP application component gets one section with four tables:
 
-1. **Master data & documents** — the create/change/display transactions and the documents they produce (`T-code | Name | Purpose | Passage status | Wave | Notes`).
-2. **Reports & inquiries** — standard list, line-item and analysis reports (`T-code | Name | Passage status | Wave | Notes`).
-3. **Periodic processing** — closing, batch and mass-processing transactions (`T-code | Name | Passage status | Wave | Notes`).
-4. **Customizing (SPRO)** — the IMG nodes, their customizing tables and the key options Passage must offer an equivalent for (`IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes`).
+1. **Master data & documents** — the create/change/display transactions and the documents they produce (`T-code | Name | Purpose | Depot status | Wave | Notes`).
+2. **Reports & inquiries** — standard list, line-item and analysis reports (`T-code | Name | Depot status | Wave | Notes`).
+3. **Periodic processing** — closing, batch and mass-processing transactions (`T-code | Name | Depot status | Wave | Notes`).
+4. **Customizing (SPRO)** — the IMG nodes, their customizing tables and the key options Depot must offer an equivalent for (`IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes`).
 
-**Status legend** (exactly one token per row, always in the "Passage status" column):
+**Status legend** (exactly one token per row, always in the "Depot status" column):
 
 - `COVERED-<wave>` — the wave's `deliverable`/`proof` in waves.json clearly includes an equivalent. The wave column repeats the number.
 - `PARTIAL-<wave>` — the wave covers the core but the Notes column names what is missing. Every PARTIAL row is repeated in the gap register (§13.99).
 - `GAP` — no wave clearly covers the item. The wave column holds a *proposed* assignment (`propose <n>`); the gap register collects them for a roadmap decision.
 - `OUT-OF-SCOPE` — excluded by a PRD non-goal (§2) or by the manufacturer focus; the reason is in Notes.
-- `SUPERSEDED-<wave>` — Passage deliberately does it a different way; the Notes column names the Passage mechanism. A SUPERSEDED row is **not** a gap: the SAP transaction has no one-to-one twin because the underlying mechanism (e.g. the condition technique's separate rebate module, SAP GUI, ABAP enhancement spots) is replaced by something structurally different.
+- `SUPERSEDED-<wave>` — Depot deliberately does it a different way; the Notes column names the Depot mechanism. A SUPERSEDED row is **not** a gap: the SAP transaction has no one-to-one twin because the underlying mechanism (e.g. the condition technique's separate rebate module, SAP GUI, ABAP enhancement spots) is replaced by something structurally different.
 
 Conventions:
 
 - T-codes are given in their ECC 6.0 form; where S/4HANA replaced a transaction with a Fiori app or a new transaction, both are named (e.g. `FD32 → UKM_BP`, `VBO1 → WCOCO`). Fiori apps are cited by name, not by app number.
 - "Wave" refers to the `n` in waves.json. Phase-exit waves (5, 10, 15, 20, 25, 30, 35, 40, 45, 50) are the sign-off points at which a module's rows must be demonstrably closed.
-- IMG rows name the customizing table where it is well known (T001, T001B, T030, T156, T161, T685, TVAK…). Passage stores all customizing as metadata-registry configuration (wave 3) scoped per tenant / legal entity (wave 6); the "Key options" column lists the switches Passage must expose, not every SAP field.
+- IMG rows name the customizing table where it is well known (T001, T001B, T030, T156, T161, T685, TVAK…). Depot stores all customizing as metadata-registry configuration (wave 3) scoped per tenant / legal entity (wave 6); the "Key options" column lists the switches Depot must expose, not every SAP field.
 - Rows are intentionally granular (a create/change/display triple is one row; a report family such as `S_ALR_87012*` is one row per distinct report, not one row per variant).
 - Where SAP offers both an ECC transaction and a New GL / S/4 successor, the successor is inventoried and the predecessor noted, so classic GL (`GLT0`-based) transactions appear once under the FI-GL section.
 
@@ -42,11 +42,11 @@ A per-section roll-up of the same counts is in §13.98 and the gap register (eve
 
 ## 13.1 FI-GL — General Ledger (classic GL, New GL, ledgers, ACDOCA)
 
-SAP context: FI-GL in ECC 6.0 runs either classic GL (`GLT0` totals, special-purpose ledgers) or New GL (`FAGLFLEXT`, document splitting, parallel ledgers). S/4HANA collapses FI and CO totals into the universal journal `ACDOCA` (one line item table; CO objects and ledgers as columns). Passage's wave 11 universal journal is built on the S/4 model: one append-only line-item store, balances as projections, dimensions as columns, parallel ledgers via ledger groups (wave 12).
+SAP context: FI-GL in ECC 6.0 runs either classic GL (`GLT0` totals, special-purpose ledgers) or New GL (`FAGLFLEXT`, document splitting, parallel ledgers). S/4HANA collapses FI and CO totals into the universal journal `ACDOCA` (one line item table; CO objects and ledgers as columns). Depot's wave 11 universal journal is built on the S/4 model: one append-only line-item store, balances as projections, dimensions as columns, parallel ledgers via ledger groups (wave 12).
 
 ### 13.1.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | FS00 | G/L account master (centrally) | Create/change/display chart-of-accounts and company-code segment of a G/L account | COVERED-11 | 11 | Account entity with per-legal-entity attributes (currency, open-item flag, posting block, tax category, field status) |
 | FSP0 | G/L account in chart of accounts | Chart segment only | COVERED-11 | 11 | Same entity; chart-level vs entity-level attributes split in metadata |
@@ -88,7 +88,7 @@ SAP context: FI-GL in ECC 6.0 runs either classic GL (`GLT0` totals, special-pur
 
 ### 13.1.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | FBL3N | G/L account line items (classic) | COVERED-11 | 11 | Journal line inquiry with saved views, grid, export |
 | FAGLL03 | G/L account line items (New GL, ledger-aware) | COVERED-12 | 12 | Ledger filter on the same inquiry |
@@ -135,7 +135,7 @@ SAP context: FI-GL in ECC 6.0 runs either classic GL (`GLT0` totals, special-pur
 
 ### 13.1.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | OB52 (operational use) | Open/close posting periods | COVERED-14 | 14 | Period control per ledger × module × user group |
 | FAGL_FC_VAL / F.05 (classic) | Foreign currency valuation (GL, AP, AR open items) | COVERED-12 | 12 | Revaluation job with next-period reversal |
@@ -165,7 +165,7 @@ SAP context: FI-GL in ECC 6.0 runs either classic GL (`GLT0` totals, special-pur
 
 ### 13.1.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OX02 — Company code | T001 | Country, currency, language, fiscal year variant, chart of accounts | COVERED-6 | 6 | LegalEntity entity |
 | OBY6 — Company code global parameters | T001 | FYV, posting period variant, field status variant, negative postings, business area FS, tax base net/gross, cash management active | COVERED-11 | 11 | LegalEntity accounting settings |
@@ -232,11 +232,11 @@ SAP context: FI-GL in ECC 6.0 runs either classic GL (`GLT0` totals, special-pur
 
 ## 13.2 FI-AP — Accounts Payable
 
-SAP context: vendor master (LFA1/LFB1/LFM1, replaced by Business Partner with FLVN00/FLVN01 roles in S/4), invoices and credit memos (FB60/FB65 or MIRO for PO-based), open items (BSIK/BSAK), payment program F110, dunning (rare for AP), down payments, withholding tax. Passage maps vendor master to wave 7 (party model), non-PO invoices to wave 18 (capture) and open items/payments to wave 19.
+SAP context: vendor master (LFA1/LFB1/LFM1, replaced by Business Partner with FLVN00/FLVN01 roles in S/4), invoices and credit memos (FB60/FB65 or MIRO for PO-based), open items (BSIK/BSAK), payment program F110, dunning (rare for AP), down payments, withholding tax. Depot maps vendor master to wave 7 (party model), non-PO invoices to wave 18 (capture) and open items/payments to wave 19.
 
 ### 13.2.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | XK01 / XK02 / XK03 (→ BP) | Vendor master create/change/display centrally | General, company-code and purchasing data | COVERED-7 | 7 | Party + Vendor role + per-legal-entity and per-purchasing-org data |
 | FK01 / FK02 / FK03 | Vendor master (accounting) | Company-code segment only | COVERED-7 | 7 | Vendor role, legal-entity scope |
@@ -278,7 +278,7 @@ SAP context: vendor master (LFA1/LFB1/LFM1, replaced by Business Partner with FL
 
 ### 13.2.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | FBL1N / FBL1H | Vendor line items / line item browser | COVERED-19 | 19 | Vendor open/cleared item inquiry |
 | FK10N / FK10NA | Vendor balance display | COVERED-19 | 19 | Vendor balance with drill |
@@ -309,7 +309,7 @@ SAP context: vendor master (LFA1/LFB1/LFM1, replaced by Business Partner with FL
 
 ### 13.2.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | F110 | Automatic payment program (proposal, edit, schedule, print) | COVERED-19 | 19 | Payment proposal → approval → run → media; idempotent |
 | F110S | Payment program scheduled (batch variant) | COVERED-19 | 19 | Scheduled via wave 4 jobs |
@@ -335,7 +335,7 @@ SAP context: vendor master (LFA1/LFB1/LFM1, replaced by Business Partner with FL
 
 ### 13.2.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OBD3 — Vendor account groups / field status | T077K | Number range, one-time, field status | COVERED-7 | 7 | — |
 | XKN1 / OBAS — Number ranges for vendor accounts / assign | NRIV, T077K | Internal/external | COVERED-5 | 5 | — |
@@ -370,11 +370,11 @@ SAP context: vendor master (LFA1/LFB1/LFM1, replaced by Business Partner with FL
 
 ## 13.3 FI-AR — Accounts Receivable
 
-SAP context: customer master (KNA1/KNB1/KNVV → BP roles FLCU00/FLCU01), customer invoices via SD billing (VF01 → RV document) or FB70, incoming payments (F-28), lockbox (FLB2), dunning (F150), correspondence, interest calculation, credit management (classic FD32 or FSCM-CR). Passage: customer master wave 7, billing wave 29, AR/cash application/collections wave 30, credit wave 27.
+SAP context: customer master (KNA1/KNB1/KNVV → BP roles FLCU00/FLCU01), customer invoices via SD billing (VF01 → RV document) or FB70, incoming payments (F-28), lockbox (FLB2), dunning (F150), correspondence, interest calculation, credit management (classic FD32 or FSCM-CR). Depot: customer master wave 7, billing wave 29, AR/cash application/collections wave 30, credit wave 27.
 
 ### 13.3.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | XD01 / XD02 / XD03 (→ BP) | Customer master centrally | General, company-code, sales-area data | COVERED-7 | 7 | Party + Customer role + sales-scope data |
 | FD01 / FD02 / FD03 | Customer master (accounting) | Company-code segment | COVERED-7 | 7 | — |
@@ -413,7 +413,7 @@ SAP context: customer master (KNA1/KNB1/KNVV → BP roles FLCU00/FLCU01), custom
 
 ### 13.3.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | FBL5N / FBL5H | Customer line items / browser | COVERED-30 | 30 | — |
 | FD10N / FD10NA | Customer balance display | COVERED-30 | 30 | — |
@@ -451,7 +451,7 @@ SAP context: customer master (KNA1/KNB1/KNVV → BP roles FLCU00/FLCU01), custom
 
 ### 13.3.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | F150 | Dunning run (parameters, schedule, print) | COVERED-30 | 30 | Dunning levels, grace days, blocks; letters only for expected customers |
 | F.24 / F.26 / F.2A / F.2B | Interest calculation (items / balances) | COVERED-30 | 30 | Interest notes |
@@ -475,7 +475,7 @@ SAP context: customer master (KNA1/KNB1/KNVV → BP roles FLCU00/FLCU01), custom
 
 ### 13.3.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OBD2 — Customer account groups / field status | T077D | — | COVERED-7 | 7 | — |
 | XDN1 / OBAR — Number ranges customers / assign | NRIV, T077D | — | COVERED-5 | 5 | — |
@@ -509,11 +509,11 @@ SAP context: customer master (KNA1/KNB1/KNVV → BP roles FLCU00/FLCU01), custom
 
 ## 13.4 FI-AA — Asset Accounting
 
-SAP context: asset classes, charts of depreciation with depreciation areas (book, tax, group, IFRS), asset master (ANLA/ANLB/ANLC), transactions (acquisition ABZON/F-90, retirement ABAVN/F-92, transfer ABUMN, post-capitalization ABNAN, write-up ABZU, manual depreciation ABMA, unplanned ABAA), depreciation run AFAB (S/4: FAA_DEPRECIATION_POST), year-end AJAB/AJRW (S/4: FAA_CMP), AuC settlement AIAB/AIBU, asset history sheet. Passage: wave 37 with books ≈ depreciation areas and posting to the universal journal per ledger group.
+SAP context: asset classes, charts of depreciation with depreciation areas (book, tax, group, IFRS), asset master (ANLA/ANLB/ANLC), transactions (acquisition ABZON/F-90, retirement ABAVN/F-92, transfer ABUMN, post-capitalization ABNAN, write-up ABZU, manual depreciation ABMA, unplanned ABAA), depreciation run AFAB (S/4: FAA_DEPRECIATION_POST), year-end AJAB/AJRW (S/4: FAA_CMP), AuC settlement AIAB/AIBU, asset history sheet. Depot: wave 37 with books ≈ depreciation areas and posting to the universal journal per ledger group.
 
 ### 13.4.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | AS01 / AS02 / AS03 | Asset master create/change/display | Asset with depreciation areas, time-dependent data, origin | COVERED-37 | 37 | Asset master with books |
 | AS11 / AS12 / AS13 | Asset sub-number create/change/display | Component sub-assets | COVERED-37 | 37 | Sub-assets / components |
@@ -551,7 +551,7 @@ SAP context: asset classes, charts of depreciation with depreciation areas (book
 
 ### 13.4.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | S_ALR_87011990 | Asset history sheet | COVERED-37 | 37 | Asset roll-forward by class/book |
 | S_ALR_87011963 / 87011964 / 87011965 / 87011966 | Asset balances by asset number / class / business area / cost center | COVERED-37 | 37 | — |
@@ -585,7 +585,7 @@ SAP context: asset classes, charts of depreciation with depreciation areas (book
 
 ### 13.4.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | AFAB / AFABN / FAA_DEPRECIATION_POST (S/4) | Depreciation posting run (planned, repeat, restart, unplanned) | COVERED-37 | 37 | Depreciation run per book with restart safety (Temporal) |
 | AFAR | Recalculate depreciation | COVERED-37 | 37 | Recalc after parameter change |
@@ -604,7 +604,7 @@ SAP context: asset classes, charts of depreciation with depreciation areas (book
 
 ### 13.4.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | EC08 / OAOB — Copy reference chart of depreciation / assign company code | T093C, T093 | — | COVERED-37 | 37 | Books template per country |
 | OADB / OABC / OABD — Depreciation areas: define, area type, transfer of APC/depreciation terms | T093, T093A | Real/derived area, posting to G/L (0/1/2/3/4), ledger group, currency, value takeover rules | COVERED-37 | 37 | Books (tax/IFRS/local) posting to ledger groups; derived books (delta) — treat as covered |
@@ -633,11 +633,11 @@ SAP context: asset classes, charts of depreciation with depreciation areas (book
 
 ## 13.5 FI-BL / FSCM-CM / BAM — Bank Accounting, Cash Management & Bank Account Management
 
-SAP context: house banks (FI12 → Bank Account Management in S/4 with workflow), electronic bank statement (FF_5/FEBA/FEBAN; S/4: Manage Bank Statements), manual statement (FF67), check deposit (FF68), cash position/liquidity forecast (FF7A/FF7B; S/4 Cash Management "One Exposure" FQM), memo records (FF63), bank communication management (BCM), in-house cash (IHC), cash journal. Passage: wave 36, with bank-side AR/AP matching in waves 19/30.
+SAP context: house banks (FI12 → Bank Account Management in S/4 with workflow), electronic bank statement (FF_5/FEBA/FEBAN; S/4: Manage Bank Statements), manual statement (FF67), check deposit (FF68), cash position/liquidity forecast (FF7A/FF7B; S/4 Cash Management "One Exposure" FQM), memo records (FF63), bank communication management (BCM), in-house cash (IHC), cash journal. Depot: wave 36, with bank-side AR/AP matching in waves 19/30.
 
 ### 13.5.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | FI01 / FI02 / FI03 / FI06 | Bank master (bank key) create/change/display/flag | Bank directory | COVERED-7 | 7 | Bank as party role; bank directory import (SWIFT/ABA) |
 | BAUP | Bank directory upload (file) | Mass bank key import | COVERED-7 | 7 | Import adapter |
@@ -666,7 +666,7 @@ SAP context: house banks (FI12 → Bank Account Management in S/4 with workflow)
 
 ### 13.5.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | FF7A | Cash position | COVERED-36 | 36 | — |
 | FF7B | Liquidity forecast | COVERED-36 | 36 | — |
@@ -684,7 +684,7 @@ SAP context: house banks (FI12 → Bank Account Management in S/4 with workflow)
 
 ### 13.5.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | FF_5 (scheduled) | Nightly statement import | COVERED-36 | 36 | Scheduled job |
 | FEBC / FEBP | Batch posting of statements | COVERED-36 | 36 | — |
@@ -701,7 +701,7 @@ SAP context: house banks (FI12 → Bank Account Management in S/4 with workflow)
 
 ### 13.5.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OBXK / FI12 — House banks, accounts, G/L accounts, bank sub-accounts (clearing per payment method) | T012, T012K, T012D | Sub-accounts per payment method (outgoing checks, transfers) | COVERED-36 | 36 | Bank sub-account posting profile |
 | OT83 / OT51 — Electronic bank statement: transaction types, external transaction codes, posting rules, account symbols, assign bank to transaction type | T028B, T028D, T028G, T033* | Posting rule (bank side / subledger side), interpretation algorithms (document number, reference, note-to-payee), BAI/MT940/camt format | COVERED-36 | 36 | Matching rules engine + posting rules |
@@ -721,11 +721,11 @@ SAP context: house banks (FI12 → Bank Account Management in S/4 with workflow)
 
 ## 13.6 FSCM — Credit, Collections, Dispute Management & Treasury (TRM)
 
-SAP context: FIN-FSCM-CR (credit management with scoring/BRF+), FIN-FSCM-COL (collections worklists, strategies), FIN-FSCM-DM (dispute cases on SAP Case Management), FIN-FSCM-BD (Biller Direct), FIN-FSCM-TRM (Treasury & Risk: transaction manager for money market/FX/derivatives/securities, market risk analyzer, hedge management, exposure management). Passage: credit wave 27, collections/disputes wave 30, cash/bank wave 36; TRM largely not covered.
+SAP context: FIN-FSCM-CR (credit management with scoring/BRF+), FIN-FSCM-COL (collections worklists, strategies), FIN-FSCM-DM (dispute cases on SAP Case Management), FIN-FSCM-BD (Biller Direct), FIN-FSCM-TRM (Treasury & Risk: transaction manager for money market/FX/derivatives/securities, market risk analyzer, hedge management, exposure management). Depot: credit wave 27, collections/disputes wave 30, cash/bank wave 36; TRM largely not covered.
 
 ### 13.6.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | UKM_BP | Credit management business partner (credit profile, segments, limits) | Credit master | COVERED-27 | 27 | Credit profile per customer/credit group |
 | UKM_CASE | Credit limit request / case | Workflow for limit increase | COVERED-7 | 7 | Credit limit change approval (wave 7 governance + wave 27) |
@@ -749,7 +749,7 @@ SAP context: FIN-FSCM-CR (credit management with scoring/BRF+), FIN-FSCM-COL (co
 
 ### 13.6.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | UKM_LOGS_DISPLAY | Credit check logs | COVERED-27 | 27 | — |
 | UKM_MALUS_DSP | Score/limit history | COVERED-30 | 30 | — |
@@ -764,7 +764,7 @@ SAP context: FIN-FSCM-CR (credit management with scoring/BRF+), FIN-FSCM-COL (co
 
 ### 13.6.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | UKM mass scoring / limit recalculation | Mass credit scoring | COVERED-30 | 30 | — |
 | UKM_TRANSFER_ITEMS | Transfer FI/SD liabilities to FSCM credit | SUPERSEDED-27 | 27 | Exposure computed from the journal/orders directly |
@@ -777,7 +777,7 @@ SAP context: FIN-FSCM-CR (credit management with scoring/BRF+), FIN-FSCM-COL (co
 
 ### 13.6.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | UKM: credit segments, risk classes, rules, formulas (BRF+), check rules, score ranges, blocking reasons | UKMCRED_SGM*, UKM_* | Static/dynamic checks, oldest open item, max dunning level, scoring formula, follow-on process | COVERED-27 | 27 | Credit rules + scoring |
 | UKM: integration (SD credit group, FI-AR liability update) | T691*, UKM_* | — | COVERED-27 | 27 | — |
@@ -792,11 +792,11 @@ SAP context: FIN-FSCM-CR (credit management with scoring/BRF+), FIN-FSCM-COL (co
 
 ## 13.7 CO-OM — Overhead Cost Controlling (cost centers, internal orders, activity types, allocations)
 
-SAP context: cost center accounting (CO-OM-CCA), internal orders (CO-OM-OPA), activity-based costing (CO-OM-ABC), cost element accounting (CO-OM-CEL; S/4 merges cost elements into G/L accounts FS00 type P/S). Planning (KP06/KP26), actual postings (KB11N/KB21N/KB31N), period-end allocations (KSV5/KSU5/KSC6), settlement (KO88), commitments. Passage: wave 38 cost accounting ledger with allocation policies; primary postings come straight from the universal journal (wave 11 dimension = cost center).
+SAP context: cost center accounting (CO-OM-CCA), internal orders (CO-OM-OPA), activity-based costing (CO-OM-ABC), cost element accounting (CO-OM-CEL; S/4 merges cost elements into G/L accounts FS00 type P/S). Planning (KP06/KP26), actual postings (KB11N/KB21N/KB31N), period-end allocations (KSV5/KSU5/KSC6), settlement (KO88), commitments. Depot: wave 38 cost accounting ledger with allocation policies; primary postings come straight from the universal journal (wave 11 dimension = cost center).
 
 ### 13.7.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | KS01 / KS02 / KS03 | Cost center create/change/display | Cost center master (validity, hierarchy, category, lock flags) | COVERED-6 | 6 | OperatingUnit (cost center) with effective dating; CO attributes in wave 38 |
 | KS04 / KS05 / KS13 | Delete / display changes / list | — | COVERED-6 | 6 | — |
@@ -840,7 +840,7 @@ SAP context: cost center accounting (CO-OM-CCA), internal orders (CO-OM-OPA), ac
 
 ### 13.7.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | S_ALR_87013611 | Cost centers: actual/plan/variance | COVERED-38 | 38 | Cost control workspace |
 | S_ALR_87013612 | Cost centers: range: actual/plan/variance | COVERED-38 | 38 | — |
@@ -872,7 +872,7 @@ SAP context: cost center accounting (CO-OM-CCA), internal orders (CO-OM-OPA), ac
 
 ### 13.7.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | KSV1 / KSV2 / KSV3 / KSV5 / KSV6 | Distribution cycle create/change/display/execute/overview (actual) | COVERED-38 | 38 | Allocation policies (distribution keeps primary cost element) |
 | KSU1 / KSU2 / KSU3 / KSU5 / KSU6 | Assessment cycle (actual) | COVERED-38 | 38 | Assessment (secondary cost element) |
@@ -899,7 +899,7 @@ SAP context: cost center accounting (CO-OM-CCA), internal orders (CO-OM-OPA), ac
 
 ### 13.7.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OKKP — Maintain controlling area (activation of components, currency, fiscal year variant, CoA) | TKA00, TKA01 | Cost centers, order management, commitments, ProfitAnalysis, PCA active; variance calculation | SUPERSEDED-6 | 6 | No controlling area; features switched per tenant/legal entity |
 | OX19 — Assign company codes to controlling area | TKA02 | 1:1 or cross-company | SUPERSEDED-6 | 6 | — |
@@ -909,7 +909,7 @@ SAP context: cost center accounting (CO-OM-CCA), internal orders (CO-OM-OPA), ac
 | OKEN / OKEON — Standard hierarchy | SETHEADER, SETNODE | — | COVERED-6 | 6 | — |
 | OKB2 / OKB3 / OKB9 — Cost element default (batch input), automatic account assignment | TKA3A | Default cost center per account/company code | COVERED-11 | 11 | Default dimensions per account |
 | Sender/receiver rules for cycles, allocation structures (OKO6), PA transfer structures (KEI1) | T811*, T811C, T811K | Segments, tracing factors (fixed %, portions, SKF, actual costs), iterative, cumulative | COVERED-38 | 38 | Allocation policies: fixed/basis/iterative |
-| OKO7 — Settlement profiles, allocation structures, source structures, PA transfer structure | TKB1, T811* | Receivers allowed (CTR, ORD, FXA, G/L, WBS, PSG), settlement cost elements, amount/percent/equivalence | COVERED-38 | 38 | Settlement rules |
+| OKO7 — Settlement profiles, allocation structures, source structures, PA transfer structure | TKB1, T811* | Receivers allowed (CTR, ORD, FXA, G/L, WBS, DPT), settlement cost elements, amount/percent/equivalence | COVERED-38 | 38 | Settlement rules |
 | KOT2_OPA / KOT2 — Order types (internal orders) | T003O | Order category, number range, settlement profile, planning profile, status profile, release immediately | COVERED-38 | 38 | Cost object types |
 | BS02 — Status profiles (user statuses, allowed transactions) | TJ30 | — | COVERED-4 | 4 | Workflow state machines per entity |
 | OKOB — Budget profiles, availability control tolerances | TBP* | Tolerance limits, actions (warning, mail, error), usage % | COVERED-38 | 38 | Budget check tolerances/overrides |
@@ -928,11 +928,11 @@ SAP context: cost center accounting (CO-OM-CCA), internal orders (CO-OM-OPA), ac
 
 ## 13.8 CO-PC — Product Cost Controlling (product cost planning, cost object controlling, material ledger)
 
-SAP context: CO-PC-PCP (cost estimates CK11N, costing runs CK40N, marking/releasing CK24, cost component split OKTZ, costing variants OKKN, costing sheets KZS2), CO-PC-OBJ (order-related: WIP KKAX, variances KKS1/KKS2, settlement CO88; product cost collectors KKF6N for REM; sales-order costing; results analysis KKA1-3), CO-PC-ACT (material ledger/actual costing CKMLCP, price change MR21, CKM3). Passage: wave 20 (valuation, material ledger, MR21), wave 21 (order costing, WIP, settlement), wave 39 (standard cost planning, roll-up, costing sheets, variances), wave 41 (results analysis for projects).
+SAP context: CO-PC-PCP (cost estimates CK11N, costing runs CK40N, marking/releasing CK24, cost component split OKTZ, costing variants OKKN, costing sheets KZS2), CO-PC-OBJ (order-related: WIP KKAX, variances KKS1/KKS2, settlement CO88; product cost collectors KKF6N for REM; sales-order costing; results analysis KKA1-3), CO-PC-ACT (material ledger/actual costing CKMLCP, price change MR21, CKM3). Depot: wave 20 (valuation, material ledger, MR21), wave 21 (order costing, WIP, settlement), wave 39 (standard cost planning, roll-up, costing sheets, variances), wave 41 (results analysis for projects).
 
 ### 13.8.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | CK11N / CK13N | Create / display material cost estimate with quantity structure | Standard cost estimate from BOM + routing | COVERED-39 | 39 | BOM calculation by costing version/site/qty |
 | CKUC | Multilevel unit costing (costing without quantity structure) | Manual cost estimate | COVERED-39 | 39 | Manual cost estimate lines (unit costing) |
@@ -964,7 +964,7 @@ SAP context: CO-PC-PCP (cost estimates CK11N, costing runs CK40N, marking/releas
 
 ### 13.8.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | CK84_99 | Itemization of cost estimates | COVERED-39 | 39 | Itemization view |
 | CK80_99 / CK86_99 / CK88_99 | Cost components / costed multilevel BOM / partner cost component split | COVERED-39 | 39 | Cost component split by level |
@@ -987,7 +987,7 @@ SAP context: CO-PC-PCP (cost estimates CK11N, costing runs CK40N, marking/releas
 
 ### 13.8.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | CK40N (periodic costing run) | Monthly/annual standard costing run | COVERED-39 | 39 | — |
 | CK24 (mass release) | Release standard prices | COVERED-39 | 39 | — |
@@ -1008,7 +1008,7 @@ SAP context: CO-PC-PCP (cost estimates CK11N, costing runs CK40N, marking/releas
 
 ### 13.8.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OKKN — Costing variants (costing type, valuation variant, date control, quantity structure control, transfer control) | TCK03, TCK05, TCK06, TCK07 | Valuation strategy for materials (plan price 1/2/3, std, MAP, PO price), activities (plan/actual rate), subcontracting, external processing; BOM/routing selection id; transfer existing estimates | COVERED-39 | 39 | Costing versions with fallback rules and explosion modes |
 | OKK4 — Valuation variants | TCK05 | Strategy sequences | COVERED-39 | 39 | — |
@@ -1025,7 +1025,7 @@ SAP context: CO-PC-PCP (cost estimates CK11N, costing runs CK40N, marking/releas
 | OKG1..OKG9 — Results analysis: RA keys, versions, methods (POC, revenue-based, cost-based), valuation methods, line IDs, assignment, update, posting rules | TKKA* | 15 RA methods, WIP/reserves categories | COVERED-41 | 41 | POC methods (project) + rev rec (wave 29) |
 | OKGC / OKGD — WIP calculation: RA keys for production orders | TKKA* | WIP at target vs actual | COVERED-21 | 21 | — |
 | OKV1 / OKVG / OKVW — Variance keys, variance variants, target cost versions | TKV01, TKV02, TKV03 | Variance categories (input price, input quantity, resource usage, remaining input, mixed price, output price, lot size, remaining); target cost version basis (current std, plan, alternative) | COVERED-39 | 39 | Variance decomposition categories (purchase price, production lot size/quantity/price/substitution) |
-| OKO7 — Settlement profiles / allocation structures for production orders | TKB1, T811* | Settlement to material (MAT), variance to PA (PSG) | COVERED-21 | 21 | — |
+| OKO7 — Settlement profiles / allocation structures for production orders | TKB1, T811* | Settlement to material (MAT), variance to PA (DPT) | COVERED-21 | 21 | — |
 | OPL8 (order-type parameters: costing variants plan/actual, RA key) — see PP | T399X | — | COVERED-21 | 21 | — |
 | KKF6N settings: REM profile cost collector | — | — | COVERED-24 | 24 | — |
 | Mixed costing: quantity structure types, procurement alternatives (OMXL) | CKMLMV* | — | PARTIAL-39 | 39 | Mixed costing gap |
@@ -1039,11 +1039,11 @@ SAP context: CO-PC-PCP (cost estimates CK11N, costing runs CK40N, marking/releas
 
 ## 13.9 CO-PA — Profitability Analysis (costing-based, account-based) and EC-PCA Profit Center Accounting
 
-SAP context: CO-PA with operating concern (KEA0), characteristics/value fields, derivation (KEDR), valuation (KE4I), actual postings from SD billing/FI, assessments (KEU5), top-down distribution (KE28), planning (KEPM), reports (KE30). S/4HANA favours account-based ("margin analysis") in ACDOCA with attributed profitability segments. EC-PCA: profit centers (KE51), PC hierarchy, transfer prices, PCA reports (S_ALR_87013326). Passage: profitability = dimensions on the universal journal (wave 11) + semantic layer (wave 46); PCA = profit center dimension + hierarchy (wave 6); allocations wave 38.
+SAP context: CO-PA with operating concern (KEA0), characteristics/value fields, derivation (KEDR), valuation (KE4I), actual postings from SD billing/FI, assessments (KEU5), top-down distribution (KE28), planning (KEPM), reports (KE30). S/4HANA favours account-based ("margin analysis") in ACDOCA with attributed profitability segments. EC-PCA: profit centers (KE51), PC hierarchy, transfer prices, PCA reports (S_ALR_87013326). Depot: profitability = dimensions on the universal journal (wave 11) + semantic layer (wave 46); PCA = profit center dimension + hierarchy (wave 6); allocations wave 38.
 
 ### 13.9.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | KEA0 / KEA5 / KEA6 | Maintain operating concern / characteristics / value fields | Define profitability dimensions | SUPERSEDED-11 | 11 | Profitability characteristics are financial dimensions (up to 20) on every journal line; value fields = accounts (account-based model) |
 | KEDR / KEDE | Derivation strategy / rules (derive characteristics) | Characteristic derivation | PARTIAL-11 | 11 | Default dimensions on master data exist; rule-based derivation tables (lookup A×B→C with validity) = substitution gap (see FI-GL) |
@@ -1067,7 +1067,7 @@ SAP context: CO-PA with operating concern (KEA0), characteristics/value fields, 
 
 ### 13.9.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | KE30 / KE31 / KE32 / KE33 | Execute / create / change / display profitability report (drill-down) | SUPERSEDED-46 | 46 | Semantic-layer explorer and report designer replace KE3x drill-down reports |
 | KE24 / KE25 | Line item display actual / plan | COVERED-11 | 11 | — |
@@ -1083,7 +1083,7 @@ SAP context: CO-PA with operating concern (KEA0), characteristics/value fields, 
 
 ### 13.9.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | KEU1 / KEU2 / KEU3 / KEU5 | CO-PA assessment cycles (cost centers → segments) | COVERED-38 | 38 | Allocation to profitability dimensions |
 | KE28 | Top-down distribution (actual) | PARTIAL-38 | 38 | Top-down distribution of aggregated values (e.g. freight by revenue share) to detailed segments not named — add as allocation type "top-down" |
@@ -1099,7 +1099,7 @@ SAP context: CO-PA with operating concern (KEA0), characteristics/value fields, 
 
 ### 13.9.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | KEA0 — Operating concern: attributes (currency, fiscal year), data structure, environment | TKEB, CE1xxxx..CE4xxxx | Costing-based vs account-based; company-code currency | SUPERSEDED-11 | 11 | Account-based margin analysis = universal journal dimensions |
 | KEKK — Assign controlling area to operating concern | TKA01 | — | SUPERSEDED-6 | 6 | — |
@@ -1121,16 +1121,16 @@ SAP context: CO-PA with operating concern (KEA0), characteristics/value fields, 
 
 ## 13.10 EC-CS / SEM-BCS / S/4HANA Group Reporting — Consolidation
 
-SAP context: EC-CS (ECC), SEM-BCS (BW-based), S/4HANA Finance for Group Reporting (consolidation units, data monitor, consolidation monitor, reclassifications, IC elimination, consolidation of investments, currency translation, group reports via Fiori/SAC). Passage: wave 40 (group structures, ownership %, eliminations, translation, minority interest, consolidated statements via wave 15).
+SAP context: EC-CS (ECC), SEM-BCS (BW-based), S/4HANA Finance for Group Reporting (consolidation units, data monitor, consolidation monitor, reclassifications, IC elimination, consolidation of investments, currency translation, group reports via Fiori/SAC). Depot: wave 40 (group structures, ownership %, eliminations, translation, minority interest, consolidated statements via wave 15).
 
 ### 13.10.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | CX1N (EC-CS) / Fiori: Manage Consolidation Units | Consolidation units, groups, versions | Group structure | COVERED-40 | 40 | Group structures, ownership % |
 | CX1X / Fiori: Manage Group Structure | Consolidation group hierarchy, periods of inclusion/divestiture | — | COVERED-40 | 40 | Ownership with effective dates |
 | CX5S / Fiori: Define FS Items / FS item hierarchies | Financial statement items, breakdown categories, sub-items | Group chart of accounts | COVERED-40 | 40 | Group account structure (wave 15 account structures) |
-| CXCD / Fiori: Data Monitor | Data collection: flexible upload, read from universal journal, manual journal | Data collection | COVERED-40 | 40 | Entity data from the journal; upload for non-Passage entities (wave 10 import) |
+| CXCD / Fiori: Data Monitor | Data collection: flexible upload, read from universal journal, manual journal | Data collection | COVERED-40 | 40 | Entity data from the journal; upload for non-Depot entities (wave 10 import) |
 | CX20 / Fiori: Post Group Journal Entries | Manual consolidation entries (document types, posting levels 00/01/10/20/30) | Adjustments | COVERED-40 | 40 | Group adjustment journals at posting levels (entity, group) |
 | CXCE / Fiori: Consolidation Monitor | Run tasks: reclass, IC elim, CoI, translation, validation | Consolidation run | COVERED-40 | 40 | — |
 | Fiori: Manage Reclassifications / Define Reclassification Rules | Rule-based reclassifications | — | PARTIAL-40 | 40 | Elimination rules named; general reclassification rules (e.g. move FS item based on sign) partial |
@@ -1148,7 +1148,7 @@ SAP context: EC-CS (ECC), SEM-BCS (BW-based), S/4HANA Finance for Group Reportin
 
 ### 13.10.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Fiori: Group Data Analysis (with reporting rules, hierarchies) | Consolidated analysis | COVERED-40 | 40 | — |
 | Fiori: Consolidated Balance Sheet / Income Statement / Cash Flow / Changes in Equity | Group statements | COVERED-40 | 40 | Changes in equity statement — add to wave 15 standard statements (minor) |
@@ -1160,7 +1160,7 @@ SAP context: EC-CS (ECC), SEM-BCS (BW-based), S/4HANA Finance for Group Reportin
 
 ### 13.10.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Data monitor tasks: release universal journal, data validation, currency translation, balance carry-forward | Entity-level close for consolidation | COVERED-40 | 40 | — |
 | Consolidation monitor tasks: IC elimination (AR/AP, revenue/expense, dividends), elimination of IC profit in inventory, CoI, group validation | Group-level tasks | PARTIAL-40 | 40 | IC balances and inventory profit named; dividend elimination and CoI partial |
@@ -1171,7 +1171,7 @@ SAP context: EC-CS (ECC), SEM-BCS (BW-based), S/4HANA Finance for Group Reportin
 
 ### 13.10.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Global settings: consolidation chart of accounts, versions, ledgers, fiscal year variant | TF*, FINCS_* | — | COVERED-40 | 40 | — |
 | FS item attributes, breakdown categories, selections | FINCS_FSI*, TF* | Sub-assignments (partner unit, movement type/transaction type, functional area) | COVERED-40 | 40 | Group dimensions incl. partner and movement type (movement types needed for cash flow/equity — confirm wave 40 includes "transaction/movement type") |
@@ -1188,11 +1188,11 @@ SAP context: EC-CS (ECC), SEM-BCS (BW-based), S/4HANA Finance for Group Reportin
 
 ## 13.11 FM / PSM — Funds Management & Public Sector Management (budgeting)
 
-SAP context: FM (budget control system BCS: FMBB budgeting workbench, FMAVCR availability control, funds centers FMSA/FMSB, commitment items FMCIA, funds FM5I, FMDERIVE account assignment derivation, earmarked funds FMX1/FMY1, FM reports FMRP), PSM (grants management GM, funded programs, PSCD). Manufacturers rarely activate FM; D365 F&O's budget control is the model Passage follows (wave 38). FM rows map to wave 38 where they are budget control; genuinely public-sector functions are OUT-OF-SCOPE.
+SAP context: FM (budget control system BCS: FMBB budgeting workbench, FMAVCR availability control, funds centers FMSA/FMSB, commitment items FMCIA, funds FM5I, FMDERIVE account assignment derivation, earmarked funds FMX1/FMY1, FM reports FMRP), PSM (grants management GM, funded programs, PSCD). Manufacturers rarely activate FM; D365 F&O's budget control is the model Depot follows (wave 38). FM rows map to wave 38 where they are budget control; genuinely public-sector functions are OUT-OF-SCOPE.
 
 ### 13.11.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | FMSA / FMSB / FMSC | Funds center create/change/display | Budget responsibility unit | COVERED-38 | 38 | Budget dimensions (cost center/department) |
 | FMCIA / FMCIC | Commitment item create/display | Budget line category | COVERED-38 | 38 | Budget account categories (main accounts/groups) |
@@ -1211,7 +1211,7 @@ SAP context: FM (budget control system BCS: FMBB budgeting workbench, FMAVCR ava
 
 ### 13.11.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | FMRP_RW_BUDGET / FMRP_RW_BUDCON | Budget overview / budget consumption | COVERED-38 | 38 | — |
 | FMRP_RFFMAV01X / FMAVCR01 | Availability control overview | COVERED-38 | 38 | — |
@@ -1221,7 +1221,7 @@ SAP context: FM (budget control system BCS: FMBB budgeting workbench, FMAVCR ava
 
 ### 13.11.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | FMJ2 / FMJ_SPLIT | Commitment carry-forward (open PO/PR to next year) | COVERED-38 | 38 | Encumbrance year-end handling |
 | FMMC / FMMA | Budget carry-forward (residual) | COVERED-38 | 38 | — |
@@ -1232,7 +1232,7 @@ SAP context: FM (budget control system BCS: FMBB budgeting workbench, FMAVCR ava
 
 ### 13.11.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | FM area definition, assignment to company codes, fiscal year variant | FM01, T001 | — | SUPERSEDED-6 | 6 | Budget scope = legal entity + dimensions |
 | Activate FM / BCS | FMAVC* | — | SUPERSEDED-38 | 38 | Budget control activation per entity |
@@ -1248,11 +1248,11 @@ SAP context: FM (budget control system BCS: FMBB budgeting workbench, FMAVCR ava
 
 ## 13.12 MM-PUR — Purchasing
 
-SAP context: purchase requisitions (ME51N), RFQ/quotations (ME41–ME49), purchase orders (ME21N), outline agreements — contracts (ME31K) and scheduling agreements (ME31L/ME38), info records (ME11), source lists (ME01), quota arrangements (MEQ1), release strategies (classification-based), purchasing conditions (MEK1), vendor evaluation (ME61), output (ME9F), stock transport orders, subcontracting, consignment, third-party. S/4: Fiori Manage Purchase Orders/Requisitions, central procurement, Ariba. Passage: wave 17 (requisitions, RFQ, agreements, POs, pricing, approvals), wave 7 (vendor), wave 20 (supplier portal), wave 33 (vendor evaluation), wave 16 (transfers), wave 40 (intercompany).
+SAP context: purchase requisitions (ME51N), RFQ/quotations (ME41–ME49), purchase orders (ME21N), outline agreements — contracts (ME31K) and scheduling agreements (ME31L/ME38), info records (ME11), source lists (ME01), quota arrangements (MEQ1), release strategies (classification-based), purchasing conditions (MEK1), vendor evaluation (ME61), output (ME9F), stock transport orders, subcontracting, consignment, third-party. S/4: Fiori Manage Purchase Orders/Requisitions, central procurement, Ariba. Depot: wave 17 (requisitions, RFQ, agreements, POs, pricing, approvals), wave 7 (vendor), wave 20 (supplier portal), wave 33 (vendor evaluation), wave 16 (transfers), wave 40 (intercompany).
 
 ### 13.12.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | ME51N / ME52N / ME53N | Purchase requisition create/change/display | Internal demand | COVERED-17 | 17 | Requisition with policy approvals |
 | ME54N / ME55 | Release PR individual / collective | Approval | COVERED-17 | 17 | Approval workflow (Temporal) |
@@ -1312,7 +1312,7 @@ SAP context: purchase requisitions (ME51N), RFQ/quotations (ME41–ME49), purcha
 
 ### 13.12.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | ME2L / ME2M / ME2N / ME2K / ME2C / ME2J / ME2B / ME2W | Purchasing documents by vendor / material / number / account assignment / material group / project / requirement tracking / supplying plant | COVERED-17 | 17 | List pages with saved views |
 | ME3L / ME3M / ME3N / ME3K / ME3C / ME3B / ME3J | Outline agreements by vendor / material / number / account assignment / material group / tracking / project | COVERED-17 | 17 | — |
@@ -1333,7 +1333,7 @@ SAP context: purchase requisitions (ME51N), RFQ/quotations (ME41–ME49), purcha
 
 ### 13.12.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | ME59N (batch) | Automatic PO generation from PRs | COVERED-17 | 17 | Scheduled auto-PO |
 | ME84 (batch) | SA release creation run | PARTIAL-17 | 17 | SA release partial |
@@ -1351,7 +1351,7 @@ SAP context: purchase requisitions (ME51N), RFQ/quotations (ME41–ME49), purcha
 
 ### 13.12.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OX08 / OX01 / OX17 — Purchasing organizations; assign to company code / plant; reference purch. org | T024E, T024W, T024Z | Plant-specific, cross-plant, cross-company, reference purch org | COVERED-6 | 6 | Procurement hierarchy purpose in enterprise structure |
 | OME4 — Purchasing groups | T024 | — | COVERED-6 | 6 | Buyer groups |
@@ -1391,11 +1391,11 @@ SAP context: purchase requisitions (ME51N), RFQ/quotations (ME41–ME49), purcha
 
 ## 13.13 MM-IM — Inventory Management & Physical Inventory
 
-SAP context: material documents (MKPF/MSEG; S/4 MATDOC), goods movements via MIGO (receipts, issues, transfers, reversals, 100+ movement types), reservations (MB21), stock overview (MMBE), stock types (unrestricted, quality, blocked, in transit, consignment, subcontractor, sales order stock, project stock), physical inventory (MI01–MI20, cycle counting MICN), period close (MMPV). Passage: wave 16 inventory ledger, wave 18 receiving, wave 21 production movements, wave 28 shipping movements, wave 31 warehouse detail.
+SAP context: material documents (MKPF/MSEG; S/4 MATDOC), goods movements via MIGO (receipts, issues, transfers, reversals, 100+ movement types), reservations (MB21), stock overview (MMBE), stock types (unrestricted, quality, blocked, in transit, consignment, subcontractor, sales order stock, project stock), physical inventory (MI01–MI20, cycle counting MICN), period close (MMPV). Depot: wave 16 inventory ledger, wave 18 receiving, wave 21 production movements, wave 28 shipping movements, wave 31 warehouse detail.
 
 ### 13.13.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | MM01 / MM02 / MM03 (IM views: general plant, storage, accounting) | Material master — plant/storage/valuation views | Item per site/warehouse | COVERED-8 | 8 | Released product per legal entity with site/warehouse defaults; item model group (costing, negative stock) |
 | MIGO | Goods movement (GR for PO/order/other, GI, transfer posting, place in storage, remove from storage, return delivery, subsequent delivery/adjustment, cancel, display) | Universal movement UI | COVERED-16 | 16 | Inventory journals (movement/transfer/adjustment) + receiving (wave 18) + production issues/receipts (wave 21) |
@@ -1437,7 +1437,7 @@ SAP context: material documents (MKPF/MSEG; S/4 MATDOC), goods movements via MIG
 
 ### 13.13.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | MB51 | Material document list (by material/plant/movement type/date) | COVERED-16 | 16 | Inventory transactions inquiry |
 | MB52 | Warehouse stocks on hand (with values) | COVERED-16 | 16 | — |
@@ -1466,7 +1466,7 @@ SAP context: material documents (MKPF/MSEG; S/4 MATDOC), goods movements via MIG
 
 ### 13.13.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | MMPV | Close period for material master records | COVERED-14 | 14 | Period control (inventory) |
 | MMRV | Allow posting to previous period | COVERED-14 | 14 | Period status on-hold/open per module |
@@ -1484,7 +1484,7 @@ SAP context: material documents (MKPF/MSEG; S/4 MATDOC), goods movements via MIG
 
 ### 13.13.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OX10 / OX09 — Plants / storage locations | T001W, T001L | Address, factory calendar, purchasing org assignment | COVERED-6 | 6 | Sites, warehouses |
 | OX18 / OX14 — Assign plant to company code / valuation area setting (plant vs company code) | T001K | Valuation level | COVERED-6 | 6 | Valuation at site level (default) — confirm valuation level choice |
@@ -1521,11 +1521,11 @@ SAP context: material documents (MKPF/MSEG; S/4 MATDOC), goods movements via MIG
 
 ## 13.14 MM-IV — Logistics Invoice Verification
 
-SAP context: MIRO (PO-based, delivery-note based, GR-based IV, planned/unplanned delivery costs, subsequent debit/credit), parking (MIR7), blocked invoices (MRBR; price/quantity/date/stochastic blocks), tolerance keys (OMR6), GR/IR clearing maintenance (MR11), ERS (MRRL), consignment settlement (MRKO), invoicing plans (MRIS), revaluation (MRNB), duplicate invoice check, OBYC WRX/PRD/KDM. Passage: wave 18 (capture, 2/3-way match, tolerances, exceptions, GR/IR, ERS), wave 19 (AP open items), wave 34 (freight invoices/landed cost).
+SAP context: MIRO (PO-based, delivery-note based, GR-based IV, planned/unplanned delivery costs, subsequent debit/credit), parking (MIR7), blocked invoices (MRBR; price/quantity/date/stochastic blocks), tolerance keys (OMR6), GR/IR clearing maintenance (MR11), ERS (MRRL), consignment settlement (MRKO), invoicing plans (MRIS), revaluation (MRNB), duplicate invoice check, OBYC WRX/PRD/KDM. Depot: wave 18 (capture, 2/3-way match, tolerances, exceptions, GR/IR, ERS), wave 19 (AP open items), wave 34 (freight invoices/landed cost).
 
 ### 13.14.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | MIRO | Enter incoming invoice (invoice, credit memo, subsequent debit/credit; PO reference, delivery note, bill of lading, service entry sheet, vendor) | PO-based invoice | COVERED-18 | 18 | Vendor invoice capture with PO/receipt reference; subsequent debit/credit = price adjustment invoice |
 | MIR7 / MIR4 | Park invoice / display invoice document | Draft | COVERED-18 | 18 | Draft + approval |
@@ -1552,7 +1552,7 @@ SAP context: MIRO (PO-based, delivery-note based, GR-based IV, planned/unplanned
 
 ### 13.14.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | MIR5 / MIR6 | Invoice document list / overview | COVERED-18 | 18 | — |
 | MB5S | GR/IR balances per PO | COVERED-18 | 18 | — |
@@ -1566,7 +1566,7 @@ SAP context: MIRO (PO-based, delivery-note based, GR-based IV, planned/unplanned
 
 ### 13.14.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | MRBR (automatic release in batch) | Release blocked invoices automatically when block reasons no longer apply | COVERED-18 | 18 | Re-evaluate match status on new receipts |
 | MRRL (scheduled) | ERS run | COVERED-18 | 18 | — |
@@ -1581,7 +1581,7 @@ SAP context: MIRO (PO-based, delivery-note based, GR-based IV, planned/unplanned
 
 ### 13.14.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OMR6 — Tolerance limits (keys AN, AP, BD, BR, BW, DQ, DW, KW, LA, LD, PP, PS, ST, VP) per company code | T169G | Absolute/percent upper/lower, check/no check; price variance (PP), quantity (DQ), date (ST), blanket PO (LA/LD), order price unit (PS), moving average (VP) | COVERED-18 | 18 | Price/quantity/total/date tolerances per legal entity and vendor group |
 | OMR4 / OMRJ — Document types for invoice verification (RE, KG) / number ranges | T003, T169F, NRIV | — | COVERED-11 | 11 | — |
@@ -1605,11 +1605,11 @@ SAP context: MIRO (PO-based, delivery-note based, GR-based IV, planned/unplanned
 
 ## 13.15 MM-SRV — External Services Management (incl. S/4 Lean Services)
 
-SAP context: service master (AC03), model service specifications (ML10), standard service catalog (SSC), service POs (item category D with service lines and value limits), service entry sheets (ML81N) with acceptance → GR, service conditions (ML33/ML39), invoice via MIRO referencing SES. S/4 "lean services" simplifies: service items as product type Service, no SES (Fiori Manage Service Entry Sheets – Lean). Passage: non-stock service products (wave 8), PO (wave 17), service confirmation/receipt (wave 18) — **no explicit service entry sheet**, so mostly PARTIAL.
+SAP context: service master (AC03), model service specifications (ML10), standard service catalog (SSC), service POs (item category D with service lines and value limits), service entry sheets (ML81N) with acceptance → GR, service conditions (ML33/ML39), invoice via MIRO referencing SES. S/4 "lean services" simplifies: service items as product type Service, no SES (Fiori Manage Service Entry Sheets – Lean). Depot: non-stock service products (wave 8), PO (wave 17), service confirmation/receipt (wave 18) — **no explicit service entry sheet**, so mostly PARTIAL.
 
 ### 13.15.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | AC01 / AC02 / AC03 / AC04 / AC06 | Service master create/change/display/list/changes | Service master (activity numbers, UoM, valuation class) | PARTIAL-8 | 8 | Product of type "service" is covered; a dedicated service master with service categories, purchasing text, standard service catalog is partial — add "service product type" attributes to wave 8 |
 | ML10 / ML11 / ML12 | Model service specifications create/change/display | Reusable service spec templates | GAP | propose 17 | Service specification templates (hierarchical outlines of services with quantities) not named; propose "PO line templates" in wave 17 |
@@ -1627,7 +1627,7 @@ SAP context: service master (AC03), model service specifications (ML10), standar
 
 ### 13.15.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | MSRV1 … MSRV6 | Service lists | PARTIAL-18 | 18 | — |
 | ME2S | Services per purchase order | PARTIAL-18 | 18 | — |
@@ -1637,7 +1637,7 @@ SAP context: service master (AC03), model service specifications (ML10), standar
 
 ### 13.15.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | ML85 (collective release of SES) | Mass acceptance | PARTIAL-18 | 18 | — |
 | MRRL for services | ERS for SES | PARTIAL-18 | 18 | — |
@@ -1645,7 +1645,7 @@ SAP context: service master (AC03), model service specifications (ML10), standar
 
 ### 13.15.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Service master: number ranges, service categories, organizational status, field selection | ASMD | — | PARTIAL-8 | 8 | — |
 | Service specifications: screen layout, number ranges for SES, release procedure for SES (classification) | ESSR | — | PARTIAL-18 | 18 | SES approval via workflow designer |
@@ -1657,11 +1657,11 @@ SAP context: service master (AC03), model service specifications (ML10), standar
 ---
 ## 13.16 LE-WM (classic Warehouse Management) and EWM (Extended Warehouse Management)
 
-SAP context: classic WM — warehouse number, storage types/sections/bins (LS01N), transfer requirements (LB01), transfer orders (LT01/LT03/LT06/LT10), confirmation (LT12), put-away/picking strategies, replenishment (LP21/LX16?), WM physical inventory (LI01N–LI21), RF (LM00–LM77), HU management (HU02), storage unit management. EWM (decentral or embedded in S/4) — warehouse product, storage types/bins, warehouse tasks/orders, waves, POSC/LOSC process steps, packing specifications, labor management, yard, slotting, MFS, RF framework (/SCWM/RFUI), warehouse monitor (/SCWM/MON). Passage: wave 31 (locations, LPs/HUs, directives, work templates, waves, replenishment, load planning, dock scheduling, slotting, KPIs), wave 32 (mobile/RF, voice, RFID, labels), wave 16 (counting), wave 28 (basic pick/pack/ship).
+SAP context: classic WM — warehouse number, storage types/sections/bins (LS01N), transfer requirements (LB01), transfer orders (LT01/LT03/LT06/LT10), confirmation (LT12), put-away/picking strategies, replenishment (LP21/LX16?), WM physical inventory (LI01N–LI21), RF (LM00–LM77), HU management (HU02), storage unit management. EWM (decentral or embedded in S/4) — warehouse product, storage types/bins, warehouse tasks/orders, waves, POSC/LOSC process steps, packing specifications, labor management, yard, slotting, MFS, RF framework (/SCWM/RFUI), warehouse monitor (/SCWM/MON). Depot: wave 31 (locations, LPs/HUs, directives, work templates, waves, replenishment, load planning, dock scheduling, slotting, KPIs), wave 32 (mobile/RF, voice, RFID, labels), wave 16 (counting), wave 28 (basic pick/pack/ship).
 
 ### 13.16.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | LS01N / LS02N / LS03N | Storage bin create/change/display | Bins with type, section, capacity, coordinates | COVERED-31 | 31 | Location model: zones/aisles/racks/bins with capacity/profile |
 | LS05 / LS10 | Generate storage bins automatically / define bin structure | Mass bin creation | COVERED-31 | 31 | Bin generator |
@@ -1720,7 +1720,7 @@ SAP context: classic WM — warehouse number, storage types/sections/bins (LS01N
 
 ### 13.16.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | LX01 | List of empty storage bins | COVERED-31 | 31 | — |
 | LX02 | Stock list (bin stock by material) | COVERED-31 | 31 | — |
@@ -1747,7 +1747,7 @@ SAP context: classic WM — warehouse number, storage types/sections/bins (LS01N
 
 ### 13.16.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | LP21 / LP22 (scheduled) | Replenishment runs | COVERED-31 | 31 | — |
 | LX16 (scheduled) | Zero-stock check | COVERED-16 | 16 | — |
@@ -1763,7 +1763,7 @@ SAP context: classic WM — warehouse number, storage types/sections/bins (LS01N
 
 ### 13.16.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OMLW / Define warehouse number, assign to plant/storage location (OMLY) | T300, T320 | Warehouse number ↔ plant/SLoc | COVERED-6 | 6 | Warehouse entity (wave 6) with WMS-enabled flag (wave 31) |
 | Define storage types (OMLX / T301), storage sections (T302), storage bin types (T303), storage unit types (T307), bin structure | T301, T302, T303, T307, T305 | Put-away strategy (A/B/C/F/I/K/L/P/Q/R), removal strategy (A/F/L/M/P/S/H), mixed storage, capacity check method, SU management, addition to stock, bin blocking on movement, return/negative stock | SUPERSEDED-31 | 31 | Storage strategies replaced by location directives (rules engine) + location profiles; capacity check methods covered |
@@ -1788,11 +1788,11 @@ SAP context: classic WM — warehouse number, storage types/sections/bins (LS01N
 
 ## 13.17 LE-SHP / LE-TRA — Shipping & (classic) Transportation
 
-SAP context: outbound deliveries (VL01N, VL10*), picking (LT03 / WM, or picking without WM), packing with HUs, post goods issue (VL02N), inbound deliveries (VL31N) and ASN, delivery monitor (VL06O/VL06I), shipping points, route determination, delivery scheduling, POD (VLPOD), output (VL71/VL74), shipment documents (VT01N) and shipment cost (VI01) in LE-TRA (deprecated in S/4 in favour of TM). Passage: wave 28 (release, pick/pack/ship, HU/SSCC, carrier adapters, ASN, drop-ship, partial shipments), wave 18 (inbound ASN receiving), wave 34 (shipment/freight).
+SAP context: outbound deliveries (VL01N, VL10*), picking (LT03 / WM, or picking without WM), packing with HUs, post goods issue (VL02N), inbound deliveries (VL31N) and ASN, delivery monitor (VL06O/VL06I), shipping points, route determination, delivery scheduling, POD (VLPOD), output (VL71/VL74), shipment documents (VT01N) and shipment cost (VI01) in LE-TRA (deprecated in S/4 in favour of TM). Depot: wave 28 (release, pick/pack/ship, HU/SSCC, carrier adapters, ASN, drop-ship, partial shipments), wave 18 (inbound ASN receiving), wave 34 (shipment/freight).
 
 ### 13.17.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | VL01N / VL02N / VL03N | Outbound delivery create (w/ reference to order) / change / display | Delivery document | COVERED-28 | 28 | Shipment/packing-slip document from order release |
 | VL01NO | Delivery without order reference | — | COVERED-28 | 28 | Ad-hoc shipment (e.g. samples) — confirm |
@@ -1833,7 +1833,7 @@ SAP context: outbound deliveries (VL01N, VL10*), picking (LT03 / WM, or picking 
 
 ### 13.17.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | VL06O / VL06I family | Delivery monitors | COVERED-28 | 28 | — |
 | VL06F | General delivery list | COVERED-28 | 28 | — |
@@ -1849,7 +1849,7 @@ SAP context: outbound deliveries (VL01N, VL10*), picking (LT03 / WM, or picking 
 
 ### 13.17.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | VL10 family (batch) | Scheduled delivery creation | COVERED-28 | 28 | Release rules scheduled |
 | VL23 / VL21 (batch PGI) | Batch goods issue | COVERED-28 | 28 | — |
@@ -1865,7 +1865,7 @@ SAP context: outbound deliveries (VL01N, VL10*), picking (LT03 / WM, or picking 
 
 ### 13.17.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OVXD / OVX6 — Shipping points define / assign to plant; shipping point determination (OVL2) | TVST, TVSWZ, TVSTZ | Loading group × shipping condition × plant → shipping point | COVERED-28 | 28 | Warehouse/shipping site determination rules |
 | 0VLK — Delivery types (LF, LR, NL, NLCC, EL) | TVLK | Order required, item requirement, route determination, output, text determination, number range | COVERED-28 | 28 | Shipment document types |
@@ -1893,11 +1893,11 @@ SAP context: outbound deliveries (VL01N, VL10*), picking (LT03 / WM, or picking 
 
 ## 13.18 TM — Transportation Management (SAP TM / embedded TM in S/4)
 
-SAP context: freight units (FU), freight orders (FO) and bookings (FB), transportation cockpit (/SCMTMS/PLAN? or NWBC/Fiori), carrier selection and tendering, charge management (agreements, rate tables, calculation sheets), freight settlement documents (FSD) → MM-IV, forwarding orders/settlement (LSP scenario), tracking events (EM), strategic freight procurement. Passage: wave 34 (load/route planning with VRP, rating, tendering, tracking, freight reconciliation, landed cost).
+SAP context: freight units (FU), freight orders (FO) and bookings (FB), transportation cockpit (/SCMTMS/PLAN? or NWBC/Fiori), carrier selection and tendering, charge management (agreements, rate tables, calculation sheets), freight settlement documents (FSD) → MM-IV, forwarding orders/settlement (LSP scenario), tracking events (EM), strategic freight procurement. Depot: wave 34 (load/route planning with VRP, rating, tendering, tracking, freight reconciliation, landed cost).
 
 ### 13.18.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | /SCMTMS/TRQ (forwarding order) / Fiori: Create Forwarding Order | Forwarding order (LSP scenario: customer orders transport) | LSP business | OUT-OF-SCOPE | — | Logistics service provider (3PL/forwarder) scenario is beyond manufacturer scope; shipper scenario only |
 | Freight units (FU) built from deliveries/orders (FUBR rules) | Freight unit building | — | COVERED-34 | 34 | Load building from shipments |
@@ -1920,7 +1920,7 @@ SAP context: freight units (FU), freight orders (FO) and bookings (FB), transpor
 
 ### 13.18.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Fiori: Freight Order Overview / Transportation Cockpit lists | — | COVERED-34 | 34 | — |
 | Fiori: Analyze Freight Costs / Freight cost per lane / carrier performance | — | COVERED-46 | 46 | — |
@@ -1930,7 +1930,7 @@ SAP context: freight units (FU), freight orders (FO) and bookings (FB), transpor
 
 ### 13.18.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Background planning (VSR optimizer runs) | Scheduled planning | COVERED-34 | 34 | — |
 | Freight unit building run | — | COVERED-34 | 34 | — |
@@ -1942,7 +1942,7 @@ SAP context: freight units (FU), freight orders (FO) and bookings (FB), transpor
 
 ### 13.18.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Freight unit building rules, freight order types, freight booking types | /SCMTMS/C_* | Split rules, stages | COVERED-34 | 34 | — |
 | Planning profiles, optimizer settings, selection profiles, capacity selection, incompatibilities, constraints | /SCMTMS/C_* | Cost functions, time windows | COVERED-34 | 34 | VRP constraints |
@@ -1959,11 +1959,11 @@ SAP context: freight units (FU), freight orders (FO) and bookings (FB), transpor
 
 ## 13.19 SD — Sales & Distribution (pricing, orders, deliveries, billing, credit)
 
-SAP context: SD-MD (customer sales data, customer-material info, conditions), SD-SLS (inquiry, quotation, order, contract, scheduling agreement, returns, credit/debit memo requests, consignment, free-of-charge, rush/cash sales, third-party, make-to-order with configuration), SD-BF (pricing condition technique, availability check, partner/text/output determination, incompletion, credit management), SD-SHP (see LE-SHP), SD-BIL (billing documents, billing plans, invoice lists, credit/debit memos, pro-forma, intercompany billing, rebates, revenue account determination, SD-FI interface). Passage: wave 26 (pricing), wave 27 (quotes/orders/ATP/credit/holds), wave 28 (fulfillment), wave 29 (billing/rev rec), wave 30 (AR/returns/portal), wave 40 (intercompany).
+SAP context: SD-MD (customer sales data, customer-material info, conditions), SD-SLS (inquiry, quotation, order, contract, scheduling agreement, returns, credit/debit memo requests, consignment, free-of-charge, rush/cash sales, third-party, make-to-order with configuration), SD-BF (pricing condition technique, availability check, partner/text/output determination, incompletion, credit management), SD-SHP (see LE-SHP), SD-BIL (billing documents, billing plans, invoice lists, credit/debit memos, pro-forma, intercompany billing, rebates, revenue account determination, SD-FI interface). Depot: wave 26 (pricing), wave 27 (quotes/orders/ATP/credit/holds), wave 28 (fulfillment), wave 29 (billing/rev rec), wave 30 (AR/returns/portal), wave 40 (intercompany).
 
 ### 13.19.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | VD01 / VD02 / VD03 / XD01 (sales area data) | Customer master sales area view | Shipping, billing, partner functions, pricing groups per sales org/channel/division | COVERED-7 | 7 | Customer role with sales-scope data (sales org/channel/division ≈ hierarchy purpose) |
 | VD51 / VD52 / VD53 / VD59 | Customer-material info record create/change/display/list | Customer part numbers, delivery agreements | COVERED-27 | 27 | Customer item numbers/external item references — confirm in wave 27 (named in AX "external item descriptions"); treat covered |
@@ -2027,7 +2027,7 @@ SAP context: SD-MD (customer sales data, customer-material info, conditions), SD
 
 ### 13.19.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | VA05 / VA05N | List of sales orders (by customer, material, status) | COVERED-27 | 27 | — |
 | VA15 / VA25 / VA35 / VA45 | Inquiries / quotations / scheduling agreements / contracts lists | COVERED-27 | 27 | — |
@@ -2052,7 +2052,7 @@ SAP context: SD-MD (customer sales data, customer-material info, conditions), SD
 
 ### 13.19.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | VF04 / VF06 (batch) | Billing due list run (daily/periodic, collective invoices) | COVERED-29 | 29 | — |
 | VF21 (batch) / RV60SBAT | Invoice list creation | COVERED-29 | 29 | — |
@@ -2071,7 +2071,7 @@ SAP context: SD-MD (customer sales data, customer-material info, conditions), SD
 
 ### 13.19.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OVX5 / OVXA / OVXB / OVXG / OVX3 / OVXK / OVXM — Sales organizations, distribution channels, divisions, sales areas, sales offices/groups, assignments to company code/plant | TVKO, TVTW, TSPA, TVKOV, TVKOS, TVBUR, TVKGR, TVKWZ | — | COVERED-6 | 6 | Sales hierarchy purpose; sales scope dimensions |
 | VOV8 — Sales document types (OR, RE, CR, DR, KB, BV, SO, QT, KA, IN, WK1, LZ…) | TVAK | Number range, screen sequence, delivery/billing type defaults, credit check, incompletion procedure, pricing procedure determination (doc pricing proc), immediate delivery, lead time, transaction group | COVERED-27 | 27 | Order types with defaults |
@@ -2130,11 +2130,11 @@ SAP context: SD-MD (customer sales data, customer-material info, conditions), SD
 
 ## 13.20 SD Rebates / Settlement Management (condition contracts)
 
-SAP context: ECC SD rebate processing — rebate agreements (VBO1/VBO2/VBO3), accruals via condition types BO01–BO06 on billing, settlement (VB(7), partial settlement, retroactive rebates (VBOF), rebate index rebuild (VBOF/OVB3). S/4HANA replaces this with Settlement Management (condition contracts WCOCO, business volume determination, settlement runs WB2R_SC, settlement documents, accruals; also supplier rebates / chargebacks / commissions). Passage: wave 26 (rebate agreements + accrual), wave 30 (rebate settlement), wave 19 (vendor side via AP).
+SAP context: ECC SD rebate processing — rebate agreements (VBO1/VBO2/VBO3), accruals via condition types BO01–BO06 on billing, settlement (VB(7), partial settlement, retroactive rebates (VBOF), rebate index rebuild (VBOF/OVB3). S/4HANA replaces this with Settlement Management (condition contracts WCOCO, business volume determination, settlement runs WB2R_SC, settlement documents, accruals; also supplier rebates / chargebacks / commissions). Depot: wave 26 (rebate agreements + accrual), wave 30 (rebate settlement), wave 19 (vendor side via AP).
 
 ### 13.20.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | VBO1 / VBO2 / VBO3 | Rebate agreement create/change/display (types 0001 group, 0002 material, 0003 customer, 0004 hierarchy, 0005 independent of sales volume) | Customer rebate agreements | COVERED-26 | 26 | Rebate agreements and accrual calculation |
 | VB(D | Extend rebate agreement (validity) | — | COVERED-26 | 26 | — |
@@ -2154,7 +2154,7 @@ SAP context: ECC SD rebate processing — rebate agreements (VBO1/VBO2/VBO3), ac
 
 ### 13.20.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | VB(8 / VBO3 → sales volume / verification level | Rebate agreement sales volume & accrual verification | COVERED-26 | 26 | Explain accrual |
 | VB(5 | Rebate agreement list | COVERED-26 | 26 | — |
@@ -2164,7 +2164,7 @@ SAP context: ECC SD rebate processing — rebate agreements (VBO1/VBO2/VBO3), ac
 
 ### 13.20.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | VB(7 (periodic settlement run) | Partial settlement per period | COVERED-30 | 30 | — |
 | VBOF (batch) | Retroactive accrual update | PARTIAL-26 | 26 | — |
@@ -2175,7 +2175,7 @@ SAP context: ECC SD rebate processing — rebate agreements (VBO1/VBO2/VBO3), ac
 
 ### 13.20.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OVB3 / VB(2 — Rebate agreement types, condition type groups, rebate condition types (BO01-BO06), accrual account keys (ERB/ERU) | T6B1, T6B2, T685, T687 | Manual accruals, settlement periods, verification levels | COVERED-26 | 26 | Rebate agreement types |
 | OVB1 / OVB2 — Activate rebate processing (sales org, billing type, payer) | TVKO, TVFK, KNVV | — | COVERED-26 | 26 | — |
@@ -2189,11 +2189,11 @@ SAP context: ECC SD rebate processing — rebate agreements (VBO1/VBO2/VBO3), ac
 
 ## 13.21 PP — Production Planning (master data, MRP, SOP/demand management, production orders, capacity, KANBAN, REM)
 
-SAP context: PP-BD (material MRP views, BOMs CS01, work centers CR01, routings CA01, production versions C223, ECM CC01), PP-MRP (MD01/MD02/MD03, MD04 stock/requirements, MD05/MD06 MRP lists, planned orders MD11–MD16, planning file MD20/MD21, MRP areas, MRP Live MD01N), PP-MP (SOP MC87/MC88, flexible planning MC93/MC94, demand management MD61–MD63, PIR transfer MC74/MC75, long-term planning MS01–MS70), PP-SFC (production orders CO01–CO15, COOIS, COHV, CO40/CO41 conversion, confirmations CO11N, COGI, availability check, TECO/close), PP-CRP (capacity CM01–CM07, leveling CM21–CM29, CM25 planning table), PP-KAB (control cycles PK01, kanban board PK13N), PP-REM (REM profile, planning table MF50, backflush MFBF, cost collectors), PP-PDC. Passage: wave 9 (BOM/routing/work centers/ECM), wave 21 (production orders, confirmations, WIP), wave 22 (MRP/MPS/forecasting), wave 23 (capacity/scheduling), wave 24 (lean/kanban/REM), wave 25 (shop floor/PDC), wave 39 (costing).
+SAP context: PP-BD (material MRP views, BOMs CS01, work centers CR01, routings CA01, production versions C223, ECM CC01), PP-MRP (MD01/MD02/MD03, MD04 stock/requirements, MD05/MD06 MRP lists, planned orders MD11–MD16, planning file MD20/MD21, MRP areas, MRP Live MD01N), PP-MP (SOP MC87/MC88, flexible planning MC93/MC94, demand management MD61–MD63, PIR transfer MC74/MC75, long-term planning MS01–MS70), PP-SFC (production orders CO01–CO15, COOIS, COHV, CO40/CO41 conversion, confirmations CO11N, COGI, availability check, TECO/close), PP-CRP (capacity CM01–CM07, leveling CM21–CM29, CM25 planning table), PP-KAB (control cycles PK01, kanban board PK13N), PP-REM (REM profile, planning table MF50, backflush MFBF, cost collectors), PP-PDC. Depot: wave 9 (BOM/routing/work centers/ECM), wave 21 (production orders, confirmations, WIP), wave 22 (MRP/MPS/forecasting), wave 23 (capacity/scheduling), wave 24 (lean/kanban/REM), wave 25 (shop floor/PDC), wave 39 (costing).
 
 ### 13.21.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | MM01 / MM02 / MM03 (MRP 1-4, work scheduling views) | Material master planning data: MRP type, lot size, procurement type, special procurement, safety stock, planning strategy, scheduling margin key, availability check, production version, backflush, batch entry | Planning parameters per item/site | COVERED-22 | 22 | Coverage groups (requirement/period/min-max), lead times, safety stock, planning strategy on released product; wave 8 for master |
 | MM02 → MRP areas (MD61 per MRP area) | MRP area assignment (storage location / subcontractor level planning) | — | PARTIAL-22 | 22 | Planning at warehouse (sub-site) level and at subcontractor level not explicitly named — partial; wave 22 plans by site; add "planning scope = site or warehouse" |
@@ -2306,7 +2306,7 @@ SAP context: PP-BD (material MRP views, BOMs CS01, work centers CR01, routings C
 
 ### 13.21.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | MD04 / MD05 / MD06 / MD07 | Stock/requirements and MRP lists | COVERED-22 | 22 | — |
 | MD09 / MD4C | Pegging / order report | COVERED-22 | 22 | — |
@@ -2332,7 +2332,7 @@ SAP context: PP-BD (material MRP views, BOMs CS01, work centers CR01, routings C
 
 ### 13.21.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | MD01 / MDBT / MD01N (scheduled) | Nightly MRP / MRP Live run | COVERED-22 | 22 | — |
 | MD40 (scheduled) | MPS run | COVERED-22 | 22 | — |
@@ -2354,7 +2354,7 @@ SAP context: PP-BD (material MRP views, BOMs CS01, work centers CR01, routings C
 
 ### 13.21.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OS20 / OS21 / OS22 / OS23 / OS24 / OS25 / OS27 / OS28 / OS30 — BOM: usages, status, item categories, default values, modification parameters, BOM explosion/applications, alternative determination | T415S, T416, T418, TCS | Item category control (stock/non-stock/variable size/document/text), usage-specific item status | COVERED-9 | 9 | BOM line types and usages |
 | OPJM / OPJI / OPJF — Selection ID for alternative BOM/routing (application, priorities) | TCS, T407 | — | COVERED-9 | 9 | Version selection rules |
@@ -2411,11 +2411,11 @@ SAP context: PP-BD (material MRP views, BOMs CS01, work centers CR01, routings C
 
 ## 13.22 PP-PI — Production Planning for Process Industries
 
-SAP context: master recipes (C201–C203; recipe header, operations/phases, resources, materials, secondary resources, process instructions/XSteps), process orders (COR1–COR3, COR5 collective, COR6N confirmation, CORR? mass), process management (control recipes CO53, process messages CO54/CO57, PI sheets CO60), electronic batch record (COEBR), batch management and batch determination, resource networks (CMX? / RN?), campaign planning (PP-PI campaigns), process manufacturing cockpit (CO50?), material quantity calculation. Passage: wave 24 (formulas/batch orders, potency, co/by-products, catch weight, recipe version control), wave 21 (order lifecycle), wave 25 (shop floor/PI sheets), wave 33 (QM in process).
+SAP context: master recipes (C201–C203; recipe header, operations/phases, resources, materials, secondary resources, process instructions/XSteps), process orders (COR1–COR3, COR5 collective, COR6N confirmation, CORR? mass), process management (control recipes CO53, process messages CO54/CO57, PI sheets CO60), electronic batch record (COEBR), batch management and batch determination, resource networks (CMX? / RN?), campaign planning (PP-PI campaigns), process manufacturing cockpit (CO50?), material quantity calculation. Depot: wave 24 (formulas/batch orders, potency, co/by-products, catch weight, recipe version control), wave 21 (order lifecycle), wave 25 (shop floor/PI sheets), wave 33 (QM in process).
 
 ### 13.22.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | C201 / C202 / C203 | Master recipe create/change/display (recipe group, operations, phases, material list, resources, process instructions, QM characteristics, relationships) | Recipes | COVERED-24 | 24 | Formula + route (recipe) with version control integrated with ECM |
 | C223 (PI) | Production versions (recipe + formula) | — | COVERED-24 | 24 | — |
@@ -2445,7 +2445,7 @@ SAP context: master recipes (C201–C203; recipe header, operations/phases, reso
 
 ### 13.22.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | COOISPI | Process order information system | COVERED-24 | 24 | — |
 | CO54 (monitor) | Process message log | PARTIAL-25 | 25 | — |
@@ -2457,7 +2457,7 @@ SAP context: master recipes (C201–C203; recipe header, operations/phases, reso
 
 ### 13.22.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | COR5 / COHVPI (batch) | Mass release / scheduling | COVERED-24 | 24 | — |
 | CO53 (send control recipes, batch) | — | PARTIAL-25 | 25 | — |
@@ -2470,7 +2470,7 @@ SAP context: master recipes (C201–C203; recipe header, operations/phases, reso
 
 ### 13.22.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Master recipe: profiles, task list types (2), status, control keys (PI01, PI02…), phase/operation categories, relationship types | TCA*, T430 | — | COVERED-24 | 24 | — |
 | Process order types (PI01…), order type dependent parameters (COR4), production scheduling profile (CORY), confirmation parameters (CORO / OPK4 PI), availability check (OPJJ/OPJK PI) | T003O, T399X, TCO43 | — | COVERED-24 | 24 | — |
@@ -2486,11 +2486,11 @@ SAP context: master recipes (C201–C203; recipe header, operations/phases, reso
 
 ## 13.23 PP/DS — Advanced Planning & Detailed Scheduling (APO PP/DS and S/4 embedded PP/DS)
 
-SAP context: APO PP/DS (CIF integration CFM1/CFM2, product view /SAPAPO/RRP3, detailed scheduling planning board /SAPAPO/CDPS0, heuristics, optimizer, pegging, alert monitor /SAPAPO/AMON1, product planning table /SAPAPO/PPT1, PP/DS runs /SAPAPO/CDPSB0, order views /SAPAPO/RRP4, block planning, setup matrices, characteristic-dependent planning (CDP), MRP heuristics, shelf-life planning). S/4HANA embedded PP/DS: advanced planning flag on material, PP/DS planning via MD04/Fiori, same planning board. Passage: wave 23 (scheduler service with finite/infinite, OR-Tools CP-SAT optimization, Gantt, bottlenecks) + wave 22 (pegging). PP/DS-specific supply-chain-wide planning (SNP, GATP) outside this component.
+SAP context: APO PP/DS (CIF integration CFM1/CFM2, product view /SAPAPO/RRP3, detailed scheduling planning board /SAPAPO/CDPS0, heuristics, optimizer, pegging, alert monitor /SAPAPO/AMON1, product planning table /SAPAPO/PPT1, PP/DS runs /SAPAPO/CDPSB0, order views /SAPAPO/RRP4, block planning, setup matrices, characteristic-dependent planning (CDP), MRP heuristics, shelf-life planning). S/4HANA embedded PP/DS: advanced planning flag on material, PP/DS planning via MD04/Fiori, same planning board. Depot: wave 23 (scheduler service with finite/infinite, OR-Tools CP-SAT optimization, Gantt, bottlenecks) + wave 22 (pegging). PP/DS-specific supply-chain-wide planning (SNP, GATP) outside this component.
 
 ### 13.23.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | CFM1 / CFM2 / CFM3 / CFM4 / CFM5 / CFM6 | CIF integration models: generate / activate / display / deactivate / delete / change transfer | ERP ↔ APO master & transactional data | SUPERSEDED-23 | 23 | Embedded single system, Kafka events; no CIF |
 | CFC9 / CFG1 / CFP1 / CFP3 | CIF settings / application log / queue display | — | SUPERSEDED-23 | 23 | — |
@@ -2516,7 +2516,7 @@ SAP context: APO PP/DS (CIF integration CFM1/CFM2, product view /SAPAPO/RRP3, de
 
 ### 13.23.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | /SAPAPO/RRP3 / RRP4 / RRP7 | Product/receipt views | COVERED-22 | 22 | — |
 | /SAPAPO/CDPS0 (views: resource, order, operation) | DS board views | COVERED-23 | 23 | — |
@@ -2529,7 +2529,7 @@ SAP context: APO PP/DS (CIF integration CFM1/CFM2, product view /SAPAPO/RRP3, de
 
 ### 13.23.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | /SAPAPO/CDPSB0 (scheduled planning runs with heuristic steps) | Nightly PP/DS run | COVERED-22 | 22 | — |
 | Optimizer background runs | — | COVERED-23 | 23 | — |
@@ -2540,7 +2540,7 @@ SAP context: APO PP/DS (CIF integration CFM1/CFM2, product view /SAPAPO/RRP3, de
 
 ### 13.23.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Global settings for PP/DS (planning version, pegging, order types), planning procedures (per product), heuristics (algorithms, settings), heuristic profiles | /SAPAPO/* | Automatic planning immediately / in planning run; planning procedure 1-5 | COVERED-22 | 22 | Planning policies per coverage group |
 | Strategy profiles (scheduling modes, planning direction, finiteness level, validity periods, propagation ranges), planning board profiles, time profiles, work areas | /SAPAPO/* | — | COVERED-23 | 23 | — |
@@ -2555,11 +2555,11 @@ SAP context: APO PP/DS (CIF integration CFM1/CFM2, product view /SAPAPO/RRP3, de
 
 ## 13.24 QM — Quality Management
 
-SAP context: QM-PT (inspection plans QP01, master inspection characteristics QS21, inspection methods QS31, catalogs QS41, sampling procedures QDV1, sampling schemes QDP1, dynamic modification rules QDB1, quality info records QI01/QV51), QM-IM (inspection lots QA01/QA32, results recording QE01/QE51N, defects recording, usage decisions QA11, stock postings), QM-QC (control charts QGC1, quality level QDL1), QM-QN (quality notifications QM01, tasks, 8D), QM-CA (certificates QC01/QC21, CoA on delivery), QM-IT (test equipment calibration via PM), vendor evaluation integration, stability studies (QST01), audit management (PLMD_AUDIT), FMEA, control plan (S/4 QM). Passage: wave 33 (tests, sampling, associations, quality orders, UD, blocking, NCR/CAPA, CoA, scorecards, SPC, calibration), wave 16 (quarantine status), wave 18 (receive to QI).
+SAP context: QM-PT (inspection plans QP01, master inspection characteristics QS21, inspection methods QS31, catalogs QS41, sampling procedures QDV1, sampling schemes QDP1, dynamic modification rules QDB1, quality info records QI01/QV51), QM-IM (inspection lots QA01/QA32, results recording QE01/QE51N, defects recording, usage decisions QA11, stock postings), QM-QC (control charts QGC1, quality level QDL1), QM-QN (quality notifications QM01, tasks, 8D), QM-CA (certificates QC01/QC21, CoA on delivery), QM-IT (test equipment calibration via PM), vendor evaluation integration, stability studies (QST01), audit management (PLMD_AUDIT), FMEA, control plan (S/4 QM). Depot: wave 33 (tests, sampling, associations, quality orders, UD, blocking, NCR/CAPA, CoA, scorecards, SPC, calibration), wave 16 (quarantine status), wave 18 (receive to QI).
 
 ### 13.24.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | QS21 / QS22 / QS23 / QS24 / QS25 / QS26 / QS27 / QS28 | Master inspection characteristic create/change/display (quantitative/qualitative, tolerances, catalogs, sampling) / versions / where-used / list / replace | Test definitions | COVERED-33 | 33 | Tests (variable/attribute) with tolerances, catalogs |
 | QS31 / QS32 / QS33 / QS34 / QS37 / QS38 / QS39 | Inspection method create/change/display/versions/where-used/list | Test methods | COVERED-33 | 33 | Test instructions/methods |
@@ -2605,7 +2605,7 @@ SAP context: QM-PT (inspection plans QP01, master inspection characteristics QS2
 
 ### 13.24.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | QA32 / QA33 | Inspection lot lists | COVERED-33 | 33 | — |
 | QM10 / QM11 | Notification lists | COVERED-33 | 33 | — |
@@ -2624,7 +2624,7 @@ SAP context: QM-PT (inspection plans QP01, master inspection characteristics QS2
 
 ### 13.24.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | QA07 (scheduled) | Deadline monitoring: recurring inspection lots, shelf-life expiry, batch status change | COVERED-33 | 33 | — |
 | QA16 (batch UD) | Automatic usage decisions (auto UD for lots without defects) | COVERED-33 | 33 | Auto-UD rules — confirm; treat covered |
@@ -2639,7 +2639,7 @@ SAP context: QM-PT (inspection plans QP01, master inspection characteristics QS2
 
 ### 13.24.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | QCC0 — QM customizing entry (inspection types 01-14; inspection lot origins; assignment of inspection types to lot origins; default values per inspection type: plan usage, auto UD, skip, inspection with task list/material spec, sample calculation, QM order) | TQ30, TQ32, TQ34 | Inspection type per origin (GR, production, delivery, recurring, calibration, stock transfer, audit, customer return) | COVERED-33 | 33 | Quality associations: when/what triggers a quality order (receipt, production, shipment, return) |
 | Material master QM view defaults (QM control key, inspection setup QM02) | QMAT, TQ08 | — | COVERED-33 | 33 | Item quality settings |
@@ -2666,11 +2666,11 @@ SAP context: QM-PT (inspection plans QP01, master inspection characteristics QS2
 
 ## 13.25 PM — Plant Maintenance (Enterprise Asset Management)
 
-SAP context: technical objects (functional locations IL01, equipment IE01, equipment BOMs IB01, serial numbers IQ01, measuring points IK01, measurement documents IK11, object links, classification), maintenance planning (task lists IA01/IA05, maintenance plans IP01/IP41/IP42 single-cycle/strategy/multiple counter, scheduling IP10/IP30, strategies IP11), maintenance processing (notifications IW21 M1/M2/M3, orders IW31 PM01-PM06, permits, refurbishment orders, confirmations IW41, completion IW32 TECO, settlement KO88), PMIS (MCI1-MCI8), work clearance management (WCM), Linear asset management, MRS integration, mobile asset management (SAP Service and Asset Manager). Passage: wave 44 (functional locations, assets/equipment, BOMs/spares, counters/measurement, plans, requests, work orders with parts/labor/costs, IoT condition monitoring, KPIs) + wave 23 scheduling + wave 25 IoT + wave 37 fixed asset link.
+SAP context: technical objects (functional locations IL01, equipment IE01, equipment BOMs IB01, serial numbers IQ01, measuring points IK01, measurement documents IK11, object links, classification), maintenance planning (task lists IA01/IA05, maintenance plans IP01/IP41/IP42 single-cycle/strategy/multiple counter, scheduling IP10/IP30, strategies IP11), maintenance processing (notifications IW21 M1/M2/M3, orders IW31 PM01-PM06, permits, refurbishment orders, confirmations IW41, completion IW32 TECO, settlement KO88), PMIS (MCI1-MCI8), work clearance management (WCM), Linear asset management, MRS integration, mobile asset management (SAP Service and Asset Manager). Depot: wave 44 (functional locations, assets/equipment, BOMs/spares, counters/measurement, plans, requests, work orders with parts/labor/costs, IoT condition monitoring, KPIs) + wave 23 scheduling + wave 25 IoT + wave 37 fixed asset link.
 
 ### 13.25.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | IL01 / IL02 / IL03 / IL04 / IL05 | Functional location create/change/display/list/changes | Location hierarchy (structure indicator) | COVERED-44 | 44 | Functional locations |
 | IL07 / IL08 / IL09 / IL10 | FL structure list / installation / dismantle / mass change | — | COVERED-44 | 44 | — |
@@ -2708,7 +2708,7 @@ SAP context: technical objects (functional locations IL01, equipment IE01, equip
 
 ### 13.25.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | IW28 / IW29 / IW38 / IW39 / IW37N / IW49N | Notification / order / operation lists | COVERED-44 | 44 | — |
 | IH01 … IH09 | Structure displays | COVERED-44 | 44 | — |
@@ -2724,7 +2724,7 @@ SAP context: technical objects (functional locations IL01, equipment IE01, equip
 
 ### 13.25.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | IP30 / IP30H (scheduled) | Deadline monitoring: generate maintenance calls (orders/notifications) | COVERED-44 | 44 | — |
 | IK34 / IoT measurement document upload (MDoc interface) | Counter reading upload | COVERED-25 | 25 | IoT → readings |
@@ -2738,7 +2738,7 @@ SAP context: technical objects (functional locations IL01, equipment IE01, equip
 
 ### 13.25.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Technical objects: structure indicators for FL (edit masks, hierarchy levels), equipment categories (M machine, P production resource, S customer equipment, Q test equipment, F fleet), equipment types, object types, planner groups, plant sections, ABC indicators, authorization groups | T370F, T370T, T370U, T024I, T357, T370C | — | COVERED-44 | 44 | FL numbering masks; equipment categories |
 | Define maintenance planning plants / maintenance work centers / planner groups | T001W, T024I | — | COVERED-6 | 6 | Sites + maintenance resources |
@@ -2759,11 +2759,11 @@ SAP context: technical objects (functional locations IL01, equipment IE01, equip
 
 ## 13.26 CS / Customer Service / SAP Field Service Management
 
-SAP context: CS (SM): service notifications (IW51–IW59, S1 problem/S2 service request/S3 activity), service orders (IW31 SM01/SM02/SM03 with revenue; billing via DP90 resource-related billing, DIP profile ODP1), service contracts (VA41 WV with billing plans, service products, SLA via contract), warranties (BGM1/BGM2 master warranties, warranty check on notification/order), installed base (IB51/IB52/IB53; IBase components), repairs processing (RAS order with repair procedure, returns/loaner/repair/delivery), in-house repair (S/4 Fiori), solution database, call center (CIC), SAP Field Service Management (cloud dispatch/mobile), S/4 Service (service orders, contracts, confirmations in S/4 Service). Passage: wave 45 (installed base, warranties, agreements/SLAs, cases → work orders, repair orders, dispatch optimization, technician mobile app, parts from trucks, billing to customer/warranty, KPIs) + wave 41 (resource-related billing) + wave 30 (RMA).
+SAP context: CS (SM): service notifications (IW51–IW59, S1 problem/S2 service request/S3 activity), service orders (IW31 SM01/SM02/SM03 with revenue; billing via DP90 resource-related billing, DIP profile ODP1), service contracts (VA41 WV with billing plans, service products, SLA via contract), warranties (BGM1/BGM2 master warranties, warranty check on notification/order), installed base (IB51/IB52/IB53; IBase components), repairs processing (RAS order with repair procedure, returns/loaner/repair/delivery), in-house repair (S/4 Fiori), solution database, call center (CIC), SAP Field Service Management (cloud dispatch/mobile), S/4 Service (service orders, contracts, confirmations in S/4 Service). Depot: wave 45 (installed base, warranties, agreements/SLAs, cases → work orders, repair orders, dispatch optimization, technician mobile app, parts from trucks, billing to customer/warranty, KPIs) + wave 41 (resource-related billing) + wave 30 (RMA).
 
 ### 13.26.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | IB51 / IB52 / IB53 / IB55 / IB56 / IB61 / IB62 | Installed base create/change/display/list; IBase components (equipment, materials, documents, text); IBase by sales order | Installed base | COVERED-45 | 45 | Installed base/service objects with serial tracking from shipments |
 | IE01 (equipment category S customer equipment), IE4N | Customer equipment | — | COVERED-45 | 45 | — |
@@ -2791,7 +2791,7 @@ SAP context: CS (SM): service notifications (IW51–IW59, S1 problem/S2 service 
 
 ### 13.26.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | IW58 / IW59 / IW38 / IW39 (service) | Notification / order lists | COVERED-45 | 45 | — |
 | IB56 / IH (IBase structure) | Installed base displays | COVERED-45 | 45 | — |
@@ -2804,7 +2804,7 @@ SAP context: CS (SM): service notifications (IW51–IW59, S1 problem/S2 service 
 
 ### 13.26.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | DP90 (batch) / DP95 | Collective billing request creation | COVERED-41 | 41 | — |
 | VF04 (service contracts periodic billing) | Contract billing run | COVERED-29 | 29 | — |
@@ -2816,7 +2816,7 @@ SAP context: CS (SM): service notifications (IW51–IW59, S1 problem/S2 service 
 
 ### 13.26.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Service notification types (S1/S2/S3), catalogs, priorities, response/service profiles (SLA: response time, service window) | TQ80, T* (response profiles OIS) | — | COVERED-45 | 45 | SLA profiles |
 | Service order types (SM01/SM02/SM03), revenues on orders, settlement to PA/sales order, DIP profiles (ODP1: usage, characteristics, sources, material determination) | T003O, DIP* | — | COVERED-41 | 41 | Billing rules |
@@ -2834,11 +2834,11 @@ SAP context: CS (SM): service notifications (IW51–IW59, S1 problem/S2 service 
 
 ## 13.27 PS — Project System
 
-SAP context: project definitions (CJ01/CJ06/CJ20N project builder), WBS elements (CJ11–CJ13), networks and activities (CN21–CN23, CN01 standard networks), milestones (CN11?), standard WBS (CJ91), planning (CJ40 cost planning, CJ42 revenue, CJR2 cost element planning, CJ9? capacity), budgeting (CJ30 original, CJ36 supplement, CJ37 return, CJ32 release, availability control), dates/scheduling (CJ21? CJ2B? CN24?), execution (CN25 confirmations, CAT2 timesheet), procurement (PRs from networks, PS material components), billing (billing plans on WBS/sales order, DP90 resource-related, milestone billing), period-end (CJ44 overhead, CJ8G settlement, KKA2 results analysis, CJB1 settlement rules, interest CJZ2?), reporting (CN41/CN42/CN43/CN45/CN46/CN47/CN48 structure/info system, S_ALR_87013532-87013575 cost reports, CJI3 line items, CJE0 hierarchy reports), project versions (CN72), simulation (CJV1), claims (CLM1), progress analysis (CNE1/CNE5 EVM), investment management (IM: IM01 program, IM22? IM52 budget distribution, appropriation requests IMA11). S/4: Project Control (Fiori Project Builder, Commercial Project Management CPM), Project Financials Control. Passage: wave 41 (WBS, scheduling, resources, forecasts/budgets, hour/expense/item/fee journals, project POs, billing T&M/FP/milestones/retainers, WIP/POC/RA, EVM, grants) + wave 38 budget control + wave 37 CIP.
+SAP context: project definitions (CJ01/CJ06/CJ20N project builder), WBS elements (CJ11–CJ13), networks and activities (CN21–CN23, CN01 standard networks), milestones (CN11?), standard WBS (CJ91), planning (CJ40 cost planning, CJ42 revenue, CJR2 cost element planning, CJ9? capacity), budgeting (CJ30 original, CJ36 supplement, CJ37 return, CJ32 release, availability control), dates/scheduling (CJ21? CJ2B? CN24?), execution (CN25 confirmations, CAT2 timesheet), procurement (PRs from networks, PS material components), billing (billing plans on WBS/sales order, DP90 resource-related, milestone billing), period-end (CJ44 overhead, CJ8G settlement, KKA2 results analysis, CJB1 settlement rules, interest CJZ2?), reporting (CN41/CN42/CN43/CN45/CN46/CN47/CN48 structure/info system, S_ALR_87013532-87013575 cost reports, CJI3 line items, CJE0 hierarchy reports), project versions (CN72), simulation (CJV1), claims (CLM1), progress analysis (CNE1/CNE5 EVM), investment management (IM: IM01 program, IM22? IM52 budget distribution, appropriation requests IMA11). S/4: Project Control (Fiori Project Builder, Commercial Project Management CPM), Project Financials Control. Depot: wave 41 (WBS, scheduling, resources, forecasts/budgets, hour/expense/item/fee journals, project POs, billing T&M/FP/milestones/retainers, WIP/POC/RA, EVM, grants) + wave 38 budget control + wave 37 CIP.
 
 ### 13.27.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | CJ20N | Project Builder (project definition, WBS, networks, activities, milestones, documents, PS texts, materials) | Central project maintenance | COVERED-41 | 41 | Project hierarchy + WBS with scheduling |
 | CJ01 / CJ02 / CJ03 / CJ06 / CJ07 / CJ08 | Project definition create/change/display (with/without template) | — | COVERED-41 | 41 | Project types & templates |
@@ -2878,7 +2878,7 @@ SAP context: project definitions (CJ01/CJ06/CJ20N project builder), WBS elements
 
 ### 13.27.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | S_ALR_87013532 / 87013533 / 87013534 / 87013535 / 87013536 | Plan/actual/variance; plan/actual/commitment/remaining plan; budget/actual/commitment; budget updates; actual in CO area currency | COVERED-41 | 41 | Project profitability, committed costs |
 | S_ALR_87013537 … 87013575 (cost element, revenue, hierarchy, period breakdown, forecast, payments) | PS cost/revenue/payment reports | COVERED-41 | 41 | — |
@@ -2898,7 +2898,7 @@ SAP context: project definitions (CJ01/CJ06/CJ20N project builder), WBS elements
 
 ### 13.27.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | CJ44 / CJ45 (overhead) | Overhead allocation | COVERED-39 | 39 | — |
 | KKA2 / KKAJ (results analysis) | RA run | COVERED-41 | 41 | — |
@@ -2917,7 +2917,7 @@ SAP context: project definitions (CJ01/CJ06/CJ20N project builder), WBS elements
 
 ### 13.27.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OPSA — Project profile (WBS defaults, status profile, planning profile, budget profile, version profile, settlement, planning board, object class) | TCJ41 | — | COVERED-41 | 41 | Project types/templates |
 | OPSJ — Budget profiles (availability control activation, tolerance limits, actions) | TBP*, TBPFE | — | COVERED-38 | 38 | — |
@@ -2943,11 +2943,11 @@ SAP context: project definitions (CJ01/CJ06/CJ20N project builder), WBS elements
 
 ## 13.28 HCM — PA / OM / PT / PY + SuccessFactors Employee Central
 
-SAP context: HCM-PA (personnel administration: infotypes 0000–0999, PA30/PA40 actions, PA20, PA70 fast entry, master data), PA-OS/OM (org management: org units, positions, jobs, PPOME/PP01, evaluation paths, relationships), PT (time management: work schedules, absences/attendances IT2001/2002, quotas IT2006, time evaluation PT60/RPTIME00, CATS, time events PDC, PT50 quota overview, shift planning PP61), PY (payroll: PC00_Mxx_CALC, schemas PE01, rules PE02, wage types, payroll results PC_PAYRESULT, posting PC00_M99_CIPE, off-cycle, retro, year-end PU19 tax reporter US, garnishments IT0194/0195, remuneration statement), PA-BN (benefits: plans, enrollment HRBEN0001, HRBEN0071 eligibility), PA-RC (recruitment PB10–PB80, e-Recruiting), PA-PD (personnel development: qualifications PPPM, appraisals PHAP_*, career/succession), PE (training & event management, LSO), PA-CM (compensation management), HR ESS/MSS, SuccessFactors Employee Central (EC), EC Payroll, SF Recruiting/Onboarding/Learning/Performance & Goals/Compensation/Succession. Passage: wave 42 (workers/positions/jobs/compensation, absence/leave, benefits, ESS/MSS, talent basics, recruitment basics, PII controls), wave 43 (payroll engine, country packs US + 1 EU, provider adapter, year-end forms, expense management), wave 25 (time & attendance core).
+SAP context: HCM-PA (personnel administration: infotypes 0000–0999, PA30/PA40 actions, PA20, PA70 fast entry, master data), PA-OS/OM (org management: org units, positions, jobs, PPOME/PP01, evaluation paths, relationships), PT (time management: work schedules, absences/attendances IT2001/2002, quotas IT2006, time evaluation PT60/RPTIME00, CATS, time events PDC, PT50 quota overview, shift planning PP61), PY (payroll: PC00_Mxx_CALC, schemas PE01, rules PE02, wage types, payroll results PC_PAYRESULT, posting PC00_M99_CIPE, off-cycle, retro, year-end PU19 tax reporter US, garnishments IT0194/0195, remuneration statement), PA-BN (benefits: plans, enrollment HRBEN0001, HRBEN0071 eligibility), PA-RC (recruitment PB10–PB80, e-Recruiting), PA-PD (personnel development: qualifications PPPM, appraisals PHAP_*, career/succession), PE (training & event management, LSO), PA-CM (compensation management), HR ESS/MSS, SuccessFactors Employee Central (EC), EC Payroll, SF Recruiting/Onboarding/Learning/Performance & Goals/Compensation/Succession. Depot: wave 42 (workers/positions/jobs/compensation, absence/leave, benefits, ESS/MSS, talent basics, recruitment basics, PII controls), wave 43 (payroll engine, country packs US + 1 EU, provider adapter, year-end forms, expense management), wave 25 (time & attendance core).
 
 ### 13.28.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | PA30 / PA20 | Maintain / display HR master data (infotypes: 0000 actions, 0001 org assignment, 0002 personal data, 0006 address, 0007 planned working time, 0008 basic pay, 0009 bank details, 0014 recurring payments, 0015 additional payments, 0016 contract, 0021 family, 0041 date specs, 0105 communication, 0167/0168/0169 benefits, 0207-0210 US tax, 0194/0195 garnishments, 2001 absences, 2002 attendances, 2006 quotas, 2010 remuneration info) | Employee master | COVERED-42 | 42 | Worker/employee/contractor records with effective-dated employment, org assignments, compensation plans; bank details (wave 43 payroll); country-specific fields framework |
 | PA40 | Personnel actions (hire, org reassignment, pay change, leave of absence, termination, rehire) | Lifecycle actions | COVERED-42 | 42 | Effective-dated employment actions with workflow |
@@ -2999,7 +2999,7 @@ SAP context: HCM-PA (personnel administration: infotypes 0000–0999, PA30/PA40 
 
 ### 13.28.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | S_AHR_61016369 / 61016362 / 61016360 / 61016380 / 61016373 … (PA standard reports: employee list, flexible employee data, headcount, entries/leavings, birthday list, service anniversaries, nationality, family members, education) | HR master data reports | COVERED-42 | 42 | HR reporting via saved views + semantic layer |
 | S_AHR_61016532 / 61016529 / 61016528 … (OM reports: org structure, staff assignments, position descriptions, vacancies, existing jobs/positions/org units) | OM reports | COVERED-42 | 42 | Org chart |
@@ -3014,7 +3014,7 @@ SAP context: HCM-PA (personnel administration: infotypes 0000–0999, PA30/PA40 
 
 ### 13.28.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | PA03 release → PC00_Mxx_CALC → corrections → exit | Payroll cycle | COVERED-43 | 43 | Pay cycles |
 | PC00_M99_CIPE (posting) → PCP0 release | Payroll GL posting run | COVERED-43 | 43 | — |
@@ -3033,7 +3033,7 @@ SAP context: HCM-PA (personnel administration: infotypes 0000–0999, PA30/PA40 
 
 ### 13.28.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Enterprise structure (HR): personnel areas/subareas (T500P, T001P), employee groups/subgroups (T501, T503), payroll areas (T549A), assignment to company code | T500P, T001P, T501, T503, T549A | — | COVERED-42 | 42 | HR org dimensions per legal entity |
 | Infotype customizing: infotype attributes (T582A), screen control (T588M), infotype menus (T588B), dynamic actions (T588Z), features (PE03: NUMKR, ABKRS, LGMST, TARIF…) | T582A, T588M, T588B, T588Z, T549 | Time constraints, retro relevance, subtypes | SUPERSEDED-3 | 3 | Metadata-driven entities/fields with effective dating; dynamic actions → workflow/event hooks (wave 4) |
@@ -3058,11 +3058,11 @@ SAP context: HCM-PA (personnel administration: infotypes 0000–0999, PA30/PA40 
 
 ## 13.29 FI-TV — Travel Management / SAP Concur
 
-SAP context: FI-TV travel requests (TRIP: TP01? request, PR01? plan), travel planning (flight/hotel/car booking via Amadeus/Sabre, PR03? ), travel expenses (PR05 create/change expense report, TRIP, PR04? , receipts, per diems/flat rates, mileage, credit card clearing PRCC, approval workflow, settlement PREC, posting to FI PRFI/PRRW, payment via payroll or AP/DME PRDX/PRDH?), travel privileges IT0017, Concur Expense/Travel/Invoice/Request with SAP ICS integration. Passage: wave 43 (expense reports, receipts OCR, policies/per diems, approvals, credit-card feed, reimbursement via AP, project expense) — travel booking is not covered.
+SAP context: FI-TV travel requests (TRIP: TP01? request, PR01? plan), travel planning (flight/hotel/car booking via Amadeus/Sabre, PR03? ), travel expenses (PR05 create/change expense report, TRIP, PR04? , receipts, per diems/flat rates, mileage, credit card clearing PRCC, approval workflow, settlement PREC, posting to FI PRFI/PRRW, payment via payroll or AP/DME PRDX/PRDH?), travel privileges IT0017, Concur Expense/Travel/Invoice/Request with SAP ICS integration. Depot: wave 43 (expense reports, receipts OCR, policies/per diems, approvals, credit-card feed, reimbursement via AP, project expense) — travel booking is not covered.
 
 ### 13.29.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | PA30 IT0017 travel privileges / PRMD | Employee travel privileges (reimbursement group, trip rules) | — | COVERED-43 | 43 | Expense policy groups per employee |
 | TRIP / PR05 / PR04 | Travel manager / create-change travel expense report (receipts, per diems, mileage, advances, deductions) | Expense report | COVERED-43 | 43 | Expense reports with receipts (OCR), per diems, mileage |
@@ -3079,7 +3079,7 @@ SAP context: FI-TV travel requests (TRIP: TP01? request, PR01? plan), travel pla
 
 ### 13.29.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | PRTS / S_AHR_61016401 … 61016411 (trip statistics, receipts, cost assignment, general trip data, trips by period/cost center, travel expense statement) | Travel reports | COVERED-43 | 43 | Expense reporting |
 | PR05 overview / PRTE (trip overview) | — | COVERED-43 | 43 | — |
@@ -3089,7 +3089,7 @@ SAP context: FI-TV travel requests (TRIP: TP01? request, PR01? plan), travel pla
 
 ### 13.29.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | PREC | Settlement of trips (calculate reimbursement, tax) | COVERED-43 | 43 | Expense settlement |
 | PRFI / PRRW | Create posting run / manage posting runs (post to FI/CO) | COVERED-43 | 43 | Posting to GL/projects |
@@ -3101,7 +3101,7 @@ SAP context: FI-TV travel requests (TRIP: TP01? request, PR01? plan), travel pla
 
 ### 13.29.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Travel expense control (trip provision variants, trip schemas, trip types statutory/enterprise, reimbursement groups) | T702N, T702O, T706* | — | COVERED-43 | 43 | Policy groups |
 | Per diems/flat rates: meals, accommodation, mileage (country/region/time), deductions (T706H T706F T706U) | T706* | Statutory vs enterprise rates, 3-month rule (DE), IRS rates (US) | COVERED-43 | 43 | Per-diem tables per country pack (wave 48) |
@@ -3116,11 +3116,11 @@ SAP context: FI-TV travel requests (TRIP: TP01? request, PR01? plan), travel pla
 
 ## 13.30 Basis & Security (users, roles, GRC Access Control, change documents, transports, system administration)
 
-SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?), CUA (SCUA/SCUM), role maintenance (PFCG, SU24, SU25, SU22, SU21 auth objects, SU20 fields), security audit (SM19/SM20/RSAU_CONFIG, SM18), password/security policies (RZ10, SECPOL), SSO/SNC/SAML (STRUST, SAML2, SNC), GRC Access Control (ARA risk analysis, ARM access requests, EAM emergency access/firefighter, BRM role management, UAR user access review), transports (SE09/SE10/STMS/SE01/SE03, CTS+, ChaRM), system admin (SM36/SM37 jobs, SM50/SM51/SM66 processes, SM12 locks, SM13 updates, SM21 syslog, ST22 dumps, ST02/ST03/ST04/ST05/ST06/ST11/ST12 performance, SMLG, RZ04, RZ20 CCMS, RZ70/SLD, SM59 RFC, SICF, SOAMANAGER, SPAD/SP01/SP02 spool, SCOT/SOST mail, SM30/SM31 table maintenance, SE16/SE16N/SE16H table display, SE11/SE80/SE38/SE37/SE24/SE18/SE19/CMOD development, SNOTE/SPAM/SAINT/SUM patching, SCC4/SCC1/SCCL client admin, SCDO/SCU3 change docs & table logging, SNRO number ranges, SE93 t-codes, SM35 batch input, SLG1 app log, SARA archiving, DB13/DB02 database, SAP Solution Manager, EarlyWatch, SAP Router, Web Dispatcher, HANA cockpit, SAP Cloud ALM). Passage: waves 1 (pipeline/transports), 2 (identity/authz), 3 (metadata/DDIC), 4 (jobs/workflow), 5 (shell, number sequences, audit, observability), 48 (SoD, SOC 2, privacy), 50 (operations/DR).
+SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?), CUA (SCUA/SCUM), role maintenance (PFCG, SU24, SU25, SU22, SU21 auth objects, SU20 fields), security audit (SM19/SM20/RSAU_CONFIG, SM18), password/security policies (RZ10, SECPOL), SSO/SNC/SAML (STRUST, SAML2, SNC), GRC Access Control (ARA risk analysis, ARM access requests, EAM emergency access/firefighter, BRM role management, UAR user access review), transports (SE09/SE10/STMS/SE01/SE03, CTS+, ChaRM), system admin (SM36/SM37 jobs, SM50/SM51/SM66 processes, SM12 locks, SM13 updates, SM21 syslog, ST22 dumps, ST02/ST03/ST04/ST05/ST06/ST11/ST12 performance, SMLG, RZ04, RZ20 CCMS, RZ70/SLD, SM59 RFC, SICF, SOAMANAGER, SPAD/SP01/SP02 spool, SCOT/SOST mail, SM30/SM31 table maintenance, SE16/SE16N/SE16H table display, SE11/SE80/SE38/SE37/SE24/SE18/SE19/CMOD development, SNOTE/SPAM/SAINT/SUM patching, SCC4/SCC1/SCCL client admin, SCDO/SCU3 change docs & table logging, SNRO number ranges, SE93 t-codes, SM35 batch input, SLG1 app log, SARA archiving, DB13/DB02 database, SAP Solution Manager, EarlyWatch, SAP Router, Web Dispatcher, HANA cockpit, SAP Cloud ALM). Depot: waves 1 (pipeline/transports), 2 (identity/authz), 3 (metadata/DDIC), 4 (jobs/workflow), 5 (shell, number sequences, audit, observability), 48 (SoD, SOC 2, privacy), 50 (operations/DR).
 
 ### 13.30.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | SU01 / SU01D / SU10 | User maintenance (address, logon data, roles, profiles, parameters, defaults, groups) / display / mass changes | Users | COVERED-2 | 2 | Keycloak users with SCIM provisioning; admin UI (users, roles, duties) |
 | SU3 / SU0 / SU50 / SU51 / SU52 | User own data (defaults, parameters, address) | — | COVERED-5 | 5 | Personalization/preferences |
@@ -3171,7 +3171,7 @@ SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?)
 
 ### 13.30.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | SUIM (all reports) | Users by roles/authorizations/t-codes; roles by authorization; change documents (users/roles/profiles); comparison; critical authorizations | COVERED-2 | 2 | Access reports; SoD (wave 48) |
 | RSUSR002 / RSUSR003 / RSUSR008_009_NEW / RSUSR100 / RSUSR200 | Users by complex criteria / standard users password check / critical combinations / change docs / logon dates & password changes | COVERED-2 | 2 | — |
@@ -3189,7 +3189,7 @@ SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?)
 
 ### 13.30.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | SM36 standard jobs (SAP_REORG_JOBS, SAP_REORG_SPOOL, SAP_COLLECTOR_FOR_PERFMONITOR, SAP_REORG_ABAPDUMPS, SAP_CHECK_ACTIVE_JOBS…) | Housekeeping jobs | SUPERSEDED-4 | 4 | Platform housekeeping (log retention, vacuum) via K8s CronJobs / job framework |
 | SM18 / RSAU_FILE_ADMIN | Security audit log reorganization | COVERED-5 | 5 | Log retention policies |
@@ -3207,7 +3207,7 @@ SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?)
 
 ### 13.30.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Profile parameters (RZ10/RZ11: login/*, auth/*, rdisp/*, icm/*, rsau/*) | TPFET, PAHI | Password rules, lock on failed logons, SSO settings, session timeout, audit | COVERED-2 | 2 | Keycloak realm policies; gateway settings |
 | PFCG role concept: org levels (PFCG_ORGFIELD_CREATE), derived roles, composite roles, menu, SU24 check indicators | AGR_*, USOBT_C, USOBX_C | — | COVERED-2 | 2 | Role/duty/privilege metadata; org-scoped assignment |
@@ -3239,7 +3239,7 @@ SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?)
 
 ### 13.31.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | SWDD / SWDD_SCENARIO / SWDM | Workflow builder (classic) / flexible workflow scenario editor / business workflow explorer | Workflow design | COVERED-4 | 4 | Workflow designer (configuration-driven approval chains) + Temporal |
 | PFTC / PFTC_INS / PFTC_CHG / PFTC_DIS | Task maintenance (standard tasks, workflow templates) | — | SUPERSEDED-4 | 4 | Workflow templates in designer |
@@ -3288,7 +3288,7 @@ SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?)
 
 ### 13.31.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | SWI1 / SWI2_* / SWI5 / SWI6 | Work item selection, frequency, deadlines, durations, workload | COVERED-4 | 4 | Workflow dashboards (SLA, throughput) |
 | SWEL | Event trace | COVERED-4 | 4 | Kafka topic browser / event log |
@@ -3306,7 +3306,7 @@ SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?)
 
 ### 13.31.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | SWWDHEX / SWWERRE / SWWCOND / SWWCLEAR (deadline monitoring, error monitoring, condition evaluation, clear work items) | Workflow background jobs | SUPERSEDED-4 | 4 | Temporal timers/retries |
 | RSWWWIDE / SWWL (delete work items) / SWW_SARA archiving | Workflow housekeeping | COVERED-48 | 48 | Workflow history retention |
@@ -3322,7 +3322,7 @@ SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?)
 
 ### 13.31.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | SWU3 basic workflow settings (RFC destination WORKFLOW_LOCAL, WF-BATCH user, prefix numbers SWU9 , monitoring jobs) | SWF_* | — | SUPERSEDED-4 | 4 | Temporal cluster config |
 | Flexible workflow scenarios (per document type: PR, PO, contract, journal entry, supplier invoice, credit memo…), step conditions, agent determination rules, deadlines, email notifications | SWF_FLEX* | — | COVERED-4 | 4 | Workflow designer with templates per entity |
@@ -3352,11 +3352,11 @@ SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?)
 
 ## 13.32 LO-VC — Variant Configuration & AVC (Advanced Variant Configuration)
 
-SAP context: classification-based configuration: characteristics (CT04), classes type 300 (CL02), configurable material KMAT (MM01), configuration profile (CU41), object dependencies (CU01: preconditions, selection conditions, procedures, actions, constraints/constraint nets), variant tables (CU60/CU61), variant functions (CU65), super BOM (CS40) and super routing with dependencies, configuration simulation (CU50), material variants (MM01 with configured values), order BOM (CU51), variant pricing (VA00/VA01 condition types with $SET_PRICING_FACTOR), VC modeling environment (PMEVC), AVC (S/4 Advanced Variant Configuration: new engine, Fiori Manage/Simulate Configuration Models, Manage Classes/Characteristics, product modeling environment), Product Structure Management (PSM/iPPE). Passage: wave 8 (constraint-based configurator on MiniZinc/OR-Tools; attributes & classification), wave 27 (configured order → production), wave 26 (variant pricing via engine), wave 9 (BOM/routing).
+SAP context: classification-based configuration: characteristics (CT04), classes type 300 (CL02), configurable material KMAT (MM01), configuration profile (CU41), object dependencies (CU01: preconditions, selection conditions, procedures, actions, constraints/constraint nets), variant tables (CU60/CU61), variant functions (CU65), super BOM (CS40) and super routing with dependencies, configuration simulation (CU50), material variants (MM01 with configured values), order BOM (CU51), variant pricing (VA00/VA01 condition types with $SET_PRICING_FACTOR), VC modeling environment (PMEVC), AVC (S/4 Advanced Variant Configuration: new engine, Fiori Manage/Simulate Configuration Models, Manage Classes/Characteristics, product modeling environment), Product Structure Management (PSM/iPPE). Depot: wave 8 (constraint-based configurator on MiniZinc/OR-Tools; attributes & classification), wave 27 (configured order → production), wave 26 (variant pricing via engine), wave 9 (BOM/routing).
 
 ### 13.32.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | CT04 / CT06 | Characteristics maintain / where-used (values, intervals, multi-value, required, restrictable, reference to table field) | Configuration attributes | COVERED-8 | 8 | Attributes with value domains; reference attributes — confirm "reference characteristics" (bind to document field e.g. order qty); treat covered |
 | CL02 / CL01 / CL03 / CL6B / CL6C | Class (type 300 variant) create/change/display, class hierarchy | Configuration classes | COVERED-8 | 8 | Classes |
@@ -3386,7 +3386,7 @@ SAP context: classification-based configuration: characteristics (CT04), classes
 
 ### 13.32.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | CU05 (where-used dependencies) / CT06 (char where-used) / CL6C | Where-used lists | COVERED-8 | 8 | — |
 | CU50 (simulation trace / explanation) | Configuration explanation (why value set/excluded) | COVERED-8 | 8 | Explain configuration (constraint explanation) — confirm explanation output; treat covered |
@@ -3396,7 +3396,7 @@ SAP context: classification-based configuration: characteristics (CT04), classes
 
 ### 13.32.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | CU mass release of dependencies / knowledge base (CU31 / CU32 / CU33 / CU34 / CU36 runtime versions for SCE/IPC) | Knowledge-base objects & runtime versions (for external configurators, IPC) | SUPERSEDED-8 | 8 | Single configurator service with versioned models |
 | Model versioning / release (AVC model release) | Model release | COVERED-8 | 8 | Versioned configurator models with ECO (wave 9) |
@@ -3405,7 +3405,7 @@ SAP context: classification-based configuration: characteristics (CT04), classes
 
 ### 13.32.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Class types (300 variant, 200 material, 001…), class status, characteristics groups, organizational areas | TCLA, TCLAT, TCLO | — | COVERED-8 | 8 | — |
 | Configuration profile settings: BOM explosion (none/single/multi-level), configuration process (planned/production order, sales order, order BOM), result-oriented vs knowledge-based order BOM, interface design (UI groups) | CUCO | — | COVERED-8 | 8 | Explosion mode per model; UI groups → configurator form layout |
@@ -3421,11 +3421,11 @@ SAP context: classification-based configuration: characteristics (CT04), classes
 
 ## 13.33 Batch Management & Serial Numbers
 
-SAP context: batch master (MSC1N/MSC2N/MSC3N/MSC4N; batch level plant/material/client OMCT; batch status management OMCS?; batch classification class type 022/023 with characteristics e.g. expiry, potency, grade), batch determination (search strategies by application: MM MBC1, SD VCH1, PP COB1, WM LS?; condition technique with selection classes and sort rules CU70?), batch where-used (MB56, BMBC batch information cockpit), batch derivation (DVMO monitor, DVSP? setup, sender/receiver), shelf life (SLED, min remaining shelf life, OMJ5 checks), batch-specific units of measure (proportion/product units), electronic batch record, batch input/output in all movements, Batch Management in EWM/QM (quality inspection per batch, batch status), serial numbers (serial number profiles OIS2, serial number master IQ01-IQ09 = equipment, serial procedures MMSL/SDRE/SDLS/PPAU/PPRL/QMSL/PPSF/MMSL, serial in deliveries/orders/inventory, Fiori Manage Serial Numbers?), S/4 "Batch Management: Manage Batches, Batch Genealogy? Fiori Batch Information Cockpit". Passage: wave 8 (batch/serial tracking dimensions, profiles), wave 16 (batch/serial on movements, FEFO), wave 18 (serial capture at receipt, duplicate block), wave 24 (batch attributes, shelf life, disposition, potency, catch weight), wave 28 (batch/serial on shipments), wave 33 (QM per batch), wave 45 (serial → installed base).
+SAP context: batch master (MSC1N/MSC2N/MSC3N/MSC4N; batch level plant/material/client OMCT; batch status management OMCS?; batch classification class type 022/023 with characteristics e.g. expiry, potency, grade), batch determination (search strategies by application: MM MBC1, SD VCH1, PP COB1, WM LS?; condition technique with selection classes and sort rules CU70?), batch where-used (MB56, BMBC batch information cockpit), batch derivation (DVMO monitor, DVSP? setup, sender/receiver), shelf life (SLED, min remaining shelf life, OMJ5 checks), batch-specific units of measure (proportion/product units), electronic batch record, batch input/output in all movements, Batch Management in EWM/QM (quality inspection per batch, batch status), serial numbers (serial number profiles OIS2, serial number master IQ01-IQ09 = equipment, serial procedures MMSL/SDRE/SDLS/PPAU/PPRL/QMSL/PPSF/MMSL, serial in deliveries/orders/inventory, Fiori Manage Serial Numbers?), S/4 "Batch Management: Manage Batches, Batch Genealogy? Fiori Batch Information Cockpit". Depot: wave 8 (batch/serial tracking dimensions, profiles), wave 16 (batch/serial on movements, FEFO), wave 18 (serial capture at receipt, duplicate block), wave 24 (batch attributes, shelf life, disposition, potency, catch weight), wave 28 (batch/serial on shipments), wave 33 (QM per batch), wave 45 (serial → installed base).
 
 ### 13.33.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | MSC1N / MSC2N / MSC3N / MSC4N | Batch create/change/display/changes (basic data: production/expiry dates, status, vendor batch, classification values) | Batch master | COVERED-24 | 24 | Batch entity with attributes, shelf life, status; wave 8 tracking dimension |
 | MSC5N / MSC (mass change batches) | Mass batch change | — | COVERED-5 | 5 | — |
@@ -3455,7 +3455,7 @@ SAP context: batch master (MSC1N/MSC2N/MSC3N/MSC4N; batch level plant/material/c
 
 ### 13.33.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | MB56 / BMBC | Batch where-used / cockpit | COVERED-24 | 24 | — |
 | MB5M | Expiration date list | COVERED-24 | 24 | — |
@@ -3469,7 +3469,7 @@ SAP context: batch master (MSC1N/MSC2N/MSC3N/MSC4N; batch level plant/material/c
 
 ### 13.33.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | QA07 (recurring inspection / expiry monitoring, batch status change) | Expiry handling | COVERED-33 | 33 | — |
 | MB5M-based expiry alerts | — | COVERED-24 | 24 | — |
@@ -3480,7 +3480,7 @@ SAP context: batch master (MSC1N/MSC2N/MSC3N/MSC4N; batch level plant/material/c
 
 ### 13.33.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OMCT — Batch level (plant / material / client) | TCUCH | Uniqueness scope | COVERED-8 | 8 | Batch uniqueness scope per product |
 | OMCS — Batch status management activation (restricted/unrestricted), initial status per material type/plant (OMAB) | TCUCH, T134, T001W | — | COVERED-24 | 24 | Batch status |
@@ -3501,11 +3501,11 @@ SAP context: batch master (MSC1N/MSC2N/MSC3N/MSC4N; batch level plant/material/c
 
 ## 13.34 CA-CL — Classification System
 
-SAP context: characteristics (CT04: formats CHAR/NUM/DATE/TIME/CURR, values, intervals, multi-value, required, additional values, reference to table fields, documents, long texts), classes (CL01/CL02/CL03: class types 001 material, 002 equipment, 003 functional location, 017 document, 022 batch (plant), 023 batch (material), 032 release strategy, 300 variant, 010 vendor, 011 customer, 012 BP…), class hierarchies (CL24N? CL6? ), object assignment (CL20N single object/multiple classes, CL24N class/multiple objects, CL22N? ), find objects (CL30N/CL6BN), where-used (CL6AN? ), mass change (CLMM), class type customizing (O1CL), characteristic groups, organizational areas, status, keywords, classification data transfer (BAPI_OBJCL_*), standard characteristics (LOBM_, etc.). Passage: wave 8 ("Attributes & classification (SAP CL-style classes) and category hierarchies") used by products, batches, equipment, documents; metadata kernel typed fields (wave 3).
+SAP context: characteristics (CT04: formats CHAR/NUM/DATE/TIME/CURR, values, intervals, multi-value, required, additional values, reference to table fields, documents, long texts), classes (CL01/CL02/CL03: class types 001 material, 002 equipment, 003 functional location, 017 document, 022 batch (plant), 023 batch (material), 032 release strategy, 300 variant, 010 vendor, 011 customer, 012 BP…), class hierarchies (CL24N? CL6? ), object assignment (CL20N single object/multiple classes, CL24N class/multiple objects, CL22N? ), find objects (CL30N/CL6BN), where-used (CL6AN? ), mass change (CLMM), class type customizing (O1CL), characteristic groups, organizational areas, status, keywords, classification data transfer (BAPI_OBJCL_*), standard characteristics (LOBM_, etc.). Depot: wave 8 ("Attributes & classification (SAP CL-style classes) and category hierarchies") used by products, batches, equipment, documents; metadata kernel typed fields (wave 3).
 
 ### 13.34.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | CT04 / CT06 / CT10 / CT12 | Characteristics maintain / where-used / list / dependencies | Attribute definitions (typed, value sets, intervals, multi-value, units, templates) | COVERED-8 | 8 | Attribute definitions with typed value domains and UoM |
 | CL01 / CL02 / CL03 / CL04 | Class create/change/display/delete (class type, characteristics, keywords, standards, documents, status, organizational areas, hierarchy) | Classes | COVERED-8 | 8 | Attribute groups/classes per entity type |
@@ -3525,7 +3525,7 @@ SAP context: characteristics (CT04: formats CHAR/NUM/DATE/TIME/CURR, values, int
 
 ### 13.34.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | CL30N / CL6BN | Find objects in class (by values) | COVERED-8 | 8 | — |
 | CL6AN / CT06 | Where-used | COVERED-8 | 8 | — |
@@ -3534,7 +3534,7 @@ SAP context: characteristics (CT04: formats CHAR/NUM/DATE/TIME/CURR, values, int
 
 ### 13.34.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | CLMM (mass update) | — | COVERED-5 | 5 | — |
 | Classification reorganization / redundancy cleanup (RCCLUKA / CL) | — | SUPERSEDED-8 | 8 | Metadata registry |
@@ -3542,7 +3542,7 @@ SAP context: characteristics (CT04: formats CHAR/NUM/DATE/TIME/CURR, values, int
 
 ### 13.34.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | O1CL — Class types per object (table, screen, key fields, multiple classification, standard class, hierarchy allowed, variant class) | TCLA, TCLAO, TCLAT | — | SUPERSEDED-3 | 3 | Attribute groups attachable per entity in metadata |
 | Characteristics groups (CT04), characteristic status, organizational areas, keywords | TCMG, TCLST | — | COVERED-8 | 8 | — |
@@ -3556,11 +3556,11 @@ SAP context: characteristics (CT04: formats CHAR/NUM/DATE/TIME/CURR, values, int
 
 ## 13.35 DMS — Document Management System (CA-DMS), Easy DMS, ECTR, CAD integration
 
-SAP context: document info records (CV01N/CV02N/CV03N/CV04N; document type, part, version, status network, originals stored in KPro/content server, object links to material/BOM/equipment/orders/customers/WBS, classification 017, document hierarchies/structures CV11/CV12/CV13?, document BOM), document distribution (CVI? ), status management with release workflow, change management via ECM, Easy DMS (Windows Explorer integration), SAP Engineering Control Center (ECTR) for CAD (AutoCAD/SolidWorks/NX) with BOM sync, conversion (PDF/viewer), ArchiveLink (OAAD) for scanned docs, Fiori: Manage Documents, SAP Document Management service (BTP), Product Lifecycle Management (PLM: engineering record, PLM web UI, Enterprise Product Development EPD). Passage: wave 5 (attachments on any entity), wave 8 (product images/documents), wave 9 (ECO workflow, "PLM integration" named), wave 48 (retention) — a true DMS (versioned, status-controlled, CAD-linked documents) is only PARTIAL.
+SAP context: document info records (CV01N/CV02N/CV03N/CV04N; document type, part, version, status network, originals stored in KPro/content server, object links to material/BOM/equipment/orders/customers/WBS, classification 017, document hierarchies/structures CV11/CV12/CV13?, document BOM), document distribution (CVI? ), status management with release workflow, change management via ECM, Easy DMS (Windows Explorer integration), SAP Engineering Control Center (ECTR) for CAD (AutoCAD/SolidWorks/NX) with BOM sync, conversion (PDF/viewer), ArchiveLink (OAAD) for scanned docs, Fiori: Manage Documents, SAP Document Management service (BTP), Product Lifecycle Management (PLM: engineering record, PLM web UI, Enterprise Product Development EPD). Depot: wave 5 (attachments on any entity), wave 8 (product images/documents), wave 9 (ECO workflow, "PLM integration" named), wave 48 (retention) — a true DMS (versioned, status-controlled, CAD-linked documents) is only PARTIAL.
 
 ### 13.35.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | CV01N / CV02N / CV03N | Document info record create/change/display (document type, number, part, version; status; originals; object links; classification; texts) | Document master | PARTIAL-8 | 8 | Attachments (wave 5) and product documents (wave 8) exist; a *document info record* with type, versioning, part/version numbering, status network and release is not named — partial; propose wave 9 "engineering documents" (drawings/specs under ECO control) |
 | CV04N | Find document (by attributes, classification, object links, full text) | Search | PARTIAL-8 | 8 | Global search covers attachments metadata; attribute/classification search on documents partial |
@@ -3581,7 +3581,7 @@ SAP context: document info records (CV01N/CV02N/CV03N/CV04N; document type, part
 
 ### 13.35.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | CV04N | Document search | PARTIAL-8 | 8 | — |
 | CV13 / CV15 | Document structure display / where-used | GAP | propose 9 | — |
@@ -3591,7 +3591,7 @@ SAP context: document info records (CV01N/CV02N/CV03N/CV04N; document type, part
 
 ### 13.35.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | CV conversion runs (originals → PDF/neutral formats) | Conversion server runs | PARTIAL-5 | 5 | Preview generation for attachments — partial |
 | Document archiving / retention (SARA CV_DVS / KPro cleanup) | — | COVERED-48 | 48 | — |
@@ -3600,7 +3600,7 @@ SAP context: document info records (CV01N/CV02N/CV03N/CV04N; document type, part
 
 ### 13.35.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | DC10 — Document types (number assignment, version/part numbering, status network, object links, screen layout, classification class, originals count, versioning) | TDWA, TDWS, TDWO, TDWP | — | PARTIAL-8 | 8 | Attachment types exist; full document type model partial |
 | DC20 — Status (document status definitions, release flag, content version) | TDWS | — | PARTIAL-9 | 9 | — |
@@ -3616,11 +3616,11 @@ SAP context: document info records (CV01N/CV02N/CV03N/CV04N; document type, part
 
 ## 13.36 Analytics — BW/4HANA, CDS views & embedded analytics, SAP Analytics Cloud, LIS, Report Painter, SAP Query
 
-SAP context: BW (RSA1 workbench, DataSources RSA5/RSA6/RSA3, process chains RSPC, InfoProviders, transformations/DTPs, queries BEx RSRT/BEx Query Designer/Analyzer, Analysis for Office, BW/4HANA, Open ODS, HANA calculation views, BW Bridge), embedded analytics (CDS views with @Analytics annotations, analytical queries, Fiori analytical list pages/overview pages, KPI modeler & Smart Business, Query Browser, View Browser, Custom Analytical Queries, Multidimensional reports), SAP Analytics Cloud (stories, planning, predictive, Digital Boardroom, live connection to S/4), Datasphere, SAP Query (SQ01/SQ02/SQ03, SQVI QuickViewer, InfoSets), Report Painter/Writer (GRR1/GR51/GR55), LIS (SIS/PURCHIS/INVCO/PP-IS/QMIS/PMIS; MC* transactions), Drill-down reporting (FGI0, KE30, FM/PS), Fiori Overview pages. Passage: wave 46 (CDC → Iceberg lakehouse, Trino/ClickHouse, dbt, Cube semantic layer with governed metrics and RLS, embedded dashboards, self-service explorer, scheduled reports, export to Excel/Power BI/Tableau, operational document designer, OpenMetadata catalog/lineage), wave 15 (financial report designer), wave 5 (saved views, export).
+SAP context: BW (RSA1 workbench, DataSources RSA5/RSA6/RSA3, process chains RSPC, InfoProviders, transformations/DTPs, queries BEx RSRT/BEx Query Designer/Analyzer, Analysis for Office, BW/4HANA, Open ODS, HANA calculation views, BW Bridge), embedded analytics (CDS views with @Analytics annotations, analytical queries, Fiori analytical list pages/overview pages, KPI modeler & Smart Business, Query Browser, View Browser, Custom Analytical Queries, Multidimensional reports), SAP Analytics Cloud (stories, planning, predictive, Digital Boardroom, live connection to S/4), Datasphere, SAP Query (SQ01/SQ02/SQ03, SQVI QuickViewer, InfoSets), Report Painter/Writer (GRR1/GR51/GR55), LIS (SIS/PURCHIS/INVCO/PP-IS/QMIS/PMIS; MC* transactions), Drill-down reporting (FGI0, KE30, FM/PS), Fiori Overview pages. Depot: wave 46 (CDC → Iceberg lakehouse, Trino/ClickHouse, dbt, Cube semantic layer with governed metrics and RLS, embedded dashboards, self-service explorer, scheduled reports, export to Excel/Power BI/Tableau, operational document designer, OpenMetadata catalog/lineage), wave 15 (financial report designer), wave 5 (saved views, export).
 
 ### 13.36.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | RSA1 | BW Data Warehousing Workbench (InfoObjects, DataSources, InfoProviders, transformations, DTPs, process chains) | Warehouse modeling | SUPERSEDED-46 | 46 | CDC → Iceberg lakehouse; dbt models replace transformations/InfoProviders |
 | RSA5 / RSA6 / RSA3 / RSA7 / LBWE / LBWQ / LBWG / SBIW | Install/maintain DataSources, extractor checker, delta queue, LO cockpit (logistics extraction), setup tables | Extraction | SUPERSEDED-46 | 46 | Debezium CDC from every domain; no extractors/setup tables |
@@ -3651,7 +3651,7 @@ SAP context: BW (RSA1 workbench, DataSources RSA5/RSA6/RSA3, process chains RSPC
 
 ### 13.36.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | BEx queries / AO workbooks / SAC stories (all standard BW business content: FI, CO, SD, MM, PP, QM, PM, HR InfoCubes/queries) | Standard BI content | SUPERSEDED-46 | 46 | Governed metric library (revenue, margin, DSO, DPO, OTIF, OEE, inventory turns, etc.) + standard dashboards per workspace |
 | Fiori Overview Pages (Procurement, Sales, Finance, Inventory, Production, Quality, Maintenance, HR) | Role-based KPI pages | COVERED-46 | 46 | Embedded dashboards in every workspace |
@@ -3664,7 +3664,7 @@ SAP context: BW (RSA1 workbench, DataSources RSA5/RSA6/RSA3, process chains RSPC
 
 ### 13.36.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | RSPC process chains (daily loads, delta, rollup, compression, aggregates) | ETL schedule | SUPERSEDED-46 | 46 | Streaming CDC (p95 lag < 60 s) + dbt scheduled models |
 | LBWE / LBWQ / setup table fills (OLI*BW: OLI7BW, OLI3BW…) | LO extraction setup | SUPERSEDED-46 | 46 | — |
@@ -3676,7 +3676,7 @@ SAP context: BW (RSA1 workbench, DataSources RSA5/RSA6/RSA3, process chains RSPC
 
 ### 13.36.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | BW source system connection (RSA1: source systems, ODP, SLT/RFC), BW settings (RSCUSTV*, RSADMIN) | RSADMIN, RSBASIDOC | — | SUPERSEDED-46 | 46 | Debezium connectors per domain DB |
 | LIS customizing (MC21 info structures, MC24 update rules, OMO1 update control per application, period units) | TMC* | — | SUPERSEDED-46 | 46 | — |
@@ -3694,11 +3694,11 @@ SAP context: BW (RSA1 workbench, DataSources RSA5/RSA6/RSA3, process chains RSPC
 
 ## 13.37 AI — SAP Joule, SAP Build Process Automation, Business AI (SUPERSEDED by wave 47)
 
-SAP context: Joule (generative AI copilot in S/4HANA Cloud, SuccessFactors, Ariba: navigational, transactional, informational, Joule agents, Joule Studio), SAP Build Process Automation (BPA: workflow + RPA bots, decisions/business rules, process visibility), SAP CoPilot (legacy), SAP Business AI scenarios (cash application ML, AP invoice matching proposals, MRP exception triage, predictive delivery, intelligent product proposals, GR/IR account reconciliation ML, situation handling (Situation Framework: situation types, situation pages), Intelligent Scenario Lifecycle Management (ISLM), Document Information Extraction, Business Document Processing, SAP AI Core/AI Launchpad, generative AI hub), SAP Signavio process AI. Passage: wave 47 (MCP server over every API/entity/report with OPA, copilot UI, Temporal-backed agent runtime with approval gates — AP coding, cash application, MRP exception triage, collections outreach, journal anomaly detection — eval harness in CI, prompt/version registry, cost budgets, responsible-AI controls, model-agnostic provider layer).
+SAP context: Joule (generative AI copilot in S/4HANA Cloud, SuccessFactors, Ariba: navigational, transactional, informational, Joule agents, Joule Studio), SAP Build Process Automation (BPA: workflow + RPA bots, decisions/business rules, process visibility), SAP CoPilot (legacy), SAP Business AI scenarios (cash application ML, AP invoice matching proposals, MRP exception triage, predictive delivery, intelligent product proposals, GR/IR account reconciliation ML, situation handling (Situation Framework: situation types, situation pages), Intelligent Scenario Lifecycle Management (ISLM), Document Information Extraction, Business Document Processing, SAP AI Core/AI Launchpad, generative AI hub), SAP Signavio process AI. Depot: wave 47 (MCP server over every API/entity/report with OPA, copilot UI, Temporal-backed agent runtime with approval gates — AP coding, cash application, MRP exception triage, collections outreach, journal anomaly detection — eval harness in CI, prompt/version registry, cost budgets, responsible-AI controls, model-agnostic provider layer).
 
 ### 13.37.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Joule (navigational/transactional/informational capabilities; natural-language navigation, create documents, Q&A over data/documentation) | Copilot in S/4 Fiori | Copilot | SUPERSEDED-47 | 47 | Copilot UI in the shell: ask-the-data (semantic layer), explain-this-record, draft documents, summarize workflows; MCP server exposes every API/entity/report |
 | Joule Agents (e.g. dispute resolution agent, cash collection agent, maintenance planner agent, sourcing agent, financial accruals agent) / Joule Studio (build custom agents/skills) | Autonomous agents | Agents | SUPERSEDED-47 | 47 | Agent runtime (Temporal) with approval gates: AP invoice coding, cash application suggestions, MRP exception triage, collections outreach, journal anomaly detection; agent builder = MCP tools + workflow designer |
@@ -3715,7 +3715,7 @@ SAP context: Joule (generative AI copilot in S/4HANA Cloud, SuccessFactors, Arib
 
 ### 13.37.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Joule informational queries (Q&A over business data and documentation) | Ask-the-data | SUPERSEDED-47 | 47 | Ask-the-data over semantic layer |
 | ISLM model monitoring (accuracy, drift) / AI Launchpad metrics | Model monitoring | SUPERSEDED-47 | 47 | Eval dashboards; cost/token budget alerts |
@@ -3725,7 +3725,7 @@ SAP context: Joule (generative AI copilot in S/4HANA Cloud, SuccessFactors, Arib
 
 ### 13.37.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | ISLM training/retraining jobs, model activation | — | SUPERSEDED-47 | 47 | Eval runs in CI gate deploys; retraining pipelines (Python services) |
 | Cash application ML proposal runs (nightly) | — | SUPERSEDED-47 | 47 | Cash application agent (suggest-mode) |
@@ -3735,7 +3735,7 @@ SAP context: Joule (generative AI copilot in S/4HANA Cloud, SuccessFactors, Arib
 
 ### 13.37.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Joule activation per scope item, capability assignment to roles, Joule Studio skill/agent configuration, grounding sources | — | — | SUPERSEDED-47 | 47 | Copilot/agent enablement per workspace & role (OPA); MCP tool catalog |
 | Situation types (standard/extended), triggers, conditions, responsibility management (teams & responsibilities), notification channels | — | — | SUPERSEDED-47 | 47 | Alert rules + responsibility assignment via org model (wave 6) |

@@ -5,7 +5,7 @@ package events
 // FreightBillMatched is published each time a carrier invoice is matched to a
 // freight bill, whatever the outcome: matchStatus is MATCHED when every charge
 // is within tolerance and VARIANCE otherwise. Consumers: AP (wave 19) and costing.
-const FreightBillMatched = "dev.passage.tms.freightbill.matched.v1"
+const FreightBillMatched = "dev.depot.tms.freightbill.matched.v1"
 
 // MatchLine is one charge code's comparison.
 type MatchLine struct {
@@ -28,9 +28,9 @@ type FreightBillMatchedPayload struct {
 // Tender response events (BR-34.3), one per attempt outcome. Consumers: wms, edi
 // (204/990) and analytics. The subject is the tender id.
 const (
-	TenderAccepted = "dev.passage.tms.tender.accepted.v1"
-	TenderDeclined = "dev.passage.tms.tender.declined.v1"
-	TenderExpired  = "dev.passage.tms.tender.expired.v1"
+	TenderAccepted = "dev.depot.tms.tender.accepted.v1"
+	TenderDeclined = "dev.depot.tms.tender.declined.v1"
+	TenderExpired  = "dev.depot.tms.tender.expired.v1"
 )
 
 // TenderPayload is the data of the tender events. Rate is the rate quoted to
@@ -51,7 +51,7 @@ type TenderPayload struct {
 // (contract: services/workflow-ts/events/asyncapi.yaml). Both come from the
 // verified caller of the release, never from the request body, and the event is
 // not published for a load outside that scope. The subject is the load id.
-const LoadReleased = "dev.passage.tms.load.released.v1"
+const LoadReleased = "dev.depot.tms.load.released.v1"
 
 // ReleasedCarrier is one carrier of LoadReleasedPayload, in rank order.
 type ReleasedCarrier struct {
@@ -75,7 +75,7 @@ type LoadReleasedPayload struct {
 
 // TrackingEventRecorded is published once per stored status report (FR-34.6).
 // Consumers: sales fulfilment and the customer portal. The subject is the load id.
-const TrackingEventRecorded = "dev.passage.tms.tracking.event.v1"
+const TrackingEventRecorded = "dev.depot.tms.tracking.event.v1"
 
 // TrackingPayload is the data of TrackingEventRecorded.
 type TrackingPayload struct {
@@ -89,7 +89,7 @@ type TrackingPayload struct {
 
 // LandedCostPosted is published when a voyage's costs are allocated and posted
 // (FR-34.9). Consumer: costing (wave 20). The subject is the voyage id.
-const LandedCostPosted = "dev.passage.tms.landedcost.posted.v1"
+const LandedCostPosted = "dev.depot.tms.landedcost.posted.v1"
 
 // ReceiptAllocation is the landed cost allocated to one receipt line.
 type ReceiptAllocation struct {
@@ -110,7 +110,7 @@ type LandedCostPostedPayload struct {
 // BR-34.5). AP (wave 19) consumes it to post the vendor invoice for the invoiced
 // amount and the ledger to reverse the accrual; the variance goes to account
 // 5250. The subject is the freight bill id, the shared journal reference.
-const FreightBillApproved = "dev.passage.tms.freightbill.approved.v1"
+const FreightBillApproved = "dev.depot.tms.freightbill.approved.v1"
 
 // FreightBillApprovedPayload is the data of FreightBillApproved. Amounts are
 // decimal strings with two places; invoicedTotal = expectedTotal + variance.
@@ -132,7 +132,7 @@ type FreightBillApprovedPayload struct {
 // GateCheckedIn is published when a driver and trailer check in at the gate
 // (FR-34.14); wms releases the door work from it. The subject is the visit id.
 // It carries no driver PII.
-const GateCheckedIn = "dev.passage.tms.gate.checkedin.v1"
+const GateCheckedIn = "dev.depot.tms.gate.checkedin.v1"
 
 // GateCheckedInPayload is the data of GateCheckedIn. ArrivalStatus is empty for
 // a walk-in.
@@ -154,7 +154,7 @@ type GateCheckedInPayload struct {
 // in-transit warehouse (BR-34.11). Consumers: inventory and costing (wave 20),
 // which carry the goods value and the estimated landed cost on the in-transit
 // account. The subject is the order id.
-const GoodsInTransitShipped = "dev.passage.tms.goodsintransit.shipped.v1"
+const GoodsInTransitShipped = "dev.depot.tms.goodsintransit.shipped.v1"
 
 // GITCostPayload is one cost type's estimate on a receipt line.
 type GITCostPayload struct {

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
 
 func splitPath(id string) string { return "/v1/procurement/requisition-lines/" + id + ":split" }

@@ -8,10 +8,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
 )
 
 // Vendor rebate claims in the fake mirror the store: amount = period accrued - earlier

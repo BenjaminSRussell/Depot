@@ -2,7 +2,7 @@
 
 Directed warehouse work: location hierarchy, license plates, and the location
 directive engine that decides where a put-away or pick line goes, with a
-rule-by-rule trace. PRD: §6.31 of `docs/prd/phase-6-logistics.md`; ticket PSG-31.
+rule-by-rule trace. PRD: §6.31 of `docs/prd/phase-6-logistics.md`; ticket DPT-31.
 
 ## What slice 4 adds (dock appointments and ASN receiving)
 
@@ -34,7 +34,7 @@ rule-by-rule trace. PRD: §6.31 of `docs/prd/phase-6-logistics.md`; ticket PSG-3
   planning path as `POST /work`, so it respects open reservations; enqueues
   `work.created` and `receipt.registered` in the same transaction). Every
   command runs once per Idempotency-Key.
-- Event `dev.passage.wms.receipt.registered.v1` (topic `passage.wms.receipt`):
+- Event `dev.depot.wms.receipt.registered.v1` (topic `depot.wms.receipt`):
   one per received pallet with `receipt_id`, `po_line_refs`, `lp_ids` and
   `items` (qty by item, the PRD's fields) plus the ASN quantity and variance.
 - Web: Receiving (receipt list with pallets received and discrepancies,
@@ -86,8 +86,8 @@ A pallet that never arrives stays EXPECTED and is not a discrepancy.
   go to the outbox in the same transaction.
 - `internal/api/execution.go`: the routes below, under `/v1/warehouse/` like
   the simulator. Work commands take an optional `If-Match` work version.
-- Events `dev.passage.wms.work.created.v1` (new work, including a short-pick
-  remainder) and `dev.passage.wms.work.completed.v1` (last open line confirmed
+- Events `dev.depot.wms.work.created.v1` (new work, including a short-pick
+  remainder) and `dev.depot.wms.work.completed.v1` (last open line confirmed
   or short picked), source `warehouse`, documented in `events/asyncapi.yaml`.
 - Web (`apps/web/src/modules/warehouse`): Locations (list with capacity, use and
   stock; Add locations generates names from a LocationFormat such as
@@ -163,7 +163,7 @@ Configuration: `DATABASE_URL` (without it only the simulator is served),
   `warehouse.setup.view`). The PRD names the route
   `/wms/v1/location-directives:simulate` and the duty `WMS_SETUP_VIEW`; they
   follow the `/v1/<service>/` path and `<service>.<area>.<verb>` duty naming
-  every Passage service uses. Stateless: the caller sends the line, the
+  every Depot service uses. Stateless: the caller sends the line, the
   directives and the candidate locations. A blocked line is a 200 answer with
   `code: WMS-0101`, not an error.
 - `cmd/warehouse`: process entrypoint with `/healthz`, `/readyz`, `/metrics`.
@@ -209,8 +209,8 @@ wave. See `NOT-IMPLEMENTED.md`.
 cd services/warehouse
 go test ./...          # domain and API tests; store and API database tests skip
 go vet ./...
-PASSAGE_TEST_DATABASE_URL=postgres://... go test ./...   # adds the store and HTTP flow tests
-PASSAGE_TEST_APP_DATABASE_URL=postgres://app@... # also runs the RLS isolation test (non-owner role)
+DEPOT_TEST_DATABASE_URL=postgres://... go test ./...   # adds the store and HTTP flow tests
+DEPOT_TEST_APP_DATABASE_URL=postgres://app@... # also runs the RLS isolation test (non-owner role)
 DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/warehouse
                        # HTTP_ADDR defaults to :8080, ADMIN_ADDR to :9090
 ```
@@ -220,7 +220,7 @@ table (100 inbound scenarios: 10 quantities × 10 occupancy layouts of the four
 demo locations, with the expected location, directive, line and action derived
 by hand from the demo directives). `internal/api` posts every scenario to the
 simulate endpoint and checks the answer and the trace's winning step.
-Outbound: `internal/domain/directive_outbound_test.go` holds 100 PICK scenarios. Wave release: `domain.ReleaseWave` / `Store.ReleaseWave` create one SALES_PICK work per order and min/max REPLENISHMENT work (priority 40, ahead of picking) in one transaction (unmet pick demand and open refills count toward the refill; the refill is cut to the destination's weight/volume room; the release locks the warehouse's locations; a pick that only the refill can cover is WAITING with `depends_on` the refill works, is never assigned, and becomes OPEN (event `work.released`) in the transaction that completes or cancels the last of them; a short-picked refill hands the wait to its remainder work; migration `0004_work_dependencies.sql`). `wave_test.go` files cover 500 orders and the 10k-lines/day simulation (`PASSAGE_WMS_SIM_10K=1` for the whole day). No route or wave record yet.
+Outbound: `internal/domain/directive_outbound_test.go` holds 100 PICK scenarios. Wave release: `domain.ReleaseWave` / `Store.ReleaseWave` create one SALES_PICK work per order and min/max REPLENISHMENT work (priority 40, ahead of picking) in one transaction (unmet pick demand and open refills count toward the refill; the refill is cut to the destination's weight/volume room; the release locks the warehouse's locations; a pick that only the refill can cover is WAITING with `depends_on` the refill works, is never assigned, and becomes OPEN (event `work.released`) in the transaction that completes or cancels the last of them; a short-picked refill hands the wait to its remainder work; migration `0004_work_dependencies.sql`). `wave_test.go` files cover 500 orders and the 10k-lines/day simulation (`DEPOT_WMS_SIM_10K=1` for the whole day). No route or wave record yet.
 Property test: `location_test.go` checks that a location never exceeds its
 capacity under random receive sequences (AC-31.9 for the capacity half).
 
@@ -236,7 +236,7 @@ quantities and weights.
 ## Shipped without a packing slip (#35, 35-1)
 
 `POST /v1/warehouse/shipments/{id}:ship` (duty `warehouse.shipment.confirm`) records that the fulfillment shipment `{id}` left the
-dock without a packing slip posted for it, and enqueues `dev.passage.wms.shipment.shipped.v1` (topic `passage.wms.shipment`) in the
+dock without a packing slip posted for it, and enqueues `dev.depot.wms.shipment.shipped.v1` (topic `depot.wms.shipment`) in the
 same transaction. The EDI engine's outbound consumer sends the whole shipment's 856 or DESADV from it, as it does from fulfillment's
 `asn.issued` for a slip. A shipment is confirmed once (migration 0009); a second confirmation is 409 `WMS-SHIPMENT-SHIPPED`, so a split load ships by packing slips in fulfillment. `GET /v1/warehouse/shipments/{id}/shipped` reads it back.
 
@@ -273,7 +273,7 @@ containers; `ssccs` and `containers` are alternatives.
 | WMS-SHIPMENT-NOT-FOUND | 404 | No ship confirmation for the shipment in the caller's legal entities. |
 | WMS-DOOR-NOT-FOUND | 404 | No such dock door in the appointment's warehouse. |
 | idempotency_key_reuse | 422 | The Idempotency-Key was used for another request (method, path, user and body). |
-| COM-0001 | 400 | Malformed body, unknown field, missing Idempotency-Key or X-Passage-User, or failed field validation (`errors` names the fields). |
+| COM-0001 | 400 | Malformed body, unknown field, missing Idempotency-Key or X-Depot-User, or failed field validation (`errors` names the fields). |
 | AUTH-0001 | 401 | No tenant on the request, or (persisted routes) a tenant that is not a UUID. |
 | AUTH-0003 | 403 | The route's duty is missing (for an appointment, the duty of its direction). |
 

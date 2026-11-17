@@ -11,11 +11,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/config"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/config"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/store"
 )
 
 // auditFake answers the audit trail routes and records what they were asked.
@@ -141,10 +141,10 @@ func TestAuditExport_SendsTheFileWithItsDigestAndExportID(t *testing.T) {
 	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/csv") {
 		t.Fatalf("content type %q", ct)
 	}
-	if got := w.Header().Get("X-Passage-Export-Sha256"); got != domain.AuditDigest(w.Body.Bytes()) {
+	if got := w.Header().Get("X-Depot-Export-Sha256"); got != domain.AuditDigest(w.Body.Bytes()) {
 		t.Fatalf("digest header %q does not match the body", got)
 	}
-	if w.Header().Get("X-Passage-Export-Id") != f.export.ID || w.Header().Get("X-Passage-Export-Entries") != "0" {
+	if w.Header().Get("X-Depot-Export-Id") != f.export.ID || w.Header().Get("X-Depot-Export-Entries") != "0" {
 		t.Fatalf("export headers %v", w.Header())
 	}
 	if !strings.Contains(w.Header().Get("Content-Disposition"), f.export.ID) {
@@ -161,7 +161,7 @@ func TestAuditExport_TooManyEntriesIsRefusedNotTruncated(t *testing.T) {
 	if w.Code != http.StatusUnprocessableEntity || problemCode(t, w) != domain.CodeAuditExportTooLarge {
 		t.Fatalf("status %d %s", w.Code, w.Body.String())
 	}
-	if w.Header().Get("X-Passage-Export-Sha256") != "" {
+	if w.Header().Get("X-Depot-Export-Sha256") != "" {
 		t.Fatal("a refused export must not carry a digest")
 	}
 }

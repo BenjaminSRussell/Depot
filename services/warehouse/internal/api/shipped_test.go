@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/store"
 )
 
 func (f *fakeStore) ConfirmShipped(_ context.Context, idem store.Idem, c store.ShipConfirmation) (store.ShipConfirmation, bool, error) {
@@ -34,9 +34,9 @@ func ship(h *httptest.ResponseRecorder, api *API, path, duties, le, body string)
 	api.Register(router)
 	r := httptest.NewRequest("POST", path, strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")
-	r.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	r.Header.Set("X-Passage-User", "u1")
-	r.Header.Set("X-Passage-Duties", duties)
+	r.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	r.Header.Set("X-Depot-User", "u1")
+	r.Header.Set("X-Depot-Duties", duties)
 	if le != "" {
 		r.Header.Set(tenant.HeaderLegalEntity, le)
 	}

@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
-  title: Passage Shop Floor API
+  title: Depot Shop Floor API
   version: 0.1.0
   description: |
-    Shop floor service for PSG-25. Slice 1: workers, batch registrations from
+    Shop floor service for DPT-25. Slice 1: workers, batch registrations from
     the kiosk with client UUIDs, pay calculation per worker-day, approval, and
     the lists the supervisor approval screen reads. Slice 2: machines, edge
     machine-event ingest, downtimes and reason codes, andon, the OEE series and
@@ -26,7 +26,7 @@ info:
     outcome with `Idempotent-Replayed: true`. Errors are RFC 9457 problem
     details (application/problem+json) with a stable `code`; see README.md.
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env:
         default: dev
@@ -35,7 +35,7 @@ paths:
     post:
       operationId: createWorker
       summary: Register a worker (shop floor projection of an employee)
-      x-passage-duty: shopfloor.setup.maintain
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -64,7 +64,7 @@ paths:
     get:
       operationId: listWorkers
       summary: List workers by name
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: active
           in: query
@@ -95,7 +95,7 @@ paths:
     get:
       operationId: getWorker
       summary: Get one worker
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: id
           in: path
@@ -127,8 +127,8 @@ paths:
         the worker is approved (SF-0169, 422). The edit rewrites no pay line: days already calculated
         keep the cost rate they were calculated with until a supervisor recalculates them, and
         approved days keep theirs (a later `pay:revise` of an approved day prices it at the rate then
-        current). Publishes `dev.passage.shopfloor.worker.saved.v1` (change `updated`).
-      x-passage-duty: shopfloor.setup.maintain
+        current). Publishes `dev.depot.shopfloor.worker.saved.v1` (change `updated`).
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - name: id
           in: path
@@ -174,7 +174,7 @@ paths:
     get:
       operationId: listRegistrations
       summary: A worker's registrations in a date range, or every registration of a bundle
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       description: |
         With `bundleId`, returns the bundle's registrations (BR-25.1) and ignores
         the other filters. Otherwise `workerId`, `from` and `to` are required.
@@ -226,12 +226,12 @@ paths:
     post:
       operationId: createRegistrations
       summary: Create registrations (batch of 1 to 500, offline replay)
-      x-passage-duty: shopfloor.time.register
+      x-depot-duty: shopfloor.time.register
       description: |
         Each item carries a client-generated UUID `id`. An item whose id already
         exists is ignored and reported as `duplicate` (BR-25.7). Items are stored
         in client timestamp order; results are in request order. New items emit
-        dev.passage.shopfloor.registration.posted.v1 in the same transaction.
+        dev.depot.shopfloor.registration.posted.v1 in the same transaction.
         An unknown or inactive worker fails the whole batch (SF-0101).
 
         Bundles (BR-25.1): the closed job registrations sharing a `bundleId` must
@@ -310,7 +310,7 @@ paths:
     post:
       operationId: calculatePay
       summary: Calculate pay lines for a worker over a date range
-      x-passage-duty: shopfloor.pay.calculate
+      x-depot-duty: shopfloor.pay.calculate
       description: |
         Recomputes non-approved worker-days from the worker's clock registrations.
         The weekly overtime threshold counts the earlier days of the pay week
@@ -348,14 +348,14 @@ paths:
     post:
       operationId: approvePay
       summary: Approve calculated worker-days
-      x-passage-duty: shopfloor.pay.approve
+      x-depot-duty: shopfloor.pay.approve
       description: |
         Approves every calculated day in the range. Days already approved are
         returned unchanged. Any open flag fails the request (SF-0006); a day whose
         registrations changed after calculation, or that is priced by a dated cost
         rate added after its calculation, fails with SF-0104; approving
         your own day fails with SF-0106. Newly approved days emit
-        dev.passage.shopfloor.payday.approved.v1.
+        dev.depot.shopfloor.payday.approved.v1.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -387,11 +387,11 @@ paths:
     post:
       operationId: correctRegistration
       summary: Correct the times of a registration with a reason
-      x-passage-duty: shopfloor.time.correct
+      x-depot-duty: shopfloor.time.correct
       description: |
         A supervisor changes `startedAt` and/or `stoppedAt` of one registration (FR-25.8).
         The before and after, the reason and the user are kept in the correction audit
-        trail and `dev.passage.shopfloor.registration.corrected.v1` is published in the
+        trail and `dev.depot.shopfloor.registration.corrected.v1` is published in the
         same transaction. A clock-in or clock-out takes no `stoppedAt`; a closed
         registration lasts at most 24 hours; a bundled job registration, and a job-start
         that a job-stop already closed (correct the job-stop), cannot be corrected
@@ -440,7 +440,7 @@ paths:
     get:
       operationId: listRegistrationCorrections
       summary: Registration corrections made in a date range
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       description: Lists corrections by the day they were made (local days in `timeZone`, UTC by default), newest first.
       parameters:
         - name: workerId
@@ -478,7 +478,7 @@ paths:
     post:
       operationId: autoClockOut
       summary: Auto clock-out sweep - close clock-ins left open too long
-      x-passage-duty: shopfloor.time.autoclockout
+      x-depot-duty: shopfloor.time.autoclockout
       description: |
         The hourly auto clock-out job (D2h, BR-25.3). The platform scheduler calls it for
         each tenant with a service identity holding the duty; a supervisor may run it by
@@ -541,7 +541,7 @@ paths:
     get:
       operationId: listAutoClockOuts
       summary: Clock-outs written by the auto clock-out sweep, for review
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       description: |
         Lists the flagged clock-outs the sweep wrote between `from` and `to` (local days
         in `timeZone`, by the time the server wrote them), newest first, with the worker,
@@ -583,13 +583,13 @@ paths:
     post:
       operationId: revisePay
       summary: Recalculate a range and revise approved days with reversal lines
-      x-passage-duty: shopfloor.pay.revise
+      x-depot-duty: shopfloor.pay.revise
       description: |
         Recalculates the range from the stored registrations (BR-25.8, AC-25.8). Days
         that are not approved are replaced as `pay:calculate` does. An approved day keeps
         every line: lines that differ from the recalculation are cancelled by reversal
         lines (negative hours and amount) and the new lines are added, all with the
-        day's next revision number, and `dev.passage.shopfloor.payday.revised.v1` is
+        day's next revision number, and `dev.depot.shopfloor.payday.revised.v1` is
         published. Reversal and new lines join the next payroll export. A range where
         nothing differs fails with SF-0129; an approved day that would carry open flags
         fails with SF-0006; revising your own pay fails with SF-0106.
@@ -624,7 +624,7 @@ paths:
     get:
       operationId: listWorkerDays
       summary: Calculated and approved worker-days with pay lines (approval list)
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: workerId
           in: query
@@ -664,7 +664,7 @@ paths:
       operationId: registerMachine
       summary: Map an edge machine code to a resource with its ideal cycle time
       description: One machine per resource and one resource per machine code in this slice (SF-0109).
-      x-passage-duty: shopfloor.setup.maintain
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -693,7 +693,7 @@ paths:
     get:
       operationId: listMachines
       summary: List registered machines by code
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - $ref: "#/components/parameters/Limit"
       responses:
@@ -728,7 +728,7 @@ paths:
         opens a downtime and any other state closes it; a downtime open for more
         than 10 minutes raises one andon per resource. An unknown machine code
         rejects the whole batch (SF-0108).
-      x-passage-duty: shopfloor.machine.ingest
+      x-depot-duty: shopfloor.machine.ingest
       requestBody:
         required: true
         content:
@@ -754,7 +754,7 @@ paths:
     get:
       operationId: listDowntimes
       summary: Machine downtimes, newest first
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: open
           in: query
@@ -796,7 +796,7 @@ paths:
         (`downtime-reasons`), `reasonCode` must be the code of an existing reason (SF-0158) that is
         active (SF-0159), a `category` in the request must be the reason's own (SF-0160), and an
         omitted category takes the reason's.
-      x-passage-duty: shopfloor.time.register
+      x-depot-duty: shopfloor.time.register
       parameters:
         - name: id
           in: path
@@ -834,7 +834,7 @@ paths:
     get:
       operationId: listAndon
       summary: Open andon alerts, oldest first (BR-25.10)
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: siteId
           in: query
@@ -878,9 +878,9 @@ paths:
         latest completed stored OEE bucket of each resource: more than 5 % scrap in a bucket of at
         least 10 pieces raises a `scrap-rate` alert, and the alert clears once the latest completed
         bucket is back at or under 5 % and ended at least 5 minutes ago (BR-25.10). Alerts raised
-        publish `dev.passage.shopfloor.andon.raised.v1`. Repeating the call changes nothing, so it
+        publish `dev.depot.shopfloor.andon.raised.v1`. Repeating the call changes nothing, so it
         takes no Idempotency-Key and no body. Scrap rate needs the OEE rollup (`oee:rollup`) to have stored the buckets.
-      x-passage-duty: shopfloor.oee.rollup
+      x-depot-duty: shopfloor.oee.rollup
       responses:
         "200":
           description: What the sweep raised and cleared.
@@ -899,7 +899,7 @@ paths:
       operationId: getAndonSettings
       summary: The tenant's andon thresholds (FR-25.11)
       description: The defaults (10 minutes down, 5 minutes clear, 5 % scrap over 10 pieces) until the tenant sets its own; `default` says which.
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       responses:
         "200":
           description: The thresholds.
@@ -920,7 +920,7 @@ paths:
         Minutes a machine may stay down before the downtime alert (1 to 240), minutes a condition must stay clear before
         an alert closes (0 to 120), and the scrap share (1 to 100 %) of an OEE bucket of at least `scrapMinCount` pieces
         above which the scrap-rate alert is raised. The next machine event ingest and andon sweep use them.
-      x-passage-duty: shopfloor.setup.maintain
+      x-depot-duty: shopfloor.setup.maintain
       requestBody:
         required: true
         content:
@@ -953,7 +953,7 @@ paths:
       description: |
         The same four values as the tenant's, for one site. The machines of the site use them instead of the tenant's
         (or the defaults) from the next machine event ingest and andon sweep; every other machine is unchanged.
-      x-passage-duty: shopfloor.setup.maintain
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - { name: siteId, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -985,7 +985,7 @@ paths:
       operationId: deleteAndonSiteSettings
       summary: Remove a site's own andon thresholds
       description: The site's machines follow the tenant's thresholds again. A site with none of its own is SF-0187 (404).
-      x-passage-duty: shopfloor.setup.maintain
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - { name: siteId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1013,7 +1013,7 @@ paths:
         not cleared by hand, because the machine's own data clears it once the condition has been
         clear for 5 minutes: SF-0163 (422). A later feedback posting that leaves no failed check on
         the alert's job clears it too.
-      x-passage-duty: shopfloor.check.override
+      x-depot-duty: shopfloor.check.override
       parameters:
         - name: id
           in: path
@@ -1059,7 +1059,7 @@ paths:
         state, OFF, or wholly planned downtime) are omitted, as are resources
         without a machine. Roll up to a shift by summing minutes and counts, never by
         averaging ratios.
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: resourceIds
           in: query
@@ -1119,7 +1119,7 @@ paths:
         the resource has no machine. The stream ends after about 25 seconds (before the
         request timeout) and starts with `retry: 1000`, so the browser's EventSource
         reconnects. A store failure after the stream started sends an `error` event and ends it.
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: resourceId
           in: query
@@ -1155,12 +1155,12 @@ paths:
         tenant with a service identity holding the rollup duty. The buckets are
         computed exactly as GET /oee computes them and upserted by (resource, bucket
         width, bucket start). A new or changed bucket publishes
-        `dev.passage.shopfloor.oeebucket.updated.v1`; a stored bucket of the window
+        `dev.depot.shopfloor.oeebucket.updated.v1`; a stored bucket of the window
         that no longer has planned time is removed and publishes
-        `dev.passage.shopfloor.oeebucket.removed.v1`; an unchanged bucket is not
+        `dev.depot.shopfloor.oeebucket.removed.v1`; an unchanged bucket is not
         rewritten and publishes nothing, so calling it again is safe and it takes no
         Idempotency-Key. Without `resourceIds` every registered machine is rolled up.
-      x-passage-duty: shopfloor.oee.rollup
+      x-depot-duty: shopfloor.oee.rollup
       requestBody:
         required: true
         content:
@@ -1190,7 +1190,7 @@ paths:
         logs it out after `idleTimeoutMinutes` without input. An unknown badge and the
         badge of a deactivated worker are both SF-0001 (422). Nothing is stored, so
         there is no Idempotency-Key. PIN login is not built yet.
-      x-passage-duty: shopfloor.kiosk.login
+      x-depot-duty: shopfloor.kiosk.login
       requestBody:
         required: true
         content:
@@ -1219,7 +1219,7 @@ paths:
       description: |
         Workers whose latest clock punch is a clock-in, longest present first, with
         the jobs they started since and have not stopped (a bundle lists each job).
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - $ref: "#/components/parameters/Limit"
       responses:
@@ -1248,9 +1248,9 @@ paths:
       description: |
         Every approved pay line in the range that is not yet in a batch joins a
         new batch. The response carries the CSV; the batch emits
-        dev.passage.shopfloor.payday.exported.v1 with its lines in the same
+        dev.depot.shopfloor.payday.exported.v1 with its lines in the same
         transaction. A range with nothing new fails with SF-0111.
-      x-passage-duty: shopfloor.pay.export
+      x-depot-duty: shopfloor.pay.export
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1280,7 +1280,7 @@ paths:
     get:
       operationId: listPayExports
       summary: Payroll export batches, newest first (without CSV)
-      x-passage-duty: shopfloor.pay.export
+      x-depot-duty: shopfloor.pay.export
       parameters:
         - $ref: "#/components/parameters/Limit"
       responses:
@@ -1306,7 +1306,7 @@ paths:
     get:
       operationId: getPayExport
       summary: One payroll export batch with its CSV
-      x-passage-duty: shopfloor.pay.export
+      x-depot-duty: shopfloor.pay.export
       parameters:
         - name: id
           in: path
@@ -1334,7 +1334,7 @@ paths:
       description: |
         From a kiosk PI sheet, the edge connector or manual entry. A message that carries a signature (a
         A signature is the caller's own and needs a recent sign-in (21 CFR 11.200): only a person (never a service token) whose
-        token's `auth_time`, forwarded by the gateway as `X-Passage-Auth-Time`, is within `SHOPFLOOR_SIGNATURE_MAX_AUTH_AGE_SECONDS`
+        token's `auth_time`, forwarded by the gateway as `X-Depot-Auth-Time`, is within `SHOPFLOOR_SIGNATURE_MAX_AUTH_AGE_SECONDS`
         (default 300) may sign, otherwise 403 SF-0188 (the client signs in again with `prompt=login` and retries); `signed-by`
         must be the caller's user id (422 SF-0189; it is filled in when left out), and the user id and auth time are stored with
         the message. A retry of a signature already stored is answered 200 duplicate whatever the sign-in age.
@@ -1350,7 +1350,7 @@ paths:
         Idempotent by (source, sourceMessageId): a replay answers 200 with the stored message and
         `duplicate: true`, so no Idempotency-Key is needed; that holds even when the category was
         changed or deactivated after the message was stored.
-      x-passage-duty: shopfloor.process.create
+      x-depot-duty: shopfloor.process.create
       requestBody:
         required: true
         content:
@@ -1386,7 +1386,7 @@ paths:
         `nextCursor` is null on the last page. Deleted messages are not listed (read one
         by id to see its deletion). A cursor this list did not return is COM-0001 naming
         `cursor`.
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: status
           in: query
@@ -1445,7 +1445,7 @@ paths:
       operationId: getProcessMessage
       summary: One process message with its deliveries
       description: A deleted message is still returned, with `deletedAt`, `deletedBy` and `deleteReason` set.
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: id
           in: path
@@ -1478,7 +1478,7 @@ paths:
         reports (SF-0120). The message becomes
         `delivered` (and `processmessage.delivered` is published once) when every
         destination is delivered.
-      x-passage-duty: shopfloor.process.deliver
+      x-depot-duty: shopfloor.process.deliver
       parameters:
         - name: id
           in: path
@@ -1522,7 +1522,7 @@ paths:
       operationId: reprocessProcessMessage
       summary: Send a destination in error again, with a reason
       description: Only a destination in `error` can be reprocessed (SF-0116), and not on a deleted message (SF-0120). It returns to pending with its attempts reset, and `processmessage.received` is published naming that destination alone.
-      x-passage-duty: shopfloor.process.create
+      x-depot-duty: shopfloor.process.create
       parameters:
         - name: id
           in: path
@@ -1569,7 +1569,7 @@ paths:
         retry sweep skips it. Destinations already delivered are not undone.
         `processmessage.deleted` is published naming the destinations that never received
         the message. Needs an authenticated user.
-      x-passage-duty: shopfloor.process.create
+      x-depot-duty: shopfloor.process.create
       parameters:
         - name: id
           in: path
@@ -1619,7 +1619,7 @@ paths:
         Destinations that never reported (waiting for their consumer), in error (waiting
         for a supervisor) and deleted messages are not retried. Calling it again is safe,
         so it takes no Idempotency-Key.
-      x-passage-duty: shopfloor.process.deliver
+      x-depot-duty: shopfloor.process.deliver
       parameters:
         - name: limit
           in: query
@@ -1657,7 +1657,7 @@ paths:
         when it updates the plan. Plan fields (order, operation, resource, planned quantity,
         sequence start, check definitions) are last-writer-wins; reported quantities,
         status and check results are never overwritten. Not in the PRD API table.
-      x-passage-duty: shopfloor.job.schedule
+      x-depot-duty: shopfloor.job.schedule
       requestBody:
         required: true
         content:
@@ -1693,7 +1693,7 @@ paths:
         (`defaultResourceId`, set with `workers/{id}:assign-resource`); a worker without one sees
         every job, so a plant that has not set home resources keeps a working kiosk. An unknown
         worker is SF-0101 (404). It cannot be combined with `resourceId` (400).
-      x-passage-duty: shopfloor.time.register
+      x-depot-duty: shopfloor.time.register
       parameters:
         - name: resourceId
           in: query
@@ -1736,7 +1736,7 @@ paths:
     get:
       operationId: getJob
       summary: Job detail with its quality check results (kiosk job detail)
-      x-passage-duty: shopfloor.time.register
+      x-depot-duty: shopfloor.time.register
       parameters:
         - name: id
           in: path
@@ -1774,8 +1774,8 @@ paths:
         does a job whose operation production (w21) finished and has not reopened (SF-0161). The
         client `feedbackId` is the idempotency key (offline replay): a resend returns 200
         with `duplicate: true` and changes nothing; the same id on another job is SF-0124.
-        Each stored posting publishes `dev.passage.shopfloor.job.reported.v1`.
-      x-passage-duty: shopfloor.time.register
+        Each stored posting publishes `dev.depot.shopfloor.job.reported.v1`.
+      x-depot-duty: shopfloor.time.register
       parameters:
         - name: id
           in: path
@@ -1823,9 +1823,9 @@ paths:
         gate (SF-0005). `If-Match` carries the job version you read (SF-0143, 412); a job that
         is not finished is SF-0155 (422). The reason (1 to 500 characters) and the authenticated
         user are kept in the audit list (`GET jobs/{id}/reopenings`). Publishes
-        `dev.passage.shopfloor.job.reopened.v1` in the same transaction; a repeated
+        `dev.depot.shopfloor.job.reopened.v1` in the same transaction; a repeated
         `Idempotency-Key` returns the stored job and publishes nothing.
-      x-passage-duty: shopfloor.job.reopen
+      x-depot-duty: shopfloor.job.reopen
       parameters:
         - name: id
           in: path
@@ -1870,7 +1870,7 @@ paths:
       operationId: listJobReopenings
       summary: Reopenings of a job, newest first
       description: The audit list of supervisor reopenings of a job with who, why, when and the totals at that moment.
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: id
           in: path
@@ -1939,8 +1939,8 @@ paths:
         Day rules per day type (weekday, saturday, sunday): shift window, unpaid breaks, rounding
         and clock tolerances (FR-25.7, BR-25.2). A day type the profile does not define uses the
         defaults (10 minutes before, 5 after, 1 minute rounding, no breaks). Publishes
-        `dev.passage.shopfloor.timeprofile.saved.v1`. A code already used is SF-0142.
-      x-passage-duty: shopfloor.setup.maintain
+        `dev.depot.shopfloor.timeprofile.saved.v1`. A code already used is SF-0142.
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1974,7 +1974,7 @@ paths:
     get:
       operationId: listTimeProfiles
       summary: List time profiles by code
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: active
           in: query
@@ -2005,7 +2005,7 @@ paths:
     get:
       operationId: getTimeProfile
       summary: Get one time profile
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: id
           in: path
@@ -2038,7 +2038,7 @@ paths:
         Replaces the name, status and days (the code does not change) and bumps the version.
         `If-Match` carries the version you read; another change in between is SF-0143 (412).
         Pay lines already calculated are not touched.
-      x-passage-duty: shopfloor.setup.maintain
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - name: id
           in: path
@@ -2083,8 +2083,8 @@ paths:
         Daily and weekly overtime thresholds, the overtime and Sunday multipliers and the first
         day of the pay week (FR-25.7, BR-25.8). Workers without an agreement use 8 h daily, 40 h
         weekly, 1.5x overtime, 2.0x Sunday and a Monday week. Publishes
-        `dev.passage.shopfloor.payagreement.saved.v1`. A code already used is SF-0142.
-      x-passage-duty: shopfloor.setup.maintain
+        `dev.depot.shopfloor.payagreement.saved.v1`. A code already used is SF-0142.
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -2118,7 +2118,7 @@ paths:
     get:
       operationId: listPayAgreements
       summary: List pay agreements by code
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: active
           in: query
@@ -2149,7 +2149,7 @@ paths:
     get:
       operationId: getPayAgreement
       summary: Get one pay agreement
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: id
           in: path
@@ -2182,7 +2182,7 @@ paths:
         Replaces the name, status and rules (the code does not change) and bumps the version.
         `If-Match` carries the version you read; another change in between is SF-0143 (412).
         Pay lines already calculated are not touched; recalculating a day uses the new rules.
-      x-passage-duty: shopfloor.setup.maintain
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - name: id
           in: path
@@ -2226,8 +2226,8 @@ paths:
       description: |
         An absence code says whether absence time is paid and at what share of the worker's rate
         (FR-25.2). An unpaid code has multiplier 0 and its pay lines carry the hours with
-        multiplier 0 and amount 0. Publishes `dev.passage.shopfloor.absencecode.saved.v1`. A code already used is SF-0142.
-      x-passage-duty: shopfloor.setup.maintain
+        multiplier 0 and amount 0. Publishes `dev.depot.shopfloor.absencecode.saved.v1`. A code already used is SF-0142.
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -2261,7 +2261,7 @@ paths:
     get:
       operationId: listAbsenceCodes
       summary: List absence codes by code
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: active
           in: query
@@ -2292,7 +2292,7 @@ paths:
     get:
       operationId: getAbsenceCode
       summary: Get one absence code
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: id
           in: path
@@ -2329,7 +2329,7 @@ paths:
         were registered; create a new code and deactivate this one instead. The name and status
         can always change. An inactive code refuses new absence registrations (SF-0146) but stays
         on stored ones.
-      x-passage-duty: shopfloor.setup.maintain
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - name: id
           in: path
@@ -2375,9 +2375,9 @@ paths:
       description: |
         The downtime reason code master (FR-25.11): a code, a name and the planned or unplanned
         category OEE and andon report on. Once a tenant has defined a reason, coding a downtime
-        takes one of the active codes. Publishes `dev.passage.shopfloor.downtimereason.saved.v1`.
+        takes one of the active codes. Publishes `dev.depot.shopfloor.downtimereason.saved.v1`.
         A code already used is SF-0142.
-      x-passage-duty: shopfloor.setup.maintain
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -2411,7 +2411,7 @@ paths:
     get:
       operationId: listDowntimeReasons
       summary: List downtime reason codes by code
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: active
           in: query
@@ -2442,7 +2442,7 @@ paths:
     get:
       operationId: getDowntimeReason
       summary: Get one downtime reason code
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: id
           in: path
@@ -2476,7 +2476,7 @@ paths:
         `If-Match` carries the version you read; another change in between is SF-0143 (412).
         Downtimes already coded keep the category they were coded with. An inactive reason refuses
         new coding (SF-0159) but stays on the downtimes that carry it.
-      x-passage-duty: shopfloor.setup.maintain
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - name: id
           in: path
@@ -2525,8 +2525,8 @@ paths:
         destinations a message of the category is delivered to, whether an out-of-limit value is
         refused (`rejectOutOfLimit`, SF-0114 on a message) and the characteristic definitions
         (type, unit, limits, required) that govern the values it names. Publishes
-        `dev.passage.shopfloor.processcategory.saved.v1`. A code already used is SF-0142.
-      x-passage-duty: shopfloor.setup.maintain
+        `dev.depot.shopfloor.processcategory.saved.v1`. A code already used is SF-0142.
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -2563,7 +2563,7 @@ paths:
       description: |
         The tenant's categories by code, followed by the built-in defaults that no row overrides
         (`builtIn` true, no `id` or `version`).
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: active
           in: query
@@ -2594,7 +2594,7 @@ paths:
     get:
       operationId: getProcessCategory
       summary: Get one process message category
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: id
           in: path
@@ -2628,7 +2628,7 @@ paths:
         code does not change) and bumps the version. `If-Match` carries the version you read;
         another change in between is SF-0143 (412). Messages already stored keep the routing they
         were received with. A message of an inactive category is refused (SF-0165).
-      x-passage-duty: shopfloor.setup.maintain
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - name: id
           in: path
@@ -2678,9 +2678,9 @@ paths:
         node's configuration or report its heartbeat, and a node without one refuses both
         (SF-0154). The node has status `pending` until its first heartbeat. A name, or a connector
         identity bound to another node, already used is SF-0153. Publishes
-        `dev.passage.shopfloor.edgenode.saved.v1`. The binding can be set here by hand, or by token enrollment
+        `dev.depot.shopfloor.edgenode.saved.v1`. The binding can be set here by hand, or by token enrollment
         (`:enrollment-token`, `:enroll`), which binds the subject of the certificate it issues.
-      x-passage-duty: shopfloor.edge.configure
+      x-depot-duty: shopfloor.edge.configure
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -2715,7 +2715,7 @@ paths:
       description: |
         Edge nodes by name with their derived status: `pending` (never reported), `online` (last
         heartbeat within 90 seconds, three missed beats), `offline`, or `inactive` (switched off).
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: ring
           in: query
@@ -2753,7 +2753,7 @@ paths:
     get:
       operationId: getEdgeNode
       summary: Get one edge node
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - $ref: "#/components/parameters/EdgeId"
       responses:
@@ -2784,7 +2784,7 @@ paths:
         moves the right to the new identity at once. `If-Match` carries the version you read; another change in between is SF-0143
         (412). Moving a node to another ring is how a rollout is promoted. A switched-off node
         refuses heartbeats and configuration pulls (SF-0152). Heartbeats do not change the version.
-      x-passage-duty: shopfloor.edge.configure
+      x-depot-duty: shopfloor.edge.configure
       parameters:
         - $ref: "#/components/parameters/EdgeId"
         - $ref: "#/components/parameters/IfMatch"
@@ -2832,9 +2832,9 @@ paths:
         document. A version cannot be changed or deleted once published (the database refuses it);
         publish a new one. The write allowlist decides which machine nodes the connector may
         write, so publishing needs the edge duty, not the machine setup duty. Publishes
-        `dev.passage.shopfloor.edgeconfig.published.v1` with the publisher, the SHA-256 of the
+        `dev.depot.shopfloor.edgeconfig.published.v1` with the publisher, the SHA-256 of the
         stored document and the write allowlist nodes, the audit record of the publish.
-      x-passage-duty: shopfloor.edge.configure
+      x-depot-duty: shopfloor.edge.configure
       parameters:
         - $ref: "#/components/parameters/EdgeId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -2869,7 +2869,7 @@ paths:
       operationId: listEdgeConfigs
       summary: List the configuration versions of an edge node
       description: Newest first, with the document and when a heartbeat first reported the version applied.
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - $ref: "#/components/parameters/EdgeId"
         - name: limit
@@ -2909,7 +2909,7 @@ paths:
         ETag. The caller must hold the connect duty and be the connector identity bound to the
         node (`connectorSubject`); any other caller, including another node's connector, is
         SF-0154 (403). Nothing published yet is SF-0151 (404); a switched-off node is SF-0152 (409).
-      x-passage-duty: shopfloor.edge.connect
+      x-depot-duty: shopfloor.edge.connect
       parameters:
         - $ref: "#/components/parameters/EdgeId"
       responses:
@@ -2944,8 +2944,8 @@ paths:
         names unique per level, instructions numbered from 1, a setpoint with a numeric characteristic, a finite
         value inside its limits and, for a process control destination, the node it is written to. A process
         control destination whose edge node does not exist or is switched off is SF-0178 (422). Status starts
-        `sent`; publishes `dev.passage.shopfloor.controlrecipe.statuschanged.v1`.
-      x-passage-duty: shopfloor.controlrecipe.create
+        `sent`; publishes `dev.depot.shopfloor.controlrecipe.statuschanged.v1`.
+      x-depot-duty: shopfloor.controlrecipe.create
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -2973,7 +2973,7 @@ paths:
       operationId: listControlRecipes
       summary: Control recipe monitor
       description: Lists recipes newest first with their status, send count and last error, filtered by status, destination, order, resource or edge node.
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [sent, received, in-execution, completed, error] } }
         - { name: destination, in: query, schema: { type: string, enum: [kiosk, pcs-opcua, pcs-mqtt] } }
@@ -3004,7 +3004,7 @@ paths:
     get:
       operationId: getControlRecipe
       summary: One control recipe with its history and write audit
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -3031,7 +3031,7 @@ paths:
         received, in-execution, completed; error can follow any of them; a status out of order is SF-0175 (409).
         Repeating the status the recipe already has changes nothing. A recipe for a process control system is
         reported by its connector, so this is SF-0178 (422) for it.
-      x-passage-duty: shopfloor.controlrecipe.execute
+      x-depot-duty: shopfloor.controlrecipe.execute
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -3068,7 +3068,7 @@ paths:
         message for the order has been received only with `force` true and a `reason`, because the process
         control system may have started it (SF-0177, 422; BR-25.11). The status goes back to `sent` and the
         send count rises; the history keeps who forced it and why.
-      x-passage-duty: shopfloor.controlrecipe.create
+      x-depot-duty: shopfloor.controlrecipe.create
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -3108,7 +3108,7 @@ paths:
       operationId: pullEdgeControlRecipes
       summary: A connector pulls its active control recipes
       description: The recipes sent to this node that are not completed or in error (sent, received, in-execution), oldest first. Only the connector bound to the node may pull (SF-0154, 403).
-      x-passage-duty: shopfloor.edge.connect
+      x-depot-duty: shopfloor.edge.connect
       parameters:
         - $ref: "#/components/parameters/EdgeId"
       responses:
@@ -3144,10 +3144,10 @@ paths:
         reason). A write must be a setpoint of the recipe at its value (SF-0178, 422) and is accepted only while the
         recipe is in-execution (SF-0175, 409; BR-25.15). Each write is stored in the write audit; a missing readback
         or one differing by more than the tolerance of the node's type is a deviation and publishes
-        `dev.passage.shopfloor.controlrecipe.deviation.v1`. The tolerance follows `nodeType`: a Double node (or an
+        `dev.depot.shopfloor.controlrecipe.deviation.v1`. The tolerance follows `nodeType`: a Double node (or an
         unknown type) 0.001, a Float node also the rounding of a 32-bit float (2^-23 of the value), an integer or
         Boolean node exact. Only the bound connector may report (SF-0154).
-      x-passage-duty: shopfloor.edge.connect
+      x-depot-duty: shopfloor.edge.connect
       parameters:
         - $ref: "#/components/parameters/EdgeId"
         - { name: rid, in: path, required: true, schema: { type: string, format: uuid } }
@@ -3186,7 +3186,7 @@ paths:
         is good for 24 hours and replaces the node's earlier unredeemed tokens. A node that does
         not exist is SF-0150 (404) and a switched-off node SF-0152 (409). Not keyed: each call
         mints a new token.
-      x-passage-duty: shopfloor.edge.configure
+      x-depot-duty: shopfloor.edge.configure
       parameters:
         - $ref: "#/components/parameters/EdgeId"
       responses:
@@ -3215,12 +3215,12 @@ paths:
         own tenant and node. The service signs the PEM certificate request (ECDSA P-256 or stronger,
         RSA 2048 or more, signature checked) for the subject `edge:<node id>`, ignoring any name in
         the request, binds that subject to the node as its connector identity, records the
-        certificate (serial, validity) and publishes `dev.passage.shopfloor.edgenode.saved.v1`.
+        certificate (serial, validity) and publishes `dev.depot.shopfloor.edgenode.saved.v1`.
         The certificate lasts 90 days (BR-25.14). A token that is unknown, used, replaced, expired
         or for a switched-off node is SF-0171 (401), all alike. A request that cannot be signed is
         SF-0172 (422) and leaves the token usable. Without a configured issuer the answer is
         SF-0173 (503).
-      x-passage-public: true
+      x-depot-public: true
       security: []
       parameters:
         - $ref: "#/components/parameters/EdgeId"
@@ -3257,7 +3257,7 @@ paths:
       operationId: listEdgeCertificates
       summary: The certificate history of an edge node, newest first (FR-25.19)
       description: Every certificate issued at enrollment or renewal, which one is current, its fingerprint, and who revoked it and why.
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - $ref: "#/components/parameters/EdgeId"
       responses:
@@ -3292,7 +3292,7 @@ paths:
         revoking one of those revokes all of them. Revoking the node's current certificate also unbinds the node
         (connector subject, serial and expiry are cleared), so the connector has to enroll again with a new token. A new
         enrollment revokes the node's earlier certificates by itself. Revoking a revoked certificate changes nothing; an unknown serial is SF-0185 (404).
-      x-passage-duty: shopfloor.edge.configure
+      x-depot-duty: shopfloor.edge.configure
       parameters:
         - $ref: "#/components/parameters/EdgeId"
         - { name: serial, in: path, required: true, schema: { type: string, maxLength: 200 } }
@@ -3330,7 +3330,7 @@ paths:
         change; the node's serial and expiry are updated and the old certificate stays valid until
         it expires. Only the identity bound to the node may renew (SF-0154, 403); a switched-off
         node is SF-0152 (409).
-      x-passage-duty: shopfloor.edge.connect
+      x-depot-duty: shopfloor.edge.connect
       parameters:
         - $ref: "#/components/parameters/EdgeId"
       requestBody:
@@ -3373,12 +3373,12 @@ paths:
         the configuration version it runs. It is a state report, repeated freely and not keyed:
         the last report wins. Reporting a configuration version other than the applied one makes
         it the applied one (only one is applied at a time), stamps when it was first applied and
-        publishes `dev.passage.shopfloor.edgeconfig.applied.v1`; a version never published to this
+        publishes `dev.depot.shopfloor.edgeconfig.applied.v1`; a version never published to this
         node is SF-0151 (422). Only the connector identity bound to the node may report for it
         (SF-0154, 403, nothing is stored). A switched-off node is SF-0152 (409). The answer names
         the latest published version so the connector knows to pull. No event is published per
         heartbeat.
-      x-passage-duty: shopfloor.edge.connect
+      x-depot-duty: shopfloor.edge.connect
       parameters:
         - $ref: "#/components/parameters/EdgeId"
       requestBody:
@@ -3414,7 +3414,7 @@ paths:
         The worker's dated hourly cost rates (D2a'), newest effective date first. A day is priced at the
         latest rate effective on or before its date; days before the first dated rate are priced at the
         worker's own `costRate`. The list is empty for a worker who has never had a dated rate.
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - name: id
           in: path
@@ -3445,8 +3445,8 @@ paths:
         calculated day that the new rate prices is stale for approval (SF-0104) until it is recalculated,
         and an approved day keeps its lines and stays approved until a supervisor revises it
         (`pay:revise` prices each day at the rate effective on its own date). The worker's own sign-in user
-        cannot set the rate (SF-0106, 403). Publishes `dev.passage.shopfloor.workercostrate.set.v1`.
-      x-passage-duty: shopfloor.setup.maintain
+        cannot set the rate (SF-0106, 403). Publishes `dev.depot.shopfloor.workercostrate.set.v1`.
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - name: id
           in: path
@@ -3488,8 +3488,8 @@ paths:
         already worked is still calculated, approved, revised and exported. A worker who is clocked in
         or has an open job start is SF-0166 (409): close the open time first. A worker who is already
         inactive is SF-0167 (409). `If-Match` carries the worker version you read (SF-0143, 412).
-        Publishes `dev.passage.shopfloor.worker.saved.v1` (change `deactivated`).
-      x-passage-duty: shopfloor.setup.maintain
+        Publishes `dev.depot.shopfloor.worker.saved.v1` (change `deactivated`).
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - name: id
           in: path
@@ -3536,8 +3536,8 @@ paths:
       description: |
         Makes an inactive worker active again and clears the deactivation record. A worker who is
         already active is SF-0168 (409). `If-Match` carries the worker version you read (SF-0143, 412).
-        Publishes `dev.passage.shopfloor.worker.saved.v1` (change `reactivated`). The request has no body.
-      x-passage-duty: shopfloor.setup.maintain
+        Publishes `dev.depot.shopfloor.worker.saved.v1` (change `reactivated`). The request has no body.
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - name: id
           in: path
@@ -3580,9 +3580,9 @@ paths:
         calculation reads (FR-25.7). `If-Match` carries the worker version you read (SF-0143, 412).
         A newly chosen profile or agreement must exist (SF-0140, SF-0141) and be active (SF-0144);
         the one the worker already has may stay linked after it was deactivated.
-        Publishes `dev.passage.shopfloor.worker.assigned.v1`. Days already calculated keep their
+        Publishes `dev.depot.shopfloor.worker.assigned.v1`. Days already calculated keep their
         pay lines until a supervisor recalculates them.
-      x-passage-duty: shopfloor.setup.maintain
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - name: id
           in: path
@@ -3632,9 +3632,9 @@ paths:
         them as the worker's own list. Resources belong to engineering data (w9), so only a resource
         this tenant's shop floor knows is accepted: a registered machine's resource or one with
         dispatch jobs (SF-0156, 422). `If-Match` carries the worker version you read (SF-0143, 412).
-        Publishes `dev.passage.shopfloor.worker.assigned.v1`. Pay calculation does not read the
+        Publishes `dev.depot.shopfloor.worker.assigned.v1`. Pay calculation does not read the
         resource, so no pay line changes.
-      x-passage-duty: shopfloor.setup.maintain
+      x-depot-duty: shopfloor.setup.maintain
       parameters:
         - name: id
           in: path
@@ -3683,7 +3683,7 @@ paths:
         validated as a kiosk recipe: names unique per level, instructions numbered from 1 in each phase, a setpoint
         with a numeric characteristic and a value inside its limits, a material list with product UUIDs and decimal
         quantities. SF-0183 (409) when the code exists: make a new version of it instead.
-      x-passage-duty: shopfloor.pisheet.maintain
+      x-depot-duty: shopfloor.pisheet.maintain
       requestBody:
         required: true
         content:
@@ -3702,7 +3702,7 @@ paths:
       operationId: listPISheets
       summary: List PI sheets
       description: By code, newest version first. Filter by status or code.
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - { name: status, in: query, required: false, schema: { type: string, enum: [draft, released, obsolete] } }
         - { name: code, in: query, required: false, schema: { type: string } }
@@ -3725,7 +3725,7 @@ paths:
     get:
       operationId: getPISheet
       summary: One PI sheet
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -3740,7 +3740,7 @@ paths:
       operationId: updatePISheet
       summary: Edit a draft
       description: Only a draft can be edited (SF-0181, 409). `rev` is the rev read; a stale one is SF-0182 (409).
-      x-passage-duty: shopfloor.pisheet.maintain
+      x-depot-duty: shopfloor.pisheet.maintain
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -3763,7 +3763,7 @@ paths:
       description: |
         The document is checked once more and becomes immutable. Releasing a version makes the earlier released
         version of the code obsolete, so one version is released at a time.
-      x-passage-duty: shopfloor.pisheet.maintain
+      x-depot-duty: shopfloor.pisheet.maintain
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -3785,7 +3785,7 @@ paths:
       operationId: newPISheetVersion
       summary: Copy a released sheet into the next version, a draft
       description: SF-0181 (409) unless the sheet is released; SF-0183 (409) when the code has a draft already.
-      x-passage-duty: shopfloor.pisheet.maintain
+      x-depot-duty: shopfloor.pisheet.maintain
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -3802,7 +3802,7 @@ paths:
       operationId: obsoletePISheet
       summary: Retire a released sheet
       description: Recipes cannot be made from it any more; those already made are unchanged.
-      x-passage-duty: shopfloor.pisheet.maintain
+      x-depot-duty: shopfloor.pisheet.maintain
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -3826,7 +3826,7 @@ paths:
         Copies the sheet's document into a new control recipe for an order and resource (destination `kiosk` unless
         given), and keeps the sheet's id on the recipe. Only a released sheet is usable (SF-0184, 422), and its
         document must fit the destination: a process control destination needs a node on every setpoint.
-      x-passage-duty: shopfloor.controlrecipe.create
+      x-depot-duty: shopfloor.controlrecipe.create
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -3860,7 +3860,7 @@ paths:
       description: |
         The PI category master (FR-25.15, D7): a category groups reusable PI step templates in the step library. The
         code (upper-case letters, digits, `_`, `.`, `-`) never changes. A code already used is SF-0142.
-      x-passage-duty: shopfloor.picategory.maintain
+      x-depot-duty: shopfloor.picategory.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -3880,7 +3880,7 @@ paths:
     get:
       operationId: listPICategories
       summary: List PI categories by code
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - { name: active, in: query, description: With true, only active rows., schema: { type: boolean } }
         - $ref: "#/components/parameters/Limit"
@@ -3895,7 +3895,7 @@ paths:
     get:
       operationId: getPICategory
       summary: Get one PI category
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -3914,7 +3914,7 @@ paths:
         Replaces the name, description and status (the code does not change) and bumps the version. `If-Match` carries the
         version you read; another change in between is SF-0143 (412). An inactive category takes no new step templates
         (SF-0191) but keeps those it has.
-      x-passage-duty: shopfloor.picategory.maintain
+      x-depot-duty: shopfloor.picategory.maintain
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: "#/components/parameters/IfMatch"
@@ -3944,7 +3944,7 @@ paths:
         machine readout a `node` and optionally an expected `value` with a `tolerance`, a timer a `durationSeconds` and
         whether it `blocking`, a branch a `condition` (the jump `target` is set where a sheet uses the step). A code already
         used is SF-0194. A template may be filed under an active PI category (SF-0191 when it is inactive).
-      x-passage-duty: shopfloor.pistep.maintain
+      x-depot-duty: shopfloor.pistep.maintain
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/NewPIStepTemplate" } } }
@@ -3963,7 +3963,7 @@ paths:
     get:
       operationId: listPIStepTemplates
       summary: List PI step templates by code, newest version first
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [draft, published, superseded] } }
         - { name: code, in: query, schema: { type: string } }
@@ -3982,7 +3982,7 @@ paths:
     get:
       operationId: getPIStepTemplate
       summary: Get one PI step template version
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -4001,7 +4001,7 @@ paths:
         Replaces the name, category and spec of a draft. `If-Match` carries the rev you read; another change in between is
         SF-0143 (412). A published or superseded version is immutable (SF-0193, 409; the database refuses it too): make a
         new version.
-      x-passage-duty: shopfloor.pistep.maintain
+      x-depot-duty: shopfloor.pistep.maintain
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: "#/components/parameters/IfMatch"
@@ -4029,7 +4029,7 @@ paths:
         Makes the draft immutable and the version sheets and recipes refer to. The code's earlier published version becomes
         superseded; it stays readable and the sheets that name it keep it. `If-Match` carries the rev read (SF-0143, 412).
         Only a draft can be published (SF-0193).
-      x-passage-duty: shopfloor.pistep.maintain
+      x-depot-duty: shopfloor.pistep.maintain
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: "#/components/parameters/IfMatch"
@@ -4052,7 +4052,7 @@ paths:
       description: |
         Copies the published version into the next version of its code, a draft; publishing it supersedes the current one.
         A code has at most one draft (SF-0194). Only the published version is the source (SF-0193).
-      x-passage-duty: shopfloor.pistep.maintain
+      x-depot-duty: shopfloor.pistep.maintain
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -4073,7 +4073,7 @@ paths:
         The connector reports node values (same node and OPC-UA data type vocabulary as its setpoint readback) so a kiosk PI
         sheet's machine-readout step can fetch them. A reading older than the stored one for the node is ignored, and one stamped more than a few seconds ahead of the service's clock is refused (400). Only the
         node's bound connector may report (SF-0154, 403).
-      x-passage-duty: shopfloor.edge.connect
+      x-depot-duty: shopfloor.edge.connect
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -4095,7 +4095,7 @@ paths:
         read from the machine must equal it, and the sealed record names the edge node and the time of the value. The
         claim is fixed once a message is recorded for the step. SF-0196 (404) when there is no recent reading; SF-0198 (422)
         when the step is not a machine readout of the recipe.
-      x-passage-duty: shopfloor.controlrecipe.execute
+      x-depot-duty: shopfloor.controlrecipe.execute
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -4117,7 +4117,7 @@ paths:
       description: |
         The sealed record of each PI sheet a kiosk finished (FR-25.18). Records are written by the service in the transaction
         that completes a kiosk control recipe; nothing creates or edits one through the API.
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - { name: orderId, in: query, schema: { type: string, format: uuid } }
         - { name: recipeId, in: query, schema: { type: string, format: uuid } }
@@ -4134,7 +4134,7 @@ paths:
       operationId: getPIExecution
       summary: One PI execution record with its steps
       description: Every step of the recipe in order with what was entered or read, the signer and signature meaning, the deviations, and its place in the SHA-256 hash chain.
-      x-passage-duty: shopfloor.view
+      x-depot-duty: shopfloor.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -4151,7 +4151,7 @@ paths:
       description: |
         Recomputes every step hash from the stored steps, the chain from its seed and the record hash, and reports the first
         step that does not match (`brokenAtSeq`, 0 for the header). Read only.
-      x-passage-duty: shopfloor.piexecution.verify
+      x-depot-duty: shopfloor.piexecution.verify
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -6833,13 +6833,13 @@ components:
           maxLength: 500
     Problem:
       type: object
-      description: RFC 9457 problem details with Passage extensions.
+      description: RFC 9457 problem details with Depot extensions.
       required: [type, title, status, code]
       properties:
         type:
           type: string
           format: uri
-          description: https://passage.dev/problems/<code>
+          description: https://depot.dev/problems/<code>
         title:
           type: string
         status:

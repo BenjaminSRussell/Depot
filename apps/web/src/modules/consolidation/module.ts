@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { ConsolidationHome } from "./ConsolidationHome";
 import { GroupDetailPage } from "./GroupDetailPage";
 import { GroupsPage } from "./GroupsPage";
@@ -15,7 +15,7 @@ import { TranslationPage } from "./TranslationPage";
 import { TrialBalancePage } from "./TrialBalancePage";
 import { ValidationPage } from "./ValidationPage";
 
-const consolidation: PassageModule = {
+const consolidation: DepotModule = {
   id: "consolidation",
   title: "Consolidation",
   description:

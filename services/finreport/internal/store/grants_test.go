@@ -7,10 +7,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/finreport/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/finreport/migrations"
 )
 
 func TestGrants_AppRoleLocksDraftsButCannotWriteReadModelOrRewriteAppendOnly(t *testing.T) {
@@ -27,7 +27,7 @@ func TestGrants_AppRoleLocksDraftsButCannotWriteReadModelOrRewriteAppendOnly(t *
 	}
 	def.Name = "Second revision"
 	if _, rev, err := st.SaveDraft(ctx, def, &first); err != nil || rev != first+1 {
-		t.Fatalf("second draft locks and updates the draft as passage_app: rev %d, %v", rev, err)
+		t.Fatalf("second draft locks and updates the draft as depot_app: rev %d, %v", rev, err)
 	}
 	ledger := ids.New()
 	seedBalance(t, ctx, admin, ledger, 2026, 3, "1000", "acct", "10", 1)

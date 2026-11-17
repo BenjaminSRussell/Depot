@@ -12,11 +12,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/store"
 )
 
 // fakeStore answers the Store port without a database. It records the last
@@ -279,9 +279,9 @@ func router(s store.Store) http.Handler {
 
 func do(h http.Handler, method, path, body string, duties string, headers map[string]string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", testTenant)
-	req.Header.Set("X-Passage-Duties", duties)
-	req.Header.Set("X-Passage-Legal-Entity", testLE)
+	req.Header.Set("X-Depot-Tenant", testTenant)
+	req.Header.Set("X-Depot-Duties", duties)
+	req.Header.Set("X-Depot-Legal-Entity", testLE)
 	req.Header.Set("Content-Type", "application/json")
 	for k, v := range headers {
 		req.Header.Set(k, v)

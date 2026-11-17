@@ -1,6 +1,6 @@
 # scheduling
 
-Finite capacity scheduling for Passage (wave 23, PSG-23; PRD
+Finite capacity scheduling for Depot (wave 23, DPT-23; PRD
 `docs/prd/phase-4-manufacturing.md` section 4.23). Slice 1 places operations on
 resources with weekly calendars, forward from a start time, with the
 priority-list heuristic (FR-23.5), splits work across shifts (BR-23.3), stops
@@ -218,8 +218,8 @@ Slice 10:
 
 `scheduling consume` runs a second consumer, `scheduling-order-import`, next
 to the EAM downtime one: its own Kafka group (`KAFKA_ORDER_GROUP`, default
-`scheduling-order-import`) on `passage.production.order`, its own dead-letter
-topic `passage.production.order.dlq`, and its own service principal
+`scheduling-order-import`) on `depot.production.order`, its own dead-letter
+topic `depot.production.order.dlq`, and its own service principal
 `service:scheduling-order-import`, which must hold `scheduling.order.import`
 (the handler refuses any other principal, the downtime one included). The
 principal table lives in `platform/go/tenant` and `policies/authz/data.json`;
@@ -228,7 +228,7 @@ and the downtime consumer runs alone. A new group starts at the earliest
 retained offset, so orders dated before the principal is seeded are read once
 it is.
 
-For each `dev.passage.production.order.scheduled.v1` (`reason` `schedule` or
+For each `dev.depot.production.order.scheduled.v1` (`reason` `schedule` or
 `redate`; an event with `reason` `finite`, which production writes when it
 applies scheduling's own finite-capacity dates back onto the order, is
 acknowledged and ignored, recording and publishing nothing, so the two
@@ -329,17 +329,17 @@ The browser reaches these as `/api/v1/scheduling/...` through the web BFF.
 
 | Type | When |
 |---|---|
-| `dev.passage.scheduling.run.completed.v1` | a site or selection run finishes |
-| `dev.passage.scheduling.job.scheduled.v1` | a job is placed, moved, firmed or unfirmed |
-| `dev.passage.scheduling.orderdates.changed.v1` | an order's scheduled start, end or lateness changed |
-| `dev.passage.scheduling.campaign.sequenced.v1` | a campaign is sequenced (order sequence and cleanouts for production) |
-| `dev.passage.scheduling.campaign.started.v1` | a campaign starts and is frozen |
-| `dev.passage.scheduling.campaign.completed.v1` | a started campaign is completed |
-| `dev.passage.scheduling.campaign.cancelled.v1` | a campaign is cancelled; carries the released order ids and whether the cleanout counter was given back |
-| `dev.passage.scheduling.orderimport.recorded.v1` | a production order event was applied: the operations created, updated or unchanged, the ones left out and why, removed and firmed-kept operation numbers, `replanRequired` |
-| `dev.passage.scheduling.parameters.updated.v1` | the tenant's scheduling parameters (run defaults, drag snap, propagation limits) changed |
+| `dev.depot.scheduling.run.completed.v1` | a site or selection run finishes |
+| `dev.depot.scheduling.job.scheduled.v1` | a job is placed, moved, firmed or unfirmed |
+| `dev.depot.scheduling.orderdates.changed.v1` | an order's scheduled start, end or lateness changed |
+| `dev.depot.scheduling.campaign.sequenced.v1` | a campaign is sequenced (order sequence and cleanouts for production) |
+| `dev.depot.scheduling.campaign.started.v1` | a campaign starts and is frozen |
+| `dev.depot.scheduling.campaign.completed.v1` | a started campaign is completed |
+| `dev.depot.scheduling.campaign.cancelled.v1` | a campaign is cancelled; carries the released order ids and whether the cleanout counter was given back |
+| `dev.depot.scheduling.orderimport.recorded.v1` | a production order event was applied: the operations created, updated or unchanged, the ones left out and why, removed and firmed-kept operation numbers, `replanRequired` |
+| `dev.depot.scheduling.parameters.updated.v1` | the tenant's scheduling parameters (run defaults, drag snap, propagation limits) changed |
 
-The PRD names the last one `passage.scheduling.order.dates-changed.v1`; the
+The PRD names the last one `depot.scheduling.order.dates-changed.v1`; the
 platform naming rule allows no hyphen in the verb, so the entity is
 `orderdates` and the verb `changed`. Schemas: `events/asyncapi.yaml`.
 
@@ -426,8 +426,8 @@ the violations.
 
 ```
 go test ./...                     # unit, API and property tests; DB tests skip
-PASSAGE_TEST_DATABASE_URL=postgres://owner@localhost/passage \
-PASSAGE_TEST_APP_DATABASE_URL=postgres://passage_app@localhost/passage \
+DEPOT_TEST_DATABASE_URL=postgres://owner@localhost/depot \
+DEPOT_TEST_APP_DATABASE_URL=postgres://depot_app@localhost/depot \
 go test ./...                     # adds the store tests under RLS
 ```
 

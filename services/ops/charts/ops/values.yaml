@@ -11,7 +11,7 @@ lagStaleSeconds: 90
 # Game-day targets (PRD 9.50.5): the scorecard of a failover is measured against them.
 rtoTargetMinutes: 60
 rpoTargetSeconds: 300
-# Base64 Ed25519 public key of Passage commercial operations; tenant licences are installed only when signed with its key (LIC-1804).
+# Base64 Ed25519 public key of Depot commercial operations; tenant licences are installed only when signed with its key (LIC-1804).
 licensePublicKey: ""
 # Part 3. The SLO report and the hourly SLO check read Prometheus (empty: GET /v1/ops/slo answers 503 OPS-1725).
 prometheusUrl: ""
@@ -39,8 +39,8 @@ metering:
   queries: {}
   modelVersion: ""
   usdPerEur: ""
-# The masked-clone job runs tools/tenant-restore (it must be in the image or a sidecar, with PASSAGE_CLONE_SOURCE_URL and
-# PASSAGE_CLONE_TARGET_URL in its environment) for the schedules created through POST /v1/ops/clone-schedules.
+# The masked-clone job runs tools/tenant-restore (it must be in the image or a sidecar, with DEPOT_CLONE_SOURCE_URL and
+# DEPOT_CLONE_TARGET_URL in its environment) for the schedules created through POST /v1/ops/clone-schedules.
 clone:
   enabled: false
   command: tenant-restore
@@ -63,7 +63,7 @@ serviceIdentity:
   signingKeySecret: ""
   keyId: ""
 
-# The lag reporter (passage-ops lag-report): reads the real replication state of this region's Postgres and reports it to the
+# The lag reporter (depot-ops lag-report): reads the real replication state of this region's Postgres and reports it to the
 # ops API every interval. Run it where the standby is (mode standby, region = this region) or next to the primary (mode primary,
 # region = the standby's name). A failed measurement reports unknownLagSeconds, so a broken reporter blocks a failover.
 lagReporter:
@@ -79,20 +79,20 @@ lagReporter:
 # Where every service of this release's cluster reads the region role from (global.regionFenceUrl in the service charts):
 # the ops /healthz/region of this region, for example http://ops.<namespace>.svc/healthz/region.
 
-# Real tenant provisioning adapters for `passage-ops tenant provision|decommission` (run it with `kubectl exec deploy/ops -- passage-ops tenant ...`).
+# Real tenant provisioning adapters for `depot-ops tenant provision|decommission` (run it with `kubectl exec deploy/ops -- depot-ops tenant ...`).
 # A system with no configuration stays on the logging adapter, and a real run is refused until all three are set (--dry-run always works).
 # Kafka needs nothing: under the shared-topic model there is no per-tenant ACL or topic (docs/ops/tenant-provisioning.md).
 provisioning:
   keycloak:
     url: ""                 # https://keycloak.example (no /admin suffix)
     adminRealm: master
-    realmPrefix: passage-
-    realmTemplate: ""       # path to a mounted realm JSON (deploy/keycloak/realm-passage.json); empty uses the built-in minimal realm
+    realmPrefix: depot-
+    realmTemplate: ""       # path to a mounted realm JSON (deploy/keycloak/realm-depot.json); empty uses the built-in minimal realm
     secret: ""              # Secret with OPS_KEYCLOAK_CLIENT_ID and OPS_KEYCLOAK_CLIENT_SECRET (a client-credentials admin client)
   databases:
-    secret: ""              # Secret with OPS_PROVISION_DATABASES: JSON {"ledger": "postgres://passage_app...", ...} (the verification, as passage_app)
-  # `passage-ops tenant purge` deletes a decommissioned tenant's rows after its export is verified. Its credentials are separate from the
-  # verification ones: a role that may delete (not passage_app), one connection string per context database.
+    secret: ""              # Secret with OPS_PROVISION_DATABASES: JSON {"ledger": "postgres://depot_app...", ...} (the verification, as depot_app)
+  # `depot-ops tenant purge` deletes a decommissioned tenant's rows after its export is verified. Its credentials are separate from the
+  # verification ones: a role that may delete (not depot_app), one connection string per context database.
   purge:
     secret: ""              # Secret with OPS_PURGE_DATABASES; empty turns the purge command off
     keepTables: []          # table names never purged, in addition to the built-in identity_tenants

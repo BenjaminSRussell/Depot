@@ -26,11 +26,11 @@ CREATE INDEX IF NOT EXISTS asset_status ON asset (tenant_id, status, asset_numbe
 ALTER TABLE asset ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset FORCE ROW LEVEL SECURITY;
 CREATE POLICY asset_tenant_access ON asset AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY asset_legal_entity_scope ON asset AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS asset_book (
   tenant_id uuid NOT NULL,
@@ -62,11 +62,11 @@ CREATE INDEX IF NOT EXISTS asset_book_status ON asset_book (tenant_id, legal_ent
 ALTER TABLE asset_book ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_book FORCE ROW LEVEL SECURITY;
 CREATE POLICY asset_book_tenant_access ON asset_book AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY asset_book_legal_entity_scope ON asset_book AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS asset_transaction (
   tenant_id uuid NOT NULL,
@@ -95,11 +95,11 @@ CREATE INDEX IF NOT EXISTS asset_transaction_run ON asset_transaction (tenant_id
 ALTER TABLE asset_transaction ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_transaction FORCE ROW LEVEL SECURITY;
 CREATE POLICY asset_transaction_tenant_access ON asset_transaction AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY asset_transaction_legal_entity_scope ON asset_transaction AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 -- AssetTransaction is append-only: corrections are new rows (reversal_of_id), never edits.
 CREATE OR REPLACE FUNCTION asset_transaction_append_only() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
@@ -132,11 +132,11 @@ CREATE TABLE IF NOT EXISTS lease (
 ALTER TABLE lease ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lease FORCE ROW LEVEL SECURITY;
 CREATE POLICY lease_tenant_access ON lease AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY lease_legal_entity_scope ON lease AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS lease_schedule_line (
   tenant_id uuid NOT NULL,
@@ -155,11 +155,11 @@ CREATE TABLE IF NOT EXISTS lease_schedule_line (
 ALTER TABLE lease_schedule_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lease_schedule_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY lease_schedule_line_tenant_access ON lease_schedule_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY lease_schedule_line_legal_entity_scope ON lease_schedule_line AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- dbx.OutboxDDL
 CREATE TABLE IF NOT EXISTS outbox (
@@ -175,8 +175,8 @@ ALTER TABLE outbox REPLICA IDENTITY FULL;
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- dbx.IdempotencyDDL: every command stores its request hash and response here
 -- in the same transaction as the change, so a retry replays the response.
@@ -192,5 +192,5 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
 ALTER TABLE idempotency_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE idempotency_keys FORCE ROW LEVEL SECURITY;
 CREATE POLICY idempotency_keys_tenant_access ON idempotency_keys AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

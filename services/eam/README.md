@@ -1,6 +1,6 @@
 # EAM (enterprise asset management) — wave 44, slices 1 to 5
 
-Ticket PSG-44. Passage's maintenance context: plant assets, counters and condition
+Ticket DPT-44. Depot's maintenance context: plant assets, counters and condition
 rules, maintenance plans that generate preventive work orders, maintenance requests,
 work orders with labor and status transitions, and asset reliability KPIs.
 Slice 2 adds asset retirement, criticality assessment, vendor warranties with the
@@ -76,7 +76,7 @@ NOT-IMPLEMENTED.md lists what the slices leave out and why.
   them on the order's date (its due date, or now): the newest ACTIVE warranty in force
   whose exclusions do not name the job type is stored on the order (`warrantyId`,
   `warrantyCovered`). Completing a covered order emits
-  `dev.passage.eam.warranty.claimable.v1` with the covered parts and labor amounts
+  `dev.depot.eam.warranty.claimable.v1` with the covered parts and labor amounts
   (decimal, minor unit) when they are above zero.
 - **Fault catalogs and faults** (FR-44.16, AC-44.15): one catalog per asset type
   (symptoms, areas, types, causes, remedies and the allowed symptom/area/type
@@ -87,12 +87,12 @@ NOT-IMPLEMENTED.md lists what the slices leave out and why.
   and EMERGENCY orders cannot complete without a fault (EAM-FLT-001).
 - **Downtime windows** (BR-44.5): `POST /work-orders/{id}/downtime` books [from, to) on
   the production resource (the asset's by default) of an open order. Whole minutes add
-  to the order's downtime and `dev.passage.eam.downtime.recorded.v1` goes to the outbox
+  to the order's downtime and `dev.depot.eam.downtime.recorded.v1` goes to the outbox
   for wave-23 capacity. Windows on one order may not overlap, and a completion may not
   report less downtime than the windows (EAM-DT-001).
 - **Request triage** (FR-44.6): TRIAGE, DEFER and REJECT with an optional note, kept in an
   append-only history whose key replays a retried action; each change emits
-  `dev.passage.eam.request.triaged.v1`. CONVERTED and REJECTED requests are final.
+  `dev.depot.eam.request.triaged.v1`. CONVERTED and REJECTED requests are final.
 
 ## What slice 3 adds
 
@@ -110,7 +110,7 @@ NOT-IMPLEMENTED.md lists what the slices leave out and why.
   every isolation point of the asset has a verified lock held by someone besides the
   issuer; CLOSE and CANCEL need every lock removed, and CLOSE needs the work order not
   IN_PROGRESS. Every transition is an append-only `permit_transition` row and a
-  `dev.passage.eam.permitstatus.changed.v1` event in the same transaction.
+  `dev.depot.eam.permitstatus.changed.v1` event in the same transaction.
 - **Personal LOTO locks** (BR-44.11): `POST /permits/{id}/locks` applies, verifies (the
   zero-energy check) or removes the caller's own lock (`LOCK-n`) on an isolation point;
   one open lock per technician per point. Each action is logged append-only with its key.
@@ -188,7 +188,7 @@ Domain logic is pure (`internal/domain`) and table-tested, with property tests
 (`rapid`). Store integration tests are in `internal/store/store_test.go` and
 `internal/store/slice2_test.go`, `internal/store/permits_test.go` and
 `internal/store/locations_sequences_test.go` and `internal/store/rounds_test.go`
-(AC-44.9 end to end, and the slice 5 paths as `passage_app`). Wave proof fixtures:
+(AC-44.9 end to end, and the slice 5 paths as `depot_app`). Wave proof fixtures:
 `internal/store/plans40_test.go` runs `testdata/eam-plans-40` over a simulated year
 against `reference_plans.py` (AC-44.2), `internal/store/wocost50_test.go` reconciles
 `testdata/eam-wo-cost-50` (AC-44.3, asset side) and
@@ -227,12 +227,12 @@ internal/store/          Postgres repositories (tenant-scoped transactions, outb
 internal/api/            HTTP handlers, duty checks, validation
 internal/events/         event types and payloads
 migrations/              0001 domain tables + RLS, 0002 outbox and idempotency, 0003 slice 2 tables + RLS,
-                         0004 passage_app grants, 0005 permits and LOTO + RLS + grants,
+                         0004 depot_app grants, 0005 permits and LOTO + RLS + grants,
                          0006 functional locations, location history, sequences + RLS + grants,
                          0007 rounds, round stops, work order stops, ROUND plan lines + RLS + grants
 api/openapi.yaml         contract for every endpoint
 events/asyncapi.yaml     contract for every event
-charts/eam/              Helm chart (passage-eam)
+charts/eam/              Helm chart (depot-eam)
 ```
 
 ## Run
@@ -241,18 +241,18 @@ charts/eam/              Helm chart (passage-eam)
 DATABASE_URL=postgres://... HTTP_ADDR=:8080 go run ./cmd/eam
 ```
 
-Every request needs the gateway headers (`X-Passage-Tenant`, `X-Passage-Duties`,
-optional `X-Passage-User`). Creating POSTs need `Idempotency-Key`.
+Every request needs the gateway headers (`X-Depot-Tenant`, `X-Depot-Duties`,
+optional `X-Depot-User`). Creating POSTs need `Idempotency-Key`.
 
 ## Test
 
 ```
 go vet ./... && go test ./...
-PASSAGE_TEST_DATABASE_URL=postgres://... go test ./...   # runs the store tests
+DEPOT_TEST_DATABASE_URL=postgres://... go test ./...   # runs the store tests
 ```
 
-Without `PASSAGE_TEST_DATABASE_URL` the store tests skip (kernel testkit rule). With
-`PASSAGE_TEST_APP_DATABASE_URL` as well (a non-owner role named `passage_app`), the
+Without `DEPOT_TEST_DATABASE_URL` the store tests skip (kernel testkit rule). With
+`DEPOT_TEST_APP_DATABASE_URL` as well (a non-owner role named `depot_app`), the
 row-level security test runs the store as that role.
 
 ## Duties
@@ -322,7 +322,7 @@ and `warrantyId` instead of a message.
 
 ## Wave reference
 
-PRD section 8.44 (`docs/prd/phase-8-projects-people-service.md`). Depends on PSG-43.
+PRD section 8.44 (`docs/prd/phase-8-projects-people-service.md`). Depends on DPT-43.
 Downstream consumers: wave 23 scheduler (`downtime.recorded`), wave 45 supplier
 warranty claims (`warranty.claimable`), mobile and safety notifications
 (`permitstatus.changed`), wave 16 inventory (parts, later), ledger posting

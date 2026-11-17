@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/consolidation/internal/api"
+	"github.com/BenjaminSRussell/depot/services/consolidation/internal/api"
 )
 
 const mappingWithDividends = `{"accounts":[

@@ -10,7 +10,7 @@ function PublicFrame({ title, children }: { title: string; children: ReactNode }
   }, []);
   return (
     <>
-      <header><strong>Passage Supplier Portal</strong><a href="/bff/login">Sign in</a></header>
+      <header><strong>Depot Supplier Portal</strong><a href="/bff/login">Sign in</a></header>
       <main id="main">
         <section aria-labelledby="page-title">
           <h1 id="page-title" tabIndex={-1}>{title}</h1>

@@ -9,12 +9,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/api"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/importer"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/provider"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/api"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/importer"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/provider"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/store"
 )
 
 const (

@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/domain"
-	tmsevents "github.com/BenjaminSRussell/passage/services/transport/internal/events"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/domain"
+	tmsevents "github.com/BenjaminSRussell/depot/services/transport/internal/events"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/store"
 )
 
 var truck = domain.Capacity{MaxWeightKg: dec("20000"), MaxVolumeM3: dec("90"), MaxPallets: 26}

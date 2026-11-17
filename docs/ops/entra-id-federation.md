@@ -1,12 +1,12 @@
 # Entra ID federation
 
-Each customer tenant signs in through its own Microsoft Entra ID tenant, federated into the tenant's Passage Keycloak realm as an OIDC identity provider (authorization code with PKCE). Endpoints come from the [cloud profile](cloud-profiles.md); this page is the app registration and the rules that keep the tenant boundary intact. Issues: #599, #600, #601.
+Each customer tenant signs in through its own Microsoft Entra ID tenant, federated into the tenant's Depot Keycloak realm as an OIDC identity provider (authorization code with PKCE). Endpoints come from the [cloud profile](cloud-profiles.md); this page is the app registration and the rules that keep the tenant boundary intact. Issues: #599, #600, #601.
 
 ## Rules
 
-- The Passage `tid` is bound to the realm, never to the Entra `tid` claim. The rendered provider has a hardcoded `tenant_id` mapper (sync mode FORCE) set to the realm's Passage tenant. No identity provider mapper may write `tenant_id`, `legal_entity_id`, `duties` or `tier`, and none may copy the Entra `tid` claim; duties come from Passage role assignments. Tests: `TestEntraIdPTemplatesKeepMFAAndTokenClaimsLocal` in `services/identity/keycloak_test.go` and `platform/go/cloudprofile/idp_test.go`.
+- The Depot `tid` is bound to the realm, never to the Entra `tid` claim. The rendered provider has a hardcoded `tenant_id` mapper (sync mode FORCE) set to the realm's Depot tenant. No identity provider mapper may write `tenant_id`, `legal_entity_id`, `duties` or `tier`, and none may copy the Entra `tid` claim; duties come from Depot role assignments. Tests: `TestEntraIdPTemplatesKeepMFAAndTokenClaimsLocal` in `services/identity/keycloak_test.go` and `platform/go/cloudprofile/idp_test.go`.
 - The issuer is pinned to one Entra tenant GUID. `common`, `organizations`, `consumers` and domain names are refused, because they would accept any tenant.
-- Conditional Access and MFA stay on the Entra side. Passage still applies `passage-post-broker-mfa` after the broker login (the provider's `postBrokerLoginFlowAlias`), unless the tenant chooses to trust Entra MFA by changing that flow.
+- Conditional Access and MFA stay on the Entra side. Depot still applies `depot-post-broker-mfa` after the broker login (the provider's `postBrokerLoginFlowAlias`), unless the tenant chooses to trust Entra MFA by changing that flow.
 - The client secret never appears in the export. Set it through the Keycloak admin API or from Key Vault; prefer a certificate or a federated credential where the tenant allows it.
 - A GCC tenant uses the worldwide authority (`login.microsoftonline.com`); GCC High and DoD use `login.microsoftonline.us`. Register the app in the portal of the tenant's own cloud (`portal.azure.com`, `portal.azure.us`, `portal.azure.cn`).
 
@@ -22,11 +22,11 @@ Each customer tenant signs in through its own Microsoft Entra ID tenant, federat
    ```
    cd platform/go
    go run ./cloudprofile/cmd/cloudprofile entra-idp -profile gcc \
-     -entra-tenant <directory id> -client-id <application id> -tenant-id <passage tenant id> > entra-idp.json
+     -entra-tenant <directory id> -client-id <application id> -tenant-id <depot tenant id> > entra-idp.json
    ```
 
 7. Create the provider and its mappers in the realm (`identityProvider` to `POST /admin/realms/<realm>/identity-provider/instances`, each entry of `identityProviderMappers` to `.../instances/entra-oidc/mappers`), then set the client secret on the provider (`config.clientSecret`) through the same API.
-8. Sign in once through the realm's login page; the second factor runs after the broker login. The token's `tid` is the Passage tenant.
+8. Sign in once through the realm's login page; the second factor runs after the broker login. The token's `tid` is the Depot tenant.
 
 `deploy/keycloak/idp/entra-oidc.<profile>.json` are rendered examples with placeholders; they ship disabled.
 

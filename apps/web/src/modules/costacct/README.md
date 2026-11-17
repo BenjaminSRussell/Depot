@@ -1,6 +1,6 @@
 # Cost accounting module (web)
 
-Cost accounting screens for PSG-38 slices 1 to 4, wired to `services/costacct` through the BFF at `/api/v1/controlling/...`.
+Cost accounting screens for DPT-38 slices 1 to 4, wired to `services/costacct` through the BFF at `/api/v1/controlling/...`.
 
 | Route | Page | Service calls |
 |---|---|---|
@@ -44,4 +44,4 @@ npx tsc --noEmit
 - The reconciliation reads the journal balances from the general ledger itself; the page sends only the legal entity, the
   period and the currency.
 - The cost control workspace (plan vs actual vs committed) and live step progress over server-sent events are later
-  slices of PSG-38.
+  slices of DPT-38.

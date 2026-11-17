@@ -15,15 +15,15 @@ import (
 	"time"
 )
 
-// Region fence (PSG-50, BR-50.2, OPS-1703). While this region is FENCED every request is refused with 503 and
+// Region fence (DPT-50, BR-50.2, OPS-1703). While this region is FENCED every request is refused with 503 and
 // Retry-After, so a fenced region serves no reads or writes while DNS and the failover workflow move traffic.
 //
 // The fence is off unless one source is configured, so a service that sets nothing behaves exactly as before:
 //
-//	PASSAGE_REGION_FENCE_FILE  a file holding the region role (FENCED, PRIMARY, PASSIVE), for example the
-//	                           passage-region ConfigMap's REGION_ROLE key mounted as a file. Missing file: not fenced.
-//	PASSAGE_REGION_FENCE_URL   the ops service's /healthz/region of this region; its JSON body names the role.
-//	PASSAGE_REGION_FENCE_INTERVAL  poll interval, default 5s (minimum 1s).
+//	DEPOT_REGION_FENCE_FILE  a file holding the region role (FENCED, PRIMARY, PASSIVE), for example the
+//	                           depot-region ConfigMap's REGION_ROLE key mounted as a file. Missing file: not fenced.
+//	DEPOT_REGION_FENCE_URL   the ops service's /healthz/region of this region; its JSON body names the role.
+//	DEPOT_REGION_FENCE_INTERVAL  poll interval, default 5s (minimum 1s).
 //
 // The role is read by one background goroutine every interval and cached in an atomic, so a request never waits on
 // the file or the network. A source that cannot be read keeps the last known state (not fenced at start): an
@@ -37,9 +37,9 @@ import (
 // was fenced has no working database for the pod to serve from anyway. /healthz, /readyz, /healthz/region and /metrics stay
 // reachable while fenced so probes, DNS checks and scrapes still work.
 const (
-	FenceFileEnv     = "PASSAGE_REGION_FENCE_FILE"
-	FenceURLEnv      = "PASSAGE_REGION_FENCE_URL"
-	FenceIntervalEnv = "PASSAGE_REGION_FENCE_INTERVAL"
+	FenceFileEnv     = "DEPOT_REGION_FENCE_FILE"
+	FenceURLEnv      = "DEPOT_REGION_FENCE_URL"
+	FenceIntervalEnv = "DEPOT_REGION_FENCE_INTERVAL"
 
 	// CodeRegionFenced is OPS-1703: the region is fenced and serves nothing until the failover completes.
 	CodeRegionFenced = "OPS-1703"

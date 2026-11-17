@@ -11,31 +11,31 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	platformtenant "github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	platformtenant "github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
 
 const (
 	// DropShipClosedType is fulfillment's dropship.closed.v1 (wave 28), on DropShipTopic (the drop-ship
 	// channel of fulfillment's AsyncAPI, keyed by the drop-ship, so the closings of one drop-ship arrive in order).
-	DropShipClosedType = "dev.passage.fulfillment.dropship.closed.v1"
+	DropShipClosedType = "dev.depot.fulfillment.dropship.closed.v1"
 	// DropShipCancelledType is fulfillment's dropship.cancelled.v1 on the same topic (slice 19).
-	DropShipCancelledType = "dev.passage.fulfillment.dropship.cancelled.v1"
-	DropShipTopic         = "passage.fulfillment.dropship"
+	DropShipCancelledType = "dev.depot.fulfillment.dropship.cancelled.v1"
+	DropShipTopic         = "depot.fulfillment.dropship"
 	// DropShipSource is the CloudEvents source fulfillment writes. Who may write to the topic at all is
 	// the broker's ACL (only fulfillment's outbox relay); the check keeps an event another service
 	// mislabels or misroutes from changing a purchase order.
 	DropShipSource = "fulfillment"
 	// MessageAppliedType is planning's message.applied.v1 (wave 22), on MessageAppliedTopic. Planning writes
 	// its message events with aggregate type "plan", so they travel on the plan channel of its AsyncAPI
-	// (passage.planning.plan, keyed by the plan) beside plan.started, plan.completed, message.raised and
+	// (depot.planning.plan, keyed by the plan) beside plan.started, plan.completed, message.raised and
 	// message.dismissed, which the consumer skips.
-	MessageAppliedType  = "dev.passage.planning.message.applied.v1"
-	MessageAppliedTopic = "passage.planning.plan"
+	MessageAppliedType  = "dev.depot.planning.message.applied.v1"
+	MessageAppliedTopic = "depot.planning.plan"
 	// MessageSource is the CloudEvents source planning writes.
 	MessageSource = "planning"
 	// InboundConsumerName is the consumer (and Kafka group) that follows the two topics, and the service

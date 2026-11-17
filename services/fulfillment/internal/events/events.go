@@ -1,11 +1,11 @@
 // Package events holds the fulfillment event types and payloads. Event types
-// follow the kernel rule dev.passage.<context>.<entity>.<verb>.v<n>; the
+// follow the kernel rule dev.depot.<context>.<entity>.<verb>.v<n>; the
 // packing-slip entity collapses to "packingslip" and the PRD's
 // shipment.tracking-updated becomes tracking.updated, because the kernel
 // allows one lowercase segment per name part.
 package events
 
-import "github.com/BenjaminSRussell/passage/platform/events"
+import "github.com/BenjaminSRussell/depot/platform/events"
 
 const Context = "fulfillment"
 

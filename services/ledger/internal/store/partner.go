@@ -8,9 +8,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/domain"
 )
 
 // partnerViolations refuses lines whose trading partner (#40) is not a legal entity of the tenant. A legal entity is known to the
@@ -28,10 +28,10 @@ func partnerViolations(ctx context.Context, tx pgx.Tx, tenantID string, lines []
 		return nil, nil
 	}
 	var scopes string
-	if err := tx.QueryRow(ctx, `select coalesce(current_setting('passage.legal_entity_scopes', true), '')`).Scan(&scopes); err != nil {
+	if err := tx.QueryRow(ctx, `select coalesce(current_setting('depot.legal_entity_scopes', true), '')`).Scan(&scopes); err != nil {
 		return nil, err
 	}
-	if _, err := tx.Exec(ctx, `select set_config('passage.legal_entity_scopes', '*', true)`); err != nil {
+	if _, err := tx.Exec(ctx, `select set_config('depot.legal_entity_scopes', '*', true)`); err != nil {
 		return nil, err
 	}
 	rows, err := tx.Query(ctx, `select distinct legal_entity_id::text from ledger where tenant_id = $1 and legal_entity_id = any($2::text[]::uuid[])`, tenantID, partners)
@@ -51,7 +51,7 @@ func partnerViolations(ctx context.Context, tx pgx.Tx, tenantID string, lines []
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	if _, err := tx.Exec(ctx, `select set_config('passage.legal_entity_scopes', $1, true)`, scopes); err != nil {
+	if _, err := tx.Exec(ctx, `select set_config('depot.legal_entity_scopes', $1, true)`, scopes); err != nil {
 		return nil, err
 	}
 	var out []domain.Violation

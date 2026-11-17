@@ -29,7 +29,7 @@ class Ledger {
     const provider = new ScriptedProvider([proposal(0.8)]);
     const budgets = memoryBudgets(before);
     const deps = {
-      ...makeDeps({ provider, tools: new FakeTools({ "passage.ap.invoice.post": postDescriptor }), approvals: new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER }) }),
+      ...makeDeps({ provider, tools: new FakeTools({ "depot.ap.invoice.post": postDescriptor }), approvals: new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER }) }),
       budgets,
     };
     try {
@@ -90,7 +90,7 @@ describe("per-tenant cost guard (AC4)", () => {
   it("a run that breaks the per-run cap is still charged, and the charge can raise the alert", async () => {
     const before: TokenBudget = { limitIn: 1_000_000, limitOut: 1_000_000, usedIn: 500_000, usedOut: 0, softPct: 80 };
     const big = { ...proposal(0.8), usage: { tokensIn: 300_000, tokensOut: 150_000 } };
-    const t = new FakeTools({ "passage.ap.invoice.post": postDescriptor });
+    const t = new FakeTools({ "depot.ap.invoice.post": postDescriptor });
     const budgets = memoryBudgets(before);
     const res = await runAgent(
       { ...makeDeps({ provider: new ScriptedProvider([big]), tools: t, approvals: new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER }) }), budgets },

@@ -7,10 +7,10 @@ import (
 	"os"
 	"slices"
 
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/api"
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/bankconnect"
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/ebics"
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/store"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/api"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/bankconnect"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/ebics"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/store"
 )
 
 // ebicsService is what the onboarding routes drive: the subscriber store and the client.

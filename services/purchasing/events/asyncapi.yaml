@@ -1,16 +1,16 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Purchasing events
+  title: Depot Purchasing events
   version: 0.9.0
   description: |
     Events published by the purchasing service in wave 17 slices 1 to 22. Each is written to the
     outbox in the same transaction as the state change and relayed by Debezium to the topic
-    passage.<context>.<entity>. Payload structs live in internal/events. Schema evolution is
+    depot.<context>.<entity>. Payload structs live in internal/events. Schema evolution is
     additive only (BACKWARD_TRANSITIVE).
 defaultContentType: application/cloudevents+json
 channels:
   requisition:
-    address: passage.procurement.requisition
+    address: depot.procurement.requisition
     description: Requisition lifecycle; the Kafka key is the requisition id so events stay ordered.
     messages:
       requisitionSubmitted:
@@ -26,19 +26,19 @@ channels:
       requisitionWithdrawn:
         $ref: '#/components/messages/RequisitionWithdrawn'
   requisitionline:
-    address: passage.procurement.requisitionline
+    address: depot.procurement.requisitionline
     description: Changes to single requisition lines; the Kafka key is the requisition id.
     messages:
       requisitionLineCancelled:
         $ref: '#/components/messages/RequisitionLineCancelled'
   agreement:
-    address: passage.procurement.agreement
+    address: depot.procurement.agreement
     description: Purchase agreement release alerts; the Kafka key is the agreement id.
     messages:
       agreementThreshold:
         $ref: '#/components/messages/AgreementThreshold'
   po:
-    address: passage.procurement.po
+    address: depot.procurement.po
     description: Purchase order confirmation, cancellation and subsequent price change; the Kafka key is the PO id so events stay ordered.
     messages:
       poConfirmed:
@@ -48,13 +48,13 @@ channels:
       poRepriced:
         $ref: '#/components/messages/PORepriced'
   poversion:
-    address: passage.procurement.poversion
+    address: depot.procurement.poversion
     description: Confirmed purchase order versions above 1 (change orders); the Kafka key is the PO id.
     messages:
       poVersionCreated:
         $ref: '#/components/messages/POVersionCreated'
   rfq:
-    address: passage.procurement.rfq
+    address: depot.procurement.rfq
     description: Request for quotation send and award; the Kafka key is the RFQ id so events stay ordered.
     messages:
       rfqSent:
@@ -64,7 +64,7 @@ channels:
       rfqAmended:
         $ref: '#/components/messages/RFQAmended'
   rfqtype:
-    address: passage.procurement.rfqtype
+    address: depot.procurement.rfqtype
     description: RFQ types (FR-17.19); the Kafka key is the RFQ type id.
     messages:
       rfqTypeCreated:
@@ -72,13 +72,13 @@ channels:
       rfqTypeChanged:
         $ref: '#/components/messages/RFQTypeChanged'
   policy:
-    address: passage.procurement.policy
+    address: depot.procurement.policy
     description: Purchasing policy changes (FR-17.13); the Kafka key is the legal entity id.
     messages:
       policyChanged:
         $ref: '#/components/messages/PolicyChanged'
   catalog:
-    address: passage.procurement.catalog
+    address: depot.procurement.catalog
     description: Procurement catalog publication and retirement (FR-17.18); the Kafka key is the catalog id so changes stay ordered.
     messages:
       catalogPublished:
@@ -86,7 +86,7 @@ channels:
       catalogRetired:
         $ref: '#/components/messages/CatalogRetired'
   chargecode:
-    address: passage.procurement.chargecode
+    address: depot.procurement.chargecode
     description: Charge codes (FR-17.9); the Kafka key is the charge code id.
     messages:
       chargeCodeCreated:
@@ -94,7 +94,7 @@ channels:
       chargeCodeChanged:
         $ref: '#/components/messages/ChargeCodeChanged'
   autocharge:
-    address: passage.procurement.autocharge
+    address: depot.procurement.autocharge
     description: Auto charges that add a charge code to matching POs (FR-17.9); the Kafka key is the auto charge id.
     messages:
       autoChargeCreated:
@@ -102,7 +102,7 @@ channels:
       autoChargeChanged:
         $ref: '#/components/messages/AutoChargeChanged'
   categoryvendor:
-    address: passage.procurement.categoryvendor
+    address: depot.procurement.categoryvendor
     description: Vendor assignments to procurement categories (FR-17.20); the Kafka key is the assignment id.
     messages:
       categoryVendorAssigned:
@@ -110,7 +110,7 @@ channels:
       categoryVendorChanged:
         $ref: '#/components/messages/CategoryVendorChanged'
   categorymanager:
-    address: passage.procurement.categorymanager
+    address: depot.procurement.categorymanager
     description: Category manager assignments (FR-17.20); the Kafka key is the manager row id.
     messages:
       categoryManagerAssigned:
@@ -118,25 +118,25 @@ channels:
       categoryManagerRemoved:
         $ref: '#/components/messages/CategoryManagerRemoved'
   signinglimit:
-    address: passage.procurement.signinglimit
+    address: depot.procurement.signinglimit
     description: Signing limits set, changed or recertified (FR-17.17); the Kafka key is the signing limit id.
     messages:
       signingLimitChanged:
         $ref: '#/components/messages/SigningLimitChanged'
   catalogimport:
-    address: passage.procurement.catalogimport
+    address: depot.procurement.catalogimport
     description: Vendor catalog imports committed to a catalog (FR-17.18); the Kafka key is the import id.
     messages:
       catalogImportCommitted:
         $ref: '#/components/messages/CatalogImportCommitted'
   deliveryschedule:
-    address: passage.procurement.deliveryschedule
+    address: depot.procurement.deliveryschedule
     description: Vendor-confirmed dates of PO delivery schedule rows (FR-17.10); the Kafka key is the PO id.
     messages:
       deliveryScheduleConfirmed:
         $ref: '#/components/messages/DeliveryScheduleConfirmed'
   inboundchange:
-    address: passage.procurement.inboundchange
+    address: depot.procurement.inboundchange
     description: Changes other services asked of purchase orders (slice 18) and how a buyer settled the refused ones (slice 19); the Kafka key is the change id.
     messages:
       inboundChangeRecorded:
@@ -146,7 +146,7 @@ channels:
       inboundChangeResolved:
         $ref: '#/components/messages/InboundChangeResolved'
   poack:
-    address: passage.procurement.poack
+    address: depot.procurement.poack
     description: A vendor's answer to a confirmed purchase order (accepted, rejected, or changes proposed) and the buyer's decision on a proposal; the Kafka key is the acknowledgement id.
     messages:
       poAckAccepted:
@@ -158,13 +158,13 @@ channels:
       poAckDecided:
         $ref: '#/components/messages/POAckDecided'
   requisitionrelease:
-    address: passage.procurement.requisitionrelease
+    address: depot.procurement.requisitionrelease
     description: Requisition release runs (FR-17.3, PRD 3.17.16) that ordered or tried to order approved requisition lines; the Kafka key is the run id.
     messages:
       requisitionReleaseCompleted:
         $ref: '#/components/messages/RequisitionReleaseCompleted'
   fulfillmentDropShip:
-    address: passage.fulfillment.dropship
+    address: depot.fulfillment.dropship
     description: Drop-ship events of fulfillment (wave 28); purchasing follows dropship.closed.v1 and dropship.cancelled.v1 (slice 19). Other events on the topic are skipped.
     messages:
       dropShipClosed:
@@ -172,19 +172,19 @@ channels:
       dropShipCancelled:
         $ref: '#/components/messages/DropShipCancelledConsumed'
   planningMessage:
-    address: passage.planning.plan
+    address: depot.planning.plan
     description: The plan channel of master planning (wave 22), where planning writes its plan and action message events keyed by the plan; purchasing follows message.applied.v1. Other events on the topic are skipped.
     messages:
       messageApplied:
         $ref: '#/components/messages/MessageAppliedConsumed'
   servicespec:
-    address: passage.procurement.servicespec
+    address: depot.procurement.servicespec
     description: Service specifications of PO lines (FR-17.23); the Kafka key is the PO id.
     messages:
       serviceSpecChanged:
         $ref: '#/components/messages/ServiceSpecChanged'
   modelservicespec:
-    address: passage.procurement.modelservicespec
+    address: depot.procurement.modelservicespec
     description: Model service specifications (FR-17.23); the Kafka key is the model id.
     messages:
       modelServiceSpecCreated:
@@ -192,7 +192,7 @@ channels:
       modelServiceSpecChanged:
         $ref: '#/components/messages/ModelServiceSpecChanged'
   sarelease:
-    address: passage.procurement.sarelease
+    address: depot.procurement.sarelease
     description: Scheduling agreement releases (FR-17.15); the Kafka key is the scheduling agreement id so releases stay ordered.
     messages:
       saReleaseCreated:
@@ -479,7 +479,7 @@ components:
     POAckAccepted:
       name: POAckAccepted
       title: poack.accepted.v1
-      x-passage-type: dev.passage.procurement.poack.accepted.v1
+      x-depot-type: dev.depot.procurement.poack.accepted.v1
       summary: The vendor accepted the current version of a confirmed purchase order.
       contentType: application/cloudevents+json
       payload:
@@ -487,13 +487,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.poack.accepted.v1 }
+              type: { type: string, const: dev.depot.procurement.poack.accepted.v1 }
               subject: { type: string, format: uuid, description: acknowledgement id }
               data: { $ref: '#/components/schemas/POAckData' }
     POAckRejected:
       name: POAckRejected
       title: poack.rejected.v1
-      x-passage-type: dev.passage.procurement.poack.rejected.v1
+      x-depot-type: dev.depot.procurement.poack.rejected.v1
       summary: The vendor rejected the current version of a confirmed purchase order and gave a reason; the buyer follows up by hand.
       contentType: application/cloudevents+json
       payload:
@@ -501,13 +501,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.poack.rejected.v1 }
+              type: { type: string, const: dev.depot.procurement.poack.rejected.v1 }
               subject: { type: string, format: uuid, description: acknowledgement id }
               data: { $ref: '#/components/schemas/POAckData' }
     POAckProposed:
       name: POAckProposed
       title: poack.proposed.v1
-      x-passage-type: dev.passage.procurement.poack.proposed.v1
+      x-depot-type: dev.depot.procurement.poack.proposed.v1
       summary: The vendor proposed changes to quantity, delivery date or price of lines of a confirmed purchase order; the proposal waits for the buyer.
       contentType: application/cloudevents+json
       payload:
@@ -515,13 +515,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.poack.proposed.v1 }
+              type: { type: string, const: dev.depot.procurement.poack.proposed.v1 }
               subject: { type: string, format: uuid, description: acknowledgement id }
               data: { $ref: '#/components/schemas/POAckData' }
     POAckDecided:
       name: POAckDecided
       title: poack.decided.v1
-      x-passage-type: dev.passage.procurement.poack.decided.v1
+      x-depot-type: dev.depot.procurement.poack.decided.v1
       summary: A buyer approved or declined a vendor's proposal; an approval is the next purchase order version (resulting_version_no), which poversion.created.v1 and po.confirmed.v1 describe once confirmed.
       contentType: application/cloudevents+json
       payload:
@@ -529,13 +529,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.poack.decided.v1 }
+              type: { type: string, const: dev.depot.procurement.poack.decided.v1 }
               subject: { type: string, format: uuid, description: acknowledgement id }
               data: { $ref: '#/components/schemas/POAckData' }
     InboundChangeRecorded:
       name: InboundChangeRecorded
       title: inboundchange.recorded.v1
-      x-passage-type: dev.passage.procurement.inboundchange.recorded.v1
+      x-depot-type: dev.depot.procurement.inboundchange.recorded.v1
       summary: A change another service asked of a purchase order was applied, refused by a purchasing rule or ignored (slice 18).
       contentType: application/cloudevents+json
       payload:
@@ -543,13 +543,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.inboundchange.recorded.v1 }
+              type: { type: string, const: dev.depot.procurement.inboundchange.recorded.v1 }
               subject: { type: string, format: uuid, description: change id }
               data: { $ref: '#/components/schemas/InboundChangeData' }
     InboundChangeRefused:
       name: InboundChangeRefused
       title: inboundchange.refused.v1
-      x-passage-type: dev.passage.procurement.inboundchange.refused.v1
+      x-depot-type: dev.depot.procurement.inboundchange.refused.v1
       summary: A purchasing rule refused a change another service asked of a purchase order; this is the buyer's notification (slice 19).
       description: Written beside inboundchange.recorded.v1 for a REFUSED change, with the same data and buyer_id, the user who made the order. The notification service (wave 4) routes it to that buyer, who acknowledges or retries the change at /inbound-changes/{id}.
       contentType: application/cloudevents+json
@@ -558,13 +558,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.inboundchange.refused.v1 }
+              type: { type: string, const: dev.depot.procurement.inboundchange.refused.v1 }
               subject: { type: string, format: uuid, description: change id }
               data: { $ref: '#/components/schemas/InboundChangeData' }
     InboundChangeResolved:
       name: InboundChangeResolved
       title: inboundchange.resolved.v1
-      x-passage-type: dev.passage.procurement.inboundchange.resolved.v1
+      x-depot-type: dev.depot.procurement.inboundchange.resolved.v1
       summary: A buyer settled a refused change by acknowledging it or by a retry that left REFUSED (slice 19).
       contentType: application/cloudevents+json
       payload:
@@ -572,13 +572,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.inboundchange.resolved.v1 }
+              type: { type: string, const: dev.depot.procurement.inboundchange.resolved.v1 }
               subject: { type: string, format: uuid, description: change id }
               data: { $ref: '#/components/schemas/InboundChangeResolvedData' }
     RequisitionReleaseCompleted:
       name: RequisitionReleaseCompleted
       title: requisitionrelease.completed.v1
-      x-passage-type: dev.passage.procurement.requisitionrelease.completed.v1
+      x-depot-type: dev.depot.procurement.requisitionrelease.completed.v1
       summary: A release run consolidated the approved requisition lines it found into DRAFT purchase orders; skipped_count above zero means lines were left in the consolidation queue (PRD 3.17.16 buyer notification).
       description: Not written for a run that found no line (status EMPTY). The skipped lines carry the problem code that stopped them, for example PRC-CONS-002 (no vendor) or PRC-CAT-002 (category access).
       contentType: application/cloudevents+json
@@ -587,13 +587,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.requisitionrelease.completed.v1 }
+              type: { type: string, const: dev.depot.procurement.requisitionrelease.completed.v1 }
               subject: { type: string, format: uuid, description: run id }
               data: { $ref: '#/components/schemas/RequisitionReleaseData' }
     DropShipCancelledConsumed:
       name: DropShipCancelledConsumed
       title: dropship.cancelled.v1 (consumed)
-      x-passage-type: dev.passage.fulfillment.dropship.cancelled.v1
+      x-depot-type: dev.depot.fulfillment.dropship.cancelled.v1
       summary: Fulfillment cancelled an open drop-ship; purchasing takes its quantity off the PO line it bought against (consumed).
       description: Published by fulfillment (wave 28), source `fulfillment`. Only the members below are read; the drop-ship id is the idempotency key. The line goes down by qty less qty_confirmed and less what earlier closings of the drop-ship took off.
       contentType: application/json
@@ -602,7 +602,7 @@ components:
     DropShipClosedConsumed:
       name: DropShipClosedConsumed
       title: dropship.closed.v1 (consumed)
-      x-passage-type: dev.passage.fulfillment.dropship.closed.v1
+      x-depot-type: dev.depot.fulfillment.dropship.closed.v1
       summary: Fulfillment closed the remainder of a drop-ship; purchasing lowers the PO line it bought against by qty_closed (consumed).
       description: Published by fulfillment (wave 28), source `fulfillment`. Only the members below are read; the drop-ship id with qty_closed (its running total) is the idempotency key, and a drop-ship closed more than once lowers the line by what each closing adds.
       contentType: application/json
@@ -611,7 +611,7 @@ components:
     MessageAppliedConsumed:
       name: MessageAppliedConsumed
       title: message.applied.v1 (consumed)
-      x-passage-type: dev.passage.planning.message.applied.v1
+      x-depot-type: dev.depot.planning.message.applied.v1
       summary: A planner applied an action message; purchasing moves the PO line of the item on the purchase order supply_ref names (consumed).
       description: Published by planning (wave 22), source `planning`. Only postpone, advance, cancel, decrease and increase change a purchase order; the message id is the idempotency key.
       contentType: application/json
@@ -620,7 +620,7 @@ components:
     ServiceSpecChanged:
       name: ServiceSpecChanged
       title: servicespec.changed.v1
-      x-passage-type: dev.passage.procurement.servicespec.changed.v1
+      x-depot-type: dev.depot.procurement.servicespec.changed.v1
       summary: The service specification of a PO line (outline, value limit, expected value, contract limit) was saved or removed (FR-17.23).
       contentType: application/cloudevents+json
       payload:
@@ -628,13 +628,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.servicespec.changed.v1 }
+              type: { type: string, const: dev.depot.procurement.servicespec.changed.v1 }
               subject: { type: string, format: uuid, description: PO id }
               data: { $ref: '#/components/schemas/ServiceSpecData' }
     ModelServiceSpecCreated:
       name: ModelServiceSpecCreated
       title: modelservicespec.created.v1
-      x-passage-type: dev.passage.procurement.modelservicespec.created.v1
+      x-depot-type: dev.depot.procurement.modelservicespec.created.v1
       summary: A model service specification was created (FR-17.23).
       contentType: application/cloudevents+json
       payload:
@@ -642,13 +642,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.modelservicespec.created.v1 }
+              type: { type: string, const: dev.depot.procurement.modelservicespec.created.v1 }
               subject: { type: string, format: uuid, description: model id }
               data: { $ref: '#/components/schemas/ModelServiceSpecData' }
     ModelServiceSpecChanged:
       name: ModelServiceSpecChanged
       title: modelservicespec.changed.v1
-      x-passage-type: dev.passage.procurement.modelservicespec.changed.v1
+      x-depot-type: dev.depot.procurement.modelservicespec.changed.v1
       summary: A model service specification was changed or deactivated (FR-17.23).
       contentType: application/cloudevents+json
       payload:
@@ -656,13 +656,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.modelservicespec.changed.v1 }
+              type: { type: string, const: dev.depot.procurement.modelservicespec.changed.v1 }
               subject: { type: string, format: uuid, description: model id }
               data: { $ref: '#/components/schemas/ModelServiceSpecData' }
     DeliveryScheduleConfirmed:
       name: DeliveryScheduleConfirmed
       title: deliveryschedule.confirmed.v1
-      x-passage-type: dev.passage.procurement.deliveryschedule.confirmed.v1
+      x-depot-type: dev.depot.procurement.deliveryschedule.confirmed.v1
       summary: The vendor's confirmed delivery date of one PO delivery schedule row was set or changed (FR-17.10). Setting the same date again writes no event.
       contentType: application/cloudevents+json
       payload:
@@ -670,13 +670,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.deliveryschedule.confirmed.v1 }
+              type: { type: string, const: dev.depot.procurement.deliveryschedule.confirmed.v1 }
               subject: { type: string, format: uuid, description: PO id }
               data: { $ref: '#/components/schemas/DeliveryScheduleConfirmedData' }
     CatalogImportCommitted:
       name: CatalogImportCommitted
       title: catalogimport.committed.v1
-      x-passage-type: dev.passage.procurement.catalogimport.committed.v1
+      x-depot-type: dev.depot.procurement.catalogimport.committed.v1
       summary: The accepted rows of a staged vendor catalog file were added to a catalog (FR-17.18, AC-17.13); a PUBLISHED catalog shows them in the requisition picker at once.
       contentType: application/cloudevents+json
       payload:
@@ -684,13 +684,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.catalogimport.committed.v1 }
+              type: { type: string, const: dev.depot.procurement.catalogimport.committed.v1 }
               subject: { type: string, format: uuid, description: import id }
               data: { $ref: '#/components/schemas/CatalogImportData' }
     CatalogPublished:
       name: CatalogPublished
       title: catalog.published.v1
-      x-passage-type: dev.passage.procurement.catalog.published.v1
+      x-depot-type: dev.depot.procurement.catalog.published.v1
       summary: A DRAFT procurement catalog was published (FR-17.18); requesters of the listed operating units can pick its entries from its validity start.
       contentType: application/cloudevents+json
       payload:
@@ -698,13 +698,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.catalog.published.v1 }
+              type: { type: string, const: dev.depot.procurement.catalog.published.v1 }
               subject: { type: string, format: uuid, description: catalog id }
               data: { $ref: '#/components/schemas/CatalogData' }
     CatalogRetired:
       name: CatalogRetired
       title: catalog.retired.v1
-      x-passage-type: dev.passage.procurement.catalog.retired.v1
+      x-depot-type: dev.depot.procurement.catalog.retired.v1
       summary: A PUBLISHED procurement catalog was retired (FR-17.18); its entries leave the requisition picker.
       contentType: application/cloudevents+json
       payload:
@@ -712,13 +712,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.catalog.retired.v1 }
+              type: { type: string, const: dev.depot.procurement.catalog.retired.v1 }
               subject: { type: string, format: uuid, description: catalog id }
               data: { $ref: '#/components/schemas/CatalogData' }
     ChargeCodeCreated:
       name: ChargeCodeCreated
       title: chargecode.created.v1
-      x-passage-type: dev.passage.procurement.chargecode.created.v1
+      x-depot-type: dev.depot.procurement.chargecode.created.v1
       summary: A charge code was created for a legal entity (FR-17.9). Carries its calculation, default value, debit and credit sides and allocation rule.
       contentType: application/cloudevents+json
       payload:
@@ -726,13 +726,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.chargecode.created.v1 }
+              type: { type: string, const: dev.depot.procurement.chargecode.created.v1 }
               subject: { type: string, format: uuid, description: charge code id }
               data: { $ref: '#/components/schemas/ChargeCodeData' }
     ChargeCodeChanged:
       name: ChargeCodeChanged
       title: chargecode.changed.v1
-      x-passage-type: dev.passage.procurement.chargecode.changed.v1
+      x-depot-type: dev.depot.procurement.chargecode.changed.v1
       summary: A charge code was changed or deactivated (FR-17.9); carries the code at its new version. POs keep the sides they were entered with.
       contentType: application/cloudevents+json
       payload:
@@ -740,13 +740,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.chargecode.changed.v1 }
+              type: { type: string, const: dev.depot.procurement.chargecode.changed.v1 }
               subject: { type: string, format: uuid, description: charge code id }
               data: { $ref: '#/components/schemas/ChargeCodeData' }
     AutoChargeCreated:
       name: AutoChargeCreated
       title: autocharge.created.v1
-      x-passage-type: dev.passage.procurement.autocharge.created.v1
+      x-depot-type: dev.depot.procurement.autocharge.created.v1
       summary: An auto charge was created, adding a charge code to the POs of a vendor, a vendor group or every vendor (FR-17.9).
       contentType: application/cloudevents+json
       payload:
@@ -754,13 +754,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.autocharge.created.v1 }
+              type: { type: string, const: dev.depot.procurement.autocharge.created.v1 }
               subject: { type: string, format: uuid, description: auto charge id }
               data: { $ref: '#/components/schemas/AutoChargeData' }
     AutoChargeChanged:
       name: AutoChargeChanged
       title: autocharge.changed.v1
-      x-passage-type: dev.passage.procurement.autocharge.changed.v1
+      x-depot-type: dev.depot.procurement.autocharge.changed.v1
       summary: An auto charge was changed or deactivated (FR-17.9); carries it at its new version.
       contentType: application/cloudevents+json
       payload:
@@ -768,13 +768,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.autocharge.changed.v1 }
+              type: { type: string, const: dev.depot.procurement.autocharge.changed.v1 }
               subject: { type: string, format: uuid, description: auto charge id }
               data: { $ref: '#/components/schemas/AutoChargeData' }
     CategoryVendorAssigned:
       name: CategoryVendorAssigned
       title: categoryvendor.assigned.v1
-      x-passage-type: dev.passage.procurement.categoryvendor.assigned.v1
+      x-depot-type: dev.depot.procurement.categoryvendor.assigned.v1
       summary: A vendor was assigned to a procurement category with a status and validity window (FR-17.20). Requisition and PO checks read the assignments.
       contentType: application/cloudevents+json
       payload:
@@ -782,13 +782,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.categoryvendor.assigned.v1 }
+              type: { type: string, const: dev.depot.procurement.categoryvendor.assigned.v1 }
               subject: { type: string, format: uuid, description: assignment id }
               data: { $ref: '#/components/schemas/CategoryVendorData' }
     CategoryVendorChanged:
       name: CategoryVendorChanged
       title: categoryvendor.changed.v1
-      x-passage-type: dev.passage.procurement.categoryvendor.changed.v1
+      x-depot-type: dev.depot.procurement.categoryvendor.changed.v1
       summary: The status or validity window of a category vendor assignment changed (FR-17.20); carries the assignment at its new version.
       contentType: application/cloudevents+json
       payload:
@@ -796,13 +796,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.categoryvendor.changed.v1 }
+              type: { type: string, const: dev.depot.procurement.categoryvendor.changed.v1 }
               subject: { type: string, format: uuid, description: assignment id }
               data: { $ref: '#/components/schemas/CategoryVendorData' }
     CategoryManagerAssigned:
       name: CategoryManagerAssigned
       title: categorymanager.assigned.v1
-      x-passage-type: dev.passage.procurement.categorymanager.assigned.v1
+      x-depot-type: dev.depot.procurement.categorymanager.assigned.v1
       summary: A worker became manager of a procurement category (FR-17.20).
       contentType: application/cloudevents+json
       payload:
@@ -810,13 +810,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.categorymanager.assigned.v1 }
+              type: { type: string, const: dev.depot.procurement.categorymanager.assigned.v1 }
               subject: { type: string, format: uuid, description: manager row id }
               data: { $ref: '#/components/schemas/CategoryManagerData' }
     CategoryManagerRemoved:
       name: CategoryManagerRemoved
       title: categorymanager.removed.v1
-      x-passage-type: dev.passage.procurement.categorymanager.removed.v1
+      x-depot-type: dev.depot.procurement.categorymanager.removed.v1
       summary: A worker stopped managing a procurement category (FR-17.20).
       contentType: application/cloudevents+json
       payload:
@@ -824,13 +824,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.categorymanager.removed.v1 }
+              type: { type: string, const: dev.depot.procurement.categorymanager.removed.v1 }
               subject: { type: string, format: uuid, description: manager row id }
               data: { $ref: '#/components/schemas/CategoryManagerData' }
     SigningLimitChanged:
       name: SigningLimitChanged
       title: signinglimit.changed.v1
-      x-passage-type: dev.passage.procurement.signinglimit.changed.v1
+      x-depot-type: dev.depot.procurement.signinglimit.changed.v1
       summary: A worker's signing limit was set by an approved request, or recertified (FR-17.17).
       contentType: application/cloudevents+json
       payload:
@@ -838,13 +838,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.signinglimit.changed.v1 }
+              type: { type: string, const: dev.depot.procurement.signinglimit.changed.v1 }
               subject: { type: string, format: uuid, description: signing limit id }
               data: { $ref: '#/components/schemas/SigningLimitData' }
     PolicyChanged:
       name: PolicyChanged
       title: policy.changed.v1
-      x-passage-type: dev.passage.procurement.policy.changed.v1
+      x-depot-type: dev.depot.procurement.policy.changed.v1
       summary: The purchasing policy of a legal entity was saved (FR-17.13); carries the full policy at its new version. Audit and workflow consumers read it.
       contentType: application/cloudevents+json
       payload:
@@ -852,13 +852,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.policy.changed.v1 }
+              type: { type: string, const: dev.depot.procurement.policy.changed.v1 }
               subject: { type: string, format: uuid, description: legal entity id }
               data: { $ref: '#/components/schemas/PolicyChangedData' }
     SAReleaseCreated:
       name: SAReleaseCreated
       title: sarelease.created.v1
-      x-passage-type: dev.passage.procurement.sarelease.created.v1
+      x-depot-type: dev.depot.procurement.sarelease.created.v1
       summary: >-
         A scheduling agreement release run created release REL-<agreement>-<n> of kind FRC or JIT
         (FR-17.15). The PRD's sa.release.created.v1, renamed to one entity segment. A run on an
@@ -869,12 +869,12 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.sarelease.created.v1 }
+              type: { type: string, const: dev.depot.procurement.sarelease.created.v1 }
               data: { $ref: '#/components/schemas/SAReleaseCreatedData' }
     RequisitionSubmitted:
       name: RequisitionSubmitted
       title: requisition.submitted.v1
-      x-passage-type: dev.passage.procurement.requisition.submitted.v1
+      x-depot-type: dev.depot.procurement.requisition.submitted.v1
       summary: A DRAFT requisition was submitted; status is IN_REVIEW, or APPROVED when the policy chain is empty.
       contentType: application/cloudevents+json
       payload:
@@ -882,12 +882,12 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.requisition.submitted.v1 }
+              type: { type: string, const: dev.depot.procurement.requisition.submitted.v1 }
               data: { $ref: '#/components/schemas/RequisitionData' }
     RequisitionApproved:
       name: RequisitionApproved
       title: requisition.approved.v1
-      x-passage-type: dev.passage.procurement.requisition.approved.v1
+      x-depot-type: dev.depot.procurement.requisition.approved.v1
       summary: A requisition reached APPROVED - the auto-approval band on submit (written right after requisition.submitted in the same transaction) or the last approval level deciding (BR-17.1).
       contentType: application/cloudevents+json
       payload:
@@ -895,12 +895,12 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.requisition.approved.v1 }
+              type: { type: string, const: dev.depot.procurement.requisition.approved.v1 }
               data: { $ref: '#/components/schemas/RequisitionData' }
     RequisitionSplit:
       name: RequisitionSplit
       title: requisition.split.v1
-      x-passage-type: dev.passage.procurement.requisition.split.v1
+      x-depot-type: dev.depot.procurement.requisition.split.v1
       summary: A buyer cut new lines out of an OPEN line of an APPROVED requisition (FR-17.3); the requisition total is unchanged.
       contentType: application/cloudevents+json
       payload:
@@ -908,13 +908,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.requisition.split.v1 }
+              type: { type: string, const: dev.depot.procurement.requisition.split.v1 }
               subject: { type: string, format: uuid, description: requisition id }
               data: { $ref: '#/components/schemas/RequisitionSplitData' }
     RequisitionRejected:
       name: RequisitionRejected
       title: requisition.rejected.v1
-      x-passage-type: dev.passage.procurement.requisition.rejected.v1
+      x-depot-type: dev.depot.procurement.requisition.rejected.v1
       summary: An approver sent an IN_REVIEW requisition back with a reason (BR-17.1). The requester can reopen it to DRAFT or cancel it.
       contentType: application/cloudevents+json
       payload:
@@ -922,13 +922,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.requisition.rejected.v1 }
+              type: { type: string, const: dev.depot.procurement.requisition.rejected.v1 }
               subject: { type: string, format: uuid, description: requisition id }
               data: { $ref: '#/components/schemas/RequisitionRejectedData' }
     RequisitionCancelled:
       name: RequisitionCancelled
       title: requisition.cancelled.v1
-      x-passage-type: dev.passage.procurement.requisition.cancelled.v1
+      x-depot-type: dev.depot.procurement.requisition.cancelled.v1
       summary: The requester cancelled a DRAFT, REJECTED or APPROVED requisition before anything was ordered from it (BR-17.1); its OPEN lines are CANCELLED. Only an APPROVED requisition carries a budget pre-encumbrance (FR-38.5 creates it on approval), so budget control releases one only when previous_status is APPROVED.
       contentType: application/cloudevents+json
       payload:
@@ -936,13 +936,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.requisition.cancelled.v1 }
+              type: { type: string, const: dev.depot.procurement.requisition.cancelled.v1 }
               subject: { type: string, format: uuid, description: requisition id }
               data: { $ref: '#/components/schemas/RequisitionCancelledData' }
     RequisitionWithdrawn:
       name: RequisitionWithdrawn
       title: requisition.withdrawn.v1
-      x-passage-type: dev.passage.procurement.requisition.withdrawn.v1
+      x-depot-type: dev.depot.procurement.requisition.withdrawn.v1
       summary: The requester took an IN_REVIEW requisition back to DRAFT before any approval level had approved it (BR-17.1); the approver chain is cleared and the requisition leaves every approval inbox. No budget pre-encumbrance exists yet, so there is nothing to release.
       contentType: application/cloudevents+json
       payload:
@@ -950,13 +950,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.requisition.withdrawn.v1 }
+              type: { type: string, const: dev.depot.procurement.requisition.withdrawn.v1 }
               subject: { type: string, format: uuid, description: requisition id }
               data: { $ref: '#/components/schemas/RequisitionWithdrawnData' }
     RequisitionLineCancelled:
       name: RequisitionLineCancelled
       title: requisitionline.cancelled.v1
-      x-passage-type: dev.passage.procurement.requisitionline.cancelled.v1
+      x-depot-type: dev.depot.procurement.requisitionline.cancelled.v1
       summary: The requester cancelled one OPEN line of an APPROVED requisition while the rest continues (BR-17.1). Budget control (FR-38.5) releases the line's amount from the requisition's pre-encumbrance; total is the requisition total after the cancellation (the lines not cancelled), and requisition_status is APPROVED, or CLOSED when every line left is already consolidated.
       contentType: application/cloudevents+json
       payload:
@@ -964,13 +964,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.requisitionline.cancelled.v1 }
+              type: { type: string, const: dev.depot.procurement.requisitionline.cancelled.v1 }
               subject: { type: string, format: uuid, description: requisition id }
               data: { $ref: '#/components/schemas/RequisitionLineCancelledData' }
     AgreementThreshold:
       name: AgreementThreshold
       title: agreement.threshold.v1
-      x-passage-type: dev.passage.procurement.agreement.threshold.v1
+      x-depot-type: dev.depot.procurement.agreement.threshold.v1
       summary: A PO line released against a purchase agreement line took it to the threshold (90 % of the commitment) or over a SOFT limit (FR-17.5, BR-17.10). Written in the PO's transaction; the threshold fires once per line, a SOFT overrun on every release that exceeds.
       contentType: application/cloudevents+json
       payload:
@@ -978,13 +978,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.agreement.threshold.v1 }
+              type: { type: string, const: dev.depot.procurement.agreement.threshold.v1 }
               subject: { type: string, format: uuid, description: agreement id }
               data: { $ref: '#/components/schemas/AgreementThresholdData' }
     POConfirmed:
       name: POConfirmed
       title: po.confirmed.v1
-      x-passage-type: dev.passage.procurement.po.confirmed.v1
+      x-depot-type: dev.depot.procurement.po.confirmed.v1
       summary: A version of a purchase order was confirmed, by :confirm or by a post-confirmation change that needed no re-approval (FR-17.7, FR-17.8). Carries the whole order at that version.
       contentType: application/cloudevents+json
       payload:
@@ -992,13 +992,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.po.confirmed.v1 }
+              type: { type: string, const: dev.depot.procurement.po.confirmed.v1 }
               subject: { type: string, format: uuid, description: purchase order id }
               data: { $ref: '#/components/schemas/POConfirmedData' }
     POVersionCreated:
       name: POVersionCreated
       title: poversion.created.v1
-      x-passage-type: dev.passage.procurement.poversion.created.v1
+      x-depot-type: dev.depot.procurement.poversion.created.v1
       summary: A confirmed purchase order version above 1 (change order, FR-17.8), written right after po.confirmed in the same transaction. The PRD calls it po.version.created; the platform type grammar allows one entity segment.
       contentType: application/cloudevents+json
       payload:
@@ -1006,13 +1006,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.poversion.created.v1 }
+              type: { type: string, const: dev.depot.procurement.poversion.created.v1 }
               subject: { type: string, format: uuid, description: purchase order id }
               data: { $ref: '#/components/schemas/POVersionCreatedData' }
     POCancelled:
       name: POCancelled
       title: po.cancelled.v1
-      x-passage-type: dev.passage.procurement.po.cancelled.v1
+      x-depot-type: dev.depot.procurement.po.cancelled.v1
       summary: A purchase order with nothing received or invoiced was cancelled (BR-17.2); its open lines are CANCELLED and their remaining quantity is released.
       contentType: application/cloudevents+json
       payload:
@@ -1020,13 +1020,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.po.cancelled.v1 }
+              type: { type: string, const: dev.depot.procurement.po.cancelled.v1 }
               subject: { type: string, format: uuid, description: purchase order id }
               data: { $ref: '#/components/schemas/POCancelledData' }
     PORepriced:
       name: PORepriced
       title: po.repriced.v1
-      x-passage-type: dev.passage.procurement.po.repriced.v1
+      x-depot-type: dev.depot.procurement.po.repriced.v1
       summary: A subsequent price change was applied to a CONFIRMED purchase order (FR-17.22, BR-17.18). Consumed by payables (wave 18 FR-18.18 subsequent debit/credit for invoiced_lines) and analytics.
       contentType: application/cloudevents+json
       payload:
@@ -1034,13 +1034,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.po.repriced.v1 }
+              type: { type: string, const: dev.depot.procurement.po.repriced.v1 }
               subject: { type: string, format: uuid, description: purchase order id }
               data: { $ref: '#/components/schemas/PORepricedData' }
     RFQSent:
       name: RFQSent
       title: rfq.sent.v1
-      x-passage-type: dev.passage.procurement.rfq.sent.v1
+      x-depot-type: dev.depot.procurement.rfq.sent.v1
       summary: A DRAFT RFQ was sent; carries the invited vendors, the deadline and the lines to quote (FR-17.4). Consumed by the supplier portal (wave 20) and notifications.
       contentType: application/cloudevents+json
       payload:
@@ -1048,13 +1048,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.rfq.sent.v1 }
+              type: { type: string, const: dev.depot.procurement.rfq.sent.v1 }
               subject: { type: string, format: uuid, description: RFQ id }
               data: { $ref: '#/components/schemas/RFQSentData' }
     RFQAwarded:
       name: RFQAwarded
       title: rfq.awarded.v1
-      x-passage-type: dev.passage.procurement.rfq.awarded.v1
+      x-depot-type: dev.depot.procurement.rfq.awarded.v1
       summary: RFQ lines were awarded and their DRAFT purchase orders created in the same transaction (FR-17.4); one entry per awarded line with the winning vendor, price and purchase order.
       contentType: application/cloudevents+json
       payload:
@@ -1062,13 +1062,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.rfq.awarded.v1 }
+              type: { type: string, const: dev.depot.procurement.rfq.awarded.v1 }
               subject: { type: string, format: uuid, description: RFQ id }
               data: { $ref: '#/components/schemas/RFQAwardedData' }
     RFQAmended:
       name: RFQAmended
       title: rfq.amended.v1
-      x-passage-type: dev.passage.procurement.rfq.amended.v1
+      x-depot-type: dev.depot.procurement.rfq.amended.v1
       summary: An addendum was issued to a sent RFQ (FR-17.19). Carries the summary of the change, the vendors that must acknowledge it and the reply deadline in force. Portals and mail send it to the invited vendors.
       contentType: application/cloudevents+json
       payload:
@@ -1076,13 +1076,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.rfq.amended.v1 }
+              type: { type: string, const: dev.depot.procurement.rfq.amended.v1 }
               subject: { type: string, format: uuid, description: RFQ id }
               data: { $ref: '#/components/schemas/RFQAmendedData' }
     RFQTypeCreated:
       name: RFQTypeCreated
       title: rfqtype.created.v1
-      x-passage-type: dev.passage.procurement.rfqtype.created.v1
+      x-depot-type: dev.depot.procurement.rfqtype.created.v1
       summary: An RFQ type was created for a legal entity (FR-17.19). Carries its sealed and amendment flags, ranking rule and the number of default scoring criteria.
       contentType: application/cloudevents+json
       payload:
@@ -1090,13 +1090,13 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.rfqtype.created.v1 }
+              type: { type: string, const: dev.depot.procurement.rfqtype.created.v1 }
               subject: { type: string, format: uuid, description: RFQ type id }
               data: { $ref: '#/components/schemas/RFQTypeData' }
     RFQTypeChanged:
       name: RFQTypeChanged
       title: rfqtype.changed.v1
-      x-passage-type: dev.passage.procurement.rfqtype.changed.v1
+      x-depot-type: dev.depot.procurement.rfqtype.changed.v1
       summary: An RFQ type was changed or deactivated (FR-17.19); carries it at its new version. RFQs already created keep the flags they copied.
       contentType: application/cloudevents+json
       payload:
@@ -1104,7 +1104,7 @@ components:
           - $ref: '#/components/schemas/Envelope'
           - type: object
             properties:
-              type: { type: string, const: dev.passage.procurement.rfqtype.changed.v1 }
+              type: { type: string, const: dev.depot.procurement.rfqtype.changed.v1 }
               subject: { type: string, format: uuid, description: RFQ type id }
               data: { $ref: '#/components/schemas/RFQTypeData' }
   schemas:
@@ -1191,12 +1191,12 @@ components:
         note: { type: string }
     Envelope:
       type: object
-      description: CloudEvents 1.0 structured envelope with Passage extensions.
+      description: CloudEvents 1.0 structured envelope with Depot extensions.
       required: [specversion, id, source, type, time, datacontenttype, tenantid, subject, data]
       properties:
         specversion: { type: string, const: "1.0" }
         id: { type: string, format: uuid }
-        source: { type: string, const: /passage/procurement/purchasing }
+        source: { type: string, const: /depot/procurement/purchasing }
         type: { type: string }
         subject: { type: string, format: uuid, description: id of the aggregate (requisition, agreement, purchase order or RFQ) }
         time: { type: string, format: date-time }

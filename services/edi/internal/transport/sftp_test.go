@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/transport/transporttest"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/transport/transporttest"
 )
 
 func TestSFTP_SendAndPullAgainstAnSFTPServer(t *testing.T) {
@@ -30,11 +30,11 @@ func TestSFTP_SendAndPullAgainstAnSFTPServer(t *testing.T) {
 		}
 	}
 	tr := SFTP{Files: client, OutDir: out, InDir: in, Now: func() time.Time { return testAt }}
-	r, err := tr.Send(context.Background(), x12Message("passage-000000042"))
+	r, err := tr.Send(context.Background(), x12Message("depot-000000042"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Reference != filepath.Join(out, "passage-000000042.x12") {
+	if r.Reference != filepath.Join(out, "depot-000000042.x12") {
 		t.Fatalf("receipt %+v", r)
 	}
 	got, err := os.ReadFile(r.Reference)

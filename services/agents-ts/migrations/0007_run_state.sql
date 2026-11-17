@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS agent_run_state (
 ALTER TABLE agent_run_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_run_state FORCE ROW LEVEL SECURITY;
 CREATE POLICY agent_run_state_tenant_access ON agent_run_state AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS agent_run_credential (
   tenant_id uuid NOT NULL,
@@ -34,18 +34,18 @@ CREATE TABLE IF NOT EXISTS agent_run_credential (
 ALTER TABLE agent_run_credential ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_run_credential FORCE ROW LEVEL SECURITY;
 CREATE POLICY agent_run_credential_tenant_access ON agent_run_credential AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- A request is bound to the proposal it was opened for: the commit refuses a proposal whose hash differs.
 ALTER TABLE approval_request ADD COLUMN IF NOT EXISTS proposal_hash text;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
     -- DELETE: the retention sweep (finished runs' state after 24 h, BR-47.7) and a start that failed.
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON agent_run_state TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON agent_run_credential TO passage_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON agent_run_state TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON agent_run_credential TO depot_app';
   END IF;
 END
 $$;

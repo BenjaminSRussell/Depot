@@ -19,18 +19,18 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/issueclaim"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/issueclaim"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/store"
 )
 
 // Duties of the persisted routes: the PRD's WMS_SETUP_MAINTAIN,
 // WMS_WORK_SUPERVISE, WMS_WORK_EXECUTE and WMS_INQUIRY (§6.31.17), named the
-// way every Passage service names its duties.
+// way every Depot service names its duties.
 const (
 	dutySetupMaintain = "warehouse.setup.maintain"
 	dutyWorkSupervise = "warehouse.work.supervise"

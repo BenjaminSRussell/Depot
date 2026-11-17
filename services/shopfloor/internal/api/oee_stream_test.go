@@ -14,9 +14,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
 )
 
 // liveFake hands out a stream that the test changes while the SSE stream runs.
@@ -63,9 +63,9 @@ func streamServer(t *testing.T, fs *liveFake, now func() time.Time) *httptest.Se
 func openStream(t *testing.T, srv *httptest.Server, query string) *http.Response {
 	t.Helper()
 	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/v1/shopfloor/oee/stream?"+query, nil)
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-User", "supervisor-1")
-	req.Header.Set("X-Passage-Duties", DutyView)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-User", "supervisor-1")
+	req.Header.Set("X-Depot-Duties", DutyView)
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)

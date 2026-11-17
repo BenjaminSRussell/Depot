@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: Passage Fulfillment API
+  title: Depot Fulfillment API
   version: 1.0.0
   description: >
     Wave 28 slices 1 to 11 (the wave picker, assign and close are slice 11). Release, pick, pack and packing-slip posting;
@@ -14,7 +14,7 @@ info:
     rate/label/manifest and drop-ship are later slices (see NOT-IMPLEMENTED.md).
     Errors are RFC 9457 problem details with a stable code.
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env:
         default: dev
@@ -76,7 +76,7 @@ components:
       description: RFC 9457 problem details (application/problem+json).
       required: [type, title, status, code]
       properties:
-        type: { type: string, format: uri, example: "https://passage.dev/problems/FUL-0051" }
+        type: { type: string, format: uri, example: "https://depot.dev/problems/FUL-0051" }
         title: { type: string }
         status: { type: integer }
         detail: { type: string }
@@ -735,7 +735,7 @@ paths:
         A line whose remainder sales cancelled (order.remaindercancelled) is released only up to the
         quantity it keeps beyond its live shipments and drop-ship, not flagged partial for the cut, and
         skipped as order_remainder_cancelled when nothing of it is left to release.
-      x-passage-duty: fulfillment.warehouse.release
+      x-depot-duty: fulfillment.warehouse.release
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -798,7 +798,7 @@ paths:
     get:
       operationId: listShipments
       summary: Shipments list / delivery monitor, newest first
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: status, in: query, schema: { $ref: "#/components/schemas/ShipmentStatus" } }
         - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
@@ -824,7 +824,7 @@ paths:
     get:
       operationId: listPackingSlips
       summary: Packing slip journal, newest first
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: shipmentId, in: query, schema: { type: string, format: uuid } }
         - { name: orderId, in: query, schema: { type: string, format: uuid } }
@@ -850,7 +850,7 @@ paths:
       operationId: listPackingSlipLines
       summary: Lines of packing slips for a picker, newest slip first
       description: "A slip line is identified by the shipment line it covers (a slip carries each shipment line once); lineNo counts the slip's lines from 1."
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: slipId, in: query, schema: { type: string, format: uuid } }
         - { name: q, in: query, description: "Only lines of slips whose number contains it, ignoring case.", schema: { type: string, maxLength: 100 } }
@@ -873,7 +873,7 @@ paths:
     get:
       operationId: getPackingSlipLine
       summary: One packing slip line by the shipment line it covers (the line lookup's resolve)
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -888,7 +888,7 @@ paths:
     get:
       operationId: getPackingSlip
       summary: Read a packing slip with its lines and journal
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { $ref: "#/components/parameters/PackingSlipId" }
       responses:
@@ -903,7 +903,7 @@ paths:
     get:
       operationId: getShipment
       summary: Read a shipment (ETag carries the version)
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { $ref: "#/components/parameters/ShipmentId" }
       responses:
@@ -919,7 +919,7 @@ paths:
     post:
       operationId: confirmPick
       summary: Confirm picked quantities; short picks release the remainder (FR-28.2)
-      x-passage-duty: fulfillment.warehouse.pick
+      x-depot-duty: fulfillment.warehouse.pick
       parameters:
         - { $ref: "#/components/parameters/ShipmentId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -962,7 +962,7 @@ paths:
     post:
       operationId: packContainer
       summary: Pack lines into a container with an SSCC (FR-28.3)
-      x-passage-duty: fulfillment.warehouse.pack
+      x-depot-duty: fulfillment.warehouse.pack
       parameters:
         - { $ref: "#/components/parameters/ShipmentId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -1019,7 +1019,7 @@ paths:
         SHIP_TIMESTAMP the day of the post in the warehouse time zone, TODAY the same day
         unless postingDate names another. The operation rule applies only when it was
         saved under the shipment's legal entity; otherwise the post is MANUAL.
-      x-passage-duty: fulfillment.packing-slip.post
+      x-depot-duty: fulfillment.packing-slip.post
       parameters:
         - { $ref: "#/components/parameters/ShipmentId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -1037,7 +1037,7 @@ paths:
                 currency: { type: string, pattern: '^[A-Z]{3}$' }
                 cogsAtShipment: { type: boolean, description: "Dr 5000 instead of Dr 1405. This is the legal entity's cogs_at_shipment policy (false when none is saved): omit it, or name the same value; another value is refused with FUL-0059." }
                 countryCode: { type: string, pattern: '^[A-Z]{2}$', description: "Ship-to country whose packaging fee rates apply (FR-28.14). Omit to post no packaging fee." }
-                asnEnabled: { type: boolean, description: "Publish dev.passage.fulfillment.asn.issued.v1 for this slip (FR-28.9). Omit to take the legal entity setting (false when none is saved)." }
+                asnEnabled: { type: boolean, description: "Publish dev.depot.fulfillment.asn.issued.v1 for this slip (FR-28.9). Omit to take the legal entity setting (false when none is saved)." }
                 costs:
                   type: array
                   items:
@@ -1064,7 +1064,7 @@ paths:
     post:
       operationId: cancelPackingSlip
       summary: Reverse a packing slip with mirror inventory and journal entries (FR-28.5)
-      x-passage-duty: fulfillment.packing-slip.post
+      x-depot-duty: fulfillment.packing-slip.post
       parameters:
         - { $ref: "#/components/parameters/PackingSlipId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -1083,7 +1083,7 @@ paths:
     get:
       operationId: listContainerTypes
       summary: Container types by code (FR-28.14, FR-28.15)
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { $ref: "#/components/parameters/Limit" }
       responses:
@@ -1103,7 +1103,7 @@ paths:
     post:
       operationId: saveContainerType
       summary: Create or replace a container type; packed containers keep the values they were packed with
-      x-passage-duty: fulfillment.packing-rule.maintain
+      x-depot-duty: fulfillment.packing-rule.maintain
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -1132,7 +1132,7 @@ paths:
     get:
       operationId: listPackingRules
       summary: Packing rules, general rule of a product first (FR-28.15)
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: productId, in: query, schema: { type: string, format: uuid } }
         - { $ref: "#/components/parameters/Limit" }
@@ -1153,7 +1153,7 @@ paths:
     post:
       operationId: savePackingRule
       summary: Create the rule of a product and customer scope, or replace it (keeps its id)
-      x-passage-duty: fulfillment.packing-rule.maintain
+      x-depot-duty: fulfillment.packing-rule.maintain
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -1183,7 +1183,7 @@ paths:
     get:
       operationId: listProductPackaging
       summary: Packaging material weight per product unit (FR-28.14)
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: productId, in: query, schema: { type: string, format: uuid } }
         - { $ref: "#/components/parameters/Limit" }
@@ -1204,7 +1204,7 @@ paths:
     post:
       operationId: saveProductPackaging
       summary: Set the weight of a packaging material per unit of a product (0 stops it counting)
-      x-passage-duty: fulfillment.packing-rule.maintain
+      x-depot-duty: fulfillment.packing-rule.maintain
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -1238,7 +1238,7 @@ paths:
         SSCC. Lines without a rule stay unpacked with a FUL-0012 warning. When nothing is
         packed the shipment and its version are unchanged. A warehouse whose operation rule
         turned auto_pack_enabled off refuses it with FUL-0075.
-      x-passage-duty: fulfillment.warehouse.pack
+      x-depot-duty: fulfillment.warehouse.pack
       parameters:
         - { $ref: "#/components/parameters/ShipmentId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -1293,7 +1293,7 @@ paths:
     get:
       operationId: listFeeRates
       summary: Packaging fee rates per country and material, newest first (FR-28.14)
-      x-passage-duty: fulfillment.packaging-fee.maintain
+      x-depot-duty: fulfillment.packaging-fee.maintain
       parameters:
         - { name: countryCode, in: query, schema: { type: string, pattern: '^[A-Z]{2}$' } }
         - { $ref: "#/components/parameters/Limit" }
@@ -1314,7 +1314,7 @@ paths:
     post:
       operationId: saveFeeRate
       summary: Create or replace the fee rate of a country and material valid from a date
-      x-passage-duty: fulfillment.packaging-fee.maintain
+      x-depot-duty: fulfillment.packaging-fee.maintain
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -1344,7 +1344,7 @@ paths:
     get:
       operationId: packagingReport
       summary: Packaging weight and fee per material for a country and month, net of reversals (section 5.28.14)
-      x-passage-duty: fulfillment.packaging-fee.maintain
+      x-depot-duty: fulfillment.packaging-fee.maintain
       parameters:
         - { name: countryCode, in: query, required: true, schema: { type: string, pattern: '^[A-Z]{2}$' } }
         - { name: period, in: query, required: true, schema: { type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } }
@@ -1381,7 +1381,7 @@ paths:
         A slip counts while its Dr 1405 is not reversed by a cancellation dated on or before asOf and it is not INVOICED.
         Slips posted with cogsAtShipment carry no 1405 line and never appear. totals cover all lineCount slips;
         lines holds at most limit of them, oldest posting date first.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: legalEntityId, in: query, required: true, schema: { type: string, format: uuid } }
         - { name: customerId, in: query, schema: { type: string, format: uuid } }
@@ -1434,7 +1434,7 @@ paths:
       description: >-
         Ordered by SSCC. noReuseUntil is the issue date plus sscc_no_reuse_months (12); SSCCs are unique per
         tenant, so an issued SSCC is never issued again. Page with limit and the nextCursor of the previous page.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: companyPrefix, in: query, description: "GS1 company prefix (6 to 12 digits) after the extension digit.", schema: { type: string, pattern: "^[0-9]{6,12}$" } }
         - { name: customerId, in: query, schema: { type: string, format: uuid } }
@@ -1481,7 +1481,7 @@ paths:
         closed (qtyClosed, FR-28.8) or the shipment is cancelled. status=open (default) lists open backorders only; status=all also lists closed ones. from
         and to bound the date of the line's first short pick. Page with limit and the nextCursor of the previous
         page.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
         - { name: status, in: query, schema: { type: string, enum: [open, all], default: open } }
@@ -1529,7 +1529,7 @@ paths:
     get:
       operationId: listReturnableBalances
       summary: Returnable packaging balances per customer and container type (FR-28.16)
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: customerId, in: query, schema: { type: string, format: uuid } }
         - { $ref: "#/components/parameters/Limit" }
@@ -1563,7 +1563,7 @@ paths:
         container type for the whole tenant; a caller scoped to some legal entities ages it only from the
         slips of those entities. count and chargeDueCount cover every matching balance; items holds at
         most limit of them, oldest first.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: customerId, in: query, schema: { type: string, format: uuid } }
         - { name: chargeDays, in: query, description: "Replaces the rtp_charge_days of every legal entity; left out, each balance uses its entity's value.", schema: { type: integer, minimum: 30, maximum: 365 } }
@@ -1605,7 +1605,7 @@ paths:
         was cancelled (SHIPMENT_CANCELLED), a return receipt (RETURNED) and a manual correction (ADJUSTED).
         qty is signed and balanceAfter is the balance the change left. Balances that existed before the
         history was kept have no earlier rows.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: customerId, in: query, schema: { type: string, format: uuid } }
         - { name: containerType, in: query, schema: { type: string } }
@@ -1635,7 +1635,7 @@ paths:
         fulfillment.returnable-packaging.maintain (fulfillment.warehouse.receive is its segregation-of-duties conflict, not a second
         duty). The container type must be a returnable one. A correction that would take the balance below
         zero is refused.
-      x-passage-duty: fulfillment.returnable-packaging.maintain
+      x-depot-duty: fulfillment.returnable-packaging.maintain
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -1665,7 +1665,7 @@ paths:
     post:
       operationId: returnPackaging
       summary: Record a standalone return receipt of returnable containers (BR-28.13)
-      x-passage-duty: fulfillment.warehouse.receive
+      x-depot-duty: fulfillment.warehouse.receive
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -1697,7 +1697,7 @@ paths:
         Allowed from OPEN, RELEASED, PICKING, PICKED or PACKED while nothing has
         shipped and the shipment holds no container. The order lines can be released
         again; inventory releases their reservations from shipment.cancelled.
-      x-passage-duty: fulfillment.warehouse.release
+      x-depot-duty: fulfillment.warehouse.release
       parameters:
         - { $ref: "#/components/parameters/ShipmentId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -1727,7 +1727,7 @@ paths:
         closes and the shipment becomes SHIPPED. shipment.closed tells inventory
         which reservation and which picked-but-unpacked stock to release.
         Batch and serial entries that never shipped are dropped, freeing their serials.
-      x-passage-duty: fulfillment.warehouse.release
+      x-depot-duty: fulfillment.warehouse.release
       parameters:
         - { $ref: "#/components/parameters/ShipmentId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -1759,7 +1759,7 @@ paths:
         backorderOfId and the original through backorderId. shipment.closed names the
         new shipment (backorder_shipment_id) so sales keeps the order lines open, and
         shipment.released announces the new one. The body may be an empty object.
-      x-passage-duty: fulfillment.warehouse.release
+      x-depot-duty: fulfillment.warehouse.release
       parameters:
         - { $ref: "#/components/parameters/ShipmentId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -1799,7 +1799,7 @@ paths:
         Every warehouse the caller sees shipments or a saved setting for (both are
         scoped by legal entity). A warehouse without a saved setting reads REMAINDER_BACKORDER
         (the default) at version 0.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       responses:
         "200":
           description: Warehouse settings, ordered by warehouse
@@ -1817,7 +1817,7 @@ paths:
     get:
       operationId: getWarehouseSetting
       summary: Read the short pick action of one warehouse
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { $ref: "#/components/parameters/WarehouseId" }
       responses:
@@ -1841,7 +1841,7 @@ paths:
         belongs to; the setting is scoped by it, and a legal entity other than the
         saved one or the one of the warehouse's release rule or its shipments is
         refused (FUL-0057). Publishes warehousesetting.changed.
-      x-passage-duty: fulfillment.warehouse.release
+      x-depot-duty: fulfillment.warehouse.release
       parameters:
         - { $ref: "#/components/parameters/WarehouseId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -1876,7 +1876,7 @@ paths:
         The supervisor's list: cases raised when sales cancelled the remainder of an order
         (order.remaindercancelled.v1) and fulfillment could not undo what had already been
         packed or posted. Open ones first, newest first.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: status, in: query, required: false, schema: { type: string, enum: [OPEN, RESOLVED] }, description: Only exceptions in this status. }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
@@ -1898,7 +1898,7 @@ paths:
     get:
       operationId: getException
       summary: Read one warehouse exception
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1916,7 +1916,7 @@ paths:
       description: >
         The supervisor records what was done (a return through wave 30, a new order, the goods
         unpacked). If-Match carries the version read. Publishes exception.resolved.
-      x-passage-duty: fulfillment.warehouse.release
+      x-depot-duty: fulfillment.warehouse.release
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -1951,7 +1951,7 @@ paths:
       description: >
         What each posted packing slip reported, or is waiting to report, to sales'
         :record-progress, newest first. The reporter runs when SALES_URL is configured.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: status, in: query, required: false, schema: { type: string, enum: [PENDING, REPORTED, PARKED, WITHDRAWN] } }
         - { name: packingSlipId, in: query, required: false, schema: { type: string, format: uuid } }
@@ -1978,7 +1978,7 @@ paths:
         A PARKED report becomes PENDING, due now, with its attempts counted from zero; the body
         and Idempotency-Key sent to sales do not change. A PENDING report is returned as it is.
         Fix the cause first (for a 4xx, usually in sales): the same body is sent again.
-      x-passage-duty: fulfillment.packing-slip.post
+      x-depot-duty: fulfillment.packing-slip.post
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -2001,7 +2001,7 @@ paths:
         Every warehouse the caller sees shipments, a short pick setting or a saved rule
         for (all scoped by legal entity). A warehouse without a saved rule reads the
         defaults at version 0.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       responses:
         "200":
           description: Release rules, ordered by warehouse
@@ -2019,7 +2019,7 @@ paths:
     get:
       operationId: getReleaseRule
       summary: Read the release rule of one warehouse
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { $ref: "#/components/parameters/WarehouseId" }
       responses:
@@ -2042,7 +2042,7 @@ paths:
         belongs to; a legal entity other than the one of the saved rule, the warehouse's
         short pick setting or its shipments, or outside the caller's scope, is refused
         (FUL-0057). Publishes warehousereleaserule.changed with the values replaced.
-      x-passage-duty: fulfillment.warehouse.release
+      x-depot-duty: fulfillment.warehouse.release
       parameters:
         - { $ref: "#/components/parameters/WarehouseId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -2080,7 +2080,7 @@ paths:
         Every warehouse the caller sees shipments, a short pick setting, a release rule or a
         saved operation rule for (all scoped by legal entity). A warehouse without a saved
         rule reads the defaults at version 0.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       responses:
         "200":
           description: Operation rules, ordered by warehouse
@@ -2098,7 +2098,7 @@ paths:
     get:
       operationId: getOperationRule
       summary: Read the operation rule of one warehouse
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { $ref: "#/components/parameters/WarehouseId" }
       responses:
@@ -2124,7 +2124,7 @@ paths:
         the legal entity the warehouse belongs to; another one than the warehouse's, or
         one outside the caller's scope, is refused (FUL-0057). Publishes
         warehouseoperationrule.changed with the values replaced.
-      x-passage-duty: fulfillment.warehouse.release
+      x-depot-duty: fulfillment.warehouse.release
       parameters:
         - { $ref: "#/components/parameters/WarehouseId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -2161,7 +2161,7 @@ paths:
       description: >
         The saved over-delivery tolerances, the most specific scopes first, optionally of one
         product or one customer.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: productId, in: query, required: false, schema: { type: string, format: uuid }, description: "Only the tolerances saved for this product." }
         - { name: customerId, in: query, required: false, schema: { type: string, format: uuid }, description: "Only the tolerances saved for this customer." }
@@ -2190,7 +2190,7 @@ paths:
         written and the other gets 412. A confirm-pick above the planned quantity is accepted up
         to planned plus this percentage; above it is refused with FUL-0005, and with no tolerance
         it is FUL-0004. Publishes deliverytolerance.changed with the value replaced.
-      x-passage-duty: fulfillment.packing-rule.maintain
+      x-depot-duty: fulfillment.packing-rule.maintain
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
         - { $ref: "#/components/parameters/IfMatch" }
@@ -2227,7 +2227,7 @@ paths:
         Every legal entity the caller sees shipments or a saved setting for (both are
         scoped by legal entity). A legal entity without a saved setting reads
         cogsAtShipment and asnEnabled false at version 0.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       responses:
         "200":
           description: Legal entity settings, ordered by legal entity
@@ -2246,7 +2246,7 @@ paths:
       operationId: getLegalEntitySetting
       summary: Read the posting settings of one legal entity
       description: A legal entity without a saved setting (or outside the caller's scope) reads both flags false at version 0.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { $ref: "#/components/parameters/LegalEntityId" }
       responses:
@@ -2279,7 +2279,7 @@ paths:
         last four are optional: left out, the saved value stays. If-Match carries the version
         read, 0 when none is saved. A legal entity outside the caller's legal-entity
         scope is refused (FUL-0058). Publishes legalentitysetting.changed.
-      x-passage-duty: fulfillment.warehouse.release
+      x-depot-duty: fulfillment.warehouse.release
       parameters:
         - { $ref: "#/components/parameters/LegalEntityId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -2324,7 +2324,7 @@ paths:
         an order line (order.remaindercancelled.v1) while it was packed, the unpacked quantity
         above what the line keeps is cut from the plan and shipment.closed (reason
         order_remainder_cancelled) is published, so the kept quantity can be repacked and posted.
-      x-passage-duty: fulfillment.warehouse.pack
+      x-depot-duty: fulfillment.warehouse.pack
       parameters:
         - { $ref: "#/components/parameters/ShipmentId" }
         - { name: cid, in: path, required: true, schema: { type: string, format: uuid } }
@@ -2356,7 +2356,7 @@ paths:
         moves. The pallet and its cartons ship on the next packing slip and a
         returnable pallet raises the customer's returnable balance. Publishes
         container.nested.
-      x-passage-duty: fulfillment.warehouse.pack
+      x-depot-duty: fulfillment.warehouse.pack
       parameters:
         - { $ref: "#/components/parameters/ShipmentId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -2404,7 +2404,7 @@ paths:
         cartons become top-level containers again and stay packed; the pallet SSCC stays
         issued and is never reused (BR-28.5). A carton on a pallet cannot be unpacked
         until the pallet is dissolved. Publishes container.unnested.
-      x-passage-duty: fulfillment.warehouse.pack
+      x-depot-duty: fulfillment.warehouse.pack
       parameters:
         - { $ref: "#/components/parameters/ShipmentId" }
         - { name: cid, in: path, required: true, schema: { type: string, format: uuid } }
@@ -2437,7 +2437,7 @@ paths:
         quantity (FUL-0035). Allowed while the shipment is PICKING, PICKED, PACKED
         or PARTIALLY_SHIPPED. A line released with trackingRequired posts only when
         its entries cover the quantity the slip ships (FUL-0006). Publishes pick.tracked.
-      x-passage-duty: fulfillment.warehouse.pick
+      x-depot-duty: fulfillment.warehouse.pick
       parameters:
         - { $ref: "#/components/parameters/ShipmentId" }
         - { name: lid, in: path, required: true, schema: { type: string, format: uuid } }
@@ -2487,7 +2487,7 @@ paths:
         Read-only: plans waves from the RELEASED shipments that match the filter,
         grouped by the key, each of at most maxLines lines and maxOrders orders,
         never splitting a shipment or mixing legal entities. No Idempotency-Key.
-      x-passage-duty: fulfillment.warehouse.release
+      x-depot-duty: fulfillment.warehouse.release
       requestBody:
         required: true
         content:
@@ -2518,7 +2518,7 @@ paths:
       operationId: listWaves
       summary: Pick waves, newest first
       description: Optionally filtered by warehouse, status, picker, or only the waves nobody is assigned to.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
         - { name: status, in: query, schema: { type: string, enum: [OPEN, CLOSED] } }
@@ -2546,7 +2546,7 @@ paths:
         Plans again from the current RELEASED shipments, records each wave with its
         shipments and lines (WV- numbers), moves the shipments to PICKING and writes
         one wave.created per wave, in one transaction. message carries FUL-0016.
-      x-passage-duty: fulfillment.warehouse.release
+      x-depot-duty: fulfillment.warehouse.release
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -2579,7 +2579,7 @@ paths:
     get:
       operationId: getWave
       summary: One pick wave with its shipments and their current status
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { $ref: "#/components/parameters/WaveId" }
       responses:
@@ -2600,7 +2600,7 @@ paths:
         line of the wave that is not yet confirmed is picked in full; shipments of the wave that
         no longer pick (picked, packed, cancelled) are left alone. A listed line must belong to
         the wave, and a listed line on a shipment that no longer picks fails the whole command.
-      x-passage-duty: fulfillment.warehouse.pick
+      x-depot-duty: fulfillment.warehouse.pick
       parameters:
         - { $ref: "#/components/parameters/WaveId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -2658,7 +2658,7 @@ paths:
         Sets the picker of an OPEN wave; assigning again reassigns it. Needs the wave version in
         If-Match. Writes wave.assigned with the previous picker. A CLOSED wave, or the picker the
         wave already has, is refused.
-      x-passage-duty: fulfillment.warehouse.release
+      x-depot-duty: fulfillment.warehouse.release
       parameters:
         - { $ref: "#/components/parameters/WaveId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -2693,7 +2693,7 @@ paths:
         Closes an OPEN wave when each of its lines is pick-confirmed or sits on a cancelled
         shipment; a line still to pick answers FUL-0055. Needs the wave version in If-Match.
         Writes wave.closed with the number of lines picked short.
-      x-passage-duty: fulfillment.warehouse.release
+      x-depot-duty: fulfillment.warehouse.release
       parameters:
         - { $ref: "#/components/parameters/WaveId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -2714,7 +2714,7 @@ paths:
     get:
       operationId: listTracking
       summary: Tracking events of a shipment, newest first (FR-28.10)
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { $ref: "#/components/parameters/ShipmentId" }
       responses:
@@ -2740,7 +2740,7 @@ paths:
         idempotency key (no Idempotency-Key header): a redelivery answers 200 with
         created false and publishes nothing. A DELIVERED event moves a SHIPPED
         shipment to DELIVERED.
-      x-passage-duty: fulfillment.warehouse.ship
+      x-depot-duty: fulfillment.warehouse.ship
       parameters:
         - { $ref: "#/components/parameters/ShipmentId" }
       requestBody:
@@ -2786,7 +2786,7 @@ paths:
         Calls carrier-gateway POST /v1/carrier/rates with a service token (duty
         carrier.rate.quote) for the shipment's legal entity. Rates are cheapest
         first; a carrier that failed is listed in failures. Read-only.
-      x-passage-duty: fulfillment.warehouse.ship
+      x-depot-duty: fulfillment.warehouse.ship
       parameters:
         - { $ref: "#/components/parameters/ShipmentId" }
       requestBody:
@@ -2831,7 +2831,7 @@ paths:
         reference to its shipment number. The label is recorded as a LABELLED
         tracking event (event key "label:" + tracking number), which publishes
         tracking.updated once.
-      x-passage-duty: fulfillment.warehouse.ship
+      x-depot-duty: fulfillment.warehouse.ship
       parameters:
         - { $ref: "#/components/parameters/ShipmentId" }
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, pattern: '^[\x21-\x7e]{1,64}$' } }
@@ -2872,7 +2872,7 @@ paths:
         provider event key (recorded counts the new ones); DELIVERED moves a
         SHIPPED shipment to DELIVERED. Events with a status fulfillment does not
         know are skipped.
-      x-passage-duty: fulfillment.warehouse.ship
+      x-depot-duty: fulfillment.warehouse.ship
       parameters:
         - { $ref: "#/components/parameters/ShipmentId" }
       requestBody:
@@ -2913,7 +2913,7 @@ paths:
         The barcode encodes AI (00) and the SSCC after FNC1; the SSCC check digit is
         verified first. PDF labels and the GTIN, batch, quantity and ship-to fields of
         section 5.28.15 are a later slice.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { $ref: "#/components/parameters/ShipmentId" }
         - { name: cid, in: path, required: true, schema: { type: string, format: uuid } }
@@ -2936,7 +2936,7 @@ paths:
         An order line has at most one active drop-ship (FUL-0061) and ships either from stock or
         from the vendor: a line on a warehouse shipment that is not cancelled is refused (FUL-0062),
         and a release run skips a line with an active drop-ship (drop_ship). Publishes dropship.created.
-      x-passage-duty: fulfillment.warehouse.release
+      x-depot-duty: fulfillment.warehouse.release
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -2975,7 +2975,7 @@ paths:
       operationId: listDropShips
       summary: List drop-ships
       description: Drop-ships newest first, filtered by status, order and vendor; scoped by legal entity.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [OPEN, PARTIALLY_CONFIRMED, CONFIRMED, CANCELLED] } }
         - { name: orderId, in: query, schema: { type: string, format: uuid } }
@@ -2997,7 +2997,7 @@ paths:
     get:
       operationId: getDropShip
       summary: Read one drop-ship
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { $ref: "#/components/parameters/DropShipId" }
       responses:
@@ -3023,7 +3023,7 @@ paths:
         booked on the drop-ship (FUL-0064). A booked confirmation is final: a drop-ship with a
         confirmation cannot be cancelled, close its remainder instead. Section 5.28.5 names the
         purchasing confirmation duty (PurchasingConfirm), seeded as procurement.purchase-order.confirm.
-      x-passage-duty: procurement.purchase-order.confirm
+      x-depot-duty: procurement.purchase-order.confirm
       parameters:
         - { $ref: "#/components/parameters/DropShipId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -3063,7 +3063,7 @@ paths:
         be drop-shipped again. A drop-ship with a vendor confirmation is booked and cannot be
         cancelled (FUL-0001); close the remainder of a PARTIALLY_CONFIRMED one instead. Publishes
         dropship.cancelled.
-      x-passage-duty: fulfillment.warehouse.release
+      x-depot-duty: fulfillment.warehouse.release
       parameters:
         - { $ref: "#/components/parameters/DropShipId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -3090,7 +3090,7 @@ paths:
         confirmations already booked stand). Only a PARTIALLY_CONFIRMED drop-ship has a remainder
         (FUL-0001); an OPEN one is cancelled instead. Publishes dropship.closed, which sales may use
         to cancel the order line remainder.
-      x-passage-duty: fulfillment.warehouse.release
+      x-depot-duty: fulfillment.warehouse.release
       parameters:
         - { $ref: "#/components/parameters/DropShipId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -3118,7 +3118,7 @@ paths:
         already scanned (IN_TRANSIT or DELIVERED) or of a CANCELLED or DELIVERED shipment is left out.
         Ready parcels (their shipment is SHIPPED or PARTIALLY_SHIPPED) go on the next manifest; the
         others wait for their packing slip, which is the exception to chase after the warehouse's cutoff.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid } }
@@ -3148,7 +3148,7 @@ paths:
         ready. The manifest is a record in this service; no call is made to the carrier, and
         providerManifestId stores the carrier's own reference when the caller has one. Publishes
         manifest.closed.
-      x-passage-duty: fulfillment.warehouse.ship
+      x-depot-duty: fulfillment.warehouse.ship
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -3181,7 +3181,7 @@ paths:
       operationId: listManifests
       summary: List carrier manifests
       description: Manifests, newest pickup date first, filtered by warehouse, carrier, status and pickup date range; scoped by legal entity. Parcels are not listed; read one manifest for them.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
         - { name: carrier, in: query, schema: { type: string, pattern: "^[a-z0-9-]{2,32}$" } }
@@ -3206,7 +3206,7 @@ paths:
       operationId: getManifest
       summary: Read one carrier manifest
       description: One manifest with every parcel on it, active or withdrawn by a cancel.
-      x-passage-duty: fulfillment.warehouse.view
+      x-depot-duty: fulfillment.warehouse.view
       parameters:
         - { $ref: "#/components/parameters/ManifestId" }
       responses:
@@ -3228,7 +3228,7 @@ paths:
         again, so the next close takes them. Only a CLOSED manifest can be cancelled (FUL-0001), and
         not once the carrier has collected from it: a parcel on it scanned IN_TRANSIT or DELIVERED, or
         its shipment DELIVERED (FUL-0078). Publishes manifest.cancelled.
-      x-passage-duty: fulfillment.warehouse.ship
+      x-depot-duty: fulfillment.warehouse.ship
       parameters:
         - { $ref: "#/components/parameters/ManifestId" }
         - { $ref: "#/components/parameters/IdempotencyKey" }

@@ -12,11 +12,11 @@ function allDuties(): string {
   return Object.keys(authzCatalog.duties).join(",");
 }
 
-/** PASSAGE_IDLE_TIMEOUT_MINUTES: a whole number of minutes from 0 to 480; unset, empty or 0 is off, and any other value stops the build. */
+/** DEPOT_IDLE_TIMEOUT_MINUTES: a whole number of minutes from 0 to 480; unset, empty or 0 is off, and any other value stops the build. */
 function idleMinutes(raw: string | undefined): number {
   if (raw === undefined || raw === "") return 0;
   const n = Number(raw);
-  if (!Number.isInteger(n) || n < 0 || n > 480) throw new Error(`PASSAGE_IDLE_TIMEOUT_MINUTES must be a whole number of minutes from 0 to 480, got ${raw}`);
+  if (!Number.isInteger(n) || n < 0 || n > 480) throw new Error(`DEPOT_IDLE_TIMEOUT_MINUTES must be a whole number of minutes from 0 to 480, got ${raw}`);
   return n;
 }
 
@@ -26,38 +26,38 @@ function idleMinutes(raw: string | undefined): number {
  * Need; discovery in tests and `vite` uses import.meta.glob.
  */
 export default defineConfig(({ mode, command }) => {
-  const env = loadEnv(mode, decodeURIComponent(new URL(".", import.meta.url).pathname), "PASSAGE_");
+  const env = loadEnv(mode, decodeURIComponent(new URL(".", import.meta.url).pathname), "DEPOT_");
   // `vite build --mode demo` is the GitHub Pages demo: an in-browser fake backend (src/demo) and every screen visible.
   if (mode === "demo") {
     return {
-      base: env.PASSAGE_DEMO_BASE ?? "/Passage/",
+      base: env.DEPOT_DEMO_BASE ?? "/Depot/",
       plugins: [react()],
       define: {
-        __PASSAGE_REMOTES__: JSON.stringify(federationRemotes),
-        __PASSAGE_OIDC__: JSON.stringify(null),
-        __PASSAGE_IDLE_TIMEOUT_MINUTES__: JSON.stringify(0),
-        __PASSAGE_DEV_DUTIES__: JSON.stringify(allDuties()),
-        __PASSAGE_DEV_IDENTITY__: JSON.stringify(`${devIdentityHeaders({})["X-Passage-Tenant"]}.${devIdentityHeaders({})["X-Passage-User"]}`),
-        __PASSAGE_DEV_SHOW_ALL_NAV__: JSON.stringify(true),
+        __DEPOT_REMOTES__: JSON.stringify(federationRemotes),
+        __DEPOT_OIDC__: JSON.stringify(null),
+        __DEPOT_IDLE_TIMEOUT_MINUTES__: JSON.stringify(0),
+        __DEPOT_DEV_DUTIES__: JSON.stringify(allDuties()),
+        __DEPOT_DEV_IDENTITY__: JSON.stringify(`${devIdentityHeaders({})["X-Depot-Tenant"]}.${devIdentityHeaders({})["X-Depot-User"]}`),
+        __DEPOT_DEV_SHOW_ALL_NAV__: JSON.stringify(true),
       },
       server: { port: 5174 },
     };
   }
   return {
-    plugins: [react(), ...(command === "serve" && env.PASSAGE_MOBILE_STUB === "1" ? [mobileDevStub()] : [])],
+    plugins: [react(), ...(command === "serve" && env.DEPOT_MOBILE_STUB === "1" ? [mobileDevStub()] : [])],
     define: {
-      __PASSAGE_REMOTES__: JSON.stringify(federationRemotes),
-      __PASSAGE_OIDC__: JSON.stringify(
-        command === "serve" && mode !== "test" && env.PASSAGE_OIDC_ISSUER
-          ? { issuer: env.PASSAGE_OIDC_ISSUER, clientId: env.PASSAGE_OIDC_CLIENT_ID ?? "passage-web" }
+      __DEPOT_REMOTES__: JSON.stringify(federationRemotes),
+      __DEPOT_OIDC__: JSON.stringify(
+        command === "serve" && mode !== "test" && env.DEPOT_OIDC_ISSUER
+          ? { issuer: env.DEPOT_OIDC_ISSUER, clientId: env.DEPOT_OIDC_CLIENT_ID ?? "depot-web" }
           : null,
       ),
       // Idle sign-out in minutes (#606): the cloud profile's idleTimeoutMinutes, 15 under the hipaa overlay. 0 turns it off.
-      // Build with PASSAGE_IDLE_TIMEOUT_MINUTES=$(python3 deploy/cloud-profiles/cloudprofile.py idle-timeout <profile>).
-      __PASSAGE_IDLE_TIMEOUT_MINUTES__: JSON.stringify(mode === "test" ? 0 : idleMinutes(env.PASSAGE_IDLE_TIMEOUT_MINUTES)),
-      __PASSAGE_DEV_DUTIES__: JSON.stringify(command === "serve" && mode !== "test" ? (env.PASSAGE_DEV_DUTIES ?? "") : ""),
-      __PASSAGE_DEV_IDENTITY__: JSON.stringify(command === "serve" && mode !== "test" ? `${devIdentityHeaders(env)["X-Passage-Tenant"]}.${devIdentityHeaders(env)["X-Passage-User"]}` : ""),
-      __PASSAGE_DEV_SHOW_ALL_NAV__: JSON.stringify(command === "serve" && mode !== "test" && env.PASSAGE_DEV_SHOW_ALL_NAV === "1"),
+      // Build with DEPOT_IDLE_TIMEOUT_MINUTES=$(python3 deploy/cloud-profiles/cloudprofile.py idle-timeout <profile>).
+      __DEPOT_IDLE_TIMEOUT_MINUTES__: JSON.stringify(mode === "test" ? 0 : idleMinutes(env.DEPOT_IDLE_TIMEOUT_MINUTES)),
+      __DEPOT_DEV_DUTIES__: JSON.stringify(command === "serve" && mode !== "test" ? (env.DEPOT_DEV_DUTIES ?? "") : ""),
+      __DEPOT_DEV_IDENTITY__: JSON.stringify(command === "serve" && mode !== "test" ? `${devIdentityHeaders(env)["X-Depot-Tenant"]}.${devIdentityHeaders(env)["X-Depot-User"]}` : ""),
+      __DEPOT_DEV_SHOW_ALL_NAV__: JSON.stringify(command === "serve" && mode !== "test" && env.DEPOT_DEV_SHOW_ALL_NAV === "1"),
     },
     server: {
       port: 5173,

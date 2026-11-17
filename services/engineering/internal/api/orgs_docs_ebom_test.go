@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/api"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/api"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/store"
 )
 
 type reauthFunc func(context.Context, string, domain.Reauth) (string, error)
@@ -32,7 +32,7 @@ const (
 )
 
 // signer is the header pair of a signer scoped to the engineering legal entity.
-var signer = []string{"X-Passage-User", "carol", "X-Passage-Legal-Entity", leENG}
+var signer = []string{"X-Depot-User", "carol", "X-Depot-Legal-Entity", leENG}
 
 func signHeaders(extra ...string) []string { return append(append([]string{}, signer...), extra...) }
 
@@ -105,7 +105,7 @@ func signRouter(f *fakeStore, reauth api.Reauthenticator) http.Handler {
 func TestSignDocument_DefaultReauthenticatorFailsClosed(t *testing.T) {
 	f := signableStore()
 	r := signRouter(f, nil)
-	rec := do(r, http.MethodPost, "/v1/engineering/documents/"+signedDocID+":sign", `{"printedName":"Carol Kane"}`, allDuties, true, signHeaders("X-Passage-Reauth-Assertion", "anything")...)
+	rec := do(r, http.MethodPost, "/v1/engineering/documents/"+signedDocID+":sign", `{"printedName":"Carol Kane"}`, allDuties, true, signHeaders("X-Depot-Reauth-Assertion", "anything")...)
 	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), domain.CodeDocReauthUnavailable) {
 		t.Fatalf("default sign = %d %s; want 503 %s", rec.Code, rec.Body.String(), domain.CodeDocReauthUnavailable)
 	}
@@ -128,10 +128,10 @@ func TestSignDocument_ReauthIsBoundToTheRecord(t *testing.T) {
 	if rec := do(r, http.MethodPost, path, `{"printedName":"Carol Kane"}`, allDuties, true, signer...); rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), domain.CodeDocReauth) {
 		t.Fatalf("missing proof = %d %s", rec.Code, rec.Body.String())
 	}
-	if rec := do(r, http.MethodPost, path, `{}`, "engineering.read,engineering.bom.write", true, signHeaders("X-Passage-Reauth-Assertion", "step-up-token")...); rec.Code != http.StatusForbidden {
+	if rec := do(r, http.MethodPost, path, `{}`, "engineering.read,engineering.bom.write", true, signHeaders("X-Depot-Reauth-Assertion", "step-up-token")...); rec.Code != http.StatusForbidden {
 		t.Fatalf("missing sign duty = %d %s", rec.Code, rec.Body.String())
 	}
-	rec := do(r, http.MethodPost, path, `{"printedName":"Carol Kane","method":"password"}`, allDuties, true, signHeaders("X-Passage-Reauth-Assertion", "step-up-token")...)
+	rec := do(r, http.MethodPost, path, `{"printedName":"Carol Kane","method":"password"}`, allDuties, true, signHeaders("X-Depot-Reauth-Assertion", "step-up-token")...)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"status":"released"`) {
 		t.Fatalf("sign = %d %s", rec.Code, rec.Body.String())
 	}
@@ -167,7 +167,7 @@ func TestSignDocument_RefusesASignerWithoutLegalEntity(t *testing.T) {
 		return "oidc-step-up", nil
 	}))
 	path := "/v1/engineering/documents/" + signedDocID + ":sign"
-	rec := do(r, http.MethodPost, path, `{}`, allDuties, true, "X-Passage-User", "carol")
+	rec := do(r, http.MethodPost, path, `{}`, allDuties, true, "X-Depot-User", "carol")
 	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), domain.CodeDocSignScope) || called || f.w().transits != 0 {
 		t.Fatalf("sign without a legal entity = %d %s (verifier called=%v); want 403 %s before anything is written", rec.Code, rec.Body.String(), called, domain.CodeDocSignScope)
 	}
@@ -225,7 +225,7 @@ func TestAuditRelay_RetriesWithBackoffThenDelivers(t *testing.T) {
 func TestImportEbom(t *testing.T) {
 	r, _ := newRouter(&fakeStore{}, approves)
 	body := `{"source":"cad","partNumber":"BIKE","revision":"A","lines":[{"findNumber":10,"partNumber":"WHEEL","quantity":"1"}]}`
-	rec := do(r, http.MethodPost, "/v1/engineering/ebom-imports", body, allDuties, true, "X-Passage-User", "rita")
+	rec := do(r, http.MethodPost, "/v1/engineering/ebom-imports", body, allDuties, true, "X-Depot-User", "rita")
 	if rec.Code != http.StatusCreated || !strings.Contains(rec.Body.String(), `"partNumber":"BIKE"`) {
 		t.Fatalf("import = %d %s", rec.Code, rec.Body.String())
 	}
@@ -235,10 +235,10 @@ func TestAcceptReleaseLineDuty(t *testing.T) {
 	lineID := ecoID
 	f := &fakeStore{wave: &wave09State{line: domain.ReleaseLine{ID: lineID, Status: domain.LineSent, LegalEntityID: leUSMF}}}
 	r, _ := newRouter(f, approves)
-	if rec := do(r, http.MethodPost, "/v1/engineering/release-lines/"+lineID+":accept", `{}`, "engineering.read,engineering.bom.write", true, "X-Passage-User", "bob"); rec.Code != http.StatusForbidden {
+	if rec := do(r, http.MethodPost, "/v1/engineering/release-lines/"+lineID+":accept", `{}`, "engineering.read,engineering.bom.write", true, "X-Depot-User", "bob"); rec.Code != http.StatusForbidden {
 		t.Fatalf("missing accept duty = %d %s", rec.Code, rec.Body.String())
 	}
-	rec := do(r, http.MethodPost, "/v1/engineering/release-lines/"+lineID+":accept", `{}`, allDuties, true, "X-Passage-User", "bob")
+	rec := do(r, http.MethodPost, "/v1/engineering/release-lines/"+lineID+":accept", `{}`, allDuties, true, "X-Depot-User", "bob")
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"status":"accepted"`) {
 		t.Fatalf("accept = %d %s", rec.Code, rec.Body.String())
 	}
@@ -256,7 +256,7 @@ func TestProcessPolicy(t *testing.T) {
 func TestCreateEco_DocumentOnly(t *testing.T) {
 	r, _ := newRouter(&fakeStore{}, approves)
 	body := `{"number":"ECO-DOC","documents":[{"oldDocumentId":"` + oldVersion + `","newDocumentId":"` + newVersion + `"}]}`
-	rec := do(r, http.MethodPost, ecos, body, allDuties, true, "X-Passage-User", "rita")
+	rec := do(r, http.MethodPost, ecos, body, allDuties, true, "X-Depot-User", "rita")
 	if rec.Code != http.StatusCreated || !strings.Contains(rec.Body.String(), `"number":"ECO-DOC"`) {
 		t.Fatalf("document-only eco = %d %s", rec.Code, rec.Body.String())
 	}
@@ -318,12 +318,12 @@ func TestCreateDocument_RejectsClientEcoAndUnverifiableOriginals(t *testing.T) {
 		"negative size":  `{"typeCode":"DRW","number":"N-1","originals":[{"storageKey":"` + good + `","sha256":"` + sha + `","sizeBytes":-1}]}`,
 	}
 	for name, body := range cases {
-		if rec := do(r, http.MethodPost, "/v1/engineering/documents", body, allDuties, true, "X-Passage-User", "rita"); rec.Code != http.StatusBadRequest {
+		if rec := do(r, http.MethodPost, "/v1/engineering/documents", body, allDuties, true, "X-Depot-User", "rita"); rec.Code != http.StatusBadRequest {
 			t.Fatalf("%s = %d %s; want 400", name, rec.Code, rec.Body.String())
 		}
 	}
 	ok := `{"typeCode":"DRW","number":"N-1","originals":[{"storageKey":"` + good + `","sha256":"` + sha + `","sizeBytes":10}]}`
-	if rec := do(r, http.MethodPost, "/v1/engineering/documents", ok, allDuties, true, "X-Passage-User", "rita"); rec.Code != http.StatusCreated {
+	if rec := do(r, http.MethodPost, "/v1/engineering/documents", ok, allDuties, true, "X-Depot-User", "rita"); rec.Code != http.StatusCreated {
 		t.Fatalf("valid document = %d %s", rec.Code, rec.Body.String())
 	}
 	if f.w().doc.LastEditor != "rita" {
@@ -353,10 +353,10 @@ func TestCreateReleaseSession_CreatorIsThePrincipal(t *testing.T) {
 	body := func(extra string) string {
 		return `{"policyId":"` + ecoID + `","engineeringLeId":"` + leENG + `","productId":"P","versionCode":"V-01","legalEntities":["` + leUSMF + `"]` + extra + `}`
 	}
-	if rec := do(r, http.MethodPost, "/v1/engineering/release-sessions", body(`,"createdBy":"someone-else"`), allDuties, true, "X-Passage-User", "rita"); rec.Code != http.StatusBadRequest {
+	if rec := do(r, http.MethodPost, "/v1/engineering/release-sessions", body(`,"createdBy":"someone-else"`), allDuties, true, "X-Depot-User", "rita"); rec.Code != http.StatusBadRequest {
 		t.Fatalf("body createdBy = %d %s; want 400", rec.Code, rec.Body.String())
 	}
-	rec := do(r, http.MethodPost, "/v1/engineering/release-sessions", body(""), allDuties, true, "X-Passage-User", "rita")
+	rec := do(r, http.MethodPost, "/v1/engineering/release-sessions", body(""), allDuties, true, "X-Depot-User", "rita")
 	if rec.Code != http.StatusCreated || f.w().sessionIn.CreatedBy != "rita" || f.w().sessionIn.EngineeringLEID != leENG {
 		t.Fatalf("create = %d %s; input %+v", rec.Code, rec.Body.String(), f.w().sessionIn)
 	}
@@ -367,7 +367,7 @@ func TestCreateReleaseSession_CreatorIsThePrincipal(t *testing.T) {
 		"engineering entity code": `{"policyId":"` + ecoID + `","engineeringLeId":"ENG1","productId":"P","versionCode":"V-01","legalEntities":["` + leUSMF + `"]}`,
 		"unknown source":          `{"policyId":"` + ecoID + `","engineeringLeId":"` + leENG + `","productId":"P","versionCode":"V-01","legalEntities":["` + leUSMF + `"],"source":"cron"}`,
 	} {
-		if rec := do(r, http.MethodPost, "/v1/engineering/release-sessions", bad, allDuties, true, "X-Passage-User", "rita"); rec.Code != http.StatusBadRequest {
+		if rec := do(r, http.MethodPost, "/v1/engineering/release-sessions", bad, allDuties, true, "X-Depot-User", "rita"); rec.Code != http.StatusBadRequest {
 			t.Fatalf("%s = %d %s; want 400", name, rec.Code, rec.Body.String())
 		}
 	}
@@ -380,7 +380,7 @@ func TestImportEbom_ValidatesLines(t *testing.T) {
 	r, _ := newRouter(&fakeStore{}, approves)
 	post := func(lines string) int {
 		body := `{"source":"cad","partNumber":"BIKE","revision":"A","lines":` + lines + `}`
-		return do(r, http.MethodPost, "/v1/engineering/ebom-imports", body, allDuties, true, "X-Passage-User", "rita").Code
+		return do(r, http.MethodPost, "/v1/engineering/ebom-imports", body, allDuties, true, "X-Depot-User", "rita").Code
 	}
 	for name, lines := range map[string]string{
 		"negative quantity": `[{"findNumber":10,"partNumber":"W","quantity":"-2"}]`,

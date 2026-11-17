@@ -242,8 +242,8 @@ describe("payment run http activities", () => {
     const [url, init] = fetchImpl.mock.calls[0]!;
     expect(url).toBe("http://payables/v1/payables/payment-runs");
     const headers = init?.headers as Record<string, string>;
-    expect(Object.keys(headers).sort()).toEqual(["Content-Type", "X-Passage-Service-Token"]);
-    const claims = JSON.parse(Buffer.from(headers["X-Passage-Service-Token"]!.split(".")[0]!, "base64url").toString());
+    expect(Object.keys(headers).sort()).toEqual(["Content-Type", "X-Depot-Service-Token"]);
+    const claims = JSON.parse(Buffer.from(headers["X-Depot-Service-Token"]!.split(".")[0]!, "base64url").toString());
     expect(claims).toMatchObject({ iss: "workflow-ts", aud: "payables", tid: "t1", le: "le1", act: "erin", duties: ["payment-run.execute"] });
     expect(JSON.parse(init?.body as string)).toEqual({ legalEntityId: "le1", proposalId: "p1" });
   });
@@ -253,7 +253,7 @@ describe("payment run http activities", () => {
     await inActivity(() => activities.settlePaymentRun(ref));
     fetchImpl.mockResolvedValue(new Response(JSON.stringify({ id: "r1", status: "RUNNING" }), { status: 200 }));
     await inActivity(() => activities.settlePaymentRun(ref));
-    const jtis = fetchImpl.mock.calls.map(([, init]) => (init?.headers as Record<string, string>)["X-Passage-Service-Token"]!.split(".")[0]!);
+    const jtis = fetchImpl.mock.calls.map(([, init]) => (init?.headers as Record<string, string>)["X-Depot-Service-Token"]!.split(".")[0]!);
     expect(new Set(jtis.map((b) => JSON.parse(Buffer.from(b, "base64url").toString()).jti)).size).toBe(2);
   });
 

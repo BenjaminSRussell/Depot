@@ -10,9 +10,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/production/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/production/internal/domain"
 )
 
 // journalBudget is the PRD 4.21 performance target: posting a 200-line picking
@@ -22,7 +22,7 @@ const journalBudget = 2 * time.Second
 // envPerfTest turns on the p95 assertion. Without it the test still posts the
 // 200-line journals and checks what they booked, and logs the timings, but no
 // wall-clock budget is asserted, since `go test ./...` runs packages in parallel.
-const envPerfTest = "PASSAGE_PERF_TEST"
+const envPerfTest = "DEPOT_PERF_TEST"
 
 // flatOrder is sampleOrder with n flat BOM lines 10, 20, ... of 1 per unit at 2.50.
 func flatOrder(t *testing.T, key string, n int) NewOrder {
@@ -76,7 +76,7 @@ func wipOn(t *testing.T, pool *pgxpool.Pool, journalID, account string) (string,
 
 // TestJournals_PostLatency200Lines posts picking lists of 200 issue lines, one
 // per order, and checks that the batched writes booked every line. With
-// PASSAGE_PERF_TEST set it also holds the p95 of the 20 posts under the PRD
+// DEPOT_PERF_TEST set it also holds the p95 of the 20 posts under the PRD
 // budget. The runs are sequential, so this measures the store path (round
 // trips and the write set), not load.
 func TestJournals_PostLatency200Lines(t *testing.T) {

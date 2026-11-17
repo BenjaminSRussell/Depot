@@ -45,11 +45,11 @@ CREATE INDEX IF NOT EXISTS consignment_order_vendor_idx ON consignment_order (te
 ALTER TABLE consignment_order ENABLE ROW LEVEL SECURITY;
 ALTER TABLE consignment_order FORCE ROW LEVEL SECURITY;
 CREATE POLICY consignment_order_tenant_access ON consignment_order AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY consignment_order_legal_entity_scope ON consignment_order AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS consignment_order_line (
   tenant_id uuid NOT NULL,
@@ -71,13 +71,13 @@ CREATE TABLE IF NOT EXISTS consignment_order_line (
 ALTER TABLE consignment_order_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE consignment_order_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY consignment_order_line_tenant_access ON consignment_order_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON consignment_order, consignment_order_line TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON consignment_order, consignment_order_line TO depot_app';
   END IF;
 END
 $$;

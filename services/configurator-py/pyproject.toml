@@ -1,5 +1,5 @@
 [project]
-name = "passage-configurator"
+name = "depot-configurator"
 version = "0.1.0"
 description = "Constraint-based product configurator (wave 8)"
 requires-python = ">=3.11"

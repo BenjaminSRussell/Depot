@@ -4,16 +4,16 @@ info:
   version: 0.1.0
   description: CloudEvents 1.0 envelope from platform/go/events; payloads below are the data member.
 channels:
-  passage.print.job:
-    address: passage.print.job
+  depot.print.job:
+    address: depot.print.job
     messages:
       completed:
         $ref: '#/components/messages/jobCompleted'
 operations:
   onPrintJobCompleted:
     action: send
-    channel: { $ref: '#/channels/passage.print.job' }
-    messages: [{ $ref: '#/channels/passage.print.job/messages/completed' }]
+    channel: { $ref: '#/channels/depot.print.job' }
+    messages: [{ $ref: '#/channels/depot.print.job/messages/completed' }]
 components:
   messages:
     jobCompleted:
@@ -27,4 +27,4 @@ components:
           job_id: { type: string, format: uuid }
           printer: { type: string, description: Printer code; empty when no device accepted the job. }
           status: { type: string, enum: [PRINTED, FAILED] }
-      x-passage-type: dev.passage.print.job.completed.v1
+      x-depot-type: dev.depot.print.job.completed.v1

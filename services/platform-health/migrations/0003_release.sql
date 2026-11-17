@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS platform_environment (
 ALTER TABLE platform_environment ENABLE ROW LEVEL SECURITY;
 ALTER TABLE platform_environment FORCE ROW LEVEL SECURITY;
 CREATE POLICY platform_environment_tenant_access ON platform_environment AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS platform_release (
   tenant_id uuid NOT NULL,
@@ -37,8 +37,8 @@ CREATE INDEX IF NOT EXISTS platform_release_service_created_idx ON platform_rele
 ALTER TABLE platform_release ENABLE ROW LEVEL SECURITY;
 ALTER TABLE platform_release FORCE ROW LEVEL SECURITY;
 CREATE POLICY platform_release_tenant_access ON platform_release AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS outbox (
   id text PRIMARY KEY,
@@ -52,12 +52,12 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
-SELECT set_config('passage.tenant_id', '00000000-0000-0000-0000-000000000000', true);
+SELECT set_config('depot.tenant_id', '00000000-0000-0000-0000-000000000000', true);
 INSERT INTO platform_environment (tenant_id, name, argo_root_app, promotion_policy, soak_minutes, base_url) VALUES
-  ('00000000-0000-0000-0000-000000000000', 'dev', 'root-dev', 'auto', 0, 'https://app.dev.passage.dev'),
-  ('00000000-0000-0000-0000-000000000000', 'stage', 'root-stage', 'pr_approval', 0, 'https://app.stage.passage.dev'),
-  ('00000000-0000-0000-0000-000000000000', 'prod', 'root-prod', 'pr_approval', 60, 'https://app.prod.passage.dev')
+  ('00000000-0000-0000-0000-000000000000', 'dev', 'root-dev', 'auto', 0, 'https://app.dev.depot.dev'),
+  ('00000000-0000-0000-0000-000000000000', 'stage', 'root-stage', 'pr_approval', 0, 'https://app.stage.depot.dev'),
+  ('00000000-0000-0000-0000-000000000000', 'prod', 'root-prod', 'pr_approval', 60, 'https://app.prod.depot.dev')
 ON CONFLICT DO NOTHING;

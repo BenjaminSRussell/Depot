@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
 )
 
 // DefaultRetries is the PRINT_RETRY default: one retry, so each device gets

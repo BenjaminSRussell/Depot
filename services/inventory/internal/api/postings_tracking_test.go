@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
 )
 
 // A tracked delivery line is issued entry by entry (#480): a plain line's

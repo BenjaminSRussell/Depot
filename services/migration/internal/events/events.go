@@ -1,7 +1,7 @@
-// Package events names the CloudEvents the migration service publishes (dev.passage.migration.<entity>.<verb>.v1).
+// Package events names the CloudEvents the migration service publishes (dev.depot.migration.<entity>.<verb>.v1).
 package events
 
-import "github.com/BenjaminSRussell/passage/platform/events"
+import "github.com/BenjaminSRussell/depot/platform/events"
 
 const (
 	Context = "migration"

@@ -1,4 +1,4 @@
--- PSG-1514 (wave 15, slice 14): reporting tree revisions (FR-15.4).
+-- DPT-1514 (wave 15, slice 14): reporting tree revisions (FR-15.4).
 -- report_tree holds only the latest body. A run records the tree revision it
 -- used (statement_run.tree_revision); to show that run's units later, every
 -- revision body is kept here, the way hierarchy versions are kept. Rows are
@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS report_tree_revision (
 ALTER TABLE report_tree_revision ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_tree_revision FORCE ROW LEVEL SECURITY;
 CREATE POLICY report_tree_revision_tenant_access ON report_tree_revision AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Trees saved before this migration keep their current revision only; earlier
 -- revisions were not stored, so a run made on one cannot show its units. The
@@ -40,8 +40,8 @@ $$;
 -- The store inserts and reads revisions; it never updates or deletes them.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON report_tree_revision TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON report_tree_revision TO depot_app';
   END IF;
 END
 $$;

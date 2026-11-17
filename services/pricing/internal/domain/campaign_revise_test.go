@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
 )
 
 func campaignOn(from, to, group string) domain.Campaign {

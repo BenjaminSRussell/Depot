@@ -8,9 +8,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/features"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/identity"
+	"github.com/BenjaminSRussell/depot/platform/features"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/identity"
 )
 
 // featuresRouter is the features route behind identity's real tenant middleware, verifying service tokens against v.

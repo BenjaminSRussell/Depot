@@ -11,15 +11,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/eventing/kafka"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/eventing/kafka"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/consumer"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/ledgerlines"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/consumer"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/ledgerlines"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/store"
 )
 
 const (
@@ -27,7 +27,7 @@ const (
 	// the inbox and the service principal are consumer.Name.
 	consumerGroup = "reporting-balances"
 	// ledgerJournalTopic is the ledger's journal channel (ledger asyncapi).
-	ledgerJournalTopic = "passage.ledger.journal"
+	ledgerJournalTopic = "depot.ledger.journal"
 	deadLetterSuffix   = ".dlq"
 	defaultAdminAddr   = ":9090"
 )
@@ -48,7 +48,7 @@ func consumerHandlers(ap consumer.Applier, src consumer.LineSource) map[string]e
 }
 
 // ledgerSource builds the ledger lines client from LEDGER_URL and the service
-// signing key (PASSAGE_SERVICE_NAME=finreport, PASSAGE_SERVICE_SIGNING_KEY_FILE).
+// signing key (DEPOT_SERVICE_NAME=finreport, DEPOT_SERVICE_SIGNING_KEY_FILE).
 func ledgerSource(getenv func(string) string) (*ledgerlines.Client, error) {
 	signer, err := tenant.ServiceSignerFromEnv(getenv)
 	if err != nil {

@@ -10,11 +10,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/audit/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/domain"
 )
 
 // Review states of the break-glass queue.
@@ -131,7 +131,7 @@ func (s *Postgres) ReviewRead(ctx context.Context, readID, reviewerID, outcome, 
 		}
 		if _, err := tx.Exec(ctx, `insert into phi_read_review (tenant_id, read_id, outcome, note, reviewer_id) values ($1, $2, $3, $4, $5)`,
 			p.TenantID, readID, outcome, strings.TrimSpace(note), reviewerID); err != nil {
-			// passage_app may not lock phi_read rows (it holds SELECT and INSERT only), so two reviews racing for one
+			// depot_app may not lock phi_read rows (it holds SELECT and INSERT only), so two reviews racing for one
 			// read meet at the primary key instead.
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {

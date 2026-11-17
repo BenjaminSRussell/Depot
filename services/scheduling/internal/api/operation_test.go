@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 type opCalls struct {
@@ -65,8 +65,8 @@ func (f *fakeStore) UnscheduleOrder(_ context.Context, orderID string, idem stor
 
 func send(h http.Handler, method, path, body, duties, key, ifMatch string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", tenantID)
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Tenant", tenantID)
+	req.Header.Set("X-Depot-Duties", duties)
 	req.Header.Set("Content-Type", "application/json")
 	if key != "" {
 		req.Header.Set("Idempotency-Key", key)

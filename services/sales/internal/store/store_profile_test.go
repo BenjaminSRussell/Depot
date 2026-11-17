@@ -3,11 +3,11 @@ package store
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/sales/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/sales/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/sales/migrations"
 )
 
 // TestPostgres_CreditProfileOptimisticConcurrency checks create-with-zero,

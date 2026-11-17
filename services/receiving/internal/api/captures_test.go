@@ -10,11 +10,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/ocr"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store/memstore"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/ocr"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store/memstore"
 )
 
 const (
@@ -142,12 +142,12 @@ func TestInvoiceCapture_RefusesBadRequestsAndForeignScope(t *testing.T) {
 	if got := post(captureRequest("UBL", "", ublDocument), duty("receiving.receipt.maintain", rg.key())); got != http.StatusForbidden {
 		t.Errorf("wrong duty: %d", got)
 	}
-	other := duty("receiving.vendor-invoice.post", rg.key(), "X-Passage-Legal-Entity", "22222222-2222-4222-8222-222222222222")
+	other := duty("receiving.vendor-invoice.post", rg.key(), "X-Depot-Legal-Entity", "22222222-2222-4222-8222-222222222222")
 	if got := post(captureRequest("UBL", "", ublDocument), other); got != http.StatusForbidden {
 		t.Errorf("foreign entity: %d", got)
 	}
 	created := decode[captureJSON](t, rg.call(http.MethodPost, capturesPath, captureRequest("UBL", "", ublDocument), duty("receiving.vendor-invoice.post", rg.key())), http.StatusCreated)
-	foreign := duty("receiving.ap.inquire", "", "X-Passage-Legal-Entity", "22222222-2222-4222-8222-222222222222")
+	foreign := duty("receiving.ap.inquire", "", "X-Depot-Legal-Entity", "22222222-2222-4222-8222-222222222222")
 	if got := rg.call(http.MethodGet, capturesPath+"/"+created.ID, "", foreign).Code; got != http.StatusForbidden {
 		t.Errorf("foreign read: %d", got)
 	}

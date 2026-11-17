@@ -2,12 +2,12 @@ package events
 
 // RequisitionRejected is written when an approver sends an IN_REVIEW requisition back (BR-17.1). The subject is the
 // requisition id, like the other requisition events.
-const RequisitionRejected = "dev.passage.procurement.requisition.rejected.v1"
+const RequisitionRejected = "dev.depot.procurement.requisition.rejected.v1"
 
 // RequisitionCancelled is written when a requisition is cancelled before anything was ordered from it (BR-17.1).
 // Budget control (wave 38, FR-38.5) pre-encumbers a requisition when it is approved, so it releases that
 // pre-encumbrance only for a cancel whose previous status is APPROVED; a DRAFT or REJECTED requisition holds none.
-const RequisitionCancelled = "dev.passage.procurement.requisition.cancelled.v1"
+const RequisitionCancelled = "dev.depot.procurement.requisition.cancelled.v1"
 
 // RequisitionRejectedData is the data member of requisition.rejected.v1.
 type RequisitionRejectedData struct {
@@ -43,11 +43,11 @@ type RequisitionCancelledData struct {
 
 // RequisitionWithdrawn is written when the requester takes an IN_REVIEW requisition back to DRAFT before any
 // approval level decided on it (BR-17.1), so approver inboxes and notifications drop it.
-const RequisitionWithdrawn = "dev.passage.procurement.requisition.withdrawn.v1"
+const RequisitionWithdrawn = "dev.depot.procurement.requisition.withdrawn.v1"
 
 // RequisitionLineCancelled is written when one OPEN line of an APPROVED requisition is cancelled while the rest of
 // the requisition continues (BR-17.1). Budget control (wave 38) releases the line's pre-encumbrance.
-const RequisitionLineCancelled = "dev.passage.procurement.requisitionline.cancelled.v1"
+const RequisitionLineCancelled = "dev.depot.procurement.requisitionline.cancelled.v1"
 
 // RequisitionWithdrawnData is the data member of requisition.withdrawn.v1.
 type RequisitionWithdrawnData struct {

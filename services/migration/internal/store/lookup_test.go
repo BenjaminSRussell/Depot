@@ -7,8 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
 )
 
 const uomDefJSON = `{"kind":"uom_conversion","entries":{"KG|LB":"2.20462","LB|KG":"0.453592"}}`

@@ -1,11 +1,11 @@
-# Administrator guide: operating a Passage deployment (PSG-50, FR-50.11)
+# Administrator guide: operating a Depot deployment (DPT-50, FR-50.11)
 
-Audience: platform administrators and SRE on-call who run a Passage environment: regions, tenants,
+Audience: platform administrators and SRE on-call who run a Depot environment: regions, tenants,
 licenses, releases and incidents. Tenant business administration (users, roles, company setup) is
 covered by the functional guides of the owning modules, not here.
 
 Status: this guide describes the operator procedures and their targets. The control-plane API under
-`/api/v1/ops/*` and the `passage-ops` command are a handoff (see [NOT-IMPLEMENTED.md](NOT-IMPLEMENTED.md)).
+`/api/v1/ops/*` and the `depot-ops` command are a handoff (see [NOT-IMPLEMENTED.md](NOT-IMPLEMENTED.md)).
 Until they ship, each step is done through the runbook it links to.
 
 ## 1. Duties
@@ -35,13 +35,13 @@ Separation of duties (PRD 9.50.17):
 
 ## 2. Regions
 
-Each region is one release of the `passage-multiregion` chart with its region file; the reference pair is
+Each region is one release of the `depot-multiregion` chart with its region file; the reference pair is
 `eu-west` (PRIMARY) and `eu-central` (PASSIVE), both in the EU because failover never crosses a residency
 boundary. Lint and render before applying a change:
 
 ```
 helm lint deploy/multi-region/chart -f deploy/multi-region/values/eu-central.yaml
-helm template passage-mr deploy/multi-region/chart -f deploy/multi-region/values/eu-central.yaml
+helm template depot-mr deploy/multi-region/chart -f deploy/multi-region/values/eu-central.yaml
 ```
 
 The chart, its prerequisites (CNPG operator, Strimzi, Prometheus Operator, peer secrets) and the role table
@@ -58,7 +58,7 @@ Check the region state before any change:
 
 - Region status: `GET /api/v1/ops/regions` (role, CNPG lag, MirrorMaker lag, DNS weight). Target lag
   is under 30 s for Postgres and under 100k messages for MirrorMaker (alert `mm2.lag_alert_messages`).
-- Replication lag above 60 s raises `PassageReplicationLagHigh` (warning, OPS-1708); runbook
+- Replication lag above 60 s raises `DepotReplicationLagHigh` (warning, OPS-1708); runbook
   [postgres-replication-lag](runbooks/postgres-replication-lag.md).
 - MirrorMaker lag runbook: [mirrormaker-lag](runbooks/mirrormaker-lag.md).
 

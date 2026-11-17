@@ -9,7 +9,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
 )
 
 func (f *fakeStore) SetRFQScores(_ context.Context, id string, ifMatch int, vendorID string, scores []domain.VendorScore, now time.Time) (domain.RFQ, error) {

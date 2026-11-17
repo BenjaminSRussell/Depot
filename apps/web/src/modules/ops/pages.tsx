@@ -7,7 +7,7 @@ import { fetchBreakGlass, fetchLicenses, fetchRegions, fetchSlo, SLO_WINDOWS, ty
 import styles from "./pages.module.css";
 
 // The operations console (#50): failover status, break-glass windows, the SLO report and tenant licences. Reads only; the
-// failover itself runs through the passage-ops command line, which records every step back here.
+// failover itself runs through the depot-ops command line, which records every step back here.
 
 const UNKNOWN_LAG = 1 << 30;
 
@@ -133,7 +133,7 @@ export function BreakGlassPage() {
           rows={items}
           getRowKey={(g) => g.id}
           loading={result.isLoading}
-          empty={{ title: "No break-glass windows", description: "Operators open one with passage-ops break-glass open when an approver can't be reached." }}
+          empty={{ title: "No break-glass windows", description: "Operators open one with depot-ops break-glass open when an approver can't be reached." }}
         />
       </Card>
     </div>

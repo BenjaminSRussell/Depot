@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 func (f *fakeStore) ListCleanoutCounters(context.Context) ([]store.CleanoutCounter, error) {

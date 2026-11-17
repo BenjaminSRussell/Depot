@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
 )
 
 const (
@@ -225,7 +225,7 @@ func TestFeedback_OverrideNeedsDutyAndUser(t *testing.T) {
 	if code, _ := problemOf(t, rec.Body.Bytes()); rec.Code != http.StatusForbidden || code != "AUTH-0003" || len(f.feedback) != 0 {
 		t.Fatalf("operator override: %d %s", rec.Code, rec.Body.String())
 	}
-	rec = callWith(t, newRouter(f), http.MethodPost, feedbackPath(), body, registerDut+","+DutyCheckOverride, map[string]string{"X-Passage-User": ""})
+	rec = callWith(t, newRouter(f), http.MethodPost, feedbackPath(), body, registerDut+","+DutyCheckOverride, map[string]string{"X-Depot-User": ""})
 	if rec.Code != http.StatusUnauthorized || len(f.feedback) != 0 {
 		t.Fatalf("anonymous override: %d %s", rec.Code, rec.Body.String())
 	}
@@ -291,7 +291,7 @@ func TestReopenJob_DutyVersionReasonAndUser(t *testing.T) {
 			t.Fatalf("reason %q: %d %s", bad, rec.Code, rec.Body)
 		}
 	}
-	anon := map[string]string{"Idempotency-Key": "k1", "If-Match": `"4"`, "X-Passage-User": ""}
+	anon := map[string]string{"Idempotency-Key": "k1", "If-Match": `"4"`, "X-Depot-User": ""}
 	if rec := callWith(t, h, http.MethodPost, reopenPath(), body, DutyJobReopen, anon); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("anonymous: %d", rec.Code)
 	}

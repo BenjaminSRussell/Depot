@@ -46,7 +46,7 @@ const MaxStagedBatchLines = 1000
 // missing optional extract field CodeFieldRequired; CodeStagedField is a value the target cannot take.
 const CodeStagedField = "MIG-LOAD-FIELD-INVALID"
 
-// StagedMaps are what a run fixes for building target lines: the Passage product of a legacy item and the worker of a legacy worker (an id that
+// StagedMaps are what a run fixes for building target lines: the Depot product of a legacy item and the worker of a legacy worker (an id that
 // is already a UUID needs no entry), the site and warehouse of the opening production orders, the asset class of an asset the extract gives
 // none, the cutover date, and the last period the legacy system depreciated.
 type StagedMaps struct {
@@ -111,7 +111,7 @@ func BuildStagedLines(pack Pack, l StagedLine, m StagedMaps) ([]WireLine, string
 		item := l.Group["item"]
 		product := pick(m.Products, item)
 		if product == "" {
-			return nil, CodeRefUnresolved, fmt.Sprintf("item %q has no Passage product id: name it in products or load the item master through the party migration", item)
+			return nil, CodeRefUnresolved, fmt.Sprintf("item %q has no Depot product id: name it in products or load the item master through the party migration", item)
 		}
 		qty := l.Measures["quantity_open"]
 		if !qty.IsPositive() {
@@ -132,7 +132,7 @@ func BuildStagedLines(pack Pack, l StagedLine, m StagedMaps) ([]WireLine, string
 	case PackPayrollYTD:
 		worker := pick(m.Workers, l.Group["worker"])
 		if worker == "" {
-			return nil, CodeRefUnresolved, fmt.Sprintf("worker %q has no Passage worker id: name it in workers", l.Group["worker"])
+			return nil, CodeRefUnresolved, fmt.Sprintf("worker %q has no Depot worker id: name it in workers", l.Group["worker"])
 		}
 		var out []WireLine
 		for _, e := range payrollElements {

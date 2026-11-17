@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/print/internal/api"
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/print/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/print/internal/api"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/print/internal/store"
 )
 
 // In-memory queue management for handler tests; the Postgres store is covered by the DB suite.

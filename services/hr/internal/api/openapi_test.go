@@ -10,12 +10,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 // TestOpenAPIMatchesRoutes keeps api/openapi.yaml and Register in step: every
 // mounted /v1 method and path is documented and nothing else is, and each
-// operation's x-passage-duty is the one the route enforces (every other HR
+// operation's x-depot-duty is the one the route enforces (every other HR
 // duty together is still 403).
 func TestOpenAPIMatchesRoutes(t *testing.T) {
 	raw, err := os.ReadFile("../../api/openapi.yaml")
@@ -24,8 +24,8 @@ func TestOpenAPIMatchesRoutes(t *testing.T) {
 	}
 	pathRe := regexp.MustCompile(`^  (/v1/\S+):$`)
 	methodRe := regexp.MustCompile(`^    (get|put|post|patch|delete):$`)
-	dutyRe := regexp.MustCompile(`^      x-passage-duty: (\S+)`)
-	alsoRe := regexp.MustCompile(`^      x-passage-also-duty: (\S+)`)
+	dutyRe := regexp.MustCompile(`^      x-depot-duty: (\S+)`)
+	alsoRe := regexp.MustCompile(`^      x-depot-also-duty: (\S+)`)
 	documented := map[string]string{}
 	// also holds the second duty a route accepts (RequireAnyDuty); it is left out of "every other duty".
 	also := map[string]string{}
@@ -84,7 +84,7 @@ func TestOpenAPIMatchesRoutes(t *testing.T) {
 		dutyCompAdmin, dutyCompApprove}
 	for op, duty := range documented {
 		if duty == "" {
-			t.Errorf("%s has no x-passage-duty", op)
+			t.Errorf("%s has no x-depot-duty", op)
 			continue
 		}
 		var others []string

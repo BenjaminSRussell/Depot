@@ -14,8 +14,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/store"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/store"
 )
 
 const (
@@ -154,19 +154,19 @@ func do(t *testing.T, h http.Handler, rq request) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(rq.method, rq.path, bytes.NewBufferString(rq.body))
 	req.Header.Set("Content-Type", "application/json")
 	if rq.tenant != "" {
-		req.Header.Set("X-Passage-Tenant", rq.tenant)
+		req.Header.Set("X-Depot-Tenant", rq.tenant)
 	}
 	if rq.duties != "" {
-		req.Header.Set("X-Passage-Duties", rq.duties)
+		req.Header.Set("X-Depot-Duties", rq.duties)
 	}
 	if rq.key != "" {
 		req.Header.Set("Idempotency-Key", rq.key)
 	}
 	if rq.user != "" {
-		req.Header.Set("X-Passage-User", rq.user)
+		req.Header.Set("X-Depot-User", rq.user)
 	}
 	if rq.le != "" {
-		req.Header.Set("X-Passage-Legal-Entity", rq.le)
+		req.Header.Set("X-Depot-Legal-Entity", rq.le)
 	}
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -253,12 +253,12 @@ func TestRequestsRejectedBeforeTheStore(t *testing.T) {
 		{"xref needs a tenant", request{method: "GET", path: "/api/v1/migration/xref?system=AX2012&table=open_items&id=1"}, 401, "", ""},
 		{"xref unknown system", request{method: "GET", path: "/api/v1/migration/xref?system=AX4&table=open_items&id=1", tenant: tenantA}, 422, CodeInvalid, ""},
 		{"xref without id", request{method: "GET", path: "/api/v1/migration/xref?system=AX2012&table=open_items", tenant: tenantA}, 422, CodeInvalid, "required"},
-		{"xref both directions", request{method: "GET", path: "/api/v1/migration/xref?system=AX2012&passageEntity=open_item&passageId=" + tenantB, tenant: tenantA}, 422, CodeInvalid, "either"},
-		{"xref passage id not a UUID", request{method: "GET", path: "/api/v1/migration/xref?passageEntity=open_item&passageId=7", tenant: tenantA}, 422, CodeInvalid, "UUID"},
+		{"xref both directions", request{method: "GET", path: "/api/v1/migration/xref?system=AX2012&depotEntity=open_item&depotId=" + tenantB, tenant: tenantA}, 422, CodeInvalid, "either"},
+		{"xref depot id not a UUID", request{method: "GET", path: "/api/v1/migration/xref?depotEntity=open_item&depotId=7", tenant: tenantA}, 422, CodeInvalid, "UUID"},
 		{"parallel start needs migration.factory.run", request{method: "POST", path: parallelPath, tenant: tenantA, duties: "migration.factory.review", body: `{}`}, 403, "AUTH-0003", ""},
 		{"parallel bad period", request{method: "POST", path: parallelPath, tenant: tenantA, duties: allDuties, body: `{"period":"2026-13","sourceSystem":"AX2012","revenue":"1","legacy":[{"area":"TB","key":"k","amount":"1"}]}`}, 422, CodeInvalid, "YYYY-MM"},
 		{"parallel bad area", request{method: "POST", path: parallelPath, tenant: tenantA, duties: allDuties, body: `{"period":"2026-11","sourceSystem":"AX2012","revenue":"1","legacy":[{"area":"GL","key":"k","amount":"1"}]}`}, 422, CodeInvalid, "area"},
-		{"parallel bad amount", request{method: "POST", path: parallelPath, tenant: tenantA, duties: allDuties, body: `{"period":"2026-11","sourceSystem":"AX2012","revenue":"1","passage":[{"area":"TB","key":"k","amount":"1e"}]}`}, 422, CodeInvalid, "decimal"},
+		{"parallel bad amount", request{method: "POST", path: parallelPath, tenant: tenantA, duties: allDuties, body: `{"period":"2026-11","sourceSystem":"AX2012","revenue":"1","depot":[{"area":"TB","key":"k","amount":"1e"}]}`}, 422, CodeInvalid, "decimal"},
 		{"parallel bad revenue", request{method: "POST", path: parallelPath, tenant: tenantA, duties: allDuties, body: `{"period":"2026-11","sourceSystem":"AX2012","revenue":"","legacy":[{"area":"TB","key":"k","amount":"1"}]}`}, 422, CodeInvalid, "revenue"},
 		{"parallel explained pct above 1", request{method: "POST", path: parallelPath, tenant: tenantA, duties: allDuties, body: `{"period":"2026-11","sourceSystem":"AX2012","revenue":"1","explainedMaxPct":"2","legacy":[{"area":"TB","key":"k","amount":"1"}]}`}, 422, CodeInvalid, "explainedMaxPct"},
 		{"parallel list bad state", request{method: "GET", path: parallelPath + "?state=DONE", tenant: tenantA, duties: allDuties}, 422, CodeInvalid, "state"},

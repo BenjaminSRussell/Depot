@@ -48,36 +48,36 @@ CREATE TABLE IF NOT EXISTS pay_posting_account (
 ALTER TABLE pay_run ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pay_run FORCE ROW LEVEL SECURITY;
 CREATE POLICY pay_run_tenant_access ON pay_run AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY pay_run_legal_entity_scope ON pay_run AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE pay_statement ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pay_statement FORCE ROW LEVEL SECURITY;
 CREATE POLICY pay_statement_tenant_access ON pay_statement AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY pay_statement_legal_entity_scope ON pay_statement AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE pay_posting_account ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pay_posting_account FORCE ROW LEVEL SECURITY;
 CREATE POLICY pay_posting_account_tenant_access ON pay_posting_account AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY pay_posting_account_legal_entity_scope ON pay_posting_account AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON pay_run TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON pay_statement TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON pay_posting_account TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON pay_run TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON pay_statement TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON pay_posting_account TO depot_app';
   END IF;
 END
 $$;

@@ -52,7 +52,7 @@ describe("kill switch client", () => {
     expect(init?.method).toBe("POST");
     expect(JSON.parse(String(init?.body))).toEqual({ scope: "TENANT", tenantId: T1, active: true });
     const refused = async () =>
-      json({ type: "https://passage.dev/problems/AGT-0203", status: 403, code: "AGT-0203", detail: "you do not hold duty agents.admin" }, 403, "application/problem+json");
+      json({ type: "https://depot.dev/problems/AGT-0203", status: 403, code: "AGT-0203", detail: "you do not hold duty agents.admin" }, 403, "application/problem+json");
     await expect(setKillSwitch({ scope: "GLOBAL", active: true }, refused)).rejects.toMatchObject({ status: 403, code: "AGT-0203", message: "you do not hold duty agents.admin" });
   });
 });

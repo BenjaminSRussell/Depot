@@ -14,11 +14,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/budgeting/internal/domain"
-	budgetevents "github.com/BenjaminSRussell/passage/services/budgeting/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/budgeting/internal/domain"
+	budgetevents "github.com/BenjaminSRussell/depot/services/budgeting/internal/events"
 )
 
 // Budget planning problem codes (listed in the service README).

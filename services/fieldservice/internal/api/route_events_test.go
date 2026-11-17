@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/routefeed"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/routefeed"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/store"
 )
 
 func openStream(t *testing.T, h http.Handler, ctx context.Context, path string) (*http.Response, *bufio.Reader, context.CancelFunc) {

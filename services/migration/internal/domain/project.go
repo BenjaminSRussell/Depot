@@ -40,7 +40,7 @@ type Project struct {
 }
 
 // ValidateProject returns a message per invalid field; an empty map means the project is valid. isID tells whether
-// a legal entity or connection profile id is a well-formed Passage id.
+// a legal entity or connection profile id is a well-formed Depot id.
 func ValidateProject(p Project, isID func(string) bool) map[string]string {
 	bad := map[string]string{}
 	if n := strings.TrimSpace(p.Name); n == "" || utf8.RuneCountInString(n) > maxProjectName || n != p.Name {
@@ -67,7 +67,7 @@ func ValidateProject(p Project, isID func(string) bool) map[string]string {
 			bad["targetLegalEntityId"] = "must differ from the source legal entity"
 		}
 		if p.SourceSystem != "" {
-			bad["sourceSystem"] = "a copy reads Passage, not a legacy system"
+			bad["sourceSystem"] = "a copy reads Depot, not a legacy system"
 		}
 	case ProjectConfigPackage:
 		if p.SourceSystem != "" || p.SourceLegalEntityID != "" || p.TargetLegalEntityID != "" {

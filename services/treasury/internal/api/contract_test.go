@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	tevents "github.com/BenjaminSRussell/passage/services/treasury/internal/events"
+	tevents "github.com/BenjaminSRussell/depot/services/treasury/internal/events"
 )
 
 // specOperations reads "METHOD /path" pairs from api/openapi.yaml: paths are

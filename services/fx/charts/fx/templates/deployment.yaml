@@ -28,7 +28,7 @@ spec:
             capabilities:
               drop: [ALL]
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -36,10 +36,10 @@ spec:
                   key: DATABASE_URL
             - name: MIGRATE_ON_START
               value: {{ .Values.migrateOnStart | quote }}
-            - name: PASSAGE_SERVICE_NAME
+            - name: DEPOT_SERVICE_NAME
               value: fx
             {{- if .Values.serviceIdentity.publicKeys }}
-            - name: PASSAGE_SERVICE_PUBLIC_KEYS
+            - name: DEPOT_SERVICE_PUBLIC_KEYS
               value: {{ .Values.serviceIdentity.publicKeys | quote }}
             {{- end }}
             {{- if .Values.import.tenantId }}

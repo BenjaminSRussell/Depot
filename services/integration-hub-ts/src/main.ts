@@ -54,7 +54,7 @@ const rest =
     ? new RestPusher({ migration: httpMigrationClient({ baseUrl: migrationUrl, signer }), exchange: httpExchange(guard) })
     : undefined;
 if (rest === undefined) {
-  logLine({ level: "warn", msg: "rest-push is off: set MIGRATION_URL and PASSAGE_SERVICE_SIGNING_KEY(_FILE)" });
+  logLine({ level: "warn", msg: "rest-push is off: set MIGRATION_URL and DEPOT_SERVICE_SIGNING_KEY(_FILE)" });
 }
 
 const coexistenceStore = new CoexistenceStore(pool);

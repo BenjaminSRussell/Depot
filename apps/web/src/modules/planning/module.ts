@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { AllocationKeyPage, AllocationKeysPage, NewAllocationKeyPage } from "./AllocationPages";
 import { BufferProfilePage, BufferProfilesPage, DdmrpBuffersPage, NewBufferProfilePage } from "./BufferPages";
 import { CalculatorsPage } from "./calculators";
@@ -16,7 +16,7 @@ import { RunPlanPage } from "./RunPlanPage";
 import { NewScenarioPage, ScenarioPage, ScenariosPage } from "./ScenarioPages";
 import { StrategiesPage, StrategyPage } from "./StrategyPages";
 
-const planning: PassageModule = {
+const planning: DepotModule = {
   id: "planning",
   title: "Master planning",
   description:

@@ -21,7 +21,7 @@ export interface WebhookValues {
 
 type Errors = Partial<Record<keyof WebhookValues, string>>;
 
-export const EMPTY_WEBHOOK: WebhookValues = { name: "", url: "", patterns: "dev.passage.sales.order.confirmed.v1", filter: "", secret: "" };
+export const EMPTY_WEBHOOK: WebhookValues = { name: "", url: "", patterns: "dev.depot.sales.order.confirmed.v1", filter: "", secret: "" };
 
 const SEGMENT = /^[a-z0-9]+$/;
 
@@ -50,7 +50,7 @@ export function validateWebhook(v: WebhookValues): { errors: Errors; input?: New
   const name = v.name.trim();
   if (name === "" || name.length > 200) errors.name = "Enter a name, up to 200 characters.";
   const url = v.url.trim();
-  if (!/^https:\/\/[^/?#\s]+/i.test(url) || url.length > 2048) errors.url = "Enter a full https address of the receiver, such as https://hooks.example.com/passage.";
+  if (!/^https:\/\/[^/?#\s]+/i.test(url) || url.length > 2048) errors.url = "Enter a full https address of the receiver, such as https://hooks.example.com/depot.";
   else if (/^https:\/\/[^/?#]*@/i.test(url)) errors.url = "The address must not contain a user name or password.";
   const patterns = parsePatterns(v.patterns);
   const badPattern = patterns.map((p) => ({ p, why: patternProblem(p) })).find((x) => x.why !== null);
@@ -157,13 +157,13 @@ export function NewWebhookSubscriptionPage() {
     <div className={styles.stack}>
       <PageHeader
         title="New webhook"
-        description="Send events to an https endpoint as signed CloudEvents. The receiver verifies the Passage-Signature header with the signing secret; the hub retries failures on a schedule and dead-letters what it cannot deliver."
+        description="Send events to an https endpoint as signed CloudEvents. The receiver verifies the Depot-Signature header with the signing secret; the hub retries failures on a schedule and dead-letters what it cannot deliver."
       />
       <Card>
         <form className={styles.form} onSubmit={submit} noValidate>
           {text("name", "Name", undefined, false, { maxLength: 200 })}
           <div className={styles.wide}>{text("url", "Endpoint", "The receiver's https address. Private and internal addresses are refused.", false, { spellCheck: false, inputMode: "url" })}</div>
-          <FormField id="webhook-patterns" label="Event types" hint="One per line, such as dev.passage.sales.order.confirmed.v1. * matches one segment and a trailing ** the rest." error={errors.patterns}>
+          <FormField id="webhook-patterns" label="Event types" hint="One per line, such as dev.depot.sales.order.confirmed.v1. * matches one segment and a trailing ** the rest." error={errors.patterns}>
             {(control) => <Textarea {...control} rows={3} mono value={values.patterns} onChange={(event) => update({ patterns: event.target.value })} invalid={Boolean(errors.patterns)} spellCheck={false} />}
           </FormField>
           <FormField

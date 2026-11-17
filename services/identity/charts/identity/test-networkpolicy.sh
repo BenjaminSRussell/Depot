@@ -46,7 +46,7 @@ render() {
 }
 
 assert_rules defaults "$(render)" 8080 scoped
-grep -Fq 'gateway.envoyproxy.io/owning-gateway-name: passage-api' <(helm template identity "$chart_dir")
+grep -Fq 'gateway.envoyproxy.io/owning-gateway-name: depot-api' <(helm template identity "$chart_dir")
 
 gateway_ns_render="$(helm template identity "$chart_dir" --namespace hello-ledger --set-json 'networkPolicy.gatewayNamespaces=["hello-ledger"]')"
 grep -Fq 'kubernetes.io/metadata.name: hello-ledger' <<<"$gateway_ns_render"

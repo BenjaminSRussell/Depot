@@ -1,4 +1,4 @@
--- Ops control plane part 4 (PSG-50): tenant decommission with its audit trail, and the schedules of masked clones. Platform state,
+-- Ops control plane part 4 (DPT-50): tenant decommission with its audit trail, and the schedules of masked clones. Platform state,
 -- not tenant data: the tenant they describe is a key column (customer_tenant, source_tenant), never tenant_id, and there is no RLS
 -- (allowlisted in tools/rlscheck).
 
@@ -65,11 +65,11 @@ CREATE INDEX ops_clone_run_schedule ON ops_clone_run (schedule_id, id DESC);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ops_tenant_decommission, ops_tenant_decommission_step, ops_clone_schedule TO passage_app';
-    EXECUTE 'GRANT DELETE ON ops_clone_schedule TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON ops_audit, ops_clone_run TO passage_app';
-    EXECUTE 'GRANT USAGE ON SEQUENCE ops_audit_id_seq, ops_clone_run_id_seq TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ops_tenant_decommission, ops_tenant_decommission_step, ops_clone_schedule TO depot_app';
+    EXECUTE 'GRANT DELETE ON ops_clone_schedule TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON ops_audit, ops_clone_run TO depot_app';
+    EXECUTE 'GRANT USAGE ON SEQUENCE ops_audit_id_seq, ops_clone_run_id_seq TO depot_app';
   END IF;
 END
 $$;

@@ -1,4 +1,4 @@
-# mobile-flows (wave 32, PSG-32)
+# mobile-flows (wave 32, DPT-32)
 
 Flow designer for warehouse handheld flows, plus the pure domain shared with
 `apps/warehouse-mobile`.
@@ -52,7 +52,7 @@ Flow designer for warehouse handheld flows, plus the pure domain shared with
   fixtures) with their `scanner_profile` and capture bridge, and the Android WebView 100 minimum.
 - `domain/exceptions.ts`: on-device exceptions (FR-32.8) and the supervisor override
   (BR-32.7): one action, one worker, 60 s, never for the supervisor's own work (MOB-0110).
-- `domain/scanBridge.ts`: the page side of the scanner intent bridge (`passage:scan` events
+- `domain/scanBridge.ts`: the page side of the scanner intent bridge (`depot:scan` events
   from the Android shell, DataWedge and Honeywell extras, keyboard wedge).
 - `domain/layout.ts`: device layout rules (320 px, 16 px font floor, 48 and 64 px targets,
   RTL locales), applied by `apps/warehouse-mobile`.
@@ -69,7 +69,7 @@ Flow designer for warehouse handheld flows, plus the pure domain shared with
   still reports that it is unavailable.
 - `DeviceApp.tsx`: the handheld shell shared with `apps/warehouse-mobile`. It loads the
   published menu (`useDeviceFlows.ts`) and keeps an in-flight flow on the version it started
-  (BR-32.9). `/device` hosts it in dev builds only, for Playwright Pixel 5 (AC-32.2, AC-32.4); the in-process mobile stub runs only with PASSAGE_MOBILE_STUB=1.
+  (BR-32.9). `/device` hosts it in dev builds only, for Playwright Pixel 5 (AC-32.2, AC-32.4); the in-process mobile stub runs only with DEPOT_MOBILE_STUB=1.
 - `api/print.ts`: client for `services/print` through the BFF at `/api/v1/print`.
 - `pages.tsx`: designer screen. It opens on the bundled receive/put-away flow (any core flow can
   be loaded with "Start from"), edits the flow
@@ -118,7 +118,7 @@ failure reproduces exactly.
 
 `domain/testdata/gs1-ai-vectors.json` (AC-32.1, §6.32.9) holds 459 vectors from the GS1
 Barcode Syntax Engine unit tests (commit pinned in the file) that fall within the BR-32.1 AI
-table, plus 60 Passage edge vectors; `gs1.vectors.test.ts` parses each without a symbology
+table, plus 60 Depot edge vectors; `gs1.vectors.test.ts` parses each without a symbology
 identifier and with `]C1`, `]d2` and `]Q3`. Regenerate it with
 `python3 -I domain/testdata/gen_gs1_ai_vectors.py > domain/testdata/gs1-ai-vectors.json`: the
 script has its own reference parser, written from BR-32.1 and the GS1 General Specifications,

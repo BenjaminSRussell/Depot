@@ -1,4 +1,4 @@
-# Architecture Review: Passage ERP Platform (compiled.md, review round 4, extended final, scoped)
+# Architecture Review: Depot ERP Platform (compiled.md, review round 4, extended final, scoped)
 
 Reviewer: independent architecture reviewer. Date: 2026-10-23.
 
@@ -55,7 +55,7 @@ Each is a one-paragraph fix.
 | R3-4 retry semantics | **Partial** | 701: `:retry` takes an optional `postingDate` with the `:<revision>` suffix. 1184: only 2xx is cached, and a 422 from `ledger.Post` is not. 4300: the task completes on a matching `transaction.posted`. 3990: `valuation_rejection` is in the `taskType` enum. 4440, 4520 and 4567: the `retryWithDate` wording is gone and the S3a `:retry` arrow targets inventory. 703: `:override-negative` is defined with its duty and SoD. | The override contradicts NFR-D4 (**R4-2, MAJOR**). Not caching 4xx deviates from D.5 and is not recorded as a deviation (R4-11). |
 | R3-5 project/service billing | **Resolved** | 3166: `project_transaction` stays IL, with an IL child `project_transaction_billing` and a derived billed state. `invoice_proposal.invoice_id` exists. 3172: `service_work_order.billing_status` and `billing_invoice_id`. 4308: `projects-billing` filters on `sourceDocument.type = invoice_proposal`. 4317: `projects-service-billing` filters on `service_work_order`. 1901: ER line. | IX-PJ-05 still indexes the removed `project_transaction.billing_status`, and the invoice event has no `glSeq` (R4-6). |
 | R3-6 stale wording | **Partial** | 331, 724, 764, 4283 and 4289 are reworded ("post, then finalize…", "reserve, post, finalize (§6.4 rule 5)"). | The same contradiction survives at 1378 (Q6), 3726, 4426 and 4481 (R4-7). |
-| R3-7 detections | **Resolved** | 1315: the counters carry `{tenant,entity,reason}` with no `actor`; the `platform-ts` audit-stream job emits `passage_actor_anomaly_total{tenant,detector}` and opens a security task; cross-LE reads use OPA decision logs in Loki through LogQL. 1580: `<ctx>.audit_event` is `GRANT INSERT, SELECT` only. | Decision-log masking and retention are unstated (R4-13, overlay MINOR). |
+| R3-7 detections | **Resolved** | 1315: the counters carry `{tenant,entity,reason}` with no `actor`; the `platform-ts` audit-stream job emits `depot_actor_anomaly_total{tenant,detector}` and opens a security task; cross-LE reads use OPA decision logs in Loki through LogQL. 1580: `<ctx>.audit_event` is `GRANT INSERT, SELECT` only. | Decision-log masking and retention are unstated (R4-13, overlay MINOR). |
 | R3-8 small inconsistencies | **Partial** | 7754 and 7756: the Postgres and Kafka node volumes use "LUKS via Clevis/Tang (bare metal), provider KMS (cloud)". 7767: the payment processor is reachable "from `sales`". 591–592: `GET`/`PATCH /v1/party/portal/profile` in party, and the sales rows are removed. 829: `/cases` shows dispute cases until wave 45. | The Temporal, Keycloak and OPA rows still name Vault transit as the volume key owner (R4-9). The supplier portal profile is still a procurement write to party data (R4-10). |
 | C12 nit | **Resolved** | 401: `/readyz` reads "own Postgres, migrations current, OPA sidecar…", which matches 1248 and 7735. | — |
 | N1 valuation protocol | **Resolved** | 1094–1097: rules 2 and 5 are complete, including the sweeper, the quantity hold and re-drive. | Leftover stale wording is tracked under R3-6/R4-7. |
@@ -101,7 +101,7 @@ Each is a one-paragraph fix.
   In either case, give 703 a privilege code like its neighbours (it has only a duty name).
 
 ### R4-3. The `:cancel` precondition depends on events and commands that do not exist (MAJOR)
-- **Domains:** Backend §5.9 (702) and §6.4 rule 5 (1097); Events catalog (4037 `productreceipt.reversed`, 4048 `rafreversed`; topic row 29 `passage.sales.shipment` has only `posted`, 4139); S2 (4527, 4532).
+- **Domains:** Backend §5.9 (702) and §6.4 rule 5 (1097); Events catalog (4037 `productreceipt.reversed`, 4048 `rafreversed`; topic row 29 `depot.sales.shipment` has only `posted`, 4139); S2 (4527, 4532).
 - **Description.**
   - `:cancel` is allowed when "`productreceipt.reversed`, `shipment.reversed` or `productionorder.rafreversed` [is] received". No `sales.shipment.reversed` event exists in the 62-type catalog.
   - S2 says the shipment is the pivot with "no backward compensation". A wrongly posted shipment is corrected by a return or a reversal packing slip, and neither produces `shipment.reversed`.

@@ -63,20 +63,20 @@ HAVING bool_and(j.state = 'completed');
 ALTER TABLE kanban_cycle ENABLE ROW LEVEL SECURITY;
 ALTER TABLE kanban_cycle FORCE ROW LEVEL SECURITY;
 CREATE POLICY kanban_cycle_tenant_access ON kanban_cycle AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE kanban_job_completion ENABLE ROW LEVEL SECURITY;
 ALTER TABLE kanban_job_completion FORCE ROW LEVEL SECURITY;
 CREATE POLICY kanban_job_completion_tenant_access ON kanban_job_completion AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON kanban_cycle TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON kanban_job_completion TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON kanban_cycle TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON kanban_job_completion TO depot_app';
   END IF;
 END
 $$;

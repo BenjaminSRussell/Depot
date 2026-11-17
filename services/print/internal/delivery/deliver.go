@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/print/internal/store"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/print/internal/store"
 )
 
 // Printer sends a PDF to a print queue; the API implements it with its job pipeline. key makes the job idempotent.

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 const otherRunID = "22222222-2222-4222-8222-222222222222"

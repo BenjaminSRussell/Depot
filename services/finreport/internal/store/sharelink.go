@@ -8,12 +8,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/events"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/events"
 )
 
 // Problem codes of share links (slice 19). They are slice-local, not yet in
@@ -27,7 +27,7 @@ const (
 )
 
 // ShareActor is the in-process principal that opens a file for a share link
-// holder, who has no Passage identity. It reads one file named by a valid
+// holder, who has no Depot identity. It reads one file named by a valid
 // link and counts the download; it can do nothing else.
 const ShareActor = "system:finreport-share-link"
 
@@ -214,7 +214,7 @@ type SharedFile struct {
 	Content []byte
 }
 
-// RedeemShareLink opens the file a token names, for a caller with no Passage
+// RedeemShareLink opens the file a token names, for a caller with no Depot
 // identity: the tenant comes from the token, the link from the hash of its
 // secret. A token of the wrong shape or with no link answers 404 REPORT-0050; a
 // link that expired or was revoked answers 410 REPORT-0051. A served download

@@ -9,11 +9,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/eventing/kafka"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/api"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/eventing/kafka"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/api"
 )
 
 const deadLetterSuffix = ".dlq"
@@ -26,7 +26,7 @@ func kafkaConfig(getenv func(string) string) (kafka.Config, error) {
 	return kafka.ConfigFromEnv(getenv, api.DowntimeConsumerName, api.DowntimeConsumerName, []string{api.DowntimeRecordedTopic})
 }
 
-// orderKafkaConfig is the order intake's own group on passage.production.order,
+// orderKafkaConfig is the order intake's own group on depot.production.order,
 // with the same brokers and credentials as the downtime consumer.
 func orderKafkaConfig(getenv func(string) string) (kafka.Config, error) {
 	return kafka.ConfigFromEnv(func(k string) string {

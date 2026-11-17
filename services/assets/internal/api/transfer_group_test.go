@@ -9,10 +9,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/store"
 )
 
 // Transfer mirrors the store's guards: the domain shape check, the version
@@ -138,7 +138,7 @@ func TestTransfer_Guards(t *testing.T) {
 			{"assetNumber":"B","name":"B","percentage":"50"}]}`, maintainDuties, `"1"`, true), http.StatusUnprocessableEntity, domain.CodeInvalidTransfer},
 		{"target legal entity outside the caller's scope", req{method: http.MethodPost, path: "/v1/assets/" + a.ID + "/transfer",
 			body:   `{"kind":"transfer","parts":[{"assetNumber":"A","name":"A","percentage":"100","legalEntityId":"` + ids.New() + `"}]}`,
-			duties: maintainDuties, key: true, headers: map[string]string{"If-Match": `"1"`, "X-Passage-Legal-Entity": ids.New()}}, http.StatusForbidden, "AUTH-0003"},
+			duties: maintainDuties, key: true, headers: map[string]string{"If-Match": `"1"`, "X-Depot-Legal-Entity": ids.New()}}, http.StatusForbidden, "AUTH-0003"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -232,7 +232,7 @@ func TestCreateGroupAsset_DutyAndInput(t *testing.T) {
 		t.Fatalf("limit 0 status = %d", rec.Code)
 	}
 	outside := do(h, req{method: http.MethodPost, path: "/v1/assets/group-assets", body: full, duties: "assets.asset.configure", key: true,
-		headers: map[string]string{"X-Passage-Legal-Entity": ids.New()}})
+		headers: map[string]string{"X-Depot-Legal-Entity": ids.New()}})
 	if outside.Code != http.StatusForbidden {
 		t.Fatalf("legal entity outside scope status = %d", outside.Code)
 	}

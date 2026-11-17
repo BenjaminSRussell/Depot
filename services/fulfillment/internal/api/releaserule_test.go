@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 // fakeRule is the rule the fake store reads; the zero value is "none saved".
@@ -96,10 +96,10 @@ func TestReleaseRule_ReadSaveValidateAndDuty(t *testing.T) {
 	if savedRuleLE != le || savedRuleWH != wh || savedRuleBase != 2 || savedRuleIn != (store.ReleaseRuleInput{HorizonDays: 5, RequireFullATP: false, WaveMaxLines: 120, WaveMaxOrders: 30}) {
 		t.Fatalf("store got %s %s %d %+v", savedRuleLE, savedRuleWH, savedRuleBase, savedRuleIn)
 	}
-	if rec := do(t, h, http.MethodPut, path, body(le, ""), hdr(map[string]string{"If-Match": `"2"`, "Idempotency-Key": "r-5", "X-Passage-Duties": "fulfillment.warehouse.view"})); rec.Code != http.StatusForbidden {
+	if rec := do(t, h, http.MethodPut, path, body(le, ""), hdr(map[string]string{"If-Match": `"2"`, "Idempotency-Key": "r-5", "X-Depot-Duties": "fulfillment.warehouse.view"})); rec.Code != http.StatusForbidden {
 		t.Fatalf("viewer save: %d", rec.Code)
 	}
-	if rec := do(t, h, http.MethodGet, path, "", map[string]string{"X-Passage-Duties": "fulfillment.warehouse.pick"}); rec.Code != http.StatusForbidden {
+	if rec := do(t, h, http.MethodGet, path, "", map[string]string{"X-Depot-Duties": "fulfillment.warehouse.pick"}); rec.Code != http.StatusForbidden {
 		t.Fatalf("picker read: %d", rec.Code)
 	}
 }

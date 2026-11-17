@@ -9,11 +9,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/party/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/party/internal/store"
 )
 
 type customerSeed struct {
@@ -85,7 +85,7 @@ func TestCustomer_CreateReadsBackScopedAndEmitsEvent(t *testing.T) {
 		c.CurrencyCode != "USD" || c.CreditLimit == nil || *c.CreditLimit != "2500.50" || c.CreditCurrency == nil || *c.CreditCurrency != "USD" || c.Blocked != "none" || c.CreditHold || c.Version != 1 {
 		t.Fatalf("customer = %+v", c)
 	}
-	if got := outboxCount(t, app, "dev.passage.party.customer.created.v1"); got != 1 {
+	if got := outboxCount(t, app, "dev.depot.party.customer.created.v1"); got != 1 {
 		t.Fatalf("created events = %d, want 1", got)
 	}
 	// GetCustomer reads the role back in its legal entity only; elsewhere it does not exist.
@@ -100,7 +100,7 @@ func TestCustomer_CreateReadsBackScopedAndEmitsEvent(t *testing.T) {
 	if _, err := s.GetCustomer(asUser(1, legalEntityA, "x"), "not-a-uuid"); problemCode(t, err) != store.CodeCustomerNotFound {
 		t.Errorf("bad id: %v", err)
 	}
-	// The role is invisible to another legal entity and tenant (RLS as passage_app).
+	// The role is invisible to another legal entity and tenant (RLS as depot_app).
 	for name, ctx := range map[string]context.Context{"other legal entity": asUser(1, legalEntityB, "x"), "other tenant": asUser(2, legalEntityA, "x")} {
 		var n int
 		if err := dbx.WithTenantTx(ctx, app, func(tx pgx.Tx) error {
@@ -188,7 +188,7 @@ func TestCustomer_IdempotentReplayAndKeyReuse(t *testing.T) {
 	if err != nil || created || again.ID != first.ID {
 		t.Fatalf("replay = %+v created=%v err=%v, want the original", again, created, err)
 	}
-	if got := outboxCount(t, app, "dev.passage.party.customer.created.v1"); got != 1 {
+	if got := outboxCount(t, app, "dev.depot.party.customer.created.v1"); got != 1 {
 		t.Fatalf("replay emitted: %d events", got)
 	}
 	changed := in

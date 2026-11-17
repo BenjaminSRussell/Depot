@@ -4,9 +4,9 @@ package events
 // transaction that changes the catalog; the subject is the catalog id.
 const (
 	// CatalogPublished is written by :publish, when a DRAFT catalog opens to requesters.
-	CatalogPublished = "dev.passage.procurement.catalog.published.v1"
+	CatalogPublished = "dev.depot.procurement.catalog.published.v1"
 	// CatalogRetired is written by :retire, when a PUBLISHED catalog closes.
-	CatalogRetired = "dev.passage.procurement.catalog.retired.v1"
+	CatalogRetired = "dev.depot.procurement.catalog.retired.v1"
 )
 
 // CatalogData is the data member of catalog.published.v1 and catalog.retired.v1.
@@ -27,7 +27,7 @@ type CatalogData struct {
 // (FR-17.18), in the transaction that adds the accepted rows to the catalog; the
 // subject is the import id. The type has one entity segment, catalogimport, as the
 // platform type grammar allows.
-const CatalogImportCommitted = "dev.passage.procurement.catalogimport.committed.v1"
+const CatalogImportCommitted = "dev.depot.procurement.catalogimport.committed.v1"
 
 // CatalogImportData is the data member of catalogimport.committed.v1.
 type CatalogImportData struct {

@@ -11,8 +11,8 @@ ALTER TABLE ap_vendor_invoice_intake ADD CONSTRAINT ap_vendor_invoice_intake_dec
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT UPDATE (ledger_entry_id, auto_post_note) ON ap_vendor_invoice_intake TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT UPDATE (ledger_entry_id, auto_post_note) ON ap_vendor_invoice_intake TO depot_app';
   END IF;
 END
 $$;

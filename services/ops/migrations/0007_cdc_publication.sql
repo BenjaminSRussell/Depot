@@ -4,17 +4,17 @@
 -- database that already ran it changes nothing.
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'passage_outbox_ops') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'depot_outbox_ops') THEN
     BEGIN
-      CREATE PUBLICATION passage_outbox_ops;
+      CREATE PUBLICATION depot_outbox_ops;
     EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL;
     END;
   END IF;
   IF NOT EXISTS (
     SELECT 1 FROM pg_publication_rel pr JOIN pg_publication p ON p.oid = pr.prpubid
-    WHERE p.pubname = 'passage_outbox_ops' AND pr.prrelid = to_regclass(format('%I.outbox', current_schema()))
+    WHERE p.pubname = 'depot_outbox_ops' AND pr.prrelid = to_regclass(format('%I.outbox', current_schema()))
   ) THEN
-    EXECUTE format('ALTER PUBLICATION passage_outbox_ops ADD TABLE %I.outbox', current_schema());
+    EXECUTE format('ALTER PUBLICATION depot_outbox_ops ADD TABLE %I.outbox', current_schema());
   END IF;
 END
 $$;

@@ -1,4 +1,4 @@
-// OpenID Connect code flow with PKCE against the Keycloak client `passage-portal-supplier` (confidential, secret from the
+// OpenID Connect code flow with PKCE against the Keycloak client `depot-portal-supplier` (confidential, secret from the
 // environment). The ID token is verified here (RS256, issuer, audience, expiry, nonce) and mapped to a supplier identity;
 // the access token is never used or stored. A sign-in without the supplier-user role, a tenant and a vendor is refused.
 

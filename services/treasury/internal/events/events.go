@@ -6,7 +6,7 @@ const Context = "treasury"
 
 // StatementImported is emitted when a statement and its lines commit (7.36.5).
 // It equals events.Type(Context, "statement", "imported", 1); a test checks that.
-const StatementImported = "dev.passage.treasury.statement.imported.v1"
+const StatementImported = "dev.depot.treasury.statement.imported.v1"
 
 // All lists every event type this service publishes.
 func All() []string {

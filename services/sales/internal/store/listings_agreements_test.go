@@ -9,12 +9,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/sales/internal/domain"
-	salesevents "github.com/BenjaminSRussell/passage/services/sales/internal/events"
-	"github.com/BenjaminSRussell/passage/services/sales/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/domain"
+	salesevents "github.com/BenjaminSRussell/depot/services/sales/internal/events"
+	"github.com/BenjaminSRussell/depot/services/sales/migrations"
 )
 
 func migrated(t *testing.T) (*Postgres, *pgxpool.Pool, context.Context) {

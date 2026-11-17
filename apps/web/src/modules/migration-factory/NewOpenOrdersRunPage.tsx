@@ -142,7 +142,7 @@ export function NewOpenOrdersRunPage() {
               <FormField
                 id={`oo-${id}`}
                 label={id === "items" ? "Item master" : id === "customers" ? "Customer master" : "Vendor master"}
-                hint={id === "items" ? "Item ids in Passage, separated by commas, spaces or lines." : `Needed when the extract has ${id === "customers" ? "sales" : "purchase"} order lines.`}
+                hint={id === "items" ? "Item ids in Depot, separated by commas, spaces or lines." : `Needed when the extract has ${id === "customers" ? "sales" : "purchase"} order lines.`}
                 optional={id !== "items"}
                 error={errors[id]}
               >

@@ -12,7 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/services/identity"
+	"github.com/BenjaminSRussell/depot/services/identity"
 )
 
 type deprovisionRow struct {
@@ -225,7 +225,7 @@ func TestKeycloakDeprovisionRetriesWithBackoffThenParksAndAnAdminRetries(t *test
 	if retried.State != "pending" || retried.Attempts != 0 {
 		t.Fatalf("retried = %+v", retried)
 	}
-	if audit, events := f.auditAndEvents(t, f.tenantA); !slices.Contains(audit, "keycloakdeprovision.retried|admin-1") || !slices.Contains(events, "dev.passage.identity.keycloakdeprovision.retried.v1") {
+	if audit, events := f.auditAndEvents(t, f.tenantA); !slices.Contains(audit, "keycloakdeprovision.retried|admin-1") || !slices.Contains(events, "dev.depot.identity.keycloakdeprovision.retried.v1") {
 		t.Fatalf("retry not audited: %v %v", audit, events)
 	}
 	f.kc.fail(0, 0)

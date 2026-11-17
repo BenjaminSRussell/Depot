@@ -1,12 +1,12 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Planning events
+  title: Depot Planning events
   version: 0.5.0
-  description: CloudEvents 1.0 with Passage extensions (tenantid, correlationid, causationid, actor). Published through the outbox in the same transaction as the plan version change, the firming or the forecast publication.
+  description: CloudEvents 1.0 with Depot extensions (tenantid, correlationid, causationid, actor). Published through the outbox in the same transaction as the plan version change, the firming or the forecast publication.
 defaultContentType: application/cloudevents+json
 channels:
   plan:
-    address: passage.planning.plan
+    address: depot.planning.plan
     messages:
       planStartedV1:
         $ref: '#/components/messages/PlanStartedV1'
@@ -19,12 +19,12 @@ channels:
       messageDismissedV1:
         $ref: '#/components/messages/MessageDismissedV1'
   plannedOrderFirmed:
-    address: passage.planning.plannedorder
+    address: depot.planning.plannedorder
     messages:
       plannedOrderFirmedV1:
         $ref: '#/components/messages/PlannedOrderFirmedV1'
   forecast:
-    address: passage.planning.forecast
+    address: depot.planning.forecast
     messages:
       forecastPublishedV1:
         $ref: '#/components/messages/ForecastPublishedV1'
@@ -33,7 +33,7 @@ channels:
       forecastAllocatedV1:
         $ref: '#/components/messages/ForecastAllocatedV1'
   scenario:
-    address: passage.planning.scenario
+    address: depot.planning.scenario
     messages:
       scenarioSimulatedV1:
         $ref: '#/components/messages/ScenarioSimulatedV1'
@@ -109,72 +109,72 @@ operations:
 components:
   messages:
     PlanStartedV1:
-      name: dev.passage.planning.plan.started.v1
+      name: dev.depot.planning.plan.started.v1
       title: A plan run started its version
-      summary: A plan run started its version (CloudEvent dev.passage.planning.plan.started.v1).
+      summary: A plan run started its version (CloudEvent dev.depot.planning.plan.started.v1).
       contentType: application/json
       payload:
         $ref: '#/components/schemas/PlanStartedData'
     MessageRaisedV1:
-      name: dev.passage.planning.message.raised.v1
+      name: dev.depot.planning.message.raised.v1
       title: The run raised an action or delay message
-      summary: The run raised an action or delay message (CloudEvent dev.passage.planning.message.raised.v1).
+      summary: The run raised an action or delay message (CloudEvent dev.depot.planning.message.raised.v1).
       contentType: application/json
       payload:
         $ref: '#/components/schemas/MessageRaisedData'
     MessageAppliedV1:
-      name: dev.passage.planning.message.applied.v1
+      name: dev.depot.planning.message.applied.v1
       title: A planner applied an action message
-      summary: A planner applied an action message (CloudEvent dev.passage.planning.message.applied.v1).
+      summary: A planner applied an action message (CloudEvent dev.depot.planning.message.applied.v1).
       contentType: application/json
       payload:
         $ref: '#/components/schemas/MessageDecidedData'
     MessageDismissedV1:
-      name: dev.passage.planning.message.dismissed.v1
+      name: dev.depot.planning.message.dismissed.v1
       title: A planner dismissed an action message
-      summary: A planner dismissed an action message (CloudEvent dev.passage.planning.message.dismissed.v1).
+      summary: A planner dismissed an action message (CloudEvent dev.depot.planning.message.dismissed.v1).
       contentType: application/json
       payload:
         $ref: '#/components/schemas/MessageDecidedData'
     PlanCompletedV1:
-      name: dev.passage.planning.plan.completed.v1
+      name: dev.depot.planning.plan.completed.v1
       title: A plan version became the current version
-      summary: A plan version became the current version (CloudEvent dev.passage.planning.plan.completed.v1).
+      summary: A plan version became the current version (CloudEvent dev.depot.planning.plan.completed.v1).
       contentType: application/json
       payload:
         $ref: '#/components/schemas/PlanCompletedData'
     PlannedOrderFirmedV1:
-      name: dev.passage.planning.plannedorder.firmed.v1
+      name: dev.depot.planning.plannedorder.firmed.v1
       title: A planned order was firmed
-      summary: A planned order was firmed (CloudEvent dev.passage.planning.plannedorder.firmed.v1).
+      summary: A planned order was firmed (CloudEvent dev.depot.planning.plannedorder.firmed.v1).
       contentType: application/json
       payload:
         $ref: '#/components/schemas/PlannedOrderFirmedData'
     ForecastPublishedV1:
-      name: dev.passage.planning.forecast.published.v1
+      name: dev.depot.planning.forecast.published.v1
       title: A forecast consensus was published
-      summary: A forecast consensus was published (CloudEvent dev.passage.planning.forecast.published.v1).
+      summary: A forecast consensus was published (CloudEvent dev.depot.planning.forecast.published.v1).
       contentType: application/json
       payload:
         $ref: '#/components/schemas/ForecastPublishedData'
     ForecastGeneratedV1:
-      name: dev.passage.planning.forecast.generated.v1
+      name: dev.depot.planning.forecast.generated.v1
       title: A statistical forecast was generated
-      summary: A statistical forecast was generated into a model (CloudEvent dev.passage.planning.forecast.generated.v1).
+      summary: A statistical forecast was generated into a model (CloudEvent dev.depot.planning.forecast.generated.v1).
       contentType: application/json
       payload:
         $ref: '#/components/schemas/ForecastGeneratedData'
     ForecastAllocatedV1:
-      name: dev.passage.planning.forecast.allocated.v1
+      name: dev.depot.planning.forecast.allocated.v1
       title: A forecast was allocated to items
-      summary: An aggregate forecast was split across items by an allocation key (CloudEvent dev.passage.planning.forecast.allocated.v1).
+      summary: An aggregate forecast was split across items by an allocation key (CloudEvent dev.depot.planning.forecast.allocated.v1).
       contentType: application/json
       payload:
         $ref: '#/components/schemas/ForecastAllocatedData'
     ScenarioSimulatedV1:
-      name: dev.passage.planning.scenario.simulated.v1
+      name: dev.depot.planning.scenario.simulated.v1
       title: A scenario simulation finished
-      summary: A scenario simulation finished (CloudEvent dev.passage.planning.scenario.simulated.v1).
+      summary: A scenario simulation finished (CloudEvent dev.depot.planning.scenario.simulated.v1).
       contentType: application/json
       payload:
         $ref: '#/components/schemas/ScenarioSimulatedData'
@@ -227,9 +227,9 @@ components:
           type: string
           enum: [delay, postpone, advance, shortage, cancel, decrease, increase, derived, red-zone, sales-on-top, no-vendor, no-quota-source, lot-split, bom-cycle]
           description: 'Values are added within v1 only (PRD appendix: additive evolution); a consumer must ignore an action it does not know. no-vendor is PLAN-0008, a planned purchase of the item with no vendor (supply_ref its earliest such order, qty the item''s vendorless quantity). lot-split is PLAN-0005, a requirement split over its maximum order quantity (supply_ref its first order, delay_days the number of orders, qty the maximum order quantity). derived is the Derived action of FR-22.7: an existing component receipt (supply_ref) pegged to the dependent demand "<parent supply>/<component>" (demand_ref) of a parent supply that got a cancel, decrease, postpone or advance message follows it; parent_action names that action (see parent_action). bom-cycle is PLAN-0004, a component line that closes a BOM cycle and was not exploded (item_id the parent, demand_ref the component, qty the line quantity per unit). no-quota-source is PLAN-0009, a planned order no source of the quota arrangement valid on its delivery day could take; the order stays without a source (supply_ref the order, demand_ref the arrangement id, suggested_date its delivery date, qty its quantity)'
-          x-passage-added-in: {red-zone: PSG-2220, sales-on-top: PSG-2223, no-vendor: PSG-2224, lot-split: PSG-2232, bom-cycle: PSG-2233, no-quota-source: PSG-2233, derived: PSG-2234}
+          x-depot-added-in: {red-zone: DPT-2220, sales-on-top: DPT-2223, no-vendor: DPT-2224, lot-split: DPT-2232, bom-cycle: DPT-2233, no-quota-source: DPT-2233, derived: DPT-2234}
         item_id: {type: string, format: uuid}
-        warehouse_id: {type: [string, 'null'], format: uuid, description: 'The warehouse planning scope the message is about (FR-22.18, added in PSG-2227); null for the site scope. A consumer that ignores it reads a warehouse message as a site one'}
+        warehouse_id: {type: [string, 'null'], format: uuid, description: 'The warehouse planning scope the message is about (FR-22.18, added in DPT-2227); null for the site scope. A consumer that ignores it reads a warehouse message as a site one'}
         supply_ref: {type: string, description: 'Planned order number or receipt ref as the run was sent it; for an open purchase order that is the PO number, unchanged, so procurement matches it to the order (a carried-forward firmed order is FP:<planned order id>); empty for a shortage'}
         demand_ref: {type: string, description: 'Demand the message is about (sales line, forecast, bom line); empty when none. bom-cycle: the component of the skipped line; no-quota-source: the quota arrangement id'}
         suggested_date: {type: string, format: date}
@@ -238,7 +238,7 @@ components:
         parent_action:
           type: [string, 'null']
           enum: [cancel, decrease, postpone, advance, null]
-          description: 'derived only (added in PSG-2234; null for every other action): the action of the parent supply''s message the component receipt follows, and so what applying asks of the receipt. cancel or decrease: reduce it by qty (the quantity pegged to the dependent demand, or the parent''s decreased share of it, rounded half away from zero to 6 decimals), suggested_date is the receipt''s own date. postpone or advance: move qty of it to suggested_date. A parent with both a decrease and a move raises one derived message for each'
+          description: 'derived only (added in DPT-2234; null for every other action): the action of the parent supply''s message the component receipt follows, and so what applying asks of the receipt. cancel or decrease: reduce it by qty (the quantity pegged to the dependent demand, or the parent''s decreased share of it, rounded half away from zero to 6 decimals), suggested_date is the receipt''s own date. postpone or advance: move qty of it to suggested_date. A parent with both a decrease and a move raises one derived message for each'
     MessageDecidedData:
       type: object
       description: Data of message.applied.v1 and message.dismissed.v1; the message fields are those of message.raised.v1
@@ -295,7 +295,7 @@ components:
         target_type: {type: string, enum: [purchase-order, production-order, transfer-order]}
         target_id: {type: string, format: uuid, description: Id of the order to create; planned orders of one group share it}
         item_id: {type: string, format: uuid}
-        warehouse_id: {type: [string, 'null'], format: uuid, description: 'Warehouse of a warehouse planning scope (FR-22.18, added in PSG-2227): for a planned transfer the to-warehouse, whose from-warehouse is the site (BR-22.7); null for an order of the site scope. The owning context creates the transfer order to this warehouse'}
+        warehouse_id: {type: [string, 'null'], format: uuid, description: 'Warehouse of a warehouse planning scope (FR-22.18, added in DPT-2227): for a planned transfer the to-warehouse, whose from-warehouse is the site (BR-22.7); null for an order of the site scope. The owning context creates the transfer order to this warehouse'}
         site_id: {type: string, format: uuid}
         legal_entity_id: {type: [string, 'null'], format: uuid, description: "Legal entity of the plan version (added within v1); the CloudEvents legalentityid extension carries the same value so entity-scoped consumers, such as production's planned-orders inbox, can filter by it. Null for a plan without a legal entity"}
         vendor_id: {type: [string, 'null'], format: uuid}

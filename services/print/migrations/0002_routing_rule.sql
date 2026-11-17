@@ -18,5 +18,5 @@ CREATE TABLE IF NOT EXISTS print_routing_rule (
 ALTER TABLE print_routing_rule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE print_routing_rule FORCE ROW LEVEL SECURITY;
 CREATE POLICY print_routing_rule_tenant_access ON print_routing_rule AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/sales/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/domain"
 )
 
 func amountAgreement(t *testing.T, s *Postgres, ctx context.Context, le string, commitment int64) Agreement {
@@ -99,7 +99,7 @@ func TestPostgres_AmountAgreementDrawsLineValue(t *testing.T) {
 	if !r.Quantity.Equal(d(50)) || !r.Units.Equal(d(600)) || !r.DrawnQty.Equal(d(516)) || !r.ReturnedQty.Equal(d(1116)) {
 		t.Fatalf("release record %+v", r)
 	}
-	if n := countWhere(t, pool, `select count(*) from outbox where aggregate_id = $1 and type = $2 and payload->'data'->>'commitment_type' = 'AMOUNT' and payload->'data'->>'drawn_units' = '600'`, a.ID, "dev.passage.sales.agreement.released.v1"); n != 1 {
+	if n := countWhere(t, pool, `select count(*) from outbox where aggregate_id = $1 and type = $2 and payload->'data'->>'commitment_type' = 'AMOUNT' and payload->'data'->>'drawn_units' = '600'`, a.ID, "dev.depot.sales.agreement.released.v1"); n != 1 {
 		t.Fatalf("agreement.released carries the commitment type: %d", n)
 	}
 }

@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/billing/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/billing/migrations"
 )
 
 // The customer portal lists with the customer from its service token and PostedOnly: in the database, one customer never sees

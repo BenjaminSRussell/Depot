@@ -1,6 +1,6 @@
 # inventory
 
-Passage inventory service. Wave 16 (PSG-16). Slice 1: the immutable inventory
+Depot inventory service. Wave 16 (DPT-16). Slice 1: the immutable inventory
 ledger, the dimension hash, the on-hand projection, inventory journals
 (MOVEMENT, ADJUSTMENT, OPENING_BALANCE) with synchronous posting, the negative
 stock policy, serial uniqueness, the journal list and the on-hand inquiry grouped
@@ -272,7 +272,7 @@ balance is supplied.
 
 A run is keyed by (legal entity, account, currency, run date = today UTC): a re-run on the same
 day recomputes and overwrites that day's row (same id). A non-zero difference enqueues
-`dev.passage.inventory.reconciliation.diff.v1` in the same transaction, once per run that
+`dev.depot.inventory.reconciliation.diff.v1` in the same transaction, once per run that
 differs. `GET /v1/inventory/reconciliations` (filters `legalEntityId`, `status`) and
 `GET /v1/inventory/reconciliations/{id}` are the report. The 02:00 tenant-local Temporal cron
 that would call it daily is not wired (see NOT-IMPLEMENTED.md).
@@ -315,7 +315,7 @@ No GL entry is produced: the calling document posts its own ledger entry.
 ## Run
 
 ```
-export DATABASE_URL=postgres://passage_app:...@localhost:5432/passage_inventory
+export DATABASE_URL=postgres://depot_app:...@localhost:5432/depot_inventory
 export MIGRATE_ON_START=true              # dev only
 export INV_INVENTORY_ACCOUNT=1300 INV_ADJUSTMENT_ACCOUNT=5100 INV_OPENING_CLEARING_ACCOUNT=3900
 go run ./cmd/inventory
@@ -328,12 +328,12 @@ transactions, and offsets them on receiving's `receipt.corrected` and fulfillmen
 `packingslip.cancelled` (#480, see NOT-IMPLEMENTED.md). A catch-weight line books the weight as
 qty and the cases as `cw_qty`; a plain line's quantity is converted into the product's inventory
 unit by the product service at `PRODUCT_URL` (optional; it needs the service signing key,
-`PASSAGE_SERVICE_NAME=inventory` and `PASSAGE_SERVICE_SIGNING_KEY[_FILE]`, and product must
+`DEPOT_SERVICE_NAME=inventory` and `DEPOT_SERVICE_SIGNING_KEY[_FILE]`, and product must
 trust inventory's public key). Without `PRODUCT_URL` plain lines are parked with `INV-PST-002`.
 Kafka user, ACLs and dead-letter topic: `deploy/kafka/inventory-consumer.yaml`.
 
 Truck stock (field service, FR-45.9, BR-45.7): the consumer also books field service's
-`workorder.completed.v1` (topic `passage.service.workorder.completed`): each PART line with a
+`workorder.completed.v1` (topic `depot.service.workorder.completed`): each PART line with a
 product and a consumed quantity is issued from the technician's truck, a warehouse of its own
 at a site, at DEDUCTED under the origin `SERVICE_LINE`. A truck that does not hold the quantity
 is refused with `INV-NEG-001` (the event parks on the dead-letter topic) unless
@@ -354,17 +354,17 @@ variable is missing. The HTTP port serves the API and `/healthz`; the admin port
 ```
 go vet ./...
 go test ./...                              # domain, API and contract tests run without a database
-PASSAGE_TEST_DATABASE_URL=postgres://owner@.../db \
-PASSAGE_TEST_APP_DATABASE_URL=postgres://passage_app@.../db go test ./...   # store tests under RLS
+DEPOT_TEST_DATABASE_URL=postgres://owner@.../db \
+DEPOT_TEST_APP_DATABASE_URL=postgres://depot_app@.../db go test ./...   # store tests under RLS
 ```
 
 Store tests use `platform/go/testkit` (`DBWithApp`): migrations run as the owner and every
-query runs as `passage_app` (NOSUPERUSER, NOBYPASSRLS), so row-level security is exercised.
-They skip without `PASSAGE_TEST_DATABASE_URL`. Domain property tests use `pgregory.net/rapid`.
+query runs as `depot_app` (NOSUPERUSER, NOBYPASSRLS), so row-level security is exercised.
+They skip without `DEPOT_TEST_DATABASE_URL`. Domain property tests use `pgregory.net/rapid`.
 
 The Wave 16 proof tests (`internal/store/wave16_ac*_test.go`) cover the issue's acceptance
 criteria: 10,000 concurrent issues (AC1), rebuild-and-compare after N transactions (AC2;
-40,000 by default, `PASSAGE_INVENTORY_AC2_TXNS=1000000` for the issue's 1M), the GL entry of
+40,000 by default, `DEPOT_INVENTORY_AC2_TXNS=1000000` for the issue's 1M), the GL entry of
 every journal type (AC3) and the `testdata/inv-fefo-100.json` FEFO fixture (AC4), whose
 expected picks come from `testdata/gen_fefo_100.py` (`python3 -I gen_fefo_100.py > inv-fefo-100.json`).
 
@@ -424,11 +424,11 @@ expected picks come from `testdata/gen_fefo_100.py` (`python3 -I gen_fefo_100.py
 | `idempotency_key_reuse` | 422 | Idempotency-Key (or a line `clientKey`) reused with a different body |
 
 Problems are RFC 9457 `application/problem+json` with `type` =
-`https://passage.dev/problems/<code>`.
+`https://depot.dev/problems/<code>`.
 
 ## Wave reference
 
-- Wave 16 / PSG-16 slices 1 to 6. Dependencies: wave 6 (sites, warehouses, UoM), wave 8
+- Wave 16 / DPT-16 slices 1 to 6. Dependencies: wave 6 (sites, warehouses, UoM), wave 8
   (products, dimension groups, item model groups), wave 11 (`Post(JournalEntry)`),
   wave 14 (period control), wave 4 (Temporal, outbox), wave 10 (migration framework).
 - Slice 1 posts synchronously in the request. The Temporal `PostInventoryJournal`

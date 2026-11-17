@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/iot-edge/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/iot-edge/internal/domain"
 )
 
 // fakeRecipes is the shopfloor side of the control recipe API as the connector sees it.

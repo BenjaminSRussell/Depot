@@ -31,7 +31,7 @@ func ParsePostingKind(s string) (PostingKind, error) {
 	return "", fmt.Errorf("%w: posting kind %q is not JOURNAL or DOCUMENT", ErrInvalid, s)
 }
 
-// RekeyPosting is one Passage posting line that a rollback hands back to the legacy system for
+// RekeyPosting is one Depot posting line that a rollback hands back to the legacy system for
 // re-keying. Amount is signed: debit positive, credit negative. Line numbers the lines of one
 // document from 1 in the order they were given.
 type RekeyPosting struct {

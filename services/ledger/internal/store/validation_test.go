@@ -8,11 +8,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/domain"
-	ledgerevents "github.com/BenjaminSRussell/passage/services/ledger/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/domain"
+	ledgerevents "github.com/BenjaminSRussell/depot/services/ledger/internal/events"
 )
 
 // AC-11.14: lines on accounts 6000-6999 require DEPT when the amount exceeds 1,000.

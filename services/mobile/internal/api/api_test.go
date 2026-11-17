@@ -14,15 +14,15 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/replay"
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/store"
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/warehouse"
-	"github.com/BenjaminSRussell/passage/services/mobile/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/replay"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/store"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/warehouse"
+	"github.com/BenjaminSRussell/depot/services/mobile/migrations"
 )
 
 const (
@@ -96,13 +96,13 @@ func (h *harness) do(q req) *httptest.ResponseRecorder {
 	if tid == "" {
 		tid = testkit.TenantID(1)
 	}
-	r.Header.Set("X-Passage-Tenant", tid)
-	r.Header.Set("X-Passage-Legal-Entity", "00000000-0000-0000-0000-0000000000e1")
+	r.Header.Set("X-Depot-Tenant", tid)
+	r.Header.Set("X-Depot-Legal-Entity", "00000000-0000-0000-0000-0000000000e1")
 	if q.user == "" {
 		q.user = "alice"
 	}
-	r.Header.Set("X-Passage-User", q.user)
-	r.Header.Set("X-Passage-Duties", q.duties)
+	r.Header.Set("X-Depot-User", q.user)
+	r.Header.Set("X-Depot-Duties", q.duties)
 	if q.key != "" {
 		r.Header.Set("Idempotency-Key", q.key)
 	}
@@ -263,10 +263,10 @@ func TestAC324PublishReachesTheNextMenuLoadAndTheEventStream(t *testing.T) {
 	srv := httptest.NewServer(chi.Chain().Handler(h.h))
 	defer srv.Close()
 	reqStream, _ := http.NewRequest("GET", srv.URL+"/v1/mobile/events", nil)
-	reqStream.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	reqStream.Header.Set("X-Passage-Legal-Entity", "00000000-0000-0000-0000-0000000000e1")
-	reqStream.Header.Set("X-Passage-User", "alice")
-	reqStream.Header.Set("X-Passage-Duties", dutyExecute)
+	reqStream.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	reqStream.Header.Set("X-Depot-Legal-Entity", "00000000-0000-0000-0000-0000000000e1")
+	reqStream.Header.Set("X-Depot-User", "alice")
+	reqStream.Header.Set("X-Depot-Duties", dutyExecute)
 	stream, err := http.DefaultClient.Do(reqStream)
 	if err != nil {
 		t.Fatal(err)

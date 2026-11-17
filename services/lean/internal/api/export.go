@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/lean/internal/store"
+	"github.com/BenjaminSRussell/depot/services/lean/internal/store"
 )
 
 // exportHeader is the column order of the flow costing period report (PRD

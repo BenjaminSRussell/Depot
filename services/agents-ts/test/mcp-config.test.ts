@@ -15,7 +15,7 @@ const rpcResult = (result: unknown): Response => new Response(JSON.stringify({ j
 describe("MCP connector", () => {
   const listing = {
     tools: [
-      { name: "passage.ap.invoice.get", description: "d", inputSchema: {}, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true }, "x-passage-duty": "ap.invoice.read", "x-passage-approval": "none" },
+      { name: "depot.ap.invoice.get", description: "d", inputSchema: {}, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true }, "x-depot-duty": "ap.invoice.read", "x-depot-approval": "none" },
       { name: "bad", description: "no duty" },
     ],
   };
@@ -29,13 +29,13 @@ describe("MCP connector", () => {
       return rpcResult({ content: [{ type: "text", text: JSON.stringify({ id: "INV-7" }) }], isError: false });
     };
     const session = await createMcpConnector({ baseUrl: "http://mcp.internal/", fetchFn }).connect(caller, "tok-1", "run-9");
-    expect(session.tools.map((t) => t.name)).toEqual(["passage.ap.invoice.get"]);
-    expect(session.describe("passage.ap.invoice.get")).toEqual({ requiredDuty: "ap.invoice.read", approvalMode: "none" });
+    expect(session.tools.map((t) => t.name)).toEqual(["depot.ap.invoice.get"]);
+    expect(session.describe("depot.ap.invoice.get")).toEqual({ requiredDuty: "ap.invoice.read", approvalMode: "none" });
     expect(session.describe("bad")).toBeUndefined();
-    expect(await session.call("passage.ap.invoice.get", { invoiceId: "INV-7" })).toEqual({ ok: true, output: { id: "INV-7" }, ref: "INV-7" });
+    expect(await session.call("depot.ap.invoice.get", { invoiceId: "INV-7" })).toEqual({ ok: true, output: { id: "INV-7" }, ref: "INV-7" });
     for (const s of seen) {
       expect(s.url).toBe("http://mcp.internal/mcp");
-      expect(s.headers).toMatchObject({ authorization: "Bearer tok-1", "x-passage-tenant": T1, "x-passage-user": USER, "x-agent-run-id": "run-9" });
+      expect(s.headers).toMatchObject({ authorization: "Bearer tok-1", "x-depot-tenant": T1, "x-depot-user": USER, "x-agent-run-id": "run-9" });
     }
   });
 
@@ -47,9 +47,9 @@ describe("MCP connector", () => {
     ];
     const fetchFn: typeof fetch = async () => answers.shift() ?? Promise.reject(new Error("down"));
     const session = await createMcpConnector({ baseUrl: "http://mcp", fetchFn }).connect(caller, "t");
-    expect(await session.call("passage.ap.invoice.get", {})).toEqual({ ok: false, code: "AGT-0203", message: "no duty" });
-    expect(await session.call("passage.ap.invoice.get", {})).toEqual({ ok: false, code: "AGT-0214", message: "upstream said no" });
-    expect(await session.call("passage.ap.invoice.get", {})).toMatchObject({ ok: false, code: "AGT-0214" });
+    expect(await session.call("depot.ap.invoice.get", {})).toEqual({ ok: false, code: "AGT-0203", message: "no duty" });
+    expect(await session.call("depot.ap.invoice.get", {})).toEqual({ ok: false, code: "AGT-0214", message: "upstream said no" });
+    expect(await session.call("depot.ap.invoice.get", {})).toMatchObject({ ok: false, code: "AGT-0214" });
   });
 
   it("fails to connect when tools/list is refused", async () => {
@@ -59,13 +59,13 @@ describe("MCP connector", () => {
 });
 
 describe("config", () => {
-  const base = { MCP_URL: "http://mcp:8080", AGENTS_JWT_ISSUER: "https://idp.dev.passage.dev/realms/dev", AGENTS_JWKS_URL: "https://idp.dev.passage.dev/realms/dev/protocol/openid-connect/certs" };
+  const base = { MCP_URL: "http://mcp:8080", AGENTS_JWT_ISSUER: "https://idp.dev.depot.dev/realms/dev", AGENTS_JWKS_URL: "https://idp.dev.depot.dev/realms/dev/protocol/openid-connect/certs" };
 
   it("defaults to the Claude Sonnet model on the Anthropic provider and keeps every model configurable", () => {
     const cfg = loadConfig(base);
     expect([MODEL_OPUS, MODEL_SONNET, MODEL_HAIKU]).toEqual(["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]);
     expect(cfg).toMatchObject({ provider: "anthropic", model: "claude-sonnet-5-5", copilotModel: "claude-sonnet-5-5", port: 8080, adminPort: 9090 });
-    expect(cfg.jwt).toEqual({ issuer: base.AGENTS_JWT_ISSUER, audience: "passage-api", jwksUrl: base.AGENTS_JWKS_URL, jwksFile: undefined });
+    expect(cfg.jwt).toEqual({ issuer: base.AGENTS_JWT_ISSUER, audience: "depot-api", jwksUrl: base.AGENTS_JWKS_URL, jwksFile: undefined });
     const tuned = loadConfig({ ...base, AGENTS_MODEL: MODEL_OPUS, AGENTS_COPILOT_MODEL: MODEL_HAIKU, AGENTS_MODEL_OVERRIDES: `{"anomaly":"${MODEL_HAIKU}"}` });
     expect(tuned.copilotModel).toBe("claude-haiku-5-5");
     const models = Object.fromEntries(agentCatalog(tuned).map((a) => [a.agentId, a.modelId]));
@@ -96,7 +96,7 @@ describe("config", () => {
       calls.push(String(url));
       return new Response(JSON.stringify({ content: [{ type: "tool_use", name: "propose_action", input: { text: "hi" } }], usage: { input_tokens: 1, output_tokens: 1 } }), { status: 200 });
     };
-    const req = { system: "s", user: "u", allowedTools: ["passage.ap.invoice.get"] };
+    const req = { system: "s", user: "u", allowedTools: ["depot.ap.invoice.get"] };
     const anthropic = createProviderFactory(loadConfig({ ...base, ANTHROPIC_API_KEY: "sk-test-not-real" }), fetchFn);
     expect((await anthropic("claude-haiku-5-5").complete(req)).text).toBe("hi");
     expect(calls).toEqual(["https://api.anthropic.com/v1/messages"]);

@@ -31,9 +31,9 @@ import {
 // way the run can end leaves exactly one agent_action row for it, and a human
 // decision is never lost from that row.
 
-const POST = "passage.ap.invoice.post";
-const CODING = "passage.ap.invoice.propose_coding";
-const READ = "passage.ap.invoice.get";
+const POST = "depot.ap.invoice.post";
+const CODING = "depot.ap.invoice.propose_coding";
+const READ = "depot.ap.invoice.get";
 const autoPolicy = {
   mode: "AUTO" as const,
   autoThreshold: 0.95,
@@ -381,9 +381,9 @@ describe("audit and authorization invariants over generated runs (AC2, AC3)", ()
     "LedgerPost",
     "APInvoiceRead",
   ];
-  const CASH = "passage.ar.cash.apply";
+  const CASH = "depot.ar.cash.apply";
   const OTHER_IBAN = "GB82WEST12345698765432";
-  const LEDGER = "passage.ledger.journal.reverse";
+  const LEDGER = "depot.ledger.journal.reverse";
   const descriptors: Record<string, ToolDescriptor> = {
     [POST]: postDescriptor,
     [CODING]: codingDescriptor,
@@ -420,7 +420,7 @@ describe("audit and authorization invariants over generated runs (AC2, AC3)", ()
         CASH,
         READ,
         LEDGER,
-        "passage.unknown.tool",
+        "depot.unknown.tool",
       ]);
       const confidence = pick(r, [0.5, 0.8, 0.96, 0.99]);
       const amount = pick(r, ["10", "1200", "9000"]);

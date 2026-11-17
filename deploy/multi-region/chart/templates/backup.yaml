@@ -1,4 +1,4 @@
-{{- if include "passage-mr.backsUp" . }}
+{{- if include "depot-mr.backsUp" . }}
 # Continuous WAL archiving plus scheduled base backups to object storage through the
 # CNPG barman-cloud plugin (PITR, RPO target failover.rpoTargetSeconds). A PASSIVE
 # replica cluster does not archive; it starts after promotion, when the region is
@@ -6,15 +6,15 @@
 apiVersion: barmancloud.cnpg.io/v1
 kind: ObjectStore
 metadata:
-  name: {{ include "passage-mr.backupStore" . }}
+  name: {{ include "depot-mr.backupStore" . }}
   namespace: {{ .Values.region.namespace }}
   labels:
-    {{- include "passage-mr.labels" . | nindent 4 }}
+    {{- include "depot-mr.labels" . | nindent 4 }}
 spec:
   retentionPolicy: {{ .Values.backup.retentionPolicy | quote }}
   configuration:
-    {{- if include "passage-mr.azureBlob" . }}
-    destinationPath: {{ default (include "passage-mr.azureDestination" .) .Values.backup.destinationPath | quote }}
+    {{- if include "depot-mr.azureBlob" . }}
+    destinationPath: {{ default (include "depot-mr.azureDestination" .) .Values.backup.destinationPath | quote }}
     {{- if .Values.backup.azure.useWorkloadIdentity }}
     azureCredentials:
       inheritFromAzureAD: true
@@ -28,7 +28,7 @@ spec:
         key: AZURE_STORAGE_KEY
     {{- end }}
     {{- else }}
-    destinationPath: {{ default (printf "s3://passage-pg-backups-%s/" .Values.region.id) .Values.backup.destinationPath | quote }}
+    destinationPath: {{ default (printf "s3://depot-pg-backups-%s/" .Values.region.id) .Values.backup.destinationPath | quote }}
     {{- with .Values.backup.endpointURL }}
     endpointURL: {{ . | quote }}
     {{- end }}
@@ -51,7 +51,7 @@ metadata:
   name: {{ .Values.postgres.clusterName }}-daily
   namespace: {{ .Values.region.namespace }}
   labels:
-    {{- include "passage-mr.labels" . | nindent 4 }}
+    {{- include "depot-mr.labels" . | nindent 4 }}
 spec:
   schedule: {{ .Values.backup.schedule | quote }}
   backupOwnerReference: self

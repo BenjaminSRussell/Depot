@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { CustomerContactsPage } from "./security/CustomerContactsPage";
 import { EffectivePermissionsPage } from "./security/EffectivePermissionsPage";
 import { LegalEntitiesPage } from "./security/LegalEntitiesPage";
@@ -8,7 +8,7 @@ import { RoleDetailPage, RolesPage } from "./security/RolesPage";
 import { UserDetailPage, UsersPage } from "./security/UsersPage";
 import { AdminHome, AlertInbox, AuditViewer, DocumentsPage, ImportExportPage, SequencePage, TextsPage } from "./pages";
 
-const admin: PassageModule = {
+const admin: DepotModule = {
   id: "admin",
   title: "Admin",
   description: "Numbering, audit, alerts, imports, documents and security.",

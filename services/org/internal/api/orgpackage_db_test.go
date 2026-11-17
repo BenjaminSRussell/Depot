@@ -8,11 +8,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/api"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
-	"github.com/BenjaminSRussell/passage/services/org/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/api"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/services/org/migrations"
 )
 
 // The package moves a whole organization model through PostgreSQL under row-level security:
@@ -28,7 +28,7 @@ func TestOrgPackage_Postgres_ImportExportRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	r, _ := memRouterFor(store.New(app))
-	tenantTwo := []string{"X-Passage-Tenant", testkit.TenantID(2)}
+	tenantTwo := []string{"X-Depot-Tenant", testkit.TenantID(2)}
 
 	first := do(r, http.MethodPost, "/v1/org/import", packageBody, packageDuties, true)
 	if first.Code != http.StatusOK {
@@ -65,12 +65,12 @@ func TestOrgPackage_Postgres_ImportExportRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(other.Body.Bytes(), &otherReport); err != nil || other.Code != http.StatusOK || otherReport.Created != packageRecords {
 		t.Fatalf("import into another tenant = %d %s", other.Code, other.Body)
 	}
-	dry := do(r, http.MethodPost, "/v1/org/import?dryRun=true", packageBody, packageDuties, true, "X-Passage-Tenant", testkit.TenantID(3))
+	dry := do(r, http.MethodPost, "/v1/org/import?dryRun=true", packageBody, packageDuties, true, "X-Depot-Tenant", testkit.TenantID(3))
 	var dryReport api.ImportReport
 	if err := json.Unmarshal(dry.Body.Bytes(), &dryReport); err != nil || dryReport.Created != packageRecords || !dryReport.DryRun {
 		t.Fatalf("dry run = %d %s", dry.Code, dry.Body)
 	}
-	empty := do(r, http.MethodPost, "/v1/org/export", "", packageDuties, true, "X-Passage-Tenant", testkit.TenantID(3))
+	empty := do(r, http.MethodPost, "/v1/org/export", "", packageDuties, true, "X-Depot-Tenant", testkit.TenantID(3))
 	if empty.Code != http.StatusOK || len(mustList(t, empty.Body.Bytes(), "legalEntities")) != 0 {
 		t.Fatalf("dry run wrote rows: %s", empty.Body)
 	}
@@ -150,7 +150,7 @@ func TestOrgPackage_Postgres_VersionsAndCalendarsRoundTrip(t *testing.T) {
 	if len(versions) != 2 || len(versions[1].(map[string]any)["nodes"].([]any)) != 3 || len(mustList(t, exported.Body.Bytes(), "fiscalCalendars")) != 2 {
 		t.Fatalf("export = %s", exported.Body)
 	}
-	other := do(r, http.MethodPost, "/v1/org/import", exported.Body.String(), packageDuties, true, "X-Passage-Tenant", testkit.TenantID(2))
+	other := do(r, http.MethodPost, "/v1/org/import", exported.Body.String(), packageDuties, true, "X-Depot-Tenant", testkit.TenantID(2))
 	var otherReport api.ImportReport
 	if err := json.Unmarshal(other.Body.Bytes(), &otherReport); err != nil || other.Code != http.StatusOK || otherReport.Created != timeRecords {
 		t.Fatalf("import of the export into another tenant = %d %s", other.Code, other.Body)
@@ -165,12 +165,12 @@ func pastHistory() string {
 
 func hierarchyVersionsOf(t *testing.T, r http.Handler, tenantID string) (string, []map[string]any) {
 	t.Helper()
-	types := do(r, http.MethodGet, "/v1/org/hierarchy-types", "", "org.read", true, "X-Passage-Tenant", tenantID)
+	types := do(r, http.MethodGet, "/v1/org/hierarchy-types", "", "org.read", true, "X-Depot-Tenant", tenantID)
 	var page struct{ Items []struct{ ID string } }
 	if err := json.Unmarshal(types.Body.Bytes(), &page); err != nil || len(page.Items) != 1 {
 		t.Fatalf("hierarchy types = %d %s", types.Code, types.Body)
 	}
-	list := do(r, http.MethodGet, "/v1/org/hierarchy-types/"+page.Items[0].ID+"/versions", "", "org.read", true, "X-Passage-Tenant", tenantID)
+	list := do(r, http.MethodGet, "/v1/org/hierarchy-types/"+page.Items[0].ID+"/versions", "", "org.read", true, "X-Depot-Tenant", tenantID)
 	var versions struct{ Items []map[string]any }
 	if err := json.Unmarshal(list.Body.Bytes(), &versions); err != nil {
 		t.Fatalf("versions = %d %s", list.Code, list.Body)
@@ -228,7 +228,7 @@ func TestOrgPackage_Postgres_VersionHistoryResumeAndRace(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if rec := do(r, http.MethodPost, "/v1/org/import", body, packageDuties, true, "X-Passage-Tenant", tenant2); rec.Code != http.StatusOK {
+			if rec := do(r, http.MethodPost, "/v1/org/import", body, packageDuties, true, "X-Depot-Tenant", tenant2); rec.Code != http.StatusOK {
 				t.Errorf("racing import = %d %s", rec.Code, rec.Body)
 			}
 		}()
@@ -238,7 +238,7 @@ func TestOrgPackage_Postgres_VersionHistoryResumeAndRace(t *testing.T) {
 	if len(versions) != 2 || versions[0]["status"] != "published" || versions[1]["status"] != "superseded" || versions[1]["effectiveTo"] != "2021-06-01" {
 		t.Fatalf("after the race versions = %v", versions)
 	}
-	after := do(r, http.MethodPost, "/v1/org/import", body, packageDuties, true, "X-Passage-Tenant", tenant2)
+	after := do(r, http.MethodPost, "/v1/org/import", body, packageDuties, true, "X-Depot-Tenant", tenant2)
 	var again api.ImportReport
 	if err := json.Unmarshal(after.Body.Bytes(), &again); err != nil || again.Created != 0 || again.Unchanged != timeRecords {
 		t.Fatalf("import after the race = %d %s", after.Code, after.Body)

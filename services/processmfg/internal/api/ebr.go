@@ -9,12 +9,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/store"
 )
 
 // DutyBatchRecordWrite carries the PRD's *Review batch records* (4.24.17: EBR
@@ -333,7 +333,7 @@ func (a *API) raiseException(w http.ResponseWriter, r *http.Request) {
 
 // dispositionExceptionRequest decides an exception. The decision is signed
 // by this call (meaning reviewed): the caller gives the printed name and the
-// step-up assertion in X-Passage-Reauth-Assertion, and the service makes the
+// step-up assertion in X-Depot-Reauth-Assertion, and the service makes the
 // signature. A client-made signatureId is no longer accepted.
 type dispositionExceptionRequest struct {
 	Version     int    `json:"version"`

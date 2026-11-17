@@ -20,7 +20,7 @@
     "displayName": "Microsoft Entra ID",
     "enabled": false,
     "linkOnly": false,
-    "postBrokerLoginFlowAlias": "passage-post-broker-mfa",
+    "postBrokerLoginFlowAlias": "depot-post-broker-mfa",
     "providerId": "oidc",
     "storeToken": false,
     "trustEmail": false

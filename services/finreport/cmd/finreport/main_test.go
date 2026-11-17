@@ -10,9 +10,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/api"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/config"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/api"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/config"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/store"
 )
 
 type emptyStore struct{ api.Store }
@@ -30,7 +30,7 @@ func TestNewHandler_ServesHealthAndTenantRoutes(t *testing.T) {
 	}{
 		{"/healthz", nil, http.StatusOK},
 		{"/v1/reporting/lag", map[string]string{
-			"X-Passage-Tenant": "00000000-0000-0000-0000-000000000001", "X-Passage-User": "u1", "X-Passage-Duties": "reporting.statement.view",
+			"X-Depot-Tenant": "00000000-0000-0000-0000-000000000001", "X-Depot-User": "u1", "X-Depot-Duties": "reporting.statement.view",
 		}, http.StatusOK},
 		{"/v1/reporting/lag", nil, http.StatusUnauthorized},
 	} {
@@ -50,7 +50,7 @@ func (emptyStore) RedeemShareLink(context.Context, string) (store.SharedFile, er
 	return store.SharedFile{}, nil
 }
 
-// Slice 19 added a route without a Passage identity. Every other route must
+// Slice 19 added a route without a Depot identity. Every other route must
 // still need the tenant headers: walk the authenticated route table and call
 // each route with none, and check the download is the only route that answers
 // without them.

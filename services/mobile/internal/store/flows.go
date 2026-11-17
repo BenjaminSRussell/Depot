@@ -8,9 +8,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	evts "github.com/BenjaminSRussell/passage/services/mobile/internal/events"
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/flows"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	evts "github.com/BenjaminSRussell/depot/services/mobile/internal/events"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/flows"
 )
 
 const (
@@ -97,7 +97,7 @@ func saveDraft(ctx context.Context, tx pgx.Tx, d flows.Draft) (Flow, error) {
 }
 
 // Publish validates a DRAFT, retires the code's current PUBLISHED version,
-// publishes the draft and emits dev.passage.mobile.flow.published.v1. ifMatch
+// publishes the draft and emits dev.depot.mobile.flow.published.v1. ifMatch
 // is the draft's version, or 0 to skip the check.
 func (s *Store) Publish(ctx context.Context, idem Idem, flowID string, ifMatch int) (Flow, bool, error) {
 	var out Flow

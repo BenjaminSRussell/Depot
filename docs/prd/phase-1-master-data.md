@@ -2,7 +2,7 @@
 
 ## 1.0 Phase overview
 
-**Business outcome at phase exit.** A master-data steward can model the demo manufacturer end to end on Passage without touching AX or SAP: three legal entities, two plants, five warehouses and their hierarchies; one governed party record per customer, vendor and contact; a 500-item, 50-master product catalog released per legal entity; multi-level BOMs and routings under engineering change control; and a migration framework that has loaded all of it from a synthetic AX extract with 100% reconciliation. Every later phase (journal in wave 11, inventory in wave 16, orders in wave 26) filters by this enterprise structure, posts against these parties and products, and loads its own legacy data through this framework.
+**Business outcome at phase exit.** A master-data steward can model the demo manufacturer end to end on Depot without touching AX or SAP: three legal entities, two plants, five warehouses and their hierarchies; one governed party record per customer, vendor and contact; a 500-item, 50-master product catalog released per legal entity; multi-level BOMs and routings under engineering change control; and a migration framework that has loaded all of it from a synthetic AX extract with 100% reconciliation. Every later phase (journal in wave 11, inventory in wave 16, orders in wave 26) filters by this enterprise structure, posts against these parties and products, and loads its own legacy data through this framework.
 
 **Phase-exit sign-off criteria**
 - `make demo-seed` loads the demo manufacturer (3 legal entities, 2 sites, 5 warehouses, 3 hierarchy purposes) in under 2 minutes and every list page re-scopes on legal-entity switch (property test over 20 entities, 0 leaks).
@@ -40,20 +40,20 @@
 
 | Event name | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| dev.passage.org.legalentity.created.v1 | org-service | party, product, ledger (w11), shell | legal_entity_id, code, name, country, currency, fiscal_calendar_id |
-| dev.passage.org.hierarchy.version.activated.v1 | org-service | security (OPA bundle), reporting, procurement | hierarchy_type_id, version_id, effective_from, node_count |
-| dev.passage.org.site.created.v1 / warehouse.created.v1 | org-service | product (released defaults), inventory (w16) | id, legal_entity_id, parent ids, address_id |
-| dev.passage.org.fiscalcalendar.generated.v1 | org-service | ledger (w11), period close (w14) | calendar_id, pattern, period_count, year |
-| dev.passage.party.created.v1 / updated.v1 | party-service | search index, migration, audit | party_id, type, name, primary_address_id |
-| dev.passage.party.customer.created.v1 / vendor.created.v1 | party-service | AR (w30), AP (w19), sales (w26), purchasing (w17) | party_id, legal_entity_id, account_number, group, terms |
-| dev.passage.party.merged.v1 | party-service | every service holding party_id FKs | survivor_id, merged_ids[], reference_rewrite_count |
-| dev.passage.party.change.approved.v1 | party-service (Temporal) | audit, notification | party_id, field, old, new, approver |
-| dev.passage.product.created.v1 / variant.created.v1 | product-service | engineering, inventory, pricing (w26) | product_id, master_id, dimension_values |
-| dev.passage.product.released.v1 | product-service | inventory, purchasing, sales, costing | product_id, legal_entity_id, item_model_group_id, defaults |
-| dev.passage.engineering.bom.version.activated.v1 | engineering-service | planning (w22), production (w21), costing (w39) | bom_version_id, product_id, site_id, effective_from, line_count |
-| dev.passage.engineering.route.version.activated.v1 | engineering-service | planning, scheduling (w23), production | route_version_id, operations[] |
-| dev.passage.engineering.eco.released.v1 | engineering-service | notification, audit, PLM adapter | eco_id, affected_versions[], release_date |
-| dev.passage.migration.run.completed.v1 | migration-service | notification, reconciliation UI, audit | run_id, project_id, counts{staged, loaded, rejected}, hash_match |
+| dev.depot.org.legalentity.created.v1 | org-service | party, product, ledger (w11), shell | legal_entity_id, code, name, country, currency, fiscal_calendar_id |
+| dev.depot.org.hierarchy.version.activated.v1 | org-service | security (OPA bundle), reporting, procurement | hierarchy_type_id, version_id, effective_from, node_count |
+| dev.depot.org.site.created.v1 / warehouse.created.v1 | org-service | product (released defaults), inventory (w16) | id, legal_entity_id, parent ids, address_id |
+| dev.depot.org.fiscalcalendar.generated.v1 | org-service | ledger (w11), period close (w14) | calendar_id, pattern, period_count, year |
+| dev.depot.party.created.v1 / updated.v1 | party-service | search index, migration, audit | party_id, type, name, primary_address_id |
+| dev.depot.party.customer.created.v1 / vendor.created.v1 | party-service | AR (w30), AP (w19), sales (w26), purchasing (w17) | party_id, legal_entity_id, account_number, group, terms |
+| dev.depot.party.merged.v1 | party-service | every service holding party_id FKs | survivor_id, merged_ids[], reference_rewrite_count |
+| dev.depot.party.change.approved.v1 | party-service (Temporal) | audit, notification | party_id, field, old, new, approver |
+| dev.depot.product.created.v1 / variant.created.v1 | product-service | engineering, inventory, pricing (w26) | product_id, master_id, dimension_values |
+| dev.depot.product.released.v1 | product-service | inventory, purchasing, sales, costing | product_id, legal_entity_id, item_model_group_id, defaults |
+| dev.depot.engineering.bom.version.activated.v1 | engineering-service | planning (w22), production (w21), costing (w39) | bom_version_id, product_id, site_id, effective_from, line_count |
+| dev.depot.engineering.route.version.activated.v1 | engineering-service | planning, scheduling (w23), production | route_version_id, operations[] |
+| dev.depot.engineering.eco.released.v1 | engineering-service | notification, audit, PLM adapter | eco_id, affected_versions[], release_date |
+| dev.depot.migration.run.completed.v1 | migration-service | notification, reconciliation UI, audit | run_id, project_id, counts{staged, loaded, rejected}, hash_match |
 
 **Phase-level risks**
 
@@ -76,7 +76,7 @@ Out of scope: ledger period *statuses* (wave 14 owns open/closed per module), wa
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX organization hierarchy designer (OMHierarchyRelationship) only shows one effective date at a time; previewing "what changes on 2026-07-01" means publishing and re-opening; a mistaken publish cannot be undone | Hierarchy relationships are stored as flat ValidFrom/ValidTo rows with no version concept | Versioned trees with draft/published states, as-of slider and a diff view before publish (FR-6.3, FR-6.11) | Preview clicks 9→1; wrong-date publishes recoverable in 100% of cases via superseding version |
 | SAP enterprise structure (OX02/OX10/OX09/OX18/OB29) requires 6+ IMG transactions plus assignments to define one plant; a missing assignment surfaces only when the first goods movement fails | Configuration spread across customizing tables (T001, T001W, T001K, T001L, T024E) with assignment tables between them | One `Site` create carries its legal entity, calendar and default warehouse; invariants are checked at save, not at first transaction (FR-6.5) | Transactions 6→1; structural errors found at save: 100% vs ~0% |
@@ -86,7 +86,7 @@ Out of scope: ledger period *statuses* (wave 14 owns open/closed per module), wa
 
 ### 1.6.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Legal entity | CompanyInfo, `OMLegalEntity` form, DataAreaId | T001 company code (OX02) | org-service `LegalEntity`; Legal entities screen | full |
 | Operating units | OMOperatingUnit (dept, cost center, BU, value stream) | Cost center CSKS (KS01), profit center CEPC, controlling area TKA01 | `OperatingUnit` with `type` enum | full |
@@ -134,13 +134,13 @@ Out of scope: ledger period *statuses* (wave 14 owns open/closed per module), wa
 - **FR-6.9 UoM conversions** — Must. The system shall store conversions as `factor` and `offset` with numeric(28,12) precision and compute any-to-any within a class by path search of at most two hops.
   - Round-trip of 1 unit through A→B→A must return exactly 1 to 12 decimal places for the 50-pair fixture.
   - Temperature uses the offset (°C→°F: factor 1.8, offset 32).
-- **FR-6.10 Legal-entity context switch** — Must. The system shall carry `X-Passage-LegalEntity` on every request; generated list pages filter by it, and the OPA policy denies requests for entities the user has no role assignment in.
+- **FR-6.10 Legal-entity context switch** — Must. The system shall carry `X-Depot-LegalEntity` on every request; generated list pages filter by it, and the OPA policy denies requests for entities the user has no role assignment in.
 - **FR-6.11 Hierarchy designer UI** — Should. The system shall provide a drag-and-drop tree editor with an effective-date slider that previews the tree as of a chosen date and highlights nodes that change between versions.
 - **FR-6.12 Seed and export** — Should. The system shall export and import the complete organization model as a versioned JSON package (used by `make demo-seed` and by the migration framework in wave 10).
 - **FR-6.13 Address validation adapter** — Could. The system shall expose an address-validation adapter interface (normalize, suggest) with a null default; third-party adapters are out of scope for this wave.
 - **FR-6.14 Teams and team types** — Should. The system shall maintain team types (code, name, allowed member kinds `user` / `party`) and teams (code unique per tenant, name, description, team type, optional owning operating unit, `effective_from`/`effective_to`, status) with members (Keycloak user id or wave-7 party id, member role `member` / `lead`, `valid_from`/`valid_to`).
   - Teams are cross-organization groups, not hierarchy nodes; they are referenced by stewardship ownership (FR-7.11 `owner_team_id`), wave-4 work-item queues, address-book access (FR-7.18) and readiness-check assignment (FR-9.17).
-  - Limits: 5,000 teams per tenant, 2,000 members per team; membership changes publish `dev.passage.org.team.membership.changed.v1` (team_id, added[], removed[], as_of).
+  - Limits: 5,000 teams per tenant, 2,000 members per team; membership changes publish `dev.depot.org.team.membership.changed.v1` (team_id, added[], removed[], as_of).
   - Membership criteria (AX OMTeamMembershipCriterion) are an optional Rego filter over user attributes (e.g. `department == "D100"`), evaluated nightly by job ORG-J5; manual members are never removed by the rule.
 - **FR-6.15 Legal-entity copy from template** — Should. The system shall create a legal entity by copying an existing legal entity or a template package: number sequences (reset to start values), fiscal calendar assignment, parameters (§1.6.13), address purposes, and optionally sites and warehouses; code, name, country and accounting currency are supplied by the user.
   - Runs as Temporal workflow `copy-le-{target_code}`; every copied object receives a new id; transactional data is never copied.
@@ -232,13 +232,13 @@ Commands validate: codes against regex; address against country rules; hierarchy
 
 | Event (CloudEvents type) | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.org.legalentity.created.v1 | commit of legal entity | id, code, name, country_code, accounting_currency, time_zone | party, product, ledger, shell switcher |
-| dev.passage.org.legalentity.updated.v1 | PATCH commit | id, changed_fields[], version | shell, search |
-| dev.passage.org.operatingunit.created.v1 | commit | id, type, code, name | reporting, ledger dimensions |
-| dev.passage.org.hierarchy.version.activated.v1 | publish | hierarchy_type_id, purposes[], version_id, effective_from, node_count | OPA bundle builder, reporting, procurement |
-| dev.passage.org.site.created.v1 / warehouse.created.v1 / location.created.v1 | commit | id, legal_entity_id, parent_id, type, address_id | product, inventory |
-| dev.passage.org.address.changed.v1 | new address version | address_id, owner_type, owner_id, purposes[], valid_from | document services |
-| dev.passage.org.fiscalcalendar.generated.v1 | generate | calendar_id, fiscal_year, periods[] | ledger, period close |
+| dev.depot.org.legalentity.created.v1 | commit of legal entity | id, code, name, country_code, accounting_currency, time_zone | party, product, ledger, shell switcher |
+| dev.depot.org.legalentity.updated.v1 | PATCH commit | id, changed_fields[], version | shell, search |
+| dev.depot.org.operatingunit.created.v1 | commit | id, type, code, name | reporting, ledger dimensions |
+| dev.depot.org.hierarchy.version.activated.v1 | publish | hierarchy_type_id, purposes[], version_id, effective_from, node_count | OPA bundle builder, reporting, procurement |
+| dev.depot.org.site.created.v1 / warehouse.created.v1 / location.created.v1 | commit | id, legal_entity_id, parent_id, type, address_id | product, inventory |
+| dev.depot.org.address.changed.v1 | new address version | address_id, owner_type, owner_id, purposes[], valid_from | document services |
+| dev.depot.org.fiscalcalendar.generated.v1 | generate | calendar_id, fiscal_year, periods[] | ledger, period close |
 
 ### 1.6.6 User experience
 
@@ -274,7 +274,7 @@ Interaction rules: all grids support inline edit with validation on blur and a s
 ### 1.6.8 Acceptance criteria
 
 - **AC-6.1** (FR-6.3, FR-6.4) Given 1,000 effective-dated nodes across 5 purposes with 3 versions each, when the as-of API is called for 10,000 random (node, date) pairs, then every parent matches the fixture oracle and p95 latency < 20 ms.
-- **AC-6.2** (FR-6.10) Given a user assigned to legal entities USMF and DEMF, when they switch from USMF to DEMF, then all 20 generated list pages show only DEMF rows and a direct API call with `X-Passage-LegalEntity: FRMF` returns 403.
+- **AC-6.2** (FR-6.10) Given a user assigned to legal entities USMF and DEMF, when they switch from USMF to DEMF, then all 20 generated list pages show only DEMF rows and a direct API call with `X-Depot-LegalEntity: FRMF` returns 403.
 - **AC-6.3** (FR-6.9) Given the 50-pair conversion fixture, when each quantity is converted A→B→A, then the result equals the input to 12 decimal places.
 - **AC-6.4** (FR-6.7) Given calendar patterns 4-4-5, 13-period and calendar-year for fiscal 2026, when generated, then period boundaries equal the committed fixture files exactly, including the 53rd week in the 4-4-5 variant for 2028.
 - **AC-6.5** (FR-6.3, BR-6.2) Given a published version effective 2026-01-01, when a draft with `effective_from` 2025-12-01 is published without the backdate duty, then the request is rejected with 403 and no version changes state.
@@ -305,11 +305,11 @@ Reconciliation: node count per published version = closure rows with depth 0; co
 
 ### 1.6.10 Deployment and operations
 
-Helm chart `passage-org` (Deployment ×2 replicas, CloudNativePG cluster `org-db` with 3 instances, Debezium connector CR for the outbox table). Config: `ORG_HIERARCHY_MAX_NODES=50000`, `ORG_GEOCODER=null`, `ORG_SEED_PACKAGE=demo-manufacturer`. Migrations via Atlas from entity metadata, applied by an Argo CD pre-sync Job. Feature flags: `org.hierarchy_designer`, `org.address_validation_adapter`. Scheduled job: nightly closure-table integrity check (Temporal cron `0 2 * * *`). SLOs: read p95 < 50 ms, as-of p95 < 20 ms, availability 99.9%. Alerts: outbox lag > 60 s, closure integrity failure, OPA bundle rebuild older than 5 min after a security hierarchy activation. Runbook: "Hierarchy publish stuck" (check Temporal workflow `publish-hierarchy-{id}`), "Rebuild closure table" (`passagectl org rebuild-closure --version`). Rollback: Argo rollback to the previous digest; migrations in this wave are additive only, so no down-migration is needed.
+Helm chart `depot-org` (Deployment ×2 replicas, CloudNativePG cluster `org-db` with 3 instances, Debezium connector CR for the outbox table). Config: `ORG_HIERARCHY_MAX_NODES=50000`, `ORG_GEOCODER=null`, `ORG_SEED_PACKAGE=demo-manufacturer`. Migrations via Atlas from entity metadata, applied by an Argo CD pre-sync Job. Feature flags: `org.hierarchy_designer`, `org.address_validation_adapter`. Scheduled job: nightly closure-table integrity check (Temporal cron `0 2 * * *`). SLOs: read p95 < 50 ms, as-of p95 < 20 ms, availability 99.9%. Alerts: outbox lag > 60 s, closure integrity failure, OPA bundle rebuild older than 5 min after a security hierarchy activation. Runbook: "Hierarchy publish stuck" (check Temporal workflow `publish-hierarchy-{id}`), "Rebuild closure table" (`depotctl org rebuild-closure --version`). Rollback: Argo rollback to the previous digest; migrations in this wave are additive only, so no down-migration is needed.
 
 ### 1.6.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX CompanyInfo / OMLegalEntity (DataAreaId, Name, LanguageId, CurrencyCode via Ledger) | LegalEntity | DataAreaId → code (upper-cased); Ledger.AccountingCurrency → accounting_currency |
 | AX OMOperatingUnit (OMOperatingUnitNumber, OMOperatingUnitType) | OperatingUnit | type enum 1..4 → department/cost_center/business_unit/value_stream |
@@ -325,7 +325,7 @@ Helm chart `passage-org` (Deployment ×2 replicas, CloudNativePG cluster `org-db
 | SAP T009 / T009B | FiscalCalendar, FiscalPeriod | special periods 13–16 → adjustment periods when `sap_special_periods=true` |
 | SAP T006 / T006A / TCURC / TCURX / T005 | reference data | matched to ISO seed by code; unmatched custom units created |
 
-Validation: every migrated warehouse resolves to a site; every address passes country rules or lands in the exception queue; hierarchy versions must tile without gaps. Not migrated: AX `OMInternalOrganization` team records (no Passage equivalent in v1), SAP sales/purchasing organizations (modeled in waves 17 and 26 as procurement and sales hierarchies), SAP client (MANDT) which maps to tenant by configuration.
+Validation: every migrated warehouse resolves to a site; every address passes country rules or lands in the exception queue; hierarchy versions must tile without gaps. Not migrated: AX `OMInternalOrganization` team records (no Depot equivalent in v1), SAP sales/purchasing organizations (modeled in waves 17 and 26 as procurement and sales hierarchies), SAP client (MANDT) which maps to tenant by configuration.
 
 ### 1.6.12 Dependencies, risks, open questions
 
@@ -480,7 +480,7 @@ Out of scope: customer/vendor transactions and balances, bank account verificati
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | In ECC the same supplier who is also a customer exists as LFA1 and KNA1 with two addresses that drift; S/4 CVI (`CVI_FS_CHECK_CUSTOMIZING`, `MDS_LOAD_COCKPIT`) is a months-long synchronization project | Two masters designed independently, linked by KNA1-LIFNR / LFA1-KUNNR cross references | Party is the only identity; roles reference it; addresses are shared by purpose (FR-7.1, FR-7.2) | Duplicate identities per real-world entity 2+→1; address drift incidents 0 |
 | AX duplicate check on DirPartyTable is exact-name only (`DirPartyTable.checkDuplicate`); near-duplicates ("ACME Corp." vs "Acme Corporation") pass and are found at year-end | No probabilistic matching | Fellegi-Sunter model (Splink) on name/tax id/address/phone with blocking (FR-7.5) | Planted near-duplicates caught: recall ≥ 0.90 vs ≈0.30 for exact match |
@@ -490,7 +490,7 @@ Out of scope: customer/vendor transactions and balances, bank account verificati
 
 ### 1.7.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Party | DirPartyTable, DirPerson, DirOrganization, DirPartyTable form (Global address book) | BUT000 (BP), BUT100 roles; ECC KNA1/LFA1 as separate masters | party-service `Party` with `party_type` person/organization | full |
 | Customer role | CustTable (AccountNum, CustGroup, PaymentTermId, CreditMax, InvoiceAccount), CustGroup, Customers list page | KNA1 (KUNNR), KNB1 (company code), KNVV (sales area), XD01/FD01 | `CustomerRole` (party_id, legal_entity_id) | full (sales-area data KNVV arrives in wave 26) |
@@ -526,7 +526,7 @@ Out of scope: customer/vendor transactions and balances, bank account verificati
   - IRS TIN matching adapter is an interface with a recorded fixture implementation in v1.
 - **FR-7.5 Duplicate detection** — Must. The system shall score candidate pairs on every create/update and on demand, using blocking on (normalized name first 4 chars | tax id | postal code+street number | phone last 7 | email domain) and a Fellegi-Sunter model with comparison levels for name (Jaro-Winkler ≥ 0.92 / ≥ 0.85 / else), tax id (exact), address (street+postal exact / postal only / else), phone, email.
   - Match weight ≥ 12 (probability ≈ 0.99) auto-flags as `likely_duplicate`; 6–12 flags `possible`; below 6 ignored.
-  - Create with a `likely_duplicate` candidate returns 409 with the candidates unless `X-Passage-Override-Duplicate: true` and the duty "Override duplicate check".
+  - Create with a `likely_duplicate` candidate returns 409 with the candidates unless `X-Depot-Override-Duplicate: true` and the duty "Override duplicate check".
   - Scoring of a single party against 1M parties completes in < 300 ms using blocking indexes.
 - **FR-7.6 Merge workflow and survivorship** — Must. The system shall merge N parties into one survivor through a Temporal workflow: pick survivor, resolve field conflicts by survivorship rules (most-recently-verified tax id, most-recently-updated address, non-empty wins, manual override), union roles (conflicting roles in the same legal entity require explicit choice), then rewrite references in every consuming service via `party.merged.v1` with acknowledgement tracking.
   - Merge is reversible for 30 days through a stored pre-merge snapshot.
@@ -623,7 +623,7 @@ Invariants: a party with status `merged` has no active roles; `account_number` n
 | GET | /party/v1/parties/{id} | Read (follows merged_into) | n/a | View parties |
 | PATCH | /party/v1/parties/{id} | Update; protected fields → pending change | version check | Maintain parties |
 | GET | /party/v1/parties:search?q=&role=customer&legalEntity= | Typeahead | n/a | View parties |
-| POST | /party/v1/parties/{id}/roles/customer | Add customer role in `X-Passage-LegalEntity` | key header | Maintain customers |
+| POST | /party/v1/parties/{id}/roles/customer | Add customer role in `X-Depot-LegalEntity` | key header | Maintain customers |
 | POST | /party/v1/parties/{id}/roles/vendor | Add vendor role | key header | Maintain vendors |
 | POST | /party/v1/parties/{id}/tax-registrations | Add and validate | key header | Maintain parties |
 | POST | /party/v1/tax-registrations/{id}:validate | Re-run adapter | idempotent (cached 30 d) | Maintain parties |
@@ -637,14 +637,14 @@ Validation: tax registration format per country before adapter call; role creati
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.party.created.v1 | commit | party_id, party_number, party_type, name, primary_address_id | search index, migration, audit |
-| dev.passage.party.updated.v1 | commit of non-protected change | party_id, changed_fields[], version | search, consumers caching names |
-| dev.passage.party.customer.created.v1 | role commit | party_id, legal_entity_id, account_number, customer_group_id, payment_term_id, posting_profile_id, currency_code | AR, sales, pricing, credit |
-| dev.passage.party.vendor.created.v1 | role commit | party_id, legal_entity_id, account_number, vendor_group_id, payment_term_id | AP, purchasing |
-| dev.passage.party.duplicate.flagged.v1 | score ≥ 6 | candidate_id, party_a_id, party_b_id, match_weight | stewardship queue, notification |
-| dev.passage.party.merged.v1 | merge workflow enters awaiting_ack | survivor_id, merged_ids[], role_map{old_account→new_account}, merge_case_id | every service with party FKs; each replies on `dev.passage.party.merge.ack.v1` |
-| dev.passage.party.change.approved.v1 / rejected.v1 | workflow decision | party_id, field, old, new, approver_id, reason | audit, notification |
-| dev.passage.party.taxregistration.validated.v1 | adapter result | registration_id, status, source, validated_at | tax (wave 13), audit |
+| dev.depot.party.created.v1 | commit | party_id, party_number, party_type, name, primary_address_id | search index, migration, audit |
+| dev.depot.party.updated.v1 | commit of non-protected change | party_id, changed_fields[], version | search, consumers caching names |
+| dev.depot.party.customer.created.v1 | role commit | party_id, legal_entity_id, account_number, customer_group_id, payment_term_id, posting_profile_id, currency_code | AR, sales, pricing, credit |
+| dev.depot.party.vendor.created.v1 | role commit | party_id, legal_entity_id, account_number, vendor_group_id, payment_term_id | AP, purchasing |
+| dev.depot.party.duplicate.flagged.v1 | score ≥ 6 | candidate_id, party_a_id, party_b_id, match_weight | stewardship queue, notification |
+| dev.depot.party.merged.v1 | merge workflow enters awaiting_ack | survivor_id, merged_ids[], role_map{old_account→new_account}, merge_case_id | every service with party FKs; each replies on `dev.depot.party.merge.ack.v1` |
+| dev.depot.party.change.approved.v1 / rejected.v1 | workflow decision | party_id, field, old, new, approver_id, reason | audit, notification |
+| dev.depot.party.taxregistration.validated.v1 | adapter result | registration_id, status, source, validated_at | tax (wave 13), audit |
 
 ### 1.7.6 User experience
 
@@ -676,7 +676,7 @@ Interaction rules: the create-party dialog runs dedup after name and country are
 - **BR-7.11** Concurrent merges touching the same party are serialized by a Temporal workflow id `merge-{tenant}-{min(party_ids)}`; the second request receives 409 with the running case id.
 - **BR-7.12** Import rows with a `likely_duplicate` candidate are loaded with status `active` and a candidate record; they are not rejected, because migrations must be complete and reviewed afterward.
 - **BR-7.13** Installment amounts: `amount_i = round(total × pct_i / 100)` using the currency's general rounding (FR-6.16); the last installment absorbs the remainder (`total − Σ previous`); percent lines must sum to exactly 100.00 (`PTY-SCHED-PCT-SUM`); each due date applies BR-7.7 to the baseline (invoice) date.
-- **BR-7.14** Certification status is computed daily: `valid` while today < `valid_to − reminder_days`; `expiring` inside the window; `expired` after `valid_to`; `revoked` only manually with reason; each change emits `dev.passage.party.certification.status.changed.v1`.
+- **BR-7.14** Certification status is computed daily: `valid` while today < `valid_to − reminder_days`; `expiring` inside the window; `expired` after `valid_to`; `revoked` only manually with reason; each change emits `dev.depot.party.certification.status.changed.v1`.
 - **BR-7.15** One-time roles cannot carry credit limits, bank accounts, tax registrations or posting-profile overrides on the role (`PTY-ONETIME-FIELD`); they cannot be merged as survivors.
 - **BR-7.16** `head_office_of` requires both ends to hold the same role type (Customer–Customer or Vendor–Vendor) in the same legal entity; changing the head office while the branch has open items is refused through a wave-30/19 callback (returns "no open items" until those waves exist).
 - **BR-7.17** A permitted payee must be an active party with at least one verified bank account; removal takes effect immediately, addition only after approval.
@@ -719,11 +719,11 @@ Reconciliation: count(roles) per legal entity in import = source row count; Σ o
 
 ### 1.7.10 Deployment and operations
 
-Helm chart `passage-party` (service ×2, CloudNativePG `party-db`, Debezium connector, Splink scoring worker as a Python Deployment with 2 replicas, Temporal namespace `party`). Config: `PARTY_DEDUP_LIKELY_WEIGHT=12`, `PARTY_DEDUP_POSSIBLE_WEIGHT=6`, `PARTY_VIES_TIMEOUT_MS=5000`, `PARTY_MERGE_ACK_TIMEOUT_MIN=10`, `PARTY_APPROVAL_SLA_BUSINESS_DAYS=2`. Migrations additive via Atlas. Feature flags: `party.online_tax_validation`, `party.merge_revert`, `party.pii_masking` (default on). Scheduled jobs: weekly full re-score; daily VIES re-validation of registrations older than 30 days (max 5,000 per run); hourly stale-merge sweeper. SLOs: create p95 < 400 ms including dedup; search p95 < 100 ms; merge completion p95 < 5 min. Alerts: merge awaiting ack > 10 min; VIES failure rate > 20% over 15 min; duplicate queue > 1,000 open. Runbook entries: "Consumer not acking merge" (list registered consumers, `passagectl party merge-status`), "Re-train Splink model" (export labeled pairs, run `party-train`, publish model version). Rollback: previous digest; the Splink model version is pinned in config so a rollback restores scoring behavior.
+Helm chart `depot-party` (service ×2, CloudNativePG `party-db`, Debezium connector, Splink scoring worker as a Python Deployment with 2 replicas, Temporal namespace `party`). Config: `PARTY_DEDUP_LIKELY_WEIGHT=12`, `PARTY_DEDUP_POSSIBLE_WEIGHT=6`, `PARTY_VIES_TIMEOUT_MS=5000`, `PARTY_MERGE_ACK_TIMEOUT_MIN=10`, `PARTY_APPROVAL_SLA_BUSINESS_DAYS=2`. Migrations additive via Atlas. Feature flags: `party.online_tax_validation`, `party.merge_revert`, `party.pii_masking` (default on). Scheduled jobs: weekly full re-score; daily VIES re-validation of registrations older than 30 days (max 5,000 per run); hourly stale-merge sweeper. SLOs: create p95 < 400 ms including dedup; search p95 < 100 ms; merge completion p95 < 5 min. Alerts: merge awaiting ack > 10 min; VIES failure rate > 20% over 15 min; duplicate queue > 1,000 open. Runbook entries: "Consumer not acking merge" (list registered consumers, `depotctl party merge-status`), "Re-train Splink model" (export labeled pairs, run `party-train`, publish model version). Rollback: previous digest; the Splink model version is pinned in config so a rollback restores scoring behavior.
 
 ### 1.7.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX DirPartyTable (PartyNumber, Name, NameAlias, InstanceRelationType, LanguageId) | Party | InstanceRelationType DirPerson/DirOrganization → party_type |
 | AX DirPerson (FirstName, MiddleName, LastName, Gender, BirthDate via DirPersonName) | Party.person | names from DirPersonName valid-time current row |
@@ -738,7 +738,7 @@ Helm chart `passage-party` (service ×2, CloudNativePG `party-db`, Debezium conn
 | SAP LFA1 (LIFNR, NAME1, STCEG, SPERR, SPERM) + LFB1 (BUKRS, AKONT, ZTERM) | Party, VendorRole | KNA1-LIFNR / LFA1-KUNNR cross references pre-merge the party |
 | SAP BUT000 (PARTNER, TYPE, NAME_ORG1, NAME_FIRST, NAME_LAST) + BUT100 (RLTYP FLCU01/FLVN01/BUP001) + DFKKBPTAXNUM | Party, roles, TaxRegistration | roles map FLCU01→customer, FLVN01→vendor, BUP001→contact |
 | SAP ADRC / ADR2 / ADR6 / KNVK | PartyAddress, ElectronicAddress, ContactRole | ADR2 TEL_NUMBER + TELNR_CALL merged |
-| SAP T052 (ZTERM, ZTAGG, ZTAG1..3, ZPRZ1..2), TINC, KNKK (KLIMK, CTLPC) | PaymentTerm, DeliveryTerm, CreditProfile | T052 day-limit variants produce one Passage term per variant |
+| SAP T052 (ZTERM, ZTAGG, ZTAG1..3, ZPRZ1..2), TINC, KNKK (KLIMK, CTLPC) | PaymentTerm, DeliveryTerm, CreditProfile | T052 day-limit variants produce one Depot term per variant |
 
 Transformation notes: AX `Party` RecId joins are resolved through DirPartyTable.PartyNumber; SAP customer and vendor numbers are kept as `account_number` when they fit 20 characters, else a new sequence number is assigned and the SAP number stored as alias. Validation: every role must resolve to a legal entity and a group; tax ids failing format go to the stewardship queue, not rejection. Not migrated: AX `DirPartyRelationship` types other than contact-for; SAP sales-area (KNVV) and purchasing-org (LFM1) data (waves 26 and 17); SAP dunning data KNB5 (wave 30); AX `CustTrans`/`VendTrans` open items (transactional packs in wave 49).
 
@@ -832,7 +832,7 @@ Open questions: (1) Do Prospect roles need a number sequence or stay numberless 
 | Steward master data | duplicates, stewardship queue, PTY-J1/J7 results | none | Master data steward |
 | Merge parties | merge cases, `:revert` | Maintain vendors (same party), to prevent payee substitution | Master data steward lead |
 | Approve master data changes | `pending-changes/{id}:approve/:reject` | Maintain vendors / Maintain customers (no self-approval, BR-7.8) | AP manager, Credit manager, Controller |
-| Override duplicate check | `X-Passage-Override-Duplicate` | none | Master data steward lead |
+| Override duplicate check | `X-Depot-Override-Duplicate` | none | Master data steward lead |
 | Read personal data | `pii.read`; DSAR export | Administer migration (bulk export risk) | Privacy officer, HR administrator |
 
 ### 1.7.18 Message catalog
@@ -844,7 +844,7 @@ Open questions: (1) Do Prospect roles need a number sequence or stay numberless 
 | PTY-TAX-FORMAT | error | "{type} {number} does not match the {country} format." | Regex failure | Correct the number | FR-7.4 |
 | PTY-TAX-CHECKDIGIT | error | "Check digit of {number} is wrong." | Algorithm failure (mod-97, mod-89, mod-36) | Correct the number | FR-7.4 |
 | PTY-TAX-UNVERIFIED | warning | "Online validation unavailable; saved as unverified." | VIES/TIN timeout | None; PTY-J2 retries | FR-7.4 |
-| PTY-ROLE-LE-HEADER | error | "Select a legal entity before adding a role." | Missing `X-Passage-LegalEntity` | Set the entity | FR-7.2 |
+| PTY-ROLE-LE-HEADER | error | "Select a legal entity before adding a role." | Missing `X-Depot-LegalEntity` | Set the entity | FR-7.2 |
 | PTY-ROLE-GROUP-MISSING | error | "Group {code} does not exist in {entity}." | Unknown group | Create or pick a group | FR-7.3 |
 | PTY-MERGE-RUNNING | error | "Merge case {id} is already running for this party." | Concurrent merge | Wait for the running case | BR-7.11 |
 | PTY-MERGE-REVERT-BLOCKED | error | "{service} cannot split post-merge transactions." | Consumer refuses revert | Correct manually | BR-7.2 |
@@ -903,7 +903,7 @@ Out of scope: on-hand, costing values and inventory postings (waves 16, 20), sal
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Releasing an AX product to 10 companies means 10 passes through "Release products" plus editing InventTable defaults (item group, model group, site, warehouse) in each company; a missed default blocks the first PO with "Item model group not specified" | Release is a per-company copy with no template | Release profiles: one call releases to N entities with defaults derived from item group and site; missing-default check at release (FR-8.4) | Clicks per 10-entity release 60→3; first-transaction failures from missing defaults →0 |
 | SAP MM01 walks 15–20 views (basic, purchasing, MRP 1–4, accounting, costing); a material is "created" but unusable in a plant until every view is extended (MM01 extend) | View-based material master with per-plant/storage segments (MARC/MARD) each needing separate maintenance | One product record plus released-product per entity; plant-level data derives from site defaults (FR-8.4) | Time to a usable material in a new plant 25 min→<1 min |
@@ -913,7 +913,7 @@ Out of scope: on-hand, costing values and inventory postings (waves 16, 20), sal
 
 ### 1.8.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Shared product | EcoResProduct, EcoResDistinctProduct, EcoResProductMaster, Product details form, ProductNumber | MARA (MATNR, MTART, MEINS, MATKL), MM01/MM02/MM03 | product-service `Product` (product_type item/service, subtype product/master) | full |
 | Variants and dimensions | EcoResProductDimensionGroup, EcoResSize/Color/Style/Configuration, EcoResDistinctProductVariant, EcoResProductVariantDimensionValue | Generic material + variants (MARA-SATNR, KZKFG), characteristics CABN/CAWN | `DimensionGroup`, `DimensionValue`, `ProductVariant` | full |
@@ -958,7 +958,7 @@ Out of scope: on-hand, costing values and inventory postings (waves 16, 20), sal
 - **FR-8.12 Product search and catalogs** — Should. The system shall provide typeahead over product number, name, GTIN and attribute values, filtered by legal entity and category, p95 < 100 ms at 1M products, and allow catalogs as named category subtrees with a validity range.
 - **FR-8.13 Product relations** — Should. The system shall maintain relation types (seeded: accessory, cross_sell, up_sell, substitute, spare_part, consumable, same_family; tenant-extensible) with a `symmetric` flag, and relations from a product or variant to another product or variant with sort order and `valid_from`/`valid_to`.
   - Maximum 200 relations per product; symmetric types create and delete the inverse in the same transaction.
-  - Sales order entry (waves 26–27) reads `GET /product/v1/products/{id}/relations?type=` for suggestions; event `dev.passage.product.relation.changed.v1`.
+  - Sales order entry (waves 26–27) reads `GET /product/v1/products/{id}/relations?type=` for suggestions; event `dev.depot.product.relation.changed.v1`.
 - **FR-8.14 Configurable lifecycle states with process policies** — Must. The system shall let tenants define lifecycle states (code, name, category ∈ {draft, active, phase_out, obsolete} from FR-8.10, `default_for_new`, applies to product / released product / engineering version) and, per state, a policy of `allow`, `warn` or `block` for each business process: purchase_requisition, purchase_order, sales_quotation, sales_order, transfer_order, production_order, bom_line_use, master_planning, inventory_receipt, inventory_issue, counting, return_order.
   - `GET /product/v1/released-products/{id}/process-policy?process=` answers in < 10 ms p95; consumers cache the result and refresh on `releasedproduct.updated.v1`.
   - FR-8.10 boolean blocks stay as overrides (BR-8.12).
@@ -1057,12 +1057,12 @@ Validation: dimension values must exist in the dimension group; release rejects 
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.product.created.v1 | commit | product_id, product_number, subtype, product_type, base_uom | engineering, search |
-| dev.passage.product.variant.created.v1 | per explosion checkpoint (batched, ≤ 500 ids) | master_id, variant_ids[], dimension_values[] | engineering, pricing, inventory |
-| dev.passage.product.released.v1 | release commit | product_id, legal_entity_id, item_number, item_group_id, item_model_group_id, default_site_id, default_warehouse_id, uoms | inventory, purchasing, sales, costing, planning |
-| dev.passage.product.releasedproduct.updated.v1 | PATCH | released_product_id, changed_fields[], blocks, lifecycle_state | all transactional services |
-| dev.passage.product.identifier.added.v1 | commit | product_id, type, value, uom_id | WMS (wave 31), EDI (wave 35) |
-| dev.passage.product.configuration.solved.v1 | solve returning a variant | model_id, master_id, selections, result_product_id | sales (wave 27), engineering |
+| dev.depot.product.created.v1 | commit | product_id, product_number, subtype, product_type, base_uom | engineering, search |
+| dev.depot.product.variant.created.v1 | per explosion checkpoint (batched, ≤ 500 ids) | master_id, variant_ids[], dimension_values[] | engineering, pricing, inventory |
+| dev.depot.product.released.v1 | release commit | product_id, legal_entity_id, item_number, item_group_id, item_model_group_id, default_site_id, default_warehouse_id, uoms | inventory, purchasing, sales, costing, planning |
+| dev.depot.product.releasedproduct.updated.v1 | PATCH | released_product_id, changed_fields[], blocks, lifecycle_state | all transactional services |
+| dev.depot.product.identifier.added.v1 | commit | product_id, type, value, uom_id | WMS (wave 31), EDI (wave 35) |
+| dev.depot.product.configuration.solved.v1 | solve returning a variant | model_id, master_id, selections, result_product_id | sales (wave 27), engineering |
 
 ### 1.8.6 User experience
 
@@ -1138,11 +1138,11 @@ Reconciliation: count(variants) = |size| × |color| × |style| × |config| for f
 
 ### 1.8.10 Deployment and operations
 
-Helm chart `passage-product` (Go service ×2, CloudNativePG `product-db`, Debezium connector, `product-configurator` Python worker with OR-Tools, 2 replicas, 1 CPU / 1 GiB each). Config: `PRODUCT_MAX_VARIANTS=10000`, `PRODUCT_EXPLODE_CHECKPOINT=500`, `PRODUCT_CFG_TIME_LIMIT_MS=2000`, `PRODUCT_GS1_PREFIX` per tenant in the tenant settings entity, object storage bucket `passage-product-media`. Feature flags: `product.configurator`, `product.gs1_allocation`, `product.catalogs`. Scheduled jobs: nightly incomplete-attribute report; weekly orphan media sweep. SLOs: read p95 < 50 ms; release of 1,000 products < 60 s; solve p95 < 500 ms. Alerts: explosion job failed; configurator worker queue depth > 100; media bucket errors. Runbook: "Explosion job stuck" (Temporal `explode-{master_id}` inspect, resume from checkpoint), "Re-apply release profile". Rollback: previous digest; additive migrations only.
+Helm chart `depot-product` (Go service ×2, CloudNativePG `product-db`, Debezium connector, `product-configurator` Python worker with OR-Tools, 2 replicas, 1 CPU / 1 GiB each). Config: `PRODUCT_MAX_VARIANTS=10000`, `PRODUCT_EXPLODE_CHECKPOINT=500`, `PRODUCT_CFG_TIME_LIMIT_MS=2000`, `PRODUCT_GS1_PREFIX` per tenant in the tenant settings entity, object storage bucket `depot-product-media`. Feature flags: `product.configurator`, `product.gs1_allocation`, `product.catalogs`. Scheduled jobs: nightly incomplete-attribute report; weekly orphan media sweep. SLOs: read p95 < 50 ms; release of 1,000 products < 60 s; solve p95 < 500 ms. Alerts: explosion job failed; configurator worker queue depth > 100; media bucket errors. Runbook: "Explosion job stuck" (Temporal `explode-{master_id}` inspect, resume from checkpoint), "Re-apply release profile". Rollback: previous digest; additive migrations only.
 
 ### 1.8.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX EcoResProduct (DisplayProductNumber, ProductType, InstanceRelationType), EcoResProductTranslation (Name, Description) | Product, translations | InstanceRelationType EcoResProductMaster → subtype master |
 | AX EcoResProductMaster + EcoResProductDimensionGroup, EcoResProductMasterDimensionValue (Size/Color/Style/Configuration tables) | DimensionGroup, DimensionValue | dimension names kept as AX names unless renamed in mapping |
@@ -1332,7 +1332,7 @@ Out of scope: production orders (wave 21), capacity scheduling and Gantt (wave 2
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX BOM designer (BOMDesigner form) loads a 7-level, 2,000-component BOM in 30–90 s and the "Calculate" explosion runs as a batch (BOMCalcJob) that users wait minutes for | Recursive X++ explosion row by row over BOMVersion/BOM | Closure-table-backed explosion service; 2,000 components in < 500 ms (FR-9.9) | Explosion 60 s–5 min→<0.5 s |
 | SAP CS03 shows one BOM alternative at one date; "what is active on 2026-06-01" means CS03 with a key date, CS80 where-used, and CC03 change number, three transactions and still no diff | BOM validity scattered across STKO/STPO DATUV with AENNR change numbers | Versioned BOMs with as-of resolution, side-by-side version diff and effective-date preview (FR-9.1, FR-9.3) | Transactions to answer "what is active when" 3→1; clicks 15→2 |
@@ -1342,7 +1342,7 @@ Out of scope: production orders (wave 21), capacity scheduling and Gantt (wave 2
 
 ### 1.9.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | BOM header / version | BOMTable (BOMId, Name, ItemGroupId, SiteId), BOMVersion (ItemId, BOMId, FromDate, ToDate, FromQty, ToQty, Active, Approved) | STKO (STLNR, STLAL, BMENG, DATUV), MAST (MATNR, WERKS, STLNR, STLAL), STAS, CS01/CS02/CS03 | engineering-service `BomHeader`, `BomVersion` | full |
 | BOM lines | BOM (LineNum, ItemId, BOMQty, BOMQtySerie, UnitId, FromDate, ToDate, ScrapConst, ScrapVar, BOMType Item/Phantom/Pegged/Vendor, Position, RoundUp, Formula) | STPO (POSNR, IDNRK, MENGE, MEINS, AUSCH, DUMPS phantom, ALPOS, POSTP item category, DATUV) | `BomLine` | full |
@@ -1496,12 +1496,12 @@ Validation: line set replacement runs cycle, unit-convertibility and component-s
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.engineering.bom.version.activated.v1 | activation (direct or ECO) | bom_version_id, product_id, site_id, effective_from, effective_to, line_count, supersedes_version_id | planning, production, costing |
-| dev.passage.engineering.bom.version.expired.v1 | expiry by ECO | bom_version_id, effective_to, eco_id | planning, production |
-| dev.passage.engineering.route.version.activated.v1 | activation | route_version_id, product_id, site_id, operations[{no, resource requirements}] | planning, scheduling, production |
-| dev.passage.engineering.resource.changed.v1 | resource/calendar commit | resource_id, site_id, calendar_id, efficiency_pct, changed_fields[] | scheduling, shop floor |
-| dev.passage.engineering.eco.submitted.v1 / approved.v1 / released.v1 | workflow transitions | eco_id, eco_number, affected_versions[], release_date, approver_id | notification, audit, PLM adapter |
-| dev.passage.engineering.calendar.generated.v1 | generate | calendar_id, from, to, open_days | scheduling |
+| dev.depot.engineering.bom.version.activated.v1 | activation (direct or ECO) | bom_version_id, product_id, site_id, effective_from, effective_to, line_count, supersedes_version_id | planning, production, costing |
+| dev.depot.engineering.bom.version.expired.v1 | expiry by ECO | bom_version_id, effective_to, eco_id | planning, production |
+| dev.depot.engineering.route.version.activated.v1 | activation | route_version_id, product_id, site_id, operations[{no, resource requirements}] | planning, scheduling, production |
+| dev.depot.engineering.resource.changed.v1 | resource/calendar commit | resource_id, site_id, calendar_id, efficiency_pct, changed_fields[] | scheduling, shop floor |
+| dev.depot.engineering.eco.submitted.v1 / approved.v1 / released.v1 | workflow transitions | eco_id, eco_number, affected_versions[], release_date, approver_id | notification, audit, PLM adapter |
+| dev.depot.engineering.calendar.generated.v1 | generate | calendar_id, from, to, open_days | scheduling |
 
 ### 1.9.6 User experience
 
@@ -1581,11 +1581,11 @@ Reconciliation: Σ flattened explosion quantities = Σ over tree leaves; active 
 
 ### 1.9.10 Deployment and operations
 
-Helm chart `passage-engineering` (Go service ×2, CloudNativePG `engineering-db`, Debezium connector, Temporal namespace `engineering`). Config: `ENG_BOM_MAX_LINES=5000`, `ENG_BOM_MAX_DEPTH=25`, `ENG_ROUTE_MAX_OPS=500`, `ENG_ECO_MAX_VERSIONS=500`, `ENG_EXPLODE_CACHE_TTL_S=300`. Feature flags: `engineering.direct_activation` (default off in production tenants), `engineering.formulas`, `engineering.plm_inbound`. Scheduled jobs: nightly overlap check; nightly expiry job setting `expired` on versions whose `effective_to` passed; 30-day expiry warning digest. SLOs: explode p95 < 500 ms; resolve p95 < 30 ms; ECO release p95 < 60 s. Alerts: overlap check finds > 0 rows; ECO stuck in `scheduled` past release_date + 10 min; explosion errors > 1% of calls. Runbook: "ECO compensation ran" (review error note, re-validate drafts, resubmit), "Rebuild product closure" (`passagectl eng rebuild-closure`). Rollback: previous digest; migrations additive.
+Helm chart `depot-engineering` (Go service ×2, CloudNativePG `engineering-db`, Debezium connector, Temporal namespace `engineering`). Config: `ENG_BOM_MAX_LINES=5000`, `ENG_BOM_MAX_DEPTH=25`, `ENG_ROUTE_MAX_OPS=500`, `ENG_ECO_MAX_VERSIONS=500`, `ENG_EXPLODE_CACHE_TTL_S=300`. Feature flags: `engineering.direct_activation` (default off in production tenants), `engineering.formulas`, `engineering.plm_inbound`. Scheduled jobs: nightly overlap check; nightly expiry job setting `expired` on versions whose `effective_to` passed; 30-day expiry warning digest. SLOs: explode p95 < 500 ms; resolve p95 < 30 ms; ECO release p95 < 60 s. Alerts: overlap check finds > 0 rows; ECO stuck in `scheduled` past release_date + 10 min; explosion errors > 1% of calls. Runbook: "ECO compensation ran" (review error note, re-validate drafts, resubmit), "Rebuild product closure" (`depotctl eng rebuild-closure`). Rollback: previous digest; migrations additive.
 
 ### 1.9.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX BOMTable (BOMId, Name, SiteId, ItemGroupId) | BomHeader | |
 | AX BOMVersion (ItemId, BOMId, FromDate, ToDate, FromQty, ToQty, Active, Approved, ApprovedBy, InventDimId→site) | BomVersion | Active=Yes → active; Approved without Active → draft with approved_by; date 1900-01-01 → null |
@@ -1799,7 +1799,7 @@ Out of scope: transactional data packs (open items, on-hand, open orders — wav
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | DIXF staging-to-target fails at row 48,213 of 100,000 with "Function DMFEntityWriter... has been incorrectly called"; the partial load leaves half-created customers and the fix is manual SQL cleanup before re-run | Non-idempotent target writes; errors swallowed into DMFExecution log | Every load is idempotent by natural key and run id; failed rows go to the exception queue, successful rows stay; re-run touches only changed rows (FR-10.6, FR-10.7) | Re-run cost after failure: hours of cleanup→0; duplicate rows after re-run 0 |
 | LSMW requires recording a transaction (XD01) screen by screen; a screen layout change in a support pack breaks the recording silently | Batch-input emulation of GUI screens | Loads go through versioned public APIs with contract tests (FR-10.5) | Recording breakage per upgrade: recurring→0 |
@@ -1809,7 +1809,7 @@ Out of scope: transactional data packs (open items, on-hand, open orders — wav
 
 ### 1.10.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Migration project / definition | DMFDefinitionGroup, D365 data project, data package (manifest + package header) | LSMW project/subproject/object; LTMC migration project | migration-service `MigrationProject` with `MappingSpec` versions | full |
 | Source extraction | DIXF ODBC/file source, AX SQL direct, D365 entity export | RFC (RFC_READ_TABLE, BAPIs), OData, SE16 extracts, IDoc outbound | `Connector` (ax-odbc, d365-odata, sap-rfc, sap-odata, csv/parquet) | full |
@@ -1835,7 +1835,7 @@ Out of scope: transactional data packs (open items, on-hand, open orders — wav
 - **FR-10.3 Mapping DSL** — Must. The system shall express mappings as versioned YAML: source object, target entity, key definition (natural key columns), field rules (`copy`, `const`, `concat`, `lookup` against staged or target tables, `enum` with explicit table and default, `coerce` with type and format, `expr` in a restricted expression language, `default`), and `reject_when` conditions with reason codes.
   - Type coercions: AX `utcdatetime`/SAP `DATS`+`TIMS` to timestamptz with source zone; `NoYes` and `X`/blank to boolean; decimals with explicit scale; trim and codepage normalization.
   - Every mapping ships unit tests (input row → expected output or rejection) runnable in CI.
-- **FR-10.4 Validation stage** — Must. The system shall validate staged, mapped rows with declarative expectations (not null, unique, FK-exists in target or staging, regex, range, set membership, row-count within ±N% of previous run) and a target-API dry run that calls the wave 6–9 endpoints with `X-Passage-Dry-Run: true` to collect business validation errors without writing.
+- **FR-10.4 Validation stage** — Must. The system shall validate staged, mapped rows with declarative expectations (not null, unique, FK-exists in target or staging, regex, range, set membership, row-count within ±N% of previous run) and a target-API dry run that calls the wave 6–9 endpoints with `X-Depot-Dry-Run: true` to collect business validation errors without writing.
   - Validation output: per-row status (ok, warn, reject) with reason codes; a run proceeds to load only when rejects ≤ the project's threshold (default 0.5%).
 - **FR-10.5 Load through public APIs** — Must. The system shall load exclusively through versioned bulk endpoints (`POST /org/v1/import`, `/party/v1/parties:bulk`, `/product/v1/products:bulk`, `/engineering/v1/bom-versions:bulk`, …) with batches of 500 and `Idempotency-Key = sha256(run_id, object, natural_key)`, never by direct SQL into domain databases.
 - **FR-10.6 Parallel, checkpointed, resumable loads** — Must. The system shall partition each object by hash of the natural key into N workers (default 8), checkpoint every batch in the run ledger, and resume from the last checkpoint after worker or pod failure without duplicates.
@@ -1846,7 +1846,7 @@ Out of scope: transactional data packs (open items, on-hand, open orders — wav
 - **FR-10.9 Exception queue and re-run** — Must. The system shall list rejected and mismatched rows with reason, source key, mapped payload and target response; a user may edit the staged row, add a mapping override, or mark `accepted_difference` with a reason, then re-run only the exception set.
 - **FR-10.10 Run ledger and lineage** — Must. The system shall keep an append-only ledger: for every loaded target record, the run id, source object, source key, content hash and mapped payload hash, queryable from the target record's audit tab ("migrated from AX CustTable US-00123 in run 42").
 - **FR-10.11 Migration workspace** — Must. The system shall provide a workspace with project list, run history, per-stage progress, reconciliation report (downloadable as XLSX/PDF for sign-off), and exception queue.
-- **FR-10.12 Packaging** — Should. The system shall package connectors and standard mapping packs as Helm sub-charts and OCI artifacts (`passage-migration-ax`, `passage-migration-sap`) versioned independently of the core service.
+- **FR-10.12 Packaging** — Should. The system shall package connectors and standard mapping packs as Helm sub-charts and OCI artifacts (`depot-migration-ax`, `depot-migration-sap`) versioned independently of the core service.
 - **FR-10.13 PII handling in staging** — Must. The system shall encrypt PII-flagged staging columns at rest with a per-project key, purge staging data after a configurable retention (default 30 days after the run is signed off), and exclude PII from exception-queue exports unless the user holds `pii.read`.
 - **FR-10.14 Copy entity data between legal entities** — Should. The system shall support a project type `copy` whose source is a tenant legal entity and whose target is another legal entity in the same tenant, reusing the mapping DSL with identity rules plus key-rewrite rules (source code → target code), dry run, idempotent load and reconciliation; supported objects: customer and vendor roles, released products with site defaults, BOM and route versions, resources and calendars.
 - **FR-10.15 Configuration data packages** — Should. The system shall export setup data (the parameters of §1.6.13–§1.9.13, groups, terms, lifecycle states, document types, nomenclatures, readiness and release policies, mapping specs) as a versioned package (JSON bodies, manifest with schema version, dependency order, sha256 per file, signature by the tenant key) and import it into another tenant or environment after a dry-run diff showing create / update / unchanged per record; deletes are never applied.
@@ -1928,11 +1928,11 @@ Validation: run start rejects if any object's mapping tests fail or a dependency
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.migration.run.started.v1 | run start | run_id, project_id, mode, objects[], mapping_versions | notification, audit |
-| dev.passage.migration.run.stage.completed.v1 | each stage | run_id, object, stage, counts | workspace progress, audit |
-| dev.passage.migration.run.completed.v1 | terminal status | run_id, status, counts{staged, loaded, rejected, skipped, mismatched}, hash_match bool | notification, reconciliation UI, audit |
-| dev.passage.migration.exception.raised.v1 | reject or mismatch | run_id, object, source_key, reason_code | stewardship queue (wave 7 style) |
-| dev.passage.migration.run.signedoff.v1 | sign-off | run_id, signed_off_by, purge_at | audit, purge job |
+| dev.depot.migration.run.started.v1 | run start | run_id, project_id, mode, objects[], mapping_versions | notification, audit |
+| dev.depot.migration.run.stage.completed.v1 | each stage | run_id, object, stage, counts | workspace progress, audit |
+| dev.depot.migration.run.completed.v1 | terminal status | run_id, status, counts{staged, loaded, rejected, skipped, mismatched}, hash_match bool | notification, reconciliation UI, audit |
+| dev.depot.migration.exception.raised.v1 | reject or mismatch | run_id, object, source_key, reason_code | stewardship queue (wave 7 style) |
+| dev.depot.migration.run.signedoff.v1 | sign-off | run_id, signed_off_by, purge_at | audit, purge job |
 
 ### 1.10.6 User experience
 
@@ -1992,7 +1992,7 @@ Fixtures: `migration/ax-seed/` (generated AX-shaped CSVs with real column names:
 | Full load performance | performance | end-to-end run | < 30 min, reconciled |
 | Idempotent re-run | E2E | run twice | 0 loaded second time |
 | Pod-kill resume | chaos | loaders | no duplicate idempotency keys |
-| Dry run isolation | contract | target APIs | 0 writes on `X-Passage-Dry-Run` |
+| Dry run isolation | contract | target APIs | 0 writes on `X-Depot-Dry-Run` |
 | Connector contracts | contract (recorded) | ax-odbc, d365-odata, sap-rfc, sap-odata, file | schema probes and paging match fixtures |
 | Reconciliation math | property | hash totals and sampling | injected drift in 1 of 10k rows detected ≥ 99% with widened sample |
 | Exception re-run | E2E | exceptions_only | parent reaches reconciled |
@@ -2003,7 +2003,7 @@ Reconciliation checks: source count = staged; staged = mapped + rejected; mapped
 
 ### 1.10.10 Deployment and operations
 
-Helm chart `passage-migration` (TS orchestration service ×2, Go loader workers as a scalable Deployment 2–16 replicas via HPA on queue depth, CloudNativePG `migration-db` with staging partitions on a separate tablespace, Temporal namespace `migration`); sub-charts `passage-migration-ax` (ODBC driver image with FreeTDS, mapping packs) and `passage-migration-sap` (RFC SDK not redistributable: image expects the customer-mounted NW RFC library; OData path works without it). Config: `MIG_WORKERS_DEFAULT=8`, `MIG_BATCH_SIZE=500`, `MIG_REJECT_THRESHOLD_PCT=0.5`, `MIG_SAMPLE_PCT=1`, `MIG_STAGING_RETENTION_DAYS=30`, `MIG_PII_KEY_RING` (Vault path), connector secrets in Vault. Feature flags: `migration.retire_missing`, `migration.overwrite_drift`, `migration.sap_rfc`. Scheduled jobs: hourly purge timer check; nightly lineage integrity check. SLOs: loader throughput ≥ 100 rows/s per worker sustained; run monitor update lag < 2 s; availability 99.5% (non-critical path). Alerts: run `failed`; batch retry rate > 5%; staging tablespace > 80%; connector auth failure. Runbook: "Resume a failed run" (`passagectl mig resume --run`), "Rotate PII key" (re-encrypt staging for active runs), "Widen sample manually". Rollback: previous digest; staging schema per run is unaffected; mapping packs are OCI artifacts pinned by digest in the project.
+Helm chart `depot-migration` (TS orchestration service ×2, Go loader workers as a scalable Deployment 2–16 replicas via HPA on queue depth, CloudNativePG `migration-db` with staging partitions on a separate tablespace, Temporal namespace `migration`); sub-charts `depot-migration-ax` (ODBC driver image with FreeTDS, mapping packs) and `depot-migration-sap` (RFC SDK not redistributable: image expects the customer-mounted NW RFC library; OData path works without it). Config: `MIG_WORKERS_DEFAULT=8`, `MIG_BATCH_SIZE=500`, `MIG_REJECT_THRESHOLD_PCT=0.5`, `MIG_SAMPLE_PCT=1`, `MIG_STAGING_RETENTION_DAYS=30`, `MIG_PII_KEY_RING` (Vault path), connector secrets in Vault. Feature flags: `migration.retire_missing`, `migration.overwrite_drift`, `migration.sap_rfc`. Scheduled jobs: hourly purge timer check; nightly lineage integrity check. SLOs: loader throughput ≥ 100 rows/s per worker sustained; run monitor update lag < 2 s; availability 99.5% (non-critical path). Alerts: run `failed`; batch retry rate > 5%; staging tablespace > 80%; connector auth failure. Runbook: "Resume a failed run" (`depotctl mig resume --run`), "Rotate PII key" (re-encrypt staging for active runs), "Widen sample manually". Rollback: previous digest; staging schema per run is unaffected; mapping packs are OCI artifacts pinned by digest in the project.
 
 ### 1.10.11 Migration from AX / SAP
 
@@ -2025,7 +2025,7 @@ Transformation notes are owned by the waves above; this wave contributes the sha
 
 ### 1.10.12 Dependencies, risks, open questions
 
-Depends on: waves 6, 7, 8 and 9 (bulk endpoints with `X-Passage-Dry-Run` support and natural-key upsert semantics), wave 4 (Temporal, outbox), wave 5 (audit tab integration for lineage, import/export tool), wave 2 (service-account duties, Vault secrets).
+Depends on: waves 6, 7, 8 and 9 (bulk endpoints with `X-Depot-Dry-Run` support and natural-key upsert semantics), wave 4 (Temporal, outbox), wave 5 (audit tab integration for lineage, import/export tool), wave 2 (service-account duties, Vault secrets).
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
@@ -2055,8 +2055,8 @@ Open questions: (1) Is the mapping DSL YAML plus a restricted expression languag
 | `mig.cutover_at` | project | timestamptz | none | future timestamp | Stops recurring runs | — | — |
 | `mig.signoff.approvers` | project | int | 2 | 1–3 | Required signatures (§1.10.15) | — | — |
 | `mig.connector.paging` | connector | record | ax-odbc 10,000 RecIds; d365 `$top` 10,000; RFC_READ_TABLE ROWCOUNT 50,000 | per connector | Extraction page size | Entity paging / skip staging | RFC_READ_TABLE ROWCOUNT / ROWSKIPS |
-| `mig.pii_key_ring` | project | Vault path | `passage/mig/{project}` | Vault paths | FR-10.13 | — | — |
-| `mig.package.signing_key` | tenant | Vault path | `passage/config-signing` | Vault paths | FR-10.15 | — | — |
+| `mig.pii_key_ring` | project | Vault path | `depot/mig/{project}` | Vault paths | FR-10.13 | — | — |
+| `mig.package.signing_key` | tenant | Vault path | `depot/config-signing` | Vault paths | FR-10.15 | — | — |
 
 ### 1.10.14 Inquiries and reports
 

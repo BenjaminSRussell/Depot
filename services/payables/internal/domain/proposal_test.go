@@ -7,7 +7,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/payables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/domain"
 )
 
 func d(s string) decimal.Decimal { return decimal.RequireFromString(s) }

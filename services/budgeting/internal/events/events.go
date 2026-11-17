@@ -1,7 +1,7 @@
 // Package events holds the budgeting event types and payloads.
 package events
 
-import "github.com/BenjaminSRussell/passage/platform/events"
+import "github.com/BenjaminSRussell/depot/platform/events"
 
 const Context = "budget"
 
@@ -50,7 +50,7 @@ type PlanRejectedData struct {
 	Reason     string `json:"reason"`
 }
 
-// ProgramCarriedForwardData is the payload of dev.passage.budget.program.carriedforward.v1.
+// ProgramCarriedForwardData is the payload of dev.depot.budget.program.carriedforward.v1.
 type ProgramCarriedForwardData struct {
 	ProgramID string                `json:"program_id"`
 	FromYear  int                   `json:"from_year"`

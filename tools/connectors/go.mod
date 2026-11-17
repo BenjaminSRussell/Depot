@@ -1,3 +1,3 @@
-module github.com/BenjaminSRussell/passage/tools/connectors
+module github.com/BenjaminSRussell/depot/tools/connectors
 
 go 1.23

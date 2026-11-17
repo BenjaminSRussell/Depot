@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	platformevents "github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/events"
+	platformevents "github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/events"
 )
 
 func TestEventTypes_Valid(t *testing.T) {
@@ -42,7 +42,7 @@ func TestPayloads_MatchAsyncAPI(t *testing.T) {
 	}
 	for _, tc := range cases {
 		start := strings.Index(spec, "    "+tc.message+":\n")
-		end := strings.Index(spec[start:], "x-passage-type: "+tc.typ)
+		end := strings.Index(spec[start:], "x-depot-type: "+tc.typ)
 		if start < 0 || end < 0 {
 			t.Fatalf("%s with type %s missing from asyncapi.yaml", tc.message, tc.typ)
 		}

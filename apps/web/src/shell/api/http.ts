@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
-export const SESSION_EXPIRED_EVENT = "passage:session-expired";
+export const SESSION_EXPIRED_EVENT = "depot:session-expired";
 export const REQUEST_ID_HEADER = "X-Request-Id";
 
 function newRequestId(): string {

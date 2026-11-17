@@ -286,13 +286,13 @@ describe("the shell", () => {
   it("signs out at Keycloak: the session ends here and the browser goes to the end-session URL", async () => {
     routes["GET /bff/me"] = { ...me, legalEntityIds: [LE_1] };
     routes["GET /api/v1/open-items"] = { items: [] };
-    routes["POST /bff/logout"] = { logoutUrl: "https://keycloak.example.invalid/realms/passage/protocol/openid-connect/logout?id_token_hint=x" };
+    routes["POST /bff/logout"] = { logoutUrl: "https://keycloak.example.invalid/realms/depot/protocol/openid-connect/logout?id_token_hint=x" };
     const assign = vi.fn();
     vi.stubGlobal("location", { ...window.location, assign });
     render(<MemoryRouter initialEntries={["/"]}><App /></MemoryRouter>);
     await screen.findByText("You have nothing to pay.");
     await userEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "Sign out" }));
-    await waitFor(() => expect(assign).toHaveBeenCalledWith("https://keycloak.example.invalid/realms/passage/protocol/openid-connect/logout?id_token_hint=x"));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith("https://keycloak.example.invalid/realms/depot/protocol/openid-connect/logout?id_token_hint=x"));
     expect(calls.find((c) => c.url === "/bff/logout")?.headers["x-csrf-token"]).toBe("csrf-1");
   });
 

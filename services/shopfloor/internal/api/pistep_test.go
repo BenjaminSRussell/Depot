@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
 )
 
 const piStepID0 = "0195f0a0-0000-7000-8000-0000000000d1"
@@ -153,9 +153,9 @@ func TestPIStepLibraryLifecycleOnADatabase(t *testing.T) {
 	send := func(method, path, body, ifMatch string) (*httptest.ResponseRecorder, store.PIStepTemplate) {
 		e.calls++
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-User", "engineer-1")
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-User", "engineer-1")
+		req.Header.Set("X-Depot-Duties", duties)
 		req.Header.Set("Idempotency-Key", fmt.Sprintf("step-%d", e.calls))
 		if ifMatch != "" {
 			req.Header.Set("If-Match", ifMatch)

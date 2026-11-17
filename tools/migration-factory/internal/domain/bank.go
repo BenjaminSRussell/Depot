@@ -6,7 +6,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // TableBank is the legacy_xref source_table the bank_balances pack writes.
@@ -89,8 +89,8 @@ func ValidateBankBalances(in []BankBalanceLine, accounts map[string]struct{}) (a
 }
 
 // ReconcileBankBalances finishes a bank_balances run once the accepted lines are held. loaded is
-// how many lines this run inserted; held maps each accepted legacy id to the line Passage holds.
-// It computes the FR-49.2 totals of the whole extract against what Passage holds: the balance per
+// how many lines this run inserted; held maps each accepted legacy id to the line Depot holds.
+// It computes the FR-49.2 totals of the whole extract against what Depot holds: the balance per
 // (bank account, currency), the balance per entity and currency, and the account count. The run
 // moves from VALIDATED to LOADED and, when no total is MISMATCH, to RECONCILED. Quarantined lines
 // are part of the source, so a run with quarantine stays LOADED.

@@ -12,11 +12,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/api"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/api"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
 )
 
 const (
@@ -186,9 +186,9 @@ func call(t *testing.T, h http.Handler, method, path, duties, body string, heade
 	for i := 0; i+1 < len(headers); i += 2 {
 		req.Header.Set(headers[i], headers[i+1])
 	}
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
 	if duties != "" {
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Duties", duties)
 	}
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -253,7 +253,7 @@ func TestResolve_ValidationAndDuties(t *testing.T) {
 	}
 	if code, _ := call(t, h, http.MethodPost, "/v1/pricing/condition-records", "pricing.view", fmt.Sprintf(recordBody, legalEntity, "1")); code != http.StatusForbidden {
 		t.Fatalf("a viewer must not maintain records, got %d", code)
-	}	// Sales order entry prefills the unit price from resolve with the clerk's own duty, which reads nothing else.
+	} // Sales order entry prefills the unit price from resolve with the clerk's own duty, which reads nothing else.
 	if code, out := call(t, h, http.MethodPost, "/v1/pricing/resolve", "sales.order.write", fmt.Sprintf(resolveBody, legalEntity, "1")); code != http.StatusOK {
 		t.Fatalf("sales.order.write must resolve a price, got %d %v", code, out)
 	}

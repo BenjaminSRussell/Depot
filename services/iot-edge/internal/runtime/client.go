@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/iot-edge/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/iot-edge/internal/domain"
 )
 
 // Client talks to the shopfloor service over HTTP: it is the Transport (machine events) and the

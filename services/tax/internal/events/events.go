@@ -1,8 +1,8 @@
 package events
 
-const Source = "/passage/tax/tax"
+const Source = "/depot/tax/tax"
 
-const ProviderFallback = "dev.passage.tax.provider.fallback.v1"
+const ProviderFallback = "dev.depot.tax.provider.fallback.v1"
 
 type ProviderFallbackData struct {
 	LegalEntityID string `json:"legalEntityId"`

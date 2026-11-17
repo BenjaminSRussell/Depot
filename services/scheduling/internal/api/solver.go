@@ -8,9 +8,9 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/optimizer"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/optimizer"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 // campaignSolverLimit is the CP-SAT time limit for one campaign. FR-23.14

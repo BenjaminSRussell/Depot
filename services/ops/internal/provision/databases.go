@@ -10,15 +10,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/rlsexempt"
+	"github.com/BenjaminSRussell/depot/platform/rlsexempt"
 )
 
-// Databases is the DatabaseAdmin for Passage's tenancy model: one CloudNativePG database per bounded context, schema = context
+// Databases is the DatabaseAdmin for Depot's tenancy model: one CloudNativePG database per bounded context, schema = context
 // name, a shared schema with tenant_id as the first column of every table and row-level security (docs/architecture.md E.1, E.2).
 // A tenant therefore has no database or schema of its own to create, and its rows are written by the services as it works (its
 // legal entities by identity, its number sequences by numbering). Provisioning the databases means proving the tenant can safely
 // start using them: for every configured service database (URLs holds one connection string per context, as the application role
-// passage_app) EnsureDatabases checks that the role has neither SUPERUSER nor BYPASSRLS, that every table with a tenant_id column
+// depot_app) EnsureDatabases checks that the role has neither SUPERUSER nor BYPASSRLS, that every table with a tenant_id column
 // has row security enabled and forced (except the tables platform/go/rlsexempt allows, the same list tools/rlscheck enforces), and
 // that a session scoped to the new tenant sees no row of another tenant (the platform tenant's reference rows are not "another
 // tenant"). It changes nothing.
@@ -55,7 +55,7 @@ where c.relkind in ('r', 'p') and not c.relispartition
 order by 1, 2`
 
 func scopeTenant(ctx context.Context, tx pgx.Tx, tenantID string) error {
-	_, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', '*', true)`, tenantID)
+	_, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true)`, tenantID)
 	return err
 }
 
@@ -98,7 +98,7 @@ func (d Databases) verify(ctx context.Context, name, tenantID string) (int, erro
 		return 0, err
 	}
 	if bypass {
-		return 0, errors.New("the connection role has SUPERUSER or BYPASSRLS: use passage_app so the check proves what the services will see")
+		return 0, errors.New("the connection role has SUPERUSER or BYPASSRLS: use depot_app so the check proves what the services will see")
 	}
 	rows, err := conn.Query(ctx, tenantTablesSQL, d.schemaArg())
 	if err != nil {
@@ -172,7 +172,7 @@ func (d Databases) verify(ctx context.Context, name, tenantID string) (int, erro
 }
 
 // retainedDetail is what the decommission's databases step reports: the data stays until a separate, gated purge.
-const retainedDetail = "tenant data retained under the retention policy; purge separately (passage-ops tenant purge, after the export is verified)"
+const retainedDetail = "tenant data retained under the retention policy; purge separately (depot-ops tenant purge, after the export is verified)"
 
 func (d Databases) DropDatabases(_ context.Context, t Tenant, _ bool) (string, error) {
 	if err := checkTenantID(t.ID); err != nil {

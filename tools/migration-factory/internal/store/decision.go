@@ -9,8 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	mfevents "github.com/BenjaminSRussell/passage/tools/migration-factory/internal/events"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	mfevents "github.com/BenjaminSRussell/depot/tools/migration-factory/internal/events"
 )
 
 // readinessFacts reads what the go/no-go checklist is evaluated over inside tx: the latest run of
@@ -24,7 +24,7 @@ func readinessFacts(ctx context.Context, tx pgx.Tx, plan domain.Plan) (domain.Re
 	}
 	rows, err := tx.Query(ctx, `select distinct on (pack, source_company) pack, source_company, run_id::text, status, created_at, payables_staged, receivables_load, source_system
 		from pack_run
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and pack = any($1) and source_company = any($2)
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and pack = any($1) and source_company = any($2)
 		order by pack, source_company, created_at desc, run_id desc`, packs, plan.Entities)
 	if err != nil {
 		return f, err
@@ -64,7 +64,7 @@ func readinessFacts(ctx context.Context, tx pgx.Tx, plan domain.Plan) (domain.Re
 		if domain.StagedTargetOfPack(f.Packs[i].Pack) != "" {
 			table = "staged_load"
 		}
-		if err := tx.QueryRow(ctx, `select exists (select 1 from `+table+` where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1::uuid
+		if err := tx.QueryRow(ctx, `select exists (select 1 from `+table+` where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1::uuid
 			and status = 'RECONCILED' and rejected = 0 and pending = 0)`, f.Packs[i].RunID).Scan(&f.Packs[i].TargetLoaded); err != nil {
 			return f, err
 		}
@@ -75,7 +75,7 @@ func readinessFacts(ctx context.Context, tx pgx.Tx, plan domain.Plan) (domain.Re
 		}
 	}
 	rows, err = tx.Query(ctx, `select parallel_run_id::text, period, source_system, state, unexplained_count from parallel_run
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and period = $1 order by source_system`, plan.ParallelPeriod())
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and period = $1 order by source_system`, plan.ParallelPeriod())
 	if err != nil {
 		return f, err
 	}
@@ -100,7 +100,7 @@ func readinessFacts(ctx context.Context, tx pgx.Tx, plan domain.Plan) (domain.Re
 
 func loadApprovals(ctx context.Context, tx pgx.Tx, planID string, round int) ([]domain.GoApproval, error) {
 	rows, err := tx.Query(ctx, `select round, approver, attestations, waivers, plan_version, approved_at from cutover_go_approval
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1 and round = $2 order by approved_at, approver`, planID, round)
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1 and round = $2 order by approved_at, approver`, planID, round)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func loadApprovals(ctx context.Context, tx pgx.Tx, planID string, round int) ([]
 
 func loadDecisions(ctx context.Context, tx pgx.Tx, planID string) ([]domain.Decision, error) {
 	rows, err := tx.Query(ctx, `select seq, decision, approvers, reason, checklist, waivers, decided_by, decided_at, plan_version
-		from cutover_decision where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1 order by seq`, planID)
+		from cutover_decision where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1 order by seq`, planID)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func loadLatestDecisions(ctx context.Context, tx pgx.Tx, plans []*domain.Plan) e
 		planIDs = append(planIDs, p.PlanID)
 	}
 	rows, err := tx.Query(ctx, `select distinct on (plan_id) plan_id::text, seq, decision, approvers, reason, decided_by, decided_at, plan_version
-		from cutover_decision where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = any($1::uuid[]) order by plan_id, seq desc`, planIDs)
+		from cutover_decision where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = any($1::uuid[]) order by plan_id, seq desc`, planIDs)
 	if err != nil {
 		return err
 	}
@@ -260,7 +260,7 @@ func (s *Postgres) RecordDecision(ctx context.Context, idem Idem, r DecisionRequ
 				return DecisionResult{}, err
 			}
 			if err := tx.QueryRow(ctx, `insert into cutover_decision (tenant_id, plan_id, seq, decision, approvers, reason, checklist, waivers, plan_version, decided_by)
-				values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9) returning decided_at`,
+				values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9) returning decided_at`,
 				plan.PlanID, d.Seq, d.Decision, d.Approvers, d.Reason, string(checklist), string(waivers), d.PlanVersion, d.DecidedBy).Scan(&d.DecidedAt); err != nil {
 				return DecisionResult{}, fmt.Errorf("insert cutover_decision: %w", err)
 			}
@@ -301,7 +301,7 @@ func insertApproval(ctx context.Context, tx pgx.Tx, plan domain.Plan, round int,
 		return domain.GoApproval{}, err
 	}
 	if err := tx.QueryRow(ctx, `insert into cutover_go_approval (tenant_id, plan_id, round, approver, attestations, waivers, plan_version)
-		values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4::jsonb, $5::jsonb, $6) returning approved_at`,
+		values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4::jsonb, $5::jsonb, $6) returning approved_at`,
 		plan.PlanID, a.Round, a.Approver, string(att), string(wv), a.PlanVersion).Scan(&a.ApprovedAt); err != nil {
 		return domain.GoApproval{}, fmt.Errorf("insert cutover_go_approval: %w", err)
 	}

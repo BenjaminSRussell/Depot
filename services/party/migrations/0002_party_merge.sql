@@ -21,5 +21,5 @@ ALTER TABLE party_merge ENABLE ROW LEVEL SECURITY;
 ALTER TABLE party_merge FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS party_merge_tenant_access ON party_merge;
 CREATE POLICY party_merge_tenant_access ON party_merge AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

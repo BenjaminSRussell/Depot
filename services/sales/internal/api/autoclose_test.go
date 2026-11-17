@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/sales/internal/store"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/store"
 )
 
 type autoCloseStore struct {

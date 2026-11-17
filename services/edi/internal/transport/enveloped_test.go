@@ -138,11 +138,11 @@ func TestEnveloped_InteropWithOpenSSL(t *testing.T) {
 }
 
 func TestAS2_EncryptedSignedSHA384RoundTrip(t *testing.T) {
-	f := &as2Fixture{us: newKeyPair(t, "PASSAGE", false), partner: newKeyPair(t, "DISTRIBUTOR", false)}
+	f := &as2Fixture{us: newKeyPair(t, "DEPOT", false), partner: newKeyPair(t, "DISTRIBUTOR", false)}
 	f.server = &AS2Server{
 		Us: AS2Identity{ID: "DISTRIBUTOR", Cert: f.partner.cert, Key: f.partner.key},
 		Partner: func(from string) (AS2Partner, bool) {
-			return AS2Partner{ID: "PASSAGE", Cert: f.us.cert, RequireSigned: true, RequireEncrypted: true}, from == "PASSAGE"
+			return AS2Partner{ID: "DEPOT", Cert: f.us.cert, RequireSigned: true, RequireEncrypted: true}, from == "DEPOT"
 		},
 		Deliver: func(_ context.Context, _ string, m Message) error {
 			f.mu.Lock()
@@ -154,7 +154,7 @@ func TestAS2_EncryptedSignedSHA384RoundTrip(t *testing.T) {
 	}
 	srv := httptest.NewServer(f.server)
 	defer srv.Close()
-	c := &AS2Client{Us: AS2Identity{ID: "PASSAGE", Cert: f.us.cert, Key: f.us.key}, Partner: AS2Partner{ID: "DISTRIBUTOR", URL: srv.URL, Cert: f.partner.cert},
+	c := &AS2Client{Us: AS2Identity{ID: "DEPOT", Cert: f.us.cert, Key: f.us.key}, Partner: AS2Partner{ID: "DISTRIBUTOR", URL: srv.URL, Cert: f.partner.cert},
 		HTTP: srv.Client(), RequireSignedMDN: true, SignHash: crypto.SHA384, Encryption: EncryptAES256, Now: func() time.Time { return testAt }}
 	r, err := c.Send(context.Background(), x12Message("enc-1"))
 	if err != nil {
@@ -193,7 +193,7 @@ func TestAS2_AsyncMDNAndDuplicateWarning(t *testing.T) {
 		mdns = append(mdns, m)
 		return nil
 	}
-	c.AsyncMDNURL = "https://passage.example/as2/v1/abc/mdn"
+	c.AsyncMDNURL = "https://depot.example/as2/v1/abc/mdn"
 	r, err := c.Send(context.Background(), x12Message("async-1"))
 	if err != nil || !r.Pending || r.SentMIC == "" || r.Disposition != "" {
 		t.Fatalf("%+v %v", r, err)

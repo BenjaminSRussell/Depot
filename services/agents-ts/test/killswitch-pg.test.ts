@@ -50,7 +50,7 @@ describe.runIf(ownerUrl)("kill switch shared through Postgres (AC-47.6)", () => 
     expect(b.registry.isHalted(t)).toBe(false);
 
     const out = await toggle(admin(t), { scope: "TENANT", tenantId: t, active: true }, a.registry);
-    expect(out.event?.type).toBe("dev.passage.agent.killswitch.changed.v1");
+    expect(out.event?.type).toBe("dev.depot.agent.killswitch.changed.v1");
     expect(a.registry.isHalted(t)).toBe(true);
     expect(b.registry.isHalted(t)).toBe(false);
 
@@ -113,7 +113,7 @@ describe.runIf(ownerUrl)("kill switch shared through Postgres (AC-47.6)", () => 
     expect(rows.rows[0].n).toBe(1);
     const events = await fx.owner.query("select type, payload from outbox where tenant_id = $1 and aggregate_type = 'kill_switch'", [t]);
     expect(events.rows).toHaveLength(1);
-    expect(events.rows[0].type).toBe("dev.passage.agent.killswitch.changed.v1");
+    expect(events.rows[0].type).toBe("dev.depot.agent.killswitch.changed.v1");
     expect(events.rows[0].payload).toMatchObject({ scope: "TENANT", tenant_id: t, active: true, version: first.body.version });
   });
 

@@ -51,7 +51,7 @@ func groupedOrders(t *testing.T) EdifactInterchange {
 
 func TestReadEdifact_FunctionalGroupsRoundTripAndGroupErrors(t *testing.T) {
 	raw := serializeOK(t, groupedOrders(t))
-	for _, want := range []string{"UNG+ORDERS+4012345000009:14+PASSAGE:ZZZ+261105:0900+G1+UN+D:96A'", "UNE+2+G1'", "UNZ+1+42'"} {
+	for _, want := range []string{"UNG+ORDERS+4012345000009:14+DEPOT:ZZZ+261105:0900+G1+UN+D:96A'", "UNE+2+G1'", "UNZ+1+42'"} {
 		if !strings.Contains(raw, want) {
 			t.Fatalf("%s missing in %s", want, raw)
 		}
@@ -93,7 +93,7 @@ func TestReadEdifact_FunctionalGroupsRoundTripAndGroupErrors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := serializeOK(t, c); !strings.Contains(got, "UCI+42+4012345000009:14+PASSAGE:ZZZ+4'UCF+G1+4012345000009:14+PASSAGE:ZZZ+4+29'") {
+	if got := serializeOK(t, c); !strings.Contains(got, "UCI+42+4012345000009:14+DEPOT:ZZZ+4'UCF+G1+4012345000009:14+DEPOT:ZZZ+4+29'") {
 		t.Fatalf("CONTRL %s", got)
 	}
 }
@@ -124,7 +124,7 @@ func TestReadEdifact_MessageWithWrongUNTIsKeptAndRejectedAlone(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			want := "UCI+42+4012345000009:14+PASSAGE:ZZZ+4'UCM+1+ORDERS:D:96A:UN:EAN008+4+" + c.code + "'UCS+21+" + c.code + "'UCD+" + c.code + "+" + string(rune('0'+c.element)) + ":1'"
+			want := "UCI+42+4012345000009:14+DEPOT:ZZZ+4'UCM+1+ORDERS:D:96A:UN:EAN008+4+" + c.code + "'UCS+21+" + c.code + "'UCD+" + c.code + "+" + string(rune('0'+c.element)) + ":1'"
 			if got := serializeOK(t, contrl); !strings.Contains(got, want) {
 				t.Fatalf("CONTRL %s\nwant %s", got, want)
 			}
@@ -156,7 +156,7 @@ func TestReadEdifact_InterchangeErrorsKeepTheUNBForTheCONTRL(t *testing.T) {
 				t.Fatal(err)
 			}
 			got := serializeOK(t, contrl)
-			if !strings.Contains(got, "UCI+42+4012345000009:14+PASSAGE:ZZZ+4+"+c.code+"'") || !strings.Contains(got, "UNB+UNOC:3+PASSAGE:ZZZ+4012345000009:14+") ||
+			if !strings.Contains(got, "UCI+42+4012345000009:14+DEPOT:ZZZ+4+"+c.code+"'") || !strings.Contains(got, "UNB+UNOC:3+DEPOT:ZZZ+4012345000009:14+") ||
 				!strings.Contains(got, "+8'UNH+1+CONTRL:2:2:UN'") {
 				t.Fatalf("CONTRL %s", got)
 			}
@@ -194,7 +194,7 @@ func TestReadEdifact_CustomServiceCharactersAndCONTRLInThem(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := serializeOK(t, c); !strings.HasPrefix(got, "UNA>*,! ~UNB*UNOC>3*PASSAGE>ZZZ*4012345000009>14*") || !strings.Contains(got, "UCI*42*4012345000009>14*PASSAGE>ZZZ*7~") {
+	if got := serializeOK(t, c); !strings.HasPrefix(got, "UNA>*,! ~UNB*UNOC>3*DEPOT>ZZZ*4012345000009>14*") || !strings.Contains(got, "UCI*42*4012345000009>14*DEPOT>ZZZ*7~") {
 		t.Fatalf("CONTRL %s", got)
 	}
 }
@@ -215,7 +215,7 @@ func TestBuildCONTRL_GroupsGetUCFAndRejectedMessagesUCSAndUCD(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := serializeOK(t, c)
-	want := "UCI+42+4012345000009:14+PASSAGE:ZZZ+7'UCF+G2+4012345000009:14+PASSAGE:ZZZ+4'UCM+1+ORDERS:D:96A:UN:EAN008+4+12'UCS+2+12'UCD+12+1:1'UNT+"
+	want := "UCI+42+4012345000009:14+DEPOT:ZZZ+7'UCF+G2+4012345000009:14+DEPOT:ZZZ+4'UCM+1+ORDERS:D:96A:UN:EAN008+4+12'UCS+2+12'UCD+12+1:1'UNT+"
 	if !strings.Contains(got, want) || strings.Contains(got, "UCF+G1") {
 		t.Fatalf("CONTRL %s\nwant %s", got, want)
 	}
@@ -268,8 +268,8 @@ func refusalSample(t *testing.T) string {
 	t.Helper()
 	ic := Interchange{
 		Delims: Delims{Element: '*', Component: '>', Segment: '~'}, Sender: Party{Qualifier: "ZZ", ID: "DISTRIBUTOR"},
-		Receiver: Party{Qualifier: "ZZ", ID: "PASSAGE"}, Date: "261105", Time: "0900", Version: "00401", Control: "000000077", Usage: "T",
-		Groups: []Group{{FunctionalID: "PO", Sender: "DISTRIBUTOR", Receiver: "PASSAGE", Date: "20261105", Time: "0900", Control: "77", Version: "004010",
+		Receiver: Party{Qualifier: "ZZ", ID: "DEPOT"}, Date: "261105", Time: "0900", Version: "00401", Control: "000000077", Usage: "T",
+		Groups: []Group{{FunctionalID: "PO", Sender: "DISTRIBUTOR", Receiver: "DEPOT", Date: "20261105", Time: "0900", Control: "77", Version: "004010",
 			Transactions: []Transaction{
 				{SetID: "850", Control: "0001", Body: []Segment{{ID: "BEG", Elements: []string{"00", "SA", "PO1"}}}},
 				{SetID: "850", Control: "0002", Body: []Segment{{ID: "BEG", Elements: []string{"00", "SA", "PO2"}}}},
@@ -298,7 +298,7 @@ func TestReadRefusedX12_TrailerErrorsBecome997Codes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(text, "*ZZ*PASSAGE        *ZZ*DISTRIBUTOR    *") || !strings.Contains(text, "GS*FA*PASSAGE*DISTRIBUTOR*") {
+		if !strings.Contains(text, "*ZZ*DEPOT          *ZZ*DISTRIBUTOR    *") || !strings.Contains(text, "GS*FA*DEPOT*DISTRIBUTOR*") {
 			t.Fatalf("997 not back to the sender: %s", text)
 		}
 		return text

@@ -1,5 +1,5 @@
 -- Load release for tendering (FR-34.5, #426): one row per release, written with
--- its dev.passage.tms.load.released.v1 outbox event; workflow-ts starts the
+-- its dev.depot.tms.load.released.v1 outbox event; workflow-ts starts the
 -- tender cascade from the event. released_by and legal_entity_scope are the
 -- verified caller of the release, never request input. legal_entity_id is the
 -- load's, copied so the release follows the load's legal-entity scope directly.
@@ -24,19 +24,19 @@ CREATE INDEX IF NOT EXISTS load_release_load ON load_release (tenant_id, load_id
 ALTER TABLE load_release ENABLE ROW LEVEL SECURITY;
 ALTER TABLE load_release FORCE ROW LEVEL SECURITY;
 CREATE POLICY load_release_tenant_access ON load_release AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY load_release_legal_entity_scope ON load_release AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')))
-  WITH CHECK (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')))
+  WITH CHECK (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Releases are written once.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON load_release TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON load_release TO depot_app';
   END IF;
 END
 $$;

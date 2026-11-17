@@ -21,7 +21,7 @@ fieldCrypt:
 # publicKeys, deploy handoff). With no address set POST /v1/integration/migration-runs answers 501
 # MIG-BACKEND-NOT-CONFIGURED; an address without a signing key stops the service at start.
 targets:
-  partyUrl: ""        # for example http://party.passage-party.svc:8080
+  partyUrl: ""        # for example http://party.depot-party.svc:8080
   productUrl: ""
   receivablesUrl: ""
   engineeringUrl: ""

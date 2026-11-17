@@ -32,11 +32,11 @@ create index search_record_number on search_record (tenant_id, record_type, numb
 alter table search_record enable row level security;
 alter table search_record force row level security;
 create policy search_record_tenant_access on search_record as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy search_record_legal_entity_scope on search_record as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 create table search_record_tenant (
   tenant_id uuid not null,
@@ -60,8 +60,8 @@ create index search_record_tenant_number on search_record_tenant (tenant_id, rec
 alter table search_record_tenant enable row level security;
 alter table search_record_tenant force row level security;
 create policy search_record_tenant_tenant_access on search_record_tenant as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 create table consumer_inbox (
   tenant_id uuid not null,
@@ -73,5 +73,5 @@ create table consumer_inbox (
 alter table consumer_inbox enable row level security;
 alter table consumer_inbox force row level security;
 create policy consumer_inbox_tenant_access on consumer_inbox as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);

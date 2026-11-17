@@ -13,11 +13,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	schedevents "github.com/BenjaminSRussell/passage/services/scheduling/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	schedevents "github.com/BenjaminSRussell/depot/services/scheduling/internal/events"
 )
 
 // Campaign error codes (README lists them all). SCHED-0011 is the PRD code

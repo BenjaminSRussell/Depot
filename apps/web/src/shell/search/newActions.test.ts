@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { RouteObject } from "react-router-dom";
-import type { PassageModule } from "../../modules/registry";
+import type { DepotModule } from "../../modules/registry";
 import { newActions } from "./newActions";
 
 const page = (path: string, title?: string, duty?: string): RouteObject => ({ path, handle: { title, duty } });
 
-const purchasing: PassageModule = {
+const purchasing: DepotModule = {
   id: "purchasing",
   title: "Purchasing",
   nav: [{ label: "Requisitions", to: "/purchasing/requisitions", duty: "procurement.read" }],
@@ -18,7 +18,7 @@ const purchasing: PassageModule = {
     page("/purchasing/:kind/new", "New thing"),
   ],
 };
-const sales: PassageModule = {
+const sales: DepotModule = {
   id: "sales",
   title: "Sales",
   nav: [{ label: "Sales", to: "/sales", duty: "sales.order.read" }],

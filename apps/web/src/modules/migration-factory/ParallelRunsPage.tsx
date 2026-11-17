@@ -27,7 +27,7 @@ export function ParallelRunsPage() {
     <div className={styles.stack}>
       <PageHeader
         title="Parallel runs"
-        description="A legacy period replayed into Passage and diffed. A run is signed off only with no unexplained variance and explained amounts within the revenue limit."
+        description="A legacy period replayed into Depot and diffed. A run is signed off only with no unexplained variance and explained amounts within the revenue limit."
         actions={
           <Link className={buttonClassName("primary")} to="/migration-factory/parallel-runs/new">
             Start parallel run

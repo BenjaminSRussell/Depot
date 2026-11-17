@@ -107,18 +107,18 @@ BEGIN
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
     EXECUTE format($p$CREATE POLICY %I_tenant_access ON %I AS PERMISSIVE
-      USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-      WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid)$p$, t, t);
+      USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+      WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid)$p$, t, t);
   END LOOP;
 END
 $$;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON consolidation_group, consolidation_unit, consolidation_collection, consolidation_collection_line TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON consolidation_ownership TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON consolidation_account_map TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON consolidation_group, consolidation_unit, consolidation_collection, consolidation_collection_line TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON consolidation_ownership TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON consolidation_account_map TO depot_app';
   END IF;
 END
 $$;

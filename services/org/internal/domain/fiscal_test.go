@@ -12,7 +12,7 @@ import (
 
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/services/org/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/org/internal/domain"
 )
 
 func ymd(y int, m time.Month, d int) time.Time {

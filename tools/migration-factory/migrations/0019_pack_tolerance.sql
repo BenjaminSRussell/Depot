@@ -2,7 +2,7 @@
 -- `migration.tolerance.<pack>`. One row per (pack, total name), or per pack with the total name '*'
 -- for every total of the pack that has no row of its own. A positive amount carries the reason it
 -- was allowed; without a row every total compares at 0.00. The row is versioned (optimistic
--- concurrency) and each change is published as dev.passage.migration.tolerance.configured.v1. The
+-- concurrency) and each change is published as dev.depot.migration.tolerance.configured.v1. The
 -- table carries tenant_id first and is held to the tenant by forced row-level security.
 
 create table pack_tolerance (
@@ -21,16 +21,16 @@ create table pack_tolerance (
 alter table pack_tolerance enable row level security;
 alter table pack_tolerance force row level security;
 create policy pack_tolerance_tenant_access on pack_tolerance as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Application role privileges. A change updates the row in place, so UPDATE is granted; nothing
 -- deletes a tolerance (set it back to 0). Skipped when the role does not exist.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON pack_tolerance TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON pack_tolerance TO depot_app';
   END IF;
 END
 $$;

@@ -20,8 +20,8 @@ CREATE INDEX IF NOT EXISTS carrier_service_carrier ON carrier_service (tenant_id
 ALTER TABLE carrier_service ENABLE ROW LEVEL SECURITY;
 ALTER TABLE carrier_service FORCE ROW LEVEL SECURITY;
 CREATE POLICY carrier_service_tenant_access ON carrier_service AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- A freight bill reads FB-000042 instead of its id. Numbers count per tenant from a counter row the insert trigger takes
 -- under a row lock (as quality orders do), so one tenant's numbers say nothing about another's volume.
@@ -35,8 +35,8 @@ ALTER TABLE freight_bill_counter ENABLE ROW LEVEL SECURITY;
 ALTER TABLE freight_bill_counter FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS freight_bill_counter_tenant_access ON freight_bill_counter;
 CREATE POLICY freight_bill_counter_tenant_access ON freight_bill_counter AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE OR REPLACE FUNCTION freight_bill_assign_number() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
@@ -82,8 +82,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS freight_bill_number_key ON freight_bill (tenan
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON carrier_service TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON freight_bill_counter TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON carrier_service TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON freight_bill_counter TO depot_app';
   END IF;
 END $$;

@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/store"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/target"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/store"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/target"
 )
 
 // Problem codes of the payables load (49-3).
@@ -133,7 +133,7 @@ func (s *Server) runPayablesLoad(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.payables == nil || !s.payables.Configured() {
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusServiceUnavailable, CodePayablesNotConfigured,
-			"the payables target is not configured: set PAYABLES_URL and the service signing key (PASSAGE_SERVICE_NAME=migration-factory, PASSAGE_SERVICE_SIGNING_KEY)"))
+			"the payables target is not configured: set PAYABLES_URL and the service signing key (DEPOT_SERVICE_NAME=migration-factory, DEPOT_SERVICE_SIGNING_KEY)"))
 		return
 	}
 	ctx := r.Context()

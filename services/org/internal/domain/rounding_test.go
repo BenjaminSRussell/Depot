@@ -9,7 +9,7 @@ import (
 	"github.com/shopspring/decimal"
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/services/org/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/org/internal/domain"
 )
 
 func TestRound_Fixture(t *testing.T) {

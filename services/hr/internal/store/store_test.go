@@ -12,13 +12,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/hr/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/hr/migrations"
 )
 
 func testSealer(t *testing.T) *domain.Sealer {
@@ -35,7 +35,7 @@ func testSealer(t *testing.T) *domain.Sealer {
 }
 
 // newStore runs against a fresh schema from testkit and skips without
-// PASSAGE_TEST_DATABASE_URL.
+// DEPOT_TEST_DATABASE_URL.
 func newStore(t *testing.T) (*Postgres, context.Context) {
 	t.Helper()
 	pool := testkit.DB(t)

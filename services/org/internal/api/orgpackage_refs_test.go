@@ -10,11 +10,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/api"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
-	"github.com/BenjaminSRussell/passage/services/org/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/api"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/services/org/migrations"
 )
 
 func (m *memOrg) ListUnits(context.Context, store.UnitFilter) ([]store.Unit, error) {
@@ -243,13 +243,13 @@ func TestOrgPackage_Postgres_ReferenceKindsRoundTrip(t *testing.T) {
 		len(mustList(t, exported.Body.Bytes(), "currencyRoundingRules")) != 2 || len(mustList(t, exported.Body.Bytes(), "nameTranslations")) != 3 {
 		t.Fatalf("export = %d %s", exported.Code, exported.Body)
 	}
-	other := do(r, http.MethodPost, "/v1/org/import", exported.Body.String(), packageDuties, true, "X-Passage-Tenant", testkit.TenantID(2))
+	other := do(r, http.MethodPost, "/v1/org/import", exported.Body.String(), packageDuties, true, "X-Depot-Tenant", testkit.TenantID(2))
 	var otherReport api.ImportReport
 	if err := json.Unmarshal(other.Body.Bytes(), &otherReport); err != nil || other.Code != http.StatusOK || otherReport.Created != packageRecords+refRecords {
 		t.Fatalf("import into another tenant = %d %s", other.Code, other.Body)
 	}
 	// Tenant two's rows are its own: it exports the same three translations, naming its own owners.
-	again2 := do(r, http.MethodPost, "/v1/org/export", "", packageDuties, true, "X-Passage-Tenant", testkit.TenantID(2))
+	again2 := do(r, http.MethodPost, "/v1/org/export", "", packageDuties, true, "X-Depot-Tenant", testkit.TenantID(2))
 	if again2.Code != http.StatusOK || len(mustList(t, again2.Body.Bytes(), "nameTranslations")) != 3 || len(mustList(t, again2.Body.Bytes(), "currencyRoundingRules")) != 2 {
 		t.Fatalf("tenant two export = %d %s", again2.Code, again2.Body)
 	}

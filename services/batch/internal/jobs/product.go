@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/domain"
 )
 
 const (

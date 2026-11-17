@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 func (f *fakeStore) ListWarehouseSettings(context.Context) ([]store.WarehouseSetting, error) {
@@ -66,7 +66,7 @@ func TestBackorderRemainder_RequiresKeyVersionBodyAndDuty(t *testing.T) {
 	if backorderDate == nil || backorderDate.Format(dateLayout) != "2026-12-01" {
 		t.Fatalf("planned ship date = %v", backorderDate)
 	}
-	rec = do(t, h, http.MethodPost, path, "{}", map[string]string{"Idempotency-Key": "b-5", "If-Match": `"3"`, "X-Passage-Duties": "fulfillment.warehouse.pick"})
+	rec = do(t, h, http.MethodPost, path, "{}", map[string]string{"Idempotency-Key": "b-5", "If-Match": `"3"`, "X-Depot-Duties": "fulfillment.warehouse.pick"})
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("picker backorder: status = %d, want 403", rec.Code)
 	}
@@ -121,7 +121,7 @@ func TestWarehouseSetting_ReadSaveValidateAndDuty(t *testing.T) {
 	if savedLegalEntity != le {
 		t.Fatalf("legal entity passed to the store = %q, want %s", savedLegalEntity, le)
 	}
-	if rec := do(t, h, http.MethodPut, path, body, map[string]string{"If-Match": `"2"`, "Idempotency-Key": "s-5", "X-Passage-Duties": "fulfillment.warehouse.view"}); rec.Code != http.StatusForbidden {
+	if rec := do(t, h, http.MethodPut, path, body, map[string]string{"If-Match": `"2"`, "Idempotency-Key": "s-5", "X-Depot-Duties": "fulfillment.warehouse.view"}); rec.Code != http.StatusForbidden {
 		t.Fatalf("viewer save: %d", rec.Code)
 	}
 }

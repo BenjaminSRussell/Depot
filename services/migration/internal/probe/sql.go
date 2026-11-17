@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/egress"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/egress"
 )
 
 // statementTimeoutMs bounds every probe statement on the source server, inside the probe's overall deadline.
@@ -179,7 +179,7 @@ func postgresConfig(s SQLSettings, dial Dial, tlsBase *tls.Config) (*pgx.ConnCon
 	cfg.TLSConfig, cfg.SSLNegotiation = tlsCfg, ""
 	cfg.Fallbacks, cfg.ValidateConnect, cfg.AfterConnect, cfg.AfterNetConnect = nil, nil, nil, nil
 	cfg.KerberosSrvName, cfg.KerberosSpn, cfg.OAuthTokenProvider = "", "", nil
-	cfg.RuntimeParams = map[string]string{"application_name": "passage-migration-probe"}
+	cfg.RuntimeParams = map[string]string{"application_name": "depot-migration-probe"}
 	// The guard resolves and pins; pgx must hand it the host name, not a pre-resolved address.
 	cfg.LookupFunc = func(_ context.Context, host string) ([]string, error) { return []string{host}, nil }
 	cfg.DialFunc = pgconn.DialFunc(dial)

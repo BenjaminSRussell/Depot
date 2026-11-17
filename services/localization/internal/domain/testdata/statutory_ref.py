@@ -1,4 +1,4 @@
-"""Independent reference for the statutory fixtures in countrypacks/ (PSG-48 AC1).
+"""Independent reference for the statutory fixtures in countrypacks/ (DPT-48 AC1).
 
 Run with `python3 -I statutory_ref.py <countrypacks dir>` (stdlib only). It shares no code with the
 Go validators: it rebuilds the US IRS FIRE 1099-NEC fixture byte for byte from Publication 1220
@@ -83,8 +83,8 @@ def build_fire():
         recs.append("".join(rec[:748]) + "\r\n")
 
     t = blank_record()
-    field(t, 1, "T"); field(t, 2, "2025"); field(t, 7, "943812765"); field(t, 16, "PSG01")
-    field(t, 28, "T"); field(t, 30, "PASSAGE DEMO TRANSMITTER"); field(t, 110, "PASSAGE DEMO INC")
+    field(t, 1, "T"); field(t, 2, "2025"); field(t, 7, "943812765"); field(t, 16, "DPT01")
+    field(t, 28, "T"); field(t, 30, "DEPOT DEMO TRANSMITTER"); field(t, 110, "DEPOT DEMO INC")
     field(t, 190, "100 MAIN STREET"); field(t, 230, "BOSTON"); field(t, 270, "MA"); field(t, 272, "021101234")
     field(t, 296, str(len(PAYEES)).rjust(8, "0")); field(t, 304, "JANE FILER"); field(t, 344, "6175550100")
     field(t, 359, "filer@example.com"); field(t, 518, "I")
@@ -92,7 +92,7 @@ def build_fire():
 
     a = blank_record()
     field(a, 1, "A"); field(a, 2, "2025"); field(a, 12, "943812765"); field(a, 21, "PASS")
-    field(a, 26, "NE"); field(a, 28, "14"); field(a, 53, "PASSAGE DEMO INC"); field(a, 133, "0")
+    field(a, 26, "NE"); field(a, 28, "14"); field(a, 53, "DEPOT DEMO INC"); field(a, 133, "0")
     field(a, 134, "100 MAIN STREET"); field(a, 174, "BOSTON"); field(a, 214, "MA"); field(a, 216, "021101234")
     field(a, 225, "6175550100")
     finish(a)

@@ -5,7 +5,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // InstallmentTerm is one installment of the payment terms (FR-29.18): a share of

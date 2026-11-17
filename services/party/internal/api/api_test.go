@@ -10,10 +10,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/party/internal/api"
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/party/internal/api"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
 )
 
 const validatePath = "/v1/party/tax-registrations:validate"
@@ -47,8 +47,8 @@ func newRouterWithPinger(c domain.Checker, p api.Pinger) (*chi.Mux, *api.API) {
 func do(r http.Handler, method, path, body, duties string, withTenant bool) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	if withTenant {
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-Duties", duties)
 	}
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -100,7 +100,7 @@ func TestValidateProblemEnvelope(t *testing.T) {
 	if ct := rec.Header().Get("Content-Type"); ct != "application/problem+json" {
 		t.Fatalf("content type %q", ct)
 	}
-	for _, key := range []string{`"type":"https://passage.dev/problems/PTY-0001"`, `"title"`, `"status":422`, `"detail"`, `"instance":"` + validatePath, `"code":"PTY-0001"`, `"traceId"`, `"errors"`} {
+	for _, key := range []string{`"type":"https://depot.dev/problems/PTY-0001"`, `"title"`, `"status":422`, `"detail"`, `"instance":"` + validatePath, `"code":"PTY-0001"`, `"traceId"`, `"errors"`} {
 		if !strings.Contains(rec.Body.String(), key) {
 			t.Errorf("problem body missing %s: %s", key, rec.Body.String())
 		}
@@ -144,9 +144,9 @@ func TestValidateRejectsMalformedTenant(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			r, _ := newRouter(&stubChecker{})
 			req := httptest.NewRequest(http.MethodPost, validatePath, strings.NewReader(`{"type":"EIN","number":"12-3456789"}`))
-			req.Header.Set("X-Passage-Tenant", tc.tenantID)
-			req.Header.Set("X-Passage-Legal-Entity", tc.legalEntity)
-			req.Header.Set("X-Passage-Duties", "party.write")
+			req.Header.Set("X-Depot-Tenant", tc.tenantID)
+			req.Header.Set("X-Depot-Legal-Entity", tc.legalEntity)
+			req.Header.Set("X-Depot-Duties", "party.write")
 			rec := httptest.NewRecorder()
 			r.ServeHTTP(rec, req)
 			if rec.Code != tc.wantStatus || !strings.Contains(rec.Body.String(), tc.wantCode) {
@@ -165,7 +165,7 @@ func TestMetricsCountBusinessOperations(t *testing.T) {
 	do(r, http.MethodPost, validatePath, `{"type":"VAT","country":"DE","number":"bad"}`, "party.write", true)
 	do(r, http.MethodPost, validatePath, `{`, "party.write", true)
 	req := httptest.NewRequest(http.MethodPost, validatePath, strings.NewReader(`{"type":"EIN","number":"12-3456789"}`))
-	req.Header = http.Header{"X-Passage-Tenant": {testkit.TenantID(1)}, "X-Passage-Legal-Entity": {testkit.TenantID(2) + "," + testkit.TenantID(3)}, "X-Passage-Duties": {"party.write"}}
+	req.Header = http.Header{"X-Depot-Tenant": {testkit.TenantID(1)}, "X-Depot-Legal-Entity": {testkit.TenantID(2) + "," + testkit.TenantID(3)}, "X-Depot-Duties": {"party.write"}}
 	r.ServeHTTP(httptest.NewRecorder(), req)
 
 	rec := httptest.NewRecorder()
@@ -217,8 +217,8 @@ func TestProbesAreServedByKernel(t *testing.T) {
 
 func newRequest(method, path, body, duties string) *http.Request {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", duties)
 	return req
 }
 

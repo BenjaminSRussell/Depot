@@ -6,7 +6,7 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// Map810 reads an inbound X12 810 (004010) as a customer's self-billed invoice (#35, 35-5): Passage sends its own 810s and takes
+// Map810 reads an inbound X12 810 (004010) as a customer's self-billed invoice (#35, 35-5): Depot sends its own 810s and takes
 // vendor invoices through cXML and AP, so an 810 that arrives is the customer billing itself for our deliveries, matched against the
 // shipments our 856s registered like an EDIFACT INVOIC 389. BIG01 is the date, BIG02 the customer's document number, BIG03 and
 // BIG04 the PO date and number, and a BIG07 of CR or CN makes it a credit. REF*PK (packing list) or REF*BM (bill of lading) is the

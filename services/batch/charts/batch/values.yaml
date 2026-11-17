@@ -16,9 +16,9 @@ notify:
   webhook: { enabled: false, url: "" }
   externalSecret:
     enabled: true
-    storeName: passage
+    storeName: depot
     environment: ""
-    pathPrefix: passage/{env}/batch/notify
+    pathPrefix: depot/{env}/batch/notify
     refreshInterval: 1h
 serviceMonitor: { enabled: false }
 productUrl: ""

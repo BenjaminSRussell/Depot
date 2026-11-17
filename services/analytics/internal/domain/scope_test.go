@@ -7,7 +7,7 @@ import (
 
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 func TestScopeFromPrincipal_OnlyAllScopeDutyIsUnrestricted(t *testing.T) {

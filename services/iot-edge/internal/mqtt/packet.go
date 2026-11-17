@@ -1,4 +1,4 @@
-// Package mqtt is the connector's MQTT 3.1.1 client (PSG-25 D9, FR-25.9) and a small in-process broker
+// Package mqtt is the connector's MQTT 3.1.1 client (DPT-25 D9, FR-25.9) and a small in-process broker
 // for tests and the demo plant. The client does what the connector needs and no more: connect with a
 // user name and TLS, subscribe with wildcards, publish at QoS 0 or 1 and wait for the acknowledgement,
 // keep the connection alive. It has no sessions that survive a reconnect: the Session helper dials again

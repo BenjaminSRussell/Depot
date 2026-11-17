@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // listNetRequirements serves the MD04-style time-phased view of one item in

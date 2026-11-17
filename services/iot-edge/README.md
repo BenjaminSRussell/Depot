@@ -1,7 +1,7 @@
 # iot-edge
 
 Plant edge connector: OPC-UA and MQTT machine data into Kafka as CloudEvents
-(`dev.passage.shopfloor.machine.event.v1`, BR-25.4). Wave reference: **PSG-25 / Wave 25**,
+(`dev.depot.shopfloor.machine.event.v1`, BR-25.4). Wave reference: **DPT-25 / Wave 25**,
 PRD section 4.25 (FR-25.9, FR-25.19).
 
 ## Slice 1 (this build): connector core
@@ -12,7 +12,7 @@ PRD section 4.25 (FR-25.9, FR-25.19).
     dropped; events older than 7 days are dropped as stale; a seq jump reports the
     missing `Gap` (SF-0008 input).
   - `MachineEvent` validation and `Envelope`: the CloudEvent with id `<machineId>-<seq>`
-    and source `urn:passage:iot-edge:<site>:<edgeId>`.
+    and source `urn:depot:iot-edge:<site>:<edgeId>`.
   - `Buffer`: store-and-forward ring with age and capacity limits and fill percentage
     (FR-25.9, 80% warning).
 - `cmd/iot-edge`: 12-factor configuration validated at startup (exits 2 when invalid) and
@@ -52,7 +52,7 @@ NOT-IMPLEMENTED.md for what is open (OPC-UA and MQTT adapters, persistent ring, 
 `internal/mfs` is the adapter for AS/RS, conveyor and sorter controllers (PLCs), run on the plant
 edge node:
 
-- `telegram.go`: Passage's telegram profile v1 (fixed-width ASCII frames `STX LLLL body ETX`; types
+- `telegram.go`: Depot's telegram profile v1 (fixed-width ASCII frames `STX LLLL body ETX`; types
   MOVE, ARRV, DIVT, ERRR, ALIV, ACKN, NACK), the codec with validation (load units are SSCCs with a
   checked GS1 mod-10 digit), and a `Framer` that cuts a TCP stream into frames and resynchronises after
   noise or a corrupted frame.
@@ -61,7 +61,7 @@ edge node:
   handed to the handler once (a repeat is acknowledged again but not redelivered), a handler error
   is NACKed busy so the PLC resends, malformed telegrams are NACKed, sequence gaps are reported, and a
   peer silent for three keep-alive intervals ends `Run` with `ErrLinkDown`.
-- `events.go`: PLC telegrams to `dev.passage.warehouse.automation.event.v1` events (arrived, diverted,
+- `events.go`: PLC telegrams to `dev.depot.warehouse.automation.event.v1` events (arrived, diverted,
   fault) and a warehouse transport order to a MOVE telegram.
 
 Tests run the link against a fake PLC over `net.Pipe`. `internal/mfs/sim.go` is a simulated PLC (it accepts a MOVE
@@ -75,7 +75,7 @@ Mapping a vendor's telegram profile onto this one is open (NOT-IMPLEMENTED.md).
 ## Adapters, buffer and writers (#25)
 
 - `EDGE_SOURCE=opcua`: subscribes to the nodes the applied configuration maps (a tag's address is its node id,
-  `ns=2;s=Press1.Count`). `EDGE_OPCUA_ENDPOINT`, `EDGE_OPCUA_SECURITY_POLICY` and `_MODE` (None only when `PASSAGE_ENV` is dev,
+  `ns=2;s=Press1.Count`). `EDGE_OPCUA_ENDPOINT`, `EDGE_OPCUA_SECURITY_POLICY` and `_MODE` (None only when `DEPOT_ENV` is dev,
   refused elsewhere; a secured channel needs `EDGE_OPCUA_CERT_FILE` and `_KEY_FILE`), `EDGE_OPCUA_USER` with
   `EDGE_OPCUA_PASSWORD_FILE` (refused over None in every environment), `EDGE_OPCUA_INTERVAL_MS`.
 - `EDGE_SOURCE=mqtt`: subscribes to the topics the configuration maps. A message is a bare number or text, or
@@ -93,9 +93,9 @@ Mapping a vendor's telegram profile onto this one is open (NOT-IMPLEMENTED.md).
 | `EDGE_ID` | none | required |
 | `EDGE_ADMIN_ADDR` | `127.0.0.1:8081` | must bind loopback |
 | `IOT_BUFFER_HOURS` | `24` | integer 1 to 168 |
-| `PASSAGE_ENV` | `dev` | |
+| `DEPOT_ENV` | `dev` | |
 | `SERVICE_NAME` | `iot-edge` | |
-| `EDGE_SHOPFLOOR_URL` | none | switches the runtime on; https (http only when `PASSAGE_ENV=dev`) |
+| `EDGE_SHOPFLOOR_URL` | none | switches the runtime on; https (http only when `DEPOT_ENV=dev`) |
 | `EDGE_NODE_ID` | none | the shopfloor edge node UUID; required with the URL |
 | `EDGE_SOURCE` | none | `simulator`, `opcua` or `mqtt`; required with the URL |
 | `EDGE_TOKEN_FILE` | none | bearer token file for dev, until enrollment issues certificates |

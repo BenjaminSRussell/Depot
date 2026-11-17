@@ -8,10 +8,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/lean/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/lean/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/lean/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/lean/internal/store"
 )
 
 // cycleOf runs a planned card with jobs through both of them, completing it.

@@ -9,10 +9,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	ediev "github.com/BenjaminSRussell/passage/services/edi/internal/events"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	ediev "github.com/BenjaminSRussell/depot/services/edi/internal/events"
 )
 
 // PunchoutSupplier is a supplier's punchout settings (§6.35.13): where the catalog is set up, the network identities of the two

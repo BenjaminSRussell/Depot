@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	mfevents "github.com/BenjaminSRussell/passage/tools/migration-factory/internal/events"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	mfevents "github.com/BenjaminSRussell/depot/tools/migration-factory/internal/events"
 )
 
 // ErrNoOrderLoad means the run has not been loaded: it has no order_load row yet.
@@ -29,7 +29,7 @@ func (s *Postgres) GetOrderLoad(ctx context.Context, runID string) (domain.Order
 	var l domain.OrderLoad
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		var err error
-		l, err = scanOrderLoad(tx.QueryRow(ctx, `select `+orderLoadColumns+` from order_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID))
+		l, err = scanOrderLoad(tx.QueryRow(ctx, `select `+orderLoadColumns+` from order_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNoOrderLoad
 		}
@@ -59,7 +59,7 @@ func (s *Postgres) ClaimOrderLoad(ctx context.Context, runID, legalEntityID, sta
 	var pending []PendingOrderLine
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		var pack, status string
-		err := tx.QueryRow(ctx, `select pack, source_system, source_company, status from pack_run where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 for update`, runID).
+		err := tx.QueryRow(ctx, `select pack, source_system, source_company, status from pack_run where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 for update`, runID).
 			Scan(&pack, &run.System, &run.Company, &status)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
@@ -73,19 +73,19 @@ func (s *Postgres) ClaimOrderLoad(ctx context.Context, runID, legalEntityID, sta
 		if domain.RunStatus(status) != domain.StatusReconciled && domain.RunStatus(status) != domain.StatusLoaded {
 			return fmt.Errorf("%w: run %s is %s; only a LOADED or RECONCILED run is loaded", ErrNotLoadable, runID, status)
 		}
-		if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('orderload|' || current_setting('passage.tenant_id', true) || '|' || $1 || '|' || $2, 0))`, run.System, run.Company); err != nil {
+		if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('orderload|' || current_setting('depot.tenant_id', true) || '|' || $1 || '|' || $2, 0))`, run.System, run.Company); err != nil {
 			return fmt.Errorf("lock order load: %w", err)
 		}
 		var staged int
-		if err := tx.QueryRow(ctx, `select count(*) from open_order_opening_line where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&staged); err != nil {
+		if err := tx.QueryRow(ctx, `select count(*) from open_order_opening_line where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&staged); err != nil {
 			return err
 		}
 		var leaseUntil *time.Time
 		var held, heldStatus string
-		err = tx.QueryRow(ctx, `select status, lease_until, legal_entity_id::text from order_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 for update`, runID).Scan(&heldStatus, &leaseUntil, &held)
+		err = tx.QueryRow(ctx, `select status, lease_until, legal_entity_id::text from order_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 for update`, runID).Scan(&heldStatus, &leaseUntil, &held)
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			if _, err := tx.Exec(ctx, `insert into order_load (tenant_id, run_id, legal_entity_id, status, staged) values (current_setting('passage.tenant_id', true)::uuid, $1, $2, 'STAGED', $3)`,
+			if _, err := tx.Exec(ctx, `insert into order_load (tenant_id, run_id, legal_entity_id, status, staged) values (current_setting('depot.tenant_id', true)::uuid, $1, $2, 'STAGED', $3)`,
 				runID, legalEntityID, staged); err != nil {
 				return scopeErr(err)
 			}
@@ -101,7 +101,7 @@ func (s *Postgres) ClaimOrderLoad(ctx context.Context, runID, legalEntityID, sta
 		}
 		var busy bool
 		if err := tx.QueryRow(ctx, `select coalesce(bool_or(o.status = 'LOADING' and o.lease_until > now()), false) from order_load o join pack_run p on p.tenant_id = o.tenant_id and p.run_id = o.run_id
-			where o.tenant_id = current_setting('passage.tenant_id', true)::uuid and o.run_id <> $1 and p.source_system = $2 and p.source_company = $3`, runID, run.System, run.Company).Scan(&busy); err != nil {
+			where o.tenant_id = current_setting('depot.tenant_id', true)::uuid and o.run_id <> $1 and p.source_system = $2 and p.source_company = $3`, runID, run.System, run.Company).Scan(&busy); err != nil {
 			return err
 		}
 		if busy {
@@ -110,7 +110,7 @@ func (s *Postgres) ClaimOrderLoad(ctx context.Context, runID, legalEntityID, sta
 		rows, err := tx.Query(ctx, `select o.line_id::text, o.legacy_id, o.order_type, o.order_number, o.line_number, o.item, o.party, o.unit, o.currency,
 				o.ordered_qty::text, o.delivered_qty::text, o.unit_price::text, coalesce(to_char(o.delivery_date, 'YYYY-MM-DD'), '')
 			from open_order_opening_line o
-			where o.tenant_id = current_setting('passage.tenant_id', true)::uuid and o.run_id = $1
+			where o.tenant_id = current_setting('depot.tenant_id', true)::uuid and o.run_id = $1
 			  and not exists (select 1 from order_load_row l where l.tenant_id = o.tenant_id and l.line_id = o.line_id and l.status = 'LOADED')
 			order by o.order_type, o.order_number, o.line_number`, runID)
 		if err != nil {
@@ -141,10 +141,10 @@ func (s *Postgres) ClaimOrderLoad(ctx context.Context, runID, legalEntityID, sta
 		}
 		if _, err := tx.Exec(ctx, `update order_load set status = 'LOADING', staged = $2, lease_until = now() + $3::int * interval '1 second', started_by = $4, started_at = now(), finished_at = null,
 				attempts = attempts + 1, last_error = '', version = version + 1
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID, staged, int32(lease.Seconds()), startedBy); err != nil {
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID, staged, int32(lease.Seconds()), startedBy); err != nil {
 			return err
 		}
-		load, err = scanOrderLoad(tx.QueryRow(ctx, `select `+orderLoadColumns+` from order_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID))
+		load, err = scanOrderLoad(tx.QueryRow(ctx, `select `+orderLoadColumns+` from order_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID))
 		return err
 	})
 	return load, run, pending, err
@@ -152,7 +152,7 @@ func (s *Postgres) ClaimOrderLoad(ctx context.Context, runID, legalEntityID, sta
 
 func extendOrderLease(ctx context.Context, tx pgx.Tx, runID string, lease time.Duration) error {
 	tag, err := tx.Exec(ctx, `update order_load set lease_until = now() + $2::int * interval '1 second'
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 and status = 'LOADING'`, runID, int32(lease.Seconds()))
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 and status = 'LOADING'`, runID, int32(lease.Seconds()))
 	if err != nil {
 		return err
 	}
@@ -170,7 +170,7 @@ func (s *Postgres) RecordOrderBatch(ctx context.Context, runID, legalEntityID st
 		}
 		for _, l := range lines {
 			if _, err := tx.Exec(ctx, `insert into order_load_row (tenant_id, run_id, line_id, legal_entity_id, order_type, status, batch_key)
-				values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, 'LOADED', $5)
+				values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, 'LOADED', $5)
 				on conflict (tenant_id, line_id) do update set status = 'LOADED', batch_key = excluded.batch_key, code = '', detail = '', updated_at = now()`,
 				runID, l.LineID, legalEntityID, l.Line.OrderType, batchKey); err != nil {
 				return err
@@ -195,7 +195,7 @@ func (s *Postgres) RejectOrderLines(ctx context.Context, runID, legalEntityID st
 		}
 		for _, r := range rejects {
 			if _, err := tx.Exec(ctx, `insert into order_load_row (tenant_id, run_id, line_id, legal_entity_id, order_type, status, code, detail)
-				values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, 'REJECTED', $5, $6)
+				values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, 'REJECTED', $5, $6)
 				on conflict (tenant_id, line_id) do update set status = 'REJECTED', code = excluded.code, detail = excluded.detail, updated_at = now()
 				where order_load_row.status <> 'LOADED'`, runID, r.Line.LineID, legalEntityID, r.Line.Line.OrderType, r.Code, r.Detail); err != nil {
 				return err
@@ -219,7 +219,7 @@ func (s *Postgres) ListOrderRejects(ctx context.Context, runID string, limit int
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `select o.legacy_id, o.order_type, l.code, l.detail from order_load_row l
 			join open_order_opening_line o on o.tenant_id = l.tenant_id and o.line_id = l.line_id
-			where l.tenant_id = current_setting('passage.tenant_id', true)::uuid and l.run_id = $1 and l.status = 'REJECTED'
+			where l.tenant_id = current_setting('depot.tenant_id', true)::uuid and l.run_id = $1 and l.status = 'REJECTED'
 			order by o.order_type, o.legacy_id limit $2`, runID, limit)
 		if err != nil {
 			return err
@@ -248,13 +248,13 @@ type OrderFinish struct {
 
 // FinishOrderLoad ends a pass: it recounts the rows, compares the batches each target holds with what the factory loaded for the
 // open orders of the company, stores the comparison as control totals and the status, and writes
-// dev.passage.migration.pack.loaded.v1.
+// dev.depot.migration.pack.loaded.v1.
 func (s *Postgres) FinishOrderLoad(ctx context.Context, runID string, fin OrderFinish) (domain.OrderLoad, []domain.ControlTotal, error) {
 	var load domain.OrderLoad
 	var totals []domain.ControlTotal
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		var err error
-		load, err = scanOrderLoad(tx.QueryRow(ctx, `select `+orderLoadColumns+` from order_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 for update`, runID))
+		load, err = scanOrderLoad(tx.QueryRow(ctx, `select `+orderLoadColumns+` from order_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 for update`, runID))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNoOrderLoad
 		}
@@ -262,11 +262,11 @@ func (s *Postgres) FinishOrderLoad(ctx context.Context, runID string, fin OrderF
 			return err
 		}
 		var system, company string
-		if err := tx.QueryRow(ctx, `select source_system, source_company from pack_run where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&system, &company); err != nil {
+		if err := tx.QueryRow(ctx, `select source_system, source_company from pack_run where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&system, &company); err != nil {
 			return err
 		}
 		if err := tx.QueryRow(ctx, `select count(*) filter (where status = 'LOADED'), count(*) filter (where status = 'REJECTED') from order_load_row
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&load.Loaded, &load.Rejected); err != nil {
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&load.Loaded, &load.Rejected); err != nil {
 			return err
 		}
 		load.Pending = max(load.Staged-load.Loaded-load.Rejected, 0)
@@ -311,7 +311,7 @@ func (s *Postgres) FinishOrderLoad(ctx context.Context, runID string, fin OrderF
 			}
 		}
 		if _, err := tx.Exec(ctx, `update order_load set status = $2, loaded = $3, rejected = $4, pending = $5, last_error = $6, lease_until = null, finished_at = now(), version = version + 1
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID, load.Status, load.Loaded, load.Rejected, load.Pending, load.LastError); err != nil {
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID, load.Status, load.Loaded, load.Rejected, load.Pending, load.LastError); err != nil {
 			return err
 		}
 		match, mismatch := domain.CountTotals(totals)
@@ -321,7 +321,7 @@ func (s *Postgres) FinishOrderLoad(ctx context.Context, runID string, fin OrderF
 		}); err != nil {
 			return fmt.Errorf("enqueue pack.loaded: %w", err)
 		}
-		load, err = scanOrderLoad(tx.QueryRow(ctx, `select `+orderLoadColumns+` from order_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID))
+		load, err = scanOrderLoad(tx.QueryRow(ctx, `select `+orderLoadColumns+` from order_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID))
 		return err
 	})
 	return load, totals, err
@@ -333,7 +333,7 @@ func (s *Postgres) FinishOrderLoad(ctx context.Context, runID string, fin OrderF
 func expectedOrderTotals(ctx context.Context, tx pgx.Tx, system, company, legalEntityID string) (map[string]domain.OrderTotals, error) {
 	rows, err := tx.Query(ctx, `select o.order_type, o.currency, count(*), sum(o.ordered_qty - o.delivered_qty)::text, sum(round((o.ordered_qty - o.delivered_qty) * o.unit_price, 6))::text
 		from open_order_opening_line o
-		where o.tenant_id = current_setting('passage.tenant_id', true)::uuid and o.source_system = $1 and o.source_company = $2
+		where o.tenant_id = current_setting('depot.tenant_id', true)::uuid and o.source_system = $1 and o.source_company = $2
 		  and $3::uuid is not null
 		group by o.order_type, o.currency`, system, company, legalEntityID)
 	if err != nil {

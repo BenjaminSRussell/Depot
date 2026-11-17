@@ -7,7 +7,7 @@
       <NbOfTxs>5</NbOfTxs>
       <CtrlSum>1361.10</CtrlSum>
       <InitgPty>
-        <Nm>Passage Holding GmbH</Nm>
+        <Nm>Depot Holding GmbH</Nm>
       </InitgPty>
     </GrpHdr>
     <PmtInf>
@@ -25,7 +25,7 @@
         <Dt>2026-11-02</Dt>
       </ReqdExctnDt>
       <Dbtr>
-        <Nm>Passage Holding GmbH</Nm>
+        <Nm>Depot Holding GmbH</Nm>
         <PstlAdr>
           <StrtNm>Friedrichstrasse 100</StrtNm>
           <PstCd>10117</PstCd>

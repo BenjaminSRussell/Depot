@@ -1,6 +1,6 @@
 # Purchasing web module
 
-Procurement workspace for wave 17 (PSG-17), wired to `services/purchasing` through
+Procurement workspace for wave 17 (DPT-17), wired to `services/purchasing` through
 `/api/v1/procurement` (see `api/client.ts` and the service's `api/openapi.yaml`).
 
 | Route | Page | Service calls |

@@ -799,7 +799,7 @@ export function ShelfLifeCalculator() {
 
 /**
  * Planning calculators: the DDMRP, quota, strategy, shelf-life and supply
- * schedule rules of PSG-22 slice 3, run on figures the planner enters. The
+ * schedule rules of DPT-22 slice 3, run on figures the planner enters. The
  * service stores nothing for them.
  */
 export function CalculatorsPage() {

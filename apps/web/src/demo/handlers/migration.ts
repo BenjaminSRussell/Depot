@@ -106,7 +106,7 @@ route("POST", `${BASE}/runs/{id}/opening-load`, ({ params, body }) => {
     reconciliation: onhand
       ? [total("target.onhand.line_count", {}, String(legacy.length), String(loaded)), total("target.onhand.value", { currency: "USD" }, "214380.00", rejected.length === 0 ? "214380.00" : "198120.00")]
       : [total("target.bank_balances.item_count", {}, String(legacy.length), String(loaded))],
-    rejects: rejected.map((code) => ({ legacyId: code, code: "MIG-REF-UNRESOLVED", detail: `legacy ${onhand ? "item" : "bank account"} ${code} has no Passage ${onhand ? "product" : "bank account"}` })),
+    rejects: rejected.map((code) => ({ legacyId: code, code: "MIG-REF-UNRESOLVED", detail: `legacy ${onhand ? "item" : "bank account"} ${code} has no Depot ${onhand ? "product" : "bank account"}` })),
   };
   detail.reconciliation = detail.reconciliation.map((t) => (t.source === t.target ? t : { ...t, delta: String(Number(t.source) - Number(t.target)), status: "MISMATCH" as const }));
   loads.set(run.runId, detail);

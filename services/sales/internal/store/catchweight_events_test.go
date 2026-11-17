@@ -7,9 +7,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/sales/internal/domain"
-	salesevents "github.com/BenjaminSRussell/passage/services/sales/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/domain"
+	salesevents "github.com/BenjaminSRussell/depot/services/sales/internal/events"
 )
 
 // eventsOf returns the data of every outbox event of type for aggregate, oldest first.

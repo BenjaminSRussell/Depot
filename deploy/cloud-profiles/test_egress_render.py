@@ -2,7 +2,7 @@
 rendered manifests would call outside the cluster is not on the profile's egress allowlist.
 
 "Anything" is every container image registry and every http(s) URL host: registries, SaaS (PagerDuty), LLM providers
-and Azure services. Cluster-internal names (single-label hosts, .svc, .cluster.local, .internal), Passage's own domain
+and Azure services. Cluster-internal names (single-label hosts, .svc, .cluster.local, .internal), Depot's own domain
 and reserved placeholder TLDs (.invalid, .example, .test, .local) are not external. Run:
 
     python3 -m unittest discover -s deploy/cloud-profiles -p 'test_egress_render.py'
@@ -30,28 +30,28 @@ PROFILES = ("commercial", "gcc", "gcc-high", "dod", "china")
 
 # Values a chart insists on before it renders. Nothing here names an external host except where a test says so.
 REQUIRED_VALUES = {
-    "deploy/secret-store": ["azureKeyVault.name=kv-passage", "azureKeyVault.tenantId=00000000-0000-0000-0000-000000000002"],
+    "deploy/secret-store": ["azureKeyVault.name=kv-depot", "azureKeyVault.tenantId=00000000-0000-0000-0000-000000000002"],
     "deploy/postgres": ["database=outbox", "externalSecret.environment=dev"],
     "deploy/temporal-postgres": ["externalSecret.environment=dev"],
     "services/supplier-portal-ts/charts/supplier-portal": [
-        "oidc.issuer=https://keycloak.dev.passage.dev/realms/passage",
-        "oidc.redirectUri=https://supplier.dev.passage.dev/bff/callback",
-        "appOrigin=https://supplier.dev.passage.dev",
+        "oidc.issuer=https://keycloak.dev.depot.dev/realms/depot",
+        "oidc.redirectUri=https://supplier.dev.depot.dev/bff/callback",
+        "appOrigin=https://supplier.dev.depot.dev",
     ],
     "services/customer-portal-ts/charts/customer-portal": [
-        "oidc.issuer=https://keycloak.dev.passage.dev/realms/passage",
-        "oidc.redirectUri=https://customer.dev.passage.dev/bff/callback",
-        "appOrigin=https://customer.dev.passage.dev",
+        "oidc.issuer=https://keycloak.dev.depot.dev/realms/depot",
+        "oidc.redirectUri=https://customer.dev.depot.dev/bff/callback",
+        "appOrigin=https://customer.dev.depot.dev",
     ],
 }
-OWN_SUFFIXES = (".passage.dev", ".svc", ".cluster.local", ".internal", ".local", ".invalid", ".example", ".test", ".localhost")
+OWN_SUFFIXES = (".depot.dev", ".svc", ".cluster.local", ".internal", ".local", ".invalid", ".example", ".test", ".localhost")
 URL = re.compile(r"https?://([A-Za-z0-9_.\-]+)")
 IMAGE = re.compile(r"^\s*-?\s*(?:image|imageName):\s*[\"']?([^\s\"']+)", re.M)
 
 
 def is_internal(host: str) -> bool:
     host = host.lower().rstrip(".")
-    if host in ("localhost", "passage.dev") or "." not in host:
+    if host in ("localhost", "depot.dev") or "." not in host:
         return True
     if re.fullmatch(r"[0-9.]+", host):
         return True
@@ -125,7 +125,7 @@ def commercial_references(manifest: str) -> set[str]:
 
 def mirror_for(profile: str) -> str:
     """A mirror host in the profile's own registry suffix, as an operator would configure it."""
-    return "passage." + cp.load()["profiles"][profile]["endpoints"]["containerRegistrySuffix"]["value"]
+    return "depot." + cp.load()["profiles"][profile]["endpoints"]["containerRegistrySuffix"]["value"]
 
 
 class ScannerTests(unittest.TestCase):
@@ -136,12 +136,12 @@ class ScannerTests(unittest.TestCase):
         self.assertEqual(external_hosts(text), {"ghcr.io", "docker.io", "events.pagerduty.com"})
 
     def test_ignores_comments_and_internal_names(self) -> None:
-        text = "# https://example.com/doc\nurl: https://docs.passage.dev/x\nurl: http://tempo.observability.svc:3200\nurl: http://warehouse\nurl: https://idp.example.invalid\n"
+        text = "# https://example.com/doc\nurl: https://docs.depot.dev/x\nurl: http://tempo.observability.svc:3200\nurl: http://warehouse\nurl: https://idp.example.invalid\n"
         self.assertEqual(external_hosts(text), set())
 
     def test_flags_what_the_allowlist_lacks(self) -> None:
         gcc = cp.resolve(cp.load(), "gcc")["egressAllowlist"]
-        text = "image: ghcr.io/x/y\nurl: https://events.pagerduty.com/v2/enqueue\nurl: https://api.anthropic.com\nurl: https://res.openai.azure.com/x\nimage: passage.azurecr.io/a\n"
+        text = "image: ghcr.io/x/y\nurl: https://events.pagerduty.com/v2/enqueue\nurl: https://api.anthropic.com\nurl: https://res.openai.azure.com/x\nimage: depot.azurecr.io/a\n"
         self.assertEqual(violations(text, gcc), ["api.anthropic.com", "events.pagerduty.com", "ghcr.io"])
 
     def test_commercial_allows_ghcr_and_pagerduty_but_not_unknown_saas(self) -> None:
@@ -256,7 +256,7 @@ class RenderedChartsStayInsideTheAllowlist(unittest.TestCase):
 
     def test_services_get_the_profile_in_their_environment(self) -> None:
         out = render(REPO / "services/ledger/charts/ledger", "gcc", mirror_for("gcc"))
-        self.assertRegex(out, r'name: PASSAGE_CLOUD_PROFILE\s+value: "gcc"')
+        self.assertRegex(out, r'name: DEPOT_CLOUD_PROFILE\s+value: "gcc"')
         overlay = subprocess.run(
             [HELM, "template", "egress", str(REPO / "services/ledger/charts/ledger"), "-f", str(cp.values_path("gcc")),
              "--set", "global.imageRegistry=r.azurecr.io", "--set", "global.cloudOverlays={hipaa}"],

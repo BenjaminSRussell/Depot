@@ -6,7 +6,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/xlsx"
+	"github.com/BenjaminSRussell/depot/platform/xlsx"
 )
 
 const (

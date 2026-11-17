@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/costacct/internal/domain"
-	ccevents "github.com/BenjaminSRussell/passage/services/costacct/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/costacct/internal/domain"
+	ccevents "github.com/BenjaminSRussell/depot/services/costacct/internal/events"
 )
 
 type templateFixture struct {

@@ -59,7 +59,7 @@ func TestComposeConfigValidatesWhenDockerComposeIsInstalled(t *testing.T) {
 		t.Skip("docker compose is not installed")
 	}
 	cmd := exec.Command("docker", "compose", "-f", composePath(t), "config", "-q")
-	cmd.Env = append(os.Environ(), "PASSAGE_DEV_DIR="+t.TempDir())
+	cmd.Env = append(os.Environ(), "DEPOT_DEV_DIR="+t.TempDir())
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("docker compose config: %v\n%s", err, out)
 	}

@@ -42,11 +42,11 @@ CREATE INDEX IF NOT EXISTS budget_reservation_expiry ON budget_reservation (tena
 ALTER TABLE budget_reservation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budget_reservation FORCE ROW LEVEL SECURITY;
 CREATE POLICY budget_reservation_tenant_access ON budget_reservation AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY budget_reservation_legal_entity_scope ON budget_reservation AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- One row per reservation line: the control combination it holds funds on.
 CREATE TABLE IF NOT EXISTS budget_reservation_line (
@@ -67,11 +67,11 @@ CREATE TABLE IF NOT EXISTS budget_reservation_line (
 ALTER TABLE budget_reservation_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budget_reservation_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY budget_reservation_line_tenant_access ON budget_reservation_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY budget_reservation_line_legal_entity_scope ON budget_reservation_line AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Consumption history: each follow-on document line that drew on a reservation line.
 CREATE TABLE IF NOT EXISTS budget_reservation_consumption (
@@ -94,11 +94,11 @@ CREATE INDEX IF NOT EXISTS budget_reservation_consumption_reservation ON budget_
 ALTER TABLE budget_reservation_consumption ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budget_reservation_consumption FORCE ROW LEVEL SECURITY;
 CREATE POLICY budget_reservation_consumption_tenant_access ON budget_reservation_consumption AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY budget_reservation_consumption_legal_entity_scope ON budget_reservation_consumption AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Per-type number sequences per legal entity (reservation.documentTypes):
 -- FundsReservation FR-, Precommitment PC-, FundsBlocking FB-, RevenueForecast RF-.
@@ -113,8 +113,8 @@ CREATE TABLE IF NOT EXISTS budget_reservation_number (
 ALTER TABLE budget_reservation_number ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budget_reservation_number FORCE ROW LEVEL SECURITY;
 CREATE POLICY budget_reservation_number_tenant_access ON budget_reservation_number AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY budget_reservation_number_legal_entity_scope ON budget_reservation_number AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

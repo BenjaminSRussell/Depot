@@ -26,7 +26,7 @@ const r = prng(4702);
 const pick = <T>(xs: readonly T[]): T => xs[Math.floor(r() * xs.length)] as T;
 const dutyOf = new Map<string, string>();
 const defs: ToolDefinition[] = Array.from({ length: 60 }, (_, i) => {
-  const name = `passage.m${i % 6}.entity${i}.${i % 2 === 0 ? "read" : "post"}`;
+  const name = `depot.m${i % 6}.entity${i}.${i % 2 === 0 ? "read" : "post"}`;
   const duty = pick(DUTIES);
   dutyOf.set(name, duty);
   return i % 2 === 0 ? readTool(name, duty) : writeTool(name, duty);

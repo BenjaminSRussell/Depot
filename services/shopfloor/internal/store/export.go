@@ -9,12 +9,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
 )
 
 // Catalog codes for payroll export (see README).
@@ -66,7 +66,7 @@ func exportRows(lines []exportLine) []domain.ExportRow {
 }
 
 // ExportPay exports every approved pay line in [fromDate, toDate] that is not
-// already in an export batch, emits dev.passage.shopfloor.payday.exported.v1
+// already in an export batch, emits dev.depot.shopfloor.payday.exported.v1
 // with the lines in the same transaction and stores the outcome under the
 // Idempotency-Key. Each line joins at most one batch (primary key on
 // pay_export_line), so a second export only carries lines approved since.

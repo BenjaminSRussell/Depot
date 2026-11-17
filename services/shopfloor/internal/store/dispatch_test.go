@@ -9,10 +9,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
 )
 
 func jobStart(worker, job string, at time.Time, bundle *string) Registration {
@@ -37,7 +37,7 @@ func jobStatus(t *testing.T, s *Postgres, ctx context.Context, id string) (strin
 	return j.Status, j.Version
 }
 
-// FR-25.3 through Postgres as passage_app: a job-start moves a released job to
+// FR-25.3 through Postgres as depot_app: a job-start moves a released job to
 // started; starting the next job auto-stops the previous one with a server-written,
 // closed job-stop (hours, flag, SF-0002 warning, registration.posted); a replay of
 // the start changes nothing; an explicitly closed job is not stopped again.
@@ -375,7 +375,7 @@ func TestDispatch_BundleStopsAsOneUnit(t *testing.T) {
 	if st, v := jobStatus(t, s, ctx, next.ID); st != JobStarted || v != next.Version+1 {
 		t.Fatalf("next = %s v%d", st, v)
 	}
-	// Counted as passage_app, so row-level security shows the other tenant only its own event.
+	// Counted as depot_app, so row-level security shows the other tenant only its own event.
 	if n := countEvents(t, app, testkit.TenantID(82), sfevents.RegistrationPosted); n != 1 {
 		t.Fatalf("other tenant events = %d", n)
 	}

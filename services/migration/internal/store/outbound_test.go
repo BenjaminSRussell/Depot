@@ -12,21 +12,21 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/testdb"
-	"github.com/BenjaminSRussell/passage/services/migration/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/testdb"
+	"github.com/BenjaminSRussell/depot/services/migration/migrations"
 )
 
-const outboundDefJSON = `{"eventType":"dev.passage.sales.order.*.v1","subject":{"entity":"salesOrder","idPath":"data.order_id"},"xrefs":[{"name":"customer","entity":"customer","idPath":"data.customer_id"}],"mapping":{"entity":"SalesOrder","version":1,"fields":[{"source":"xref.customer","target":"CustAccount","type":"string","required":true}]}}`
+const outboundDefJSON = `{"eventType":"dev.depot.sales.order.*.v1","subject":{"entity":"salesOrder","idPath":"data.order_id"},"xrefs":[{"name":"customer","entity":"customer","idPath":"data.customer_id"}],"mapping":{"entity":"SalesOrder","version":1,"fields":[{"source":"xref.customer","target":"CustAccount","type":"string","required":true}]}}`
 
 func outboundIn(name string) store.OutboundMapping {
-	return store.OutboundMapping{Name: name, SourceSystem: "custom_acme", EventType: "dev.passage.sales.order.*.v1", Definition: json.RawMessage(outboundDefJSON), CreatedBy: "ben"}
+	return store.OutboundMapping{Name: name, SourceSystem: "custom_acme", EventType: "dev.depot.sales.order.*.v1", Definition: json.RawMessage(outboundDefJSON), CreatedBy: "ben"}
 }
 
 // adminContext is a tenant administrator without a legal-entity claim holding both human duties of the outbound
@@ -185,12 +185,12 @@ func exerciseOutbound(t *testing.T, s store.Store, one, two, hub, hub2 context.C
 	exerciseBulkRecord(t, s, one, hub)
 }
 
-const linesDefJSON = `{"eventType":"dev.passage.sales.order.*.v1","subject":{"entity":"salesOrder","idPath":"data.order_id"},"collections":[{"name":"Lines","path":"data.lines","subject":{"entity":"salesOrderLine","idPath":"id"},"fields":[{"source":"sku","target":"ItemNo","type":"string"}]}],"mapping":{"entity":"SalesOrder","version":1,"fields":[{"source":"data.order_id","target":"Ref","type":"string"}]}}`
+const linesDefJSON = `{"eventType":"dev.depot.sales.order.*.v1","subject":{"entity":"salesOrder","idPath":"data.order_id"},"collections":[{"name":"Lines","path":"data.lines","subject":{"entity":"salesOrderLine","idPath":"id"},"fields":[{"source":"sku","target":"ItemNo","type":"string"}]}],"mapping":{"entity":"SalesOrder","version":1,"fields":[{"source":"data.order_id","target":"Ref","type":"string"}]}}`
 
 // exerciseBulkRecord covers xref:record with one ref per record the push created: the header and its lines, atomically.
 func exerciseBulkRecord(t *testing.T, s store.Store, admin, hub context.Context) {
 	t.Helper()
-	m, _, err := s.SaveOutboundMapping(admin, store.OutboundMapping{Name: "Orders with lines", SourceSystem: "custom_acme", EventType: "dev.passage.sales.order.*.v1", Definition: json.RawMessage(linesDefJSON), CreatedBy: "ben"}, "bulk")
+	m, _, err := s.SaveOutboundMapping(admin, store.OutboundMapping{Name: "Orders with lines", SourceSystem: "custom_acme", EventType: "dev.depot.sales.order.*.v1", Definition: json.RawMessage(linesDefJSON), CreatedBy: "ben"}, "bulk")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -13,8 +13,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
 )
 
 const (

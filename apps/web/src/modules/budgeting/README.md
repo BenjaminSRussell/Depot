@@ -1,6 +1,6 @@
 # Budgeting module (web)
 
-Budget control screens for PSG-38 slices 1 to 4, wired to `services/budgeting` through the BFF at `/api/v1/budget/...`.
+Budget control screens for DPT-38 slices 1 to 4, wired to `services/budgeting` through the BFF at `/api/v1/budget/...`.
 
 | Route | Page | Service calls |
 |---|---|---|
@@ -35,4 +35,4 @@ npx tsc --noEmit
 
 - Nav duties `budget.view` and `budget.check` must exist in the duty catalogue (the service also uses
   `budget.configure`, `budget.maintain`, `budget.override`, `budget.reserve` and `budget.program.maintain`).
-- The planning grid, the inline check inside the PO form and rule activation are later slices of PSG-38.
+- The planning grid, the inline check inside the PO form and rule activation are later slices of DPT-38.

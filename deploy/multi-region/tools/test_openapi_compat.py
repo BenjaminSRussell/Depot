@@ -1,4 +1,4 @@
-"""Tests for openapi_compat.py (PSG-50). Run: python3 -m unittest discover -s deploy/multi-region/tools"""
+"""Tests for openapi_compat.py (DPT-50). Run: python3 -m unittest discover -s deploy/multi-region/tools"""
 
 import copy
 import unittest

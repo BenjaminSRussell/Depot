@@ -10,9 +10,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/openingimport"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/openingimport"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 // Opening import of the asset register at cutover (#49). Nothing is announced: no asset event is written, because the assets were

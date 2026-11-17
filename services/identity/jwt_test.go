@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 func TestJWTVerifierRequiresHTTPSForRemoteIdentityEndpoints(t *testing.T) {
@@ -33,7 +33,7 @@ func TestJWTVerifierRequiresHTTPSForRemoteIdentityEndpoints(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewJWTVerifier(tt.issuer, "passage-api", "tenant-a", tt.jwksURL, nil)
+			_, err := NewJWTVerifier(tt.issuer, "depot-api", "tenant-a", tt.jwksURL, nil)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("NewJWTVerifier() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -132,7 +132,7 @@ func TestJWTMiddlewareReturnsUnavailableWhenJWKSIsDown(t *testing.T) {
 		http.Error(w, "unavailable", http.StatusServiceUnavailable)
 	}))
 	defer server.Close()
-	verifier, err := NewJWTVerifier("https://id.example/realms/tenant-a", "passage-api", "tenant-a", server.URL, server.Client())
+	verifier, err := NewJWTVerifier("https://id.example/realms/tenant-a", "depot-api", "tenant-a", server.URL, server.Client())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func newTestJWTVerifier(t *testing.T) (*JWTVerifier, *rsa.PrivateKey, *httptest.
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(jwksDocument{Keys: []jwk{{KeyType: "RSA", KeyID: "key-1", Use: "sig", Alg: "RS256", Modulus: modulus, Exponent: exponent}}})
 	}))
-	verifier, err := NewJWTVerifier("https://id.example/realms/tenant-a", "passage-api", "tenant-a", jwks.URL, jwks.Client())
+	verifier, err := NewJWTVerifier("https://id.example/realms/tenant-a", "depot-api", "tenant-a", jwks.URL, jwks.Client())
 	if err != nil {
 		jwks.Close()
 		t.Fatal(err)
@@ -187,7 +187,7 @@ func testClaims() map[string]any {
 	now := time.Now()
 	return map[string]any{
 		"iss": "https://id.example/realms/tenant-a", "sub": "user-a", "tid": "tenant-a",
-		"aud": []string{"passage-api"}, "iat": now.Unix(), "exp": now.Add(5 * time.Minute).Unix(),
+		"aud": []string{"depot-api"}, "iat": now.Unix(), "exp": now.Add(5 * time.Minute).Unix(),
 	}
 }
 
@@ -224,12 +224,12 @@ func invokeJWT(t *testing.T, verifier *JWTVerifier, token, tenantID string) *htt
 }
 
 func TestJWTClaimsAudienceAcceptsBothStandardForms(t *testing.T) {
-	for _, raw := range []string{`"passage-api"`, `["other","passage-api"]`} {
-		if !hasAudience(json.RawMessage(raw), "passage-api") {
+	for _, raw := range []string{`"depot-api"`, `["other","depot-api"]`} {
+		if !hasAudience(json.RawMessage(raw), "depot-api") {
 			t.Errorf("hasAudience(%s) = false", strconv.Quote(raw))
 		}
 	}
-	if hasAudience(json.RawMessage(`{"aud":"passage-api"}`), "passage-api") {
+	if hasAudience(json.RawMessage(`{"aud":"depot-api"}`), "depot-api") {
 		t.Fatal("object audience must be rejected")
 	}
 }

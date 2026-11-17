@@ -17,13 +17,13 @@ create table tax_exemption_certificate (
 alter table tax_exemption_certificate enable row level security;
 alter table tax_exemption_certificate force row level security;
 create policy tax_exemption_certificate_tenant_access on tax_exemption_certificate as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON tax_exemption_certificate TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON tax_exemption_certificate TO depot_app';
   END IF;
 END
 $$;

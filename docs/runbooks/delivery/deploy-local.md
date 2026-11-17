@@ -17,12 +17,12 @@ The target builds the image from `services/platform-health/Dockerfile`, imports 
 
 ## Reach the service
 
-Add `127.0.0.1 app.local.passage.dev` to `/etc/hosts`, then open `https://app.local.passage.dev/readyz`. The ingress exposes only `/healthz` and `/readyz`; call the entries API with `kubectl -n hello-ledger port-forward svc/hello-ledger 8080:8080` and an `X-Passage-Tenant` header.
+Add `127.0.0.1 app.local.depot.dev` to `/etc/hosts`, then open `https://app.local.depot.dev/readyz`. The ingress exposes only `/healthz` and `/readyz`; call the entries API with `kubectl -n hello-ledger port-forward svc/hello-ledger 8080:8080` and an `X-Depot-Tenant` header.
 
 Trust the local CA to remove the browser warning:
 
 ```
-kubectl -n cert-manager get secret passage-local-ca -o jsonpath='{.data.ca\.crt}' | base64 -d > passage-local-ca.crt
+kubectl -n cert-manager get secret depot-local-ca -o jsonpath='{.data.ca\.crt}' | base64 -d > depot-local-ca.crt
 ```
 
 ## Troubleshoot
@@ -53,7 +53,7 @@ Password generator needs the External Secrets Operator's generator CRDs.
 
 The shared dev Postgres (`deploy/envs/dev/apps/postgres.yaml`) creates the database of every outbox connector in
 `deploy/kafka/connect.yaml` that points at `postgres.hello-ledger.svc`, and the connector's REPLICATION role
-`debezium_cdc_<service>`. The role's password is the Vault key `passage/dev/<service>-postgres/cdc-password`, which
+`debezium_cdc_<service>`. The role's password is the Vault key `depot/dev/<service>-postgres/cdc-password`, which
 Kafka Connect reads too (`debezium-cdc-<service>` in `deploy/envs/dev/kafka-secrets/debezium-cdc.yaml`).
 
 - For the `95-<service>-db.sh` services (billing, budgeting, warehouse, intercompany, fieldservice, ops, receivables,
@@ -106,7 +106,7 @@ Both commands refuse an uncommitted stage manifest. Promotion accepts only a
 lowercase `sha256:<64 hex characters>` digest. Rollback refuses when Git history
 has no prior non-placeholder digest. The stage manifests use a self-signed CA
 only if one is provisioned for internal/local proof. The stage cluster must be
-registered in Argo CD as `stage`, provide the `passage-stage-ca` ClusterIssuer
+registered in Argo CD as `stage`, provide the `depot-stage-ca` ClusterIssuer
 and `hello-ledger-db` Secret outside Git, and use a trusted certificate issuer
 for real deployments.
 
@@ -168,4 +168,4 @@ argocd app history hello-ledger-prod
 The FR-1.10 target is the prior digest active within 5 minutes of the merge.
 
 The prod cluster must be registered in Argo CD as `prod` and provide the
-`passage-prod-ca` ClusterIssuer and `hello-ledger-db` Secret outside Git.
+`depot-prod-ca` ClusterIssuer and `hello-ledger-db` Secret outside Git.

@@ -50,7 +50,7 @@ create table target_row (
   payload jsonb not null,
   status text not null check (status in ('PENDING', 'LOADED', 'UNCHANGED', 'SKIPPED', 'REJECTED', 'NOT_AVAILABLE')),
   outcome text not null default '',
-  passage_id uuid,
+  depot_id uuid,
   code text not null default '',
   detail text not null default '',
   updated_at timestamptz not null default now(),
@@ -71,7 +71,7 @@ create table target_loaded (
   side text not null check (side in ('DEBIT', 'CREDIT')),
   open_amount numeric(28,6) not null check (open_amount > 0),
   row_hash text not null,
-  passage_id uuid not null,
+  depot_id uuid not null,
   run_id uuid not null,
   loaded_at timestamptz not null default now(),
   primary key (tenant_id, import_source, legacy_id),
@@ -80,7 +80,7 @@ create table target_loaded (
 create index target_loaded_totals on target_loaded (tenant_id, import_source, legal_entity_id, currency);
 
 -- legacy_xref stays append-only except for one step: when the target assigns the open item its id,
--- passage_id (the factory's provisional id until then) takes that id and target_confirmed is set,
+-- depot_id (the factory's provisional id until then) takes that id and target_confirmed is set,
 -- once. Nothing else in a row may change.
 alter table legacy_xref add column target_confirmed boolean not null default false;
 
@@ -88,10 +88,10 @@ create function legacy_xref_confirm_target() returns trigger language plpgsql as
 begin
   if old.target_confirmed or not new.target_confirmed
      or (new.tenant_id, new.xref_id, new.source_system, new.source_company, new.source_table, new.source_id,
-         new.passage_entity, new.run_id, new.amount, new.currency, new.created_at)
+         new.depot_entity, new.run_id, new.amount, new.currency, new.created_at)
         is distinct from
         (old.tenant_id, old.xref_id, old.source_system, old.source_company, old.source_table, old.source_id,
-         old.passage_entity, old.run_id, old.amount, old.currency, old.created_at) then
+         old.depot_entity, old.run_id, old.amount, old.currency, old.created_at) then
     raise exception 'legacy_xref is append-only: only the one-time confirmation of the target id may update a row';
   end if;
   return new;
@@ -103,39 +103,39 @@ create trigger legacy_xref_confirm_target before update on legacy_xref
 alter table target_load enable row level security;
 alter table target_load force row level security;
 create policy target_load_tenant_access on target_load as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy target_load_legal_entity_scope on target_load as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 alter table target_row enable row level security;
 alter table target_row force row level security;
 create policy target_row_tenant_access on target_row as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy target_row_legal_entity_scope on target_row as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 alter table target_loaded enable row level security;
 alter table target_loaded force row level security;
 create policy target_loaded_tenant_access on target_loaded as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy target_loaded_legal_entity_scope on target_loaded as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Application role privileges. The load step updates the load header, its rows and the remembered
 -- target state; legacy_xref gets the column-level update the trigger above narrows further. Nothing
 -- is deleted. Skipped when the role does not exist.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON target_load, target_row, target_loaded TO passage_app';
-    EXECUTE 'GRANT UPDATE (passage_id, target_confirmed) ON legacy_xref TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON target_load, target_row, target_loaded TO depot_app';
+    EXECUTE 'GRANT UPDATE (depot_id, target_confirmed) ON legacy_xref TO depot_app';
   END IF;
 END
 $$;

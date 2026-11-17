@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/store"
 )
 
 func stepBody(order int, region, status string) string {
@@ -84,13 +84,13 @@ func TestMetricsReportFencedRegionsAndFailoversInProgress(t *testing.T) {
 		rec := httpGet(a.Metrics())
 		return rec
 	}
-	if m := metrics(); !strings.Contains(m, "passage_ops_region_fenced 0") || !strings.Contains(m, "passage_ops_failover_in_progress 0") {
+	if m := metrics(); !strings.Contains(m, "depot_ops_region_fenced 0") || !strings.Contains(m, "depot_ops_failover_in_progress 0") {
 		t.Fatalf("idle: %s", m)
 	}
 	if rec := e.do("POST", "/v1/ops/failover", "alice", DutyFailover, "evt-m", `{"to":"eu-west"}`); rec.Code != http.StatusCreated {
 		t.Fatal(rec.Body)
 	}
-	if m := metrics(); !strings.Contains(m, "passage_ops_region_fenced 1") || !strings.Contains(m, "passage_ops_failover_in_progress 1") {
+	if m := metrics(); !strings.Contains(m, "depot_ops_region_fenced 1") || !strings.Contains(m, "depot_ops_failover_in_progress 1") {
 		t.Fatalf("after failover: %s", m)
 	}
 }

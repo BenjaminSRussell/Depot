@@ -13,9 +13,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/logpseudo"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/logpseudo"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const (
@@ -171,9 +171,9 @@ func TestInstallFollowsTheProfileAndTheFlag(t *testing.T) {
 		{"commercial", map[string]string{}, false},
 		{"flag off", map[string]string{"LOG_PSEUDONYMIZE": "false"}, false},
 		{"flag", map[string]string{"LOG_PSEUDONYMIZE": "true"}, true},
-		{"eu overlay", map[string]string{"PASSAGE_CLOUD_PROFILE": "commercial+eu-data-boundary"}, true},
-		{"eu overlay beats a false flag", map[string]string{"PASSAGE_CLOUD_PROFILE": "commercial+eu-data-boundary", "LOG_PSEUDONYMIZE": "false"}, true},
-		{"gcc", map[string]string{"PASSAGE_CLOUD_PROFILE": "gcc"}, false},
+		{"eu overlay", map[string]string{"DEPOT_CLOUD_PROFILE": "commercial+eu-data-boundary"}, true},
+		{"eu overlay beats a false flag", map[string]string{"DEPOT_CLOUD_PROFILE": "commercial+eu-data-boundary", "LOG_PSEUDONYMIZE": "false"}, true},
+		{"gcc", map[string]string{"DEPOT_CLOUD_PROFILE": "gcc"}, false},
 	} {
 		slog.SetDefault(prev)
 		got, err := logpseudo.Install(env(c.env))
@@ -182,7 +182,7 @@ func TestInstallFollowsTheProfileAndTheFlag(t *testing.T) {
 		}
 	}
 	slog.SetDefault(prev)
-	if _, err := logpseudo.Install(env(map[string]string{"PASSAGE_CLOUD_PROFILE": "nope"})); err == nil {
+	if _, err := logpseudo.Install(env(map[string]string{"DEPOT_CLOUD_PROFILE": "nope"})); err == nil {
 		t.Error("an unknown profile must be an error")
 	}
 	if _, err := logpseudo.Install(env(map[string]string{"LOG_PSEUDONYMIZE": "true", "FIELDCRYPT_KEYS": "k1=notbase64"})); err == nil {

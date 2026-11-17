@@ -25,5 +25,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS report_hierarchy_one_draft ON report_hierarchy
 ALTER TABLE report_hierarchy ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_hierarchy FORCE ROW LEVEL SECURITY;
 CREATE POLICY report_hierarchy_tenant_access ON report_hierarchy AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

@@ -1,6 +1,6 @@
 # configurator-py
 
-Stateless constraint configurator for Passage wave 8. Solves the 50-constraint bicycle fixture with OR-Tools CP-SAT when installed (`pip install '.[ortools]'`), otherwise a backtracking solver with the same semantics.
+Stateless constraint configurator for Depot wave 8. Solves the 50-constraint bicycle fixture with OR-Tools CP-SAT when installed (`pip install '.[ortools]'`), otherwise a backtracking solver with the same semantics.
 
 Run: `uvicorn configurator.app:app --port 8080`. Test: `python3 -m pytest -q`.
 

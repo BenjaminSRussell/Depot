@@ -7,10 +7,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/api"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/api"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 const glEntity = "00000000-0000-0000-0000-0000000000e1" // testkit.Ctx's legal entity

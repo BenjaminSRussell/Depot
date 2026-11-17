@@ -1,4 +1,4 @@
-// Entry point: HTTP_ADDR (default :8080), PASSAGE_SERVICE_PUBLIC_KEYS (the callers' Ed25519 keys) and
+// Entry point: HTTP_ADDR (default :8080), DEPOT_SERVICE_PUBLIC_KEYS (the callers' Ed25519 keys) and
 // CARRIER_ADAPTERS (comma separated; only "sandbox" exists). Unknown adapters stop the process at startup.
 
 import type { CarrierAdapter } from "./adapter.ts";
@@ -29,8 +29,8 @@ function listenAddress(raw: string | undefined): { host?: string; port: number }
 function main(): void {
   const log = jsonLine(process.env, (line) => void process.stderr.write(line));
   const info = jsonLine(process.env);
-  const keys = parsePublicKeys(process.env["PASSAGE_SERVICE_PUBLIC_KEYS"] ?? "");
-  if (keys.size === 0) log({ msg: "PASSAGE_SERVICE_PUBLIC_KEYS is empty: every /v1 request is refused" });
+  const keys = parsePublicKeys(process.env["DEPOT_SERVICE_PUBLIC_KEYS"] ?? "");
+  if (keys.size === 0) log({ msg: "DEPOT_SERVICE_PUBLIC_KEYS is empty: every /v1 request is refused" });
   const gateway = new Gateway(adaptersFromEnv(process.env["CARRIER_ADAPTERS"]));
   const server = createHttpServer({ gateway, verifier: createVerifier({ keys }) });
   const { host, port } = listenAddress(process.env["HTTP_ADDR"]);

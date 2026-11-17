@@ -33,7 +33,7 @@ import { ProblemMessage } from "../../shell/errors";
 const FILTERS = { all: "All schedules", failing: "Failing", paused: "Paused" } as const;
 type FilterKey = keyof typeof FILTERS;
 
-export const SOURCE_OF_TRUTH_LABELS: Record<SourceOfTruth, string> = { legacy: "Legacy system", passage: "Passage" };
+export const SOURCE_OF_TRUTH_LABELS: Record<SourceOfTruth, string> = { legacy: "Legacy system", depot: "Depot" };
 
 /** One word for a binding's state: running, paused, failing (with its backoff), idle without a schedule, or ok. */
 export function syncHealth(s: SyncStatus): { label: string; tone: BadgeTone } {
@@ -85,7 +85,7 @@ export function SyncPage() {
     <div className={styles.stack}>
       <PageHeader
         title="Delta sync"
-        description="Scheduled delta runs from your legacy ERP into Passage. A schedule comes from the cron of a migration project on the binding's connection; each run reads only rows changed after the binding's watermark."
+        description="Scheduled delta runs from your legacy ERP into Depot. A schedule comes from the cron of a migration project on the binding's connection; each run reads only rows changed after the binding's watermark."
         actions={
           <Link className={buttonClassName("ghost")} to="/migration/projects">
             Projects and schedules
@@ -322,7 +322,7 @@ function SourceOfTruthCard({ sync, canEdit, busy, onChange }: { sync: SyncStatus
     <Card title="Source of truth">
       <div className={styles.stack}>
         <p className={styles.note}>
-          Master data flows from the legacy system into Passage. With the legacy system as the source of truth, a changed legacy row updates the Passage record. With Passage as the source of truth, a legacy row that differs from the loaded record is held as a conflict and never written over it; new legacy rows still load.
+          Master data flows from the legacy system into Depot. With the legacy system as the source of truth, a changed legacy row updates the Depot record. With Depot as the source of truth, a legacy row that differs from the loaded record is held as a conflict and never written over it; new legacy rows still load.
         </p>
         <FormField id="sync-source" label="Source of truth">
           {(control) => (
@@ -349,14 +349,14 @@ const KEY_CHECK_PERIODS: { hours: number; label: string }[] = [
 
 const absentColumns: DataTableColumn<SyncAbsent>[] = [
   { key: "sourceKey", header: "Legacy key", mono: true },
-  { key: "targetId", header: "Passage record", mono: true, render: (row) => row.targetId ?? "" },
+  { key: "targetId", header: "Depot record", mono: true, render: (row) => row.targetId ?? "" },
   { key: "firstAbsentAt", header: "First missing", render: (row) => formatDateTime(row.firstAbsentAt) },
   { key: "lastCheckedAt", header: "Last checked", render: (row) => formatDateTime(row.lastCheckedAt) },
 ];
 
 /**
  * Rows the legacy system deleted. A delta cannot see them, so the binding is read in full on a period and the keys
- * loaded earlier that the read did not find are listed. Nothing is deactivated in Passage.
+ * loaded earlier that the read did not find are listed. Nothing is deactivated in Depot.
  */
 function DeletedRowsCard({ sync, canEdit, busy, onChange }: { sync: SyncStatus; canEdit: boolean; busy: boolean; onChange(change: { keyCheckHours?: number; keyCheckNow?: boolean; keyCheckAcceptLarge?: boolean }): void }) {
   const key = `${sync.bindingId}/${sync.lastKeyCheckAt ?? ""}/${sync.absentCount}`;
@@ -376,7 +376,7 @@ function DeletedRowsCard({ sync, canEdit, busy, onChange }: { sync: SyncStatus; 
     >
       <div className={styles.stack}>
         <p className={styles.note}>
-          A delta run cannot see a row the legacy system deleted, so a binding with a change cursor is read in full on a period and every key loaded earlier that the read did not find is listed here. Nothing is deactivated in Passage.{" "}
+          A delta run cannot see a row the legacy system deleted, so a binding with a change cursor is read in full on a period and every key loaded earlier that the read did not find is listed here. Nothing is deactivated in Depot.{" "}
           {sync.lastKeyCheckAt ? `Last full read: ${formatDateTime(sync.lastKeyCheckAt)}.` : "No full read has completed yet."}
         </p>
         {sync.keyCheckError ? (
@@ -537,8 +537,8 @@ function ConflictsCard({ sync, canResolve, onResolved }: { sync: SyncStatus; can
       render: (row) =>
         row.status === "open" && canResolve ? (
           <span className={styles.rowActions}>
-            <Button size="sm" disabled={busy} onClick={() => setPending({ conflict: row, resolution: "keep_passage" })}>
-              Keep Passage
+            <Button size="sm" disabled={busy} onClick={() => setPending({ conflict: row, resolution: "keep_depot" })}>
+              Keep Depot
             </Button>
             <Button size="sm" disabled={busy} onClick={() => setPending({ conflict: row, resolution: "accept_legacy" })}>
               Accept legacy
@@ -576,20 +576,20 @@ function ConflictsCard({ sync, canResolve, onResolved }: { sync: SyncStatus; can
             rows={paged.rows}
             getRowKey={(row) => row.id}
             loading={state.loading}
-            empty={{ title: status === "open" ? "No open conflicts" : "No conflicts", description: "A conflict appears when Passage is the source of truth and the legacy row differs from the loaded record." }}
+            empty={{ title: status === "open" ? "No open conflicts" : "No conflicts", description: "A conflict appears when Depot is the source of truth and the legacy row differs from the loaded record." }}
           />
         )}
         <LoadMore paged={paged} noun="conflicts" />
       </div>
       {pending ? (
         <ConfirmDialog
-          title={pending.resolution === "keep_passage" ? "Keep the Passage record?" : "Write the legacy values to Passage?"}
+          title={pending.resolution === "keep_depot" ? "Keep the Depot record?" : "Write the legacy values to Depot?"}
           description={
-            pending.resolution === "keep_passage"
-              ? `The Passage record for ${pending.conflict.sourceKey} stays as it is. The same legacy row is not reported again unless the legacy system changes it again.`
-              : `The legacy values for ${pending.conflict.sourceKey} are written into the Passage record. This changes Passage data and is refused if the record was edited in Passage after the last load.`
+            pending.resolution === "keep_depot"
+              ? `The Depot record for ${pending.conflict.sourceKey} stays as it is. The same legacy row is not reported again unless the legacy system changes it again.`
+              : `The legacy values for ${pending.conflict.sourceKey} are written into the Depot record. This changes Depot data and is refused if the record was edited in Depot after the last load.`
           }
-          confirmLabel={pending.resolution === "keep_passage" ? "Keep Passage" : "Accept legacy"}
+          confirmLabel={pending.resolution === "keep_depot" ? "Keep Depot" : "Accept legacy"}
           cancelLabel="Cancel"
           onConfirm={() => resolve(pending.conflict, pending.resolution)}
           onCancel={() => setPending(null)}

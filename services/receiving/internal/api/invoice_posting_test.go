@@ -16,13 +16,13 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/ledger"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/periods"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store/memstore"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/ledger"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/periods"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store/memstore"
 )
 
 const (

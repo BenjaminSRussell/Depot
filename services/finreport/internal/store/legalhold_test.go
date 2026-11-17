@@ -8,12 +8,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/events"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/events"
 )
 
 func problemCodeOf(err error) (int, string) {
@@ -331,7 +331,7 @@ func TestLegalHold_AppRoleCannotRewriteAHold(t *testing.T) {
 			return err
 		})
 		if err == nil || !strings.Contains(err.Error(), "permission denied") {
-			t.Errorf("%s as passage_app = %v, want permission denied", stmt, err)
+			t.Errorf("%s as depot_app = %v, want permission denied", stmt, err)
 		}
 	}
 }

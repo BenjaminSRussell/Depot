@@ -12,8 +12,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/identity"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/identity"
 )
 
 const (
@@ -90,7 +90,7 @@ func contactFixture(t *testing.T, prov identity.ContactProvisioner) *adminFixtur
 	t.Helper()
 	f := newAdminFixture(t)
 	r := chi.NewRouter()
-	identity.NewCustomerContactsAPI(f.app, prov, identity.Invitation{ClientID: "passage-portal-customer", RedirectURI: "https://customer.example/"}).Register(r)
+	identity.NewCustomerContactsAPI(f.app, prov, identity.Invitation{ClientID: "depot-portal-customer", RedirectURI: "https://customer.example/"}).Register(r)
 	f.router = r
 	return f
 }
@@ -118,7 +118,7 @@ func TestCustomerContactInviteCreatesTheKeycloakAccountAndTheRegistryRow(t *test
 		t.Fatalf("keycloak was asked %+v realms %v invites %v", prov.created, prov.realms, prov.invites)
 	}
 	audit, eventTypes := f.auditAndEvents(t, f.tenantA)
-	if !slices.Contains(audit, "customercontact.invited|admin-1") || !slices.Contains(eventTypes, "dev.passage.identity.customercontact.invited.v1") {
+	if !slices.Contains(audit, "customercontact.invited|admin-1") || !slices.Contains(eventTypes, "dev.depot.identity.customercontact.invited.v1") {
 		t.Fatalf("audit %v events %v", audit, eventTypes)
 	}
 	var leaked int

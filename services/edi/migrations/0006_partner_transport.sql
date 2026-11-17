@@ -54,12 +54,12 @@ ALTER TABLE partner_transport ENABLE ROW LEVEL SECURITY;
 ALTER TABLE partner_transport FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS partner_transport_tenant_access ON partner_transport;
 CREATE POLICY partner_transport_tenant_access ON partner_transport AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS partner_transport_legal_entity_scope ON partner_transport;
 CREATE POLICY partner_transport_legal_entity_scope ON partner_transport AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 CREATE INDEX IF NOT EXISTS partner_transport_sftp_due ON partner_transport (tenant_id, sftp_next_poll_at) WHERE sftp_next_poll_at IS NOT NULL;
 
 -- One delivery attempt chain of an outbound interchange (DOCUMENT: its raw payload) or of the 997 answering an
@@ -99,12 +99,12 @@ ALTER TABLE transport_delivery ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transport_delivery FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS transport_delivery_tenant_access ON transport_delivery;
 CREATE POLICY transport_delivery_tenant_access ON transport_delivery AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS transport_delivery_legal_entity_scope ON transport_delivery;
 CREATE POLICY transport_delivery_legal_entity_scope ON transport_delivery AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- What arrived over a transport: an AS2 message (ref = Message-ID, content_sha256 = hash of the payload) or an SFTP
 -- file (ref = file name). A row is DONE once its interchange is recorded (same transaction), so a retransmission of
@@ -132,15 +132,15 @@ ALTER TABLE transport_inbound ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transport_inbound FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS transport_inbound_tenant_access ON transport_inbound;
 CREATE POLICY transport_inbound_tenant_access ON transport_inbound AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS transport_inbound_legal_entity_scope ON transport_inbound;
 CREATE POLICY transport_inbound_legal_entity_scope ON transport_inbound AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Cross-tenant work index for the background jobs and the AS2 endpoint lookup, like close.accrual_due: no
--- passage_app grant, maintained by SECURITY DEFINER triggers and read only by the SECURITY DEFINER functions below,
+-- depot_app grant, maintained by SECURITY DEFINER triggers and read only by the SECURITY DEFINER functions below,
 -- which return tenant and partner ids and nothing else.
 CREATE TABLE IF NOT EXISTS transport_work (
   kind text NOT NULL CHECK (kind IN ('AS2_ENDPOINT', 'SFTP_POLL', 'DELIVERY')),
@@ -209,10 +209,10 @@ CREATE TRIGGER transport_delivery_track AFTER INSERT OR UPDATE OF status, next_a
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON partner_transport, transport_delivery, transport_inbound TO passage_app';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION edi_as2_endpoint(uuid), edi_transport_due_tenants(text) TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON partner_transport, transport_delivery, transport_inbound TO depot_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION edi_as2_endpoint(uuid), edi_transport_due_tenants(text) TO depot_app';
   END IF;
 END
 $$;

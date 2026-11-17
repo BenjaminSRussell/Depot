@@ -7,9 +7,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/lean/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/lean/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/lean/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/lean/internal/store"
 )
 
 const periodID = "77777777-0000-4000-8000-000000000001"

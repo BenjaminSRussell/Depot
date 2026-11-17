@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Event reference renderer and undocumented-event gate for AsyncAPI 3 documents (PSG-50, PRD 9.50.8 AC-50.11).
+"""Event reference renderer and undocumented-event gate for AsyncAPI 3 documents (DPT-50, PRD 9.50.8 AC-50.11).
 
 The event counterpart of api_reference.py (FR-50.11: "API reference (OpenAPI/AsyncAPI generated)"). Every event a
 service publishes or consumes must be documented before the event reference is published:
 
   event      every message under components.messages, and every message written inline in a channel, has
-             - a CloudEvents type of the form dev.passage.<context>.<entity>.<verb>.v<n>: `x-passage-type` when
+             - a CloudEvents type of the form dev.depot.<context>.<entity>.<verb>.v<n>: `x-depot-type` when
                the message declares it, otherwise the message `name` (most services name the message after
-               its type, e.g. `name: dev.passage.eam.workorder.created.v1`)
+               its type, e.g. `name: dev.depot.eam.workorder.created.v1`)
              - a title, summary or description
              - a payload schema (an object, after following a local $ref)
              No two messages of one document declare the same type.
@@ -43,7 +43,7 @@ from typing import Any
 import api_reference as ar
 
 ACTIONS = ("send", "receive")
-EVENT_TYPE = re.compile(r"^dev\.passage\.[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.v[1-9][0-9]*$")
+EVENT_TYPE = re.compile(r"^dev\.depot\.[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.v[1-9][0-9]*$")
 
 
 @dataclass(frozen=True)
@@ -57,9 +57,9 @@ def event_type_valid(value: Any) -> bool:
 
 
 def event_type(msg: dict[str, Any]) -> str:
-    """The message's CloudEvents type: x-passage-type when declared, else its name. Empty when neither is set."""
-    if "x-passage-type" in msg:
-        return str(msg.get("x-passage-type") or "").strip()
+    """The message's CloudEvents type: x-depot-type when declared, else its name. Empty when neither is set."""
+    if "x-depot-type" in msg:
+        return str(msg.get("x-depot-type") or "").strip()
     return str(msg.get("name") or "").strip()
 
 
@@ -101,9 +101,9 @@ def message_gaps(m: Message, doc: dict[str, Any]) -> list[str]:
     out: list[str] = []
     declared = event_type(m.msg)
     if not declared:
-        out.append(f"message {m.label}: no event type (set x-passage-type, or name the message after its type)")
+        out.append(f"message {m.label}: no event type (set x-depot-type, or name the message after its type)")
     elif not event_type_valid(declared):
-        out.append(f"message {m.label}: event type {declared!r} is not dev.passage.<context>.<entity>.<verb>.v<n>")
+        out.append(f"message {m.label}: event type {declared!r} is not dev.depot.<context>.<entity>.<verb>.v<n>")
     if not _described(m.msg):
         out.append(f"message {m.label}: missing title, summary or description")
     if not ar._resolve(m.msg.get("payload"), doc):

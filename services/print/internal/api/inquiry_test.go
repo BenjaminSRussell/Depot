@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/print/internal/api"
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/print/internal/api"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
 )
 
 func printerStatuses(t *testing.T, h http.Handler) map[string]domain.PrinterStatus {

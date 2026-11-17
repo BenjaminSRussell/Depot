@@ -8,10 +8,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/domain"
 )
 
 func (f fixture) newAgreement(t *testing.T, status string, validTo *string, visits int) Agreement {
@@ -79,7 +79,7 @@ func TestStore_AgreementLifecycle(t *testing.T) {
 	if err != nil || len(hist) != 4 || hist[0].From != "DRAFT" || hist[0].To != "ACTIVE" || hist[3].To != "CANCELED" || hist[3].Reason != "customer left" {
 		t.Fatalf("history %+v err %v", hist, err)
 	}
-	if n := outboxCount(t, f, "dev.passage.service.agreement.changed.v1"); n != 4 {
+	if n := outboxCount(t, f, "dev.depot.service.agreement.changed.v1"); n != 4 {
 		t.Fatalf("%d agreement.changed events, want 4", n)
 	}
 	if _, err := f.s.AgreementHistory(f.ctx, ids.New()); problemCode(err) != CodeAgreementNotFound {
@@ -122,7 +122,7 @@ func TestStore_AgreementActivationNeedsLiveTermAndReplays(t *testing.T) {
 	if _, _, err := f.s.TransitionAgreement(f.ctx, draft.ID, draft.Version, "CANCELED", "r", now, "act-1", "other"); problemCode(err) != CodeIdempotencyReuse {
 		t.Fatalf("key reuse: %v", err)
 	}
-	if n := outboxCount(t, f, "dev.passage.service.agreement.changed.v1"); n != 1 {
+	if n := outboxCount(t, f, "dev.depot.service.agreement.changed.v1"); n != 1 {
 		t.Fatalf("%d events after a replay, want 1", n)
 	}
 }
@@ -197,7 +197,7 @@ func TestStore_RecordVisitConsumesIncludedVisits(t *testing.T) {
 	if err != nil || len(list) != 2 || list[0].ID != v1.ID || list[1].WorkOrderID == nil {
 		t.Fatalf("list %+v %v", list, err)
 	}
-	if n := outboxCount(t, f, "dev.passage.service.agreementvisit.recorded.v1"); n != 2 {
+	if n := outboxCount(t, f, "dev.depot.service.agreementvisit.recorded.v1"); n != 2 {
 		t.Fatalf("%d visit events, want 2", n)
 	}
 }
@@ -258,7 +258,7 @@ func TestStore_RecordVisitOncePerWorkOrderAndEventPayload(t *testing.T) {
 	var customer, billing, left string
 	err = dbx.WithTenantTx(f.ctx, f.s.pool, func(tx pgx.Tx) error {
 		return tx.QueryRow(f.ctx, `select payload->'data'->>'customerId', payload->'data'->>'billingModel', payload->'data'->>'visitsLeft'
-			from outbox where type = 'dev.passage.service.agreementvisit.recorded.v1' and payload->'data'->>'visitId' = $1`, v.ID).Scan(&customer, &billing, &left)
+			from outbox where type = 'dev.depot.service.agreementvisit.recorded.v1' and payload->'data'->>'visitId' = $1`, v.ID).Scan(&customer, &billing, &left)
 	})
 	if err != nil || customer != f.customer || billing != "PER_VISIT" || left != "2" {
 		t.Fatalf("visit event customer %q billing %q left %q: %v", customer, billing, left, err)

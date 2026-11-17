@@ -9,12 +9,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
 )
 
 const xrefPath = "/v1/integration/xref"
@@ -39,7 +39,7 @@ func (a *API) registerXref(r chi.Router) {
 // maxResolveKeys bounds one resolve request.
 const maxResolveKeys = 500
 
-// resolveXref answers GET /v1/integration/xref:resolve?sourceSystem=&entity=&keys=k1,k2: the Passage id of each legacy key this
+// resolveXref answers GET /v1/integration/xref:resolve?sourceSystem=&entity=&keys=k1,k2: the Depot id of each legacy key this
 // service loaded, for a loading service that must not be sent the mapping by hand (#49, H-S8-6: the migration factory resolves a
 // legacy customer of an open item to the customer the party migration loaded). Service-only; the token's legal-entity scope
 // applies, so a customer of another legal entity is not found.
@@ -112,7 +112,7 @@ func decodeCursor(s string) (*store.XrefCursor, bool) {
 	return &c, true
 }
 
-// listXref answers "where did legacy record X go": by exact legacy key, key prefix or Passage id, in key order
+// listXref answers "where did legacy record X go": by exact legacy key, key prefix or Depot id, in key order
 // with a keyset cursor.
 func (a *API) listXref(w http.ResponseWriter, r *http.Request) {
 	if !tenantWide(w, r) {
@@ -131,7 +131,7 @@ func (a *API) listXref(w http.ResponseWriter, r *http.Request) {
 		bad["sourceSystem"] = domain.SourceSystemHint
 	}
 	if v := q.Get("targetId"); v != "" && !ids.Valid(v) {
-		bad["targetId"] = "must be a Passage id (UUID)"
+		bad["targetId"] = "must be a Depot id (UUID)"
 	}
 	var after *store.XrefCursor
 	if v := q.Get("cursor"); v != "" {

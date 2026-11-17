@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/tax/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/domain"
 )
 
 type fakeProvider struct {

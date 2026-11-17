@@ -42,7 +42,7 @@ describe.runIf(ownerUrl)("resumable run state in Postgres", () => {
   it("is tenant-isolated by row-level security, not by the queries' own tenant filter", async () => {
     await state.create(TENANT, "r-iso", {}, {});
     await state.putCredential(TENANT, "r-iso", { kind: "starter", userId: INVOKER, duties: ["a"], token: "t" }, Date.now() + 60_000);
-    // Queries with no tenant filter at all, as the application role (passage_app when configured): another tenant sees nothing.
+    // Queries with no tenant filter at all, as the application role (depot_app when configured): another tenant sees nothing.
     const seen = await fx.store.withTenant(OTHER, async (c) => [
       (await c.query("select * from agent_run_state")).rowCount,
       (await c.query("select * from agent_run_credential")).rowCount,

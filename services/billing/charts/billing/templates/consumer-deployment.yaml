@@ -37,9 +37,9 @@ spec:
       containers:
         - name: billing-consumer
           {{- if .Values.image.digest }}
-          image: "{{ (include "passage.imageRepository" $) }}@{{ .Values.image.digest }}"
+          image: "{{ (include "depot.imageRepository" $) }}@{{ .Values.image.digest }}"
           {{- else }}
-          image: "{{ (include "passage.imageRepository" $) }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ (include "depot.imageRepository" $) }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args: [consume]
@@ -49,7 +49,7 @@ spec:
             - name: admin
               containerPort: 9090
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -74,10 +74,10 @@ spec:
               value: {{ .Values.closeUrl | quote }}
             - name: BILLING_GL_PROFILES
               value: {{ .Values.glProfiles | toJson | quote }}
-            - name: PASSAGE_SERVICE_NAME
+            - name: DEPOT_SERVICE_NAME
               value: billing
-            - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
-              value: /var/run/passage/service-identity/signing-key
+            - name: DEPOT_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/depot/service-identity/signing-key
             {{- end }}
             - name: KAFKA_BROKERS
               value: {{ required "consumer.kafka.brokers is required" .Values.consumer.kafka.brokers | quote }}
@@ -86,13 +86,13 @@ spec:
             - name: KAFKA_USERNAME
               value: {{ .Values.consumer.kafka.username | quote }}
             - name: KAFKA_PASSWORD_FILE
-              value: /var/run/passage/kafka/password
+              value: /var/run/depot/kafka/password
             - name: KAFKA_TLS_CA_FILE
-              value: /var/run/passage/kafka/ca.crt
+              value: /var/run/depot/kafka/ca.crt
           volumeMounts:
-            - { name: kafka, mountPath: /var/run/passage/kafka, readOnly: true }
+            - { name: kafka, mountPath: /var/run/depot/kafka, readOnly: true }
             {{- if and .Values.closeUrl .Values.glProfiles .Values.serviceIdentity.signingKeySecret }}
-            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
             {{- end }}
           livenessProbe:
             httpGet: { path: /healthz, port: admin }

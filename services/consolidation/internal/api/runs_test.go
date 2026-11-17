@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/consolidation/internal/api"
-	"github.com/BenjaminSRussell/passage/services/consolidation/internal/store"
-	"github.com/BenjaminSRussell/passage/services/consolidation/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/consolidation/internal/api"
+	"github.com/BenjaminSRussell/depot/services/consolidation/internal/store"
+	"github.com/BenjaminSRussell/depot/services/consolidation/migrations"
 )
 
 const runsPath = "/v1/consol/runs"
@@ -56,18 +56,18 @@ func callAs(a *api.API, leScoped bool, method, path, tenant, duties, key, body s
 	a.Register(r)
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Passage-User", "user-7")
+	req.Header.Set("X-Depot-User", "user-7")
 	if tenant != "" {
-		req.Header.Set("X-Passage-Tenant", tenant)
+		req.Header.Set("X-Depot-Tenant", tenant)
 	}
 	if duties != "" {
 		if !leScoped {
 			duties += ",org.switcher.all-scope,tenant.administer"
-			req.Header.Set("X-Passage-LegalEntity-Scope", "ALL")
+			req.Header.Set("X-Depot-LegalEntity-Scope", "ALL")
 		} else {
-			req.Header.Set("X-Passage-Legal-Entity", "00000000-0000-0000-0000-0000000000e1")
+			req.Header.Set("X-Depot-Legal-Entity", "00000000-0000-0000-0000-0000000000e1")
 		}
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Duties", duties)
 	}
 	if key != "" {
 		req.Header.Set("Idempotency-Key", key)

@@ -1,28 +1,28 @@
-# The region health edge (PSG-50, OPS-1703, FR-50.5). DNS health checks and the fence of the other regions' services read
-# GET /healthz/region without a Passage token, so it cannot sit on Gateway passage-api (SecurityPolicy/passage-api-jwt
-# targets that whole Gateway). This is a Gateway of its own, like passage-as2: its only route is HTTPRoute/ops-region-health
+# The region health edge (DPT-50, OPS-1703, FR-50.5). DNS health checks and the fence of the other regions' services read
+# GET /healthz/region without a Depot token, so it cannot sit on Gateway depot-api (SecurityPolicy/depot-api-jwt
+# targets that whole Gateway). This is a Gateway of its own, like depot-as2: its only route is HTTPRoute/ops-region-health
 # (GET /healthz/region to the ops Service), nothing else of ops and no other service is reachable here, and the identity
 # headers are stripped. The answer names only the region and its role. HTTPS only; the hostname is per environment and
-# region (region.<env>.passage.dev). deploy/scripts/test_gateway.py checks that nothing else attaches here and that every
-# passage-api route stays behind the JWT policy.
+# region (region.<env>.depot.dev). deploy/scripts/test_gateway.py checks that nothing else attaches here and that every
+# depot-api route stays behind the JWT policy.
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: passage-region
+  name: depot-region
   namespace: hello-ledger
 spec:
-  gatewayClassName: passage-envoy
+  gatewayClassName: depot-envoy
   listeners:
     - name: region-https
       protocol: HTTPS
       port: 443
-      hostname: region.dev.passage.dev
+      hostname: region.dev.depot.dev
       tls:
         mode: Terminate
         certificateRefs:
           - group: ""
             kind: Secret
-            name: passage-region-tls
+            name: depot-region-tls
       allowedRoutes:
         namespaces:
           from: Same
@@ -32,19 +32,19 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: passage-region-tls
+  name: depot-region-tls
   namespace: hello-ledger
 spec:
-  secretName: passage-region-tls
+  secretName: depot-region-tls
   dnsNames:
-    - region.dev.passage.dev
+    - region.dev.depot.dev
   privateKey:
     algorithm: ECDSA
     size: 256
     rotationPolicy: Always
   issuerRef:
     kind: ClusterIssuer
-    name: passage-local-ca
+    name: depot-local-ca
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -53,10 +53,10 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-region
+    - name: depot-region
       sectionName: region-https
   hostnames:
-    - region.dev.passage.dev
+    - region.dev.depot.dev
   rules:
     - matches:
         - path:
@@ -70,35 +70,35 @@ spec:
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: ClientTrafficPolicy
 metadata:
-  name: passage-region-client
+  name: depot-region-client
   namespace: hello-ledger
 spec:
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
-      name: passage-region
+      name: depot-region
   tls:
     minVersion: "1.2"
   headers:
     earlyRequestHeaders:
       remove:
-        - X-Passage-Tenant
-        - X-Passage-Legal-Entity
-        - X-Passage-User
-        - X-Passage-Duties
-        - X-Passage-Tier
-        - X-Passage-Auth-Time
-        - X-Passage-LegalEntity
-        - X-Passage-LegalEntity-Scope
-        - X-Passage-Service-Token
-        - X-Passage-Gateway-Secret
+        - X-Depot-Tenant
+        - X-Depot-Legal-Entity
+        - X-Depot-User
+        - X-Depot-Duties
+        - X-Depot-Tier
+        - X-Depot-Auth-Time
+        - X-Depot-LegalEntity
+        - X-Depot-LegalEntity-Scope
+        - X-Depot-Service-Token
+        - X-Depot-Gateway-Secret
 ---
 # The route is unauthenticated, so it is rate limited per client address (health checkers are few and fixed; 600 a minute
 # is generous for them and caps anything else).
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: BackendTrafficPolicy
 metadata:
-  name: passage-region-limits
+  name: depot-region-limits
   namespace: hello-ledger
 spec:
   targetRefs:

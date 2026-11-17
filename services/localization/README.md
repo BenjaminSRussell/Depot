@@ -1,6 +1,6 @@
-# localization (PSG-48, wave 48, slices 1 and 2)
+# localization (DPT-48, wave 48, slices 1 and 2)
 
-Country localization for Passage. Packs are metadata, never code forks (FR-48.1). Slice 1 loads the
+Country localization for Depot. Packs are metadata, never code forks (FR-48.1). Slice 1 loads the
 seven first country packs from `countrypacks/` at start-up, validates them, and exposes:
 
 - the pack catalogue and per-pack detail;
@@ -41,7 +41,7 @@ any pack fails validation, or when the directory does not hold the seven packs.
 | DE | `DE_UStVA` | `de/fixtures/ustva-2025-01.xml` | the ELSTER UStVA Nutzdaten conventions: Zeitraum, 13-digit Steuernummer, whole-euro bases, Kz35/Kz36 pair, Kz83 recomputed |
 | FR | `FR_FEC` | `fr/fixtures/732829320FEC20251231.txt` | article A47 A-1 LPF: file name with SIREN check digit, 18 named columns, dates, comma amounts, paired columns, validation order, balanced entries |
 | IN | `IN_GSTR1` | `in/fixtures/gstr1-082025.json` | GSTN offline-tool GSTR-1 JSON, b2b and hsn: GSTIN check characters, period, invoice number and date, place of supply, rate slabs, IGST or CGST = SGST, HSN summary reconciled |
-| MX | `MX_CFDI40` | `mx/fixtures/cfdi40-ingreso.xml` | SAT cfdv40.xsd and tdCFDI.xsd patterns and the Anexo 20 arithmetic; also SAT's own XSD with `xmllint` when `PASSAGE_SAT_CFDI_XSD` points at a local copy (`TestMXFixtureAgainstSATXSD`) |
+| MX | `MX_CFDI40` | `mx/fixtures/cfdi40-ingreso.xml` | SAT cfdv40.xsd and tdCFDI.xsd patterns and the Anexo 20 arithmetic; also SAT's own XSD with `xmllint` when `DEPOT_SAT_CFDI_XSD` points at a local copy (`TestMXFixtureAgainstSATXSD`) |
 | CA | `CA_GST34` | `ca/fixtures/gst34-2025q3.xml` | the GST34 form: BN with Luhn check digit and RT account, period, line 101 whole dollars, 105 = 103 + 104, 108 = 106 + 107, 109 = 105 - 108 |
 | MX | `MX_DIOT` | `mx/fixtures/diot-2025-01.txt` | SAT 2025 DIOT batch file, all 54 pipe-delimited fields at the instructivo positions: tipoTercero and the per-tercero tipoOperacion catalogue, RFC (mod-11 homoclave; XAXX010101000 for global), foreign-supplier name, three-letter country and ZZZ jurisdiction, whole-peso amounts of at most 14 digits, returns not above the value of the acts, IVA acreditable at most 16% of the base, 01/02 manifest |
 | FR | `FR_CA3` | `fr/fixtures/ca3-2025-01.csv` | DGFiP 3310-CA3 boxes as `code;value` (the covered boxes only): SIREN Luhn (La Poste 356000000 excepted), month or quarter period, whole euros, 16 = 08 + 09 + 9B, 23 = 19 + 20 + 22, 28 and 25 as the positive and negative difference |
@@ -87,7 +87,7 @@ is not committed, so that check is opt-in. What stays open is in `NOT-IMPLEMENTE
 
 ## Wave reference
 
-PSG-48 slice 1 covers FR-48.1 (framework and validation), FR-48.2 (seven packs, metadata only) and the
+DPT-48 slice 1 covers FR-48.1 (framework and validation), FR-48.2 (seven packs, metadata only) and the
 UK part of AC1. Slice 2 adds the India TDS calculation (part of FR-48.27, AC-48.21):
 `POST /v1/localization/in/tds:withhold` (duty `localization.admin`) for sections 194C, 194J, 194I, 194H and
 194Q. Crossing an annual threshold also deducts on the year's earlier untaxed credits (`ytdPaid - ytdTaxed`);

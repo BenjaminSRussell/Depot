@@ -12,13 +12,13 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/purchasing"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store/memstore"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/purchasing"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store/memstore"
 )
 
 const (
@@ -47,10 +47,10 @@ func evaluateThrough(t *testing.T, status int, upstream string, wire bool) (*htt
 	r := httpx.NewRouter()
 	a.Register(r)
 	req := httptest.NewRequest(http.MethodPost, evaluatePath, strings.NewReader(poBody(`"poLineNo":1`)))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Legal-Entity", evalLE)
-	req.Header.Set("X-Passage-User", callerUser)
-	req.Header.Set("X-Passage-Duties", "receiving.matching-policy.maintain,procurement.purchase-order.inquire")
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Legal-Entity", evalLE)
+	req.Header.Set("X-Depot-User", callerUser)
+	req.Header.Set("X-Depot-Duties", "receiving.matching-policy.maintain,procurement.purchase-order.inquire")
 	req.Header.Set("X-Request-Id", "req-42")
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -70,10 +70,10 @@ func TestEvaluateTakesPoLinesFromPurchasing(t *testing.T) {
 		t.Fatalf("path %s", seen.URL.Path)
 	}
 	for header, want := range map[string]string{
-		"X-Passage-Tenant": testkit.TenantID(1),
-		"X-Passage-User":   callerUser,
-		"X-Passage-Duties": "procurement.purchase-order.inquire,receiving.matching-policy.maintain",
-		"X-Request-Id":     "req-42",
+		"X-Depot-Tenant": testkit.TenantID(1),
+		"X-Depot-User":   callerUser,
+		"X-Depot-Duties": "procurement.purchase-order.inquire,receiving.matching-policy.maintain",
+		"X-Request-Id":   "req-42",
 	} {
 		if got := seen.Header.Get(header); got != want {
 			t.Fatalf("%s = %q, want %q", header, got, want)
@@ -299,10 +299,10 @@ func TestEvaluateSignsThePurchaseOrderReadWithTheNamedLegalEntity(t *testing.T) 
 	a.Register(r)
 	post := func(body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPost, evaluatePath, strings.NewReader(body))
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-Legal-Entity", evalLE+","+otherLE)
-		req.Header.Set("X-Passage-User", callerUser)
-		req.Header.Set("X-Passage-Duties", "receiving.matching-policy.maintain")
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-Legal-Entity", evalLE+","+otherLE)
+		req.Header.Set("X-Depot-User", callerUser)
+		req.Header.Set("X-Depot-Duties", "receiving.matching-policy.maintain")
 		rec := httptest.NewRecorder()
 		r.ServeHTTP(rec, req)
 		return rec
@@ -313,7 +313,7 @@ func TestEvaluateSignsThePurchaseOrderReadWithTheNamedLegalEntity(t *testing.T) 
 		t.Fatalf("named entity: %d %s", rec.Code, rec.Body)
 	}
 	claims, err := verifier.Verify(seen.Get(tenant.HeaderServiceToken))
-	if err != nil || claims.Le != evalLE || claims.Act != callerUser || seen.Get("X-Passage-Duties") != "" || len(claims.Duties) != 1 || claims.Duties[0] != "procurement.purchase-order.lookup" {
+	if err != nil || claims.Le != evalLE || claims.Act != callerUser || seen.Get("X-Depot-Duties") != "" || len(claims.Duties) != 1 || claims.Duties[0] != "procurement.purchase-order.lookup" {
 		t.Fatalf("claims %+v err %v headers %v", claims, err, seen)
 	}
 
@@ -324,7 +324,7 @@ func TestEvaluateSignsThePurchaseOrderReadWithTheNamedLegalEntity(t *testing.T) 
 	}
 
 	seen = nil
-	if rec := post(poBody(`"poLineNo":1`)); rec.Code != http.StatusOK || seen.Get(tenant.HeaderServiceToken) != "" || seen.Get("X-Passage-User") != callerUser {
+	if rec := post(poBody(`"poLineNo":1`)); rec.Code != http.StatusOK || seen.Get(tenant.HeaderServiceToken) != "" || seen.Get("X-Depot-User") != callerUser {
 		t.Fatalf("without a named entity a multi-entity user is forwarded: %d %v", rec.Code, seen)
 	}
 

@@ -9,13 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/store"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/target"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/store"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/target"
 )
 
 // Problem codes of the staged packs' load (#49).
@@ -72,7 +72,7 @@ type stagedLoadRequest struct {
 	// SiteID and WarehouseID are where the opening production orders run: the extract carries neither (wip_prod).
 	SiteID      string `json:"siteId"`
 	WarehouseID string `json:"warehouseId"`
-	// Products and Workers map a legacy item or worker to its Passage id; an id the migration loaded is found through the cross-reference, and one that
+	// Products and Workers map a legacy item or worker to its Depot id; an id the migration loaded is found through the cross-reference, and one that
 	// is already a UUID needs no entry.
 	Products map[string]string `json:"products"`
 	Workers  map[string]string `json:"workers"`
@@ -247,7 +247,7 @@ func stagedBatches(pack domain.Pack, pending []store.PendingStagedLine, maps dom
 // stagedBatchLimit is the most target lines one batch holds; a variable only so a test can make it small.
 var stagedBatchLimit = domain.MaxStagedBatchLines
 
-// resolveStagedMasters fills the maps of the request with the Passage ids the migration loaded, found through the cross-reference for every legacy
+// resolveStagedMasters fills the maps of the request with the Depot ids the migration loaded, found through the cross-reference for every legacy
 // item (wip_prod) or worker (payroll_ytd) of the pending lines that is not mapped and is not a UUID: the key is the legacy company and the code
 // (company|code, as the migration service keys a record), else the code alone.
 func (s *Server) resolveStagedMasters(ctx context.Context, tenantID, legalEntityID string, sys domain.SourceSystem, company string, pack domain.Pack, pending []store.PendingStagedLine, req *stagedLoadRequest) error {
@@ -338,7 +338,7 @@ func (s *Server) runStagedLoad(w http.ResponseWriter, r *http.Request) {
 	if tgt == nil || !tgt.Configured() {
 		s.abandonStaged(ctx, id, errors.New("the target is not configured"))
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusServiceUnavailable, CodeStagedNotConfigured,
-			"the "+domain.StagedTargetOfPack(pack)+" target is not configured: set ASSETS_URL, PRODUCTION_URL or PAYROLL_URL and the service signing key (PASSAGE_SERVICE_NAME=migration-factory, PASSAGE_SERVICE_SIGNING_KEY)"))
+			"the "+domain.StagedTargetOfPack(pack)+" target is not configured: set ASSETS_URL, PRODUCTION_URL or PAYROLL_URL and the service signing key (DEPOT_SERVICE_NAME=migration-factory, DEPOT_SERVICE_SIGNING_KEY)"))
 		return
 	}
 	if err := s.resolveStagedMasters(ctx, p.TenantID, req.LegalEntityID, domain.SourceSystem(run.System), run.Company, pack, pending, &req); err != nil {

@@ -1,6 +1,6 @@
 # Phase 4: Manufacturing & Planning (waves 21-25)
 
-Production orders and WIP, MRP/MPS, capacity and scheduling, process and lean manufacturing, shop-floor execution and IoT. A discrete or process manufacturer can build product on Passage.
+Production orders and WIP, MRP/MPS, capacity and scheduling, process and lean manufacturing, shop-floor execution and IoT. A discrete or process manufacturer can build product on Depot.
 
 ## Wave 21: Production Orders, WIP & Order-Based Costing
 

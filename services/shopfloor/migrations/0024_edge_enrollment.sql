@@ -1,4 +1,4 @@
--- PSG-25 #25 subtask 25-4: edge enrollment and certificate binding (FR-25.19, BR-25.14).
+-- DPT-25 #25 subtask 25-4: edge enrollment and certificate binding (FR-25.19, BR-25.14).
 -- A supervisor mints a one-time enrollment token for an edge node (edge_enrollment_token, only the
 -- SHA-256 of its secret is stored). The connector redeems it once with a certificate signing request;
 -- the service issues a 90-day client certificate whose subject it chooses and binds that subject to the
@@ -25,8 +25,8 @@ CREATE INDEX IF NOT EXISTS edge_enrollment_token_edge ON edge_enrollment_token (
 ALTER TABLE edge_enrollment_token ENABLE ROW LEVEL SECURITY;
 ALTER TABLE edge_enrollment_token FORCE ROW LEVEL SECURITY;
 CREATE POLICY edge_enrollment_token_tenant_access ON edge_enrollment_token AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS edge_certificate (
   tenant_id uuid NOT NULL,
@@ -46,14 +46,14 @@ CREATE INDEX IF NOT EXISTS edge_certificate_edge ON edge_certificate (tenant_id,
 ALTER TABLE edge_certificate ENABLE ROW LEVEL SECURITY;
 ALTER TABLE edge_certificate FORCE ROW LEVEL SECURITY;
 CREATE POLICY edge_certificate_tenant_access ON edge_certificate AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON edge_enrollment_token TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON edge_certificate TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON edge_enrollment_token TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON edge_certificate TO depot_app';
   END IF;
 END
 $$;

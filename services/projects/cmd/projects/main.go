@@ -1,8 +1,8 @@
-// Command projects serves the Passage projects API (wave 41, slice 1).
+// Command projects serves the Depot projects API (wave 41, slice 1).
 //
 // Configuration (12-factor, env):
 //
-//	DATABASE_URL      Postgres URL for the passage_app role (required)
+//	DATABASE_URL      Postgres URL for the depot_app role (required)
 //	HTTP_ADDR         listen address (default :8080)
 //	MIGRATE_ON_START  "true" applies migrations at boot (dev only; stage/prod use the Argo PreSync Job)
 package main
@@ -16,12 +16,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/services/projects/internal/api"
-	"github.com/BenjaminSRussell/passage/services/projects/internal/store"
-	"github.com/BenjaminSRussell/passage/services/projects/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/services/projects/internal/api"
+	"github.com/BenjaminSRussell/depot/services/projects/internal/store"
+	"github.com/BenjaminSRussell/depot/services/projects/migrations"
 )
 
 func main() {

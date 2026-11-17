@@ -5,7 +5,7 @@ package events
 // cancelled or posted. POSTED and CANCELLED end the sheet and lift its stock
 // freeze; a posted sheet with variances is also announced by journal.posted
 // for its COUNT journal (a sheet whose counts all match the book has none).
-const CountSheetChanged = "dev.passage.inventory.countsheet.changed.v1"
+const CountSheetChanged = "dev.depot.inventory.countsheet.changed.v1"
 
 // Count sheet actions carried in CountSheetChangedData.Action.
 const (

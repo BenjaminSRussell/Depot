@@ -72,7 +72,7 @@ describe("agents HTTP surface", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(await res.json()).toMatchObject({ scope: "TENANT", tenantId: T1, active: true, version: 1, byUser: ADMIN });
-    expect(published.map((e) => e.type)).toEqual(["dev.passage.agent.killswitch.changed.v1"]);
+    expect(published.map((e) => e.type)).toEqual(["dev.depot.agent.killswitch.changed.v1"]);
     expect(registry.isHalted(T1)).toBe(true);
 
     const again = await kill(true);
@@ -89,7 +89,7 @@ describe("agents HTTP surface", () => {
     expect(res.status).toBe(403);
     expect(res.headers.get("content-type")).toBe("application/problem+json");
     expect(await res.json()).toEqual({
-      type: "https://passage.dev/problems/AGT-0203",
+      type: "https://depot.dev/problems/AGT-0203",
       title: "Forbidden",
       status: 403,
       code: "AGT-0203",

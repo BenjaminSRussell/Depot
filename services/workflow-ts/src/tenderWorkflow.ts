@@ -115,7 +115,7 @@ export async function tenderWorkflow(input: TenderInput): Promise<TenderState> {
   const counter = (name: string, description: string, attributes: Record<string, string> = {}) => metricMeter.createCounter(name, "1", description).add(1, attributes);
 
   const stall = (reason: "sweep_stuck" | "transport_unreachable"): TenderState => {
-    counter("passage_tender_stalled", "Tenders the workflow gave up on: the expiry sweep did not advance them or transport stayed unreachable", { reason });
+    counter("depot_tender_stalled", "Tenders the workflow gave up on: the expiry sweep did not advance them or transport stayed unreachable", { reason });
     return Object.assign(state, { status: "stalled" as const });
   };
 
@@ -172,6 +172,6 @@ export async function tenderWorkflow(input: TenderInput): Promise<TenderState> {
   }
 
   if (tender.status === "ACCEPTED") return Object.assign(state, { status: "accepted" as const });
-  counter("passage_tender_escalated", "Tenders every carrier declined or let expire, left to a planner");
+  counter("depot_tender_escalated", "Tenders every carrier declined or let expire, left to a planner");
   return Object.assign(state, { status: "escalated" as const });
 }

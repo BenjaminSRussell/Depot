@@ -1,16 +1,16 @@
 openapi: 3.1.0
 info:
-  title: Passage Billing API
+  title: Depot Billing API
   version: 0.1.0
   description: >
-    Invoice proposals, posting and reads for the billing context (PSG-29).
+    Invoice proposals, posting and reads for the billing context (DPT-29).
     Slice 1 covers free-text invoices; slice 3 adds installment plans on the
     free-text proposal (FR-29.18) and credit notes against posted invoices
     (FR-29.5); slice 5 adds invoice proposals from posted packing slips, one
     per order or consolidated (FR-29.1, FR-29.2), and the invoice audit trace
     (FR-29.12). Subscription flows arrive in later slices (see NOT-IMPLEMENTED.md).
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env:
         default: dev
@@ -27,7 +27,7 @@ paths:
         the gross is split into one open item per installment (BR-29.11):
         round_half_even(gross × pct) each, the residual on the last, due on the
         invoice date + offset; the invoice's due date is the last installment's.
-      x-passage-duty: billing.invoice.maintain (InvoiceMaintain)
+      x-depot-duty: billing.invoice.maintain (InvoiceMaintain)
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -96,7 +96,7 @@ paths:
         transaction. The Idempotency-Key names the whole request: a replay returns
         every invoice (200). A packing slip line is invoiced once: a request naming
         a slip line already on an invoice or proposal is refused whole (409 BIL-0104).
-      x-passage-duty: billing.invoice.maintain (InvoiceMaintain)
+      x-depot-duty: billing.invoice.maintain (InvoiceMaintain)
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -151,7 +151,7 @@ paths:
     get:
       operationId: listInvoices
       summary: List invoice headers, newest first (Invoices list inquiry, §5.29.14).
-      x-passage-duty: billing.invoice.view (InvoiceView)
+      x-depot-duty: billing.invoice.view (InvoiceView)
       parameters:
         - name: status
           in: query
@@ -211,7 +211,7 @@ paths:
         A posted invoice that can be credited also carries `credited` (gross of its
         posted credit notes and the remaining creditable amount) and per line the
         quantity credited so far.
-      x-passage-duty: billing.invoice.view (InvoiceView)
+      x-depot-duty: billing.invoice.view (InvoiceView)
       parameters:
         - $ref: "#/components/parameters/InvoiceId"
       responses:
@@ -237,7 +237,7 @@ paths:
       description: >
         For the customer portal only (#30). The customer is the signed `cus` claim of the customer-portal
         service token; a `customerId` query parameter is ignored. Proposals are not listed.
-      x-passage-duty: billing.customer-portal.read
+      x-depot-duty: billing.customer-portal.read
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [POSTED, PARTIALLY_SETTLED, SETTLED, REVERSED] } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -264,7 +264,7 @@ paths:
       operationId: customerPortalGetInvoice
       summary: One of the signed-in customer's invoices with its lines (customer portal).
       description: An invoice of another customer, or a proposal, is 404 BIL-0100, the same answer as an unknown id.
-      x-passage-duty: billing.customer-portal.read
+      x-depot-duty: billing.customer-portal.read
       parameters:
         - $ref: "#/components/parameters/InvoiceId"
       responses:
@@ -288,7 +288,7 @@ paths:
         the packing slips once each with their date and order. A credit note's
         lines resolve through the original invoice's lines; a free-text invoice has
         no documents behind its lines. Revenue schedules are not on the trace yet.
-      x-passage-duty: billing.invoice.view (InvoiceView)
+      x-depot-duty: billing.invoice.view (InvoiceView)
       parameters:
         - $ref: "#/components/parameters/InvoiceId"
       responses:
@@ -308,7 +308,7 @@ paths:
     post:
       operationId: postInvoice
       summary: Post a proposal. Re-quotes tax, books AR and the journal, and assigns the gap-free number.
-      x-passage-duty: billing.invoice.post (InvoicePost)
+      x-depot-duty: billing.invoice.post (InvoicePost)
       description: >
         Posting an already posted invoice returns it unchanged (idempotent by state;
         the PRD's idempotency key is the invoice id). A failed post consumes no
@@ -355,7 +355,7 @@ paths:
     get:
       operationId: listSalesReports
       summary: List the reports of posted invoices to sales (#29), newest first.
-      x-passage-duty: billing.invoice.view (InvoiceView)
+      x-depot-duty: billing.invoice.view (InvoiceView)
       description: >
         One report per (invoice, order) tells sales' `:record-progress` what an invoice billed (kind INVOICED). A PARKED report
         carries the reason in `lastError` (sales refused it, or the attempts ran out); a report sales answers "not yet" (SLS-0058,
@@ -393,7 +393,7 @@ paths:
     post:
       operationId: retrySalesReport
       summary: Put a PARKED sales report back in the queue.
-      x-passage-duty: billing.invoice.post (InvoicePost)
+      x-depot-duty: billing.invoice.post (InvoicePost)
       description: >
         A PARKED report becomes PENDING again, due now, with its attempts counted from zero; a PENDING one is returned as it is.
         The body and the Idempotency-Key sent to sales do not change, so sales answers a report it already holds from its copy.
@@ -417,7 +417,7 @@ paths:
     get:
       operationId: listTaxReports
       summary: List the reports of booked invoices and credit notes to the tax service (#29), newest first.
-      x-passage-duty: billing.invoice.view (InvoiceView)
+      x-depot-duty: billing.invoice.view (InvoiceView)
       description: >
         Booking a document to the GL queues one report; a leased reporter records its output tax per tax code with the tax
         service (`POST /v1/tax/transactions`), negative on a credit note. A PARKED report carries the reason in `lastError`
@@ -446,7 +446,7 @@ paths:
     post:
       operationId: retryTaxReport
       summary: Put a PARKED tax report back in the queue.
-      x-passage-duty: billing.invoice.post (InvoicePost)
+      x-depot-duty: billing.invoice.post (InvoicePost)
       description: >
         A PARKED report becomes PENDING again, due now, with its attempts counted from zero; a PENDING one is returned as it is.
         The body does not change, so the tax service answers a transaction it already holds as a duplicate. A REPORTED report is
@@ -470,7 +470,7 @@ paths:
     post:
       operationId: backfillTaxReports
       summary: Queue the tax reports of documents booked before reports existed.
-      x-passage-duty: billing.invoice.post (InvoicePost)
+      x-depot-duty: billing.invoice.post (InvoicePost)
       description: >
         Looks at up to 200 documents booked to the GL that have no tax report, in id order after the `after` cursor, and queues the
         report each would have had when it was booked (the tax the lines carry, one output transaction per code, negative on a credit
@@ -507,7 +507,7 @@ paths:
     post:
       operationId: postGL
       summary: Book the invoice journal (FR-29.3) of posted invoices and credit notes in the general ledger.
-      x-passage-duty: billing.invoice.post (InvoicePost)
+      x-depot-duty: billing.invoice.post (InvoicePost)
       description: >
         The auto-book worker (BILLING_GL_AUTOBOOK_TENANT_IDS) runs this same posting on a timer; calling it books what the worker has
         not reached yet, and a document booked by either is never booked again (ledger key per document).
@@ -613,7 +613,7 @@ paths:
         proportion), all made in one transaction; a retry finds them by the modification and never credits again. A product the order never invoiced is 422 BIL-0140. Documents stay proposals for a person to post. Each is
         keyed by the modification, so a retry returns what exists (200) and creates only what is missing (201). A booked credit note
         of a modification carries contract_modification_id on creditnote.booked, and revrec does not apply it again.
-      x-passage-duty: billing.contract-modification.bill (service only)
+      x-depot-duty: billing.contract-modification.bill (service only)
       requestBody:
         required: true
         content:
@@ -682,7 +682,7 @@ paths:
         A credit beyond what the original still allows, or of an invoice that is
         not posted, is refused with 422 BIL-0005. Amounts are positive
         magnitudes; the type CREDIT_NOTE carries the sign.
-      x-passage-duty: billing.invoice.maintain (InvoiceMaintain)
+      x-depot-duty: billing.invoice.maintain (InvoiceMaintain)
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -754,7 +754,7 @@ paths:
         posted, it is refused with 422 BIL-0005. The Idempotency-Key is stable
         per RMA: the same key and body return the stored reservation (200),
         the same key with another body is 422.
-      x-passage-duty: billing.credit-reservation.write (service only)
+      x-depot-duty: billing.credit-reservation.write (service only)
       parameters:
         - $ref: "#/components/parameters/InvoiceId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -812,7 +812,7 @@ paths:
         Releasing a released reservation returns it unchanged. A consumed
         reservation cannot be released (409 reservation_state). Reservations do
         not expire; the caller releases or commits them.
-      x-passage-duty: billing.credit-reservation.write (service only)
+      x-depot-duty: billing.credit-reservation.write (service only)
       parameters:
         - $ref: "#/components/parameters/ReservationId"
       responses:
@@ -847,7 +847,7 @@ paths:
         the invoice and can no longer be released. Committing a consumed
         reservation returns it unchanged; a released one is refused (409
         reservation_state).
-      x-passage-duty: billing.credit-reservation.write (service only)
+      x-depot-duty: billing.credit-reservation.write (service only)
       parameters:
         - $ref: "#/components/parameters/ReservationId"
       responses:
@@ -877,7 +877,7 @@ paths:
     post:
       operationId: postCreditNote
       summary: Post a credit note proposal with the next gap-free CN- number.
-      x-passage-duty: billing.creditnote.post (CreditNotePost)
+      x-depot-duty: billing.creditnote.post (CreditNotePost)
       description: >
         Locks the original invoice and re-checks the remaining creditable amount
         against the credit notes posted since the proposal (422 BIL-0005), then
@@ -928,7 +928,7 @@ paths:
     post:
       operationId: createSubscription
       summary: Start a subscription (FR-29.10).
-      x-passage-duty: billing.invoice.maintain (InvoiceMaintain)
+      x-depot-duty: billing.invoice.maintain (InvoiceMaintain)
       description: >
         A plan price per billing period of 1, 3, 6 or 12 months from a start date.
         A retry with the same Idempotency-Key and body returns the subscription
@@ -953,7 +953,7 @@ paths:
     get:
       operationId: getSubscription
       summary: Read a subscription with its plan terms and the end of the last invoiced period.
-      x-passage-duty: billing.invoice.view (InvoiceView)
+      x-depot-duty: billing.invoice.view (InvoiceView)
       parameters:
         - $ref: "#/components/parameters/InvoiceId"
       responses:
@@ -966,7 +966,7 @@ paths:
     post:
       operationId: changeSubscriptionPlan
       summary: Move a subscription to another plan price from a date.
-      x-passage-duty: billing.invoice.maintain (InvoiceMaintain)
+      x-depot-duty: billing.invoice.maintain (InvoiceMaintain)
       description: >
         The change must take effect after the current plan began and after the
         last invoiced period (422 BIL-0107); a cancelled subscription refuses it
@@ -992,7 +992,7 @@ paths:
     post:
       operationId: cancelSubscription
       summary: Cancel a subscription; service ends on the last service day.
-      x-passage-duty: billing.invoice.maintain (InvoiceMaintain)
+      x-depot-duty: billing.invoice.maintain (InvoiceMaintain)
       description: >
         The last service day must not be before the current plan began nor before
         the end of the last invoiced period (422 BIL-0107). Cancelling twice is
@@ -1018,7 +1018,7 @@ paths:
     post:
       operationId: billSubscription
       summary: Invoice one billing period of a subscription, prorated by calendar days (BR-29.8).
-      x-passage-duty: billing.invoice.maintain (InvoiceMaintain)
+      x-depot-duty: billing.invoice.maintain (InvoiceMaintain)
       description: >
         periodFrom is the first of a month; the period runs periodMonths months.
         Each plan term served in the period becomes one line, its price times the
@@ -1051,7 +1051,7 @@ paths:
     post:
       operationId: recordSubscriptionUsage
       summary: Record a metered quantity against a subscription (FR-29.10).
-      x-passage-duty: billing.invoice.maintain (InvoiceMaintain)
+      x-depot-duty: billing.invoice.maintain (InvoiceMaintain)
       description: >
         The quantity is invoiced once, as a usage line of the SUBSCRIPTION invoice of the billing period that is billed next with
         a period end on or after `usageDate`: the usage of a meter at one unit price is added up into one line (quantity times
@@ -1087,7 +1087,7 @@ paths:
     post:
       operationId: billDueSubscriptions
       summary: Invoice every billing period due on a date for the subscriptions of a legal entity (the daily job).
-      x-passage-duty: billing.invoice.maintain (InvoiceMaintain)
+      x-depot-duty: billing.invoice.maintain (InvoiceMaintain)
       description: >
         For each subscription whose next period (the one after the period billed last, or the start month) opens on or before
         `asOf` (default today), creates the SUBSCRIPTION invoice proposal of the period dated its first day, as `:bill` does,
@@ -1128,7 +1128,7 @@ paths:
     post:
       operationId: postSelfBilledInvoice
       summary: Post a matched self-billed document as the legal customer invoice (service only, #35 35-5)
-      x-passage-duty: billing.self-billed.post
+      x-depot-duty: billing.self-billed.post
       description: >
         Called by the EDI engine once a self-billing customer's document (an INVOIC 389 or X12 810) matched in full against the shipments we
         notified. The customer must have a SELF_BILLED rule in force on `documentDate` (409 BIL-0152) and, when the document names an
@@ -1184,7 +1184,7 @@ paths:
     put:
       operationId: putBillingRule
       summary: Set how a customer of a legal entity is invoiced (STANDARD or SELF_BILLED, #35 35-5)
-      x-passage-duty: billing.invoice.maintain
+      x-depot-duty: billing.invoice.maintain
       description: >
         SELF_BILLED means the customer issues the invoice for our deliveries under a self-billing agreement (EU VAT Directive
         art. 224): a packing slip of that customer posted from `validFrom` to `validTo` (inclusive; open-ended without it, by the
@@ -1223,7 +1223,7 @@ paths:
     get:
       operationId: getBillingRule
       summary: Read a customer's billing rule in a legal entity (STANDARD with version 0 when none is set)
-      x-passage-duty: billing.invoice.view
+      x-depot-duty: billing.invoice.view
       parameters:
         - { name: customerId, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: legalEntityId, in: query, required: true, schema: { type: string, format: uuid } }
@@ -1731,7 +1731,7 @@ components:
       description: RFC 9457 problem details with a stable code.
       required: [type, title, status]
       properties:
-        type: { type: string, format: uri, description: "https://passage.dev/problems/<code>" }
+        type: { type: string, format: uri, description: "https://depot.dev/problems/<code>" }
         title: { type: string }
         status: { type: integer }
         detail: { type: string }

@@ -1,6 +1,6 @@
 apiVersion: v2
 name: hello-ledger
-description: Placeholder service that proves the Passage delivery path
+description: Placeholder service that proves the Depot delivery path
 type: application
 version: 0.1.0
 appVersion: "0.1.0"

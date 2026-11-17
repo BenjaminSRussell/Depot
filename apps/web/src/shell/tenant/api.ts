@@ -5,7 +5,7 @@ export const FEATURES_PATH = "/api/v1/tenant/features";
 export const SETUP_PATH = "/api/v1/tenant/setup";
 export const WORKSPACE_CONFIG_PATH = "/api/v1/tenant/workspace-config";
 export const DEMO_COMPANY_PATH = "/api/v1/org/demo-company";
-// Served by passage-server, the Windows install (#607), outside /api: the optional MSI features of this installation.
+// Served by depot-server, the Windows install (#607), outside /api: the optional MSI features of this installation.
 export const INSTALLATION_PATH = "/installation.json";
 
 // Duties the shell checks before it calls these endpoints, so a person who cannot read them costs no request.

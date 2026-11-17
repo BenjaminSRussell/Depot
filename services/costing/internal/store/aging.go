@@ -13,12 +13,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 // Aging problem codes (FR-20.17). CST-AGE-001 is the PRD's opening-balance flag.
@@ -31,7 +31,7 @@ const (
 )
 
 // AgingSnapshotEventType is the stored-snapshot event. The PRD's
-// dev.passage.costing.aging.snapshot.created.v1 has one segment too many for
+// dev.depot.costing.aging.snapshot.created.v1 has one segment too many for
 // the kernel type pattern (<context>.<entity>.<verb>), so the entity is the
 // single token "agingsnapshot".
 var AgingSnapshotEventType = events.Type("costing", "agingsnapshot", "created", 1)

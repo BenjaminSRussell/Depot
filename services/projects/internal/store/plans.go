@@ -9,12 +9,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/projects/internal/domain"
-	projevents "github.com/BenjaminSRussell/passage/services/projects/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/projects/internal/domain"
+	projevents "github.com/BenjaminSRussell/depot/services/projects/internal/events"
 )
 
 // NewPlan is the request to add a plan version to a project. CopyFromVersionID
@@ -350,7 +350,7 @@ func loadPlanForUpdate(ctx context.Context, tx pgx.Tx, tenantID, projectID, plan
 // SchedulePlan runs the CPM scheduler (FR-41.2) over a plan version from the
 // project start date on the standard Monday-to-Friday calendar, stores each
 // node's early and late dates, slack and critical flag, and writes
-// dev.passage.projects.wbs.scheduled.v1 in the same transaction. The plan row is
+// dev.depot.projects.wbs.scheduled.v1 in the same transaction. The plan row is
 // locked so a concurrent WBS replacement cannot interleave. The plan version's
 // version is not bumped: the dates are derived from the WBS it versions. A
 // locked plan version is PROJ-PLAN-002; an empty plan schedules nothing and

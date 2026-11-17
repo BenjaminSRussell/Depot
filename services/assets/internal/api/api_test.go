@@ -10,12 +10,12 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/api"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/api"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/store"
 )
 
 // fakeStore is an in-memory store.Store for handler tests. It records the last
@@ -156,9 +156,9 @@ type req struct {
 
 func do(h http.Handler, q req) *httptest.ResponseRecorder {
 	r := httptest.NewRequest(q.method, q.path, strings.NewReader(q.body))
-	r.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	r.Header.Set("X-Passage-Duties", q.duties)
-	r.Header.Set("X-Passage-Legal-Entity", testLE)
+	r.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	r.Header.Set("X-Depot-Duties", q.duties)
+	r.Header.Set("X-Depot-Legal-Entity", testLE)
 	if q.key {
 		r.Header.Set("Idempotency-Key", ids.New())
 	}
@@ -229,15 +229,15 @@ func TestCreateAsset_DutyKeyTenantAndScope(t *testing.T) {
 	if rec := call(h, http.MethodPost, "/v1/assets", body, allDuties, false); rec.Code != http.StatusBadRequest {
 		t.Errorf("without Idempotency-Key status = %d, want 400", rec.Code)
 	}
-	bad := do(h, req{method: http.MethodPost, path: "/v1/assets", body: body, duties: allDuties, key: true, headers: map[string]string{"X-Passage-Tenant": "acme"}})
+	bad := do(h, req{method: http.MethodPost, path: "/v1/assets", body: body, duties: allDuties, key: true, headers: map[string]string{"X-Depot-Tenant": "acme"}})
 	if bad.Code != http.StatusUnauthorized {
 		t.Errorf("malformed tenant status = %d, want 401", bad.Code)
 	}
-	other := do(h, req{method: http.MethodPost, path: "/v1/assets", body: body, duties: allDuties, key: true, headers: map[string]string{"X-Passage-Legal-Entity": ids.New()}})
+	other := do(h, req{method: http.MethodPost, path: "/v1/assets", body: body, duties: allDuties, key: true, headers: map[string]string{"X-Depot-Legal-Entity": ids.New()}})
 	if other.Code != http.StatusForbidden {
 		t.Errorf("legal entity outside scope status = %d, want 403", other.Code)
 	}
-	unscoped := do(h, req{method: http.MethodPost, path: "/v1/assets", body: body, duties: allDuties, key: true, headers: map[string]string{"X-Passage-Legal-Entity": ""}})
+	unscoped := do(h, req{method: http.MethodPost, path: "/v1/assets", body: body, duties: allDuties, key: true, headers: map[string]string{"X-Depot-Legal-Entity": ""}})
 	if unscoped.Code != http.StatusForbidden {
 		t.Errorf("caller with no legal-entity scope status = %d, want 403", unscoped.Code)
 	}

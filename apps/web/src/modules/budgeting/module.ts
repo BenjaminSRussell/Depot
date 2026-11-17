@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { BudgetCheckPage, CheckDetailPage } from "./CheckPage";
 import { CostControlPage } from "./CostControlPage";
 import { EncumbrancePage } from "./EncumbrancePage";
@@ -10,7 +10,7 @@ import { NewPlanPage, PlanDetailPage, PlanGridPage, PlansPage } from "./PlanPage
 import { RuleDetailPage } from "./RuleDetailPage";
 import { CreateRulePage, RulesPage } from "./RulesPage";
 
-const budgeting: PassageModule = {
+const budgeting: DepotModule = {
   id: "budgeting",
   title: "Budgeting",
   description: "Budget control rules, register entries, available funds, budget checks, encumbrances, earmarked funds, investment programs and budget plans with a scenario grid.",

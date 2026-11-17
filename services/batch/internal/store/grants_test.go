@@ -8,12 +8,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/store"
-	"github.com/BenjaminSRussell/passage/services/batch/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/store"
+	"github.com/BenjaminSRussell/depot/services/batch/migrations"
 )
 
 func TestGrants_AppRoleWorkflowAndAppendOnlyTables(t *testing.T) {
@@ -33,7 +33,7 @@ func TestGrants_AppRoleWorkflowAndAppendOnlyTables(t *testing.T) {
 		t.Fatalf("items = %v, %v", items, err)
 	}
 	if _, err := s.Act(ctx, items[0].ID, domain.Action{Kind: "approve", Actor: testkit.TenantID(6)}); err != nil {
-		t.Fatalf("act updates the work item and instance as passage_app: %v", err)
+		t.Fatalf("act updates the work item and instance as depot_app: %v", err)
 	}
 	if got, err := s.GetInstance(ctx, inst.ID); err != nil || got.Status == domain.InstanceSubmitted {
 		t.Fatalf("instance = %+v, %v", got, err)
@@ -42,7 +42,7 @@ func TestGrants_AppRoleWorkflowAndAppendOnlyTables(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := s.SaveJob(ctx, store.Job{Code: "grants-job", Handler: "synthetic.rows", PartitionCount: 2}); err != nil {
-		t.Fatalf("job upsert as passage_app: %v", err)
+		t.Fatalf("job upsert as depot_app: %v", err)
 	}
 	for _, stmt := range []string{
 		`update outbox set type = type`,

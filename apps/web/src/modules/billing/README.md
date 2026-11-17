@@ -1,6 +1,6 @@
 # billing (web module)
 
-Billing and revenue recognition screens for wave 29 (PSG-29), slices 1 to 5. Built from the shell primitives in
+Billing and revenue recognition screens for wave 29 (DPT-29), slices 1 to 5. Built from the shell primitives in
 `src/shell/ui` and CSS Modules (`pages.module.css`), per `apps/web/docs/design-system.md`.
 
 | Route | Page | Service call | Duty |

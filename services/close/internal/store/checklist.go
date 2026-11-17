@@ -8,12 +8,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/close/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/close/internal/domain"
 )
 
 func (s *Postgres) PutTemplate(ctx context.Context, in domain.Template) (domain.Template, error) {
@@ -29,7 +29,7 @@ func (s *Postgres) PutTemplate(ctx context.Context, in domain.Template) (domain.
 		return domain.Template{}, errors.New("put template: no principal")
 	}
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, `insert into close_template(tenant_id, id, name, version, updated_by) values(current_setting('passage.tenant_id')::uuid, $1, $2, 1, $3)
+		tag, err := tx.Exec(ctx, `insert into close_template(tenant_id, id, name, version, updated_by) values(current_setting('depot.tenant_id')::uuid, $1, $2, 1, $3)
 			on conflict (tenant_id, id) do update set name = excluded.name, version = close_template.version + 1, updated_by = excluded.updated_by, updated_at = now()`,
 			in.ID, in.Name, p.UserID)
 		if err != nil {
@@ -45,7 +45,7 @@ func (s *Postgres) PutTemplate(ctx context.Context, in domain.Template) (domain.
 				deps = []string{}
 			}
 			if _, err := tx.Exec(ctx, `insert into close_template_task(tenant_id, template_id, task_key, name, description, module, assignee_role, due_offset_days, depends_on, evidence_required, manual_override_allowed, position)
-				values(current_setting('passage.tenant_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+				values(current_setting('depot.tenant_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
 				in.ID, t.Key, t.Name, t.Description, t.Module, t.AssigneeRole, t.DueOffsetDays, deps, t.EvidenceRequired, t.ManualOverride, i); err != nil {
 				return err
 			}
@@ -120,7 +120,7 @@ func (s *Postgres) CreateRun(ctx context.Context, templateID, fiscalPeriodID, ac
 		run.PeriodEnd = periodEnd.Format("2006-01-02")
 		run.TaskCount = len(tasks)
 		tag, err := tx.Exec(ctx, `insert into close_run(tenant_id, id, template_id, template_version, fiscal_period_id, period_end, legal_entity_ids, status, created_by, idempotency_key, request_hash)
-			values(current_setting('passage.tenant_id')::uuid, $1, $2, $3, $4, $5, $6::uuid[], 'in_progress', $7, $8, $9)
+			values(current_setting('depot.tenant_id')::uuid, $1, $2, $3, $4, $5, $6::uuid[], 'in_progress', $7, $8, $9)
 			on conflict (tenant_id, idempotency_key) where idempotency_key <> '' do nothing`,
 			run.ID, templateID, tmpl.Version, fiscalPeriodID, periodEnd, entities, actor, key, hash)
 		if err != nil {
@@ -158,7 +158,7 @@ func (s *Postgres) CreateRun(ctx context.Context, templateID, fiscalPeriodID, ac
 				deps[i] = idByLogical[d]
 			}
 			if _, err := tx.Exec(ctx, `insert into close_task(tenant_id, id, run_id, legal_entity_id, task_key, module, name, description, assignee_role, due_at, depends_on, status, evidence_required, manual_override_allowed)
-				values(current_setting('passage.tenant_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::uuid[], 'not_started', $11, $12)`,
+				values(current_setting('depot.tenant_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::uuid[], 'not_started', $11, $12)`,
 				row.id, run.ID, row.task.Entity, spec.Key, spec.Module, spec.Name, spec.Description, spec.AssigneeRole, row.due, deps, spec.EvidenceRequired, spec.ManualOverride); err != nil {
 				return err
 			}

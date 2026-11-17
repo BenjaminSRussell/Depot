@@ -2,13 +2,13 @@
 // publishes through the outbox (events/asyncapi.yaml).
 package events
 
-import "github.com/BenjaminSRussell/passage/platform/events"
+import "github.com/BenjaminSRussell/depot/platform/events"
 
 // Context is the bounded-context segment of every event type.
 const Context = "interco"
 
 // Source is the CloudEvents source of every event the service publishes.
-const Source = "/passage/intercompany"
+const Source = "/depot/intercompany"
 
 // PartnerCreated and PartnerUpdated are not in the PRD 7.40.5 event table.
 // They are added so the mirror-saga worker (interco-svc, a separate

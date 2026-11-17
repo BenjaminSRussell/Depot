@@ -8,8 +8,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
-	"github.com/BenjaminSRussell/passage/services/identity"
+	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
+	"github.com/BenjaminSRussell/depot/services/identity"
 )
 
 type residentTenant struct {
@@ -76,7 +76,7 @@ func TestTenantResidencyIsCheckedAtProvisioning(t *testing.T) {
 
 	t.Run("under the eu-data-boundary overlay the default residency is EU and regions follow the profile", func(t *testing.T) {
 		profile, err := cloudprofile.FromEnv(func(k string) string {
-			return map[string]string{"PASSAGE_CLOUD_PROFILE": "commercial+eu-data-boundary"}[k]
+			return map[string]string{"DEPOT_CLOUD_PROFILE": "commercial+eu-data-boundary"}[k]
 		})
 		if err != nil {
 			t.Fatal(err)

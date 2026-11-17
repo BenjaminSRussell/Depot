@@ -13,13 +13,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/consolidation/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/consolidation/internal/store"
-	"github.com/BenjaminSRussell/passage/services/consolidation/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/consolidation/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/consolidation/internal/store"
+	"github.com/BenjaminSRussell/depot/services/consolidation/migrations"
 )
 
 func dec(s string) decimal.Decimal { return decimal.RequireFromString(s) }
@@ -131,7 +131,7 @@ func TestCreateRun_RoundTripAndEvent(t *testing.T) {
 		}
 	}
 	evts := outboxTypes(t, pool, ctx)
-	if len(evts) != 1 || evts[0]["_type"] != "dev.passage.consol.run.completed.v1" || evts[0]["runId"] != rec.ID ||
+	if len(evts) != 1 || evts[0]["_type"] != "dev.depot.consol.run.completed.v1" || evts[0]["runId"] != rec.ID ||
 		evts[0]["groupId"] != "G1" || evts[0]["version"] != float64(1) || evts[0]["ctaAmount"] != "39523.81" || evts[0]["currency"] != "USD" || evts[0]["eliminationCount"] != float64(17) {
 		t.Fatalf("outbox = %v", evts)
 	}

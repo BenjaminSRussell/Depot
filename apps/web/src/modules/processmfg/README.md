@@ -1,4 +1,4 @@
-# processmfg web module (PSG-24 slices 1 to 3, 9 and 11 to 17)
+# processmfg web module (DPT-24 slices 1 to 3, 9 and 11 to 17)
 
 Front end for `services/processmfg`. Discovered by the shell through `module.ts`. Pages use the
 `shell/ui` primitives and `pages.module.css` (tokens only), as in `docs/design-system.md`.

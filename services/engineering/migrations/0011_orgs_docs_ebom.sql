@@ -280,25 +280,25 @@ BEGIN
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
-    EXECUTE format('CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting(''passage.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)', t || '_tenant_access', t);
+    EXECUTE format('CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting(''depot.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)', t || '_tenant_access', t);
   END LOOP;
 END
 $$;
--- Legal-entity scope (passage.legal_entity_scopes). A release line is also visible to the engineering
+-- Legal-entity scope (depot.legal_entity_scopes). A release line is also visible to the engineering
 -- entity that sent it; accepting or rejecting it is still checked against legal_entity_id in the store.
 DO $$
 DECLARE
   t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY['engineering_organization', 'released_product'] LOOP
-    EXECUTE format('CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting(''passage.legal_entity_scopes'', true) = ''*'' OR legal_entity_id = ANY (string_to_array(current_setting(''passage.legal_entity_scopes'', true), '','')))', t || '_legal_entity_scope', t);
+    EXECUTE format('CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting(''depot.legal_entity_scopes'', true) = ''*'' OR legal_entity_id = ANY (string_to_array(current_setting(''depot.legal_entity_scopes'', true), '','')))', t || '_legal_entity_scope', t);
   END LOOP;
 END
 $$;
 CREATE POLICY release_line_legal_entity_scope ON release_line AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id = ANY (string_to_array(current_setting('passage.legal_entity_scopes', true), ','))
-         OR engineering_le_id = ANY (string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id = ANY (string_to_array(current_setting('depot.legal_entity_scopes', true), ','))
+         OR engineering_le_id = ANY (string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 -- The audit relay claims due records across tenants. The function runs as the table owner; it can see
 -- every tenant's rows only when that owner bypasses row-level security, which engineering_audit_can_scan()
 -- reports so the relay can refuse loudly instead of idling.
@@ -330,14 +330,14 @@ REVOKE ALL ON FUNCTION engineering_audit_claim(int, float8) FROM PUBLIC;
 REVOKE ALL ON FUNCTION engineering_audit_can_scan() FROM PUBLIC;
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON engineering_organization, version_nomenclature, engineering_category, engineering_version, release_policy, site_mapping, release_session, release_line, readiness_policy, released_product, readiness_check_result, document_type, document, document_original, document_link, document_structure, eco_document_replacement, product_identifier, ebom_import, ebom_exception TO passage_app';
-    EXECUTE 'GRANT DELETE ON readiness_check_result, document_structure TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON document_signature TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON audit_outbox TO passage_app';
-    EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE release_number_seq TO passage_app';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION engineering_audit_claim(int, float8), engineering_audit_can_scan() TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON engineering_organization, version_nomenclature, engineering_category, engineering_version, release_policy, site_mapping, release_session, release_line, readiness_policy, released_product, readiness_check_result, document_type, document, document_original, document_link, document_structure, eco_document_replacement, product_identifier, ebom_import, ebom_exception TO depot_app';
+    EXECUTE 'GRANT DELETE ON readiness_check_result, document_structure TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON document_signature TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON audit_outbox TO depot_app';
+    EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE release_number_seq TO depot_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION engineering_audit_claim(int, float8), engineering_audit_can_scan() TO depot_app';
   END IF;
 END
 $$;

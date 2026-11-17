@@ -7,7 +7,7 @@
 mock_provider "azurerm" {
   mock_resource "azurerm_kubernetes_cluster" {
     defaults = {
-      id              = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-passage-test/providers/Microsoft.ContainerService/managedClusters/passage-test"
+      id              = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-depot-test/providers/Microsoft.ContainerService/managedClusters/depot-test"
       oidc_issuer_url = "https://eastus2.oic.prod-aks.azure.com/00000000-0000-0000-0000-000000000002/stub/"
       kube_config     = [{ host = "https://stub.hcp.eastus2.azmk8s.io:443", cluster_ca_certificate = "c3R1Yg==", client_certificate = "", client_key = "", password = "", username = "" }]
     }
@@ -28,7 +28,7 @@ mock_provider "azurerm" {
   }
   mock_resource "azurerm_key_vault_managed_hardware_security_module" {
     defaults = {
-      id      = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-passage-test/providers/Microsoft.KeyVault/managedHSMs/hsm-stub"
+      id      = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-depot-test/providers/Microsoft.KeyVault/managedHSMs/hsm-stub"
       hsm_uri = "https://hsm-stub.managedhsm.usgovcloudapi.net/"
     }
   }
@@ -40,58 +40,58 @@ mock_provider "azurerm" {
   }
   mock_resource "azurerm_disk_encryption_set" {
     defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-passage-test/providers/Microsoft.Compute/diskEncryptionSets/des-stub"
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-depot-test/providers/Microsoft.Compute/diskEncryptionSets/des-stub"
     }
   }
   mock_resource "azurerm_log_analytics_cluster" {
     defaults = {
-      id       = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-passage-test/providers/Microsoft.OperationalInsights/clusters/lac-stub"
+      id       = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-depot-test/providers/Microsoft.OperationalInsights/clusters/lac-stub"
       identity = { principal_id = "00000000-0000-0000-0000-0000000000a1", tenant_id = "00000000-0000-0000-0000-000000000002" }
     }
   }
   mock_resource "azurerm_log_analytics_workspace" {
     defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-passage-test/providers/Microsoft.OperationalInsights/workspaces/law-stub"
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-depot-test/providers/Microsoft.OperationalInsights/workspaces/law-stub"
     }
   }
   mock_resource "azurerm_subscription_policy_assignment" {
     defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/policyAssignments/passage-hipaa-hitrust"
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/policyAssignments/depot-hipaa-hitrust"
     }
   }
   mock_resource "azurerm_private_dns_zone" {
     defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-passage-test/providers/Microsoft.Network/privateDnsZones/stub.zone"
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-depot-test/providers/Microsoft.Network/privateDnsZones/stub.zone"
     }
   }
   mock_resource "azurerm_virtual_network" {
     defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-passage-test/providers/Microsoft.Network/virtualNetworks/vnet-stub"
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-depot-test/providers/Microsoft.Network/virtualNetworks/vnet-stub"
     }
   }
   mock_resource "azurerm_subnet" {
     defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-passage-test/providers/Microsoft.Network/virtualNetworks/vnet-stub/subnets/stub"
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-depot-test/providers/Microsoft.Network/virtualNetworks/vnet-stub/subnets/stub"
     }
   }
   mock_resource "azurerm_key_vault" {
     defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-passage-test/providers/Microsoft.KeyVault/vaults/kv-stub"
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-depot-test/providers/Microsoft.KeyVault/vaults/kv-stub"
     }
   }
   mock_resource "azurerm_storage_account" {
     defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-passage-test/providers/Microsoft.Storage/storageAccounts/ststub"
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-depot-test/providers/Microsoft.Storage/storageAccounts/ststub"
     }
   }
   mock_resource "azurerm_container_registry" {
     defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-passage-test/providers/Microsoft.ContainerRegistry/registries/acrstub"
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-depot-test/providers/Microsoft.ContainerRegistry/registries/acrstub"
     }
   }
   mock_resource "azurerm_postgresql_flexible_server" {
     defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-passage-test/providers/Microsoft.DBforPostgreSQL/flexibleServers/pgstub"
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-depot-test/providers/Microsoft.DBforPostgreSQL/flexibleServers/pgstub"
     }
   }
   mock_data "azurerm_client_config" {
@@ -103,7 +103,7 @@ mock_provider "azurerm" {
 }
 
 variables {
-  name       = "passage-test"
+  name       = "depot-test"
   tenant_id  = "00000000-0000-0000-0000-000000000002"
   node_pools = [{ name = "system", count = 3 }, { name = "work", count = 2 }]
 }
@@ -123,7 +123,7 @@ run "commercial_builds_the_whole_stack" {
   }
 
   assert {
-    condition     = output.cluster_name == "passage-test"
+    condition     = output.cluster_name == "depot-test"
     error_message = "AKS cluster not created"
   }
   assert {
@@ -351,11 +351,11 @@ run "every_fieldcrypt_service_account_gets_a_federated_credential" {
   }
 
   assert {
-    condition     = toset(output.federated_fieldcrypt_service_accounts) == toset(["passage-hr", "passage-party", "passage-payables", "passage-receiving", "passage-sales", "passage-compliance", "passage-migration"])
+    condition     = toset(output.federated_fieldcrypt_service_accounts) == toset(["depot-hr", "depot-party", "depot-payables", "depot-receiving", "depot-sales", "depot-compliance", "depot-migration"])
     error_message = "one federated credential per service that unwraps fieldcrypt keys"
   }
   assert {
-    condition     = azurerm_federated_identity_credential.fieldcrypt["passage-hr"].subject == "system:serviceaccount:passage:passage-hr"
+    condition     = azurerm_federated_identity_credential.fieldcrypt["depot-hr"].subject == "system:serviceaccount:depot:depot-hr"
     error_message = "subject is namespace and service account"
   }
 }
@@ -446,7 +446,7 @@ run "the_us_dod_regions_need_no_extra_isolation" {
   }
 
   assert {
-    condition     = output.cluster_name == "passage-test"
+    condition     = output.cluster_name == "depot-test"
     error_message = "a non-isolated pool is accepted in US DoD East"
   }
 }

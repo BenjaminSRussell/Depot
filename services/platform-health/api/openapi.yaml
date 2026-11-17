@@ -4,13 +4,13 @@ info:
   version: 0.1.0
   description: Placeholder service that proves the delivery path end to end.
 servers:
-  - url: https://app.local.passage.dev
+  - url: https://app.local.depot.dev
 paths:
   /v1/hello-ledger/entries:
     post:
       operationId: createEntry
       summary: "Create a hello-ledger entry"
-      x-passage-duty: hello.write
+      x-depot-duty: hello.write
       parameters:
         - name: Idempotency-Key
           in: header
@@ -33,7 +33,7 @@ paths:
     get:
       operationId: listEntries
       summary: "List hello-ledger entries"
-      x-passage-duty: hello.read
+      x-depot-duty: hello.read
       responses:
         '200':
           description: Newest entries for the caller's tenant, at most 100.
@@ -47,8 +47,8 @@ paths:
   /v1/platform/releases:
     post:
       operationId: recordRelease
-      x-passage-duty: platform.release.maintain
-      description: Records one promote or rollback of an image digest. Accepted only from the platform operator tenant (PLATFORM_OPERATOR_TENANT_ID; all writes are 403 while unset). Needs platform.release.maintain for dev or stage promotions, platform.promotion.approve for prod promotions and platform.environment.rollback for rollbacks. Idempotency-Key is scoped to the caller tenant; reusing it with a different payload is 409 (the signed flag is ignored so a re-run after a signature-check flake replays the original). A rollback must target an imageDigest previously promoted to, or recorded as the previous digest of, the same service and environment; otherwise 422 PLH-0422. Idempotency is checked first, so a reused key is 409 whatever the action, and an unregistered environment is 400 for rollbacks too. A previousDigest that differs from the newest recorded imageDigest for the service and environment is still recorded but flagged (log and hello_ledger_release_chain_breaks_total). Platform-level data stored under the nil system tenant; the caller's tenant and user are kept for audit. Emits dev.passage.platform.release.promoted.v1 or dev.passage.platform.release.rolledback.v1 through the outbox.
+      x-depot-duty: platform.release.maintain
+      description: Records one promote or rollback of an image digest. Accepted only from the platform operator tenant (PLATFORM_OPERATOR_TENANT_ID; all writes are 403 while unset). Needs platform.release.maintain for dev or stage promotions, platform.promotion.approve for prod promotions and platform.environment.rollback for rollbacks. Idempotency-Key is scoped to the caller tenant; reusing it with a different payload is 409 (the signed flag is ignored so a re-run after a signature-check flake replays the original). A rollback must target an imageDigest previously promoted to, or recorded as the previous digest of, the same service and environment; otherwise 422 PLH-0422. Idempotency is checked first, so a reused key is 409 whatever the action, and an unregistered environment is 400 for rollbacks too. A previousDigest that differs from the newest recorded imageDigest for the service and environment is still recorded but flagged (log and hello_ledger_release_chain_breaks_total). Platform-level data stored under the nil system tenant; the caller's tenant and user are kept for audit. Emits dev.depot.platform.release.promoted.v1 or dev.depot.platform.release.rolledback.v1 through the outbox.
       parameters:
         - name: Idempotency-Key
           in: header
@@ -74,7 +74,7 @@ paths:
     get:
       operationId: listReleases
       summary: "List platform releases"
-      x-passage-duty: platform.release.view
+      x-depot-duty: platform.release.view
       parameters:
         - name: service
           in: query
@@ -107,20 +107,20 @@ paths:
   /healthz:
     get:
       operationId: liveness
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Process is alive. }
   /readyz:
     get:
       operationId: readiness
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Database reachable. }
         '503': { description: Database unreachable. }
   /metrics:
     get:
       operationId: metrics
-      x-passage-duty: public
+      x-depot-duty: public
       description: Served on the admin port (9090), never through the ingress.
       responses:
         '200':

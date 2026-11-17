@@ -38,15 +38,15 @@ CREATE INDEX IF NOT EXISTS screening_hit_listing ON screening_hit (tenant_id, de
 ALTER TABLE screening_hit ENABLE ROW LEVEL SECURITY;
 ALTER TABLE screening_hit FORCE ROW LEVEL SECURITY;
 CREATE POLICY screening_hit_tenant_access ON screening_hit AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
--- passage_app reads, opens (insert, refresh of an OPEN hit on rescreen) and decides
+-- depot_app reads, opens (insert, refresh of an OPEN hit on rescreen) and decides
 -- hits (update under FOR UPDATE); it never deletes one.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON screening_hit TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON screening_hit TO depot_app';
   END IF;
 END
 $$;

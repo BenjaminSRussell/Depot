@@ -6,10 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/api"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/partyclient"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/api"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/partyclient"
 )
 
 // fakeParty is a party master holding the customers and vendors it is given; down makes every lookup fail as an unreachable service.

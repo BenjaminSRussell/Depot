@@ -32,7 +32,7 @@ def unpack(archive: Path, dest: Path) -> None:
 
 def repack(root: Path, archive: Path) -> None:
     with tarfile.open(archive, "w:gz") as tar:
-        tar.add(root, arcname="passage-offline")
+        tar.add(root, arcname="depot-offline")
 DIGEST_B = "sha256:" + "b" * 64
 
 
@@ -58,7 +58,7 @@ class FakeRunner:
             out = Path(cmd[cmd.index("-o") + 1].split("=", 1)[1])
             out.write_text('{"spdxVersion": "SPDX-2.3"}', encoding="utf-8")
         if cmd[:2] == ["helm", "template"]:
-            return "image: ghcr.io/benjaminsrussell/passage-ledger:0.1.0\nimage: docker.io/library/postgres:17\n# image: ignored\n"
+            return "image: ghcr.io/benjaminsrussell/depot-ledger:0.1.0\nimage: docker.io/library/postgres:17\n# image: ignored\n"
         if cmd[:2] == ["skopeo", "inspect"]:
             return (DIGEST_A if "ledger" in cmd[-1] else DIGEST_B) + "\n"
         if cmd[:2] == ["skopeo", "copy"] and cmd[-1].startswith("oci:"):
@@ -88,7 +88,7 @@ class PlanTests(unittest.TestCase):
     def test_the_plan_names_every_in_repo_chart_and_the_third_party_ones_argocd_pulls(self) -> None:
         plan = ob.plan(FakeRunner())
         names = {c["name"] for c in plan["repoCharts"]}
-        self.assertIn("passage-hr", names)
+        self.assertIn("depot-hr", names)
         pulled = {(c["chart"]) for c in plan["thirdPartyCharts"]}
         self.assertTrue({"kyverno", "temporal", "strimzi-kafka-operator", "cert-manager", "argo-cd"} <= pulled, pulled)
         self.assertIn("quay.io/keycloak/keycloak:26.0.8", [i["ref"] for i in plan["images"]])
@@ -115,12 +115,12 @@ class PlanTests(unittest.TestCase):
         runner = FakeRunner()
         self.assertEqual(ob.resolve_digest(pinned, runner), pinned)
         self.assertEqual(runner.calls, [], "a pinned reference is not looked up")
-        self.assertEqual(ob.resolve_digest("ghcr.io/benjaminsrussell/passage-ledger:0.1.0", runner), "ghcr.io/benjaminsrussell/passage-ledger@" + DIGEST_A)
+        self.assertEqual(ob.resolve_digest("ghcr.io/benjaminsrussell/depot-ledger:0.1.0", runner), "ghcr.io/benjaminsrussell/depot-ledger@" + DIGEST_A)
         with self.assertRaises(RuntimeError):
             ob.resolve_digest("x.io/y:1", lambda cmd, cwd=None: "not-a-digest\n")
 
     def test_mirrored_paths_drop_the_registry_host_and_keep_the_digest(self) -> None:
-        self.assertEqual(ob.mirrored_path("ghcr.io/benjaminsrussell/passage-ledger@" + DIGEST_A), "benjaminsrussell/passage-ledger@" + DIGEST_A)
+        self.assertEqual(ob.mirrored_path("ghcr.io/benjaminsrussell/depot-ledger@" + DIGEST_A), "benjaminsrussell/depot-ledger@" + DIGEST_A)
         self.assertEqual(ob.mirrored_path("postgres:17"), "postgres:17")
         self.assertEqual(ob.mirrored_path("registry.local:5000/a/b:1"), "a/b:1")
         self.assertEqual(ob.mirrored_path("registry.local:5000/a/b:1@" + DIGEST_A), "a/b@" + DIGEST_A)
@@ -157,18 +157,18 @@ class BuildVerifyInstallTests(unittest.TestCase):
 
     def test_each_image_is_verified_upstream_then_signed_and_attested_with_the_offline_key(self) -> None:
         _, runner = self.built()
-        staged = "localhost:5000/benjaminsrussell/passage-ledger@" + DIGEST_A
-        calls = self.image_calls(runner, "passage-ledger")
+        staged = "localhost:5000/benjaminsrussell/depot-ledger@" + DIGEST_A
+        calls = self.image_calls(runner, "depot-ledger")
         self.assertEqual([c[:2] for c in calls], [
             ["cosign", "verify"], ["skopeo", "copy"], ["skopeo", "copy"], ["syft", "scan"],
             ["cosign", "sign"], ["cosign", "attest"], ["cosign", "save"],
         ])
         verify, to_staging, to_layout, syft, sign, attest, save = calls
         # (a) the publisher's keyless identity from provenance.json, on the digest
-        self.assertEqual(verify[-1], "ghcr.io/benjaminsrussell/passage-ledger@" + DIGEST_A)
+        self.assertEqual(verify[-1], "ghcr.io/benjaminsrussell/depot-ledger@" + DIGEST_A)
         self.assertIn("--certificate-identity-regexp", verify)
         self.assertIn("https://token.actions.githubusercontent.com", verify)
-        self.assertEqual(to_staging[-2:], ["docker://ghcr.io/benjaminsrussell/passage-ledger@" + DIGEST_A, "docker://" + staged])
+        self.assertEqual(to_staging[-2:], ["docker://ghcr.io/benjaminsrussell/depot-ledger@" + DIGEST_A, "docker://" + staged])
         self.assertIn("--preserve-digests", to_staging)
         self.assertTrue(to_layout[-1].startswith("oci:") and to_layout[-2] == "docker://" + staged)
         sbom = syft[-1].split("=", 1)[1]
@@ -183,7 +183,7 @@ class BuildVerifyInstallTests(unittest.TestCase):
         self.assertEqual(attest[attest.index("--predicate") + 1], sbom)
         self.assertEqual(save[-1], staged)
         manifest = json.loads((self.tmp / "stage" / "manifest.json").read_text())
-        ledger = next(i for i in manifest["images"] if "passage-ledger" in i["ref"])
+        ledger = next(i for i in manifest["images"] if "depot-ledger" in i["ref"])
         self.assertEqual((ledger["upstream"], ledger["sbom"]), ("verified", f"sboms/{ledger['slug']}.spdx.json"))
 
     def test_an_image_marked_unsigned_upstream_skips_only_the_upstream_check(self) -> None:
@@ -214,7 +214,7 @@ class BuildVerifyInstallTests(unittest.TestCase):
             self.tmp.mkdir()
             with self.assertRaises(RuntimeError, msg=step):
                 self.built(FakeRunner(fail_on=step))
-            self.assertFalse((self.tmp / "passage-offline.tar.gz.sig").exists(), step)
+            self.assertFalse((self.tmp / "depot-offline.tar.gz.sig").exists(), step)
 
     def test_charts_are_checked_as_their_provenance_says(self) -> None:
         prov = provenance_with_postgres()
@@ -262,7 +262,7 @@ class BuildVerifyInstallTests(unittest.TestCase):
 
     def test_the_committed_provenance_covers_every_third_party_chart_and_the_extra_images(self) -> None:
         prov = ob.load_provenance()
-        manifest = {"images": [{"ref": r} for r in ob.extra_images()] + [{"ref": "ghcr.io/benjaminsrussell/passage-hr:0.1.0"}],
+        manifest = {"images": [{"ref": r} for r in ob.extra_images()] + [{"ref": "ghcr.io/benjaminsrussell/depot-hr:0.1.0"}],
                     "thirdPartyCharts": ob.third_party_charts()}
         self.assertEqual(ob.missing_provenance(manifest, prov), [])
 
@@ -283,8 +283,8 @@ class BuildVerifyInstallTests(unittest.TestCase):
         archive, _ = self.built()
         edited = self.tmp / "edit"
         unpack(archive, edited)
-        (next((edited / "passage-offline" / "images").glob("*/index.json"))).write_text('{"tampered":true}')
-        repack(edited / "passage-offline", archive)
+        (next((edited / "depot-offline" / "images").glob("*/index.json"))).write_text('{"tampered":true}')
+        repack(edited / "depot-offline", archive)
         with self.assertRaises(RuntimeError) as ctx:
             ob.verify(archive, "cosign.pub", FakeRunner())
         self.assertIn("hash mismatch", str(ctx.exception))
@@ -293,7 +293,7 @@ class BuildVerifyInstallTests(unittest.TestCase):
         archive, _ = self.built()
         edited = self.tmp / "edit2"
         unpack(archive, edited)
-        root = edited / "passage-offline"
+        root = edited / "depot-offline"
         (root / "extra.sh").write_text("curl evil")
         shutil.rmtree(next((root / "signatures").iterdir()))
         repack(root, archive)
@@ -314,7 +314,7 @@ class BuildVerifyInstallTests(unittest.TestCase):
     def test_an_archive_with_a_link_is_refused(self) -> None:
         evil = self.tmp / "link.tar.gz"
         with tarfile.open(evil, "w:gz") as tar:
-            info = tarfile.TarInfo("passage-offline/SHA256SUMS")
+            info = tarfile.TarInfo("depot-offline/SHA256SUMS")
             info.type = tarfile.SYMTYPE
             info.linkname = "/etc/passwd"
             tar.addfile(info)
@@ -347,7 +347,7 @@ class BuildVerifyInstallTests(unittest.TestCase):
         archive, _ = self.built()
         key = self.tmp / "cosign.pub"
         key.write_text(PEM)
-        out = ob.install(archive, "registry.enclave:5000", "https://git.enclave/passage.git", str(key), FakeRunner())
+        out = ob.install(archive, "registry.enclave:5000", "https://git.enclave/depot.git", str(key), FakeRunner())
         (policy,) = sorted((out / "policies").glob("*.yaml"))
         text = policy.read_text()
         self.assertEqual(text.count("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE"), 2)
@@ -358,35 +358,35 @@ class BuildVerifyInstallTests(unittest.TestCase):
         archive, _ = self.built()
         runner = FakeRunner(fail_on="cosign")
         with self.assertRaises(RuntimeError):
-            ob.install(archive, "registry.enclave:5000", "https://git.enclave/passage.git", "cosign.pub", runner)
+            ob.install(archive, "registry.enclave:5000", "https://git.enclave/depot.git", "cosign.pub", runner)
         self.assertEqual(runner.ran("skopeo"), [])
         self.assertEqual(runner.ran("helm", "push"), [])
 
     def test_install_pushes_images_with_signatures_and_charts_and_renders_argocd_for_the_mirror(self) -> None:
         archive, _ = self.built()
         runner = FakeRunner()
-        out = ob.install(archive, "registry.enclave:5000", "https://git.enclave/passage.git", "cosign.pub", runner)
+        out = ob.install(archive, "registry.enclave:5000", "https://git.enclave/depot.git", "cosign.pub", runner)
         pushes = [c for c in runner.ran("skopeo", "copy") if c[-1].startswith("docker://registry.enclave:5000/")]
         self.assertTrue(pushes)
         self.assertEqual(len(runner.ran("cosign", "load")), len(pushes))
         self.assertTrue(runner.ran("helm", "push"))
         self.assertTrue(all(c[-1].startswith("oci://registry.enclave:5000/charts") for c in runner.ran("helm", "push")))
         root = next(iter(out.rglob("root-dev.yaml")))
-        self.assertIn("https://git.enclave/passage.git", root.read_text())
+        self.assertIn("https://git.enclave/depot.git", root.read_text())
 
 
 class ArgoCDTests(unittest.TestCase):
     def test_every_source_is_rewritten_and_no_internet_url_is_left(self) -> None:
         tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp, True)
-        written = ob.render_argocd("https://git.enclave/passage.git", "registry.enclave:5000", tmp)
+        written = ob.render_argocd("https://git.enclave/depot.git", "registry.enclave:5000", tmp)
         self.assertGreater(len(written), 20)
         for path in written:
             text = path.read_text()
             self.assertNotIn(ob.GIT_URL, text, path.name)
             urls = set(re.findall(r"repoURL:\s*(\S+)", text))
             for u in urls:
-                self.assertIn(u, {"https://git.enclave/passage.git", "registry.enclave:5000/charts"}, f"{path.name}: {u}")
+                self.assertIn(u, {"https://git.enclave/depot.git", "registry.enclave:5000/charts"}, f"{path.name}: {u}")
 
     def test_chart_repositories_become_the_oci_registry_and_git_the_mirror(self) -> None:
         text = "source:\n  repoURL: https://kyverno.github.io/kyverno\n  chart: kyverno\n- repoURL: " + ob.GIT_URL + "\n  path: x\n"

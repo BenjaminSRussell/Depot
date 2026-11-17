@@ -4,7 +4,7 @@ import "context"
 
 // SharedTopicKafka is the KafkaAdmin under the shared-topic model (docs/architecture.md C.2, Q5 and decision D6): entity topics are
 // shared by every tenant and keyed by tenant id, so there is nothing to create or authorise per tenant at provisioning, and an ACL
-// cannot be scoped to a tenant on a shared topic. External consumers read egress topics (passage.egress.<tenantSlug>.<context>)
+// cannot be scoped to a tenant on a shared topic. External consumers read egress topics (depot.egress.<tenantSlug>.<context>)
 // that the integration hub creates, with their KafkaUser, when the tenant subscribes (POST /v1/integration/event-egress/{context}:subscribe);
 // that is the tenant's own action, not provisioning. Both calls report DONE with that reason and touch nothing.
 type SharedTopicKafka struct{}

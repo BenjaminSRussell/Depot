@@ -35,7 +35,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def uid(name):
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, "passage:quality:triggers-100:" + name))
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, "depot:quality:triggers-100:" + name))
 
 
 SITES = ["S1", "S2"]

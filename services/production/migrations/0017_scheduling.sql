@@ -52,19 +52,19 @@ ALTER TABLE production_job ENABLE ROW LEVEL SECURITY;
 ALTER TABLE production_job FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS production_job_tenant_access ON production_job;
 CREATE POLICY production_job_tenant_access ON production_job AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS production_job_legal_entity_scope ON production_job;
 CREATE POLICY production_job_legal_entity_scope ON production_job AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The store inserts a schedule and deletes the previous one (a re-date, a reset, a cancel or a
 -- merge); it never updates a job in this slice.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON production_job TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON production_job TO depot_app';
   END IF;
 END
 $$;

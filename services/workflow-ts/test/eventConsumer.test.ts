@@ -82,7 +82,7 @@ function setup(start = vi.fn().mockResolvedValue({}), signal = vi.fn().mockResol
   const deadLetter = vi.fn(async (record: DeadLetterRecord) => {
     dead.push(record);
   });
-  const handle = createEventHandler({ client, taskQueue: "passage-approvals", dlqTopic: DEFAULT_DLQ_TOPIC, deadLetter });
+  const handle = createEventHandler({ client, taskQueue: "depot-approvals", dlqTopic: DEFAULT_DLQ_TOPIC, deadLetter });
   return { handle, start, signal, getHandle, dead, deadLetter };
 }
 
@@ -93,7 +93,7 @@ describe("tender event consumer", () => {
     expect(eventConsumerConfigFromEnv({ KAFKA_BROKERS: "k1:9093, k2:9093" })).toEqual({
       brokers: ["k1:9093", "k2:9093"],
       group: DEFAULT_GROUP,
-      topics: ["passage.tms.load", "passage.tms.tender", "passage.budget.plan"],
+      topics: ["depot.tms.load", "depot.tms.tender", "depot.budget.plan"],
       dlqTopic: DEFAULT_DLQ_TOPIC,
     });
     expect(
@@ -115,7 +115,7 @@ describe("tender event consumer", () => {
       tenderWorkflow,
       expect.objectContaining({
         workflowId: `tender:${TENANT}:${LOAD_ID}`,
-        taskQueue: "passage-approvals",
+        taskQueue: "depot-approvals",
         workflowIdReusePolicy: WorkflowIdReusePolicy.ALLOW_DUPLICATE,
         args: [
           {
@@ -142,22 +142,22 @@ describe("tender event consumer", () => {
 
   it("sends the tender-response signal on a carrier's acceptance or decline, and ignores an expiry", async () => {
     const { handle, signal, getHandle } = setup();
-    for (const type of ["dev.passage.tms.tender.accepted.v1", "dev.passage.tms.tender.declined.v1"]) {
+    for (const type of ["dev.depot.tms.tender.accepted.v1", "dev.depot.tms.tender.declined.v1"]) {
       expect(await handle(message(outcome(type), TENDER_TOPICS[1]))).toEqual({ action: "signalled", workflowId: `tender:${TENANT}:${LOAD_ID}` });
     }
     expect(getHandle).toHaveBeenCalledWith(`tender:${TENANT}:${LOAD_ID}`);
     expect(signal).toHaveBeenCalledTimes(2);
     expect(signal).toHaveBeenCalledWith(tenderResponseSignal);
-    expect(await handle(message(outcome("dev.passage.tms.tender.expired.v1"), TENDER_TOPICS[1]))).toEqual({
+    expect(await handle(message(outcome("dev.depot.tms.tender.expired.v1"), TENDER_TOPICS[1]))).toEqual({
       action: "ignored",
-      type: "dev.passage.tms.tender.expired.v1",
+      type: "dev.depot.tms.tender.expired.v1",
     });
     expect(signal).toHaveBeenCalledTimes(2);
   });
 
   it("commits an outcome for a tender no workflow follows (a planner's own tender)", async () => {
     const { handle, dead } = setup(vi.fn(), vi.fn().mockRejectedValue(new WorkflowNotFoundError("none", "tender", undefined)));
-    expect(await handle(message(outcome("dev.passage.tms.tender.accepted.v1"), TENDER_TOPICS[1]))).toEqual({
+    expect(await handle(message(outcome("dev.depot.tms.tender.accepted.v1"), TENDER_TOPICS[1]))).toEqual({
       action: "no-workflow",
       workflowId: `tender:${TENANT}:${LOAD_ID}`,
     });
@@ -166,7 +166,7 @@ describe("tender event consumer", () => {
 
   it("ignores the other events of the topics", async () => {
     const { handle, start, getHandle } = setup();
-    expect(await handle(message({ ...release, type: "dev.passage.tms.load.built.v1" }))).toEqual({ action: "ignored", type: "dev.passage.tms.load.built.v1" });
+    expect(await handle(message({ ...release, type: "dev.depot.tms.load.built.v1" }))).toEqual({ action: "ignored", type: "dev.depot.tms.load.built.v1" });
     expect(start).not.toHaveBeenCalled();
     expect(getHandle).not.toHaveBeenCalled();
   });
@@ -178,11 +178,11 @@ describe("tender event consumer", () => {
       [[release], /not a JSON object/],
       [{ ...release, type: undefined }, /missing type/],
       [{ ...release, data: undefined }, /missing data/],
-      [{ ...release, source: "/passage/tms/edi" }, /accepted only from \/passage\/tms\/transport/],
+      [{ ...release, source: "/depot/tms/edi" }, /accepted only from \/depot\/tms\/transport/],
       [{ ...release, data: { ...release.data, carriers: [] } }, /carrier/],
       [{ ...release, data: { ...release.data, legalEntityScope: ["00000000-0000-0000-0000-0000000000a2"] } }, /legalEntityScope/],
       [{ ...release, data: { ...release.data, releasedBy: "" } }, /required/],
-      [{ ...outcome("dev.passage.tms.tender.accepted.v1"), tenantid: "" }, /tenant/],
+      [{ ...outcome("dev.depot.tms.tender.accepted.v1"), tenantid: "" }, /tenant/],
     ];
     for (const [value, reason] of cases) {
       const { handle, start, getHandle, dead } = setup();
@@ -192,7 +192,7 @@ describe("tender event consumer", () => {
       expect(dead[0]).toMatchObject({
         topic: DEFAULT_DLQ_TOPIC,
         key: Buffer.from(LOAD_ID),
-        headers: { "x-dlq-reason": expect.stringMatching(reason), "x-origin-topic": "passage.tms.load", "x-origin-partition": "2", "x-origin-offset": "41" },
+        headers: { "x-dlq-reason": expect.stringMatching(reason), "x-origin-topic": "depot.tms.load", "x-origin-partition": "2", "x-origin-offset": "41" },
       });
       expect(start).not.toHaveBeenCalled();
       expect(getHandle).not.toHaveBeenCalled();
@@ -204,7 +204,7 @@ describe("tender event consumer", () => {
     await expect(down.handle(message(release))).rejects.toThrow(/UNAVAILABLE/);
     expect(down.dead).toEqual([]);
     const signalDown = setup(vi.fn(), vi.fn().mockRejectedValue(new Error("deadline exceeded")));
-    await expect(signalDown.handle(message(outcome("dev.passage.tms.tender.declined.v1"), TENDER_TOPICS[1]))).rejects.toThrow(/deadline/);
+    await expect(signalDown.handle(message(outcome("dev.depot.tms.tender.declined.v1"), TENDER_TOPICS[1]))).rejects.toThrow(/deadline/);
     const { handle, deadLetter } = setup();
     deadLetter.mockRejectedValueOnce(new Error("broker down"));
     await expect(handle(message("{not json"))).rejects.toThrow(/broker down/);
@@ -212,12 +212,12 @@ describe("tender event consumer", () => {
 
   it("starts budgetPlanWorkflow from plan.submitted on the budget plan topic, one run per submission", async () => {
     const { handle, start, dead } = setup();
-    expect(await handle(message(planSubmitted(), "passage.budget.plan"))).toEqual({ action: "started", workflowId: budgetPlanWorkflowId(PLAN, 2) });
+    expect(await handle(message(planSubmitted(), "depot.budget.plan"))).toEqual({ action: "started", workflowId: budgetPlanWorkflowId(PLAN, 2) });
     expect(start).toHaveBeenCalledWith(
       budgetPlanWorkflow,
       expect.objectContaining({
         workflowId: `budget-plan:${PLAN}:2`,
-        taskQueue: "passage-approvals",
+        taskQueue: "depot-approvals",
         workflowIdReusePolicy: WorkflowIdReusePolicy.REJECT_DUPLICATE,
         args: [{ tenantId: TENANT, legalEntityId: ENTITY, planId: PLAN, submission: 2, requester: "pat" }],
       }),
@@ -227,28 +227,28 @@ describe("tender event consumer", () => {
 
   it("commits a redelivered plan.submitted while its workflow exists and ignores the plan's other events", async () => {
     const { handle, start } = setup(vi.fn().mockRejectedValue(new WorkflowExecutionAlreadyStartedError("running", "budget-plan", "budgetPlanWorkflow")));
-    expect(await handle(message(planSubmitted(), "passage.budget.plan"))).toEqual({ action: "already-running", workflowId: budgetPlanWorkflowId(PLAN, 2) });
-    for (const type of ["dev.passage.budget.plan.approved.v1", "dev.passage.budget.plan.rejected.v1"]) {
-      expect(await handle(message(planSubmitted({ type }), "passage.budget.plan"))).toEqual({ action: "ignored", type });
+    expect(await handle(message(planSubmitted(), "depot.budget.plan"))).toEqual({ action: "already-running", workflowId: budgetPlanWorkflowId(PLAN, 2) });
+    for (const type of ["dev.depot.budget.plan.approved.v1", "dev.depot.budget.plan.rejected.v1"]) {
+      expect(await handle(message(planSubmitted({ type }), "depot.budget.plan"))).toEqual({ action: "ignored", type });
     }
     expect(start).toHaveBeenCalledTimes(1);
   });
 
   it("dead-letters a plan.submitted from another source or without a valid submission, and starts nothing", async () => {
     const { handle, start, dead } = setup();
-    const forged = await handle(message(planSubmitted({ source: "/passage/tms/transport" }), "passage.budget.plan"));
+    const forged = await handle(message(planSubmitted({ source: "/depot/tms/transport" }), "depot.budget.plan"));
     expect(forged).toMatchObject({ action: "dead-lettered" });
     const bad = await handle(
-      message(planSubmitted({ data: { plan_id: PLAN, legal_entity_id: ENTITY, submission: 0, submitted_by: "pat" } }), "passage.budget.plan"),
+      message(planSubmitted({ data: { plan_id: PLAN, legal_entity_id: ENTITY, submission: 0, submitted_by: "pat" } }), "depot.budget.plan"),
     );
     expect(bad).toMatchObject({ action: "dead-lettered", reason: "submission must be a positive integer" });
     expect(start).not.toHaveBeenCalled();
-    expect(dead.map((d) => d.headers["x-origin-topic"])).toEqual(["passage.budget.plan", "passage.budget.plan"]);
+    expect(dead.map((d) => d.headers["x-origin-topic"])).toEqual(["depot.budget.plan", "depot.budget.plan"]);
   });
 
   it("throws, so the message is retried, when Temporal is unreachable for a plan.submitted", async () => {
     const { handle, dead } = setup(vi.fn().mockRejectedValue(new Error("temporal unavailable")));
-    await expect(handle(message(planSubmitted(), "passage.budget.plan"))).rejects.toThrow("temporal unavailable");
+    await expect(handle(message(planSubmitted(), "depot.budget.plan"))).rejects.toThrow("temporal unavailable");
     expect(dead).toEqual([]);
   });
 });

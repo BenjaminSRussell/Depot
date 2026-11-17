@@ -129,7 +129,7 @@ class TestReport(unittest.TestCase):
 
     def test_an_s3_backup_in_a_us_bucket_is_found_through_the_destination_path(self):
         east = EU_WEST.replace("backup:\n  store: azure-blob\n  azure:\n    storageAccount: acct1\n    storageAccountRegion: westeurope\n",
-                               "backup:\n  store: s3\n  destinationPath: s3://passage-pg-backups-us-east/\n")
+                               "backup:\n  store: s3\n  destinationPath: s3://depot-pg-backups-us-east/\n")
         report = rr.build_report([tenant("t1", "EU", "westeurope")], regions_of(westeurope=east, northeurope=EU_NORTH), self.table)
         (violation,) = report["violations"]
         self.assertEqual((violation["store"], violation["regions"]), ("backups", ["us-east"]))

@@ -1,8 +1,8 @@
 {{- define "receiving.image" -}}
 {{- if .Values.image.digest -}}
-{{ (include "passage.imageRepository" $) }}@{{ .Values.image.digest }}
+{{ (include "depot.imageRepository" $) }}@{{ .Values.image.digest }}
 {{- else -}}
-{{ (include "passage.imageRepository" $) }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+{{ (include "depot.imageRepository" $) }}:{{ .Values.image.tag | default .Chart.AppVersion }}
 {{- end -}}
 {{- end -}}
 
@@ -17,22 +17,22 @@
     secretKeyRef:
       name: {{ .Values.auditSeedSecret }}
       key: AUDIT_SAMPLE_SEED
-- name: PASSAGE_SERVICE_NAME
+- name: DEPOT_SERVICE_NAME
   value: receiving
 {{- if .Values.serviceIdentity.signingKeySecret }}
-- name: PASSAGE_SERVICE_SIGNING_KEY_FILE
-  value: /var/run/passage/service-identity/signing-key
+- name: DEPOT_SERVICE_SIGNING_KEY_FILE
+  value: /var/run/depot/service-identity/signing-key
 {{- if .Values.serviceIdentity.keyId }}
-- name: PASSAGE_SERVICE_KEY_ID
+- name: DEPOT_SERVICE_KEY_ID
   value: {{ .Values.serviceIdentity.keyId | quote }}
 {{- end }}
 {{- end }}
 {{- if .Values.serviceIdentity.publicKeys }}
-- name: PASSAGE_SERVICE_PUBLIC_KEYS
+- name: DEPOT_SERVICE_PUBLIC_KEYS
   value: {{ .Values.serviceIdentity.publicKeys | quote }}
 {{- end }}
 {{- if .Values.fieldCrypt.keysSecret }}
-- { name: FIELDCRYPT_KEYS_FILE, value: /var/run/passage/field-crypt/keys }
+- { name: FIELDCRYPT_KEYS_FILE, value: /var/run/depot/field-crypt/keys }
 - { name: FIELDCRYPT_CURRENT_KEY_ID, value: {{ .Values.fieldCrypt.currentKeyId | quote }} }
 {{- end }}
 - name: MIGRATE_ON_START

@@ -9,11 +9,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/sales/internal/domain"
-	salesevents "github.com/BenjaminSRussell/passage/services/sales/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/domain"
+	salesevents "github.com/BenjaminSRussell/depot/services/sales/internal/events"
 )
 
 func quotaIn(le, product string, customer *string, start, end string, qty int64) NewAllocationQuota {
@@ -115,7 +115,7 @@ func TestPostgres_AllocationQuotaLifecycle(t *testing.T) {
 	}
 	var aggregate string
 	if err := pool.QueryRow(ctx, `select aggregate_type from outbox where aggregate_id = $1 and type = $2`, april.ID, salesevents.AllocationConsumed).Scan(&aggregate); err != nil || aggregate != "allocation" {
-		t.Fatalf("allocation events route to passage.sales.allocation: %q %v", aggregate, err)
+		t.Fatalf("allocation events route to depot.sales.allocation: %q %v", aggregate, err)
 	}
 	types := outboxTypes(t, pool, spill.ID)
 	hasConfirmed := false

@@ -7,7 +7,7 @@ export interface RecentPage {
 
 export const RECENT_LIMIT = 5;
 
-const storageKey = (identity: string) => `passage.recent.${identity}`;
+const storageKey = (identity: string) => `depot.recent.${identity}`;
 
 /** Newest first, without the page already at the top and without duplicates, at most RECENT_LIMIT long. */
 export function withRecent(list: readonly RecentPage[], page: RecentPage): RecentPage[] {

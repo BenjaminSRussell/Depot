@@ -13,13 +13,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
-	"github.com/BenjaminSRussell/passage/services/receiving/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/services/receiving/migrations"
 )
 
 const (
@@ -142,11 +142,11 @@ func TestMigration0006_AdjustmentAndSettlementTablesIsolationConstraintsAndGrant
 			t.Errorf("%s: other legal entity sees %d rows, want 0", table, got)
 		}
 		if err := db.run(one, `delete from `+table+` where tenant_id = $1`, one.TenantID); err == nil {
-			t.Errorf("%s: passage_app must not delete", table)
+			t.Errorf("%s: depot_app must not delete", table)
 		}
 	}
 	if err := db.run(one, `update receiving_settlement set amount = 1 where tenant_id = $1`, one.TenantID); err == nil {
-		t.Error("passage_app must not update settlements")
+		t.Error("depot_app must not update settlements")
 	}
 	if err := db.run(principal(2), `insert into receiving_settlement (tenant_id, id, legal_entity_id, kind, source_ref, vendor_id, currency, amount, posting_date, ledger_id, fiscal_period_id, ledger_entry_id)
 		values ($1, gen_random_uuid(), $2, 'CONSIGNMENT', 'x', 'V', 'USD', 1, current_date, $3, $3, 'e')`, one.TenantID, one.LegalEntityID, ledgerUUID); err == nil {
@@ -156,7 +156,7 @@ func TestMigration0006_AdjustmentAndSettlementTablesIsolationConstraintsAndGrant
 
 func event(t *testing.T, p tenant.Principal, entity, verb string) events.Event {
 	t.Helper()
-	evt, err := events.New(events.Type("payables", entity, verb, 1), "/passage/receiving/receiving", p.TenantID, p.TenantID, map[string]string{"k": "v"})
+	evt, err := events.New(events.Type("payables", entity, verb, 1), "/depot/receiving/receiving", p.TenantID, p.TenantID, map[string]string{"k": "v"})
 	if err != nil {
 		t.Fatal(err)
 	}

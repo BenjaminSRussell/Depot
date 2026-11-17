@@ -18,18 +18,18 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/delivery"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	ediev "github.com/BenjaminSRussell/passage/services/edi/internal/events"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/secrets"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/transport"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/transport/transporttest"
-	"github.com/BenjaminSRussell/passage/services/edi/migrations"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/delivery"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	ediev "github.com/BenjaminSRussell/depot/services/edi/internal/events"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/secrets"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/transport"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/transport/transporttest"
+	"github.com/BenjaminSRussell/depot/services/edi/migrations"
 )
 
 // partnerAS2 is the trading partner's own AS2 software: an AS2 server that
@@ -76,8 +76,8 @@ func newTransportEnv(t *testing.T) *transportEnv {
 		t.Fatal(err)
 	}
 	e := &transportEnv{t: t, admin: admin, app: app, st: store.New(app, 30),
-		us: transporttest.NewKeyPair(t, "PASSAGE", false), them: transporttest.NewKeyPair(t, "DISTRIBUTOR", false)}
-	e.secrets = secrets.Map{"as2-passage": e.us.PEM(t)}
+		us: transporttest.NewKeyPair(t, "DEPOT", false), them: transporttest.NewKeyPair(t, "DISTRIBUTOR", false)}
+	e.secrets = secrets.Map{"as2-depot": e.us.PEM(t)}
 	e.a = New(e.st)
 	e.a.AllowBodyOutbound = true
 	e.a.AllowInsecureAS2 = true // httptest servers are http
@@ -103,7 +103,7 @@ func (e *transportEnv) startPartner() *partnerAS2 {
 	p.as2 = &transport.AS2Server{
 		Us: transport.AS2Identity{ID: "DISTRIBUTOR", Cert: e.them.Cert, Key: e.them.Key},
 		Partner: func(from string) (transport.AS2Partner, bool) {
-			return transport.AS2Partner{ID: "PASSAGE", Cert: e.us.Cert, RequireSigned: true}, from == "PASSAGE"
+			return transport.AS2Partner{ID: "DEPOT", Cert: e.us.Cert, RequireSigned: true}, from == "DEPOT"
 		},
 		Deliver: func(_ context.Context, _ string, m transport.Message) error {
 			p.mu.Lock()
@@ -126,7 +126,7 @@ func (e *transportEnv) putProfile() {
 }
 
 func (e *transportEnv) as2Config(mutate func(*domain.AS2Settings)) string {
-	cfg := domain.AS2Settings{PartnerAS2ID: "DISTRIBUTOR", OurAS2ID: "PASSAGE", URL: e.peer.srv.URL, PartnerCertificate: e.them.CertPEM(), SigningKeyRef: "as2-passage"}
+	cfg := domain.AS2Settings{PartnerAS2ID: "DISTRIBUTOR", OurAS2ID: "DEPOT", URL: e.peer.srv.URL, PartnerCertificate: e.them.CertPEM(), SigningKeyRef: "as2-depot"}
 	if mutate != nil {
 		mutate(&cfg)
 	}
@@ -253,7 +253,7 @@ func TestTransportAPI_ConfigNeedsProfileStaysInEntityAndHoldsNoSecret(t *testing
 	if err := e.admin.QueryRow(context.Background(), `select t::text from partner_transport t`).Scan(&row); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(row, "PRIVATE KEY") || !strings.Contains(row, "as2-passage") {
+	if strings.Contains(row, "PRIVATE KEY") || !strings.Contains(row, "as2-depot") {
 		t.Fatalf("stored row %s", row)
 	}
 	// The work index is not readable by the application role.
@@ -262,7 +262,7 @@ func TestTransportAPI_ConfigNeedsProfileStaysInEntityAndHoldsNoSecret(t *testing
 		return err
 	})
 	if err == nil || !strings.Contains(err.Error(), "permission denied") {
-		t.Fatalf("transport_work readable by passage_app: %v", err)
+		t.Fatalf("transport_work readable by depot_app: %v", err)
 	}
 }
 
@@ -577,7 +577,7 @@ func TestTransportAS2_RejectionRetryAndResend(t *testing.T) {
 // as2Partner returns the partner's AS2 client to our endpoint.
 func (e *transportEnv) partnerClient(endpointURL string, key transporttest.KeyPair) *transport.AS2Client {
 	return &transport.AS2Client{Us: transport.AS2Identity{ID: "DISTRIBUTOR", Cert: key.Cert, Key: key.Key},
-		Partner:          transport.AS2Partner{ID: "PASSAGE", URL: endpointURL, Cert: e.us.Cert},
+		Partner:          transport.AS2Partner{ID: "DEPOT", URL: endpointURL, Cert: e.us.Cert},
 		RequireSignedMDN: true}
 }
 
@@ -682,7 +682,7 @@ func TestTransportAS2_InboundVerifiedRecordedAndAcknowledged(t *testing.T) {
 
 	// With encryption selected the partner must encrypt.
 	e.mustPutTransport(e.as2Config(func(a *domain.AS2Settings) { a.EncryptionAlgorithm = "aes256-cbc" }))
-	c.Partner.ID = "PASSAGE"
+	c.Partner.ID = "DEPOT"
 	if _, err := send("po-6@distributor", x12Control(t, "000000106")); !errors.Is(err, transport.ErrRejected) || !strings.Contains(err.Error(), "insufficient-message-security") {
 		t.Fatalf("clear message to an encrypting profile: %v", err)
 	}

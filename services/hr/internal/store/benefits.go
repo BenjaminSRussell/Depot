@@ -9,11 +9,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/domain"
-	hrevents "github.com/BenjaminSRussell/passage/services/hr/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/domain"
+	hrevents "github.com/BenjaminSRussell/depot/services/hr/internal/events"
 )
 
 // Benefit problem codes. HCM-BEN-001/002 are the 8.42.18 catalog (raised by

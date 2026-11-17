@@ -1,4 +1,4 @@
-# transport web module (wave 34, PSG-34)
+# transport web module (wave 34, DPT-34)
 
 Screens for the transport service (`services/transport`), through the web BFF at
 `/api/v1/transport` (service routes `/v1/transport/...`).

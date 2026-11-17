@@ -1,6 +1,6 @@
 # Microsoft 365 GCC
 
-Passage for customers on Microsoft 365 GCC (Government Community Cloud): US federal, state, local and tribal governments and their contractors (#601). GCC is a Microsoft 365 environment, not a separate Azure cloud. A GCC customer's identity is in the worldwide Entra ID, so Microsoft's endpoints are the commercial ones, while the customer brings US-government data-handling expectations. The `gcc` [cloud profile](cloud-profiles.md) encodes that.
+Depot for customers on Microsoft 365 GCC (Government Community Cloud): US federal, state, local and tribal governments and their contractors (#601). GCC is a Microsoft 365 environment, not a separate Azure cloud. A GCC customer's identity is in the worldwide Entra ID, so Microsoft's endpoints are the commercial ones, while the customer brings US-government data-handling expectations. The `gcc` [cloud profile](cloud-profiles.md) encodes that.
 
 ## What the `gcc` profile does
 
@@ -24,29 +24,29 @@ Passage for customers on Microsoft 365 GCC (Government Community Cloud): US fede
 
 ## Authorization path
 
-Using a GCC customer's tenant gives Passage none of Microsoft's authorization. Microsoft documents Office 365 Government (GCC) as supporting FedRAMP at the High impact level; many state and local systems are categorized Moderate. Passage needs its own decision, and the plan this repository is built for is:
+Using a GCC customer's tenant gives Depot none of Microsoft's authorization. Microsoft documents Office 365 Government (GCC) as supporting FedRAMP at the High impact level; many state and local systems are categorized Moderate. Depot needs its own decision, and the plan this repository is built for is:
 
-1. **Agency ATO first.** A sponsoring agency authorizes Passage for its own use: a System Security Plan (SSP) scoped to the `gcc` profile, the control-responsibility matrix below, a 3PAO or agency assessment, and a POA&M. This is the fastest route to a first GCC customer.
-2. **FedRAMP Moderate (then High if a customer needs it)** for Passage as SaaS once an agency sponsor exists, reusing the same SSP and evidence.
+1. **Agency ATO first.** A sponsoring agency authorizes Depot for its own use: a System Security Plan (SSP) scoped to the `gcc` profile, the control-responsibility matrix below, a 3PAO or agency assessment, and a POA&M. This is the fastest route to a first GCC customer.
+2. **FedRAMP Moderate (then High if a customer needs it)** for Depot as SaaS once an agency sponsor exists, reusing the same SSP and evidence.
 
 The human steps (choosing the sponsor, the 3PAO assessment, the authorizing official's signature) are tracked on #512; this repository supplies the technical baseline and evidence (FIPS builds, region pinning, egress allowlist, audit logging, tests in CI).
 
 ## Operator access policy (draft for approval on #512)
 
-- Only **US persons** (citizens or lawful permanent residents) who have passed a background check may have access to production data or the production cluster. Microsoft's GCC screening (US citizenship, seven-year background check, FBI fingerprinting) applies to Microsoft staff; GCC support personnel are not covered by it, so Passage keeps its own list.
+- Only **US persons** (citizens or lawful permanent residents) who have passed a background check may have access to production data or the production cluster. Microsoft's GCC screening (US citizenship, seven-year background check, FBI fingerprinting) applies to Microsoft staff; GCC support personnel are not covered by it, so Depot keeps its own list.
 - Access is by named Entra identity with MFA and just-in-time elevation, logged to the audit chain (`services/audit`) and Keycloak admin events.
-- **CJIS option:** for tenants handling criminal-justice information, only staff who have completed the state's CJIS fingerprint-based screening and security awareness training may access that tenant's data; a tenant flag records the requirement. Passage does not claim CJIS compliance until a state agreement is in place.
+- **CJIS option:** for tenants handling criminal-justice information, only staff who have completed the state's CJIS fingerprint-based screening and security awareness training may access that tenant's data; a tenant flag records the requirement. Depot does not claim CJIS compliance until a state agreement is in place.
 - Operators of other nationalities may work on the code and on non-production systems with synthetic data only.
 
 ## Logging and retention
 
-FedRAMP AU controls need centralized audit logs with retention the agency sets. Passage keeps its own audit chain (`services/audit`) and the realm's login and admin events (`eventsEnabled`, `adminEventsEnabled`, `eventsExpiration` 365 days, covering every profile; the `hipaa` overlay's six years needs a realm patch, see [cloud-profiles.md](cloud-profiles.md)). Entra sign-in and audit logs live in the customer's tenant. Ship Keycloak's `jboss-logging` events and service logs to a store inside the boundary and set retention to the agency's value.
+FedRAMP AU controls need centralized audit logs with retention the agency sets. Depot keeps its own audit chain (`services/audit`) and the realm's login and admin events (`eventsEnabled`, `adminEventsEnabled`, `eventsExpiration` 365 days, covering every profile; the `hipaa` overlay's six years needs a realm patch, see [cloud-profiles.md](cloud-profiles.md)). Entra sign-in and audit logs live in the customer's tenant. Ship Keycloak's `jboss-logging` events and service logs to a store inside the boundary and set retention to the agency's value.
 
 ## NIST SP 800-53 control responsibility (Rev. 5, Moderate baseline families)
 
-M = Microsoft (Azure, Microsoft 365 GCC), P = Passage, C = customer. A control with more than one letter is shared; the SSP will split each into its parts.
+M = Microsoft (Azure, Microsoft 365 GCC), P = Depot, C = customer. A control with more than one letter is shared; the SSP will split each into its parts.
 
-| Family | Responsibility | Passage's part in this repository |
+| Family | Responsibility | Depot's part in this repository |
 |---|---|---|
 | AC Access control | P, C, M | Role and duty authorization (OPA, `policies/authz`), tenant isolation by RLS and one realm per tenant, SCIM deprovisioning; the customer manages its Entra users and Conditional Access; Microsoft secures the platform's own access. |
 | AT Awareness and training | P, C, M | Operator training policy (US persons, CJIS option); the customer trains its users. |
@@ -56,7 +56,7 @@ M = Microsoft (Azure, Microsoft 365 GCC), P = Passage, C = customer. A control w
 | CP Contingency planning | P, M | Region pair with PRIMARY/PASSIVE roles and failover runbooks, backups to US Blob storage, restore drills. |
 | IA Identification and authentication | P, C, M | Keycloak with a required second factor after brokered login, PBKDF2-SHA-512 hashing, 14-character minimum; the customer's Entra identity proofing. |
 | IR Incident response | P, C, M | Runbooks, alerting inside the boundary; the customer reports incidents on its side. |
-| MA Maintenance | M, P | Microsoft maintains the platform; Passage patches images through the mirror. |
+| MA Maintenance | M, P | Microsoft maintains the platform; Depot patches images through the mirror. |
 | MP Media protection | M, P | Encrypted Blob storage and Key Vault HSM keys; no removable media. |
 | PE Physical and environmental | M | Azure datacenters. |
 | PL Planning | P | SSP. |

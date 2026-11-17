@@ -261,7 +261,7 @@ const unexplained: Variance = {
   area: "TB",
   key: "USMF|1100|USD",
   legacy: "120.000000",
-  passage: "150.000000",
+  depot: "150.000000",
   delta: "30.000000",
   class: "UNEXPLAINED",
 };
@@ -374,7 +374,7 @@ describe("Parallel runs", () => {
     revenue: "1000000.00",
     explainedMaxPct: "",
     legacy: "area,key,amount\ntb,1000|400000|EUR,500000.00",
-    passage: "TB,1000|400000|EUR,500000.01",
+    depot: "TB,1000|400000|EUR,500000.01",
   };
 
   it("validates the period, counts and tuples", () => {
@@ -384,10 +384,10 @@ describe("Parallel runs", () => {
       documentsReplayed: 42000,
       revenue: "1000000.00",
       legacy: [{ area: "TB", key: "1000|400000|EUR", amount: "500000.00" }],
-      passage: [{ area: "TB", key: "1000|400000|EUR", amount: "500000.01" }],
+      depot: [{ area: "TB", key: "1000|400000|EUR", amount: "500000.01" }],
     });
-    const { errors } = validateParallelRun({ ...values, period: "2026-13", documentsReplayed: "-1", revenue: "abc", explainedMaxPct: "2", passage: "GL,k,1" });
-    expect(Object.keys(errors).sort()).toEqual(["documentsReplayed", "explainedMaxPct", "passage", "period", "revenue"]);
+    const { errors } = validateParallelRun({ ...values, period: "2026-13", documentsReplayed: "-1", revenue: "abc", explainedMaxPct: "2", depot: "GL,k,1" });
+    expect(Object.keys(errors).sort()).toEqual(["depot", "documentsReplayed", "explainedMaxPct", "period", "revenue"]);
     expect(parseTuples("TB,,1").errors[0]).toMatch(/key is blank/);
   });
 
@@ -400,7 +400,7 @@ describe("Parallel runs", () => {
     fireEvent.change(screen.getByLabelText("Documents replayed"), { target: { value: values.documentsReplayed } });
     fireEvent.change(screen.getByLabelText("Period revenue"), { target: { value: values.revenue } });
     fireEvent.change(screen.getByLabelText("Legacy tuples"), { target: { value: values.legacy } });
-    fireEvent.change(screen.getByLabelText("Passage tuples"), { target: { value: values.passage } });
+    fireEvent.change(screen.getByLabelText("Depot tuples"), { target: { value: values.depot } });
     reply = json(409, { code: "MIG-0009", detail: "a parallel run for this period and source system already exists with different input" });
     fireEvent.click(screen.getByRole("button", { name: "Diff period" }));
     expect(await screen.findByText(/open the existing run from the list\./)).toBeInTheDocument();
@@ -417,14 +417,14 @@ const xref: Xref = {
   company: "USMF",
   table: "open_items",
   legacyId: "CIV-00123",
-  passageEntity: "open_item",
-  passageId: "0195f0a0-0000-7000-8000-0000000000e2",
+  depotEntity: "open_item",
+  depotId: "0195f0a0-0000-7000-8000-0000000000e2",
   runId: RUN,
   createdAt: "2027-01-01T04:10:00Z",
 };
 
 describe("Legacy reference", () => {
-  it("resolves a legacy id to the Passage record and links the run", async () => {
+  it("resolves a legacy id to the Depot record and links the run", async () => {
     handler = () => json(200, { items: [xref] });
     const { container } = renderAt("/migration-factory/xref");
     fireEvent.click(screen.getByRole("button", { name: "Look up" }));

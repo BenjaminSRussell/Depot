@@ -42,17 +42,17 @@ ALTER TABLE sales_delivery_report ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales_delivery_report FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS sales_delivery_report_tenant_access ON sales_delivery_report;
 CREATE POLICY sales_delivery_report_tenant_access ON sales_delivery_report AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS sales_delivery_report_legal_entity_scope ON sales_delivery_report;
 CREATE POLICY sales_delivery_report_legal_entity_scope ON sales_delivery_report AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The reporter finds the tenants with due reports here: the report table is
 -- tenant-scoped (FORCE RLS binds its owner too), so a trigger keeps this
 -- cross-tenant index and only the SECURITY DEFINER function below reads it.
--- passage_app has no grant on it.
+-- depot_app has no grant on it.
 CREATE TABLE IF NOT EXISTS sales_delivery_report_due (
   tenant_id uuid NOT NULL,
   report_id uuid NOT NULL,
@@ -90,10 +90,10 @@ CREATE TRIGGER sales_delivery_report_due AFTER INSERT OR UPDATE OF status, next_
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON sales_delivery_report TO passage_app';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION fulfillment_sales_report_due_tenants() TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON sales_delivery_report TO depot_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION fulfillment_sales_report_due_tenants() TO depot_app';
   END IF;
 END
 $$;

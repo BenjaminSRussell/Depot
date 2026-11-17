@@ -11,15 +11,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/domain"
-	svcevents "github.com/BenjaminSRussell/passage/services/batch/internal/events"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/schema"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/domain"
+	svcevents "github.com/BenjaminSRussell/depot/services/batch/internal/events"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/schema"
 )
 
 // Store is the Wave 04 persistence port.
@@ -760,7 +760,7 @@ func listItemsTx(ctx context.Context, tx pgx.Tx, tenantID, instanceID string) ([
 }
 
 func enqueue(ctx context.Context, tx pgx.Tx, tenantID, aggregate, id, typ string, data map[string]string) error {
-	evt, err := events.New(typ, "/passage/workflow/batch", id, tenantID, data)
+	evt, err := events.New(typ, "/depot/workflow/batch", id, tenantID, data)
 	if err != nil {
 		return err
 	}

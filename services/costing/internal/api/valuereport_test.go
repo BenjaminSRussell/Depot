@@ -9,10 +9,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/costing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/costing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/costing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/costing/internal/store"
 )
 
 // slice5 fakes the cost transaction store. Balances are what the test sets;
@@ -121,7 +121,7 @@ func TestCostTransactions_RecordCountsOnlyNewSourceKeys(t *testing.T) {
 	if rec := call(h, http.MethodPost, "/internal/v1/costing/cost-transactions", body, allDuties, nil); rec.Code != http.StatusForbidden {
 		t.Errorf("without %s: status %d, want 403", dutyCostTxnPost, rec.Code)
 	}
-	scoped := map[string]string{"X-Passage-Legal-Entity": ids.New()}
+	scoped := map[string]string{"X-Depot-Legal-Entity": ids.New()}
 	if rec := call(h, http.MethodPost, "/internal/v1/costing/cost-transactions", body, reportDuties, scoped); rec.Code != http.StatusForbidden {
 		t.Errorf("another legal entity's rows: status %d, want 403", rec.Code)
 	}
@@ -281,7 +281,7 @@ func TestValueReport_Refusals(t *testing.T) {
 			}
 		})
 	}
-	scoped := map[string]string{"X-Passage-Legal-Entity": ids.New()}
+	scoped := map[string]string{"X-Depot-Legal-Entity": ids.New()}
 	if rec := call(h, http.MethodGet, "/v1/costing/value-report?legalEntityId="+repLE+"&asOf=2026-03-31", "", allDuties, scoped); rec.Code != http.StatusForbidden {
 		t.Errorf("out of scope: status %d, want 403", rec.Code)
 	}

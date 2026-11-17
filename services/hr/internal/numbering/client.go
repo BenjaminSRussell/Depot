@@ -14,9 +14,9 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const (
@@ -53,7 +53,7 @@ func unavailable() error {
 
 func (c *Client) Next(ctx context.Context, code, idempotencyKey string) (string, error) {
 	if p, _ := tenant.FromContext(ctx); !ids.Valid(p.LegalEntityID) {
-		return "", httpx.NewProblem(http.StatusUnprocessableEntity, CodeEntityRequired, "a single legal entity (X-Passage-Legal-Entity) is required to allocate a requisition number")
+		return "", httpx.NewProblem(http.StatusUnprocessableEntity, CodeEntityRequired, "a single legal entity (X-Depot-Legal-Entity) is required to allocate a requisition number")
 	}
 	formatted, err := c.allocate(ctx, code, idempotencyKey)
 	if err != nil {

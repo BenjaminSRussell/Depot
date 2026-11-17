@@ -2,8 +2,8 @@
 -- the code is never updated or deleted because ledger lines carry it.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON vendor_group TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON vendor_group TO depot_app';
   END IF;
 END
 $$;

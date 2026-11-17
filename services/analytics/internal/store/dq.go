@@ -7,12 +7,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/analytics/internal/domain"
-	analyticsevents "github.com/BenjaminSRussell/passage/services/analytics/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/analytics/internal/domain"
+	analyticsevents "github.com/BenjaminSRussell/depot/services/analytics/internal/events"
 )
 
 const dqRuleColumns = `rule_id, asset_fqn, rule_type, expression, threshold_pct, severity, owner_user_id::text, status, mute_until, version`

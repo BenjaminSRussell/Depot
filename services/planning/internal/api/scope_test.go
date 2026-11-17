@@ -9,9 +9,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/domain"
 )
 
 const rmID = "00000000-0000-0000-0000-0000000000b2"
@@ -34,8 +34,8 @@ func runWith(t *testing.T, a *API, st *fakeStore, body, key string) *httptest.Re
 	a.Register(router)
 	req := httptest.NewRequest(http.MethodPost, "/v1/planning/plans/MAIN:run", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", "planning.run")
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", "planning.run")
 	req.Header.Set("Idempotency-Key", key)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)

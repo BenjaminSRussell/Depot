@@ -11,7 +11,7 @@ describe("the web app manifest", () => {
   const manifest = JSON.parse(manifestRaw) as Record<string, unknown> & { icons: Array<{ src: string; sizes: string; type: string; purpose?: string }> };
 
   it("makes the portal installable: a name, a start page in scope, standalone display and 192 and 512 pixel icons", () => {
-    expect(manifest["name"]).toBe("Passage Customer Portal");
+    expect(manifest["name"]).toBe("Depot Customer Portal");
     expect(manifest["short_name"]).toBeTruthy();
     expect(manifest["start_url"]).toBe("/");
     expect(manifest["scope"]).toBe("/");

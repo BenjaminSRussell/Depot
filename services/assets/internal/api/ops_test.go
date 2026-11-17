@@ -10,10 +10,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/store"
 )
 
 // The fake store implements the slice-2 commands with the real domain rules so
@@ -230,7 +230,7 @@ func TestRuns_ProposePostIfMatchAndDuties(t *testing.T) {
 		}
 	}
 	scope := do(h, req{method: http.MethodPost, path: "/v1/assets/depreciation-runs", body: body, duties: opsDuties, key: true,
-		headers: map[string]string{"X-Passage-Legal-Entity": ids.New()}})
+		headers: map[string]string{"X-Depot-Legal-Entity": ids.New()}})
 	if scope.Code != http.StatusForbidden {
 		t.Fatalf("legal entity outside scope status = %d", scope.Code)
 	}

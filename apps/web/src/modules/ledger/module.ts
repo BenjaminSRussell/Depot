@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { AccountsPage } from "./AccountsPage";
 import { EditAccountPage, NewAccountPage } from "./AccountFormPage";
 import { EntryScreen, TrialBalanceScreen } from "./pages";
@@ -42,7 +42,7 @@ import { NewRealignmentPage } from "./RealignmentFormPage";
 import { RealignmentPage } from "./RealignmentPage";
 import { AutoClearingRunDetailPage, AutoClearingRunPage } from "./AutoClearingRunPage";
 
-const ledger: PassageModule = {
+const ledger: DepotModule = {
   id: "ledger",
   title: "General ledger",
   description: "Universal journal: manual journal batches with approval, recurring journals, open items with manual and automatic clearing, clearing rules, tolerance groups, chart of accounts, trial balance, ledger transactions inquiry with CSV exports, posted journal entries and their reversal, journal names, shared reason codes, account structures, advanced rule structures, dimension values, dimension derivation strategies with lookup tables, user-defined validation rules, document splitting rules, dimension realignment runs and default description templates.",

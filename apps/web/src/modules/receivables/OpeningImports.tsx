@@ -65,7 +65,7 @@ export function OpeningImportsPage() {
     <div className={styles.stack}>
       <PageHeader
         title="Imported opening items"
-        description="Open items the migration loader brought over at cutover, by legacy system. Reload them from the loader; items settled in Passage are never overwritten."
+        description="Open items the migration loader brought over at cutover, by legacy system. Reload them from the loader; items settled in Depot are never overwritten."
         actions={
           <Link className={buttonClassName("secondary")} to="/receivables/open-items">
             All open items

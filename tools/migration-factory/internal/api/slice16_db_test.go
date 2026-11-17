@@ -9,7 +9,7 @@ import (
 )
 
 // Database test for slice 16: the per-entity runbook (D5a, `fx-cutover-plan`). It skips without
-// PASSAGE_TEST_DATABASE_URL and runs as passage_app when PASSAGE_TEST_APP_DATABASE_URL is set.
+// DEPOT_TEST_DATABASE_URL and runs as depot_app when DEPOT_TEST_APP_DATABASE_URL is set.
 
 const expandedBody = `{"t0":"2027-01-01T00:00:00Z","entities":["USMF","DEMF","JPMF"],"expandByEntity":true,` +
 	`"packs":["open_items","gl_balances","onhand","open_orders","wip_prod","fixed_assets","project_wip","payroll_ytd","bank_balances"]}`

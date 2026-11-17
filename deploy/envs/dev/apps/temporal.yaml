@@ -15,7 +15,7 @@ spec:
         releaseName: temporal
         valueFiles:
           - $values/deploy/temporal/values.yaml
-    - repoURL: https://github.com/BenjaminSRussell/Passage.git
+    - repoURL: https://github.com/BenjaminSRussell/Depot.git
       targetRevision: main
       ref: values
   destination:
@@ -41,7 +41,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/BenjaminSRussell/Passage.git
+    repoURL: https://github.com/BenjaminSRussell/Depot.git
     targetRevision: main
     path: deploy/temporal-postgres
     helm:

@@ -8,10 +8,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/projects/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/projects/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/projects/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/projects/internal/store"
 )
 
 // planCreateRequest is the wire shape of POST /v1/projects/{id}/plans.
@@ -180,7 +180,7 @@ func (a *API) putWBS(w http.ResponseWriter, r *http.Request) {
 }
 
 // scheduleWBS runs the CPM scheduler, stores early and late dates, slack and
-// the critical flag on every node, and emits dev.passage.projects.wbs.scheduled.v1.
+// the critical flag on every node, and emits dev.depot.projects.wbs.scheduled.v1.
 // Rerunning on an unchanged WBS gives the same dates, so it takes no key.
 func (a *API) scheduleWBS(w http.ResponseWriter, r *http.Request) {
 	if _, ok := principal(w, r); !ok {

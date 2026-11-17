@@ -4,12 +4,12 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 // noKey carries the tenant and duties but no Idempotency-Key.
 func noKey(duties string) map[string]string {
-	return map[string]string{"X-Passage-Tenant": testkit.TenantID(1), "X-Passage-Duties": duties}
+	return map[string]string{"X-Depot-Tenant": testkit.TenantID(1), "X-Depot-Duties": duties}
 }
 
 // TestSlice4Routes_RejectBeforeStore covers validation and duties of the

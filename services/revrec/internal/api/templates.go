@@ -5,10 +5,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/revrec/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/revrec/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/revrec/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/revrec/internal/store"
 )
 
 // maxTermMonths bounds a RATABLE template's term.

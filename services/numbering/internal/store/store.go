@@ -9,13 +9,13 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/numbering/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/numbering/internal/domain"
 )
 
 const (
@@ -23,7 +23,7 @@ const (
 	CodeIdempotency = "idempotency_key_reuse"
 	CodeAmbiguous   = "NUM-SEQ-AMBIGUOUS"
 	uniqueViolation = "23505"
-	allocatedType   = "dev.passage.numbering.sequence.allocated.v1"
+	allocatedType   = "dev.depot.numbering.sequence.allocated.v1"
 )
 
 // Sequence is a persisted definition.
@@ -151,7 +151,7 @@ func (s *Postgres) Allocate(ctx context.Context, code, idempotencyKey string) (I
 			values ($1,$2,$3,$4,$5,$6,$7)`, p.TenantID, ids.New(), seq.LegalEntityID, seq.Code, next, formatted, key); err != nil {
 			return err
 		}
-		evt, err := events.New(allocatedType, "passage/numbering", formatted, p.TenantID, map[string]any{
+		evt, err := events.New(allocatedType, "depot/numbering", formatted, p.TenantID, map[string]any{
 			"sequence": seq.Code, "value": next, "formatted": formatted, "legalEntityId": seq.LegalEntityID,
 		})
 		if err != nil {
@@ -214,5 +214,5 @@ func selectSequence(ctx context.Context, tx pgx.Tx, p tenant.Principal, code, lo
 	case 1:
 		return found[0], nil
 	}
-	return Sequence{}, httpx.NewProblem(http.StatusConflict, CodeAmbiguous, "several legal entities in scope own this sequence code; narrow the request with the Passage-Legal-Entity header")
+	return Sequence{}, httpx.NewProblem(http.StatusConflict, CodeAmbiguous, "several legal entities in scope own this sequence code; narrow the request with the Depot-Legal-Entity header")
 }

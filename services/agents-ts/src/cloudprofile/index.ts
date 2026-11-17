@@ -1,14 +1,14 @@
 /**
- * TypeScript side of the Passage cloud profile (#599). The data is deploy/cloud-profiles/profiles.json,
+ * TypeScript side of the Depot cloud profile (#599). The data is deploy/cloud-profiles/profiles.json,
  * generated into profiles.generated.ts (`python3 deploy/cloud-profiles/cloudprofile.py sync`; a test fails when it
  * drifts). Read Azure hostnames from the resolved profile; do not write them in code.
  *
- * `PASSAGE_CLOUD_PROFILE` names the profile ("gcc", "gcc+hipaa"); unset means commercial and an unknown name throws,
+ * `DEPOT_CLOUD_PROFILE` names the profile ("gcc", "gcc+hipaa"); unset means commercial and an unknown name throws,
  * so a typo fails closed instead of falling back to a wider profile.
  */
 import { CLOUD_PROFILE_DATA } from "./profiles.generated.js";
 
-export const ENV_PROFILE = "PASSAGE_CLOUD_PROFILE";
+export const ENV_PROFILE = "DEPOT_CLOUD_PROFILE";
 
 interface EndpointRow {
   value: string;
@@ -159,7 +159,7 @@ export class EgressDenied extends Error {
 }
 
 export interface EgressOptions {
-  /** Defaults to the profile named by PASSAGE_CLOUD_PROFILE. */
+  /** Defaults to the profile named by DEPOT_CLOUD_PROFILE. */
   profile?: ResolvedProfile;
   env?: Record<string, string | undefined>;
   /** Region the endpoint is hosted in. Checked against the profile's allowedRegions when it restricts them. */

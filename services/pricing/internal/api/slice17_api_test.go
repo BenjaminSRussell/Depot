@@ -11,8 +11,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
 )
 
 // FR-26.10: a campaign's name, validity, target group and budget change at the version; the
@@ -112,7 +112,7 @@ func TestRecords_ExportCSV(t *testing.T) {
 	activeP1Record(t, h, "8.5", id)
 	code, body, hdr := callRaw(t, h, http.MethodGet, "/v1/pricing/condition-records:export", "pricing.view")
 	if code != http.StatusOK || !strings.HasPrefix(hdr.Get("Content-Type"), "text/csv") || !strings.Contains(hdr.Get("Content-Disposition"), "trade-agreements-") ||
-		hdr.Get("X-Passage-Truncated") != "" {
+		hdr.Get("X-Depot-Truncated") != "" {
 		t.Fatalf("export = %d %q %v", code, body, hdr)
 	}
 	rows, err := csv.NewReader(strings.NewReader(body)).ReadAll()
@@ -182,7 +182,7 @@ func TestRecords_ExportGuardsFormulas(t *testing.T) {
 }
 
 // More matching records than the cap: the file holds MaxExportRows rows and says so in
-// X-Passage-Truncated; exactly the cap is not truncated.
+// X-Depot-Truncated; exactly the cap is not truncated.
 func TestRecords_ExportTruncatesAtTheCap(t *testing.T) {
 	f := newFake()
 	for i := 0; i < store.MaxExportRows; i++ {
@@ -191,13 +191,13 @@ func TestRecords_ExportTruncatesAtTheCap(t *testing.T) {
 	}
 	h := router(f)
 	code, body, hdr := callRaw(t, h, http.MethodGet, "/v1/pricing/condition-records:export", "pricing.view")
-	if code != http.StatusOK || hdr.Get("X-Passage-Truncated") != "" || strings.Count(body, "\n") != store.MaxExportRows+1 {
-		t.Fatalf("export of exactly the cap = %d, %d lines, truncated %q", code, strings.Count(body, "\n"), hdr.Get("X-Passage-Truncated"))
+	if code != http.StatusOK || hdr.Get("X-Depot-Truncated") != "" || strings.Count(body, "\n") != store.MaxExportRows+1 {
+		t.Fatalf("export of exactly the cap = %d, %d lines, truncated %q", code, strings.Count(body, "\n"), hdr.Get("X-Depot-Truncated"))
 	}
 	f.records["r999999"] = exportEntry("r999999", "C1", "P1", "1")
 	code, body, hdr = callRaw(t, h, http.MethodGet, "/v1/pricing/condition-records:export", "pricing.view")
-	if code != http.StatusOK || hdr.Get("X-Passage-Truncated") != "true" || strings.Count(body, "\n") != store.MaxExportRows+1 || strings.Contains(body, "r999999") {
-		t.Fatalf("export over the cap = %d, %d lines, truncated %q", code, strings.Count(body, "\n"), hdr.Get("X-Passage-Truncated"))
+	if code != http.StatusOK || hdr.Get("X-Depot-Truncated") != "true" || strings.Count(body, "\n") != store.MaxExportRows+1 || strings.Contains(body, "r999999") {
+		t.Fatalf("export over the cap = %d, %d lines, truncated %q", code, strings.Count(body, "\n"), hdr.Get("X-Depot-Truncated"))
 	}
 }
 

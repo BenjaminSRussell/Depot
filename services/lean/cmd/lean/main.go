@@ -1,4 +1,4 @@
-// Command lean runs the Passage lean-manufacturing service.
+// Command lean runs the Depot lean-manufacturing service.
 package main
 
 import (
@@ -9,11 +9,11 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/lean/internal/api"
-	"github.com/BenjaminSRussell/passage/services/lean/internal/store"
-	"github.com/BenjaminSRussell/passage/services/lean/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/lean/internal/api"
+	"github.com/BenjaminSRussell/depot/services/lean/internal/store"
+	"github.com/BenjaminSRussell/depot/services/lean/migrations"
 )
 
 const defaultHTTPAddr = ":8080"

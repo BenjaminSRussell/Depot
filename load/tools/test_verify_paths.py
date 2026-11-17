@@ -1,4 +1,4 @@
-"""Tests for verify_paths.py (PSG-50). Run: python3 -m unittest discover -s load/tools"""
+"""Tests for verify_paths.py (DPT-50). Run: python3 -m unittest discover -s load/tools"""
 
 import contextlib
 import io

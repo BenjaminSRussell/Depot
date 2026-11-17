@@ -24,7 +24,7 @@ import type { KnowledgeService } from "./knowledge.js";
 export const COPILOT_DUTY = "mcp.copilot.use";
 export const COPILOT_AGENT_ID = "copilot";
 export const MAX_MESSAGE_CHARS = 4000;
-export const KNOWLEDGE_SEARCH_TOOL = "passage.knowledge.search";
+export const KNOWLEDGE_SEARCH_TOOL = "depot.knowledge.search";
 /** Searching the knowledge index is part of using the copilot: the route is seeded under the same duty (policies/authz/data.json). */
 export const KNOWLEDGE_READ_DUTY = COPILOT_DUTY;
 
@@ -86,13 +86,13 @@ export interface CopilotDeps {
   cache: CopilotAnswerCache;
   config: CopilotConfig;
   modelId: string;
-  /** The knowledge index. When set, `passage.knowledge.search` is a read tool of the copilot to everyone who may use the copilot. */
+  /** The knowledge index. When set, `depot.knowledge.search` is a read tool of the copilot to everyone who may use the copilot. */
   knowledge?: KnowledgeService;
   now?: () => Date;
 }
 
 const MODE_PROMPTS: Record<CopilotMode, string> = {
-  ask: "Answer the user's question about their Passage data. Use the read tools to fetch what you need and state only what the tool results show.",
+  ask: "Answer the user's question about their Depot data. Use the read tools to fetch what you need and state only what the tool results show.",
   explain: "Explain the record the user names: what it is, how it got into its state and what usually happens next. Use the read tools; state only what they show.",
   draft: "Draft the document text the user asks for. The draft is for a person to review and is never sent or posted by you.",
   summarize: "Summarize the workflow or case history the user names. Use the read tools; state only what they show.",

@@ -13,8 +13,8 @@ import {
 } from "./api";
 import { featureStateOf, isFeatureOn, withInstallation, type FeatureState } from "./featureRules";
 
-// Set by the Windows build (windows-msi workflow): the app is served by passage-server, which reports the installed MSI features.
-const SERVED_BY_PASSAGE_SERVER = import.meta.env.VITE_PASSAGE_SERVER === "1";
+// Set by the Windows build (windows-msi workflow): the app is served by depot-server, which reports the installed MSI features.
+const SERVED_BY_DEPOT_SERVER = import.meta.env.VITE_DEPOT_SERVER === "1";
 
 export interface TenantSettings {
   /** On/off by feature key; undefined until it is known, or when the person may not read it. */
@@ -67,7 +67,7 @@ function failOpen(error: unknown): undefined {
 export function useTenantSettingsLoader(
   duties: readonly string[],
   fixed?: TenantSettingsLoad["features"],
-  readInstallation: boolean = SERVED_BY_PASSAGE_SERVER,
+  readInstallation: boolean = SERVED_BY_DEPOT_SERVER,
 ): TenantSettings {
   const [catalog, setCatalog] = useState<TenantFeatures>();
   const [installation, setInstallation] = useState<Record<string, boolean>>();

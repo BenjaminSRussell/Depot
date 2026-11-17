@@ -12,9 +12,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
 )
 
 // glWant is one expected GL line: account, debit, credit (hand-derived).
@@ -30,7 +30,7 @@ func checkStoredGL(t *testing.T, admin *pgxpool.Pool, journalID string, want []g
 	var stored, event []byte
 	var typ string
 	if err := admin.QueryRow(ctx, `select j.journal_type, j.gl_entry::text, (select o.payload->'data'->'glLines' from outbox o
-		where o.type = 'dev.passage.inventory.journal.posted.v1' and o.payload->'data'->>'journalId' = j.id::text)::text
+		where o.type = 'dev.depot.inventory.journal.posted.v1' and o.payload->'data'->>'journalId' = j.id::text)::text
 		from inventory_journal j where j.id = $1 and j.status = 'POSTED'`, journalID).Scan(&typ, &stored, &event); err != nil {
 		t.Fatalf("journal %s: %v", journalID, err)
 	}

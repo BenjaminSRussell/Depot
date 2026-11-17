@@ -1,12 +1,12 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { NewProposalPage } from "./NewProposalPage";
 import { OpenItemsPage } from "./OpenItemsPage";
 import { ProposalDetailPage } from "./ProposalDetailPage";
 import { ProposalsPage } from "./ProposalsPage";
 import { RunPage } from "./RunPage";
 
-const payables: PassageModule = {
+const payables: DepotModule = {
   id: "payables",
   title: "Accounts payable",
   description: "See what is owed to vendors and prepare, approve and track vendor payments.",

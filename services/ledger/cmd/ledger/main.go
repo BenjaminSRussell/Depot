@@ -1,4 +1,4 @@
-// Command ledger runs the Passage ledger service: universal journal, chart of
+// Command ledger runs the Depot ledger service: universal journal, chart of
 // accounts, balance projection and journal posting API (wave 11).
 package main
 
@@ -11,14 +11,14 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/api"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/closeperiods"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/fxrates"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/store"
-	"github.com/BenjaminSRussell/passage/services/ledger/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/api"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/closeperiods"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/fxrates"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/store"
+	"github.com/BenjaminSRussell/depot/services/ledger/migrations"
 )
 
 const (
@@ -124,7 +124,7 @@ func periodGate(getenv func(string) string) (store.PeriodGate, error) {
 		return nil, err
 	}
 	if signer == nil {
-		return nil, errors.New("CLOSE_URL is set but there is no service signing key (PASSAGE_SERVICE_SIGNING_KEY or PASSAGE_SERVICE_SIGNING_KEY_FILE)")
+		return nil, errors.New("CLOSE_URL is set but there is no service signing key (DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE)")
 	}
 	return closeperiods.New(url, nil, signer), nil
 }
@@ -140,7 +140,7 @@ func rateSource(getenv func(string) string) (store.RateSource, error) {
 		return nil, err
 	}
 	if signer == nil {
-		return nil, errors.New("FX_URL is set but there is no service signing key (PASSAGE_SERVICE_SIGNING_KEY or PASSAGE_SERVICE_SIGNING_KEY_FILE)")
+		return nil, errors.New("FX_URL is set but there is no service signing key (DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE)")
 	}
 	return fxrates.New(url, nil, signer), nil
 }

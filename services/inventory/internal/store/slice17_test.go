@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 func blockInput(ctx context.Context, product, key, target string, day time.Time) store.BlockingInput {
@@ -79,7 +79,7 @@ func TestScrapBlockingWritesTheStockOff(t *testing.T) {
 		t.Fatalf("scrap journals %d (%v), want 1", journals, err)
 	}
 	var payload []byte
-	if err := admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.passage.inventory.blocking.released.v1'`).Scan(&payload); err != nil {
+	if err := admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.depot.inventory.blocking.released.v1'`).Scan(&payload); err != nil {
 		t.Fatal(err)
 	}
 	var ev map[string]any
@@ -171,7 +171,7 @@ func TestEscalateQuarantineToBlocked(t *testing.T) {
 			t.Fatalf("blocked row %+v, want 4 / 10", r)
 		}
 	}
-	if c := outboxCount(t, admin, "dev.passage.inventory.blocking.escalated.v1"); c != 1 {
+	if c := outboxCount(t, admin, "dev.depot.inventory.blocking.escalated.v1"); c != 1 {
 		t.Fatalf("escalated events %d", c)
 	}
 	released, err := s.ReleaseBlocking(ctx, b.ID, e.Version, "", day, postParams())

@@ -27,7 +27,7 @@ describe("selection and fetch counts", () => {
     expect(callsTo(fetchMock, "/operating-units")).toHaveLength(1);
     expect(callsTo(fetchMock, "/legal-entities")).toHaveLength(1);
     for (const [, init] of fetchMock.mock.calls.filter(([url]) => String(url).includes("/hierarchy-"))) {
-      expect([...new Headers(init?.headers).keys()].filter((name) => name.startsWith("x-passage-legalentity"))).toEqual([]);
+      expect([...new Headers(init?.headers).keys()].filter((name) => name.startsWith("x-depot-legalentity"))).toEqual([]);
     }
     expect(screen.getAllByRole("row")).toHaveLength(4);
   });
@@ -71,7 +71,7 @@ describe("tree", () => {
     const { user } = renderPage({ "GET /hierarchy-versions/v2": () => json({ ...versionList[1], nodes: [...published, node("ou-x", "le1", 3)] }) });
     await openType(user);
     const tree = await screen.findByRole("tree");
-    const root = screen.getByRole("treeitem", { name: "Passage Inc" });
+    const root = screen.getByRole("treeitem", { name: "Depot Inc" });
     expect(tree).toContainElement(root);
     expect(root).toHaveAttribute("aria-level", "1");
     expect(root).toHaveAttribute("aria-expanded", "true");
@@ -91,7 +91,7 @@ describe("tree", () => {
     await openType(user);
     await screen.findByRole("tree");
     const item = (name: string) => screen.getByRole("treeitem", { name });
-    act(() => item("Passage Inc").focus());
+    act(() => item("Depot Inc").focus());
     await user.keyboard("{ArrowDown}");
     expect(item("Alpha")).toHaveFocus();
     await user.keyboard("{ArrowRight}");

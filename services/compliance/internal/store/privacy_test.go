@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/compliance/internal/domain"
-	cevents "github.com/BenjaminSRussell/passage/services/compliance/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/compliance/internal/domain"
+	cevents "github.com/BenjaminSRussell/depot/services/compliance/internal/events"
 )
 
 // AC-48.7 at the store: an ERASURE under a legal hold goes to HELD at discovery,

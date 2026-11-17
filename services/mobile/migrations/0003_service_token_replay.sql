@@ -7,8 +7,8 @@ create table service_token_replay (
 create index service_token_replay_expires_idx on service_token_replay (tenant_id, expires_at);
 alter table service_token_replay enable row level security;
 create policy service_token_replay_tenant_access on service_token_replay as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DO $do$
 BEGIN
   EXECUTE format($f$
@@ -21,10 +21,10 @@ $do$;
 REVOKE ALL ON FUNCTION service_token_replay_purge() FROM PUBLIC;
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT INSERT ON service_token_replay TO passage_app';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION service_token_replay_purge() TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT INSERT ON service_token_replay TO depot_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION service_token_replay_purge() TO depot_app';
   END IF;
 END
 $$;

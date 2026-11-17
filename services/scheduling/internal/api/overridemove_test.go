@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 const overrideBody = `{"resourceId":"` + resID + `","start":"2026-01-05T18:00:00Z","overrideConstraints":true}`

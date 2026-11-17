@@ -16,11 +16,11 @@ create table if not exists workflow_definition (
 alter table workflow_definition enable row level security;
 alter table workflow_definition force row level security;
 create policy workflow_definition_tenant_access on workflow_definition as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy workflow_definition_legal_entity_scope on workflow_definition as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 create table if not exists workflow_instance (
   tenant_id uuid not null,
@@ -43,11 +43,11 @@ create index if not exists ix_workflow_instance_record on workflow_instance (ten
 alter table workflow_instance enable row level security;
 alter table workflow_instance force row level security;
 create policy workflow_instance_tenant_access on workflow_instance as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy workflow_instance_legal_entity_scope on workflow_instance as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 create table if not exists workflow_work_item (
   tenant_id uuid not null,
@@ -67,8 +67,8 @@ create index if not exists ix_work_item_assignee on workflow_work_item (tenant_i
 alter table workflow_work_item enable row level security;
 alter table workflow_work_item force row level security;
 create policy workflow_work_item_tenant_access on workflow_work_item as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 create table if not exists batch_job (
   tenant_id uuid not null,
@@ -92,8 +92,8 @@ create table if not exists batch_job (
 alter table batch_job enable row level security;
 alter table batch_job force row level security;
 create policy batch_job_tenant_access on batch_job as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 create table if not exists batch_run (
   tenant_id uuid not null,
@@ -114,8 +114,8 @@ create index if not exists ix_batch_run_job on batch_run (tenant_id, job_id, sch
 alter table batch_run enable row level security;
 alter table batch_run force row level security;
 create policy batch_run_tenant_access on batch_run as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 create table if not exists notify_template (
   tenant_id uuid not null,
@@ -135,8 +135,8 @@ create table if not exists notify_template (
 alter table notify_template enable row level security;
 alter table notify_template force row level security;
 create policy notify_template_tenant_access on notify_template as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 create table if not exists notify_outbound_message (
   tenant_id uuid not null,
@@ -166,8 +166,8 @@ create index if not exists ix_notify_outbound_status on notify_outbound_message 
 alter table notify_outbound_message enable row level security;
 alter table notify_outbound_message force row level security;
 create policy notify_outbound_message_tenant_access on notify_outbound_message as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 create table if not exists notify_preference (
   tenant_id uuid not null,
@@ -184,8 +184,8 @@ create table if not exists notify_preference (
 alter table notify_preference enable row level security;
 alter table notify_preference force row level security;
 create policy notify_preference_tenant_access on notify_preference as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 create table if not exists event_schema (
   tenant_id uuid not null,
@@ -198,8 +198,8 @@ create table if not exists event_schema (
 alter table event_schema enable row level security;
 alter table event_schema force row level security;
 create policy event_schema_tenant_access on event_schema as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 create table if not exists idempotency_keys (
   tenant_id uuid not null,
@@ -211,12 +211,12 @@ create table if not exists idempotency_keys (
 alter table idempotency_keys enable row level security;
 alter table idempotency_keys force row level security;
 create policy idempotency_keys_tenant_access on idempotency_keys as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 alter table outbox enable row level security;
 alter table outbox force row level security;
 drop policy if exists outbox_tenant_access on outbox;
 create policy outbox_tenant_access on outbox as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);

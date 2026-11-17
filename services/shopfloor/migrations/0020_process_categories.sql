@@ -1,4 +1,4 @@
--- PSG-25 slice 21: process message category master data (FR-25.17, D8c, O05C/O06C/O07C equivalent).
+-- DPT-25 slice 21: process message category master data (FR-25.17, D8c, O05C/O06C/O07C equivalent).
 -- Until now the categories and their destinations were fixed defaults in code and no category
 -- rejected out-of-limit values. A tenant's row here overrides the built-in default of the same code,
 -- or adds a code of its own, with its destinations, the reject-out-of-limit flag (BR-25.13, SF-0114)
@@ -27,8 +27,8 @@ CREATE TABLE IF NOT EXISTS process_category (
 ALTER TABLE process_category ENABLE ROW LEVEL SECURITY;
 ALTER TABLE process_category FORCE ROW LEVEL SECURITY;
 CREATE POLICY process_category_tenant_access ON process_category AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE process_message DROP CONSTRAINT IF EXISTS process_message_category_code_check;
 ALTER TABLE process_message ADD CONSTRAINT process_message_category_code_check
@@ -36,8 +36,8 @@ ALTER TABLE process_message ADD CONSTRAINT process_message_category_code_check
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON process_category TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON process_category TO depot_app';
   END IF;
 END
 $$;

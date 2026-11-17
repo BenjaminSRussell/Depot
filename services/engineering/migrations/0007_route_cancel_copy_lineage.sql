@@ -7,7 +7,7 @@ ALTER TABLE route_version ADD CONSTRAINT route_version_status_check
 
 -- FR-9.12 copy lineage: a version created by :copy records the version it was copied from. The
 -- source stays in the same tenant (composite foreign key) and is never deleted, so the link holds.
--- No new table, so no grants change (passage_app already has SELECT, INSERT and UPDATE).
+-- No new table, so no grants change (depot_app already has SELECT, INSERT and UPDATE).
 ALTER TABLE bom_version ADD COLUMN IF NOT EXISTS copied_from_version_id uuid;
 ALTER TABLE route_version ADD COLUMN IF NOT EXISTS copied_from_version_id uuid;
 DO $$

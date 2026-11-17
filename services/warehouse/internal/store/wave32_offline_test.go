@@ -10,7 +10,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/domain"
 )
 
 // Wave 32 proof, server half of AC-32.3 (FR-32.5, BR-32.3): a device that was
@@ -124,7 +124,7 @@ func TestWave32_OfflineReplay200ExactlyOnceInOrder(t *testing.T) {
 		if count != n {
 			t.Fatalf("%s: %d lines, want %d", stage, count, n)
 		}
-		if c := outboxCount(t, adminOf(st), "dev.passage.wms.work.completed.v1"); c != 1 {
+		if c := outboxCount(t, adminOf(st), "dev.depot.wms.work.completed.v1"); c != 1 {
 			t.Fatalf("%s: %d work.completed events, want 1", stage, c)
 		}
 	}

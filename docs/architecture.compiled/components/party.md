@@ -1,7 +1,7 @@
 # Party
 
 ## Purpose & Boundaries
-Context `party` (database `passage_party`; wave 7), TS only (`party-ts`). One row per real-world organization or person with layered roles (customer, vendor, contact, employee, bank, prospect). Owns party, customer/vendor roles, addresses, tax registrations, groups, payment/delivery terms, credit limits, dedup/merge, governance. Party and contacts/bank details are owned here (portal profile endpoints moved from sales/procurement).
+Context `party` (database `depot_party`; wave 7), TS only (`party-ts`). One row per real-world organization or person with layered roles (customer, vendor, contact, employee, bank, prospect). Owns party, customer/vendor roles, addresses, tax registrations, groups, payment/delivery terms, credit limits, dedup/merge, governance. Party and contacts/bank details are owned here (portal profile endpoints moved from sales/procurement).
 
 ## Interfaces
 Generated CRUD for parties, customers, vendors, contacts, addresses, tax registrations, groups, payment terms, delivery terms. Custom:
@@ -17,7 +17,7 @@ Generated CRUD for parties, customers, vendors, contacts, addresses, tax registr
 EN-013..017: `party.party` (party_number via sequence PTY `PTY-{######}`, party_type organization|person, status draft|pending_approval|active|blocked|inactive|merged, name_normalized, phonetic_key, merged_into_party_id, search_vector), `party_role` (UQ (tenant_id, party_id, role_type)), `customer` (ML; customer_account UQ per tenant+LE; credit_limit numeric(20,6); credit_check_mode none|warn|hold; hold_status none|invoice|delivery|all; posting_profile_id REF ledger), `vendor` (ML; vendor_account; payment_method check|ach|sepa|wire|card|other; is_1099), address, party_address, contact, tax_registration (registration_number_hash HMAC), party_secure and party_bank_account_secure (P3, CDC-excluded), party_bank_account, customer_group/vendor_group, payment_terms, delivery_terms, credit_limit_change (I), party_merge (I), party_match_candidate (CHECK party_a_id < party_b_id). Indexes IX-PA-01..27 (trgm GIN on name_normalized, phonetic+country, tax hash).
 
 ## Events Produced
-`party.party.created.v1` (partyId, partyNumber, partyType, displayName, roles[], countryCode, internalLegalEntityId? drives intercompany), `party.party.merged.v1` (mergeId, survivorPartyId, mergedPartyIds[], roleIdMap[], mergedAt; key T:survivorPartyId), `party.customer.creditchanged.v1` (customerId, partyId, legalEntityId, previousLimit, newLimit, creditStatus ok|hold|blocked, reason, effectiveFrom). Snapshot topics for party.party and party.customer. Also approval via `/passage/party/credit`.
+`party.party.created.v1` (partyId, partyNumber, partyType, displayName, roles[], countryCode, internalLegalEntityId? drives intercompany), `party.party.merged.v1` (mergeId, survivorPartyId, mergedPartyIds[], roleIdMap[], mergedAt; key T:survivorPartyId), `party.customer.creditchanged.v1` (customerId, partyId, legalEntityId, previousLimit, newLimit, creditStatus ok|hold|blocked, reason, effectiveFrom). Snapshot topics for party.party and party.customer. Also approval via `/depot/party/credit`.
 
 ## Events Consumed
 `party-approvals` (workflowtask.completed), `party-legalentity-ref` (legalentity.created), `party-numbersequence` (platform.numbersequence.changed). Other contexts consume `party.merged` (`<ctx>-partymerge`) to rewrite their `party_id` columns.

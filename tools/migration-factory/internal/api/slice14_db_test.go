@@ -9,7 +9,7 @@ import (
 )
 
 // Database tests for slice 14: releasing quarantined open_orders lines (S13-d). They skip without
-// PASSAGE_TEST_DATABASE_URL and run as passage_app when PASSAGE_TEST_APP_DATABASE_URL is set.
+// DEPOT_TEST_DATABASE_URL and run as depot_app when DEPOT_TEST_APP_DATABASE_URL is set.
 
 func orderFiller(n int) []string {
 	var out []string
@@ -78,14 +78,14 @@ func TestOpenOrders_ReleaseCorrectsItemAndMovesTheOrderCount(t *testing.T) {
 	if q := after.Quarantined[0]; q.Status != "RELEASED" || q.ReleasedBy != "ops" || q.Released == nil || q.Released.Account != "WASHER" {
 		t.Fatalf("released row %+v", q)
 	}
-	if n := count(t, admin, `select count(*) from open_order_opening_line l join legacy_xref x on x.xref_id = l.legacy_xref_id and x.passage_id = l.line_id
+	if n := count(t, admin, `select count(*) from open_order_opening_line l join legacy_xref x on x.xref_id = l.legacy_xref_id and x.depot_id = l.line_id
 		where l.run_id = $1 and l.legacy_id = 'SL-2' and l.item = 'WASHER' and l.delivery_date = '2027-02-01' and x.source_table = 'open_orders.sales'`, run.RunID); n != 1 {
 		t.Fatalf("released line tied to its cross-reference = %d", n)
 	}
 	if n := count(t, admin, `select count(*) from pack_run_order where run_id = $1 and order_type = 'SALES' and order_number in ('SO-1', 'SO-2')`, run.RunID); n != 2 {
 		t.Fatalf("orders kept with the run = %d", n)
 	}
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.migration.pack.reconciled.v1' and aggregate_id = $1`, run.RunID); n != 2 {
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.migration.pack.reconciled.v1' and aggregate_id = $1`, run.RunID); n != 2 {
 		t.Fatalf("pack.reconciled events = %d, want one from the run and one when release 2 reconciles it", n)
 	}
 	// Idempotent by record; another tenant sees no run.

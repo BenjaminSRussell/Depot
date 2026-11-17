@@ -47,11 +47,11 @@ CREATE INDEX IF NOT EXISTS sod_mitigation_conflict ON sod_mitigation (tenant_id,
 ALTER TABLE sod_conflict ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sod_conflict FORCE ROW LEVEL SECURITY;
 CREATE POLICY sod_conflict_tenant_access ON sod_conflict AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE sod_mitigation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sod_mitigation FORCE ROW LEVEL SECURITY;
 CREATE POLICY sod_mitigation_tenant_access ON sod_mitigation AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

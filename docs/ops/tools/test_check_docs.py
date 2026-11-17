@@ -84,20 +84,20 @@ class TestCheckAlerts(unittest.TestCase):
 
     def test_alert_with_existing_runbook_passes(self) -> None:
         rules = self.rules(
-            "- alert: A\n  annotations:\n    runbook_url: https://docs.passage.dev/ops/runbooks/failover\n"
+            "- alert: A\n  annotations:\n    runbook_url: https://docs.depot.dev/ops/runbooks/failover\n"
         )
         self.assertEqual(cd.check_alerts(rules, self.runbooks), [])
 
     def test_missing_runbook_page(self) -> None:
         rules = self.rules(
-            "- alert: A\n  runbook_url: https://docs.passage.dev/ops/runbooks/nowhere\n"
+            "- alert: A\n  runbook_url: https://docs.depot.dev/ops/runbooks/nowhere\n"
         )
         errors = cd.check_alerts(rules, self.runbooks)
         self.assertEqual(len(errors), 1)
         self.assertIn("runbook page missing", errors[0])
 
     def test_alert_without_runbook_url(self) -> None:
-        rules = self.rules("- alert: A\n  expr: up == 0\n- alert: B\n  runbook_url: https://docs.passage.dev/ops/runbooks/failover\n")
+        rules = self.rules("- alert: A\n  expr: up == 0\n- alert: B\n  runbook_url: https://docs.depot.dev/ops/runbooks/failover\n")
         errors = cd.check_alerts(rules, self.runbooks)
         self.assertIn("2 alerts but 1 runbook_url", errors[0])
 

@@ -47,17 +47,17 @@ CREATE TABLE IF NOT EXISTS price_journal_line (
 ALTER TABLE price_journal ENABLE ROW LEVEL SECURITY;
 ALTER TABLE price_journal FORCE ROW LEVEL SECURITY;
 CREATE POLICY price_journal_tenant_access ON price_journal AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY price_journal_legal_entity_scope ON price_journal AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE price_journal_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE price_journal_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY price_journal_line_tenant_access ON price_journal_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS rebate_agreement (
   tenant_id uuid NOT NULL,
@@ -120,23 +120,23 @@ CREATE INDEX IF NOT EXISTS rebate_accrual_period_ix ON rebate_accrual (tenant_id
 ALTER TABLE rebate_agreement ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rebate_agreement FORCE ROW LEVEL SECURITY;
 CREATE POLICY rebate_agreement_tenant_access ON rebate_agreement AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY rebate_agreement_legal_entity_scope ON rebate_agreement AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE rebate_period ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rebate_period FORCE ROW LEVEL SECURITY;
 CREATE POLICY rebate_period_tenant_access ON rebate_period AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE rebate_accrual ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rebate_accrual FORCE ROW LEVEL SECURITY;
 CREATE POLICY rebate_accrual_tenant_access ON rebate_accrual AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY rebate_accrual_legal_entity_scope ON rebate_accrual AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

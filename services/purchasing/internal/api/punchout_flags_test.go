@@ -11,9 +11,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
 
 const punchoutBody = `{"legalEntityId":"` + leA + `","currency":"USD","lines":[{"description":"Pump seal kit","category":"PUNCHOUT","qty":"2","unit":"EA",

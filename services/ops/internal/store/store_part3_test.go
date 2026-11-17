@@ -8,11 +8,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/ops/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ops/migrations"
 )
 
 // newStore3 is newStore with the operator tenant set and the owner pool returned, to read the outbox past its tenant RLS.

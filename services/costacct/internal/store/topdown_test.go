@@ -7,11 +7,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/costacct/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/costacct/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/costacct/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/costacct/migrations"
 )
 
 type ledgerFixture struct {

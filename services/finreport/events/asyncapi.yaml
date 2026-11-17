@@ -1,63 +1,63 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Financial Reporting events
+  title: Depot Financial Reporting events
   version: 1.0.0
-  description: Events published by the reporting service (PSG-15 slice 1). Written to the outbox in the same transaction as the change.
+  description: Events published by the reporting service (DPT-15 slice 1). Written to the outbox in the same transaction as the change.
 defaultContentType: application/cloudevents+json
 channels:
   statementGenerated:
-    address: passage.reporting.statement
+    address: depot.reporting.statement
     messages:
       statementGenerated:
         $ref: '#/components/messages/StatementGenerated'
       statementFailed:
         $ref: '#/components/messages/StatementFailed'
   definitionPublished:
-    address: passage.reporting.definition
+    address: depot.reporting.definition
     messages:
       definitionPublished:
         $ref: '#/components/messages/DefinitionPublished'
   hierarchyUnassigned:
-    address: passage.reporting.hierarchy
+    address: depot.reporting.hierarchy
     messages:
       hierarchyUnassigned:
         $ref: '#/components/messages/HierarchyUnassigned'
   balanceVerified:
-    address: passage.reporting.balance
+    address: depot.reporting.balance
     messages:
       balanceVerified:
         $ref: '#/components/messages/BalanceVerified'
   lagExceeded:
-    address: passage.reporting.lag
+    address: depot.reporting.lag
     messages:
       lagExceeded:
         $ref: '#/components/messages/LagExceeded'
   distributionSent:
-    address: passage.reporting.distribution
+    address: depot.reporting.distribution
     messages:
       distributionSent:
         $ref: '#/components/messages/DistributionSent'
   legalHold:
-    address: passage.reporting.legalhold
+    address: depot.reporting.legalhold
     messages:
       legalHoldPlaced:
         $ref: '#/components/messages/LegalHoldPlaced'
       legalHoldReleased:
         $ref: '#/components/messages/LegalHoldReleased'
   shareLink:
-    address: passage.reporting.sharelink
+    address: depot.reporting.sharelink
     messages:
       shareLinkCreated:
         $ref: '#/components/messages/ShareLinkCreated'
       shareLinkRevoked:
         $ref: '#/components/messages/ShareLinkRevoked'
   librarySwept:
-    address: passage.reporting.library
+    address: depot.reporting.library
     messages:
       librarySwept:
         $ref: '#/components/messages/LibrarySwept'
   runsSwept:
-    address: passage.reporting.runs
+    address: depot.reporting.runs
     messages:
       runsSwept:
         $ref: '#/components/messages/RunsSwept'
@@ -156,7 +156,7 @@ operations:
 components:
   messages:
     StatementGenerated:
-      name: dev.passage.reporting.statement.generated.v1
+      name: dev.depot.reporting.statement.generated.v1
       title: Statement generated
       summary: A statement run completed and its cells and result hash were stored.
       contentType: application/cloudevents+json
@@ -187,7 +187,7 @@ components:
             description: Run parameters; always period, hierarchy as CODE@version when the rows of the run are the nodes of a hierarchy, and tree as CODE@revision with treeUnit when the run is limited to a unit of a reporting tree; ledgers (comma separated ledger ids in column order) when the run is consolidated by entity
             additionalProperties: {type: string}
     DefinitionPublished:
-      name: dev.passage.reporting.definition.published.v1
+      name: dev.depot.reporting.definition.published.v1
       title: Definition published
       summary: A report definition version was published.
       contentType: application/cloudevents+json
@@ -200,7 +200,7 @@ components:
           actor: {type: string, description: User id of the publisher}
           diff_summary: {type: string}
     HierarchyUnassigned:
-      name: dev.passage.reporting.hierarchy.unassigned.v1
+      name: dev.depot.reporting.hierarchy.unassigned.v1
       title: Hierarchy member unassigned
       summary: A published non-strict hierarchy left a member without a node.
       contentType: application/cloudevents+json
@@ -215,7 +215,7 @@ components:
           owner_user_id: {type: string, description: Hierarchy owner to notify}
           actor: {type: string, description: User id of the publisher}
     BalanceVerified:
-      name: dev.passage.reporting.balance.verified.v1
+      name: dev.depot.reporting.balance.verified.v1
       title: Balance verified
       summary: A balance verification stored its result; subscribers alert on status differs. Account amounts are not in the event.
       contentType: application/cloudevents+json
@@ -234,7 +234,7 @@ components:
           diff_count: {type: integer, description: Accounts whose net differs between the read model and the ledger}
           actor: {type: string, description: User id that ran the check}
     LagExceeded:
-      name: dev.passage.reporting.lag.exceeded.v1
+      name: dev.depot.reporting.lag.exceeded.v1
       title: Read-model lag exceeded
       summary: The reporting read model of a ledger has been behind the journal by more than the lag gate for the alert window.
       contentType: application/cloudevents+json
@@ -248,7 +248,7 @@ components:
           hwm_ledger: {type: integer, description: Highest posting sequence the reporting service has seen for the ledger}
           hwm_reporting: {type: integer, description: Highest posting sequence the read model has applied}
     StatementFailed:
-      name: dev.passage.reporting.statement.failed.v1
+      name: dev.depot.reporting.statement.failed.v1
       title: Statement failed
       summary: A scheduled firing could not produce its statement after its retry; ops and the schedule owner are notified.
       contentType: application/cloudevents+json
@@ -268,7 +268,7 @@ components:
           error: {type: string}
           attempts: {type: integer, description: Attempts made, at most 2}
     DistributionSent:
-      name: dev.passage.reporting.distribution.sent.v1
+      name: dev.depot.reporting.distribution.sent.v1
       title: Distribution sent
       summary: A rendered output of a scheduled run is in the report library and was handed to distribution; the notification service sends the email. Recipients are hashed.
       contentType: application/cloudevents+json
@@ -290,7 +290,7 @@ components:
           recipient_count: {type: integer}
           recipients_sha256: {type: string, description: SHA-256 hex over the sorted recipient addresses, joined by a newline}
     LegalHoldPlaced:
-      name: dev.passage.reporting.legalhold.placed.v1
+      name: dev.depot.reporting.legalhold.placed.v1
       title: Legal hold placed
       summary: The report library of a legal entity is under legal hold; the retention sweep deletes none of its files until the hold is released.
       contentType: application/cloudevents+json
@@ -303,7 +303,7 @@ components:
           reason: {type: string}
           actor: {type: string, description: User who placed the hold}
     LegalHoldReleased:
-      name: dev.passage.reporting.legalhold.released.v1
+      name: dev.depot.reporting.legalhold.released.v1
       title: Legal hold released
       summary: A legal hold on the report library of a legal entity was released; the retention sweep deletes its past-retention files again.
       contentType: application/cloudevents+json
@@ -317,7 +317,7 @@ components:
           actor: {type: string, description: User who released the hold}
           note: {type: string, description: Release note}
     ShareLinkCreated:
-      name: dev.passage.reporting.sharelink.created.v1
+      name: dev.depot.reporting.sharelink.created.v1
       title: Share link created
       summary: A bearer link to a report library file was created; anyone holding it can download the file until it expires or is revoked. The secret is not in the event.
       contentType: application/cloudevents+json
@@ -331,7 +331,7 @@ components:
           expires_at: {type: string, format: date-time}
           actor: {type: string, description: User who created the link}
     ShareLinkRevoked:
-      name: dev.passage.reporting.sharelink.revoked.v1
+      name: dev.depot.reporting.sharelink.revoked.v1
       title: Share link revoked
       summary: A share link to a report library file was revoked and no longer opens the file.
       contentType: application/cloudevents+json
@@ -345,7 +345,7 @@ components:
           expires_at: {type: string, format: date-time, description: When the link would have expired}
           actor: {type: string, description: User who revoked the link}
     LibrarySwept:
-      name: dev.passage.reporting.library.swept.v1
+      name: dev.depot.reporting.library.swept.v1
       title: Library swept
       summary: The retention sweep deleted the report library files of a legal entity that were past their retention date, or a legal hold kept files that were past it.
       contentType: application/cloudevents+json
@@ -362,7 +362,7 @@ components:
           hold_id: {type: string, format: uuid, description: The active hold that kept them}
           actor: {type: string, description: The system actor of the sweep}
     RunsSwept:
-      name: dev.passage.reporting.runs.swept.v1
+      name: dev.depot.reporting.runs.swept.v1
       title: Ad-hoc runs swept
       summary: The retention sweep deleted the ad-hoc statement runs of a legal entity that were older than the retention days, with their cells, or a legal hold kept runs that were past it.
       contentType: application/cloudevents+json

@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/carrier"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/carrier"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 func fakeTracked(provider, trackingNumber string) store.TrackingEvent {
@@ -78,10 +78,10 @@ func carrierServer(t *testing.T, fs *fakeStore, g carrier.Gateway) http.Handler 
 	return r
 }
 
-var shipDuty = map[string]string{"X-Passage-Duties": "fulfillment.warehouse.ship"}
+var shipDuty = map[string]string{"X-Depot-Duties": "fulfillment.warehouse.ship"}
 
 func shipKey(key string) map[string]string {
-	return map[string]string{"X-Passage-Duties": "fulfillment.warehouse.ship", "Idempotency-Key": key}
+	return map[string]string{"X-Depot-Duties": "fulfillment.warehouse.ship", "Idempotency-Key": key}
 }
 
 func TestCarrierLabel_BuysOnceAndRecordsLabelled(t *testing.T) {

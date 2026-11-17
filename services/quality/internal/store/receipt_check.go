@@ -8,11 +8,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/quality/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/quality/internal/domain"
 )
 
 // ReceiptCheckFilter narrows the receipt check list.
@@ -51,7 +51,7 @@ func sourceAcceptedQty(ctx context.Context, tx pgx.Tx, poLineID, batch string) (
 	err := tx.QueryRow(ctx, `select coalesce(sum(d.accept_qty + d.deviation_qty), 0)::text
 		from quality_usage_decision d
 		join quality_order o on o.tenant_id = d.tenant_id and o.id = d.quality_order_id
-		where d.tenant_id = current_setting('passage.tenant_id', true)::uuid
+		where d.tenant_id = current_setting('depot.tenant_id', true)::uuid
 		and o.trigger = 'SOURCE_INSPECTION' and o.status = 'CLOSED'
 		and o.source_ref->>'id' = $1 and o.dims->>'batch' = $2`, poLineID, batch).Scan(&q)
 	if err != nil {

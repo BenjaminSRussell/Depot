@@ -9,10 +9,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/store"
 )
 
 // reconcile checks the subledger invariant on every book of an asset: the
@@ -139,7 +139,7 @@ func TestStore_SplitMovesEveryBookAndContinuesTheSchedule(t *testing.T) {
 	if got := impairmentOf(t, pool, ctx, ifrs.ID); !got.IsZero() {
 		t.Errorf("source impairment after the split = %s, want 0", got)
 	}
-	if got := outboxTypes(t, pool, ctx)["dev.passage.assets.asset.split.v1"]; got != 1 {
+	if got := outboxTypes(t, pool, ctx)["dev.depot.assets.asset.split.v1"]; got != 1 {
 		t.Errorf("asset.split events = %d, want 1", got)
 	}
 
@@ -232,7 +232,7 @@ func TestStore_TransferToAnotherLegalEntity(t *testing.T) {
 	if target.Asset.LegalEntityID != le2 || target.Books[0].LegalEntityID != le2 || !target.Books[0].Cost.Equal(d("1200")) || !target.Percentage.Equal(d("100")) {
 		t.Fatalf("target = %+v", target)
 	}
-	if got := outboxTypes(t, pool, ctx)["dev.passage.assets.asset.transferred.v1"]; got != 1 {
+	if got := outboxTypes(t, pool, ctx)["dev.depot.assets.asset.transferred.v1"]; got != 1 {
 		t.Errorf("asset.transferred events = %d, want 1", got)
 	}
 	// A principal scoped to the target entity sees the new asset, not the source.

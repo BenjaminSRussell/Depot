@@ -1,4 +1,4 @@
-# mobile (wave 32, PSG-32)
+# mobile (wave 32, DPT-32)
 
 Mobile warehouse execution: device sessions with timeout and resume, role- and
 site-based menus, versioned server-driven flows and their step runner, GS1-128
@@ -58,8 +58,8 @@ service's own bookkeeping, whose body never reaches the user.
 ## Tests
 
 ```
-PASSAGE_TEST_DATABASE_URL=postgres://localhost:5432/dbxt \
-PASSAGE_TEST_APP_DATABASE_URL=postgres://passage_app:passage_app@localhost:5432/dbxt \
+DEPOT_TEST_DATABASE_URL=postgres://localhost:5432/dbxt \
+DEPOT_TEST_APP_DATABASE_URL=postgres://depot_app:depot_app@localhost:5432/dbxt \
 go test ./...
 ```
 

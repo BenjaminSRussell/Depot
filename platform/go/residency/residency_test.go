@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
-	"github.com/BenjaminSRussell/passage/platform/residency"
+	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
+	"github.com/BenjaminSRussell/depot/platform/residency"
 )
 
 func TestCheck(t *testing.T) {

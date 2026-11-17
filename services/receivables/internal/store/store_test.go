@@ -10,12 +10,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receivables/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receivables/migrations"
 )
 
 const legalEntity = "00000000-0000-0000-0000-0000000000a1"
@@ -268,7 +268,7 @@ func TestApply_IdempotencyKeyReplaysAndRejectsReuse(t *testing.T) {
 	if _, err := s.ApplyPayment(ctx, pay.ID, pay.Version, changed, "apply-1"); problemCode(err) != CodeIdempotencyReuse {
 		t.Fatalf("same key, different plan: got %v, want %s", err, CodeIdempotencyReuse)
 	}
-	if n := countOutbox(t, s, ctx, "dev.passage.receivables.payment.applied.v1"); n != 1 {
+	if n := countOutbox(t, s, ctx, "dev.depot.receivables.payment.applied.v1"); n != 1 {
 		t.Fatalf("applied events = %d, want exactly 1 after a replay", n)
 	}
 }
@@ -285,7 +285,7 @@ func TestApply_LockedItemIsAR0002(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = holder.Rollback(ctx) }()
-	if _, err := holder.Exec(ctx, `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', '*', true)`, testkit.TenantID(1)); err != nil {
+	if _, err := holder.Exec(ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true)`, testkit.TenantID(1)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := holder.Exec(ctx, `select 1 from open_item where id = $1 for update`, item.ID); err != nil {
@@ -356,7 +356,7 @@ func TestAgingRowsAndPaymentList(t *testing.T) {
 	if found, err := s.ListOpenItems(ctx, OpenItemFilter{Q: "INV-3000"}, 10); err != nil || len(found) != 2 {
 		t.Fatalf("open items matching INV-3000 = %+v (%v), want 2", found, err)
 	}
-	if n := countOutbox(t, s, ctx, "dev.passage.receivables.payment.received.v1"); n != 1 {
+	if n := countOutbox(t, s, ctx, "dev.depot.receivables.payment.received.v1"); n != 1 {
 		t.Fatalf("received events = %d, want 1", n)
 	}
 }

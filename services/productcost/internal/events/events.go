@@ -5,7 +5,7 @@ package events
 import (
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 )
 
 // Context is the bounded-context segment of every event type (PRD 7.39.5).

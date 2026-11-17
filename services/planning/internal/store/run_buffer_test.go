@@ -8,11 +8,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/domain"
-	planevents "github.com/BenjaminSRussell/passage/services/planning/internal/events"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/domain"
+	planevents "github.com/BenjaminSRussell/depot/services/planning/internal/events"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/store"
 )
 
 // TestRunBuffers covers what a plan run reads for DDMRP (FR-22.16): the

@@ -80,36 +80,36 @@ CREATE TABLE IF NOT EXISTS auto_clearing_run_group (
 ALTER TABLE auto_clearing_rule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE auto_clearing_rule FORCE ROW LEVEL SECURITY;
 CREATE POLICY auto_clearing_rule_tenant_access ON auto_clearing_rule AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY auto_clearing_rule_legal_entity_scope ON auto_clearing_rule AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE auto_clearing_run ENABLE ROW LEVEL SECURITY;
 ALTER TABLE auto_clearing_run FORCE ROW LEVEL SECURITY;
 CREATE POLICY auto_clearing_run_tenant_access ON auto_clearing_run AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY auto_clearing_run_legal_entity_scope ON auto_clearing_run AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE auto_clearing_run_group ENABLE ROW LEVEL SECURITY;
 ALTER TABLE auto_clearing_run_group FORCE ROW LEVEL SECURITY;
 CREATE POLICY auto_clearing_run_group_tenant_access ON auto_clearing_run_group AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY auto_clearing_run_group_legal_entity_scope ON auto_clearing_run_group AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Rules are updated in place; runs and their group log are written once.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON auto_clearing_rule TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON auto_clearing_run, auto_clearing_run_group TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON auto_clearing_rule TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON auto_clearing_run, auto_clearing_run_group TO depot_app';
   END IF;
 END
 $$;

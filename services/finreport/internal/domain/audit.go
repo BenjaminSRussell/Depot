@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // Audit trail kinds (PRD §2.15.4 AuditTrailEntry, FR-15.10). The ledger kinds

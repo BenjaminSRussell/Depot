@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/store"
-	"github.com/BenjaminSRussell/passage/services/warehouse/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/store"
+	"github.com/BenjaminSRussell/depot/services/warehouse/migrations"
 )
 
 // fakeStore answers from the err and result fields and records the last call.
@@ -167,15 +167,15 @@ func call(h http.Handler, q req) *httptest.ResponseRecorder {
 	if tid == "" {
 		tid = testkit.TenantID(1)
 	}
-	r.Header.Set("X-Passage-Tenant", tid)
+	r.Header.Set("X-Depot-Tenant", tid)
 	if q.user != "-" {
 		user := q.user
 		if user == "" {
 			user = "u1"
 		}
-		r.Header.Set("X-Passage-User", user)
+		r.Header.Set("X-Depot-User", user)
 	}
-	r.Header.Set("X-Passage-Duties", q.duties)
+	r.Header.Set("X-Depot-Duties", q.duties)
 	if q.key != "" {
 		r.Header.Set("Idempotency-Key", q.key)
 	}
@@ -221,7 +221,7 @@ func TestPersistedRoutes_Refusals(t *testing.T) {
 			body: `{"warehouseId":"` + wh + `","workType":"SALES_PICK","priority":100,"lines":[{"itemId":"B","direction":"PICK","qty":"1"}]}`}, 400, "priority"},
 		{"work rejects unknown fields", req{method: "POST", path: "/v1/warehouse/work", duties: dutyWorkSupervise, key: "k", body: `{"bogus":1}`}, 400, ""},
 		{"assign needs a warehouse uuid", req{method: "POST", path: "/v1/warehouse/work:assign", duties: dutyWorkExecute, key: "k", body: `{"warehouseId":"WH1"}`}, 400, "warehouseId"},
-		{"assign needs a user", req{method: "POST", path: "/v1/warehouse/work:assign", duties: dutyWorkExecute, key: "k", user: "-", body: `{"warehouseId":"` + wh + `"}`}, 400, "X-Passage-User"},
+		{"assign needs a user", req{method: "POST", path: "/v1/warehouse/work:assign", duties: dutyWorkExecute, key: "k", user: "-", body: `{"warehouseId":"` + wh + `"}`}, 400, "X-Depot-User"},
 		{"assign needs the execute duty", req{method: "POST", path: "/v1/warehouse/work:assign", duties: dutyInquiry, key: "k", body: `{"warehouseId":"` + wh + `"}`}, 403, ""},
 		{"confirm needs the idempotency key", req{method: "POST", path: confirmPath, duties: dutyWorkExecute, body: `{"qty":"10"}`}, 400, headerKey},
 		{"confirm needs a positive quantity", req{method: "POST", path: confirmPath, duties: dutyWorkExecute, key: "k", body: `{"qty":"0"}`}, 400, "qty"},

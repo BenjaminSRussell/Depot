@@ -1,4 +1,4 @@
-# Passage web design system and shell redesign
+# Depot web design system and shell redesign
 
 Implementation spec for `apps/web`. Follow it as written. No new npm dependencies: plain CSS (global `theme.css` + CSS Modules per component, Vite handles both), inline SVG icons, system-ui fonts. Every visual value comes from a token in section 1. No inline styles, no ID selectors, no `!important`. Use logical properties (`margin-inline-start`, `inset-inline-end`, `padding-block`) everywhere so RTL works.
 
@@ -83,17 +83,17 @@ Define as `--text-sm-size`/`--text-sm-leading` pairs. Weights: `--weight-regular
   <div role="status" aria-live="polite" class="visually-hidden">{announce}</div>
   {paletteOpen && <CommandPalette …/>}
 ```
-- **`h1` placement.** The `h1` is the current page title in the top bar, and it is the only `h1` in the app. The brand becomes `<Link to="/" class=brand>` holding an `aria-hidden` logo SVG and the text "Passage". `MetadataForm`'s `<h1>` becomes `<h2>`. Remotes and pages start at `h2` (MFE rule).
+- **`h1` placement.** The `h1` is the current page title in the top bar, and it is the only `h1` in the app. The brand becomes `<Link to="/" class=brand>` holding an `aria-hidden` logo SVG and the text "Depot". `MetadataForm`'s `<h1>` becomes `<h2>`. Remotes and pages start at `h2` (MFE rule).
 - **Title resolution** (`src/shell/pageMeta.ts`, a pure function): `resolvePage(pathname, modules, shellNav) → { title, workspace?: { title, to } }`. Resolve in this order:
   1. An exact match against `shellNav` and then every module `nav` (`matchPath({ path: to, end: true })`). The title is the nav label, and the workspace is that module (title, first nav `to`).
   2. Otherwise, the first module route whose `path` matches. The title is `route.handle?.title ?? module.title`.
   3. Otherwise, the title is `Page not found`.
 
-  Also set `document.title = \`${title} · Passage\``. Give `/product/:id` the route `handle: { title: "Product details" }`.
+  Also set `document.title = \`${title} · Depot\``. Give `/product/:id` the route `handle: { title: "Product details" }`.
 - **Breadcrumb.** `<nav aria-label="Breadcrumb"><ol><li><Link to={workspace.to}>{workspace.title}</Link></li></ol></nav>`, followed by an `aria-hidden` chevron and then the `h1`. Leave it out on shell pages (Home, Notes, Not found). Colour `--color-text-muted`, `--text-sm`; on hover, the text colour changes and an underline appears.
 - **Right slot.** `Button variant="ghost" size="sm"` "Apply saved view" (the existing behaviour, announcing "Saved view applied"). Next to it, a `Button variant="ghost" size="sm" aria-pressed={compact}` "Compact view". It flips local `density` state, and "Apply saved view" also sets density from the saved view. The root renders `data-density={density}`.
 - **Sidebar.**
-  - Brand row: 28px accent logo tile, "Passage" `--text-lg`.
+  - Brand row: 28px accent logo tile, "Depot" `--text-lg`.
   - Search trigger: a full-width button styled like an input (bg-surface, 1px `--color-border-input`, `--radius-sm`, height `--control-height`). It contains a search icon, the text "Search" and `<kbd aria-hidden="true">⌘K</kbd>`, which reads `Ctrl K` when `navigator.platform` does not match `/Mac|iP/`. Attributes: `aria-label="Search"`, `aria-keyshortcuts="Control+K Meta+K"`, `aria-haspopup="dialog"`.
   - Nav: first an ungrouped list of the shell entries (Home, Notes), then one group per module in registry order. Each group header is a `<button aria-expanded aria-controls={listId}>` with a workspace icon, the module title (`--text-xs`, `--weight-medium`, `--color-text-muted`) and a chevron that rotates 90° over `--duration-base`. The `ul` has `aria-labelledby` pointing at the header button id. Groups start expanded, and collapse state is in-memory. A group that contains the active route is forced open on navigation.
   - Items: `<NavLink end>`, height `--nav-item-height`, `padding-inline var(--space-3)`, `--radius-sm`, `--text-sm`. Hover uses `--color-bg-muted`. `[aria-current="page"]` gets `--color-accent-subtle` bg, `--color-accent-strong` text, `--weight-medium`, and a 3px inline-start bar in `--color-accent`, so colour is not the only cue.
@@ -144,7 +144,7 @@ Props: `{ entries: PaletteEntry[]; onSelect(entry): void; onClose(): void; annou
 
 ## 4. Primitives (`src/shell/ui/`, each a `.tsx` + `.module.css`, re-exported from `ui/index.ts`)
 
-`src/shell/ui/index.ts` is the design-system boundary, and the only shell path that modules may import. It is the seam for extracting `@moonaan`/`@passage/ui` later. Every prop interface is exported.
+`src/shell/ui/index.ts` is the design-system boundary, and the only shell path that modules may import. It is the seam for extracting `@moonaan`/`@depot/ui` later. Every prop interface is exported.
 
 | Component | Props | Spec |
 |---|---|---|
@@ -192,7 +192,7 @@ Every module page uses `PageHeader` (h2). The state matrix applies: **Offline** 
 | `/workflow/jobs` JobMonitorPage | `DataTable label="Batch runs"`: Job (mono), Status (`StatusPill`), Rows (end-aligned, tabular), ETA (end). | DataTable, StatusPill | Empty: "No batch runs yet" / "Scheduled and on-demand jobs appear here as they run." |
 | `/workflow/templates` | `Card` holding the list `aria-label="Shipped templates"`, each item as `<code>` + `Badge neutral` "Shipped". | Card, Badge | — |
 
-`RouteErrorBoundary` (a class component in `src/shell/`) catches render errors from any page and shows `Alert tone="danger" live="alert" title="This page couldn't load"`, "Something went wrong while showing this page. Your other workspaces still work." plus `Button` "Try again" (resets state) and a "Go to home" link. Add `description?: string` to `PassageModule` (optional, backward compatible) and fill it in for each module.
+`RouteErrorBoundary` (a class component in `src/shell/`) catches render errors from any page and shows `Alert tone="danger" live="alert" title="This page couldn't load"`, "Something went wrong while showing this page. Your other workspaces still work." plus `Button` "Try again" (resets state) and a "Go to home" link. Add `description?: string` to `DepotModule` (optional, backward compatible) and fill it in for each module.
 
 ## 6. Accessibility choreography
 
@@ -226,7 +226,7 @@ Every module page uses `PageHeader` (h2). The state matrix applies: **Offline** 
 
   `--color-border` (1.58 light) is decorative only. Never use it as the sole boundary of an input.
 
-## 7. Microcopy (sentence case, second person; strings live in `src/shell/copy.ts`; Passage is English only)
+## 7. Microcopy (sentence case, second person; strings live in `src/shell/copy.ts`; Depot is English only)
 
 The full writing rules (voice, task verbs, error messages, glossary) are in [ux-writing.md](ux-writing.md).
 

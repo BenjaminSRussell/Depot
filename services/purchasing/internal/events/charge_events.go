@@ -4,13 +4,13 @@ package events
 // the subject is the charge code id or the auto charge id.
 const (
 	// ChargeCodeCreated is written when a charge code is created.
-	ChargeCodeCreated = "dev.passage.procurement.chargecode.created.v1"
+	ChargeCodeCreated = "dev.depot.procurement.chargecode.created.v1"
 	// ChargeCodeChanged is written when a charge code is changed or deactivated.
-	ChargeCodeChanged = "dev.passage.procurement.chargecode.changed.v1"
+	ChargeCodeChanged = "dev.depot.procurement.chargecode.changed.v1"
 	// AutoChargeCreated is written when an auto charge is created.
-	AutoChargeCreated = "dev.passage.procurement.autocharge.created.v1"
+	AutoChargeCreated = "dev.depot.procurement.autocharge.created.v1"
 	// AutoChargeChanged is written when an auto charge is changed or deactivated.
-	AutoChargeChanged = "dev.passage.procurement.autocharge.changed.v1"
+	AutoChargeChanged = "dev.depot.procurement.autocharge.changed.v1"
 )
 
 // ChargeCodeData is the data member of chargecode.created.v1 and chargecode.changed.v1.

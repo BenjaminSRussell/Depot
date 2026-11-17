@@ -5,14 +5,14 @@ const (
 	// InboundChangeRecorded is written for every change another service asked of a purchase order,
 	// whether it was applied, refused by a purchasing rule or ignored. The purchase order's own
 	// po.confirmed.v1 and poversion.created.v1 are written beside it when the change moved a line.
-	InboundChangeRecorded = "dev.passage.procurement.inboundchange.recorded.v1"
+	InboundChangeRecorded = "dev.depot.procurement.inboundchange.recorded.v1"
 	// InboundChangeRefused is written beside inboundchange.recorded.v1 when a purchasing rule refused the
 	// change (slice 19). It is the buyer's notification: buyer_id is the user who made the order, and the
 	// change waits in the refused queue until a buyer acknowledges or retries it.
-	InboundChangeRefused = "dev.passage.procurement.inboundchange.refused.v1"
+	InboundChangeRefused = "dev.depot.procurement.inboundchange.refused.v1"
 	// InboundChangeResolved is written when a buyer settles a refused change: acknowledged by hand, or
 	// retried and no longer refused (slice 19).
-	InboundChangeResolved = "dev.passage.procurement.inboundchange.resolved.v1"
+	InboundChangeResolved = "dev.depot.procurement.inboundchange.resolved.v1"
 )
 
 // InboundChangeData is the data member of inboundchange.recorded.v1. Qty and date members are set

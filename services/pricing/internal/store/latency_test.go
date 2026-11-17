@@ -16,11 +16,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/api"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/api"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
 )
 
 // Catalog shape for the latency proof: one legal entity's USD price list.
@@ -135,9 +135,9 @@ func latencyRun(t *testing.T, srv *httptest.Server, callers, perCaller int, seed
 					legalEntity, cust, cust%latCGroups, strings.Join(lines, ","))
 				req, _ := http.NewRequest(http.MethodPost, srv.URL+"/v1/pricing/resolve?explain=true", strings.NewReader(body))
 				req.Header.Set("Content-Type", "application/json")
-				req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-				req.Header.Set("X-Passage-Duties", "pricing.view")
-				req.Header.Set("X-Passage-Legal-Entity", legalEntity)
+				req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+				req.Header.Set("X-Depot-Duties", "pricing.view")
+				req.Header.Set("X-Depot-Legal-Entity", legalEntity)
 				start := time.Now()
 				resp, err := client.Do(req)
 				if err != nil {
@@ -183,7 +183,7 @@ func latencyRun(t *testing.T, srv *httptest.Server, callers, perCaller int, seed
 // cmd/pricing wires it). The asserted run is the steady state: the snapshot of each of the
 // 25 customer groups has been loaded once before the clock starts, as it is for all but one
 // resolve per group per minute in service. p95 must stay under 20 ms and p99 under 60 ms
-// (best of three runs; a loaded shared machine gets a 10x bound unless PASSAGE_LATENCY_STRICT=1).
+// (best of three runs; a loaded shared machine gets a 10x bound unless DEPOT_LATENCY_STRICT=1).
 // Logged, not asserted: the cold start (50 callers on an empty cache, every snapshot load
 // counted) and the same load without the cache (PRICING_CACHE_TTL=0, every resolve reads
 // the whole price list from Postgres).
@@ -220,7 +220,7 @@ func TestPostgres_ResolveP95Under20ms(t *testing.T) {
 	// and the best run counts; if every run misses the budget, the run must still be within
 	// ten times the budget (GitHub-hosted runners land around 5–8x even on the
 	// dedicated pricing-store shard; a broken cache costs about 1.5 s per
-	// resolve, so 10x still catches a regression). PASSAGE_LATENCY_STRICT=1
+	// resolve, so 10x still catches a regression). DEPOT_LATENCY_STRICT=1
 	// asserts the 20/60 ms budget itself and is not set in CI.
 	within := func(p95, p99 time.Duration, factor time.Duration) bool {
 		return p95 < factor*20*time.Millisecond && p99 < factor*60*time.Millisecond
@@ -234,8 +234,8 @@ func TestPostgres_ResolveP95Under20ms(t *testing.T) {
 	}
 	switch {
 	case within(p95, p99, 1):
-	case os.Getenv("PASSAGE_LATENCY_STRICT") != "1" && within(p95, p99, 10):
-		t.Logf("steady state p95 %s / p99 %s misses p95 < 20ms / p99 < 60ms on this loaded machine (load-tolerant bound 10x; set PASSAGE_LATENCY_STRICT=1 to assert the budget)", p95, p99)
+	case os.Getenv("DEPOT_LATENCY_STRICT") != "1" && within(p95, p99, 10):
+		t.Logf("steady state p95 %s / p99 %s misses p95 < 20ms / p99 < 60ms on this loaded machine (load-tolerant bound 10x; set DEPOT_LATENCY_STRICT=1 to assert the budget)", p95, p99)
 	default:
 		t.Errorf("steady state p95 %s / p99 %s; want p95 < 20ms and p99 < 60ms (FR-26.14)", p95, p99)
 	}

@@ -1,4 +1,4 @@
--- Field service, slice 4 (PSG-4504): generic case management (FR-45.12, BR-45.9,
+-- Field service, slice 4 (DPT-4504): generic case management (FR-45.12, BR-45.9,
 -- BR-45.10). Case processes with ordered stages, the hierarchical case category
 -- tree, cases in any non-service category, associations to any registry record
 -- and the case log. Tenant RLS on every table; generic cases also carry
@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS service_case_process (
 ALTER TABLE service_case_process ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_case_process FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_case_process_tenant_access ON service_case_process AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS service_case_category (
   tenant_id uuid NOT NULL,
@@ -55,8 +55,8 @@ CREATE TABLE IF NOT EXISTS service_case_category (
 ALTER TABLE service_case_category ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_case_category FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_case_category_tenant_access ON service_case_category AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS service_generic_case (
   tenant_id uuid NOT NULL,
@@ -99,11 +99,11 @@ CREATE INDEX IF NOT EXISTS service_generic_case_category ON service_generic_case
 ALTER TABLE service_generic_case ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_generic_case FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_generic_case_tenant_access ON service_generic_case AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY service_generic_case_legal_entity_scope ON service_generic_case AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS service_case_association (
   tenant_id uuid NOT NULL,
@@ -120,8 +120,8 @@ CREATE INDEX IF NOT EXISTS service_case_association_entity ON service_case_assoc
 ALTER TABLE service_case_association ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_case_association FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_case_association_tenant_access ON service_case_association AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS service_case_log (
   tenant_id uuid NOT NULL,
@@ -139,8 +139,8 @@ CREATE INDEX IF NOT EXISTS service_case_log_case ON service_case_log (tenant_id,
 ALTER TABLE service_case_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_case_log FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_case_log_tenant_access ON service_case_log AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Application role privileges, in the style of 0002. Processes, categories and the
 -- case log are append-only. The store updates service_generic_case (stage, status,
@@ -150,10 +150,10 @@ CREATE POLICY service_case_log_tenant_access ON service_case_log AS PERMISSIVE
 -- role split).
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT ON service_case_process, service_case_category, service_case_log TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON service_generic_case, service_case_association TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT ON service_case_process, service_case_category, service_case_log TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON service_generic_case, service_case_association TO depot_app';
   END IF;
 END
 $$;

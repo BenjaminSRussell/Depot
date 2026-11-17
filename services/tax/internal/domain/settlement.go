@@ -34,7 +34,7 @@ type GLMovement interface {
 }
 
 type Poster interface {
-	// TODO: PSG-12 replace with the ledger.Post client once services/ledger exists
+	// TODO: DPT-12 replace with the ledger.Post client once services/ledger exists
 	Post(ctx context.Context, idempotencyKey string, s Settlement) error
 }
 

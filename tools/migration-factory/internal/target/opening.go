@@ -11,7 +11,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 // The inventory client (H-S9-1) sends opening stock to POST /v1/inventory/opening-batches and reads the stored batches

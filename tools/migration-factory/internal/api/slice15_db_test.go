@@ -9,7 +9,7 @@ import (
 )
 
 // Database tests for slice 15: configured control-total tolerances (FR-49.2, decision D2). They skip
-// without PASSAGE_TEST_DATABASE_URL and run as passage_app when PASSAGE_TEST_APP_DATABASE_URL is set.
+// without DEPOT_TEST_DATABASE_URL and run as depot_app when DEPOT_TEST_APP_DATABASE_URL is set.
 
 const tolerancesPath = "/api/v1/migration/tolerances"
 
@@ -58,10 +58,10 @@ func TestTolerance_ConfigureVersionAndReplay(t *testing.T) {
 		t.Fatalf("update: %d %s", code, body)
 	}
 	// Two audit events, in the same transaction as the writes; the second records the previous amount.
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.migration.tolerance.configured.v1' and tenant_id = $1`, tenantA); n != 2 {
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.migration.tolerance.configured.v1' and tenant_id = $1`, tenantA); n != 2 {
 		t.Fatalf("outbox events = %d", n)
 	}
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.migration.tolerance.configured.v1' and payload->'data'->>'previous_amount' = '0.05'`); n != 1 {
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.migration.tolerance.configured.v1' and payload->'data'->>'previous_amount' = '0.05'`); n != 1 {
 		t.Fatalf("events with the previous amount = %d", n)
 	}
 	// Tolerances are per tenant.
@@ -85,7 +85,7 @@ func TestTolerance_LetsARunWithADeltaReconcile(t *testing.T) {
 	if first.Code != http.StatusCreated {
 		t.Fatalf("first run: %d %s", first.Code, first.Body)
 	}
-	// The legacy system now reports OI-00000 at 10.30, Passage holds 10.25 from the first load.
+	// The legacy system now reports OI-00000 at 10.30, Depot holds 10.25 from the first load.
 	changed := strings.Replace(openItemsBody(3), `"legacyId":"OI-00000","party":"V001","account":"2100","currency":"USD","amount":"10.25"`, `"legacyId":"OI-00000","party":"V001","account":"2100","currency":"USD","amount":"10.30"`, 1)
 	run := decode[runDetailDTO](t, do(t, h, request{method: "POST", path: runsPath, tenant: tenantA, duties: allDuties, user: "e", body: changed}))
 	if run.Status != "LOADED" {

@@ -9,7 +9,7 @@ import { canInsertDraft, GENERATED_BADGE, isCopilotMode, toolCallLabel } from ".
 const answer: ChatResponse = {
   answer: "Revenue was 1,200.00 USD in October, against 1,050.00 in September.",
   citations: [{ sourceType: "METRIC", sourceRef: "revenue", label: "Revenue, 2026-10 vs 2026-09" }],
-  toolCalls: [{ tool: "passage.ledger.journal.get", status: "OK" }],
+  toolCalls: [{ tool: "depot.ledger.journal.get", status: "OK" }],
   refusal: null,
   generated: true,
 };
@@ -24,8 +24,8 @@ describe("copilot domain rules", () => {
   it("recognises the four modes and labels tool calls with their code", () => {
     expect(isCopilotMode("explain")).toBe(true);
     expect(isCopilotMode("delete")).toBe(false);
-    expect(toolCallLabel({ tool: "passage.ap.invoice.post", status: "DENIED", code: "AGT-0203" })).toBe(
-      "passage.ap.invoice.post: DENIED (AGT-0203)",
+    expect(toolCallLabel({ tool: "depot.ap.invoice.post", status: "DENIED", code: "AGT-0203" })).toBe(
+      "depot.ap.invoice.post: DENIED (AGT-0203)",
     );
   });
 });
@@ -41,7 +41,7 @@ describe("CopilotPanel", () => {
     expect(ask).toHaveBeenCalledWith({ mode: "ask", message: "what was revenue last month vs the month before" }, expect.any(Function));
     expect(await screen.findByRole("article", { name: "Copilot answer" })).toHaveTextContent(answer.answer);
     expect(screen.getByText(GENERATED_BADGE)).toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "Tool calls" })).toHaveTextContent("passage.ledger.journal.get: OK");
+    expect(screen.getByRole("list", { name: "Tool calls" })).toHaveTextContent("depot.ledger.journal.get: OK");
     expect(screen.getByRole("list", { name: "Citations" })).toHaveTextContent("Revenue, 2026-10 vs 2026-09");
     expect(screen.queryByText("No answer yet")).toBeNull();
     expect(pageViolations()).toEqual([]);
@@ -76,8 +76,8 @@ describe("CopilotPanel", () => {
       ...answer,
       answer: "",
       citations: [],
-      toolCalls: [{ tool: "passage.ap.invoice.post", status: "DENIED", code: "AGT-0203" }],
-      refusal: { code: "AGT-0203", message: "I cannot do that: you do not hold duty APInvoicePost required by passage.ap.invoice.post." },
+      toolCalls: [{ tool: "depot.ap.invoice.post", status: "DENIED", code: "AGT-0203" }],
+      refusal: { code: "AGT-0203", message: "I cannot do that: you do not hold duty APInvoicePost required by depot.ap.invoice.post." },
     };
     render(<CopilotPanel ask={async () => refusal} onInsertDraft={vi.fn()} initialMode="draft" />);
     const user = userEvent.setup();

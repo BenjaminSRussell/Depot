@@ -87,7 +87,7 @@ class WorkloadIdentityTests(unittest.TestCase):
                 self.assertTrue(pods, svc)
                 for d in pods:
                     self.assertIn('azure.workload.identity/use: "true"', d)
-                    self.assertRegex(d, rf"serviceAccountName: passage-{re.escape(svc)}\b")
+                    self.assertRegex(d, rf"serviceAccountName: depot-{re.escape(svc)}\b")
                 sa = [d for d in docs(render(chart, f"global.workloadIdentity.fieldcryptClientId={CLIENT}")) if re.search(r"^kind: ServiceAccount$", d, re.M)][0]
                 self.assertIn(f'azure.workload.identity/client-id: "{CLIENT}"', sa)
 

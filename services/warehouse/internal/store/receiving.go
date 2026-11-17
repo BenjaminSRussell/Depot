@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/domain"
-	evts "github.com/BenjaminSRussell/passage/services/warehouse/internal/events"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/domain"
+	evts "github.com/BenjaminSRussell/depot/services/warehouse/internal/events"
 )
 
 // putAwayWorkType is the work type of the put-away work a received pallet

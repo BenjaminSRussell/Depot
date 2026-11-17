@@ -1,4 +1,4 @@
--- Wave 36 (PSG-36) FR-36.12: EBICS H004 subscribers. A subscriber is one user at one bank for one bank
+-- Wave 36 (DPT-36) FR-36.12: EBICS H004 subscribers. A subscriber is one user at one bank for one bank
 -- account. Only the names of the Vault keys and the bank's public keys are stored; no private key is.
 -- READY needs the bank key hashes to have been confirmed by a named person other than the one who downloaded
 -- them, and both transit key versions pinned. The key names are not chosen by callers: the table only accepts
@@ -44,11 +44,11 @@ create table ebics_subscriber (
 alter table ebics_subscriber enable row level security;
 alter table ebics_subscriber force row level security;
 create policy ebics_subscriber_tenant_access on ebics_subscriber as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy ebics_subscriber_legal_entity_scope on ebics_subscriber as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Append-only record of who unparked a subscriber and when, written in the same transaction as the unpark.
 create table ebics_subscriber_audit (
@@ -68,17 +68,17 @@ create index ix_ebics_subscriber_audit_subscriber on ebics_subscriber_audit (ten
 alter table ebics_subscriber_audit enable row level security;
 alter table ebics_subscriber_audit force row level security;
 create policy ebics_subscriber_audit_tenant_access on ebics_subscriber_audit as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy ebics_subscriber_audit_legal_entity_scope on ebics_subscriber_audit as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ebics_subscriber TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON ebics_subscriber_audit TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ebics_subscriber TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON ebics_subscriber_audit TO depot_app';
   END IF;
 END
 $$;

@@ -1,72 +1,72 @@
 asyncapi: 3.0.0
 info:
-  title: Passage EDI events
+  title: Depot EDI events
   version: 0.1.0
   description: Events published by the edi service through the transactional outbox (CloudEvents 1.0).
 defaultContentType: application/cloudevents+json
 channels:
   messageReceived:
-    address: passage.edi.message
+    address: depot.edi.message
     messages:
       messageReceived:
         $ref: '#/components/messages/MessageReceived'
   messageAcked:
-    address: passage.edi.message
+    address: depot.edi.message
     messages:
       messageAcked:
         $ref: '#/components/messages/MessageAcked'
   messageFailed:
-    address: passage.edi.message
+    address: depot.edi.message
     messages:
       messageFailed:
         $ref: '#/components/messages/MessageFailed'
   messageSent:
-    address: passage.edi.message
+    address: depot.edi.message
     messages:
       messageSent:
         $ref: '#/components/messages/MessageSent'
   messagePosted:
-    address: passage.edi.message
+    address: depot.edi.message
     messages:
       messagePosted:
         $ref: '#/components/messages/MessagePosted'
   deliveryFailed:
-    address: passage.edi.delivery
+    address: depot.edi.delivery
     messages:
       deliveryFailed:
         $ref: '#/components/messages/DeliveryFailed'
   eInvoiceSubmitted:
-    address: passage.edi.einvoice
+    address: depot.edi.einvoice
     messages:
       eInvoiceSubmitted:
         $ref: '#/components/messages/EInvoiceSubmitted'
   eInvoiceAccepted:
-    address: passage.edi.einvoice
+    address: depot.edi.einvoice
     messages:
       eInvoiceAccepted:
         $ref: '#/components/messages/EInvoiceAccepted'
   eInvoiceRejected:
-    address: passage.edi.einvoice
+    address: depot.edi.einvoice
     messages:
       eInvoiceRejected:
         $ref: '#/components/messages/EInvoiceRejected'
   punchoutReturned:
-    address: passage.edi.punchout
+    address: depot.edi.punchout
     messages:
       punchoutReturned:
         $ref: '#/components/messages/PunchoutReturned'
   selfBillingReconciled:
-    address: passage.edi.selfbilling
+    address: depot.edi.selfbilling
     messages:
       selfBillingReconciled:
         $ref: '#/components/messages/SelfBillingReconciled'
   disputeOpened:
-    address: passage.edi.dispute
+    address: depot.edi.dispute
     messages:
       disputeOpened:
         $ref: '#/components/messages/DisputeOpened'
   disputeResolved:
-    address: passage.edi.dispute
+    address: depot.edi.dispute
     messages:
       disputeResolved:
         $ref: '#/components/messages/DisputeResolved'
@@ -126,13 +126,13 @@ operations:
 components:
   messages:
     MessageReceived:
-      name: dev.passage.edi.message.received.v1
+      name: dev.depot.edi.message.received.v1
       contentType: application/cloudevents+json
       payload:
         type: object
         required: [type, source, id, tenantid, data]
         properties:
-          type: { const: dev.passage.edi.message.received.v1 }
+          type: { const: dev.depot.edi.message.received.v1 }
           source: { const: edi }
           id: { type: string, format: uuid }
           tenantid: { type: string, format: uuid }
@@ -151,13 +151,13 @@ components:
               status: { type: string, enum: [RECEIVED, MAPPED, POSTED, FAILED, SENT, ACKED] }
               canonical_ref: { type: string }
     MessageAcked:
-      name: dev.passage.edi.message.acked.v1
+      name: dev.depot.edi.message.acked.v1
       contentType: application/cloudevents+json
       payload:
         type: object
         required: [type, source, id, tenantid, data]
         properties:
-          type: { const: dev.passage.edi.message.acked.v1 }
+          type: { const: dev.depot.edi.message.acked.v1 }
           source: { const: edi }
           id: { type: string, format: uuid }
           tenantid: { type: string, format: uuid }
@@ -175,13 +175,13 @@ components:
               ack_status: { type: string, enum: [ACCEPTED, ACCEPTED_WITH_ERRORS, REJECTED] }
               ack_message_id: { type: string, format: uuid, description: the received 997 or CONTRL message }
     MessageFailed:
-      name: dev.passage.edi.message.failed.v1
+      name: dev.depot.edi.message.failed.v1
       contentType: application/cloudevents+json
       payload:
         type: object
         required: [type, source, id, tenantid, data]
         properties:
-          type: { const: dev.passage.edi.message.failed.v1 }
+          type: { const: dev.depot.edi.message.failed.v1 }
           source: { const: edi }
           id: { type: string, format: uuid }
           tenantid: { type: string, format: uuid }
@@ -199,13 +199,13 @@ components:
               error: { type: string, description: catalog code and detail of the failing rule }
               reprocessed: { type: boolean, description: true when a reprocess produced this failure }
     MessagePosted:
-      name: dev.passage.edi.message.posted.v1
+      name: dev.depot.edi.message.posted.v1
       contentType: application/cloudevents+json
       payload:
         type: object
         required: [type, source, id, tenantid, data]
         properties:
-          type: { const: dev.passage.edi.message.posted.v1 }
+          type: { const: dev.depot.edi.message.posted.v1 }
           source: { const: edi }
           id: { type: string, format: uuid }
           tenantid: { type: string, format: uuid }
@@ -222,13 +222,13 @@ components:
               st_control: { type: string }
               sales_order_id: { type: string, format: uuid, description: the sales order the message became }
     MessageSent:
-      name: dev.passage.edi.message.sent.v1
+      name: dev.depot.edi.message.sent.v1
       contentType: application/cloudevents+json
       payload:
         type: object
         required: [type, source, id, tenantid, data]
         properties:
-          type: { const: dev.passage.edi.message.sent.v1 }
+          type: { const: dev.depot.edi.message.sent.v1 }
           source: { const: edi }
           id: { type: string, format: uuid }
           tenantid: { type: string, format: uuid }
@@ -247,13 +247,13 @@ components:
               delivery_id: { type: string, format: uuid }
               transport_message_id: { type: string, description: The delivery message id (the AS2 Message-ID without angle brackets) }
     DeliveryFailed:
-      name: dev.passage.edi.delivery.failed.v1
+      name: dev.depot.edi.delivery.failed.v1
       contentType: application/cloudevents+json
       payload:
         type: object
         required: [type, source, id, tenantid, data]
         properties:
-          type: { const: dev.passage.edi.delivery.failed.v1 }
+          type: { const: dev.depot.edi.delivery.failed.v1 }
           source: { const: edi }
           id: { type: string, format: uuid }
           tenantid: { type: string, format: uuid }
@@ -273,13 +273,13 @@ components:
               mdn_timeout: { type: boolean, description: true when the last wait for an asynchronous MDN ran out }
               error: { type: string, description: the last failure recorded on the delivery }
     EInvoiceSubmitted:
-      name: dev.passage.edi.einvoice.submitted.v1
+      name: dev.depot.edi.einvoice.submitted.v1
       contentType: application/cloudevents+json
       payload:
         type: object
         required: [type, source, id, tenantid, data]
         properties:
-          type: { const: dev.passage.edi.einvoice.submitted.v1 }
+          type: { const: dev.depot.edi.einvoice.submitted.v1 }
           source: { const: edi }
           id: { type: string, format: uuid }
           tenantid: { type: string, format: uuid }
@@ -295,13 +295,13 @@ components:
               reference: { type: string, description: the network's submission reference }
               reason: { type: string, description: the network's rejection text }
     EInvoiceAccepted:
-      name: dev.passage.edi.einvoice.accepted.v1
+      name: dev.depot.edi.einvoice.accepted.v1
       contentType: application/cloudevents+json
       payload:
         type: object
         required: [type, source, id, tenantid, data]
         properties:
-          type: { const: dev.passage.edi.einvoice.accepted.v1 }
+          type: { const: dev.depot.edi.einvoice.accepted.v1 }
           source: { const: edi }
           id: { type: string, format: uuid }
           tenantid: { type: string, format: uuid }
@@ -317,13 +317,13 @@ components:
               reference: { type: string, description: the network's submission reference }
               reason: { type: string, description: the network's rejection text }
     EInvoiceRejected:
-      name: dev.passage.edi.einvoice.rejected.v1
+      name: dev.depot.edi.einvoice.rejected.v1
       contentType: application/cloudevents+json
       payload:
         type: object
         required: [type, source, id, tenantid, data]
         properties:
-          type: { const: dev.passage.edi.einvoice.rejected.v1 }
+          type: { const: dev.depot.edi.einvoice.rejected.v1 }
           source: { const: edi }
           id: { type: string, format: uuid }
           tenantid: { type: string, format: uuid }
@@ -339,13 +339,13 @@ components:
               reference: { type: string, description: the network's submission reference }
               reason: { type: string, description: the network's rejection text }
     PunchoutReturned:
-      name: dev.passage.edi.punchout.returned.v1
+      name: dev.depot.edi.punchout.returned.v1
       contentType: application/cloudevents+json
       payload:
         type: object
         required: [type, source, id, tenantid, data]
         properties:
-          type: { const: dev.passage.edi.punchout.returned.v1 }
+          type: { const: dev.depot.edi.punchout.returned.v1 }
           source: { const: edi }
           id: { type: string, format: uuid }
           tenantid: { type: string, format: uuid }
@@ -376,13 +376,13 @@ components:
                     catalog: { type: boolean, description: always true, the line comes from a supplier catalog }
                     needs_approval: { type: boolean }
     SelfBillingReconciled:
-      name: dev.passage.edi.selfbilling.reconciled.v1
+      name: dev.depot.edi.selfbilling.reconciled.v1
       contentType: application/cloudevents+json
       payload:
         type: object
         required: [type, source, id, tenantid, data]
         properties:
-          type: { const: dev.passage.edi.selfbilling.reconciled.v1 }
+          type: { const: dev.depot.edi.selfbilling.reconciled.v1 }
           source: { const: edi }
           id: { type: string, format: uuid }
           tenantid: { type: string, format: uuid }
@@ -398,13 +398,13 @@ components:
               matched_lines: { type: integer }
               disputed_lines: { type: integer }
     DisputeOpened:
-      name: dev.passage.edi.dispute.opened.v1
+      name: dev.depot.edi.dispute.opened.v1
       contentType: application/cloudevents+json
       payload:
         type: object
         required: [type, source, id, tenantid, data]
         properties:
-          type: { const: dev.passage.edi.dispute.opened.v1 }
+          type: { const: dev.depot.edi.dispute.opened.v1 }
           source: { const: edi }
           id: { type: string, format: uuid }
           tenantid: { type: string, format: uuid }
@@ -423,13 +423,13 @@ components:
               detail: { type: string }
               decision: { type: string, enum: [ACCEPTED, REJECTED], description: set on dispute.resolved }
     DisputeResolved:
-      name: dev.passage.edi.dispute.resolved.v1
+      name: dev.depot.edi.dispute.resolved.v1
       contentType: application/cloudevents+json
       payload:
         type: object
         required: [type, source, id, tenantid, data]
         properties:
-          type: { const: dev.passage.edi.dispute.resolved.v1 }
+          type: { const: dev.depot.edi.dispute.resolved.v1 }
           source: { const: edi }
           id: { type: string, format: uuid }
           tenantid: { type: string, format: uuid }

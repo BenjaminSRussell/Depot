@@ -16,12 +16,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/api"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/connector"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/egress"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/api"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/connector"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/egress"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
 )
 
 const (
@@ -197,7 +197,7 @@ func TestBindings_CreateValidationAndDuties(t *testing.T) {
 			t.Errorf("patch %s = %d %s", payload, rec.Code, rec.Body)
 		}
 	}
-	if rec := do(r, http.MethodPost, bindPath, fileBindingJSON(file.ID), connWrite, true, "X-Passage-Legal-Entity", testkit.TenantID(7)); rec.Code != http.StatusForbidden {
+	if rec := do(r, http.MethodPost, bindPath, fileBindingJSON(file.ID), connWrite, true, "X-Depot-Legal-Entity", testkit.TenantID(7)); rec.Code != http.StatusForbidden {
 		t.Fatalf("legal-entity-scoped caller = %d", rec.Code)
 	}
 	// A disabled profile takes no new binding.

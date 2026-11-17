@@ -6,8 +6,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
 )
 
 func agreement(tiers ...domain.Tier) domain.RebateAgreement {
@@ -62,7 +62,7 @@ func TestPostgres_RebateAccrual(t *testing.T) {
 	}
 
 	events := outboxRows(t, ctx, pool)
-	if len(events) != 1 || events[0].Type != "dev.passage.pricing.rebateaccrual.posted.v1" {
+	if len(events) != 1 || events[0].Type != "dev.depot.pricing.rebateaccrual.posted.v1" {
 		t.Fatalf("events = %+v; want one rebateaccrual.posted", events)
 	}
 	d := events[0].Data

@@ -1,5 +1,5 @@
 -- Migration factory, wave 49 slice 3 (FR-49.9): the re-keying export of a rollback. When a
--- cutover rolls back, the Passage postings made since T-0 are kept as journal and document lines
+-- cutover rolls back, the Depot postings made since T-0 are kept as journal and document lines
 -- for re-keying in the legacy system, retained with the plan "until re-keyed and reconciled"
 -- (9.49.15). Lines are write-once; the plan carries the counts.
 
@@ -30,16 +30,16 @@ create table rekey_line (
 alter table rekey_line enable row level security;
 alter table rekey_line force row level security;
 create policy rekey_line_tenant_access on rekey_line as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Application role privileges. Re-keying lines are insert-only; the counts on cutover_plan are
 -- written by the rollback's existing UPDATE grant. Skipped when the role does not exist.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT ON rekey_line TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT ON rekey_line TO depot_app';
   END IF;
 END
 $$;

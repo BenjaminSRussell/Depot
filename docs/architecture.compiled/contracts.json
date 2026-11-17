@@ -36,7 +36,7 @@
       "mustContain": [],
       "mustNotContain": [],
       "mustMatch": [
-        "dev\\.passage\\.[a-z]+\\.[a-z0-9]+\\.[a-z0-9]+\\.v[0-9]+"
+        "dev\\.depot\\.[a-z]+\\.[a-z0-9]+\\.[a-z0-9]+\\.v[0-9]+"
       ],
       "source": "components/eventing-backbone.md#Interfaces"
     },
@@ -47,7 +47,7 @@
       "mustContain": [],
       "mustNotContain": [],
       "mustMatch": [
-        "passage\\.[a-z]+\\.[a-z]+"
+        "depot\\.[a-z]+\\.[a-z]+"
       ],
       "source": "components/eventing-backbone.md#Interfaces"
     },
@@ -113,7 +113,7 @@
       "kind": "auth",
       "severity": "blocker",
       "mustContain": [
-        "passage-api",
+        "depot-api",
         "RS256"
       ],
       "mustNotContain": [],
@@ -125,7 +125,7 @@
       "kind": "auth",
       "severity": "blocker",
       "mustContain": [
-        "x-passage-duty"
+        "x-depot-duty"
       ],
       "mustNotContain": [],
       "mustMatch": [],
@@ -138,7 +138,7 @@
       "mustContain": [],
       "mustNotContain": [],
       "mustMatch": [
-        "passage[./]authz"
+        "depot[./]authz"
       ],
       "source": "components/platform-kernel.md#Interfaces"
     },
@@ -158,9 +158,9 @@
       "kind": "auth",
       "severity": "major",
       "mustContain": [
-        "X-Passage-Subject-Token",
-        "Passage-Legal-Entity",
-        "X-Passage-Tenant"
+        "X-Depot-Subject-Token",
+        "Depot-Legal-Entity",
+        "X-Depot-Tenant"
       ],
       "mustNotContain": [],
       "mustMatch": [],
@@ -171,8 +171,8 @@
       "kind": "other",
       "severity": "blocker",
       "mustContain": [
-        "passage.tenant_id",
-        "passage.legal_entity_scopes"
+        "depot.tenant_id",
+        "depot.legal_entity_scopes"
       ],
       "mustNotContain": [
         "app.tenant_id"
@@ -288,7 +288,7 @@
       "severity": "major",
       "mustContain": [
         "audit_event",
-        "passage_export_rows_total"
+        "depot_export_rows_total"
       ],
       "mustNotContain": [],
       "mustMatch": [],
@@ -811,7 +811,7 @@
       "kind": "other",
       "severity": "major",
       "mustContain": [
-        "X-Passage-Signature",
+        "X-Depot-Signature",
         "HMAC"
       ],
       "mustNotContain": [],
@@ -889,8 +889,8 @@
       "kind": "auth",
       "severity": "blocker",
       "mustContain": [
-        "__Host-passage_sid",
-        "X-Passage-CSRF",
+        "__Host-depot_sid",
+        "X-Depot-CSRF",
         "HttpOnly",
         "SameSite"
       ],

@@ -49,7 +49,7 @@ function send(res: ServerResponse, status: number, body: unknown, headers: Recor
 }
 
 function problem(res: ServerResponse, status: number, code: string, detail: string): void {
-  send(res, status, { type: `https://passage.dev/problems/${code}`, title: detail, status, code, detail });
+  send(res, status, { type: `https://depot.dev/problems/${code}`, title: detail, status, code, detail });
 }
 
 class BodyRefused extends Error {
@@ -146,7 +146,7 @@ export function createHttpServer(deps: ServerDeps): Server {
   }
 
   async function call(token: string, method: "GET" | "POST", target: URL, extra: Record<string, string>, body?: string): Promise<Response> {
-    const headers: Record<string, string> = { "x-passage-service-token": token, accept: "application/json", ...extra };
+    const headers: Record<string, string> = { "x-depot-service-token": token, accept: "application/json", ...extra };
     return deps.fetcher(target.toString(), { method, headers, ...(body !== undefined ? { body } : {}), signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
   }
 

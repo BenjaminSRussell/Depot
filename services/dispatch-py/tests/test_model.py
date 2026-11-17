@@ -2,7 +2,7 @@
 
 import pytest
 
-from passage_dispatch import Assignment, Problem, Technician, WorkOrder, plan_violations
+from depot_dispatch import Assignment, Problem, Technician, WorkOrder, plan_violations
 
 TRAVEL = ((0, 10), (10, 0))  # two locations, 10 minutes apart
 

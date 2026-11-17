@@ -1,16 +1,16 @@
 # PHI field inventory: HR, payroll, expense and field service
 
-Reviewed for the HIPAA overlay (#606, acceptance criteria 2 and 3). It lists every column in `services/hr`, `services/payroll`, `services/expense` and `services/fieldservice` that holds, or can be made to hold, protected health information (PHI), says how Passage protects it today and what is still to do. A test (`services/metadata/internal/phiinventory`) parses the table below and fails when a column it lists is not in the service's migrations, or when a row that claims a value is sealed names a column that is not `bytea`, so this review cannot rot.
+Reviewed for the HIPAA overlay (#606, acceptance criteria 2 and 3). It lists every column in `services/hr`, `services/payroll`, `services/expense` and `services/fieldservice` that holds, or can be made to hold, protected health information (PHI), says how Depot protects it today and what is still to do. A test (`services/metadata/internal/phiinventory`) parses the table below and fails when a column it lists is not in the service's migrations, or when a row that claims a value is sealed names a column that is not `bytea`, so this review cannot rot.
 
 ## How to read it
 
 Decisions:
 
 - `phi`: the column holds health information about an identifiable person (a health-plan election, an injury or illness, a health-plan deduction). It must be tagged `phi: true` and `encrypted: true` in the entity metadata (`services/metadata`, MET-0010) once the table is modelled there, and a read that returns it is written to the PHI read-access log (`services/audit`, `POST /v1/audit/reads`).
-- `free text`: a free-text, JSON or binary column that Passage does not classify but that a customer (a hospital system, a clinic, a health plan, a medical device maker) may fill with health data. The control is not a column tag: it is the customer notice below, the tenant row-level security, and the ability to seal or mask the column on request.
+- `free text`: a free-text, JSON or binary column that Depot does not classify but that a customer (a hospital system, a clinic, a health plan, a medical device maker) may fill with health data. The control is not a column tag: it is the customer notice below, the tenant row-level security, and the ability to seal or mask the column on request.
 - `not phi`: reviewed and does not hold health information (identifiers, codes, catalogue data, amounts). Some of these are other PII (for example HR national id) and are protected as PII.
 
-HIPAA exempts employment records that a covered entity holds in its role as employer. Passage still classifies them as `phi`, because a customer's HR data is the place where a health-plan election, a medical leave or an injury report sits next to a name, and the overlay must not depend on the customer's legal role.
+HIPAA exempts employment records that a covered entity holds in its role as employer. Depot still classifies them as `phi`, because a customer's HR data is the place where a health-plan election, a medical leave or an injury report sits next to a name, and the overlay must not depend on the customer's legal role.
 
 Protection today, for every row below unless the row says more: every table has `tenant_id` and `FORCE ROW LEVEL SECURITY`; tables that carry `legal_entity_id` also have a legal-entity scope policy; routes are gated by duties (`policies/authz/data.json`). Storage and transport encryption are platform controls, not column controls; they belong to the safeguard matrix in `docs/ops/hipaa.md`. A row that says "Sealed" is stored as a `platform/go/fieldcrypt` envelope, per tenant and field.
 
@@ -85,12 +85,12 @@ Protection today, for every row below unless the row says more: every table has 
 | fieldservice | `service_agreement_visit.note` | free text | As `service_work_order.technician_note`. | Customer notice (below). |
 | fieldservice | `service_wo_action.reason` | free text | As `service_work_order.technician_note`. | Customer notice (below). |
 | fieldservice | `service_activity.subject` | free text | Row-level security. Plaintext. | Customer notice (below). |
-| fieldservice | `service_object.serial` | not phi | A device serial number. For an implanted or home medical device it can be linked to a patient outside Passage. | None. Do not put a patient name in an asset record. |
+| fieldservice | `service_object.serial` | not phi | A device serial number. For an implanted or home medical device it can be linked to a patient outside Depot. | None. Do not put a patient name in an asset record. |
 | fieldservice | `service_kb_article.symptom` | not phi | Knowledge article about a product, written once for all customers; no person. | None. |
 
 ## Customer notice for free text
 
-The `free text` rows are the customer's to keep clean. Passage does not scan free text for PHI (the agent service refuses to send `phi`-tagged values to a model, but it cannot tag what it cannot see). The BAA and the customer guide (`docs/ops/hipaa.md`) tell a covered entity or business associate to keep health details out of these fields, and to use the sealed incident details, the benefits module and the attachment store that carries the overlay's controls instead. A tenant that cannot rely on that asks for a column to be sealed or masked: that is a per-column migration, listed in the Action column.
+The `free text` rows are the customer's to keep clean. Depot does not scan free text for PHI (the agent service refuses to send `phi`-tagged values to a model, but it cannot tag what it cannot see). The BAA and the customer guide (`docs/ops/hipaa.md`) tell a covered entity or business associate to keep health details out of these fields, and to use the sealed incident details, the benefits module and the attachment store that carries the overlay's controls instead. A tenant that cannot rely on that asks for a column to be sealed or masked: that is a per-column migration, listed in the Action column.
 
 ## Keeping this current
 

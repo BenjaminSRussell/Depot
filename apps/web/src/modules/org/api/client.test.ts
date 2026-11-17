@@ -21,16 +21,16 @@ describe("orgFetch", () => {
     const fetchMock = stubFetch(respond({ ok: true }));
     await orgFetch("/sites", {}, "le-1");
     expect(fetchMock.mock.calls[0][0]).toBe("/api/v1/org/sites");
-    expect(headersOf(fetchMock.mock.calls[0]).get("X-Passage-LegalEntity")).toBe("le-1");
-    expect(headersOf(fetchMock.mock.calls[0]).get("X-Passage-LegalEntity-Scope")).toBeNull();
+    expect(headersOf(fetchMock.mock.calls[0]).get("X-Depot-LegalEntity")).toBe("le-1");
+    expect(headersOf(fetchMock.mock.calls[0]).get("X-Depot-LegalEntity-Scope")).toBeNull();
   });
 
   it("sends only the scope marker for ALL on GET", async () => {
     const fetchMock = stubFetch(respond({}));
     await orgFetch("/sites", {}, "ALL");
     const headers = headersOf(fetchMock.mock.calls[0]);
-    expect(headers.get("X-Passage-LegalEntity")).toBeNull();
-    expect(headers.get("X-Passage-LegalEntity-Scope")).toBe("ALL");
+    expect(headers.get("X-Depot-LegalEntity")).toBeNull();
+    expect(headers.get("X-Depot-LegalEntity-Scope")).toBe("ALL");
   });
 
   it.each(["POST", "PATCH", "DELETE"])("refuses ALL on %s without calling fetch", async (method) => {

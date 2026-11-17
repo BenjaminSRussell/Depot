@@ -1,13 +1,13 @@
 -- Agent runtime: persisted runs, the per-action audit trail (AC-47.3), per-tenant
 -- token budgets (AC-47.4) and the transactional outbox. Every table carries
 -- tenant_id with ENABLE + FORCE row-level security and the tenant policy.
--- Migrations must run as the owner role: run as passage_app, the application
+-- Migrations must run as the owner role: run as depot_app, the application
 -- role would own the tables and could switch row-level security off.
 
 DO $do$
 BEGIN
-  IF current_user = 'passage_app' THEN
-    RAISE EXCEPTION 'agents migrations must run as the owner role, not passage_app';
+  IF current_user = 'depot_app' THEN
+    RAISE EXCEPTION 'agents migrations must run as the owner role, not depot_app';
   END IF;
 END
 $do$;
@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS agent_run (
 ALTER TABLE agent_run ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_run FORCE ROW LEVEL SECURITY;
 CREATE POLICY agent_run_tenant_access ON agent_run AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE OR REPLACE FUNCTION agent_run_guard() RETURNS trigger LANGUAGE plpgsql AS $guard$
 BEGIN
@@ -70,8 +70,8 @@ CREATE TABLE IF NOT EXISTS agent_action (
 ALTER TABLE agent_action ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_action FORCE ROW LEVEL SECURITY;
 CREATE POLICY agent_action_tenant_access ON agent_action AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- FR-47.11: one budget per tenant per month. Rows are created lazily from the
 -- configured default; agent attribution lives on the holds, not the budget.
@@ -90,8 +90,8 @@ CREATE TABLE IF NOT EXISTS token_budget (
 ALTER TABLE token_budget ENABLE ROW LEVEL SECURITY;
 ALTER TABLE token_budget FORCE ROW LEVEL SECURITY;
 CREATE POLICY token_budget_tenant_access ON token_budget AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- A hold is the tokens a run may still spend on its model call. reserved = the sum of live
 -- holds; a run settles it right after the call, and a hold whose worker died is swept and
@@ -112,8 +112,8 @@ CREATE INDEX IF NOT EXISTS budget_hold_expiry ON budget_hold (tenant_id, expires
 ALTER TABLE budget_hold ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budget_hold FORCE ROW LEVEL SECURITY;
 CREATE POLICY budget_hold_tenant_access ON budget_hold AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Transactional outbox, relayed by Debezium (kernel dbx.OutboxDDL), tenant-scoped like every table.
 CREATE TABLE IF NOT EXISTS outbox (
@@ -128,20 +128,20 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Application role privileges (skipped when the role does not exist: developer
 -- databases without the role split). Action rows are never updated or deleted.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON agent_run TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON agent_action TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON token_budget TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON budget_hold TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON outbox TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON agent_run TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON agent_action TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON token_budget TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON budget_hold TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON outbox TO depot_app';
   END IF;
 END
 $$;

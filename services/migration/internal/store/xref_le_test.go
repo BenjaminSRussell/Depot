@@ -9,14 +9,14 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/testdb"
-	"github.com/BenjaminSRussell/passage/services/migration/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/testdb"
+	"github.com/BenjaminSRussell/depot/services/migration/migrations"
 )
 
 const leB2 = "00000000-0000-7000-8000-0000000000b2"
@@ -49,7 +49,7 @@ func exerciseXrefLegalEntity(t *testing.T, s store.Store) {
 	partyDef := strings.Replace(outboundDefJSON, `"subject":{"entity":"salesOrder"`, `"subject":{"entity":"party"`, 1)
 	partyMap := outboundIn("Parties")
 	partyMap.Definition = []byte(partyDef)
-	partyMap.EventType = "dev.passage.sales.order.*.v1"
+	partyMap.EventType = "dev.depot.sales.order.*.v1"
 	pm, _, err := s.SaveOutboundMapping(admin, partyMap, "")
 	if err != nil {
 		t.Fatal(err)

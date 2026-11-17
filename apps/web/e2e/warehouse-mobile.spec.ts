@@ -46,19 +46,19 @@ test.describe.configure({ mode: "serial" });
 
 async function openDevice(page: Page, deviceId: string): Promise<void> {
   await page.addInitScript((id) => {
-    localStorage.setItem("passage.deviceId", id);
-    localStorage.setItem("passage.userId", "picker-1");
-    localStorage.setItem("passage.menuId", "default");
+    localStorage.setItem("depot.deviceId", id);
+    localStorage.setItem("depot.userId", "picker-1");
+    localStorage.setItem("depot.menuId", "default");
   }, deviceId);
   await page.goto("/device");
   await expect(page.getByRole("navigation", { name: "Flows" })).toBeVisible({ timeout: 30_000 });
 }
 
-/** Hardware scan: Zebra DataWedge intent forwarded as `passage:scan` (FR-32.10). */
+/** Hardware scan: Zebra DataWedge intent forwarded as `depot:scan` (FR-32.10). */
 async function scan(page: Page, raw: string): Promise<void> {
   await page.evaluate((value) => {
     window.dispatchEvent(
-      new CustomEvent("passage:scan", {
+      new CustomEvent("depot:scan", {
         detail: { source: "DATAWEDGE", extras: { "com.symbol.datawedge.data_string": value } },
       }),
     );

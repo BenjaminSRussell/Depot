@@ -9,9 +9,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	qevents "github.com/BenjaminSRussell/passage/services/quality/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	qevents "github.com/BenjaminSRussell/depot/services/quality/internal/events"
 )
 
 // pathBlocks splits the OpenAPI paths section into path -> its indented block.
@@ -62,8 +62,8 @@ func TestSpecs_MatchRoutes(t *testing.T) {
 			t.Errorf("openapi.yaml does not document %s %s", method, route)
 			return nil
 		}
-		if route != "/readyz" && !strings.Contains(block[at:], "x-passage-duty: quality.") {
-			t.Errorf("%s %s has no x-passage-duty", method, route)
+		if route != "/readyz" && !strings.Contains(block[at:], "x-depot-duty: quality.") {
+			t.Errorf("%s %s has no x-depot-duty", method, route)
 		}
 		return nil
 	})

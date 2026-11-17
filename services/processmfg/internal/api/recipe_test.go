@@ -9,11 +9,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/shopfloor"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/store"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/shopfloor"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/store"
 )
 
 func (f *fakeStore) PutRecipeTarget(_ context.Context, t store.RecipeTarget) (store.RecipeTarget, error) {

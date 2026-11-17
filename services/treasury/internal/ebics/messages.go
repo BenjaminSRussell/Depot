@@ -202,7 +202,7 @@ func initRequest(sub Subscriber, o orderSpec, nonceHex string, now time.Time, ba
 	}
 	return xmlDecl + `<ebicsRequest` + rootAttrs + `><header authenticate="true"><static><HostID>` + esc(sub.HostID) + `</HostID>` +
 		`<Nonce>` + nonceHex + `</Nonce><Timestamp>` + timestamp(now) + `</Timestamp><PartnerID>` + esc(sub.PartnerID) + `</PartnerID><UserID>` + esc(sub.UserID) + `</UserID>` +
-		`<Product Language="en">Passage Treasury</Product><OrderDetails><OrderType>` + o.Type + `</OrderType><OrderAttribute>` + o.Attribute + `</OrderAttribute>` + o.params() + `</OrderDetails>` +
+		`<Product Language="en">Depot Treasury</Product><OrderDetails><OrderType>` + o.Type + `</OrderType><OrderAttribute>` + o.Attribute + `</OrderAttribute>` + o.params() + `</OrderDetails>` +
 		digests(bankX002, bankE002) + `<SecurityMedium>0000</SecurityMedium>` + segs + `</static><mutable><TransactionPhase>Initialisation</TransactionPhase></mutable></header>` +
 		authMarker + `<body>` + body + `</body></ebicsRequest>`
 }

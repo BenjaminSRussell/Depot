@@ -29,11 +29,11 @@ CREATE INDEX IF NOT EXISTS standard_cost_activation_version
 ALTER TABLE standard_cost_activation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE standard_cost_activation FORCE ROW LEVEL SECURITY;
 CREATE POLICY standard_cost_activation_tenant_access ON standard_cost_activation AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY standard_cost_activation_legal_entity_scope ON standard_cost_activation AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS standard_cost_activation_attempt (
   tenant_id uuid NOT NULL,
@@ -49,19 +49,19 @@ CREATE TABLE IF NOT EXISTS standard_cost_activation_attempt (
 ALTER TABLE standard_cost_activation_attempt ENABLE ROW LEVEL SECURITY;
 ALTER TABLE standard_cost_activation_attempt FORCE ROW LEVEL SECURITY;
 CREATE POLICY standard_cost_activation_attempt_tenant_access ON standard_cost_activation_attempt AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY standard_cost_activation_attempt_legal_entity_scope ON standard_cost_activation_attempt AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON standard_cost_activation TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON standard_cost_activation_attempt TO passage_app';
-    EXECUTE 'GRANT UPDATE (attempted_ambiguous) ON standard_cost_activation_attempt TO passage_app';
-    EXECUTE 'GRANT SELECT ON cost_calculation TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON standard_cost_activation TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON standard_cost_activation_attempt TO depot_app';
+    EXECUTE 'GRANT UPDATE (attempted_ambiguous) ON standard_cost_activation_attempt TO depot_app';
+    EXECUTE 'GRANT SELECT ON cost_calculation TO depot_app';
   END IF;
 END
 $$;

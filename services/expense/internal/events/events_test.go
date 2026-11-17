@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	kevents "github.com/BenjaminSRussell/passage/platform/events"
+	kevents "github.com/BenjaminSRussell/depot/platform/events"
 )
 
 // Each published type follows the naming rule, and events/asyncapi.yaml declares it on
@@ -19,7 +19,7 @@ func TestEventsMatchAsyncAPI(t *testing.T) {
 	doc := string(spec)
 	for typ, payload := range map[string]any{PolicyViolated: PolicyViolatedData{}, CashAdvancePaid: CashAdvancePaidData{}} {
 		if !kevents.ValidType(typ) {
-			t.Fatalf("%s breaks dev.passage.<ctx>.<entity>.<verb>.v<n>", typ)
+			t.Fatalf("%s breaks dev.depot.<ctx>.<entity>.<verb>.v<n>", typ)
 		}
 		if !strings.Contains(doc, "name: "+typ) {
 			t.Errorf("asyncapi.yaml does not declare %s", typ)

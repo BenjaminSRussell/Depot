@@ -2,16 +2,16 @@
 // The contract is described in events/asyncapi.yaml.
 package events
 
-// Event types (dev.passage.<context>.<entity>.<verb>.v<n>).
+// Event types (dev.depot.<context>.<entity>.<verb>.v<n>).
 const (
 	// ContractAllocated is published when a revenue contract is created and its
 	// transaction price is allocated to obligations (FR-29.7).
-	ContractAllocated = "dev.passage.revrec.contract.allocated.v1"
+	ContractAllocated = "dev.depot.revrec.contract.allocated.v1"
 	// ScheduleRecognized is published when a deferred schedule line is
 	// recognized (Dr 2400 / Cr 4000): by a milestone satisfaction or by the
 	// period recognition run (FR-29.8). POINT_IN_TIME lines recognized at
 	// contract creation emit nothing: the invoice already credited 4000.
-	ScheduleRecognized = "dev.passage.revrec.schedule.recognized.v1"
+	ScheduleRecognized = "dev.depot.revrec.schedule.recognized.v1"
 )
 
 // ObligationAllocated is one obligation of contract.allocated.

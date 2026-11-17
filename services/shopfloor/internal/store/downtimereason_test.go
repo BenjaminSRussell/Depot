@@ -4,12 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
 )
 
-// FR-25.11 through Postgres as passage_app: while a tenant has no reason defined a downtime takes
+// FR-25.11 through Postgres as depot_app: while a tenant has no reason defined a downtime takes
 // free text; once it has, coding needs an existing active reason (SF-0158, SF-0159) whose category
 // the downtime takes (SF-0160 for another one); a reason is versioned (SF-0143), its code is unique
 // (SF-0142) and every save writes downtimereason.saved.
@@ -72,7 +72,7 @@ func TestDowntimeReason_MasterGuardsCoding(t *testing.T) {
 	if err != nil || err2 != nil || len(all) != 2 || len(active) != 1 || active[0].Code != "JAM" {
 		t.Fatalf("lists = %+v / %+v, %v %v", all, active, err, err2)
 	}
-	if n := countEvents(t, admin, tenantID, "dev.passage.shopfloor.downtimereason.saved.v1"); n != 3 {
+	if n := countEvents(t, admin, tenantID, "dev.depot.shopfloor.downtimereason.saved.v1"); n != 3 {
 		t.Fatalf("downtimereason.saved events = %d, want 3", n)
 	}
 }

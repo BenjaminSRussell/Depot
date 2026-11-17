@@ -28,7 +28,7 @@ const action = (runId: string, seq: number) =>
   buildActionRecord({
     runId,
     seq,
-    toolName: "passage.ap.invoice.propose_coding",
+    toolName: "depot.ap.invoice.propose_coding",
     inputRedacted: "{}",
     outputRedacted: "{}",
     approverUserId: null,
@@ -70,7 +70,7 @@ describe("eval report parsing (record-eval)", () => {
 describe.runIf(ownerUrl)("agent_version, eval_run and the partitioned agent_action in Postgres", () => {
   let fx: Fixture;
   let versions: PgVersionStore;
-  /** The eval pipeline records with the owner role; the pods read with passage_app. */
+  /** The eval pipeline records with the owner role; the pods read with depot_app. */
   let pipeline: PgVersionStore;
 
   beforeAll(async () => {
@@ -171,7 +171,7 @@ describe.runIf(ownerUrl)("agent_version, eval_run and the partitioned agent_acti
     // A run from a month the pods never prepared (the owner can set created_at; the application role cannot).
     await fx.owner.query("begin");
     try {
-      await fx.owner.query("select set_config('passage.tenant_id', $1, true)", [TENANT]);
+      await fx.owner.query("select set_config('depot.tenant_id', $1, true)", [TENANT]);
       await fx.owner.query(
         "insert into agent_run (tenant_id, run_id, agent_id, agent_version, invoker_user_id, status, tokens_in, tokens_out, estimated, created_at) values ($1, $2, 'ap_coding', 1, 'u', 'RUNNING', 0, 0, false, '2020-01-15T12:00:00Z')",
         [TENANT, runId],
@@ -269,7 +269,7 @@ describe.runIf(ownerUrl)("migration 0006 on a database with actions", () => {
       const c = await owner.connect();
       try {
         await c.query("begin");
-        await c.query("select set_config('passage.tenant_id', $1, true)", [TENANT]);
+        await c.query("select set_config('depot.tenant_id', $1, true)", [TENANT]);
         for (const [run, at] of [
           ["r-old", "2025-06-30T23:59:59Z"],
           ["r-new", new Date().toISOString()],
@@ -296,7 +296,7 @@ describe.runIf(ownerUrl)("migration 0006 on a database with actions", () => {
       const c2 = await owner.connect();
       try {
         await c2.query("begin");
-        await c2.query("select set_config('passage.tenant_id', $1, true)", [TENANT]);
+        await c2.query("select set_config('depot.tenant_id', $1, true)", [TENANT]);
         const moved = await c2.query("select run_id, seq, run_month::text, tableoid::regclass::text as part from agent_action order by run_id, seq");
         const month = new Date().toISOString().slice(0, 7);
         expect(moved.rows).toEqual([

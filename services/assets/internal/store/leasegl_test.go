@@ -7,9 +7,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/store"
 )
 
 func leaseReq(le, ledgerID, through string) store.LeaseGLPostRequest {
@@ -95,7 +95,7 @@ func TestLeaseGL_RecognitionAndPeriodsAreBookedInOrderAndClearTheLiability(t *te
 	if _, err := s.GetLeasePostings(ctx, ids.New()); problemCode(err) != store.CodeLeaseNotFound {
 		t.Fatalf("unknown lease: %v", err)
 	}
-	if types := outboxTypes(t, pool, ctx); types["dev.passage.assets.lease.posted.v1"] != 6 {
+	if types := outboxTypes(t, pool, ctx); types["dev.depot.assets.lease.posted.v1"] != 6 {
 		t.Fatalf("outbox = %v (one lease.posted per journal)", types)
 	}
 	_, err = s.ModifyLease(ctx, lease.ID, store.LeaseModificationInput{Version: lease.Version, EffectivePeriod: 3, PaymentAmount: d("12000")}, "mod-after-post")
@@ -301,7 +301,7 @@ func TestLeaseGL_ARequestOvertakenByAnotherReportsTheSameEntriesBooked(t *testin
 	if n := len(ledger.Entries()); n != 2 {
 		t.Fatalf("the ledger holds %d entries, want 2", n)
 	}
-	if types := outboxTypes(t, pool, ctx); types["dev.passage.assets.lease.posted.v1"] != 2 {
+	if types := outboxTypes(t, pool, ctx); types["dev.depot.assets.lease.posted.v1"] != 2 {
 		t.Fatalf("outbox = %v (one lease.posted per journal)", types)
 	}
 }

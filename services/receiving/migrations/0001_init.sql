@@ -87,17 +87,17 @@ BEGIN
   FOREACH t IN ARRAY ARRAY['receiving_receipt', 'receiving_receipt_line', 'receiving_serial', 'receiving_grir_open_item', 'idempotency_keys', 'outbox', 'consumer_inbox'] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
-    EXECUTE format('CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting(''passage.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)', t || '_tenant_access', t);
+    EXECUTE format('CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting(''depot.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)', t || '_tenant_access', t);
   END LOOP;
   FOREACH t IN ARRAY ARRAY['receiving_receipt', 'receiving_receipt_line', 'receiving_serial', 'receiving_grir_open_item'] LOOP
-    EXECUTE format('CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting(''passage.legal_entity_scopes'', true) = ''*'' OR legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '','')))', t || '_legal_entity_scope', t);
+    EXECUTE format('CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting(''depot.legal_entity_scopes'', true) = ''*'' OR legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '','')))', t || '_legal_entity_scope', t);
   END LOOP;
 END
 $$;
 
 DO $$
 BEGIN
-  EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
+  EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
 END
 $$;
 GRANT SELECT, INSERT, UPDATE, DELETE ON
@@ -108,4 +108,4 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
   idempotency_keys,
   outbox,
   consumer_inbox
-TO passage_app;
+TO depot_app;

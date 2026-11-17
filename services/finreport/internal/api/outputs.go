@@ -7,9 +7,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/outputs"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/outputs"
 )
 
 // CodeRenderFailed is REPORT-0016 REPORT_RENDER_FAILED (PRD §2.15.18): a

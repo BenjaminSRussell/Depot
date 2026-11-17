@@ -1,41 +1,41 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Pricing Events
+  title: Depot Pricing Events
   version: 0.1.0
   description: >
     Events published by the pricing service through the transactional outbox. Each event is
     written in the same transaction as the state change (outbox.Enqueue). CloudEvents 1.0
-    envelope; type dev.passage.<context>.<entity>.<verb>.v<n>; source /passage/pricing/pricing.
+    envelope; type dev.depot.<context>.<entity>.<verb>.v<n>; source /depot/pricing/pricing.
 defaultContentType: application/cloudevents+json
 channels:
   conditionRecordActivated:
-    address: passage.pricing.conditionrecord
-    description: Topic for condition-record lifecycle events (kernel topic rule passage.<context>.<entity>).
+    address: depot.pricing.conditionrecord
+    description: Topic for condition-record lifecycle events (kernel topic rule depot.<context>.<entity>).
     messages:
       conditionRecordActivated:
         $ref: "#/components/messages/ConditionRecordActivated"
       conditionRecordWithdrawn:
         $ref: "#/components/messages/ConditionRecordWithdrawn"
   journal:
-    address: passage.pricing.journal
+    address: depot.pricing.journal
     description: Price journal post and reversal (FR-26.9).
     messages:
       journalPosted:
         $ref: "#/components/messages/JournalPosted"
   rebateAccrual:
-    address: passage.pricing.rebateaccrual
+    address: depot.pricing.rebateaccrual
     description: Rebate accrual posted on a sales invoice line (FR-26.11) or a vendor invoice line (FR-26.15).
     messages:
       rebateAccrualPosted:
         $ref: "#/components/messages/RebateAccrualPosted"
   commission:
-    address: passage.pricing.commission
+    address: depot.pricing.commission
     description: Commission calculated per rep on a posted invoice line or its credit note (FR-26.12, FR-26.18).
     messages:
       commissionCalculated:
         $ref: "#/components/messages/CommissionCalculated"
   commissionExport:
-    address: passage.pricing.commissionexport
+    address: depot.pricing.commissionexport
     description: A commission settlement export was recorded for AP or payroll, or voided (FR-26.18).
     messages:
       commissionExportIssued:
@@ -43,7 +43,7 @@ channels:
       commissionExportVoided:
         $ref: "#/components/messages/CommissionExportVoided"
   fund:
-    address: passage.pricing.fund
+    address: depot.pricing.fund
     description: Trade promotion fund closed or reopened (FR-26.19, BR-26.15).
     messages:
       fundClosed:
@@ -51,13 +51,13 @@ channels:
       fundReopened:
         $ref: "#/components/messages/FundReopened"
   fundUsage:
-    address: passage.pricing.fundusage
+    address: depot.pricing.fundusage
     description: Usage attributed to a trade promotion fund in a period (FR-26.19).
     messages:
       fundUsageRecorded:
         $ref: "#/components/messages/FundUsageRecorded"
   parameters:
-    address: passage.pricing.parameters
+    address: depot.pricing.parameters
     description: A legal entity's or a tenant's pricing parameters changed (PRD 5.26.13).
     messages:
       parametersChanged:
@@ -65,13 +65,13 @@ channels:
       tenantParametersChanged:
         $ref: "#/components/messages/TenantParametersChanged"
   procedureAssignment:
-    address: passage.pricing.procedureassignment
+    address: depot.pricing.procedureassignment
     description: The pricing procedure of a legal entity and sales channel was set or cleared (PRD 5.26.13).
     messages:
       procedureAssignmentChanged:
         $ref: "#/components/messages/ProcedureAssignmentChanged"
   campaign:
-    address: passage.pricing.campaign
+    address: depot.pricing.campaign
     description: Campaign kill switch set or cleared, or its terms revised (FR-26.10).
     messages:
       campaignKilled:
@@ -81,7 +81,7 @@ channels:
       campaignRevised:
         $ref: "#/components/messages/CampaignRevised"
   freeGoodsRule:
-    address: passage.pricing.freegoodsrule
+    address: depot.pricing.freegoodsrule
     description: Free goods rule created, revised or withdrawn (FR-26.22).
     messages:
       freeGoodsRuleCreated:
@@ -91,7 +91,7 @@ channels:
       freeGoodsRuleWithdrawn:
         $ref: "#/components/messages/FreeGoodsRuleWithdrawn"
   commodity:
-    address: passage.pricing.commodity
+    address: depot.pricing.commodity
     description: Commodity pricing set-up and runs (FR-26.21).
     messages:
       commodityBasisCreated:
@@ -105,7 +105,7 @@ channels:
       commodityRunCompleted:
         $ref: "#/components/messages/CommodityRunCompleted"
   rebateAgreement:
-    address: passage.pricing.rebateagreement
+    address: depot.pricing.rebateagreement
     description: Rebate agreement revised, closed early or reopened (FR-26.11).
     messages:
       rebateAgreementRevised:
@@ -115,13 +115,13 @@ channels:
       rebateAgreementReopened:
         $ref: "#/components/messages/RebateAgreementReopened"
   procedure:
-    address: passage.pricing.procedure
+    address: depot.pricing.procedure
     description: Pricing procedure version activated (FR-26.1).
     messages:
       procedureActivated:
         $ref: "#/components/messages/ProcedureActivated"
   vendorRebateClaim:
-    address: passage.pricing.vendorrebateclaim
+    address: depot.pricing.vendorrebateclaim
     description: Vendor rebate period claims created and approved for settlement through w19 AP (FR-26.15, BR-26.11).
     messages:
       vendorRebateClaimCreated:
@@ -129,7 +129,7 @@ channels:
       vendorRebateClaimApproved:
         $ref: "#/components/messages/VendorRebateClaimApproved"
   brokerContract:
-    address: passage.pricing.brokercontract
+    address: depot.pricing.brokercontract
     description: Broker contracts created and closed (FR-26.16).
     messages:
       brokerContractCreated:
@@ -137,7 +137,7 @@ channels:
       brokerContractClosed:
         $ref: "#/components/messages/BrokerContractClosed"
   royaltyAgreement:
-    address: passage.pricing.royaltyagreement
+    address: depot.pricing.royaltyagreement
     description: Royalty agreements created and closed (FR-26.17).
     messages:
       royaltyAgreementCreated:
@@ -145,13 +145,13 @@ channels:
       royaltyAgreementClosed:
         $ref: "#/components/messages/RoyaltyAgreementClosed"
   contractAccrual:
-    address: passage.pricing.contractaccrual
+    address: depot.pricing.contractaccrual
     description: Broker and royalty accruals posted for the ledger (FR-26.16, FR-26.17).
     messages:
       contractAccrualPosted:
         $ref: "#/components/messages/ContractAccrualPosted"
   contractClaim:
-    address: passage.pricing.contractclaim
+    address: depot.pricing.contractclaim
     description: Broker and royalty period claims created and approved for settlement through w19 AP (FR-26.16, FR-26.17).
     messages:
       contractClaimCreated:
@@ -384,7 +384,7 @@ operations:
 components:
   messages:
     ConditionRecordActivated:
-      name: dev.passage.pricing.conditionrecord.activated.v1
+      name: dev.depot.pricing.conditionrecord.activated.v1
       title: Condition record activated
       contentType: application/cloudevents+json
       payload:
@@ -409,7 +409,7 @@ components:
           campaign_id: {type: string, format: uuid, description: "Campaign the record belongs to (FR-26.10); absent when it stands alone."}
           retroactive: {type: boolean, description: "valid_from is before the activation or posting day (BR-26.7); consumers never re-price posted documents."}
     ConditionRecordWithdrawn:
-      name: dev.passage.pricing.conditionrecord.withdrawn.v1
+      name: dev.depot.pricing.conditionrecord.withdrawn.v1
       title: Condition record withdrawn or expired
       contentType: application/cloudevents+json
       payload:
@@ -420,7 +420,7 @@ components:
           version: {type: integer}
           reason: {type: string, description: "The withdrawal reason; EXPIRED when the record expiry job (BR-26.9) ended it."}
     JournalPosted:
-      name: dev.passage.pricing.journal.posted.v1
+      name: dev.depot.pricing.journal.posted.v1
       title: Price journal posted or reversed
       contentType: application/cloudevents+json
       payload:
@@ -432,7 +432,7 @@ components:
           line_count: {type: integer}
           reversed_journal_id: {type: string, format: uuid, description: "Set when this journal reverses another."}
     RebateAccrualPosted:
-      name: dev.passage.pricing.rebateaccrual.posted.v1
+      name: dev.depot.pricing.rebateaccrual.posted.v1
       title: Rebate accrual posted
       contentType: application/cloudevents+json
       payload:
@@ -458,7 +458,7 @@ components:
           credit_account: {type: string, description: "Rebate accrual 2150 (customer) or purchase rebate income 5100 (vendor) by default."}
           retroactive: {type: boolean, description: "True for the per-period delta of a retroactive recompute (BR-26.7, BR-26.14)."}
     CommissionCalculated:
-      name: dev.passage.pricing.commission.calculated.v1
+      name: dev.depot.pricing.commission.calculated.v1
       title: Commission calculated for a rep
       contentType: application/cloudevents+json
       payload:
@@ -484,31 +484,31 @@ components:
           debit_account: {type: string, description: "Commission expense (6200)."}
           credit_account: {type: string, description: "Commission payable (2170)."}
     CommissionExportIssued:
-      name: dev.passage.pricing.commissionexport.issued.v1
+      name: dev.depot.pricing.commissionexport.issued.v1
       title: Commission settlement export recorded
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/CommissionExport"
     CommissionExportVoided:
-      name: dev.passage.pricing.commissionexport.voided.v1
+      name: dev.depot.pricing.commissionexport.voided.v1
       title: Commission settlement export voided
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/CommissionExport"
     FundClosed:
-      name: dev.passage.pricing.fund.closed.v1
+      name: dev.depot.pricing.fund.closed.v1
       title: Trade fund closed
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/FundStatus"
     FundReopened:
-      name: dev.passage.pricing.fund.reopened.v1
+      name: dev.depot.pricing.fund.reopened.v1
       title: Trade fund reopened
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/FundStatus"
     FundUsageRecorded:
-      name: dev.passage.pricing.fundusage.recorded.v1
+      name: dev.depot.pricing.fundusage.recorded.v1
       title: Trade fund usage recorded
       contentType: application/cloudevents+json
       payload:
@@ -529,61 +529,61 @@ components:
           period_usage: {type: string, description: "Usage in the period including this attribution."}
           budget: {type: string, description: "Budget per period at the time of attribution."}
     ParametersChanged:
-      name: dev.passage.pricing.parameters.changed.v1
+      name: dev.depot.pricing.parameters.changed.v1
       title: Pricing parameters changed
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/ParametersChanged"
     TenantParametersChanged:
-      name: dev.passage.pricing.tenantparameter.changed.v1
+      name: dev.depot.pricing.tenantparameter.changed.v1
       title: Pricing tenant parameters changed
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/TenantParametersChanged"
     ProcedureAssignmentChanged:
-      name: dev.passage.pricing.procedureassignment.changed.v1
+      name: dev.depot.pricing.procedureassignment.changed.v1
       title: Pricing procedure assignment changed
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/ProcedureAssignmentChanged"
     CampaignKilled:
-      name: dev.passage.pricing.campaign.killed.v1
+      name: dev.depot.pricing.campaign.killed.v1
       title: Campaign killed
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/CampaignStatus"
     CampaignRestored:
-      name: dev.passage.pricing.campaign.restored.v1
+      name: dev.depot.pricing.campaign.restored.v1
       title: Campaign restored
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/CampaignStatus"
     CampaignRevised:
-      name: dev.passage.pricing.campaign.revised.v1
+      name: dev.depot.pricing.campaign.revised.v1
       title: Campaign revised
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/CampaignRevised"
     FreeGoodsRuleCreated:
-      name: dev.passage.pricing.freegoodsrule.created.v1
+      name: dev.depot.pricing.freegoodsrule.created.v1
       title: Free goods rule created
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/FreeGoodsRuleEvent"
     FreeGoodsRuleRevised:
-      name: dev.passage.pricing.freegoodsrule.revised.v1
+      name: dev.depot.pricing.freegoodsrule.revised.v1
       title: Free goods rule revised
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/FreeGoodsRuleEvent"
     FreeGoodsRuleWithdrawn:
-      name: dev.passage.pricing.freegoodsrule.withdrawn.v1
+      name: dev.depot.pricing.freegoodsrule.withdrawn.v1
       title: Free goods rule withdrawn
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/FreeGoodsRuleEvent"
     CommodityBasisCreated:
-      name: dev.passage.pricing.commoditybasis.created.v1
+      name: dev.depot.pricing.commoditybasis.created.v1
       title: Commodity cost basis type created
       contentType: application/cloudevents+json
       payload:
@@ -597,7 +597,7 @@ components:
           currency: {type: string, pattern: "^[A-Z]{3}$"}
           unit: {type: string}
     CommodityIndexRecorded:
-      name: dev.passage.pricing.commodityindex.recorded.v1
+      name: dev.depot.pricing.commodityindex.recorded.v1
       title: Commodity index value recorded
       contentType: application/cloudevents+json
       payload:
@@ -614,19 +614,19 @@ components:
           value: {type: string, description: "Decimal string in the basis currency per basis unit."}
           source: {type: string, description: "Where the quote came from; may be empty."}
     CommodityCalculationCreated:
-      name: dev.passage.pricing.commoditycalculation.created.v1
+      name: dev.depot.pricing.commoditycalculation.created.v1
       title: Commodity price calculation created
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/CommodityCalculation"
     CommodityCalculationWithdrawn:
-      name: dev.passage.pricing.commoditycalculation.withdrawn.v1
+      name: dev.depot.pricing.commoditycalculation.withdrawn.v1
       title: Commodity price calculation withdrawn
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/CommodityCalculation"
     CommodityRunCompleted:
-      name: dev.passage.pricing.commodityrun.completed.v1
+      name: dev.depot.pricing.commodityrun.completed.v1
       title: Commodity price calculation run completed
       contentType: application/cloudevents+json
       payload:
@@ -650,25 +650,25 @@ components:
           stale: {type: boolean, description: "The index was older than the calculation allows (PRC-0016)."}
           journal_id: {type: string, format: uuid, description: "Absent when no record changed price."}
     RebateAgreementRevised:
-      name: dev.passage.pricing.rebateagreement.revised.v1
+      name: dev.depot.pricing.rebateagreement.revised.v1
       title: Rebate agreement revised
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/RebateAgreementEvent"
     RebateAgreementClosed:
-      name: dev.passage.pricing.rebateagreement.closed.v1
+      name: dev.depot.pricing.rebateagreement.closed.v1
       title: Rebate agreement closed
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/RebateAgreementEvent"
     RebateAgreementReopened:
-      name: dev.passage.pricing.rebateagreement.reopened.v1
+      name: dev.depot.pricing.rebateagreement.reopened.v1
       title: Rebate agreement reopened
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/RebateAgreementEvent"
     ProcedureActivated:
-      name: dev.passage.pricing.procedure.activated.v1
+      name: dev.depot.pricing.procedure.activated.v1
       title: Pricing procedure version activated
       contentType: application/cloudevents+json
       payload:
@@ -684,55 +684,55 @@ components:
           version: {type: integer, minimum: 1}
           superseded_id: {type: string, format: uuid, description: "The version this activation superseded; absent for the first."}
     VendorRebateClaimCreated:
-      name: dev.passage.pricing.vendorrebateclaim.created.v1
+      name: dev.depot.pricing.vendorrebateclaim.created.v1
       title: Vendor rebate claim created
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/VendorRebateClaim"
     VendorRebateClaimApproved:
-      name: dev.passage.pricing.vendorrebateclaim.approved.v1
+      name: dev.depot.pricing.vendorrebateclaim.approved.v1
       title: Vendor rebate claim approved
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/VendorRebateClaim"
     BrokerContractCreated:
-      name: dev.passage.pricing.brokercontract.created.v1
+      name: dev.depot.pricing.brokercontract.created.v1
       title: Broker contract created
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/BrokerContract"
     BrokerContractClosed:
-      name: dev.passage.pricing.brokercontract.closed.v1
+      name: dev.depot.pricing.brokercontract.closed.v1
       title: Broker contract closed
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/BrokerContract"
     RoyaltyAgreementCreated:
-      name: dev.passage.pricing.royaltyagreement.created.v1
+      name: dev.depot.pricing.royaltyagreement.created.v1
       title: Royalty agreement created
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/RoyaltyAgreement"
     RoyaltyAgreementClosed:
-      name: dev.passage.pricing.royaltyagreement.closed.v1
+      name: dev.depot.pricing.royaltyagreement.closed.v1
       title: Royalty agreement closed
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/RoyaltyAgreement"
     ContractAccrualPosted:
-      name: dev.passage.pricing.contractaccrual.posted.v1
+      name: dev.depot.pricing.contractaccrual.posted.v1
       title: Broker or royalty accrual posted
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/ContractAccrual"
     ContractClaimCreated:
-      name: dev.passage.pricing.contractclaim.created.v1
+      name: dev.depot.pricing.contractclaim.created.v1
       title: Broker or royalty claim created
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/ContractClaim"
     ContractClaimApproved:
-      name: dev.passage.pricing.contractclaim.approved.v1
+      name: dev.depot.pricing.contractclaim.approved.v1
       title: Broker or royalty claim approved
       contentType: application/cloudevents+json
       payload:

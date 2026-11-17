@@ -12,13 +12,13 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/flows"
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/gs1"
-	"github.com/BenjaminSRussell/passage/services/mobile/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/flows"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/gs1"
+	"github.com/BenjaminSRussell/depot/services/mobile/migrations"
 )
 
 const (
@@ -184,7 +184,7 @@ func TestInstallCoreIsIdempotentAndEmitsPublishEvents(t *testing.T) {
 		t.Fatalf("a second install must keep the published versions: %+v %v", second, err)
 	}
 	var events int
-	if err := admin.QueryRow(ctx, `select count(*) from outbox where type = 'dev.passage.mobile.flow.published.v1'`).Scan(&events); err != nil || events != len(core) {
+	if err := admin.QueryRow(ctx, `select count(*) from outbox where type = 'dev.depot.mobile.flow.published.v1'`).Scan(&events); err != nil || events != len(core) {
 		t.Fatalf("flow.published events = %d, want %d (%v)", events, len(core), err)
 	}
 }
@@ -422,7 +422,7 @@ func TestOfflineRecordGapReuseAndSettle(t *testing.T) {
 		t.Fatalf("supervisor queue: %+v", queue)
 	}
 	var conflictEvents int
-	_ = admin.QueryRow(ctx, `select count(*) from outbox where type = 'dev.passage.mobile.offline.conflict.v1'`).Scan(&conflictEvents)
+	_ = admin.QueryRow(ctx, `select count(*) from outbox where type = 'dev.depot.mobile.offline.conflict.v1'`).Scan(&conflictEvents)
 	if conflictEvents != 1 {
 		t.Fatalf("conflict events = %d", conflictEvents)
 	}
@@ -458,7 +458,7 @@ func TestResolveReapplyRecordsDecisionForConsumers(t *testing.T) {
 		t.Fatalf("reapply: %+v %v", res, err)
 	}
 	var n int
-	_ = admin.QueryRow(ctx, `select count(*) from outbox where type = 'dev.passage.mobile.offline.resolved.v1' and payload->'data'->>'action' = 'REAPPLY'`).Scan(&n)
+	_ = admin.QueryRow(ctx, `select count(*) from outbox where type = 'dev.depot.mobile.offline.resolved.v1' and payload->'data'->>'action' = 'REAPPLY'`).Scan(&n)
 	if n != 1 {
 		t.Fatalf("resolved events = %d", n)
 	}

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 // A DRAFT order is announced by nothing until it is confirmed: edits stay silent, confirming
@@ -51,7 +51,7 @@ func TestDraftTransferEditConfirmAndDeliveryHeader(t *testing.T) {
 	}
 	var n int
 	count := func(id string) int {
-		if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.passage.inventory.transfer.changed.v1'
+		if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.depot.inventory.transfer.changed.v1'
 			and aggregate_id = $1`, id).Scan(&n); err != nil {
 			t.Fatal(err)
 		}
@@ -73,7 +73,7 @@ func TestDraftTransferEditConfirmAndDeliveryHeader(t *testing.T) {
 	if _, err := s.ConfirmTransfer(ctx, d.ID, got.Version); problemCode(err) != domain.CodeTransferState {
 		t.Fatalf("confirm twice: %v, want %s", err, domain.CodeTransferState)
 	}
-	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.passage.inventory.transfer.changed.v1'
+	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.depot.inventory.transfer.changed.v1'
 		and aggregate_id = $1 and payload->'data'->>'status' = 'CREATED' and payload->'data'->>'deliveryTerms' = 'DAP'
 		and payload->'data'->>'modeOfDelivery' is null and jsonb_array_length(payload->'data'->'lines') = 1`, d.ID).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("confirm event: %d (%v), want 1", n, err)
@@ -126,7 +126,7 @@ func TestDeleteTransferDraftCreatedAndShipped(t *testing.T) {
 	if err := s.DeleteTransfer(ctx, c.ID, c.Version); err != nil {
 		t.Fatal(err)
 	}
-	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.passage.inventory.transfer.changed.v1'
+	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.depot.inventory.transfer.changed.v1'
 		and aggregate_id = $1 and payload->'data'->>'status' = 'DELETED' and jsonb_array_length(payload->'data'->'lines') = 1`, c.ID).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("deleted event: %d (%v), want 1", n, err)
 	}

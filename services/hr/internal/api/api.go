@@ -16,14 +16,14 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/phiaudit"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/numbering"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/phiaudit"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/numbering"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/store"
 )
 
 const (

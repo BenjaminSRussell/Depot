@@ -111,7 +111,7 @@ describe("createLogger", () => {
   };
 
   it("pseudonymizes under the eu-data-boundary overlay and writes one JSON line per call", () => {
-    const { log, lines } = capture({ PASSAGE_CLOUD_PROFILE: "commercial+eu-data-boundary", ...ENV_KEYS });
+    const { log, lines } = capture({ DEPOT_CLOUD_PROFILE: "commercial+eu-data-boundary", ...ENV_KEYS });
     log("info", "run for jane@example.com", { tenantId: TENANT_A, email: "jane@example.com", user: "Jane Doe", runId: "r-1" });
     expect(lines).toHaveLength(1);
     expect(lines[0]).not.toMatch(/jane|Jane|example\.com/);
@@ -124,8 +124,8 @@ describe("createLogger", () => {
     expect(pseudonymizationEnabled({ LOG_PSEUDONYMIZE: "true" })).toBe(true);
     expect(pseudonymizationEnabled({ LOG_PSEUDONYMIZE: "false" })).toBe(false);
     expect(pseudonymizationEnabled({})).toBe(false);
-    expect(pseudonymizationEnabled({ PASSAGE_CLOUD_PROFILE: "gcc" })).toBe(false);
-    expect(pseudonymizationEnabled({ PASSAGE_CLOUD_PROFILE: "commercial+eu-data-boundary", LOG_PSEUDONYMIZE: "false" })).toBe(true);
+    expect(pseudonymizationEnabled({ DEPOT_CLOUD_PROFILE: "gcc" })).toBe(false);
+    expect(pseudonymizationEnabled({ DEPOT_CLOUD_PROFILE: "commercial+eu-data-boundary", LOG_PSEUDONYMIZE: "false" })).toBe(true);
     const { log, lines } = capture({});
     log("info", "x", { email: "jane@example.com" });
     expect(lines[0]).toContain("jane@example.com");
@@ -140,6 +140,6 @@ describe("createLogger", () => {
 
   it("refuses a malformed key and an unknown profile instead of logging raw values", () => {
     expect(() => createLogger({ LOG_PSEUDONYMIZE: "true", FIELDCRYPT_KEYS: "k1=bad", FIELDCRYPT_CURRENT_KEY_ID: "k1" }, "s")).toThrow();
-    expect(() => createLogger({ PASSAGE_CLOUD_PROFILE: "nope" }, "s")).toThrow();
+    expect(() => createLogger({ DEPOT_CLOUD_PROFILE: "nope" }, "s")).toThrow();
   });
 });

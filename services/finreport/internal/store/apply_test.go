@@ -10,12 +10,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/finreport/migrations"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/migrations"
 )
 
 func postedEntry(ledger, entity string, seq int64, period, sourceType string, lines ...domain.SourceLine) domain.PostedEntry {
@@ -25,7 +25,7 @@ func postedEntry(ledger, entity string, seq int64, period, sourceType string, li
 
 func sl(n int, account, side, amount string, dims map[string]string) domain.SourceLine {
 	return domain.SourceLine{LineNumber: n, Account: account, DebitCredit: side, AmountAcct: decimal.RequireFromString(amount),
-		Dimensions: dims, SourceURI: fmt.Sprintf("passage://payables/invoices/%d", n), TraceID: "0123456789abcdef0123456789abcdef"}
+		Dimensions: dims, SourceURI: fmt.Sprintf("depot://payables/invoices/%d", n), TraceID: "0123456789abcdef0123456789abcdef"}
 }
 
 func pair(amount string) []domain.SourceLine {
@@ -101,7 +101,7 @@ func TestApplyEntry_BuildsReadModelAndStatementsTieOut(t *testing.T) {
 		}
 	}
 	// Drill level 2 lists the consumer's lines of the January key, links them
-	// to the Passage route of their passage:// source, and reconciles them.
+	// to the Depot route of their depot:// source, and reconciles them.
 	page, err := st.DrillLines(ctx, run.ID, "R001", "C01", LineQuery{Key: 0, Limit: 100})
 	if err != nil || !page.Reconciliation.Reconciled() || len(page.Items) != 2 || page.Items[0].SourceURI != "/payables/invoices/1" ||
 		!page.SumOfLines.Equal(decimal.RequireFromString("110")) {

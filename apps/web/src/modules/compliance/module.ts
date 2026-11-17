@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { AuditCasesPage } from "./AuditCasesPage";
 import { AuditPoliciesPage, AuditPolicyEditPage, NewAuditPolicyPage } from "./AuditPoliciesPage";
 import { AuditRunPage } from "./AuditRunPage";
@@ -24,7 +24,7 @@ import { ScreeningHitPage } from "./ScreeningHitPage";
 import { ScreeningHitsPage } from "./ScreeningHitsPage";
 import { TdsPage } from "./TdsPage";
 
-const compliance: PassageModule = {
+const compliance: DepotModule = {
   id: "compliance",
   title: "Compliance",
   description: "Segregation-of-duties conflicts and mitigations, role assignment checks, SoD rules, audit policies, audit rule runs and audit cases, break-glass access, breach notification clocks, sanctions screening hits and checks, export license checks, privacy requests, certification campaigns, incident steps, export policy, country packs and the India TDS calculator.",

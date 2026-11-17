@@ -27,17 +27,17 @@ CREATE TABLE IF NOT EXISTS lease_posting_profile (
 ALTER TABLE lease_posting_profile ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lease_posting_profile FORCE ROW LEVEL SECURITY;
 CREATE POLICY lease_posting_profile_tenant_access ON lease_posting_profile AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY lease_posting_profile_legal_entity_scope ON lease_posting_profile AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON lease_posting_profile TO passage_app';
-    EXECUTE 'GRANT UPDATE ON lease_schedule_line TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON lease_posting_profile TO depot_app';
+    EXECUTE 'GRANT UPDATE ON lease_schedule_line TO depot_app';
   END IF;
 END
 $$;

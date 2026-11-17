@@ -10,9 +10,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 // Release is a request to correct and release one quarantined record of a run (FR-49.11).
@@ -125,7 +125,7 @@ func release(ctx context.Context, tx pgx.Tx, rq Release) (domain.PackRun, bool, 
 		return domain.PackRun{}, false, err
 	}
 	if _, err := tx.Exec(ctx, `update pack_quarantine set status = $3, released_record = $4, released_by = $5, released_at = $6
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 and seq = $2`,
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 and seq = $2`,
 		run.RunID, q.Seq, domain.QuarantineReleased, released, rq.By, now); err != nil {
 		return domain.PackRun{}, false, fmt.Errorf("update pack_quarantine: %w", err)
 	}
@@ -137,7 +137,7 @@ func release(ctx context.Context, tx pgx.Tx, rq Release) (domain.PackRun, bool, 
 			continue
 		}
 		tag, err := tx.Exec(ctx, `update control_total set source_value = $3, target_value = $4, delta = $5, status = $6, computed_at = now()
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 and seq = $2 and name = $7`,
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 and seq = $2 and name = $7`,
 			run.RunID, i+1, t.Source.String(), t.Target.String(), t.Delta.String(), string(t.Status), t.Name)
 		if err != nil {
 			return domain.PackRun{}, false, fmt.Errorf("update control_total: %w", err)
@@ -152,7 +152,7 @@ func release(ctx context.Context, tx pgx.Tx, rq Release) (domain.PackRun, bool, 
 
 	run.Version++
 	if _, err := tx.Exec(ctx, `update pack_run set status = $2, records_loaded = $3, records_quarantined = $4, version = $5
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`,
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`,
 		run.RunID, string(run.Status), run.RecordsLoaded, run.RecordsQuarantined, run.Version); err != nil {
 		return domain.PackRun{}, false, fmt.Errorf("update pack_run: %w", err)
 	}
@@ -166,7 +166,7 @@ func release(ctx context.Context, tx pgx.Tx, rq Release) (domain.PackRun, bool, 
 
 // lockXref serializes the loads of one (system, company, source table), as a run does.
 func lockXref(ctx context.Context, tx pgx.Tx, run domain.PackRun, table string) error {
-	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('xref|' || current_setting('passage.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`,
+	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('xref|' || current_setting('depot.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`,
 		string(run.SourceSystem), run.SourceCompany, table); err != nil {
 		return fmt.Errorf("lock legacy_xref: %w", err)
 	}
@@ -175,12 +175,12 @@ func lockXref(ctx context.Context, tx pgx.Tx, run domain.PackRun, table string) 
 
 // insertXref writes the line's legacy_xref row; a legacy id the cross-reference already holds
 // cannot be released again (a line quarantined as a repeat of an id that loaded).
-func insertXref(ctx context.Context, tx pgx.Tx, run domain.PackRun, table, entity, legacyID, xrefID, passageID, amount, currency string) error {
+func insertXref(ctx context.Context, tx pgx.Tx, run domain.PackRun, table, entity, legacyID, xrefID, depotID, amount, currency string) error {
 	tag, err := tx.Exec(ctx, `insert into legacy_xref (tenant_id, xref_id, source_system, source_company, source_table, source_id,
-		passage_entity, passage_id, run_id, amount, currency)
-		values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		depot_entity, depot_id, run_id, amount, currency)
+		values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		on conflict do nothing`,
-		xrefID, string(run.SourceSystem), run.SourceCompany, table, legacyID, entity, passageID, run.RunID, amount, currency)
+		xrefID, string(run.SourceSystem), run.SourceCompany, table, legacyID, entity, depotID, run.RunID, amount, currency)
 	if err != nil {
 		return fmt.Errorf("insert legacy_xref: %w", err)
 	}
@@ -209,7 +209,7 @@ func releaseOpenItem(ctx context.Context, tx pgx.Tx, run *domain.PackRun, q doma
 func quarantinedLine(ctx context.Context, tx pgx.Tx, runID string, seq int, into any) error {
 	var raw []byte
 	err := tx.QueryRow(ctx, `select line from pack_quarantine
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 and seq = $2`, runID, seq).Scan(&raw)
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 and seq = $2`, runID, seq).Scan(&raw)
 	if err != nil {
 		return fmt.Errorf("read pack_quarantine line: %w", err)
 	}
@@ -241,7 +241,7 @@ func releaseBank(ctx context.Context, tx pgx.Tx, run *domain.PackRun, q domain.Q
 	}
 	if _, err := tx.Exec(ctx, `insert into bank_opening_balance (tenant_id, balance_id, run_id, legacy_xref_id, source_system, source_company, legacy_id,
 		bank_account, currency, balance)
-		values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 		balanceID, run.RunID, xrefID, sys, company, line.LegacyID, line.BankAccount, line.Currency, line.Balance.String()); err != nil {
 		return domain.Record{}, fmt.Errorf("insert bank opening balance: %w", err)
 	}
@@ -270,7 +270,7 @@ func releaseOnhand(ctx context.Context, tx pgx.Tx, run *domain.PackRun, q domain
 	}
 	if _, err := tx.Exec(ctx, `insert into onhand_opening_balance (tenant_id, balance_id, run_id, legacy_xref_id, source_system, source_company, legacy_id,
 		item, site, warehouse, location, batch, serial, unit, quantity, value, currency)
-		values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+		values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
 		balanceID, run.RunID, xrefID, sys, company, line.LegacyID, line.Item, line.Site, line.Warehouse, line.Location, line.Batch, line.Serial,
 		line.Unit, line.Quantity.String(), line.Value.String(), line.Currency); err != nil {
 		return domain.Record{}, fmt.Errorf("insert onhand opening balance: %w", err)
@@ -312,7 +312,7 @@ func releaseOpenOrder(ctx context.Context, tx pgx.Tx, run *domain.PackRun, q dom
 	// Whether the loaded side already holds a line of the order decides the order count.
 	var known bool
 	if err := tx.QueryRow(ctx, `select exists (select 1 from pack_run_order
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 and order_type = $2 and order_number = $3)`,
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 and order_type = $2 and order_number = $3)`,
 		run.RunID, orig.OrderType, orig.OrderNumber).Scan(&known); err != nil {
 		return domain.Record{}, fmt.Errorf("read pack_run_order: %w", err)
 	}
@@ -338,14 +338,14 @@ func releaseOpenOrder(ctx context.Context, tx pgx.Tx, run *domain.PackRun, q dom
 	}
 	if _, err := tx.Exec(ctx, `insert into open_order_opening_line (tenant_id, line_id, run_id, legacy_xref_id, source_system, source_company, legacy_id,
 		order_type, order_number, line_number, item, party, unit, currency, ordered_qty, delivered_qty, unit_price, delivery_date)
-		values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::date)`,
+		values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::date)`,
 		lineID, run.RunID, xrefID, sys, company, line.LegacyID, line.OrderType, line.OrderNumber, line.LineNumber, line.Item, line.Party, line.Unit, line.Currency,
 		line.OrderedQty.String(), line.DeliveredQty.String(), line.UnitPrice.String(), delivery); err != nil {
 		return domain.Record{}, fmt.Errorf("insert open order opening line: %w", err)
 	}
 	if !known {
 		if _, err := tx.Exec(ctx, `insert into pack_run_order (tenant_id, run_id, order_type, order_number)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3) on conflict do nothing`, run.RunID, line.OrderType, line.OrderNumber); err != nil {
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3) on conflict do nothing`, run.RunID, line.OrderType, line.OrderNumber); err != nil {
 			return domain.Record{}, fmt.Errorf("insert pack_run_order: %w", err)
 		}
 	}

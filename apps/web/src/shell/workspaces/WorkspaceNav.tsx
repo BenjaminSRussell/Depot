@@ -10,7 +10,7 @@ import {
   type WorkspacePrefs,
 } from "./model";
 
-const STORAGE_KEY = "passage.workspaces.v1";
+const STORAGE_KEY = "depot.workspaces.v1";
 
 function readPrefs(): WorkspacePrefs {
   try {

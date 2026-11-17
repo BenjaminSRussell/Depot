@@ -84,18 +84,18 @@ describe("rounding rules tab", () => {
     await user.selectOptions(await screen.findByLabelText("Currency"), "USD");
     await findTable({ name: "Rounding rules" });
     const headers = new Headers(callsTo(fetchMock, "GET", "/rounding-rules")[0][1]?.headers);
-    expect(headers.get("X-Passage-LegalEntity")).toBe("le1");
+    expect(headers.get("X-Depot-LegalEntity")).toBe("le1");
     expect(screen.getByText(/Showing whole-tenant rules and rules for USMF/)).toBeInTheDocument();
   });
 
   it("reads every entity's rules under the ALL scope", async () => {
-    stubLocalStorage().setItem("passage.org.legalEntity", "ALL");
+    stubLocalStorage().setItem("depot.org.legalEntity", "ALL");
     const { user, fetchMock } = await openRounding(["org.read", "org.switcher.all-scope"]);
     await user.selectOptions(await screen.findByLabelText("Currency"), "USD");
     await findTable({ name: "Rounding rules" });
     const headers = new Headers(callsTo(fetchMock, "GET", "/rounding-rules")[0][1]?.headers);
-    expect(headers.get("X-Passage-LegalEntity-Scope")).toBe("ALL");
-    expect(headers.get("X-Passage-LegalEntity")).toBeNull();
+    expect(headers.get("X-Depot-LegalEntity-Scope")).toBe("ALL");
+    expect(headers.get("X-Depot-LegalEntity")).toBeNull();
     expect(screen.queryByText(/Showing whole-tenant rules/)).not.toBeInTheDocument();
   });
 
@@ -110,12 +110,12 @@ describe("rounding rules tab", () => {
     await user.click(screen.getByRole("button", { name: "Save rule" }));
     await waitFor(() => expect(callsTo(fetchMock, "PUT", "/rounding-rules/general")).toHaveLength(1));
     const put = new Headers(callsTo(fetchMock, "PUT", "/rounding-rules/general")[0][1]?.headers);
-    expect(put.get("X-Passage-LegalEntity")).toBeNull();
-    expect(put.get("X-Passage-LegalEntity-Scope")).toBeNull();
+    expect(put.get("X-Depot-LegalEntity")).toBeNull();
+    expect(put.get("X-Depot-LegalEntity-Scope")).toBeNull();
     await user.click(await screen.findByRole("button", { name: "Remove cash rule" }));
     await user.click(screen.getByRole("button", { name: "Confirm remove cash rule" }));
     await waitFor(() => expect(callsTo(fetchMock, "DELETE", "/rounding-rules/cash")).toHaveLength(1));
-    expect(new Headers(callsTo(fetchMock, "DELETE", "/rounding-rules/cash")[0][1]?.headers).get("X-Passage-LegalEntity")).toBeNull();
+    expect(new Headers(callsTo(fetchMock, "DELETE", "/rounding-rules/cash")[0][1]?.headers).get("X-Depot-LegalEntity")).toBeNull();
   });
 
   it("shows an empty state and a load error", async () => {
@@ -186,14 +186,14 @@ describe("rounding rules tab", () => {
     const tenantCall = callsTo(fetchMock, "GET", "/round?")[0];
     expect(String(tenantCall[0])).toContain("amount=10.07&purpose=cash");
     expect(String(tenantCall[0])).not.toContain("legalEntityId");
-    expect(new Headers(tenantCall[1]?.headers).get("X-Passage-LegalEntity")).toBeNull();
+    expect(new Headers(tenantCall[1]?.headers).get("X-Depot-LegalEntity")).toBeNull();
 
     await user.selectOptions(screen.getByLabelText("Test legal entity"), "le1");
     await user.click(screen.getByRole("button", { name: "Round" }));
     await waitFor(() => expect(callsTo(fetchMock, "GET", "/round?")).toHaveLength(2));
     const entityCall = callsTo(fetchMock, "GET", "/round?")[1];
     expect(String(entityCall[0])).toContain("legalEntityId=le1");
-    expect(new Headers(entityCall[1]?.headers).get("X-Passage-LegalEntity")).toBe("le1");
+    expect(new Headers(entityCall[1]?.headers).get("X-Depot-LegalEntity")).toBe("le1");
   });
 });
 
@@ -226,7 +226,7 @@ describe("name translations page", () => {
     const { fetchMock } = await openNames(["org.read"], { "GET /legal-entities/le1/translations": () => problem("ORG-LE-NOT-FOUND", 404, "not found") });
     expect(await screen.findByText(/not found/)).toBeInTheDocument();
     const call = callsTo(fetchMock, "GET", "/legal-entities/le1/translations")[0];
-    expect(new Headers(call[1]?.headers).get("X-Passage-LegalEntity")).toBe("le1");
+    expect(new Headers(call[1]?.headers).get("X-Depot-LegalEntity")).toBe("le1");
   });
 
   it("shows the empty state", async () => {
@@ -270,14 +270,14 @@ describe("name translations page", () => {
   });
 
   it("is read-only under the ALL scope even with the write duty", async () => {
-    stubLocalStorage().setItem("passage.org.legalEntity", "ALL");
+    stubLocalStorage().setItem("depot.org.legalEntity", "ALL");
     const { fetchMock } = await openNames(["org.read", "org.legal-entity.write", "org.switcher.all-scope"]);
     expect(await screen.findByText("Contoso Etats-Unis")).toBeInTheDocument();
     expect(screen.getByText(/Choose one legal entity in the switcher/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save translation" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Remove fr name" })).not.toBeInTheDocument();
     const headers = new Headers(callsTo(fetchMock, "GET", "/legal-entities/le1/translations")[0][1]?.headers);
-    expect(headers.get("X-Passage-LegalEntity-Scope")).toBe("ALL");
+    expect(headers.get("X-Depot-LegalEntity-Scope")).toBe("ALL");
   });
 
   it("gates site and warehouse writes on org.site.write", async () => {

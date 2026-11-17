@@ -11,10 +11,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/quality/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/quality/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/quality/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/quality/internal/store"
 )
 
 const (
@@ -292,8 +292,8 @@ type reqSpec struct {
 
 func call(h http.Handler, s reqSpec) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(s.method, s.path, strings.NewReader(s.body))
-	req.Header.Set("X-Passage-Tenant", testTenant)
-	req.Header.Set("X-Passage-Duties", s.duties)
+	req.Header.Set("X-Depot-Tenant", testTenant)
+	req.Header.Set("X-Depot-Duties", s.duties)
 	req.Header.Set("Content-Type", "application/json")
 	if s.key != "" {
 		req.Header.Set("Idempotency-Key", s.key)
@@ -302,7 +302,7 @@ func call(h http.Handler, s reqSpec) *httptest.ResponseRecorder {
 		req.Header.Set("If-Match", s.ifMatch)
 	}
 	if s.user != "" {
-		req.Header.Set("X-Passage-User", s.user)
+		req.Header.Set("X-Depot-User", s.user)
 	}
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)

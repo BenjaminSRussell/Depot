@@ -28,13 +28,13 @@ CREATE INDEX IF NOT EXISTS scheduling_capacity_override_resource ON scheduling_c
 ALTER TABLE scheduling_capacity_override ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduling_capacity_override FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduling_capacity_override_tenant_access ON scheduling_capacity_override AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON scheduling_capacity_override TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON scheduling_capacity_override TO depot_app';
   END IF;
 END
 $$;

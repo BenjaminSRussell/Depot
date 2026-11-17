@@ -1,4 +1,4 @@
--- PSG-25 slice 9: supervisor corrections with a reason and pay revision with reversal
+-- DPT-25 slice 9: supervisor corrections with a reason and pay revision with reversal
 -- (FR-25.8, BR-25.8, AC-25.8).
 --
 -- registration_correction keeps the before and after of every supervisor edit of a
@@ -31,8 +31,8 @@ CREATE INDEX IF NOT EXISTS registration_correction_worker ON registration_correc
 ALTER TABLE registration_correction ENABLE ROW LEVEL SECURITY;
 ALTER TABLE registration_correction FORCE ROW LEVEL SECURITY;
 CREATE POLICY registration_correction_tenant_access ON registration_correction AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE worker_day ADD COLUMN IF NOT EXISTS revision integer NOT NULL DEFAULT 0;
 ALTER TABLE worker_day ADD COLUMN IF NOT EXISTS revised_by text;
@@ -76,8 +76,8 @@ END $$;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON registration_correction TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON registration_correction TO depot_app';
   END IF;
 END
 $$;

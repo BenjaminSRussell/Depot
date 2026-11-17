@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 )
 
 func TestConvert_ValidatesAndNeedsDuty(t *testing.T) {

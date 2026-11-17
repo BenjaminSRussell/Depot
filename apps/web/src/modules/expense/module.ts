@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { AdvanceAgingPage } from "./AdvanceAgingPage";
 import { AdvanceDetailPage, AdvancesPage, NewAdvancePage } from "./advances";
 import { CardImportPage, CardTransactionsPage } from "./cards";
@@ -13,7 +13,7 @@ import { RequisitionCheckPage } from "./RequisitionCheckPage";
 import { NewReportPage, ReportDetailPage, ReportsPage } from "./reports";
 import { NewRequisitionPage, RequisitionDetailPage, RequisitionsPage } from "./requisitions";
 
-const expense: PassageModule = {
+const expense: DepotModule = {
   id: "expense",
   title: "Expense",
   description:

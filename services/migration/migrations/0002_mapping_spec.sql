@@ -19,10 +19,10 @@ CREATE TABLE migration.mapping_spec (
 ALTER TABLE migration.mapping_spec ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.mapping_spec FORCE ROW LEVEL SECURITY;
 CREATE POLICY mapping_spec_tenant_access ON migration.mapping_spec AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY mapping_spec_legal_entity_scope ON migration.mapping_spec AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*');
+  USING (current_setting('depot.legal_entity_scopes', true) = '*');
 
 ALTER TABLE migration.run ADD COLUMN mapping_spec_id uuid;
 ALTER TABLE migration.run ADD CONSTRAINT run_mapping_spec_fk
@@ -31,8 +31,8 @@ CREATE INDEX run_created_idx ON migration.run (tenant_id, created_at DESC);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    GRANT SELECT, INSERT ON migration.mapping_spec TO passage_app;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    GRANT SELECT, INSERT ON migration.mapping_spec TO depot_app;
   END IF;
 END
 $$;

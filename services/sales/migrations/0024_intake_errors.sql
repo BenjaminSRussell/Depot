@@ -34,17 +34,17 @@ CREATE INDEX IF NOT EXISTS intake_error_list ON intake_error (tenant_id, status,
 ALTER TABLE intake_error ENABLE ROW LEVEL SECURITY;
 ALTER TABLE intake_error FORCE ROW LEVEL SECURITY;
 CREATE POLICY intake_error_tenant_access ON intake_error AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY intake_error_legal_entity_scope ON intake_error AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The store inserts, upserts (update on a repeat) and resolves; it never deletes.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON intake_error TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON intake_error TO depot_app';
   END IF;
 END
 $$;

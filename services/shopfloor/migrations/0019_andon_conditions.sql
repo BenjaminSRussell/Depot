@@ -1,4 +1,4 @@
--- PSG-25 slice 20: the other two andon conditions of FR-25.11 (scrap rate over 5 % in a bucket,
+-- DPT-25 slice 20: the other two andon conditions of FR-25.11 (scrap rate over 5 % in a bucket,
 -- quality fail) beside the downtime alert, and a supervisor's clear of a quality fail alert. An
 -- alert may name the job it came from and a one-line detail. BR-25.10 stays: one open alert per
 -- (resource, kind), enforced by the partial unique index from 0002. No new table, so the grants of

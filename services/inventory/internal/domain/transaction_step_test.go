@@ -7,7 +7,7 @@ import (
 	"github.com/shopspring/decimal"
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
 )
 
 func TestValidateStepTable(t *testing.T) {

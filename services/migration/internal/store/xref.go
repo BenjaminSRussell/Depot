@@ -9,12 +9,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
-// XrefRow is one legacy-key to Passage-id mapping as the cutover team looks it up.
+// XrefRow is one legacy-key to Depot-id mapping as the cutover team looks it up.
 type XrefRow struct {
 	SourceSystem       string `json:"sourceSystem"`
 	Entity             string `json:"entity"`
@@ -203,7 +203,7 @@ func (m *Mem) XrefSummary(context.Context) ([]XrefCount, error) {
 	return out, nil
 }
 
-// ResolveXref returns the Passage id of each of the keys of one entity from one source system that the cross-reference holds,
+// ResolveXref returns the Depot id of each of the keys of one entity from one source system that the cross-reference holds,
 // following a merge to the surviving record. Keys it does not hold are left out. The caller's legal-entity scope applies: a
 // scoped caller sees the rows of its legal entities only.
 func (s *Postgres) ResolveXref(ctx context.Context, system, entity string, keys []string) (map[string]string, error) {

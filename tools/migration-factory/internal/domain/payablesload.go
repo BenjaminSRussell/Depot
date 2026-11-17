@@ -10,7 +10,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // Target load of the AP lines of an open_items run (49-3): the payables service takes them as opening batches
@@ -32,7 +32,7 @@ const (
 // maxJSONInteger is the largest integer a JSON number carries exactly; payables refuses a larger amountMinor.
 const maxJSONInteger = int64(1) << 53
 
-// PayablesConfig is what a run fixes for the AP side of its load: the map from legacy vendor to the Passage vendor
+// PayablesConfig is what a run fixes for the AP side of its load: the map from legacy vendor to the Depot vendor
 // id (a vendor that is itself a UUID needs no entry).
 type PayablesConfig struct {
 	Vendors map[string]string
@@ -80,10 +80,10 @@ func buildPayablesRow(rec Record, x TargetExtra, cfg TargetConfig) (PayablesRow,
 		vendor = rec.Party
 	}
 	if !uuidPattern.MatchString(vendor) {
-		return PayablesRow{}, CodeRefUnresolved, fmt.Sprintf("party %q has no Passage vendor id: name it in load.payables.vendorIds or send vendorId on the record", rec.Party)
+		return PayablesRow{}, CodeRefUnresolved, fmt.Sprintf("party %q has no Depot vendor id: name it in load.payables.vendorIds or send vendorId on the record", rec.Party)
 	}
-	// An AP amount carries the ledger sign (what Passage owes the vendor is a credit, negative), as the AP control
-	// balance in the GL does; payables takes the magnitude owed. A debit balance (a vendor owes Passage) is not an
+	// An AP amount carries the ledger sign (what Depot owes the vendor is a credit, negative), as the AP control
+	// balance in the GL does; payables takes the magnitude owed. A debit balance (a vendor owes Depot) is not an
 	// open payable and has no place in an opening batch.
 	if !rec.Amount.IsNegative() {
 		return PayablesRow{}, CodeAPDebitBalance, "payables takes only an amount owed to the vendor (a credit, negative in the extract); a vendor debit balance cannot be loaded as an opening item"

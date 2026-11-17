@@ -1,249 +1,249 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Sales events
+  title: Depot Sales events
   version: 1.0.0
   description: >-
     CloudEvents 1.0 events published by the sales service through the outbox
-    (wave 27, slices 1 to 7). Types follow dev.passage.<context>.<entity>.<verb>.v<n>.
-    Topic passage.sales.<entity> is relayed by Debezium's outbox router.
+    (wave 27, slices 1 to 7). Types follow dev.depot.<context>.<entity>.<verb>.v<n>.
+    Topic depot.sales.<entity> is relayed by Debezium's outbox router.
 defaultContentType: application/cloudevents+json
 servers:
   kafka:
-    host: kafka.passage.svc:9092
+    host: kafka.depot.svc:9092
     protocol: kafka
 channels:
   orderConfirmed:
-    address: passage.sales.order
+    address: depot.sales.order
     messages:
       orderConfirmed:
         $ref: "#/components/messages/OrderConfirmed"
   orderHoldApplied:
-    address: passage.sales.orderhold
+    address: depot.sales.orderhold
     messages:
       orderHoldApplied:
         $ref: "#/components/messages/OrderHoldApplied"
   orderHoldReleased:
-    address: passage.sales.orderhold
+    address: depot.sales.orderhold
     messages:
       orderHoldReleased:
         $ref: "#/components/messages/OrderHoldReleased"
   orderHoldRejected:
-    address: passage.sales.orderhold
+    address: depot.sales.orderhold
     messages:
       orderHoldRejected:
         $ref: "#/components/messages/OrderHoldRejected"
   creditCheckEvaluated:
-    address: passage.sales.creditcheck
+    address: depot.sales.creditcheck
     messages:
       creditCheckEvaluated:
         $ref: "#/components/messages/CreditCheckEvaluated"
   orderChanged:
-    address: passage.sales.order
+    address: depot.sales.order
     messages:
       orderChanged:
         $ref: "#/components/messages/OrderChanged"
   orderCancelled:
-    address: passage.sales.order
+    address: depot.sales.order
     messages:
       orderCancelled:
         $ref: "#/components/messages/OrderCancelled"
   orderClosed:
-    address: passage.sales.order
+    address: depot.sales.order
     messages:
       orderClosed:
         $ref: "#/components/messages/OrderClosed"
   orderRemainderCancelled:
-    address: passage.sales.order
+    address: depot.sales.order
     messages:
       orderRemainderCancelled:
         $ref: "#/components/messages/OrderRemainderCancelled"
   agreementReleased:
-    address: passage.sales.agreement
+    address: depot.sales.agreement
     messages:
       agreementReleased:
         $ref: "#/components/messages/AgreementReleased"
   agreementChanged:
-    address: passage.sales.agreement
+    address: depot.sales.agreement
     messages:
       agreementChanged:
         $ref: "#/components/messages/AgreementChanged"
   agreementClosed:
-    address: passage.sales.agreement
+    address: depot.sales.agreement
     messages:
       agreementClosed:
         $ref: "#/components/messages/AgreementClosed"
   agreementReturned:
-    address: passage.sales.agreement
+    address: depot.sales.agreement
     messages:
       agreementReturned:
         $ref: "#/components/messages/AgreementReturned"
   agreementDrawn:
-    address: passage.sales.agreement
+    address: depot.sales.agreement
     messages:
       agreementDrawn:
         $ref: "#/components/messages/AgreementDrawn"
   agreementRepriced:
-    address: passage.sales.agreement
+    address: depot.sales.agreement
     messages:
       agreementRepriced:
         $ref: "#/components/messages/AgreementRepriced"
   scheduleReleaseReceived:
-    address: passage.sales.schedulerelease
+    address: depot.sales.schedulerelease
     messages:
       scheduleReleaseReceived:
         $ref: "#/components/messages/ScheduleReleaseReceived"
   scheduleReleaseResolved:
-    address: passage.sales.schedulerelease
+    address: depot.sales.schedulerelease
     messages:
       scheduleReleaseResolved:
         $ref: "#/components/messages/ScheduleReleaseResolved"
   scheduleReleaseRecalculated:
-    address: passage.sales.schedulerelease
+    address: depot.sales.schedulerelease
     messages:
       scheduleReleaseRecalculated:
         $ref: "#/components/messages/ScheduleReleaseRecalculated"
   backorderRunCommitted:
-    address: passage.sales.backorderrun
+    address: depot.sales.backorderrun
     messages:
       backorderRunCommitted:
         $ref: "#/components/messages/BackorderRunCommitted"
   parametersChanged:
-    address: passage.sales.parameters
+    address: depot.sales.parameters
     messages:
       parametersChanged:
         $ref: "#/components/messages/ParametersChanged"
   orderChangeRequested:
-    address: passage.sales.orderchange
+    address: depot.sales.orderchange
     messages:
       orderChangeRequested:
         $ref: "#/components/messages/OrderChangeRequested"
   orderChangeApproved:
-    address: passage.sales.orderchange
+    address: depot.sales.orderchange
     messages:
       orderChangeApproved:
         $ref: "#/components/messages/OrderChangeApproved"
   orderChangeRejected:
-    address: passage.sales.orderchange
+    address: depot.sales.orderchange
     messages:
       orderChangeRejected:
         $ref: "#/components/messages/OrderChangeRejected"
   orderChangeWithdrawn:
-    address: passage.sales.orderchange
+    address: depot.sales.orderchange
     messages:
       orderChangeWithdrawn:
         $ref: "#/components/messages/OrderChangeWithdrawn"
   changePolicyChanged:
-    address: passage.sales.changepolicy
+    address: depot.sales.changepolicy
     messages:
       changePolicyChanged:
         $ref: "#/components/messages/ChangePolicyChanged"
   quotationConverted:
-    address: passage.sales.quotation
+    address: depot.sales.quotation
     messages:
       quotationConverted:
         $ref: "#/components/messages/QuotationConverted"
   quotationExpired:
-    address: passage.sales.quotation
+    address: depot.sales.quotation
     messages:
       quotationExpired:
         $ref: "#/components/messages/QuotationExpired"
   quotationChanged:
-    address: passage.sales.quotation
+    address: depot.sales.quotation
     messages:
       quotationChanged:
         $ref: "#/components/messages/QuotationChanged"
   quotationCancelled:
-    address: passage.sales.quotation
+    address: depot.sales.quotation
     messages:
       quotationCancelled:
         $ref: "#/components/messages/QuotationCancelled"
   intakeErrorRecorded:
-    address: passage.sales.intakeerror
+    address: depot.sales.intakeerror
     messages:
       intakeErrorRecorded:
         $ref: "#/components/messages/IntakeErrorRecorded"
   intakeErrorResolved:
-    address: passage.sales.intakeerror
+    address: depot.sales.intakeerror
     messages:
       intakeErrorResolved:
         $ref: "#/components/messages/IntakeErrorResolved"
   deliveryTermsCreated:
-    address: passage.sales.deliveryterms
+    address: depot.sales.deliveryterms
     messages:
       deliveryTermsCreated:
         $ref: "#/components/messages/DeliveryTermsCreated"
   deliveryTermsChanged:
-    address: passage.sales.deliveryterms
+    address: depot.sales.deliveryterms
     messages:
       deliveryTermsChanged:
         $ref: "#/components/messages/DeliveryTermsChanged"
   deliveryToleranceCreated:
-    address: passage.sales.deliverytolerance
+    address: depot.sales.deliverytolerance
     messages:
       deliveryToleranceCreated:
         $ref: "#/components/messages/DeliveryToleranceCreated"
   deliveryToleranceChanged:
-    address: passage.sales.deliverytolerance
+    address: depot.sales.deliverytolerance
     messages:
       deliveryToleranceChanged:
         $ref: "#/components/messages/DeliveryToleranceChanged"
   deliveryToleranceRemoved:
-    address: passage.sales.deliverytolerance
+    address: depot.sales.deliverytolerance
     messages:
       deliveryToleranceRemoved:
         $ref: "#/components/messages/DeliveryToleranceRemoved"
   orderProgressRecorded:
-    address: passage.sales.orderprogress
+    address: depot.sales.orderprogress
     messages:
       orderProgressRecorded:
         $ref: "#/components/messages/OrderProgressRecorded"
   allocationQuotaCreated:
-    address: passage.sales.allocationquota
+    address: depot.sales.allocationquota
     messages:
       allocationQuotaCreated:
         $ref: "#/components/messages/AllocationQuotaCreated"
   allocationQuotaChanged:
-    address: passage.sales.allocationquota
+    address: depot.sales.allocationquota
     messages:
       allocationQuotaChanged:
         $ref: "#/components/messages/AllocationQuotaChanged"
   allocationConsumed:
-    address: passage.sales.allocation
+    address: depot.sales.allocation
     messages:
       allocationConsumed:
         $ref: "#/components/messages/AllocationConsumed"
   allocationReturned:
-    address: passage.sales.allocation
+    address: depot.sales.allocation
     messages:
       allocationReturned:
         $ref: "#/components/messages/AllocationReturned"
   atpPromised:
-    address: passage.sales.atp
+    address: depot.sales.atp
     messages:
       atpPromised:
         $ref: "#/components/messages/ATPPromised"
   returnOrderAuthorized:
-    address: passage.sales.returnorder
+    address: depot.sales.returnorder
     messages:
       returnOrderAuthorized:
         $ref: "#/components/messages/ReturnOrderAuthorized"
   returnOrderReceived:
-    address: passage.sales.returnorder
+    address: depot.sales.returnorder
     messages:
       returnOrderReceived:
         $ref: "#/components/messages/ReturnOrderReceived"
   returnOrderInspected:
-    address: passage.sales.returnorder
+    address: depot.sales.returnorder
     messages:
       returnOrderInspected:
         $ref: "#/components/messages/ReturnOrderInspected"
   returnOrderDispositioned:
-    address: passage.sales.returnorder
+    address: depot.sales.returnorder
     messages:
       returnOrderDispositioned:
         $ref: "#/components/messages/ReturnOrderDispositioned"
   returnOrderCredited:
-    address: passage.sales.returnorder
+    address: depot.sales.returnorder
     messages:
       returnOrderCredited:
         $ref: "#/components/messages/ReturnOrderCredited"
@@ -543,7 +543,7 @@ operations:
 components:
   messages:
     QuotationConverted:
-      name: dev.passage.sales.quotation.converted.v1
+      name: dev.depot.sales.quotation.converted.v1
       title: Quotation converted to a sales order
       contentType: application/cloudevents+json
       headers:
@@ -551,7 +551,7 @@ components:
       payload:
         $ref: "#/components/schemas/QuotationConvertedData"
     QuotationExpired:
-      name: dev.passage.sales.quotation.expired.v1
+      name: dev.depot.sales.quotation.expired.v1
       title: Quotation expired
       contentType: application/cloudevents+json
       headers:
@@ -559,7 +559,7 @@ components:
       payload:
         $ref: "#/components/schemas/QuotationExpiredData"
     QuotationChanged:
-      name: dev.passage.sales.quotation.changed.v1
+      name: dev.depot.sales.quotation.changed.v1
       title: Quotation changed
       contentType: application/cloudevents+json
       headers:
@@ -567,7 +567,7 @@ components:
       payload:
         $ref: "#/components/schemas/QuotationChangedData"
     QuotationCancelled:
-      name: dev.passage.sales.quotation.cancelled.v1
+      name: dev.depot.sales.quotation.cancelled.v1
       title: Quotation cancelled
       contentType: application/cloudevents+json
       headers:
@@ -575,7 +575,7 @@ components:
       payload:
         $ref: "#/components/schemas/QuotationCancelledData"
     IntakeErrorRecorded:
-      name: dev.passage.sales.intakeerror.recorded.v1
+      name: dev.depot.sales.intakeerror.recorded.v1
       title: Intake error recorded
       contentType: application/cloudevents+json
       headers:
@@ -583,7 +583,7 @@ components:
       payload:
         $ref: "#/components/schemas/IntakeErrorData"
     IntakeErrorResolved:
-      name: dev.passage.sales.intakeerror.resolved.v1
+      name: dev.depot.sales.intakeerror.resolved.v1
       title: Intake error resolved
       contentType: application/cloudevents+json
       headers:
@@ -591,7 +591,7 @@ components:
       payload:
         $ref: "#/components/schemas/IntakeErrorData"
     OrderConfirmed:
-      name: dev.passage.sales.order.confirmed.v1
+      name: dev.depot.sales.order.confirmed.v1
       title: Sales order confirmed
       contentType: application/cloudevents+json
       headers:
@@ -599,7 +599,7 @@ components:
       payload:
         $ref: "#/components/schemas/OrderConfirmedData"
     OrderHoldApplied:
-      name: dev.passage.sales.orderhold.applied.v1
+      name: dev.depot.sales.orderhold.applied.v1
       title: Order hold applied
       contentType: application/cloudevents+json
       headers:
@@ -607,7 +607,7 @@ components:
       payload:
         $ref: "#/components/schemas/OrderHoldData"
     OrderHoldReleased:
-      name: dev.passage.sales.orderhold.released.v1
+      name: dev.depot.sales.orderhold.released.v1
       title: Order hold released
       contentType: application/cloudevents+json
       headers:
@@ -615,7 +615,7 @@ components:
       payload:
         $ref: "#/components/schemas/OrderHoldData"
     OrderHoldRejected:
-      name: dev.passage.sales.orderhold.rejected.v1
+      name: dev.depot.sales.orderhold.rejected.v1
       title: Order hold rejected
       summary: A credit manager rejected a CREDIT hold with a comment; the unconfirmed order was cancelled in the same transaction.
       contentType: application/cloudevents+json
@@ -624,7 +624,7 @@ components:
       payload:
         $ref: "#/components/schemas/OrderHoldRejectedData"
     CreditCheckEvaluated:
-      name: dev.passage.sales.creditcheck.evaluated.v1
+      name: dev.depot.sales.creditcheck.evaluated.v1
       title: Credit check evaluated
       contentType: application/cloudevents+json
       headers:
@@ -632,7 +632,7 @@ components:
       payload:
         $ref: "#/components/schemas/CreditCheckData"
     AgreementReleased:
-      name: dev.passage.sales.agreement.released.v1
+      name: dev.depot.sales.agreement.released.v1
       title: Sales agreement released into an order
       contentType: application/cloudevents+json
       headers:
@@ -640,7 +640,7 @@ components:
       payload:
         $ref: "#/components/schemas/AgreementReleasedData"
     AgreementChanged:
-      name: dev.passage.sales.agreement.changed.v1
+      name: dev.depot.sales.agreement.changed.v1
       title: Sales agreement changed
       contentType: application/cloudevents+json
       headers:
@@ -648,7 +648,7 @@ components:
       payload:
         $ref: "#/components/schemas/AgreementLifecycleData"
     AgreementClosed:
-      name: dev.passage.sales.agreement.closed.v1
+      name: dev.depot.sales.agreement.closed.v1
       title: Sales agreement closed
       contentType: application/cloudevents+json
       headers:
@@ -656,7 +656,7 @@ components:
       payload:
         $ref: "#/components/schemas/AgreementLifecycleData"
     AgreementReturned:
-      name: dev.passage.sales.agreement.returned.v1
+      name: dev.depot.sales.agreement.returned.v1
       title: Sales agreement quantity returned
       contentType: application/cloudevents+json
       headers:
@@ -664,7 +664,7 @@ components:
       payload:
         $ref: "#/components/schemas/AgreementLifecycleData"
     AgreementDrawn:
-      name: dev.passage.sales.agreement.drawn.v1
+      name: dev.depot.sales.agreement.drawn.v1
       title: Sales agreement quantity drawn
       contentType: application/cloudevents+json
       headers:
@@ -672,7 +672,7 @@ components:
       payload:
         $ref: "#/components/schemas/AgreementLifecycleData"
     AgreementRepriced:
-      name: dev.passage.sales.agreement.repriced.v1
+      name: dev.depot.sales.agreement.repriced.v1
       title: Sales agreement price carried to released orders
       contentType: application/cloudevents+json
       headers:
@@ -680,7 +680,7 @@ components:
       payload:
         $ref: "#/components/schemas/AgreementLifecycleData"
     ScheduleReleaseReceived:
-      name: dev.passage.sales.schedulerelease.received.v1
+      name: dev.depot.sales.schedulerelease.received.v1
       title: Scheduling release received
       contentType: application/cloudevents+json
       headers:
@@ -688,7 +688,7 @@ components:
       payload:
         $ref: "#/components/schemas/ScheduleReleaseData"
     ScheduleReleaseResolved:
-      name: dev.passage.sales.schedulerelease.resolved.v1
+      name: dev.depot.sales.schedulerelease.resolved.v1
       title: Scheduling release resolved
       contentType: application/cloudevents+json
       headers:
@@ -696,7 +696,7 @@ components:
       payload:
         $ref: "#/components/schemas/ScheduleReleaseData"
     ScheduleReleaseRecalculated:
-      name: dev.passage.sales.schedulerelease.recalculated.v1
+      name: dev.depot.sales.schedulerelease.recalculated.v1
       title: Scheduling release recalculated
       contentType: application/cloudevents+json
       headers:
@@ -704,7 +704,7 @@ components:
       payload:
         $ref: "#/components/schemas/ScheduleReleaseData"
     BackorderRunCommitted:
-      name: dev.passage.sales.backorderrun.committed.v1
+      name: dev.depot.sales.backorderrun.committed.v1
       title: Backorder run committed
       contentType: application/cloudevents+json
       headers:
@@ -712,7 +712,7 @@ components:
       payload:
         $ref: "#/components/schemas/BackorderRunCommittedData"
     OrderChanged:
-      name: dev.passage.sales.order.changed.v1
+      name: dev.depot.sales.order.changed.v1
       title: Sales order changed
       contentType: application/cloudevents+json
       headers:
@@ -720,7 +720,7 @@ components:
       payload:
         $ref: "#/components/schemas/OrderChangedData"
     OrderCancelled:
-      name: dev.passage.sales.order.cancelled.v1
+      name: dev.depot.sales.order.cancelled.v1
       title: Sales order cancelled
       contentType: application/cloudevents+json
       headers:
@@ -728,7 +728,7 @@ components:
       payload:
         $ref: "#/components/schemas/OrderCancelledData"
     OrderClosed:
-      name: dev.passage.sales.order.closed.v1
+      name: dev.depot.sales.order.closed.v1
       title: Sales order closed
       contentType: application/cloudevents+json
       headers:
@@ -736,7 +736,7 @@ components:
       payload:
         $ref: "#/components/schemas/OrderClosedData"
     OrderRemainderCancelled:
-      name: dev.passage.sales.order.remaindercancelled.v1
+      name: dev.depot.sales.order.remaindercancelled.v1
       title: Remainder of a partly shipped order cancelled, or line quantities of a confirmed order changed or cancelled
       contentType: application/cloudevents+json
       headers:
@@ -744,7 +744,7 @@ components:
       payload:
         $ref: "#/components/schemas/OrderRemainderCancelledData"
     AllocationQuotaCreated:
-      name: dev.passage.sales.allocationquota.created.v1
+      name: dev.depot.sales.allocationquota.created.v1
       title: Allocation quota created
       contentType: application/cloudevents+json
       headers:
@@ -752,7 +752,7 @@ components:
       payload:
         $ref: "#/components/schemas/AllocationQuotaData"
     OrderChangeRequested:
-      name: dev.passage.sales.orderchange.requested.v1
+      name: dev.depot.sales.orderchange.requested.v1
       title: Order change requested
       contentType: application/cloudevents+json
       headers:
@@ -760,7 +760,7 @@ components:
       payload:
         $ref: "#/components/schemas/OrderChangeRequestedData"
     OrderChangeApproved:
-      name: dev.passage.sales.orderchange.approved.v1
+      name: dev.depot.sales.orderchange.approved.v1
       title: Order change approved
       contentType: application/cloudevents+json
       headers:
@@ -768,7 +768,7 @@ components:
       payload:
         $ref: "#/components/schemas/OrderChangeDecidedData"
     OrderChangeRejected:
-      name: dev.passage.sales.orderchange.rejected.v1
+      name: dev.depot.sales.orderchange.rejected.v1
       title: Order change rejected
       contentType: application/cloudevents+json
       headers:
@@ -776,7 +776,7 @@ components:
       payload:
         $ref: "#/components/schemas/OrderChangeDecidedData"
     OrderChangeWithdrawn:
-      name: dev.passage.sales.orderchange.withdrawn.v1
+      name: dev.depot.sales.orderchange.withdrawn.v1
       title: Order change withdrawn
       contentType: application/cloudevents+json
       headers:
@@ -784,7 +784,7 @@ components:
       payload:
         $ref: "#/components/schemas/OrderChangeDecidedData"
     ChangePolicyChanged:
-      name: dev.passage.sales.changepolicy.changed.v1
+      name: dev.depot.sales.changepolicy.changed.v1
       title: Customer change policy changed
       contentType: application/cloudevents+json
       headers:
@@ -792,7 +792,7 @@ components:
       payload:
         $ref: "#/components/schemas/ChangePolicyChangedData"
     ParametersChanged:
-      name: dev.passage.sales.parameters.changed.v1
+      name: dev.depot.sales.parameters.changed.v1
       title: Sales parameters changed
       contentType: application/cloudevents+json
       headers:
@@ -800,7 +800,7 @@ components:
       payload:
         $ref: "#/components/schemas/ParametersChangedData"
     DeliveryTermsCreated:
-      name: dev.passage.sales.deliveryterms.created.v1
+      name: dev.depot.sales.deliveryterms.created.v1
       title: Customer delivery terms created
       contentType: application/cloudevents+json
       headers:
@@ -808,7 +808,7 @@ components:
       payload:
         $ref: "#/components/schemas/DeliveryTermsData"
     DeliveryTermsChanged:
-      name: dev.passage.sales.deliveryterms.changed.v1
+      name: dev.depot.sales.deliveryterms.changed.v1
       title: Customer delivery terms changed
       contentType: application/cloudevents+json
       headers:
@@ -816,7 +816,7 @@ components:
       payload:
         $ref: "#/components/schemas/DeliveryTermsData"
     DeliveryToleranceCreated:
-      name: dev.passage.sales.deliverytolerance.created.v1
+      name: dev.depot.sales.deliverytolerance.created.v1
       title: Delivery tolerance created
       contentType: application/cloudevents+json
       headers:
@@ -824,7 +824,7 @@ components:
       payload:
         $ref: "#/components/schemas/DeliveryToleranceData"
     DeliveryToleranceChanged:
-      name: dev.passage.sales.deliverytolerance.changed.v1
+      name: dev.depot.sales.deliverytolerance.changed.v1
       title: Delivery tolerance changed
       contentType: application/cloudevents+json
       headers:
@@ -832,7 +832,7 @@ components:
       payload:
         $ref: "#/components/schemas/DeliveryToleranceData"
     DeliveryToleranceRemoved:
-      name: dev.passage.sales.deliverytolerance.removed.v1
+      name: dev.depot.sales.deliverytolerance.removed.v1
       title: Delivery tolerance removed
       contentType: application/cloudevents+json
       headers:
@@ -840,7 +840,7 @@ components:
       payload:
         $ref: "#/components/schemas/DeliveryToleranceData"
     OrderProgressRecorded:
-      name: dev.passage.sales.orderprogress.recorded.v1
+      name: dev.depot.sales.orderprogress.recorded.v1
       title: Order delivery or invoice recorded
       contentType: application/cloudevents+json
       headers:
@@ -848,7 +848,7 @@ components:
       payload:
         $ref: "#/components/schemas/OrderProgressData"
     AllocationQuotaChanged:
-      name: dev.passage.sales.allocationquota.changed.v1
+      name: dev.depot.sales.allocationquota.changed.v1
       title: Allocation quota changed
       contentType: application/cloudevents+json
       headers:
@@ -856,7 +856,7 @@ components:
       payload:
         $ref: "#/components/schemas/AllocationQuotaData"
     AllocationConsumed:
-      name: dev.passage.sales.allocation.consumed.v1
+      name: dev.depot.sales.allocation.consumed.v1
       title: Allocation quota consumed by an order line
       contentType: application/cloudevents+json
       headers:
@@ -864,7 +864,7 @@ components:
       payload:
         $ref: "#/components/schemas/AllocationData"
     AllocationReturned:
-      name: dev.passage.sales.allocation.returned.v1
+      name: dev.depot.sales.allocation.returned.v1
       title: Allocation quota returned by an order line
       contentType: application/cloudevents+json
       headers:
@@ -872,7 +872,7 @@ components:
       payload:
         $ref: "#/components/schemas/AllocationData"
     ReturnOrderAuthorized:
-      name: dev.passage.sales.returnorder.authorized.v1
+      name: dev.depot.sales.returnorder.authorized.v1
       title: Return order authorized
       contentType: application/cloudevents+json
       headers:
@@ -880,7 +880,7 @@ components:
       payload:
         $ref: "#/components/schemas/ReturnOrderData"
     ReturnOrderReceived:
-      name: dev.passage.sales.returnorder.received.v1
+      name: dev.depot.sales.returnorder.received.v1
       title: Return order received
       contentType: application/cloudevents+json
       headers:
@@ -888,7 +888,7 @@ components:
       payload:
         $ref: "#/components/schemas/ReturnOrderData"
     ReturnOrderInspected:
-      name: dev.passage.sales.returnorder.inspected.v1
+      name: dev.depot.sales.returnorder.inspected.v1
       title: Return order inspected
       contentType: application/cloudevents+json
       headers:
@@ -896,7 +896,7 @@ components:
       payload:
         $ref: "#/components/schemas/ReturnOrderData"
     ReturnOrderDispositioned:
-      name: dev.passage.sales.returnorder.dispositioned.v1
+      name: dev.depot.sales.returnorder.dispositioned.v1
       title: Return order dispositioned
       contentType: application/cloudevents+json
       headers:
@@ -904,7 +904,7 @@ components:
       payload:
         $ref: "#/components/schemas/ReturnOrderData"
     ReturnOrderCredited:
-      name: dev.passage.sales.returnorder.credited.v1
+      name: dev.depot.sales.returnorder.credited.v1
       title: Return order credited
       contentType: application/cloudevents+json
       headers:
@@ -912,7 +912,7 @@ components:
       payload:
         $ref: "#/components/schemas/ReturnOrderData"
     ATPPromised:
-      name: dev.passage.sales.atp.promised.v1
+      name: dev.depot.sales.atp.promised.v1
       title: Order line promised against ATP
       contentType: application/cloudevents+json
       headers:
@@ -1153,7 +1153,7 @@ components:
       properties:
         specversion: {type: string, const: "1.0"}
         id: {type: string, format: uuid}
-        source: {type: string, example: "/passage/sales/sales"}
+        source: {type: string, example: "/depot/sales/sales"}
         type: {type: string}
         subject: {type: string}
         time: {type: string, format: date-time}

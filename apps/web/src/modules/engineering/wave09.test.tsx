@@ -66,7 +66,7 @@ describe("DocumentPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sign and release" }));
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith(":sign"))).toBe(true));
     const signCall = fetchMock.mock.calls.find(([url]) => String(url).endsWith(":sign"));
-    expect(new Headers(signCall?.[1]?.headers).get("X-Passage-Reauth-Assertion")).toBeNull();
+    expect(new Headers(signCall?.[1]?.headers).get("X-Depot-Reauth-Assertion")).toBeNull();
     expect(JSON.parse(String(signCall?.[1]?.body))).toEqual({ printedName: "Carol Kane", method: "password" });
     expect(await screen.findByText("Carol Kane")).toBeInTheDocument();
     expect(componentViolations(container)).toEqual([]);

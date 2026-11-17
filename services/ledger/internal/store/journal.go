@@ -14,12 +14,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/domain"
-	ledgerevents "github.com/BenjaminSRussell/passage/services/ledger/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/domain"
+	ledgerevents "github.com/BenjaminSRussell/depot/services/ledger/internal/events"
 )
 
 // writeLine is one line ready to insert.
@@ -321,7 +321,7 @@ func reverseEntryTx(ctx context.Context, tx pgx.Tx, tenantID string, in ReverseI
 	origID := in.EntryID
 	entry, err := writeEntry(ctx, tx, tenantID, newEntry{
 		ledger: ledger, documentID: orig.documentID, postingDate: postingDate, description: description,
-		source: ledgerevents.Source{System: "ledger", Type: "reversal", ID: orig.voucher, URI: "passage://ledger/journal-entries/" + origID},
+		source: ledgerevents.Source{System: "ledger", Type: "reversal", ID: orig.voucher, URI: "depot://ledger/journal-entries/" + origID},
 		key:    in.Key, hash: in.Hash, actor: in.Actor, traceID: in.TraceID, reversalOf: &origID, lines: lines,
 		reasonCode: in.ReasonCode, reasonComment: in.ReasonComment, realignmentRunID: in.realignmentRunID,
 	})

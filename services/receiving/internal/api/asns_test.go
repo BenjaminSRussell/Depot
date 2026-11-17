@@ -9,7 +9,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
 )
 
 const asnsPath = "/v1/receiving/asns"
@@ -58,7 +58,7 @@ func asnLine(no int, qty, batch, expiry string) map[string]any {
 }
 
 func (rg *rig) vendorAsn(body string) *httpResult {
-	rec := rg.call(http.MethodPost, asnsPath, body, duty("receiving.asn.maintain", rg.key(), "X-Passage-User", "vendor-user"))
+	rec := rg.call(http.MethodPost, asnsPath, body, duty("receiving.asn.maintain", rg.key(), "X-Depot-User", "vendor-user"))
 	return &httpResult{rec.Code, rec.Body.String()}
 }
 
@@ -118,7 +118,7 @@ func TestAsn_RefusesDuplicateTrackingNumberAndBadInput(t *testing.T) {
 func TestAsn_ReplayedCreateWithTheSameKeyIsIdempotent(t *testing.T) {
 	rg := newSheetRig(asnPO())
 	body := asnBodyFor("TRK-1", asnLine(1, "60", "", ""))
-	hdr := func() headers { return duty("receiving.asn.maintain", "asn-key", "X-Passage-User", "vendor-user") }
+	hdr := func() headers { return duty("receiving.asn.maintain", "asn-key", "X-Depot-User", "vendor-user") }
 
 	first := decode[asnJSON](t, rg.call(http.MethodPost, asnsPath, body, hdr()), http.StatusCreated)
 	replay := decode[asnJSON](t, rg.call(http.MethodPost, asnsPath, body, hdr()), http.StatusCreated)

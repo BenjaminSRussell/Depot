@@ -7,11 +7,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/billingclient"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
-	rcvevents "github.com/BenjaminSRussell/passage/services/receivables/internal/events"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/taxclient"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/billingclient"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
+	rcvevents "github.com/BenjaminSRussell/depot/services/receivables/internal/events"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/taxclient"
 )
 
 var taxAccounts = map[string]map[string]string{legalEntity: {"DE19": "2310", "DE7": "2320"}}

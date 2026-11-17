@@ -8,14 +8,14 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/store"
-	"github.com/BenjaminSRussell/passage/services/finreport/migrations"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/finreport/migrations"
 )
 
 // The whole job against Postgres as the application role: a schedule saved in
@@ -33,8 +33,8 @@ func TestRunner_EndToEndAgainstPostgres(t *testing.T) {
 	ledger, entity, unknown := ids.New(), ids.New(), ids.New()
 	entry := domain.PostedEntry{LedgerID: ledger, LegalEntityID: entity, EntryID: ids.New(), PostingSequence: 1, PostingDate: "2026-03-15",
 		PeriodKey: "2026-03", Voucher: "V1", SourceSystem: "ledger", Lines: []domain.SourceLine{
-			{LineNumber: 1, Account: "1000", DebitCredit: "D", AmountAcct: decimal.RequireFromString("125.50"), SourceURI: "passage://payables/invoices/1", TraceID: "0123456789abcdef0123456789abcdef"},
-			{LineNumber: 2, Account: "2000", DebitCredit: "C", AmountAcct: decimal.RequireFromString("125.50"), SourceURI: "passage://payables/invoices/1", TraceID: "0123456789abcdef0123456789abcdef"},
+			{LineNumber: 1, Account: "1000", DebitCredit: "D", AmountAcct: decimal.RequireFromString("125.50"), SourceURI: "depot://payables/invoices/1", TraceID: "0123456789abcdef0123456789abcdef"},
+			{LineNumber: 2, Account: "2000", DebitCredit: "C", AmountAcct: decimal.RequireFromString("125.50"), SourceURI: "depot://payables/invoices/1", TraceID: "0123456789abcdef0123456789abcdef"},
 		}}
 	if n, err := st.ApplyEntry(ctx, entry); err != nil || n != 1 {
 		t.Fatalf("apply: %d %v", n, err)

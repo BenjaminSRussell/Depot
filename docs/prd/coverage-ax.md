@@ -1,4 +1,4 @@
-# Part 12 — Coverage Inventory: Dynamics AX 2012 R3 / D365 F&SCM → Passage
+# Part 12 — Coverage Inventory: Dynamics AX 2012 R3 / D365 F&SCM → Depot
 
 | | |
 |---|---|
@@ -6,40 +6,40 @@
 | **Date** | 2026-10-21 |
 | **Source of truth for waves** | [roadmap/waves.json](../../roadmap/waves.json) (wave numbers 1–50); [roadmap/phases.json](../../roadmap/phases.json) |
 | **Scope rules** | [docs/PRD.md](../PRD.md) §2 goals and non-goals, §5 scope map |
-| **Purpose** | The team's fear is "missing something". This part walks the AX 2012 R3 navigation pane module by module (plus the D365 F&SCM additions that matter to a manufacturer) and assigns every form, inquiry, report, periodic job and setup form to a Passage wave — or says, honestly, that nothing covers it yet. |
+| **Purpose** | The team's fear is "missing something". This part walks the AX 2012 R3 navigation pane module by module (plus the D365 F&SCM additions that matter to a manufacturer) and assigns every form, inquiry, report, periodic job and setup form to a Depot wave — or says, honestly, that nothing covers it yet. |
 
 ## 12.0 How to read this inventory
 
 Each module section mirrors the AX 2012 R3 menu structure and has four tables:
 
-1. **Common / Journals** — every list page, details form and journal the user opens from *Common* or *Journals*. Columns: Form name | AOT form or menu item (best effort from memory of the AX 2012 R3 AOT; treat as a search key, not gospel) | Purpose | Passage status | Wave | Notes.
-2. **Inquiries & Reports** — every *Inquiries* entry and every SSRS report under *Reports*. Columns: Name | Purpose | Passage status | Wave | Notes.
+1. **Common / Journals** — every list page, details form and journal the user opens from *Common* or *Journals*. Columns: Form name | AOT form or menu item (best effort from memory of the AX 2012 R3 AOT; treat as a search key, not gospel) | Purpose | Depot status | Wave | Notes.
+2. **Inquiries & Reports** — every *Inquiries* entry and every SSRS report under *Reports*. Columns: Name | Purpose | Depot status | Wave | Notes.
 3. **Periodic** — every periodic job or process. Same columns as 2.
-4. **Setup** — every setup form, with the module's *parameters* form listed first and its tabs spelled out as separate rows where the tab changes behavior that a wave must implement. Columns: Name | Key parameters / options | Passage status | Wave | Notes.
+4. **Setup** — every setup form, with the module's *parameters* form listed first and its tabs spelled out as separate rows where the tab changes behavior that a wave must implement. Columns: Name | Key parameters / options | Depot status | Wave | Notes.
 
-**Status legend** (the *Passage status* column always starts with one of these tokens so the document can be counted mechanically):
+**Status legend** (the *Depot status* column always starts with one of these tokens so the document can be counted mechanically):
 
 - `COVERED-<wave>` — a deliverable in waves.json for that wave clearly implements the AX capability, at parity or better.
 - `PARTIAL-<wave> (what's missing)` — the wave covers the core but a named piece of the AX feature is not in any wave deliverable. The missing piece is listed in the gap register (§12.99) with a proposed wave.
 - `GAP` — no wave in waves.json clearly covers the item. The Notes column always begins with `Propose wave NN:` so the gap register can be generated from the rows. Wave column shows `—`.
 - `OUT-OF-SCOPE (reason)` — excluded by a PRD non-goal (CRM/marketing automation, retail POS/e-commerce, country packs beyond US/UK/DE/FR/IN/MX/CA, X++/ABAP code migration) or because AX itself deprecated it before R3. Wave column shows `—`.
-- `SUPERSEDED (how)` — Passage deliberately does it a different way; the replacing mechanism is named. Wave column shows the wave that ships the replacement.
+- `SUPERSEDED (how)` — Depot deliberately does it a different way; the replacing mechanism is named. Wave column shows the wave that ships the replacement.
 
 **Conventions**
 
 - Wave numbers refer to `n` in waves.json. Phase boundaries: 0 = 1–5, 1 = 6–10, 2 = 11–15, 3 = 16–20, 4 = 21–25, 5 = 26–30, 6 = 31–35, 7 = 36–40, 8 = 41–45, 9 = 46–50.
-- "SSRS report" rows are assessed against two things: the *data* (does a Passage wave produce it?) and the *rendering* (wave 46 replaces every SSRS layout with the operational report designer and embedded dashboards). A report is `COVERED-<n>` when the data wave exists and wave 46 renders it; it is `PARTIAL` only when the data itself is missing.
+- "SSRS report" rows are assessed against two things: the *data* (does a Depot wave produce it?) and the *rendering* (wave 46 replaces every SSRS layout with the operational report designer and embedded dashboards). A report is `COVERED-<n>` when the data wave exists and wave 46 renders it; it is `PARTIAL` only when the data itself is missing.
 - Forms that are shared across modules (Terms of payment, Methods of payment, Charges codes, Print management, Form setup, Number sequences) are listed in every module where AX shows them, so each module section is self-contained for its reviewer. They map to the same wave each time.
 - Where AX 2012 R3 and D365 F&SCM differ (e.g. Collections, Credit management, Cost accounting ledger, Landed cost), the D365 name is given in Notes and the row is assessed against the D365 behavior because that is what a manufacturer migrating today expects.
 - Country-specific forms are listed only where they belong to one of the seven v1 country packs; everything else is `OUT-OF-SCOPE (country pack beyond v1 set)`.
 
 ## 12.1 General ledger
 
-The general ledger is the heart of AX. In Passage it is the universal journal (wave 11) plus currencies/parallel ledgers (12), tax (13), period close (14) and financial reporting (15). Consolidation moves to wave 40; budgeting to wave 38.
+The general ledger is the heart of AX. In Depot it is the universal journal (wave 11) plus currencies/parallel ledgers (12), tax (13), period close (14) and financial reporting (15). Consolidation moves to wave 40; budgeting to wave 38.
 
 ### 12.1.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Main accounts (list page) | MainAccountListPage | Browse chart of accounts with balances FactBox | COVERED-11 | 11 | Metadata-driven list page with balance projection FactBox |
 | Main account details | MainAccount | Account type, category, DB/CR default, suspended, validation (currency/user/posting type), allocation terms, default dimensions, translations | COVERED-11 | 11 | Account structure validation rules at posting API |
@@ -63,11 +63,11 @@ The general ledger is the heart of AX. In Passage it is the universal journal (w
 | Journal names list | LedgerJournalName | Also reachable from Common in some role centers | COVERED-11 | 11 | See Setup |
 | Reverse transaction (from voucher) | LedgerTransReverse | Reverse one voucher / trace reversal | COVERED-11 | 11 | |
 | Reverse entire journal | LedgerJournalTableReverse | Reverse all vouchers of a batch | COVERED-11 | 11 | |
-| Fiscal calendars (Common link in R3) | FiscalCalendars | Shared calendars, years, periods | COVERED-6 | 6 | Owned by Org admin in Passage |
+| Fiscal calendars (Common link in R3) | FiscalCalendars | Shared calendars, years, periods | COVERED-6 | 6 | Owned by Org admin in Depot |
 
 ### 12.1.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Trial balance (inquiry, dimension set) | Opening/debit/credit/closing by account and dimension set, date range | COVERED-15 | 15 | Drill-down to lines |
 | Ledger transactions (Voucher transactions) | Lines by voucher with origin trace | COVERED-11 | 11 | Journal lines inquiry with source-document link |
@@ -78,14 +78,14 @@ The general ledger is the heart of AX. In Passage it is the universal journal (w
 | Ledger budget transactions inquiry | Budget register entries by account | COVERED-38 | 38 | |
 | Currency exchange rate inquiry | Rates by type/pair/date | COVERED-12 | 12 | Rate audit |
 | Dimension statement (Dimension balance inquiry) | Balances for a single dimension value | COVERED-11 | 11 | Balance projection query |
-| Closing sheet (periodic, country-dependent) | Closing adjustments worksheet (used in ES/IT/EE) | OUT-OF-SCOPE (country pack beyond v1 set; closing adjustments in Passage are allocation/accrual journals) | — | |
+| Closing sheet (periodic, country-dependent) | Closing adjustments worksheet (used in ES/IT/EE) | OUT-OF-SCOPE (country pack beyond v1 set; closing adjustments in Depot are allocation/accrual journals) | — | |
 | Ledger reconciliation inquiry (Inventory/ledger, AR/AP) | Compare subledger to GL | COVERED-20 | 20 | Daily automated subledger-to-GL reconciliation from wave 16; inventory value report wave 20 |
 | SSRS: Trial balance | Printed trial balance | COVERED-15 | 15 | Rendered via wave 46 designer |
 | SSRS: Trial balance summary | Summary by account | COVERED-15 | 15 | |
 | SSRS: Ledger transaction list | Lines by date range | COVERED-11 | 11 | |
 | SSRS: Ledger account balance | Balance per account/period | COVERED-15 | 15 | |
 | SSRS: Dimension statement | Dimension-based P&L/balance | COVERED-15 | 15 | |
-| SSRS: Financial statement (old LedgerBalanceSheet row/column definitions) | Legacy AX statement engine | SUPERSEDED (report definitions in wave 15 designer, Management Reporter model) | 15 | AX 2012 had both; Passage keeps only the MR-style model |
+| SSRS: Financial statement (old LedgerBalanceSheet row/column definitions) | Legacy AX statement engine | SUPERSEDED (report definitions in wave 15 designer, Management Reporter model) | 15 | AX 2012 had both; Depot keeps only the MR-style model |
 | SSRS: Chart of accounts | List of accounts with attributes | COVERED-11 | 11 | |
 | SSRS: Journal (LedgerJournal report) | Unposted journal printout | COVERED-11 | 11 | |
 | SSRS: Posted journals | Posted batch printout | COVERED-11 | 11 | |
@@ -111,7 +111,7 @@ The general ledger is the heart of AX. In Passage it is the universal journal (w
 
 ### 12.1.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Journals → Periodic journals (retrieve) | Generate journal lines from periodic journal template | COVERED-14 | 14 | |
 | Journals → Allocation journal (Process allocation request) | Run allocation rules, create allocation journal | COVERED-14 | 14 | Fixed, basis, iterative |
@@ -121,7 +121,7 @@ The general ledger is the heart of AX. In Passage it is the universal journal (w
 | Fiscal year close → Opening transactions | Create opening transactions per account/dimension | COVERED-14 | 14 | |
 | Fiscal year close → Transfer opening balances (D365 year-end close templates) | Templates for retained earnings by dimension | COVERED-14 | 14 | |
 | Consolidate → Consolidate [Online] | Pull subsidiary balances into consolidation company | COVERED-40 | 40 | |
-| Consolidate → Consolidate [Export] / [Import] | File-based consolidation | COVERED-40 | 40 | Import path for non-Passage subsidiaries |
+| Consolidate → Consolidate [Export] / [Import] | File-based consolidation | COVERED-40 | 40 | Import path for non-Depot subsidiaries |
 | Consolidate → Elimination proposal | Generate elimination journal | COVERED-40 | 40 | |
 | Currency revaluation (Foreign currency revaluation, GL) | Unrealized gain/loss on monetary accounts | COVERED-12 | 12 | Reversal next period |
 | Currency revaluation → Reporting currency adjustment (D365) | Restate reporting currency balances | COVERED-12 | 12 | Currency translation |
@@ -143,7 +143,7 @@ The general ledger is the heart of AX. In Passage it is the universal journal (w
 
 ### 12.1.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | General ledger parameters — Ledger tab | Check for voucher used, correction (storno), journal-based accrual, transaction reversal, batch transfer rules, use document date for voucher, balance control | COVERED-11 | 11 | Storno (negative debit) handled as posting option |
 | General ledger parameters — Sales tax tab | Apply sales tax taxation rules, cash discount on invoice incl. tax, tax on prepayment, rounding, conditional sales tax, sales tax settlement account, reverse charge | COVERED-13 | 13 | |
@@ -220,11 +220,11 @@ The general ledger is the heart of AX. In Passage it is the universal journal (w
 
 ## 12.2 Accounts payable
 
-Accounts payable in AX spans vendor master (Passage wave 7), purchase orders (17), receiving and invoice matching (18), payments and settlement (19) and 1099/positive pay (19, 36). Vendor collaboration goes to wave 20.
+Accounts payable in AX spans vendor master (Depot wave 7), purchase orders (17), receiving and invoice matching (18), payments and settlement (19) and 1099/positive pay (19, 36). Vendor collaboration goes to wave 20.
 
 ### 12.2.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Vendors (list page) | VendTableListPage | All vendors with FactBoxes (balance, contacts, recent POs) | COVERED-7 | 7 | Party model with Vendor role |
 | Vendor details | VendTable | General, addresses, contacts, misc details, vendor profile, purchasing demographics, invoice and delivery, purchase order defaults, payment, tax 1099, financial dimensions | COVERED-7 | 7 | Role-specific vendor data entity |
@@ -271,7 +271,7 @@ Accounts payable in AX spans vendor master (Passage wave 7), purchase orders (17
 
 ### 12.2.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Vendor transactions inquiry | Posted transactions by vendor | COVERED-19 | 19 | |
 | Vendor balance (Vendor balance list) | Balances by vendor | COVERED-19 | 19 | |
@@ -319,7 +319,7 @@ Accounts payable in AX spans vendor master (Passage wave 7), purchase orders (17
 
 ### 12.2.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Payment proposal (batch) | Generate payment lines | COVERED-19 | 19 | |
 | Generate payments (payment media) | Produce ACH/SEPA/check/wire files | COVERED-19 | 19 | pain.001, NACHA, check print |
@@ -349,7 +349,7 @@ Accounts payable in AX spans vendor master (Passage wave 7), purchase orders (17
 
 ### 12.2.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Accounts payable parameters — General tab | Posting profile default, settlement priority, cash discount administration, credit note as correction, delivery address, intercompany | COVERED-19 | 19 | |
 | Accounts payable parameters — Updates tab | PO defaults (confirmation/receipt/invoice posting rules), safety levels on PO, enable change management, cancel/reverse rules, product receipt posting | COVERED-17 | 17 | |
@@ -420,7 +420,7 @@ Accounts receivable covers customer master (wave 7), free-text and sales invoice
 
 ### 12.3.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Customers (list page) | CustTableListPage | All customers with balance/aging FactBoxes | COVERED-7 | 7 | Party model with Customer role |
 | Customer details | CustTable | General, addresses, contacts, misc details, sales demographics, credit and collections, invoice and delivery, sales order defaults, payment defaults, financial dimensions, retail | COVERED-7 | 7 | |
@@ -467,7 +467,7 @@ Accounts receivable covers customer master (wave 7), free-text and sales invoice
 
 ### 12.3.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Customer transactions inquiry | | COVERED-30 | 30 | |
 | Customer balance list / Customer balance | | COVERED-30 | 30 | |
@@ -517,7 +517,7 @@ Accounts receivable covers customer master (wave 7), free-text and sales invoice
 
 ### 12.3.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Collections → Create collection letters | Generate letters by sequence/level | COVERED-30 | 30 | Dunning run |
 | Collections → Print/post collection letters | | COVERED-30 | 30 | |
@@ -550,7 +550,7 @@ Accounts receivable covers customer master (wave 7), free-text and sales invoice
 
 ### 12.3.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Accounts receivable parameters — General tab | Posting profile, settlement priority, delivery address, credit rating, mandatory credit limit, credit limit type (none/balance/balance+packing slip/all), message when exceeding, intercompany | COVERED-27 | 27 | |
 | Accounts receivable parameters — Updates tab | Posting defaults for confirmation/picking/packing slip/invoice, safety levels, cancel options, picking list posting, packing slip in ledger, delivery date control defaults | COVERED-28 | 28 | |
@@ -620,7 +620,7 @@ AX 2012 R2/R3 budgeting = budget register entries, budget control, budget planni
 
 ### 12.4.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Budget register entries (list page) | BudgetTransactionListPage | All register entries by code/model | COVERED-38 | 38 | |
 | Budget register entry details | BudgetTransaction | Header/lines, budget type (original, transfer, revision, encumbrance, pre-encumbrance, carry-forward), allocation, workflow | COVERED-38 | 38 | |
@@ -633,7 +633,7 @@ AX 2012 R2/R3 budgeting = budget register entries, budget control, budget planni
 
 ### 12.4.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Budget control statistics inquiry | Budget funds available | COVERED-38 | 38 | |
 | Actual vs budget inquiry | | COVERED-38 | 38 | |
@@ -651,7 +651,7 @@ AX 2012 R2/R3 budgeting = budget register entries, budget control, budget planni
 
 ### 12.4.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Budget transfers (process transfer register entries) | | COVERED-38 | 38 | |
 | Budget → Recalculate budget control balances | Rebuild available balances | COVERED-38 | 38 | |
@@ -667,7 +667,7 @@ AX 2012 R2/R3 budgeting = budget register entries, budget control, budget planni
 
 ### 12.4.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Budgeting parameters | Default budget model, budget transfer journal, number sequences, budget balances update | COVERED-38 | 38 | |
 | Basic budgeting → Budget models | Models with submodels, stop/blocked | COVERED-38 | 38 | Budget versions |
@@ -698,7 +698,7 @@ Everything lands in wave 36 except payment generation (19) and customer receipts
 
 ### 12.5.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Bank accounts (list page) | BankAccountTableListPage | All bank accounts | COVERED-36 | 36 | |
 | Bank account details | BankAccountTable | Account, currency, main account, check setup (layout, numbering), positive pay, SEPA/IBAN, bank groups, reconciliation settings, signatories | COVERED-36 | 36 | |
@@ -724,7 +724,7 @@ Everything lands in wave 36 except payment generation (19) and customer receipts
 
 ### 12.5.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Bank transactions inquiry | | COVERED-36 | 36 | |
 | Bank balance inquiry / Bank account balance by date | | COVERED-36 | 36 | |
@@ -749,7 +749,7 @@ Everything lands in wave 36 except payment generation (19) and customer receipts
 
 ### 12.5.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Import bank statements (batch) | camt.053/BAI2/MT940 import | COVERED-36 | 36 | |
 | Reconcile bank statements (auto-match batch) | | COVERED-36 | 36 | |
@@ -766,7 +766,7 @@ Everything lands in wave 36 except payment generation (19) and customer receipts
 
 ### 12.5.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Cash and bank management parameters — General | Allow checks for bank accounts, check number method, prenotes, bank statement reconciliation defaults, advanced reconciliation enabled, letter of credit/guarantee settings | COVERED-36 | 36 | |
 | Cash and bank management parameters — Number sequences | Check, deposit, statement sequences | COVERED-5 | 5 | |
@@ -798,7 +798,7 @@ The AX fixed asset module (asset groups, books/value models, depreciation profil
 
 ### 12.6.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Fixed assets (list page) | AssetTableListPage | All assets | COVERED-37 | 37 | |
 | Fixed asset details | AssetTable | General, technical info (serial, make/model), location, responsible worker, insurance, lease, sale/scrap, value models/books, financial dimensions | COVERED-37 | 37 | |
@@ -823,7 +823,7 @@ The AX fixed asset module (asset groups, books/value models, depreciation profil
 
 ### 12.6.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Fixed asset transactions inquiry | | COVERED-37 | 37 | |
 | Fixed asset balances inquiry (Fixed asset balances by book) | NBV per book/period | COVERED-37 | 37 | |
@@ -848,7 +848,7 @@ The AX fixed asset module (asset groups, books/value models, depreciation profil
 
 ### 12.6.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Depreciation proposal (create depreciation journal) | Depreciation run per book/period | COVERED-37 | 37 | |
 | Depreciation book → Depreciation proposal (tax book) | | COVERED-37 | 37 | |
@@ -867,7 +867,7 @@ The AX fixed asset module (asset groups, books/value models, depreciation profil
 
 ### 12.6.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Fixed assets parameters — General | Automatically create depreciation adjustments, minimum depreciation, consider prior-year depreciation, bonus depreciation, consumption depreciation, capitalization threshold, delete asset on journal post, allow multiple acquisitions, low-value pool (AU), default value models | COVERED-37 | 37 | AU low-value pool is OOS country |
 | Fixed assets parameters — Purchase orders | Allow asset acquisition from PO, create asset during receipt/invoice, check capitalization threshold | COVERED-37 | 37 | |
@@ -898,11 +898,11 @@ The AX fixed asset module (asset groups, books/value models, depreciation profil
 
 ## 12.7 Cost accounting
 
-AX 2012 R3 ships the legacy *Cost accounting* module (COS: dimensions, cost categories, cost lines, service categories, allocations, budget cost). D365 replaced it with the *Cost accounting ledger* (cost objects, cost elements, allocation policies, statistical measures, cost control workspace). Passage builds the D365 model in wave 38; every legacy COS form is therefore `SUPERSEDED` by its wave-38 equivalent.
+AX 2012 R3 ships the legacy *Cost accounting* module (COS: dimensions, cost categories, cost lines, service categories, allocations, budget cost). D365 replaced it with the *Cost accounting ledger* (cost objects, cost elements, allocation policies, statistical measures, cost control workspace). Depot builds the D365 model in wave 38; every legacy COS form is therefore `SUPERSEDED` by its wave-38 equivalent.
 
 ### 12.7.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Cost accounting dimensions (legacy) | COSDimension | Cost center/cost unit dimensions | SUPERSEDED (cost object dimensions and hierarchies, wave 38) | 38 | |
 | Cost categories (legacy COS) | COSCostCategory | Cost types mapped from ledger accounts | SUPERSEDED (cost elements, wave 38) | 38 | |
@@ -925,7 +925,7 @@ AX 2012 R3 ships the legacy *Cost accounting* module (COS: dimensions, cost cate
 
 ### 12.7.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Cost transactions inquiry (legacy) | | SUPERSEDED (cost entries, wave 38) | 38 | |
 | Cost balances by dimension (legacy) | | SUPERSEDED (cost control workspace) | 38 | |
@@ -938,7 +938,7 @@ AX 2012 R3 ships the legacy *Cost accounting* module (COS: dimensions, cost cate
 
 ### 12.7.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Transfer ledger transactions to cost accounting (legacy) | | SUPERSEDED (source data processing from GL, wave 38) | 38 | |
 | Cost distribution / Cost allocation processing (legacy) | | SUPERSEDED (overhead calculation, wave 38) | 38 | |
@@ -951,7 +951,7 @@ AX 2012 R3 ships the legacy *Cost accounting* module (COS: dimensions, cost cate
 
 ### 12.7.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Cost accounting parameters (legacy) | Dimension mapping, journal names | SUPERSEDED (cost accounting ledger setup) | 38 | |
 | Cost accounting dimensions / Cost category groups / Allocation keys / Calculation versions (legacy) | | SUPERSEDED | 38 | |
@@ -969,11 +969,11 @@ AX 2012 R3 ships the legacy *Cost accounting* module (COS: dimensions, cost cate
 
 ## 12.8 Cost management (D365)
 
-D365's *Cost management* module consolidates inventory accounting (AX Inventory management → Setup → Costing), costing versions, costing sheets and the inventory value reports. Passage splits it: inventory costing and inventory close in wave 20, product costing/cost roll-up/costing sheets/variances in wave 39, landed cost in wave 34.
+D365's *Cost management* module consolidates inventory accounting (AX Inventory management → Setup → Costing), costing versions, costing sheets and the inventory value reports. Depot splits it: inventory costing and inventory close in wave 20, product costing/cost roll-up/costing sheets/variances in wave 39, landed cost in wave 34.
 
 ### 12.8.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Costing versions (Costing version setup) | CostingVersion | Standard/planned cost versions, blocking, fallback, site | COVERED-20 | 20 | Costing versions in 20; BOM calc in 39 |
 | Item prices (Costing version maintenance: pending/active prices) | InventItemPrice (CostingVersionMaintenance) | Pending cost, activation, cost breakdown by cost group | COVERED-39 | 39 | |
@@ -988,7 +988,7 @@ D365's *Cost management* module consolidates inventory accounting (AX Inventory 
 
 ### 12.8.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Inventory value report (configurable: Inventory value report by resource/resource group, by dimension) | On-hand value vs GL by date | COVERED-20 | 20 | |
 | Inventory value report storage / configuration (D365) | Persisted report runs | COVERED-20 | 20 | |
@@ -1008,7 +1008,7 @@ D365's *Cost management* module consolidates inventory accounting (AX Inventory 
 
 ### 12.8.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Closing and adjustment → Close inventory | Settle issues vs receipts per model | COVERED-20 | 20 | |
 | Closing and adjustment → Recalculation | Interim recalculation | COVERED-20 | 20 | |
@@ -1027,7 +1027,7 @@ D365's *Cost management* module consolidates inventory accounting (AX Inventory 
 
 ### 12.8.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Inventory and warehouse management parameters — Costing/ Inventory accounting tab (D365 Cost management parameters) | Post physical inventory, post financial inventory, break-even cost, use latest cost price, variance by cost group | COVERED-20 | 20 | |
 | Costing versions | Type (standard/planned), block activation/changes, fallback (active/none/version), site/date filters, explosion mode | COVERED-39 | 39 | |
@@ -1048,11 +1048,11 @@ D365's *Cost management* module consolidates inventory accounting (AX Inventory 
 
 ## 12.9 Compliance and internal controls
 
-AX 2012's *Compliance and internal controls* module holds internal control documentation (process library/files), the risk library, audit policies (R3 audit workbench) and the database log link. Environmental sustainability was removed before R3. Passage: SoD and SOC 2 evidence in wave 48; audit policies are a gap proposed for wave 48; database log is wave 5.
+AX 2012's *Compliance and internal controls* module holds internal control documentation (process library/files), the risk library, audit policies (R3 audit workbench) and the database log link. Environmental sustainability was removed before R3. Depot: SoD and SOC 2 evidence in wave 48; audit policies are a gap proposed for wave 48; database log is wave 5.
 
 ### 12.9.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Internal controls → Files (process documents) | SysComplianceFiles (EP) | Document library for control documentation | PARTIAL-48 (SOC 2 evidence automation is named; a controls/process document library is not) | 48 | Gap register |
 | Internal controls → Process library / Process documents | SysComplianceProcess | Hierarchical process documentation with risk/control links | PARTIAL-48 (process library) | 48 | |
@@ -1066,7 +1066,7 @@ AX 2012's *Compliance and internal controls* module holds internal control docum
 
 ### 12.9.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Audit policy violations inquiry | | PARTIAL-48 (audit policies) | 48 | |
 | Audit case inquiry | | PARTIAL-48 (audit policies) | 48 | |
@@ -1078,22 +1078,22 @@ AX 2012's *Compliance and internal controls* module holds internal control docum
 | SSRS: Segregation of duties rules / conflicts | | COVERED-48 | 48 | |
 | SSRS: Electronic signature report | | GAP | — | Propose wave 48: electronic signatures |
 | SSRS: Internal control documents | | PARTIAL-48 (process library) | 48 | |
-| SOC 2 control evidence reports (Passage) | | COVERED-48 | 48 | |
+| SOC 2 control evidence reports (Depot) | | COVERED-48 | 48 | |
 
 ### 12.9.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Audit → Run audit policies (batch: expense reports, vendor invoices, purchase orders, GL journals) | Rule-based post-hoc audit (duplicates, keywords, sampling, list search) | PARTIAL-48 (audit policies) | 48 | |
 | Audit → Close/archive audit cases | | PARTIAL-48 (audit policies) | 48 | |
 | Database log → Clean up database log | | SUPERSEDED (immutable audit store with retention policy wave 48) | 48 | |
 | SoD → Verify compliance of user-role assignments (batch) | | COVERED-48 | 48 | |
-| Access certification campaigns (Passage) | | COVERED-48 | 48 | |
+| Access certification campaigns (Depot) | | COVERED-48 | 48 | |
 | Electronic signature → Reset/revoke signatures | | GAP | — | Propose wave 48: electronic signatures |
 
 ### 12.9.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Compliance parameters | Portal site, file locations | SUPERSEDED (no Enterprise Portal; compliance workspace wave 48) | 48 | |
 | Audit → Audit policies (policy framework: policy rule types — expense/vendor invoice/PO/GL journal; rule types: duplicate, keyword, list search, sampling, premium/mileage) | | PARTIAL-48 (audit policies) | 48 | |
@@ -1112,7 +1112,7 @@ Expense management (expense reports, cash advances, travel requisitions, policie
 
 ### 12.10.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Expense reports (list page) | TrvExpTableListPage | My/all expense reports by status | COVERED-43 | 43 | |
 | Expense report details | TrvExpTable / TrvExpTrans | Lines by category, itemization, receipts, guests, project/dimension, policy violations | COVERED-43 | 43 | |
@@ -1129,7 +1129,7 @@ Expense management (expense reports, cash advances, travel requisitions, policie
 
 ### 12.10.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Expense report inquiry / Expense transactions | | COVERED-43 | 43 | |
 | Credit card transactions inquiry (imported / unreconciled) | | COVERED-43 | 43 | |
@@ -1148,7 +1148,7 @@ Expense management (expense reports, cash advances, travel requisitions, policie
 
 ### 12.10.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Import credit card transactions (card feed: AMEX GL1025/Visa VCF/MasterCard CDF) | | COVERED-43 | 43 | |
 | Post expense reports (batch) | Posts to AP (reimbursement) and GL/project | COVERED-43 | 43 | Reimbursement via AP |
@@ -1161,7 +1161,7 @@ Expense management (expense reports, cash advances, travel requisitions, policie
 
 ### 12.10.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Expense management parameters — General | Default currency, posting to AP (vendor per worker), mileage/per diem defaults, require receipts threshold, allow itemization, project posting | COVERED-43 | 43 | |
 | Expense management parameters — Policies / Workflow / Credit card | Policy violation behaviors, approval, card import settings | COVERED-43 | 43 | |
@@ -1193,7 +1193,7 @@ The project module is wave 41 (WBS, resources, journals, billing, estimates, gra
 
 ### 12.11.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Projects (list page) | ProjTableListPage | All projects, hierarchy | COVERED-41 | 41 | |
 | Project details | ProjTable | Type (T&M, fixed-price, investment, cost, internal, time), stage, group, contract, funding, dimensions, WBS, invoice/billing, budget, resource | COVERED-41 | 41 | |
@@ -1234,7 +1234,7 @@ The project module is wave 41 (WBS, resources, journals, billing, estimates, gra
 
 ### 12.11.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Project transactions inquiry (posted transactions, by type) | | COVERED-41 | 41 | |
 | Project statements (Project statement inquiry: cost, revenue, WIP, profit) | | COVERED-41 | 41 | |
@@ -1268,7 +1268,7 @@ The project module is wave 41 (WBS, resources, journals, billing, estimates, gra
 
 ### 12.11.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Journals → Post hour/expense/item/fee journals (batch) | | COVERED-41 | 41 | |
 | Timesheets → Timesheet workflow / Post timesheets / Create periodic timesheets | | PARTIAL-41 (timesheets) | 41 | |
@@ -1293,7 +1293,7 @@ The project module is wave 41 (WBS, resources, journals, billing, estimates, gra
 
 ### 12.11.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Project management and accounting parameters — General | Default project types, stages, line property, WBS defaults, ledger posting (balance/P&L), hour/expense/item/fee posting, cost price defaults, sales price defaults, invoice proposal rules | COVERED-41 | 41 | |
 | Project parameters — Financial (ledger posting rules by project type: cost, revenue, WIP, accrued) | | COVERED-41 | 41 | |
@@ -1330,7 +1330,7 @@ AX 2012 R3 Human resources (workers, positions, jobs, departments, benefits, lea
 
 ### 12.12.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Workers (list page) | HcmWorkerListPage | All workers (employees + contractors) | COVERED-42 | 42 | Party with Employee role |
 | Worker details | HcmWorker | Profile, employment, position assignments, compensation, leave, benefits, identification (SSN/passport), bank accounts, contacts, personal contacts, financial dimensions, competencies | COVERED-42 | 42 | PII vaulting |
@@ -1365,7 +1365,7 @@ AX 2012 R3 Human resources (workers, positions, jobs, departments, benefits, lea
 
 ### 12.12.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Worker inquiries (Workers by department/position, Seniority, Birthdays, Anniversaries) | | COVERED-42 | 42 | |
 | Position inquiries (Vacant positions, Position hierarchy, Headcount) | | COVERED-42 | 42 | |
@@ -1394,7 +1394,7 @@ AX 2012 R3 Human resources (workers, positions, jobs, departments, benefits, lea
 
 ### 12.12.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Absence → Transfer absence registrations (to payroll/projects) | | COVERED-42 | 42 | |
 | Leave → Accrue leave balances (D365 accrual processing) | | COVERED-42 | 42 | Accrual fixtures |
@@ -1412,7 +1412,7 @@ AX 2012 R3 Human resources (workers, positions, jobs, departments, benefits, lea
 
 ### 12.12.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Human resources parameters — General / Recruitment / Workers / Absence / Benefits / Compensation / Number sequences / Shared (HR shared parameters: identification, worker numbering) | | COVERED-42 | 42 | |
 | Organization → Departments, Jobs, Positions setup (Position types, Position hierarchy types, Job functions, Job types, Job tasks, Areas of responsibility, Titles) | | COVERED-42 | 42 | |
@@ -1434,7 +1434,7 @@ AX 2012 R3 Human resources (workers, positions, jobs, departments, benefits, lea
 | Employee self-service parameters (EP) / Manager self-service parameters | | SUPERSEDED (ESS/MSS portal wave 42) | 42 | |
 | HR → Workflow (worker actions, leave, compensation, benefits) | | COVERED-4 | 4 | |
 | HR → Number sequences | | COVERED-5 | 5 | |
-| HR → Privacy / PII masking policies (Passage) | | COVERED-42 | 42 | |
+| HR → Privacy / PII masking policies (Depot) | | COVERED-42 | 42 | |
 | HR → Calendars (working time) | | COVERED-9 | 9 | |
 | HR → Country-specific fields (localization framework) | | COVERED-42 | 42 | |
 | HR → Payroll information on worker (link) | | COVERED-43 | 43 | |
@@ -1445,7 +1445,7 @@ AX 2012 R2/R3 US Payroll (earnings, benefits/deductions, taxes via Symmetry tax 
 
 ### 12.13.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Earnings statements (list page) | PayrollEarningStatementListPage | Generated earnings per worker per period | COVERED-43 | 43 | |
 | Earnings statement details | PayrollEarningStatement | Earning lines (salary, hourly, overtime, retro), source (timesheet, schedule, manual) | COVERED-43 | 43 | |
@@ -1467,7 +1467,7 @@ AX 2012 R2/R3 US Payroll (earnings, benefits/deductions, taxes via Symmetry tax 
 
 ### 12.13.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Earnings statement inquiry / Pay statement inquiry | | COVERED-43 | 43 | |
 | Worker payroll history (earnings, taxes, deductions YTD) | | COVERED-43 | 43 | |
@@ -1489,7 +1489,7 @@ AX 2012 R2/R3 US Payroll (earnings, benefits/deductions, taxes via Symmetry tax 
 
 ### 12.13.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Generate earnings statements | Create earnings per pay period from schedules/time | COVERED-43 | 43 | |
 | Release earnings statements | | COVERED-43 | 43 | |
@@ -1510,7 +1510,7 @@ AX 2012 R2/R3 US Payroll (earnings, benefits/deductions, taxes via Symmetry tax 
 
 ### 12.13.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Payroll parameters — General / Earnings / Posting / Payment / Tax / Number sequences | Default earning codes, accrual, posting defaults, payment journal names, tax engine | COVERED-43 | 43 | |
 | Pay cycles and pay periods | Weekly/biweekly/semimonthly/monthly, period generation | COVERED-43 | 43 | |
@@ -1534,11 +1534,11 @@ AX 2012 R2/R3 US Payroll (earnings, benefits/deductions, taxes via Symmetry tax 
 
 ## 12.14 Inventory management
 
-AX 2012 R3 Inventory management (minus Quality, treated in §12.25, and minus WMS I/II which Passage supersedes with wave 31) maps to wave 16 (ledger, journals, counting, reservations, blocking, quarantine), wave 20 (costing, close), wave 28 (picking/shipping of orders) and wave 8 (item master). Transfer orders are only partially covered and are listed in the gap register.
+AX 2012 R3 Inventory management (minus Quality, treated in §12.25, and minus WMS I/II which Depot supersedes with wave 31) maps to wave 16 (ledger, journals, counting, reservations, blocking, quarantine), wave 20 (costing, close), wave 28 (picking/shipping of orders) and wave 8 (item master). Transfer orders are only partially covered and are listed in the gap register.
 
 ### 12.14.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Released products (list page, link) | EcoResProductDetailsExtended (InventTable) | Item master per legal entity | COVERED-8 | 8 | See §12.15 |
 | On-hand inventory (inquiry entry) | InventOnhandItem / InventDimOnHand | On-hand by dimension with physical/financial split | COVERED-16 | 16 | |
@@ -1581,7 +1581,7 @@ AX 2012 R3 Inventory management (minus Quality, treated in §12.25, and minus WM
 
 ### 12.14.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | On-hand inquiry (by dimension, with cost) | | COVERED-16 | 16 | |
 | On-hand → Physical inventory by dimension / Available physical | | COVERED-16 | 16 | |
@@ -1625,7 +1625,7 @@ AX 2012 R3 Inventory management (minus Quality, treated in §12.25, and minus WM
 
 ### 12.14.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Closing and adjustment (link) | | COVERED-20 | 20 | |
 | Counting → Create counting journal (by item/warehouse/location, counting groups, periodic) | | COVERED-16 | 16 | Cycle counting plans |
@@ -1653,7 +1653,7 @@ AX 2012 R3 Inventory management (minus Quality, treated in §12.25, and minus WM
 
 ### 12.14.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Inventory and warehouse management parameters — General | Default dimensions, pallet/location usage (WMS II), date-controlled reservations, allow negative physical on quarantine, bill of materials: explode, counting reason codes, reservation by batch/date | COVERED-16 | 16 | WMS II flags superseded |
 | Inventory and warehouse management parameters — Journals | Journal names defaults, delete lines after posting, journal size | COVERED-16 | 16 | |
@@ -1710,7 +1710,7 @@ Products, product masters, variants, released products, dimension groups, attrib
 
 ### 12.15.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Products (all products and product masters, shared) | EcoResProductListPage / EcoResProductDetails | Tenant-level product definitions | COVERED-8 | 8 | |
 | Product masters | EcoResProductMasterListPage | Masters with dimension groups and configuration technology (predefined variant / dimension-based / constraint-based) | COVERED-8 | 8 | |
@@ -1754,7 +1754,7 @@ Products, product masters, variants, released products, dimension groups, attrib
 
 ### 12.15.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Released products inquiry / Products by category | | COVERED-8 | 8 | |
 | Product variants inquiry | | COVERED-8 | 8 | |
@@ -1777,7 +1777,7 @@ Products, product masters, variants, released products, dimension groups, attrib
 
 ### 12.15.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Release products (to legal entities, mass release) | | COVERED-8 | 8 | |
 | Product → Change product dimension groups / Change item model group (periodic conversions) | | PARTIAL-8 (changing dimension/model groups on items with transactions (conversion jobs) not named) | 8 | Gap register |
@@ -1796,7 +1796,7 @@ Products, product masters, variants, released products, dimension groups, attrib
 
 ### 12.15.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Product information management parameters | Product dimension defaults, variant number nomenclature (D365), released product defaults, number sequences | COVERED-8 | 8 | |
 | Product → Product dimension groups / Storage dimension groups / Tracking dimension groups | | COVERED-8 | 8 | |
@@ -1837,7 +1837,7 @@ Requisitions, RFQs, agreements, POs, purchasing policies, categories and vendor 
 
 ### 12.16.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Purchase requisitions (list page: all, prepared by me, assigned to me) | PurchReqTableListPage | Requisition lifecycle (draft, in review, approved, closed) | COVERED-17 | 17 | |
 | Purchase requisition details | PurchReqTable / PurchReqLine | Lines from catalog/non-catalog, requester, accounting distribution, approval | COVERED-17 | 17 | |
@@ -1881,7 +1881,7 @@ Requisitions, RFQs, agreements, POs, purchasing policies, categories and vendor 
 
 ### 12.16.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Purchase order inquiries (POs, lines, history, versions, backorders, open lines) | | COVERED-17 | 17 | |
 | Purchase requisition inquiries (by requester, status, consolidation) | | COVERED-17 | 17 | |
@@ -1907,7 +1907,7 @@ Requisitions, RFQs, agreements, POs, purchasing policies, categories and vendor 
 
 ### 12.16.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Purchase requisitions → Release approved requisitions (batch auto-create POs) | | COVERED-17 | 17 | |
 | Purchase requisitions → Expire / Clean up requisitions | | COVERED-17 | 17 | |
@@ -1927,7 +1927,7 @@ Requisitions, RFQs, agreements, POs, purchasing policies, categories and vendor 
 
 ### 12.16.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Procurement and sourcing parameters — General | Default order type, create direct delivery, safety levels, intercompany PO defaults, delivery date control | COVERED-17 | 17 | |
 | Procurement and sourcing parameters — Purchase requisitions / Purchase agreements / RFQ / Catalog / Vendor collaboration / Number sequences | | COVERED-17 | 17 | Catalog tab PARTIAL |
@@ -1958,11 +1958,11 @@ Requisitions, RFQs, agreements, POs, purchasing policies, categories and vendor 
 
 ## 12.17 Sales and marketing
 
-Sales quotations, orders, agreements, delivery and returns map to waves 27–30 (orders/ATP/credit 27, fulfillment 28, invoicing 29, returns 30) with pricing in 26. The CRM half (leads, opportunities, campaigns, telemarketing, mailings, activities, responsibilities) is out of scope per the PRD non-goal; Passage integrates with Salesforce/HubSpot via wave 35 connectors.
+Sales quotations, orders, agreements, delivery and returns map to waves 27–30 (orders/ATP/credit 27, fulfillment 28, invoicing 29, returns 30) with pricing in 26. The CRM half (leads, opportunities, campaigns, telemarketing, mailings, activities, responsibilities) is out of scope per the PRD non-goal; Depot integrates with Salesforce/HubSpot via wave 35 connectors.
 
 ### 12.17.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Sales orders (list page: all, open, backorders, delivered not invoiced, recent) | SalesTableListPage | | COVERED-27 | 27 | |
 | Sales order details | SalesTable / SalesLine | Header/lines, delivery, price/discount, charges, dimensions, holds, intercompany, project | COVERED-27 | 27 | |
@@ -2017,7 +2017,7 @@ Sales quotations, orders, agreements, delivery and returns map to waves 27–30 
 
 ### 12.17.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Sales order inquiries (orders, lines, history, open lines, backorders) | | COVERED-27 | 27 | |
 | Sales quotation inquiries (quotation lines, follow-up, win/loss) | | COVERED-27 | 27 | |
@@ -2045,7 +2045,7 @@ Sales quotations, orders, agreements, delivery and returns map to waves 27–30 
 
 ### 12.17.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Sales update → Confirmation / Picking list / Packing slip / Invoice (batch) | | COVERED-28 | 28 | |
 | Sales update → Release sales order picking (Release to warehouse) | | COVERED-28 | 28 | |
@@ -2066,7 +2066,7 @@ Sales quotations, orders, agreements, delivery and returns map to waves 27–30 
 
 ### 12.17.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Sales and marketing parameters — General | Default quotation settings, prospect conversion, sales unit | COVERED-27 | 27 | |
 | Sales and marketing parameters — Quotations (expiry, follow-up, templates, probability) | | COVERED-27 | 27 | |
@@ -2111,11 +2111,11 @@ Sales quotations, orders, agreements, delivery and returns map to waves 27–30 
 
 ## 12.18 Trade allowance management
 
-AX 2012 R3 TAM: trade allowance agreements (bill-back, lump sum, off-invoice), funds, customer categories, merchandising events, deductions workbench, claims via AR. Passage: promotions and rebate accruals in wave 26, settlement and deductions in wave 30. The deduction workbench and funds are only partially covered.
+AX 2012 R3 TAM: trade allowance agreements (bill-back, lump sum, off-invoice), funds, customer categories, merchandising events, deductions workbench, claims via AR. Depot: promotions and rebate accruals in wave 26, settlement and deductions in wave 30. The deduction workbench and funds are only partially covered.
 
 ### 12.18.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Trade allowance agreements (list page) | TAMTradeAllowanceAgreementListPage | Agreements with merchandising events: bill-back, lump sum, off-invoice | COVERED-26 | 26 | Promotions + rebate agreements |
 | Trade allowance agreement details | TAMTradeAllowanceAgreement | Customers, items, period, funds, approval, lines (bill-back rebate lines, lump sum, off-invoice discounts) | COVERED-26 | 26 | |
@@ -2130,7 +2130,7 @@ AX 2012 R3 TAM: trade allowance agreements (bill-back, lump sum, off-invoice), f
 
 ### 12.18.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Trade allowance agreement inquiry / Agreement status | | COVERED-26 | 26 | |
 | Fund usage inquiry | | PARTIAL-26 (funds) | 26 | |
@@ -2145,7 +2145,7 @@ AX 2012 R3 TAM: trade allowance agreements (bill-back, lump sum, off-invoice), f
 
 ### 12.18.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Cumulate rebates / Approve rebates / Process rebates (create credit notes or AP claims) | | COVERED-30 | 30 | |
 | Deductions → Match deductions to claims / Write off small balances | | PARTIAL-30 (deductions workbench) | 30 | |
@@ -2156,7 +2156,7 @@ AX 2012 R3 TAM: trade allowance agreements (bill-back, lump sum, off-invoice), f
 
 ### 12.18.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Trade allowance management parameters | Default fund, rebate journal names, deduction journal, approval workflow, claim via AR/AP | COVERED-26 | 26 | |
 | Trade allowance → Customer categories / Customer category hierarchy | | COVERED-7 | 7 | |
@@ -2175,7 +2175,7 @@ AX 2012 R3 Call center (part of Retail) is a catalog-and-script driven order-tak
 
 ### 12.19.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Call center sales orders (order entry with scripts, prices from catalog, payment capture) | SalesTable (call center) | Operator order entry | OUT-OF-SCOPE (retail/call-center channel non-goal; generic order desk in wave 27) | — | Wave 27 order entry covers manufacturer order desk |
 | Customer service form (CustomerService) | MCRCustomerService | 360° customer view for operators | SUPERSEDED (customer 360 workspace in wave 7/30 shell with FactBoxes) | 30 | |
@@ -2193,7 +2193,7 @@ AX 2012 R3 Call center (part of Retail) is a catalog-and-script driven order-tak
 
 ### 12.19.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Call center sales statistics (orders per operator, catalog performance) | | OUT-OF-SCOPE (retail non-goal) | — | |
 | Continuity / Installment inquiries | | OUT-OF-SCOPE (retail non-goal) | — | |
@@ -2203,7 +2203,7 @@ AX 2012 R3 Call center (part of Retail) is a catalog-and-script driven order-tak
 
 ### 12.19.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Continuity → Process continuity orders | | OUT-OF-SCOPE (retail non-goal) | — | |
 | Installments → Generate installment invoices | | OUT-OF-SCOPE (retail non-goal) | — | |
@@ -2213,7 +2213,7 @@ AX 2012 R3 Call center (part of Retail) is a catalog-and-script driven order-tak
 
 ### 12.19.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Call center parameters | Channel defaults, scripts, fraud, order holds, catalogs, payment | OUT-OF-SCOPE (retail non-goal) | — | |
 | Call centers (channel setup, operators, payment methods) | | OUT-OF-SCOPE (retail non-goal) | — | |
@@ -2229,11 +2229,11 @@ AX 2012 R3 Call center (part of Retail) is a catalog-and-script driven order-tak
 
 ## 12.20 Retail
 
-AX 2012 R3 Retail (Retail headquarters, POS, Commerce Data Exchange, channels, assortments, loyalty, retail scheduler) is out of scope per the PRD non-goal; Passage integrates with Shopify/Medusa via wave 35. Rows are listed so reviewers can see the exclusion is deliberate.
+AX 2012 R3 Retail (Retail headquarters, POS, Commerce Data Exchange, channels, assortments, loyalty, retail scheduler) is out of scope per the PRD non-goal; Depot integrates with Shopify/Medusa via wave 35. Rows are listed so reviewers can see the exclusion is deliberate.
 
 ### 12.20.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Retail stores / Retail channels (store, online store, call center) | RetailChannelTable | Channel master | OUT-OF-SCOPE (retail non-goal) | — | |
 | Registers / Devices / POS terminals | RetailTerminalTable | | OUT-OF-SCOPE (retail non-goal) | — | |
@@ -2249,7 +2249,7 @@ AX 2012 R3 Retail (Retail headquarters, POS, Commerce Data Exchange, channels, a
 
 ### 12.20.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Retail sales reports (sales by store/register/hour, Top items) | | OUT-OF-SCOPE (retail non-goal) | — | |
 | Statement inquiries / Transaction inquiries | | OUT-OF-SCOPE (retail non-goal) | — | |
@@ -2259,7 +2259,7 @@ AX 2012 R3 Retail (Retail headquarters, POS, Commerce Data Exchange, channels, a
 
 ### 12.20.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Retail scheduler (A/N jobs: distribution schedule, upload/download sessions) | Commerce Data Exchange sync jobs | OUT-OF-SCOPE (retail non-goal) | — | |
 | Calculate / Post statements | | OUT-OF-SCOPE (retail non-goal) | — | |
@@ -2269,7 +2269,7 @@ AX 2012 R3 Retail (Retail headquarters, POS, Commerce Data Exchange, channels, a
 
 ### 12.20.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Retail parameters / Retail shared parameters | | OUT-OF-SCOPE (retail non-goal) | — | |
 | Retail scheduler parameters / Channel database / Commerce Data Exchange | | OUT-OF-SCOPE (retail non-goal) | — | |
@@ -2282,11 +2282,11 @@ AX 2012 R3 Retail (Retail headquarters, POS, Commerce Data Exchange, channels, a
 | Online store → Storefront / Sharepoint site setup | | OUT-OF-SCOPE (e-commerce storefront non-goal) | — | |
 ## 12.21 Master planning
 
-Static/dynamic plans, coverage, planned orders, action/futures messages, forecasting, safety stock and intercompany planning map to wave 22 (MRP/MPS/forecasting) with capacity in 23 and intercompany planning in 40. D365 Planning Optimization and priority-based planning are superseded by the Passage planning engine.
+Static/dynamic plans, coverage, planned orders, action/futures messages, forecasting, safety stock and intercompany planning map to wave 22 (MRP/MPS/forecasting) with capacity in 23 and intercompany planning in 40. D365 Planning Optimization and priority-based planning are superseded by the Depot planning engine.
 
 ### 12.21.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Planned orders (list page: all, planned purchase, planned production, planned transfer, planned kanban) | ReqPOListPage | Review/firm/change planned orders | COVERED-22 | 22 | |
 | Planned order details | ReqPO | Qty, dates, pegging (requirement profile), action/futures messages, approve, firm, group | COVERED-22 | 22 | |
@@ -2313,7 +2313,7 @@ Static/dynamic plans, coverage, planned orders, action/futures messages, forecas
 
 ### 12.21.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Net requirements inquiry / Requirement profile | | COVERED-22 | 22 | |
 | Explosion inquiry / Trace (why was this planned) | | COVERED-22 | 22 | |
@@ -2337,7 +2337,7 @@ Static/dynamic plans, coverage, planned orders, action/futures messages, forecas
 
 ### 12.21.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Master scheduling (run plan: regeneration / net change / net change minimized) | | COVERED-22 | 22 | Incremental < 2 min target |
 | Forecast scheduling (run forecast plan) | | COVERED-22 | 22 | |
@@ -2357,11 +2357,11 @@ Static/dynamic plans, coverage, planned orders, action/futures messages, forecas
 | Planning → Kanban quantity calculation (link to Lean) | | COVERED-24 | 24 | |
 | Planning → Item allocation key refresh | | COVERED-22 | 22 | |
 | Planning → Generate planned kanbans | | COVERED-24 | 24 | |
-| Planning → MRP exception triage agent (Passage) | | COVERED-47 | 47 | |
+| Planning → MRP exception triage agent (Depot) | | COVERED-47 | 47 | |
 
 ### 12.21.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Master planning parameters — General | Current static/dynamic plan, automatic copy static→dynamic, use dynamic negative days, planned order defaults | COVERED-22 | 22 | |
 | Master planning parameters — Planned orders | Group by vendor/buyer/period on firming, planned purchase order type, firm journal | COVERED-22 | 22 | |
@@ -2402,7 +2402,7 @@ Production orders, journals, routes/operations, resources, scheduling, Gantt, ma
 
 ### 12.22.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Production orders (list page: all, created, estimated, scheduled, released, started, reported as finished, ended; "my" pools) | ProdTableListPage | Order lifecycle | COVERED-21 | 21 | |
 | Production order details | ProdTable | Header: item, qty, dates, BOM/route, status, pool, group, reservation, site/warehouse, priority, properties, financial dimensions, costing | COVERED-21 | 21 | |
@@ -2452,7 +2452,7 @@ Production orders, journals, routes/operations, resources, scheduling, Gantt, ma
 
 ### 12.22.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Production order inquiries (orders, BOM, route, jobs, transactions, status log) | | COVERED-21 | 21 | |
 | Production transactions (Route transactions, BOM transactions) | | COVERED-21 | 21 | |
@@ -2486,7 +2486,7 @@ Production orders, journals, routes/operations, resources, scheduling, Gantt, ma
 
 ### 12.22.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Production orders → Estimate / Schedule / Release / Start / Report as finished / End (batch) | | COVERED-21 | 21 | |
 | Production orders → Update costing (Price calculation batch) | | COVERED-21 | 21 | |
@@ -2510,7 +2510,7 @@ Production orders, journals, routes/operations, resources, scheduling, Gantt, ma
 
 ### 12.22.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Production control parameters — General | Production order defaults: BOM/route version selection, reservation (manual/estimation/scheduling/release/start), automatic BOM consumption (flushing principle: start/finish/manual), route consumption, posting of journals, scheduling method default, lock route operations, remove reservations, status defaults | COVERED-21 | 21 | |
 | Production control parameters — Standard update tab | Default update parameters per status update (estimation, scheduling, release, start, RAF, end) | COVERED-21 | 21 | |
@@ -2575,7 +2575,7 @@ Production orders, journals, routes/operations, resources, scheduling, Gantt, ma
 | Production → Workflow (production order release approval D365) | | COVERED-4 | 4 | |
 | Production → Number sequences | | COVERED-5 | 5 | |
 | Production → Gantt chart configuration (colors, views, user settings) | | COVERED-23 | 23 | |
-| Production → Andon / alerts (Passage) | | COVERED-25 | 25 | |
+| Production → Andon / alerts (Depot) | | COVERED-25 | 25 | |
 
 ## 12.23 Process manufacturing (PI)
 
@@ -2583,7 +2583,7 @@ AX 2012 R3 folds process industries into PIM, Inventory, Production control, Mas
 
 ### 12.23.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Formulas (list page) / Formula designer | PdsFormulaListPage (BOMTable formula), BOMDesigner | Formula with co/by-products, scalable lines, percentage lines, step consumption | COVERED-9 | 9 | Formula BOMs |
 | Formula versions (per item, with formula size, co-product/by-product lines, approval) | BOMVersion (formula) | | COVERED-9 | 9 | |
@@ -2614,7 +2614,7 @@ AX 2012 R3 folds process industries into PIM, Inventory, Production control, Mas
 
 ### 12.23.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Batch order inquiries (co-product cost, batch balancing results) | | COVERED-24 | 24 | |
 | Batch attribute inquiries / Attribute search for batches | | COVERED-24 | 24 | |
@@ -2636,7 +2636,7 @@ AX 2012 R3 folds process industries into PIM, Inventory, Production control, Mas
 
 ### 12.23.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Batch orders → Estimate / Schedule / Release / Start / RAF / End (batch) | | COVERED-24 | 24 | |
 | Batch orders → Consolidate batch orders (batch) | | PARTIAL-24 (consolidated batch orders) | 24 | |
@@ -2650,7 +2650,7 @@ AX 2012 R3 folds process industries into PIM, Inventory, Production control, Mas
 
 ### 12.23.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Production control parameters — Process tab (formula defaults, co-product posting, batch balancing, rework) | | COVERED-24 | 24 | |
 | Formula → Formula parameters (scalable, formula size, yield %, step consumption tables) | | COVERED-9 | 9 | |
@@ -2680,7 +2680,7 @@ Value streams, production flows, activities, kanban rules, kanban boards and bac
 
 ### 12.24.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Production flows (list page) | LeanProductionFlowListPage | Flow with versions and activities | COVERED-24 | 24 | |
 | Production flow details / Versions (activate, expire, takt, cycle time) | LeanProductionFlow / LeanProductionFlowVersion | | COVERED-24 | 24 | |
@@ -2704,7 +2704,7 @@ Value streams, production flows, activities, kanban rules, kanban boards and bac
 
 ### 12.24.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Kanban job inquiries (jobs by status, late jobs, cycle time) | | COVERED-24 | 24 | |
 | Kanban rule inquiries / Kanban quantities history | | COVERED-24 | 24 | |
@@ -2720,7 +2720,7 @@ Value streams, production flows, activities, kanban rules, kanban boards and bac
 
 ### 12.24.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Kanban → Process event kanbans (generate from events: sales, BOM line, min stock) | | COVERED-24 | 24 | |
 | Kanban → Kanban quantity calculation run / Update kanban rules from calculation | | COVERED-24 | 24 | |
@@ -2735,7 +2735,7 @@ Value streams, production flows, activities, kanban rules, kanban boards and bac
 
 ### 12.24.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Production control parameters — Lean tab (kanban defaults, costing, picking list posting, transfer defaults) | | COVERED-24 | 24 | |
 | Lean → Production flow models (costing method per flow: backflush costing) | | COVERED-24 | 24 | |
@@ -2760,7 +2760,7 @@ In AX 2012 R3 quality lives under Inventory management (quality orders, nonconfo
 
 ### 12.25.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Quality orders (list page) | InventQualityOrderTableListPage | Orders generated by associations or manually; reference (purchase, sales, production, quarantine, inventory, RMA) | COVERED-33 | 33 | |
 | Quality order details | InventQualityOrderTable / InventQualityOrderLine | Tests, sampling, results (variable/attribute), pass/fail, validate | COVERED-33 | 33 | Results recording |
@@ -2771,9 +2771,9 @@ In AX 2012 R3 quality lives under Inventory management (quality orders, nonconfo
 | Nonconformance → Operations (nonconformance operations with cost items, timesheets, charges) | InventNonConformanceOperation | Work to resolve NC with cost | COVERED-33 | 33 | Cost of quality |
 | Corrections | InventNonConformanceCorrection | Corrective actions with diagnostic types, planned/actual dates | COVERED-33 | 33 | CAPA with 8D |
 | Certificates of analysis (print from sales packing slip / quality order) | InventTestCertificateOfAnalysis | CoA document | COVERED-33 | 33 | |
-| Quality → Test instruments / Device calibration (Passage addition) | | | COVERED-33 | 33 | Calibration tracking |
-| Quality → Supplier quality scorecards (Passage) | | | COVERED-33 | 33 | |
-| Quality → SPC charts (Passage) | | | COVERED-33 | 33 | |
+| Quality → Test instruments / Device calibration (Depot addition) | | | COVERED-33 | 33 | Calibration tracking |
+| Quality → Supplier quality scorecards (Depot) | | | COVERED-33 | 33 | |
+| Quality → SPC charts (Depot) | | | COVERED-33 | 33 | |
 | Quality → Inventory blocking (quality) | InventBlocking (quality) | Auto-block on quality order creation | COVERED-33 | 33 | Automatic blocking/release |
 | Quality → Quarantine orders (link) | InventQuarantineOrder | | COVERED-16 | 16 | |
 | Quality → Batch disposition on failed quality (link) | | | COVERED-24 | 24 | |
@@ -2782,7 +2782,7 @@ In AX 2012 R3 quality lives under Inventory management (quality orders, nonconfo
 
 ### 12.25.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Quality order inquiries (by status, item, vendor, test results) | | COVERED-33 | 33 | |
 | Nonconformance inquiries (by problem type, source, status) | | COVERED-33 | 33 | |
@@ -2800,18 +2800,18 @@ In AX 2012 R3 quality lives under Inventory management (quality orders, nonconfo
 
 ### 12.25.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Quality → Create quality orders automatically (on events per association) | | COVERED-33 | 33 | Trigger fixtures |
 | Quality → Validate quality orders (batch) | | COVERED-33 | 33 | |
 | Quality → Delete / Close nonconformances | | COVERED-33 | 33 | |
-| Quality → Calibration due processing (Passage) | | COVERED-33 | 33 | |
+| Quality → Calibration due processing (Depot) | | COVERED-33 | 33 | |
 | Quality → Supplier scorecard recalculation | | COVERED-33 | 33 | |
 | Quality → Nonconformance cost posting (operations charges) | | COVERED-33 | 33 | |
 
 ### 12.25.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Inventory and warehouse management parameters — Quality management tab | Use quality management, hours per day, report setup (CoA, NC tag), nonconformance defaults | COVERED-33 | 33 | |
 | Quality management → Quality associations (reference type: purchase/sales/production/quarantine/inventory; item code; account code; event type: before/after; execution: before/after; test group; document type; dimensions) | | COVERED-33 | 33 | |
@@ -2826,8 +2826,8 @@ In AX 2012 R3 quality lives under Inventory management (quality orders, nonconfo
 | Quality management → Certificate of analysis setup (print per customer / item) | | COVERED-33 | 33 | |
 | Quality management → Quality orders number sequences | | COVERED-5 | 5 | |
 | Quality management → Quality order blocking parameters (block on create, release on validate) | | COVERED-33 | 33 | |
-| Quality management → Calibration schedules (Passage) | | COVERED-33 | 33 | |
-| Quality management → CAPA templates (8D) (Passage) | | COVERED-33 | 33 | |
+| Quality management → Calibration schedules (Depot) | | COVERED-33 | 33 | |
+| Quality management → CAPA templates (8D) (Depot) | | COVERED-33 | 33 | |
 | Quality management → Workflow (nonconformance approval) | | COVERED-4 | 4 | |
 | Quality management → Mobile device quality menu items (D365) | | COVERED-32 | 32 | |
 | Quality management → Product compliance (PI, link) | | GAP | — | Propose wave 33: product compliance |
@@ -2838,7 +2838,7 @@ The AX 2012 R3 advanced warehouse module (Warehouse management) — location dir
 
 ### 12.26.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | All loads (list page) / Load details | WHSLoadTableListPage / WHSLoadTable | Loads with lines, shipments, status, carrier | COVERED-31 | 31 | Load planning |
 | Load planning workbench | WHSLoadPlanningWorkbench | Build loads from order lines, templates, release | COVERED-31 | 31 | |
@@ -2882,7 +2882,7 @@ The AX 2012 R3 advanced warehouse module (Warehouse management) — location dir
 
 ### 12.26.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | On-hand by location / On-hand by license plate | | COVERED-31 | 31 | |
 | Work inquiries (Work line history, Work audit, Work exceptions log) | | COVERED-31 | 31 | |
@@ -2911,7 +2911,7 @@ The AX 2012 R3 advanced warehouse module (Warehouse management) — location dir
 
 ### 12.26.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Wave processing (batch wave release / scheduled waves) | | COVERED-31 | 31 | |
 | Replenishment → Min-max replenishment / Demand replenishment / Wave demand replenishment (batch) | | COVERED-31 | 31 | |
@@ -2934,7 +2934,7 @@ The AX 2012 R3 advanced warehouse module (Warehouse management) — location dir
 
 ### 12.26.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Warehouse management parameters — General | Default location profiles, LP numbering, user/system-directed defaults, work audit, pack defaults, cycle count defaults, replenishment defaults, dock management, number sequences | COVERED-31 | 31 | |
 | Warehouse management parameters — Mobile device / Print / Barcode | Mobile device settings, display, printers | COVERED-32 | 32 | |
@@ -3008,7 +3008,7 @@ The AX 2012 R3 advanced warehouse module (Warehouse management) — location dir
 | Warehouse → Catch weight on WHS (D365 CW tags) | | COVERED-24 | 24 | |
 | Warehouse → Warehouse management workload visualization setup | | COVERED-31 | 31 | |
 | Warehouse → Warehouse app task validator / Process guide steps (D365) | | COVERED-32 | 32 | |
-| Warehouse → RFID / Voice adapter configuration (Passage) | | COVERED-32 | 32 | |
+| Warehouse → RFID / Voice adapter configuration (Depot) | | COVERED-32 | 32 | |
 | Warehouse → Transportation (link to TMS) | | COVERED-34 | 34 | |
 | Warehouse → Number sequences (work, wave, load, LP, container) | | COVERED-5 | 5 | |
 | Warehouse → Work audit templates | | COVERED-31 | 31 | |
@@ -3017,11 +3017,11 @@ The AX 2012 R3 advanced warehouse module (Warehouse management) — location dir
 
 ## 12.27 Transportation management (TMS)
 
-AX 2012 R3 TMS: rating engines, rate masters, carriers, route plans/guides, load building, tendering, freight bills and reconciliation, driver check-in, transportation tenders, dock appointment scheduling. Passage wave 34 covers rating, routing, load building, tendering, tracking, freight reconciliation and landed cost; yard/driver check-in is a gap.
+AX 2012 R3 TMS: rating engines, rate masters, carriers, route plans/guides, load building, tendering, freight bills and reconciliation, driver check-in, transportation tenders, dock appointment scheduling. Depot wave 34 covers rating, routing, load building, tendering, tracking, freight reconciliation and landed cost; yard/driver check-in is a gap.
 
 ### 12.27.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Loads (planning workbench, TMS view) | WHSLoadPlanningWorkbench (TMS) | Rate loads, assign carriers | COVERED-34 | 34 | |
 | Rate route workbench | TMSRateRouteWorkbench | Rate shop across carriers/routes for a load | COVERED-34 | 34 | Rate shopping |
@@ -3044,7 +3044,7 @@ AX 2012 R3 TMS: rating engines, rate masters, carriers, route plans/guides, load
 
 ### 12.27.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Freight bill inquiries / Freight invoice reconciliation status | | COVERED-34 | 34 | |
 | Tender history / Tender status inquiry | | COVERED-34 | 34 | |
@@ -3064,7 +3064,7 @@ AX 2012 R3 TMS: rating engines, rate masters, carriers, route plans/guides, load
 
 ### 12.27.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Rate loads (batch rating) / Auto-rate on release | | COVERED-34 | 34 | |
 | Tendering → Send tenders (batch) / Tender timeout processing / Cascade to next carrier | | COVERED-34 | 34 | |
@@ -3080,7 +3080,7 @@ AX 2012 R3 TMS: rating engines, rate masters, carriers, route plans/guides, load
 
 ### 12.27.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Transportation management parameters — General | Default rating profile, tender settings, freight bill types, dock management, number sequences, appointment settings | COVERED-34 | 34 | |
 | Carriers → Shipping carriers (carrier vendor, services, rating profile, tender method, tracking) | | COVERED-34 | 34 | |
@@ -3119,7 +3119,7 @@ Service agreements, service orders, dispatch board, service objects/tasks, repai
 
 ### 12.28.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Service agreements (list page) | SMAAgreementTableListPage | Agreements with lines (service objects/tasks, intervals, prices) | COVERED-45 | 45 | Service agreements with entitlements/SLAs |
 | Service agreement details | SMAAgreementTable / SMAAgreementLine | Lines, service level agreement, project link, templates | COVERED-45 | 45 | |
@@ -3144,7 +3144,7 @@ Service agreements, service orders, dispatch board, service objects/tasks, repai
 
 ### 12.28.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Service order inquiries (by stage, technician, customer, SLA status) | | COVERED-45 | 45 | |
 | Service agreement inquiries (expiring agreements, lines due) | | COVERED-45 | 45 | |
@@ -3164,7 +3164,7 @@ Service agreements, service orders, dispatch board, service objects/tasks, repai
 
 ### 12.28.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Create service orders from agreements (periodic generation by interval) | | COVERED-45 | 45 | |
 | Service agreements → Copy / Renew / Expire agreements | | COVERED-45 | 45 | |
@@ -3178,7 +3178,7 @@ Service agreements, service orders, dispatch board, service objects/tasks, repai
 
 ### 12.28.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Service management parameters — General / Service orders / Agreements / Subscriptions / Dispatching / Number sequences | Default stages, project posting, time recording, SLA settings, subscription defaults | COVERED-45 | 45 | Subscriptions PARTIAL |
 | Service → Service stages / Stage reasons / Stage transitions | | COVERED-45 | 45 | |
@@ -3191,7 +3191,7 @@ Service agreements, service orders, dispatch board, service objects/tasks, repai
 | Service → Dispatching: Dispatch teams, Technicians (workers), Skills, Territories, Dispatch board settings | | COVERED-45 | 45 | |
 | Service → Subscription: Subscription groups, Subscription fee categories, Index rules, Subscription periods | | PARTIAL-45 (service subscriptions) | 29 | |
 | Service → Project integration (project group for service, categories, line properties) | | COVERED-41 | 41 | |
-| Service → Warranty types / Entitlement types (Passage) | | COVERED-45 | 45 | |
+| Service → Warranty types / Entitlement types (Depot) | | COVERED-45 | 45 | |
 | Service → Mobile app configuration (offline, photos, signatures) | | COVERED-45 | 45 | |
 | Service → Van stock / Technician warehouses | | COVERED-45 | 45 | |
 | Service → Workflow (service order approval) | | COVERED-4 | 4 | |
@@ -3201,11 +3201,11 @@ Service agreements, service orders, dispatch board, service objects/tasks, repai
 
 ## 12.29 Organization administration
 
-Legal entities, operating units, hierarchies, address book, number sequences, document management, case management, workflow configuration, calendars, units, electronic signatures, foreign trade, policies and signing limits. Passage: waves 6 (structure, calendars, UoM, address book), 7 (global address book), 5 (number sequences, audit), 4 (workflow). Case management, document management depth, reason codes, teams and electronic signatures are partial or gaps.
+Legal entities, operating units, hierarchies, address book, number sequences, document management, case management, workflow configuration, calendars, units, electronic signatures, foreign trade, policies and signing limits. Depot: waves 6 (structure, calendars, UoM, address book), 7 (global address book), 5 (number sequences, audit), 4 (workflow). Case management, document management depth, reason codes, teams and electronic signatures are partial or gaps.
 
 ### 12.29.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Legal entities (list) / Legal entity details | OMLegalEntity (CompanyInfo) | Company, addresses, tax registration, bank, statutory reporting, foreign trade, ER tabs | COVERED-6 | 6 | |
 | Operating units (departments, cost centers, business units, value streams, retail channels) | OMOperatingUnit | | COVERED-6 | 6 | |
@@ -3244,7 +3244,7 @@ Legal entities, operating units, hierarchies, address book, number sequences, do
 
 ### 12.29.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Organization hierarchy inquiry (as-of date view) | | COVERED-6 | 6 | |
 | Number sequence inquiries (status list, pre-allocation, gaps) | | COVERED-5 | 5 | |
@@ -3266,7 +3266,7 @@ Legal entities, operating units, hierarchies, address book, number sequences, do
 
 ### 12.29.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Organization hierarchy → Publish hierarchy version (effective date) | | COVERED-6 | 6 | |
 | Number sequences → Clean up pre-allocated / Status list cleanup / Generate pre-allocation | | COVERED-5 | 5 | |
@@ -3286,7 +3286,7 @@ Legal entities, operating units, hierarchies, address book, number sequences, do
 
 ### 12.29.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Organization → Legal entities | Name, addresses, registration numbers, tax, bank, statutory, foreign trade, ER | COVERED-6 | 6 | |
 | Organization → Operating units / Departments / Cost centers / Business units / Value streams | | COVERED-6 | 6 | |
@@ -3297,7 +3297,7 @@ Legal entities, operating units, hierarchies, address book, number sequences, do
 | Global address book → Address validation (external verification service connector) | | COVERED-6 | 6 | Geocoding hook |
 | Number sequences → Number sequences / References / Number sequence parameters (continuous, cleanup, pre-allocation) / Segment configuration (scopes) | | COVERED-5 | 5 | |
 | Document management → Document management parameters (archive directory, SharePoint, file types, max size), Document types (file, note, URL, image, template; group; location: archive/database/SharePoint), Active document tables, File types | | PARTIAL-5 (document management) | 5 | |
-| Document management → Document management: OneDrive/SharePoint integration (D365), Attachment migration | | PARTIAL-5 (document management) | 5 | Object storage (S3-compatible) is the Passage equivalent |
+| Document management → Document management: OneDrive/SharePoint integration (D365), Attachment migration | | PARTIAL-5 (document management) | 5 | Object storage (S3-compatible) is the Depot equivalent |
 | Case management → Case categories / Case category types (HR, customer service, collections, product change, audit, service, project, knowledge, etc.) / Case processes (stages) / Case category security | | PARTIAL-45 (generic case management) | 45 | |
 | Workflow → Workflow parameters (notifications, email, Enterprise Portal links, due date escalation) / Workflow version management | | COVERED-4 | 4 | |
 | Workflow → Workflow types (registered workflow types per module) / Workflow infrastructure configuration (message/due date/line-item batch) | | COVERED-4 | 4 | Temporal |
@@ -3325,11 +3325,11 @@ Legal entities, operating units, hierarchies, address book, number sequences, do
 
 ## 12.30 System administration
 
-Users, security roles/duties/privileges, SoD, licensing, batch jobs, AOS/cluster, AIF services, database log, data partitions, virtual companies, Enterprise Portal, reporting/analysis services, help, alerts/email, model store. Passage supersedes most of this with waves 1 (pipeline), 2 (identity/authz), 3 (metadata), 4 (batch/workflow/events), 5 (audit/observability) and 35 (integration hub).
+Users, security roles/duties/privileges, SoD, licensing, batch jobs, AOS/cluster, AIF services, database log, data partitions, virtual companies, Enterprise Portal, reporting/analysis services, help, alerts/email, model store. Depot supersedes most of this with waves 1 (pipeline), 2 (identity/authz), 3 (metadata), 4 (batch/workflow/events), 5 (audit/observability) and 35 (integration hub).
 
 ### 12.30.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Users (list) / User details (relations, roles, user options, profiles) | SysUserInfoPage / UserInfo | User accounts, domain/claims, roles per organization | COVERED-2 | 2 | Keycloak + SCIM; admin UI |
 | User groups | UserGroupInfo | Groups for period access/journal approval | COVERED-2 | 2 | |
@@ -3339,7 +3339,7 @@ Users, security roles/duties/privileges, SoD, licensing, batch jobs, AOS/cluster
 | Security → Segregation of duties rules / Verify compliance / Conflicts | SysSecSegregationOfDuties* | | COVERED-48 | 48 | |
 | Security → Extensible data security policies (XDS) | SysDataSecurityPolicy | Row-level security via policy queries | SUPERSEDED (Postgres RLS + OPA data policies wave 2) | 2 | |
 | Security → Table permissions framework / Record-level security (legacy) | SysRecordLevelSecurity | | SUPERSEDED (RLS/OPA) | 2 | |
-| Security → Effective permissions viewer (Passage) | | | COVERED-2 | 2 | |
+| Security → Effective permissions viewer (Depot) | | | COVERED-2 | 2 | |
 | Batch jobs (list) / Batch job details / Batch tasks | BatchJob, BatchTask | Jobs, recurrence, dependencies, alerts, history | COVERED-4 | 4 | Batch job framework + monitor UI |
 | Batch groups / Server configuration (batch servers, threads) | BatchGroup, SysServerConfig | | SUPERSEDED (Kubernetes workers, Temporal task queues) | 4 | |
 | AOS → Cluster configuration / Load balancing | SysClusterConfig | | SUPERSEDED (Kubernetes + Envoy, wave 1) | 1 | |
@@ -3379,11 +3379,11 @@ Users, security roles/duties/privileges, SoD, licensing, batch jobs, AOS/cluster
 | Sys admin → Personalization management (D365: import/export user personalizations, saved views publish) | | | COVERED-5 | 5 | Saved views |
 | Sys admin → Data archiving / Long-term retention (D365 archive) | | | COVERED-46 | 46 | Lakehouse archive |
 | Sys admin → Secrets (key vault parameters, D365) | | | COVERED-36 | 36 | Vault; secrets rotation 48 |
-| Sys admin → Tenant provisioning / Environment management (Passage) | | | COVERED-50 | 50 | |
+| Sys admin → Tenant provisioning / Environment management (Depot) | | | COVERED-50 | 50 | |
 
 ### 12.30.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Online users / User sessions | | COVERED-2 | 2 | |
 | Batch job history / Batch job errors | | COVERED-4 | 4 | |
@@ -3401,11 +3401,11 @@ Users, security roles/duties/privileges, SoD, licensing, batch jobs, AOS/cluster
 | SSRS: License report / Named user counts | | PARTIAL-3 (license usage reporting) | 3 | |
 | SSRS: Number sequence status (link) | | COVERED-5 | 5 | |
 | SSRS: Table information / AOT object listings | | SUPERSEDED (metadata registry diff/export wave 3) | 3 | |
-| Observability dashboards (SLOs, traces) (Passage) | | COVERED-5 | 5 | |
+| Observability dashboards (SLOs, traces) (Depot) | | COVERED-5 | 5 | |
 
 ### 12.30.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Batch → Batch job scheduling / Recurrence / Batch alerts / Clean up batch history | | COVERED-4 | 4 | |
 | Database log → Clean up database log | | SUPERSEDED (retention policy) | 48 | |
@@ -3430,12 +3430,12 @@ Users, security roles/duties/privileges, SoD, licensing, batch jobs, AOS/cluster
 | Personalization → Reset usage data (batch) | | COVERED-5 | 5 | |
 | Business events → Process business events queue / Retry failed endpoints (D365) | | COVERED-4 | 4 | Outbox + Kafka |
 | Data archiving → Archive/purge jobs (D365) | | COVERED-46 | 46 | |
-| Secrets → Rotate secrets (Passage) | | COVERED-48 | 48 | |
-| DR → Game days / Failover drills (Passage) | | COVERED-50 | 50 | |
+| Secrets → Rotate secrets (Depot) | | COVERED-48 | 48 | |
+| DR → Game days / Failover drills (Depot) | | COVERED-50 | 50 | |
 
 ### 12.30.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | System parameters | Default language, timezone, alerts, help, Unicode, security defaults | COVERED-2 | 2 | |
 | Users → User options defaults (language, timezone, number formats, workflow notifications, delegation) | | COVERED-5 | 5 | My user options |
@@ -3446,8 +3446,8 @@ Users, security roles/duties/privileges, SoD, licensing, batch jobs, AOS/cluster
 | Security → Automatic role assignment rules (query-based) | | COVERED-2 | 2 | |
 | Security → Extensible data security (XDS) policies / Policy contexts | | SUPERSEDED (RLS/OPA data policies wave 2) | 2 | |
 | Security → Security development tool / Entry point permissions | | SUPERSEDED (policy compiler from metadata wave 2/3) | 2 | |
-| Security → Password/MFA policies (Passage via Keycloak) | | COVERED-2 | 2 | |
-| Security → API keys / Service accounts / Rate limits (Passage) | | COVERED-35 | 35 | Developer portal keys and quotas |
+| Security → Password/MFA policies (Depot via Keycloak) | | COVERED-2 | 2 | |
+| Security → API keys / Service accounts / Rate limits (Depot) | | COVERED-35 | 35 | Developer portal keys and quotas |
 | Licensing → License information / Configuration keys / Named user licensing types | | SUPERSEDED (feature flags/entitlements wave 3; licensing model open question) | 3 | License usage PARTIAL |
 | Batch → Batch groups / Batch servers / Batch thread configuration / Batch job alerts | | SUPERSEDED (Temporal task queues, K8s worker pools; monitor UI wave 4) | 4 | |
 | AOS → Server configuration / Cluster configuration / Load balancer / Services (AIF on AOS) | | SUPERSEDED (Kubernetes, Envoy, wave 1) | 1 | |
@@ -3477,18 +3477,18 @@ Users, security roles/duties/privileges, SoD, licensing, batch jobs, AOS/cluster
 | Sys admin → Personalization management / Saved views publish (D365) | | COVERED-5 | 5 | |
 | Sys admin → Network printers / Document routing agent (D365) | | COVERED-32 | 32 | |
 | Sys admin → Key vault parameters / Certificates (D365) | | COVERED-36 | 36 | Vault |
-| Sys admin → Data residency / Backup policies / Retention (Passage) | | COVERED-48 | 48 | |
-| Sys admin → Tenant provisioning templates / Environment catalog (Passage) | | COVERED-50 | 50 | |
-| Sys admin → Observability: SLOs, alert routes, PagerDuty integration (Passage) | | COVERED-5 | 5 | |
-| Sys admin → AI: model provider configuration, token budgets, kill switch (Passage) | | COVERED-47 | 47 | |
+| Sys admin → Data residency / Backup policies / Retention (Depot) | | COVERED-48 | 48 | |
+| Sys admin → Tenant provisioning templates / Environment catalog (Depot) | | COVERED-50 | 50 | |
+| Sys admin → Observability: SLOs, alert routes, PagerDuty integration (Depot) | | COVERED-5 | 5 | |
+| Sys admin → AI: model provider configuration, token budgets, kill switch (Depot) | | COVERED-47 | 47 | |
 
 ## 12.31 Home / role centers / workflow
 
-AX 2012 R3 Home module: role centers (Enterprise Portal pages with cues, KPIs, work lists), work items (workflow), activities, cases, questionnaires, alerts and user options. Passage: workspaces and personalization in wave 5, workflow in wave 4, dashboards/KPIs in wave 46, copilot in wave 47.
+AX 2012 R3 Home module: role centers (Enterprise Portal pages with cues, KPIs, work lists), work items (workflow), activities, cases, questionnaires, alerts and user options. Depot: workspaces and personalization in wave 5, workflow in wave 4, dashboards/KPIs in wave 46, copilot in wave 47.
 
 ### 12.31.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Role center (per profile: Accountant, Buyer, Production manager, Sales manager, CFO, … 30+ role centers) | EP role center pages (SysUserProfile) | Cues, KPIs (SSAS), work list, quick links, reports, Power BI parts | SUPERSEDED (role-based workspaces with tiles/lists wave 5 and embedded dashboards/KPIs wave 46) | 5 | |
 | Work items assigned to me / Work items queue / Work item queue assignments | WorkflowWorkItemListPage, WorkflowWorkItemQueue | Approvals and tasks | COVERED-4 | 4 | Human tasks on Temporal |
@@ -3497,7 +3497,7 @@ AX 2012 R3 Home module: role centers (Enterprise Portal pages with cues, KPIs, w
 | Cases (My cases) | CaseDetailListPage | | PARTIAL-45 (generic case management) | 45 | |
 | Questionnaires → My questionnaires / Answer questionnaire / Questionnaire results | KMQuestionnaire (Home) | | GAP | — | Propose wave 42: questionnaire engine |
 | Alerts (My alerts / Notification list) | EventInbox | Alert inbox | GAP | — | Propose wave 5: alerts and notification rules (notification center exists in shell; rule-based alerts do not) |
-| Notification center (Passage shell) | | In-app notifications from workflow/batch | COVERED-5 | 5 | |
+| Notification center (Depot shell) | | In-app notifications from workflow/batch | COVERED-5 | 5 | |
 | Cues (saved queries with counts) | SysCue | | COVERED-5 | 5 | Saved views with counts in workspaces |
 | My user options (General, Status bar, Preferences: language/timezone/number format/date format, Workflow: notifications/delegation, Usage data, Account) | SysUserSetup (UserOptions) | | COVERED-5 | 5 | |
 | Workflow delegation (My delegations: all/by workflow/by module, date ranges) | WorkflowDelegation | | COVERED-4 | 4 | |
@@ -3509,12 +3509,12 @@ AX 2012 R3 Home module: role centers (Enterprise Portal pages with cues, KPIs, w
 | Global search / Record search | SysSearch | | COVERED-5 | 5 | |
 | Favorites / Navigation personalization | SysFavorites | | COVERED-5 | 5 | Personalization |
 | Document handling on any record | DocuView | | PARTIAL-5 (document management) | 5 | |
-| Copilot / Ask-the-data (Passage) | | | COVERED-47 | 47 | |
-| Job monitor / My batch jobs (Passage) | | | COVERED-4 | 4 | |
+| Copilot / Ask-the-data (Depot) | | | COVERED-47 | 47 | |
+| Job monitor / My batch jobs (Depot) | | | COVERED-4 | 4 | |
 
 ### 12.31.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Workflow history (per document) / Workflow tracking details | | COVERED-4 | 4 | |
 | Work item inquiries (Work items by user/queue/status, overdue work items) | | COVERED-4 | 4 | |
@@ -3531,7 +3531,7 @@ AX 2012 R3 Home module: role centers (Enterprise Portal pages with cues, KPIs, w
 
 ### 12.31.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Workflow → Due date escalation / Reminders (batch) | | COVERED-4 | 4 | SLA timers |
 | Workflow → Work item queue reassignment (batch) | | COVERED-4 | 4 | |
@@ -3540,11 +3540,11 @@ AX 2012 R3 Home module: role centers (Enterprise Portal pages with cues, KPIs, w
 | Questionnaires → Schedule questionnaires (batch) | | GAP | — | Propose wave 42: questionnaire engine |
 | Notifications → Clean up / Expire notifications | | COVERED-5 | 5 | |
 | Personalization → Publish saved views to roles (D365) | | COVERED-5 | 5 | |
-| Copilot → Agent runs (suggest mode) (Passage) | | COVERED-47 | 47 | |
+| Copilot → Agent runs (suggest mode) (Depot) | | COVERED-47 | 47 | |
 
 ### 12.31.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Role center setup → User profiles / Profile defaults / Role center page assignment (EP) | | SUPERSEDED (workspaces per role, wave 5) | 5 | |
 | Role center → Cues setup (create cue from filter, cue groups) / KPI setup (KPI parts, cube perspectives) | | COVERED-5 | 5 | KPIs 46 |
@@ -3558,8 +3558,8 @@ AX 2012 R3 Home module: role centers (Enterprise Portal pages with cues, KPIs, w
 | Cases → Case setup (link) | | PARTIAL-45 (generic case management) | 45 | |
 | Favorites / Navigation → Navigation pane customization, Personalization (form personalization, saved views, workspace tiles) | | COVERED-5 | 5 | |
 | Global search → Search configuration (searchable tables/fields) | | COVERED-5 | 5 | |
-| Home → Keyboard shortcuts / Accessibility settings (Passage) | | COVERED-5 | 5 | Keyboard-first |
-| Home → Copilot settings (opt-in, data scope) (Passage) | | COVERED-47 | 47 | |
+| Home → Keyboard shortcuts / Accessibility settings (Depot) | | COVERED-5 | 5 | Keyboard-first |
+| Home → Copilot settings (opt-in, data scope) (Depot) | | COVERED-47 | 47 | |
 | Home → Mobile workspace configuration (D365 mobile app) | | SUPERSEDED (PWA shell) | 5 | |
 | Home → Dashboard/tile configuration per workspace (D365 workspace tiles, Power BI embed) | | COVERED-46 | 46 | |
 
@@ -3569,7 +3569,7 @@ DIXF (AX 2012 R3) / Data management framework (D365): source data formats, proce
 
 ### 12.32.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Processing groups (list) / Processing group details | DMFDefinitionGroup | Group of entities with source format, mapping, sequence | COVERED-10 | 10 | Migration pipeline: extract/stage/map/validate/load |
 | Processing group → Entities (select entities, source format, sample file, generate mapping, modify mapping, validate) | DMFDefinitionGroupEntity | | COVERED-10 | 10 | Declarative mapping DSL |
@@ -3593,7 +3593,7 @@ DIXF (AX 2012 R3) / Data management framework (D365): source data formats, proce
 
 ### 12.32.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Execution history / Job status inquiry | | COVERED-10 | 10 | |
 | Staging data inquiry (errors by entity) | | COVERED-10 | 10 | |
@@ -3602,22 +3602,22 @@ DIXF (AX 2012 R3) / Data management framework (D365): source data formats, proce
 | Recurring job status / Message status (D365) | | COVERED-35 | 35 | Message monitor |
 | SSRS: Processing group report / Entity list | | COVERED-10 | 10 | |
 | SSRS: Execution log / Error log report | | COVERED-10 | 10 | |
-| Reconciliation report (row counts, hash totals, sampled field compare) (Passage) | | COVERED-10 | 10 | |
+| Reconciliation report (row counts, hash totals, sampled field compare) (Depot) | | COVERED-10 | 10 | |
 
 ### 12.32.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Run processing group (batch: get staging, copy to target) | | COVERED-10 | 10 | |
 | Clean up staging tables / Execution history | | COVERED-10 | 10 | |
 | Recurring import/export jobs (D365 scheduling) | | COVERED-35 | 35 | |
 | Entity store refresh (D365 BYOD/entity store) | | SUPERSEDED (CDC → lakehouse wave 46) | 46 | |
-| Dry-run / Idempotent re-run (Passage) | | COVERED-10 | 10 | |
-| Parallel-run replay (Passage migration factory) | | COVERED-49 | 49 | |
+| Dry-run / Idempotent re-run (Depot) | | COVERED-10 | 10 | |
+| Parallel-run replay (Depot migration factory) | | COVERED-49 | 49 | |
 
 ### 12.32.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Data import/export framework parameters (shared working directory, SSIS service, entity settings, source formats defaults) | | COVERED-10 | 10 | |
 | Source data formats (file: CSV/XML/Excel/fixed width; ODBC; AX) with code page, delimiters, headers | | COVERED-10 | 10 | Extract: ODBC from AX SQL, SAP RFC/OData, flat files |
@@ -3629,17 +3629,17 @@ DIXF (AX 2012 R3) / Data management framework (D365): source data formats, proce
 | D365 → Data management: Entity export to database (BYOD) configuration | | SUPERSEDED (lakehouse 46) | 46 | |
 | D365 → Recurring integration endpoints / Integration keys | | COVERED-35 | 35 | |
 | D365 → Data templates / Default templates per module | | COVERED-10 | 10 | |
-| Passage → Legacy connectors (AX 2012/D365 F&O, SAP ECC/S4) configuration | | COVERED-10 | 10 | |
-| Passage → Great Expectations validation suites | | COVERED-10 | 10 | |
-| Passage → Migration run ledger / Lineage | | COVERED-10 | 10 | |
+| Depot → Legacy connectors (AX 2012/D365 F&O, SAP ECC/S4) configuration | | COVERED-10 | 10 | |
+| Depot → Great Expectations validation suites | | COVERED-10 | 10 | |
+| Depot → Migration run ledger / Lineage | | COVERED-10 | 10 | |
 
 ## 12.33 Electronic reporting / Regulatory Configuration Service (D365)
 
-ER (D365; backported to AX 2012 R3 CU13 partially): configurations (models, model mappings, formats), configuration providers, repositories (LCS, RCS, Dataverse, file system, global repo), destinations, ER parameters, business document management, electronic messages, Globalization Studio (tax calculation service, e-invoicing service). Passage: wave 48 (ER designer, localization framework), wave 35 (e-invoicing, Peppol), wave 13 (tax calculation), wave 46 (business documents).
+ER (D365; backported to AX 2012 R3 CU13 partially): configurations (models, model mappings, formats), configuration providers, repositories (LCS, RCS, Dataverse, file system, global repo), destinations, ER parameters, business document management, electronic messages, Globalization Studio (tax calculation service, e-invoicing service). Depot: wave 48 (ER designer, localization framework), wave 35 (e-invoicing, Peppol), wave 13 (tax calculation), wave 46 (business documents).
 
 ### 12.33.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Electronic reporting workspace / Configurations (tree: data model, model mapping, format, metadata) | ERWorkspace, ERSolutionTable | Design and manage configurations | COVERED-48 | 48 | ER designer: configurable XML/JSON/CSV with versioning |
 | Configuration → Model designer (data model) | ERModelDesigner | | COVERED-48 | 48 | |
@@ -3647,7 +3647,7 @@ ER (D365; backported to AX 2012 R3 CU13 partially): configurations (models, mode
 | Configuration → Format designer (XML/JSON/text/Excel/Word output, bindings, formulas) | ERFormatDesigner | | COVERED-48 | 48 | Excel/Word output via wave 46 designer |
 | Configuration → Versions (draft/completed/shared/discontinued), Import/Export (XML), Rebase | ERSolutionVersionTable | | COVERED-48 | 48 | Versioning |
 | Configuration providers / Active provider | ERVendorTable | | COVERED-48 | 48 | |
-| Repositories (LCS asset library, RCS, Dataverse, File system, Global repository, Operations resources) | ERRepository* | Fetch Microsoft-published configurations | SUPERSEDED (Passage country packs ship with Helm/packs; registry of regulator mandates wave 48) | 48 | |
+| Repositories (LCS asset library, RCS, Dataverse, File system, Global repository, Operations resources) | ERRepository* | Fetch Microsoft-published configurations | SUPERSEDED (Depot country packs ship with Helm/packs; registry of regulator mandates wave 48) | 48 | |
 | ER jobs (Electronic reporting jobs: run history, output files) | ERFormatMappingRunJobTable | | COVERED-48 | 48 | |
 | ER destinations (per format: file, email, print, archive (document management), screen, Power BI, SharePoint) | ERFormatDestinationTable | | COVERED-48 | 48 | Archive depends on document management PARTIAL-5 |
 | Business document management (Word/Excel templates for business documents, editable by users; template versions) | ERBusinessDocumentManagement | | COVERED-46 | 46 | Operational report designer |
@@ -3662,7 +3662,7 @@ ER (D365; backported to AX 2012 R3 CU13 partially): configurations (models, mode
 
 ### 12.33.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | ER jobs history / Output archive inquiry | | COVERED-48 | 48 | |
 | Configuration version history / Dependency inquiry | | COVERED-48 | 48 | |
@@ -3672,11 +3672,11 @@ ER (D365; backported to AX 2012 R3 CU13 partially): configurations (models, mode
 | Business document template usage inquiry | | COVERED-46 | 46 | |
 | ER → Configuration comparison (diff versions) | | COVERED-48 | 48 | |
 | ER → Format validation report (schema validation) | | COVERED-48 | 48 | Regulator schema fixtures |
-| Statutory reports catalog per country (Passage) | | COVERED-48 | 48 | |
+| Statutory reports catalog per country (Depot) | | COVERED-48 | 48 | |
 
 ### 12.33.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Run ER format in batch (scheduled statutory reports) | | COVERED-48 | 48 | |
 | Import configurations from repository (update to latest versions) | | SUPERSEDED (pack updates via Helm/GitOps wave 48) | 48 | |
@@ -3685,11 +3685,11 @@ ER (D365; backported to AX 2012 R3 CU13 partially): configurations (models, mode
 | ER → Clean up job history / Archived outputs | | COVERED-48 | 48 | |
 | Business document management → Publish templates | | COVERED-46 | 46 | |
 | Tax calculation service → Sync configurations | | COVERED-13 | 13 | |
-| Regulatory mandates registry refresh (Passage) | | COVERED-48 | 48 | |
+| Regulatory mandates registry refresh (Depot) | | COVERED-48 | 48 | |
 
 ### 12.33.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Electronic reporting parameters (attachments document types for job archive/baseline/others, LCS/RCS connection, Dataverse) | | COVERED-48 | 48 | |
 | Configuration providers (own provider for custom configs) | | COVERED-48 | 48 | |
@@ -3705,16 +3705,16 @@ ER (D365; backported to AX 2012 R3 CU13 partially): configurations (models, mode
 | RCS → Globalization feature management (standalone) | | SUPERSEDED (in-product) | 48 | |
 | ER → Key vault certificates for signing (XAdES) | | COVERED-36 | 36 | Vault; signing in 35/48 |
 | ER → Configuration localization (labels per language) | | COVERED-48 | 48 | |
-| Passage → Country pack registry (US, UK, DE, FR, IN, MX, CA) with regulator schema fixtures | | COVERED-48 | 48 | |
-| Passage → Regulator mandate registry (effective dates, versions) | | COVERED-48 | 48 | |
+| Depot → Country pack registry (US, UK, DE, FR, IN, MX, CA) with regulator schema fixtures | | COVERED-48 | 48 | |
+| Depot → Regulator mandate registry (effective dates, versions) | | COVERED-48 | 48 | |
 
 ## 12.34 Engineering change management (D365)
 
-D365 ECM: engineering products, engineering categories/attributes, engineering versions, product readiness, engineering change requests/orders with impact analysis, release to legal entities, product lifecycle states. Passage wave 9 covers ECR/ECO workflow, impact analysis (where-used), versions and release to production; engineering organization/release policies and readiness checks are partial.
+D365 ECM: engineering products, engineering categories/attributes, engineering versions, product readiness, engineering change requests/orders with impact analysis, release to legal entities, product lifecycle states. Depot wave 9 covers ECR/ECO workflow, impact analysis (where-used), versions and release to production; engineering organization/release policies and readiness checks are partial.
 
 ### 12.34.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Engineering products (list) / Engineering product details | EngChgEngineeringProduct | Version-tracked products owned by engineering org | COVERED-9 | 9 | |
 | Engineering versions (version per product with BOM/route/attributes, effective dates, active) | EngChgEcoResProductVersion | | COVERED-9 | 9 | Effective-dated versions |
@@ -3735,7 +3735,7 @@ D365 ECM: engineering products, engineering categories/attributes, engineering v
 
 ### 12.34.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Engineering version inquiry / Version comparison (BOM diff between versions) | | COVERED-9 | 9 | |
 | Where-used inquiry (across versions) | | COVERED-9 | 9 | |
@@ -3749,7 +3749,7 @@ D365 ECM: engineering products, engineering categories/attributes, engineering v
 
 ### 12.34.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Process engineering change orders (batch apply) | | COVERED-9 | 9 | |
 | Release product structures (batch release to LEs) | | PARTIAL-9 (release product structure) | 9 | |
@@ -3760,7 +3760,7 @@ D365 ECM: engineering products, engineering categories/attributes, engineering v
 
 ### 12.34.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Engineering change management parameters (engineering organization, default severity, change order defaults, version activation, number sequences) | | COVERED-9 | 9 | |
 | Engineering organizations (which LE owns engineering data) | | PARTIAL-9 (release product structure) | 9 | |
@@ -3782,7 +3782,7 @@ D365 Asset management (EAM): functional locations, assets, asset types/lifecycle
 
 ### 12.35.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Assets (list) / Asset details (type, lifecycle state, functional location, model/manufacturer, attributes, BOM/spare parts, counters, warranties, documents) | EntAssetObjectTable | | COVERED-44 | 44 | |
 | Functional locations (hierarchy, types, lifecycle) | EntAssetFunctionalLocation | | COVERED-44 | 44 | |
@@ -3814,7 +3814,7 @@ D365 Asset management (EAM): functional locations, assets, asset types/lifecycle
 
 ### 12.35.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Work order inquiries (by state, asset, worker, overdue) | | COVERED-44 | 44 | |
 | Maintenance request inquiries | | COVERED-44 | 44 | |
@@ -3836,7 +3836,7 @@ D365 Asset management (EAM): functional locations, assets, asset types/lifecycle
 
 ### 12.35.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Schedule maintenance plans (generate work orders from time/counter/condition plans) | | COVERED-44 | 44 | Plan fixtures |
 | Schedule maintenance rounds / Maintenance sequences | | PARTIAL-44 (maintenance rounds) | 44 | |
@@ -3851,7 +3851,7 @@ D365 Asset management (EAM): functional locations, assets, asset types/lifecycle
 
 ### 12.35.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Asset management parameters (work order defaults, journal names, project integration, scheduling, number sequences, mobile) | | COVERED-44 | 44 | |
 | Assets → Asset types, Asset type defaults (job types, counters, attributes, checklists), Asset lifecycle models/states, Asset models, Manufacturers, Asset attribute types, Asset criticality, Asset service levels | | COVERED-44 | 44 | |
@@ -3875,11 +3875,11 @@ D365 Asset management (EAM): functional locations, assets, asset types/lifecycle
 
 ## 12.36 Rebate management (D365)
 
-D365 Rebate management (2020+): deals (customer or vendor), deal lines with tiers, transaction accruals, deal statuses, provisions, rebate posting via journals, claims. Passage: customer rebates in waves 26 (agreements/accrual) and 30 (settlement); vendor-side deals are a gap (proposed wave 26).
+D365 Rebate management (2020+): deals (customer or vendor), deal lines with tiers, transaction accruals, deal statuses, provisions, rebate posting via journals, claims. Depot: customer rebates in waves 26 (agreements/accrual) and 30 (settlement); vendor-side deals are a gap (proposed wave 26).
 
 ### 12.36.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Rebate management deals (list) / Deal details (customer/vendor, products, tiers, dates, calculation basis, posting) | RebateManagementDeal | | COVERED-26 | 26 | Customer deals; vendor deals GAP |
 | Deal → Vendor deals (purchase rebates) | RebateManagementDeal (vendor) | | GAP | — | Propose wave 26: vendor rebates |
@@ -3893,7 +3893,7 @@ D365 Rebate management (2020+): deals (customer or vendor), deal lines with tier
 
 ### 12.36.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Rebate transactions inquiry (by deal/customer/period) | | COVERED-26 | 26 | |
 | Provision balance inquiry (accrued vs settled) | | COVERED-30 | 30 | |
@@ -3905,7 +3905,7 @@ D365 Rebate management (2020+): deals (customer or vendor), deal lines with tier
 
 ### 12.36.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Generate rebate transactions (from posted invoices) | | COVERED-26 | 26 | |
 | Post provisions (accruals) / Reverse provisions | | COVERED-26 | 26 | |
@@ -3915,7 +3915,7 @@ D365 Rebate management (2020+): deals (customer or vendor), deal lines with tier
 
 ### 12.36.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Rebate management parameters (journal names, posting profiles, default calculation, workflow, number sequences) | | COVERED-26 | 26 | |
 | Rebate management posting profiles (accrual/expense accounts) | | COVERED-26 | 26 | |
@@ -3931,7 +3931,7 @@ D365 Subscription billing (2021+): Recurring contract billing (billing schedules
 
 ### 12.37.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Billing schedules (list) / Billing schedule details (lines, frequency, start/end, escalation, milestones, pricing, deferral) | RCB BillingSchedule | Recurring contract billing | COVERED-29 | 29 | Subscription billing: recurring schedules, proration, usage |
 | Billing schedule → Generate invoices (free text / sales order) | RCB GenerateInvoice | | COVERED-29 | 29 | |
@@ -3949,7 +3949,7 @@ D365 Subscription billing (2021+): Recurring contract billing (billing schedules
 
 ### 12.37.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Billing schedule inquiries (upcoming invoices, renewals due, MRR/ARR) | | COVERED-29 | 29 | |
 | Unbilled revenue inquiry / Deferred revenue roll-forward | | COVERED-29 | 29 | Reconciles to GL |
@@ -3962,7 +3962,7 @@ D365 Subscription billing (2021+): Recurring contract billing (billing schedules
 
 ### 12.37.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Generate invoices from billing schedules (batch by date) | | COVERED-29 | 29 | |
 | Recognition processing (deferral recognition batch) | | COVERED-29 | 29 | |
@@ -3975,7 +3975,7 @@ D365 Subscription billing (2021+): Recurring contract billing (billing schedules
 
 ### 12.37.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Recurring contract billing parameters (invoice type, proration method, number sequences, posting) | | COVERED-29 | 29 | |
 | Billing schedule groups / Billing frequencies / Item billing types / Escalation types / Milestone templates / Termination reasons / Renewal settings | | COVERED-29 | 29 | |
@@ -3991,7 +3991,7 @@ D365 Revenue recognition (2019–2023, now deprecated in favor of Subscription b
 
 ### 12.38.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Revenue schedules (per sales order line: schedule lines by period, status, hold) | RevRecSchedule | | COVERED-29 | 29 | Schedules (ratable, milestone, usage) |
 | Revenue recognition journal (recognize scheduled revenue, post) | RevRecJournal (LedgerJournalTable) | | COVERED-29 | 29 | |
@@ -4004,7 +4004,7 @@ D365 Revenue recognition (2019–2023, now deprecated in favor of Subscription b
 
 ### 12.38.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Revenue schedule inquiry (deferred/recognized by period) | | COVERED-29 | 29 | |
 | Allocation details inquiry | | COVERED-29 | 29 | |
@@ -4014,7 +4014,7 @@ D365 Revenue recognition (2019–2023, now deprecated in favor of Subscription b
 
 ### 12.38.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Create revenue recognition journal (batch) | | COVERED-29 | 29 | |
 | Post revenue recognition journal | | COVERED-29 | 29 | |
@@ -4023,7 +4023,7 @@ D365 Revenue recognition (2019–2023, now deprecated in favor of Subscription b
 
 ### 12.38.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Revenue recognition parameters (journal names, deferred revenue accounts, recognition basis, bundle handling) | | COVERED-29 | 29 | |
 | Revenue schedules (schedule templates: occurrences, frequency, recognition basis: contract start/invoice date, milestone) | | COVERED-29 | 29 | |
@@ -4035,11 +4035,11 @@ D365 Revenue recognition (2019–2023, now deprecated in favor of Subscription b
 
 ## 12.39 Vendor collaboration / customer self-service (D365)
 
-D365 Vendor collaboration (PO confirmation, consignment, invoices, RFQ reply, onboarding/registration), vendor collaboration user provisioning, and customer self-service (Power Pages/portal). Passage: supplier portal (wave 20), customer portal (wave 30).
+D365 Vendor collaboration (PO confirmation, consignment, invoices, RFQ reply, onboarding/registration), vendor collaboration user provisioning, and customer self-service (Power Pages/portal). Depot: supplier portal (wave 20), customer portal (wave 30).
 
 ### 12.39.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Vendor collaboration workspace (vendor view: POs to confirm, confirmed, rejected) | VendVendorPortalPurchaseOrder | | COVERED-20 | 20 | Supplier portal: PO acknowledgement |
 | Vendor → Confirm/reject PO with changes (substitute, split, dates) | VendVendorPortalPurchaseOrderConfirm | | COVERED-20 | 20 | |
@@ -4061,7 +4061,7 @@ D365 Vendor collaboration (PO confirmation, consignment, invoices, RFQ reply, on
 
 ### 12.39.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Vendor collaboration inquiries (confirmations pending, response time) | | COVERED-20 | 20 | |
 | Portal user activity / provisioning status | | COVERED-20 | 20 | |
@@ -4070,7 +4070,7 @@ D365 Vendor collaboration (PO confirmation, consignment, invoices, RFQ reply, on
 
 ### 12.39.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Send POs to portal / Notify vendors (batch) | | COVERED-20 | 20 | |
 | Expire pending confirmations / Escalate | | COVERED-20 | 20 | |
@@ -4079,7 +4079,7 @@ D365 Vendor collaboration (PO confirmation, consignment, invoices, RFQ reply, on
 
 ### 12.39.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Vendor collaboration parameters (PO confirmation required, auto-confirm rules, invoice submission, consignment, onboarding questionnaires) | | COVERED-20 | 20 | |
 | Vendor collaboration → Security roles for external users / Vendor collaboration user provisioning workflow | | COVERED-2 | 2 | |
@@ -4087,15 +4087,15 @@ D365 Vendor collaboration (PO confirmation, consignment, invoices, RFQ reply, on
 | Vendor collaboration → Onboarding: Registration wizard configuration, Questionnaires | | PARTIAL-20 (vendor onboarding) | 20 | |
 | Customer self-service → Portal configuration (branding, features, payment adapter) | | COVERED-30 | 30 | |
 | Customer self-service → External identity (customer users, B2B invitations) | | COVERED-2 | 2 | |
-| Customer self-service → Dual-write/Dataverse dependency (D365 portal uses Dataverse) | | SUPERSEDED (portal on Passage APIs) | 30 | |
+| Customer self-service → Dual-write/Dataverse dependency (D365 portal uses Dataverse) | | SUPERSEDED (portal on Depot APIs) | 30 | |
 
 ## 12.40 Dual-write / Dataverse integration (D365)
 
-D365 Dual-write synchronizes F&SCM tables with Dataverse for Power Platform and Dynamics 365 CE apps (Sales, Field Service, Customer Service). Passage supersedes the entire mechanism with the integration hub: generated APIs, Kafka topics, webhooks, MCP and reference connectors (Salesforce, Shopify, Stripe). Every row is `SUPERSEDED` and points at the replacing wave.
+D365 Dual-write synchronizes F&SCM tables with Dataverse for Power Platform and Dynamics 365 CE apps (Sales, Field Service, Customer Service). Depot supersedes the entire mechanism with the integration hub: generated APIs, Kafka topics, webhooks, MCP and reference connectors (Salesforce, Shopify, Stripe). Every row is `SUPERSEDED` and points at the replacing wave.
 
 ### 12.40.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Dual-write administration (Data integration → Dual-write: table maps, running/paused status) | DualWriteAdmin | Manage entity maps | SUPERSEDED (integration hub: Kafka topics per entity + webhooks, wave 35) | 35 | |
 | Table maps (standard maps: customers, vendors, products, orders, invoices, etc.) / Map versions | DualWriteTableMap | | SUPERSEDED (AsyncAPI-described topics from entity metadata, wave 4) | 4 | |
@@ -4112,7 +4112,7 @@ D365 Dual-write synchronizes F&SCM tables with Dataverse for Power Platform and 
 
 ### 12.40.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Dual-write sync status inquiry | | SUPERSEDED (message monitor wave 35) | 35 | |
 | Dual-write error inquiry | | SUPERSEDED (message monitor/DLQ wave 35) | 35 | |
@@ -4121,7 +4121,7 @@ D365 Dual-write synchronizes F&SCM tables with Dataverse for Power Platform and 
 
 ### 12.40.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Initial sync / Resync table maps | | SUPERSEDED (replay) | 35 | |
 | Pause/resume maps (maintenance windows) | | SUPERSEDED (consumer pause/resume on Kafka) | 35 | |
@@ -4130,7 +4130,7 @@ D365 Dual-write synchronizes F&SCM tables with Dataverse for Power Platform and 
 
 ### 12.40.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Dual-write setup (link environment, Dataverse connection, solution install) | | SUPERSEDED (integration hub setup: API keys, webhook endpoints, Kafka consumer groups, wave 35) | 35 | |
 | Table map configuration (field mapping, transforms, filters, direction) | | SUPERSEDED (event schemas from metadata; mapping in connectors) | 4 | |

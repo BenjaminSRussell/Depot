@@ -25,18 +25,18 @@ ALTER TABLE production_parameters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE production_parameters FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS production_parameters_tenant_access ON production_parameters;
 CREATE POLICY production_parameters_tenant_access ON production_parameters AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS production_parameters_legal_entity_scope ON production_parameters;
 CREATE POLICY production_parameters_legal_entity_scope ON production_parameters AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The store inserts and updates (locks) rows, never deletes.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON production_parameters TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON production_parameters TO depot_app';
   END IF;
 END
 $$;

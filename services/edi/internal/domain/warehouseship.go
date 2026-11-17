@@ -7,7 +7,7 @@ import (
 )
 
 // WarehouseShip is the warehouse's confirmation that a fulfillment shipment left the dock without a packing slip posted for it
-// (dev.passage.wms.shipment.shipped.v1, #35 35-1). SSCCs, when given, are the containers that left; otherwise every closed
+// (dev.depot.wms.shipment.shipped.v1, #35 35-1). SSCCs, when given, are the containers that left; otherwise every closed
 // container of the shipment did.
 type WarehouseShip struct {
 	ShippedAt   time.Time

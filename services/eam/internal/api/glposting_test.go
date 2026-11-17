@@ -10,12 +10,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/eam/internal/store"
-	"github.com/BenjaminSRussell/passage/services/eam/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/eam/internal/store"
+	"github.com/BenjaminSRussell/depot/services/eam/migrations"
 )
 
 const (
@@ -27,8 +27,8 @@ const (
 
 func glHeaders(duties string) map[string]string {
 	h := headers(duties)
-	h["X-Passage-Tenant"] = testkit.TenantID(apiTenant)
-	h["X-Passage-Legal-Entity"] = apiEntity
+	h["X-Depot-Tenant"] = testkit.TenantID(apiTenant)
+	h["X-Depot-Legal-Entity"] = apiEntity
 	return h
 }
 

@@ -1,5 +1,5 @@
 image:
-  repository: ghcr.io/benjaminsrussell/passage-sales
+  repository: ghcr.io/benjaminsrussell/depot-sales
   # Stage and prod pin the digest (cosign-signed) through Argo CD; the tag is for dev.
   tag: "0.1.0"
   digest: ""
@@ -10,14 +10,14 @@ replicaCount: 3
 serviceName: sales
 
 config:
-  passageEnv: dev
+  depotEnv: dev
   httpAddr: ":8080"
   adminAddr: ":9090"
   migrateOnStart: "false"
 
 # DATABASE_URL is read from this secret (Vault via External Secrets), never inline.
 databaseSecret:
-  name: passage-sales-db
+  name: depot-sales-db
   key: url
 
 resources:

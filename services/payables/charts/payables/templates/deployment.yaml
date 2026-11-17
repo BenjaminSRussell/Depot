@@ -12,10 +12,10 @@ spec:
   template:
     metadata:
       labels:
-        {{- with include "passage.wiLabels" $ }}{{ . | nindent 8 }}{{- end }}
+        {{- with include "depot.wiLabels" $ }}{{ . | nindent 8 }}{{- end }}
         app.kubernetes.io/name: payables
     spec:
-      {{- with include "passage.wiServiceAccount" (dict "root" $ "name" "passage-payables") }}{{ . | nindent 6 }}{{- end }}
+      {{- with include "depot.wiServiceAccount" (dict "root" $ "name" "depot-payables") }}{{ . | nindent 6 }}{{- end }}
       securityContext:
         runAsNonRoot: true
         {{- if or .Values.serviceIdentity.signingKeySecret .Values.postingProfilesSecret .Values.fieldCrypt.keysSecret }}
@@ -54,30 +54,30 @@ spec:
             capabilities:
               drop: [ALL]
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.databaseSecret }}
                   key: DATABASE_URL
-            - name: PASSAGE_SERVICE_NAME
+            - name: DEPOT_SERVICE_NAME
               value: payables
 {{- if .Values.serviceIdentity.signingKeySecret }}
-            - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
-              value: /var/run/passage/service-identity/signing-key
+            - name: DEPOT_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/depot/service-identity/signing-key
 {{- if .Values.serviceIdentity.keyId }}
-            - name: PASSAGE_SERVICE_KEY_ID
+            - name: DEPOT_SERVICE_KEY_ID
               value: {{ .Values.serviceIdentity.keyId | quote }}
 {{- end }}
 {{- end }}
 {{- if .Values.serviceIdentity.publicKeys }}
-            - { name: PASSAGE_SERVICE_PUBLIC_KEYS, value: {{ .Values.serviceIdentity.publicKeys | quote }} }
+            - { name: DEPOT_SERVICE_PUBLIC_KEYS, value: {{ .Values.serviceIdentity.publicKeys | quote }} }
 {{- end }}
 {{- if .Values.postingProfilesSecret }}
-            - { name: PAYABLES_POSTING_PROFILES_FILE, value: /var/run/passage/posting-profiles/profiles.json }
+            - { name: PAYABLES_POSTING_PROFILES_FILE, value: /var/run/depot/posting-profiles/profiles.json }
 {{- end }}
 {{- if .Values.fieldCrypt.keysSecret }}
-            - { name: FIELDCRYPT_KEYS_FILE, value: /var/run/passage/field-crypt/keys }
+            - { name: FIELDCRYPT_KEYS_FILE, value: /var/run/depot/field-crypt/keys }
             - { name: FIELDCRYPT_CURRENT_KEY_ID, value: {{ .Values.fieldCrypt.currentKeyId | quote }} }
 {{- end }}
             - { name: LEDGER_URL, value: {{ .Values.ledgerUrl | quote }} }
@@ -90,13 +90,13 @@ spec:
           volumeMounts:
             - { name: tmp, mountPath: /tmp }
 {{- if .Values.serviceIdentity.signingKeySecret }}
-            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
 {{- end }}
 {{- if .Values.postingProfilesSecret }}
-            - { name: posting-profiles, mountPath: /var/run/passage/posting-profiles, readOnly: true }
+            - { name: posting-profiles, mountPath: /var/run/depot/posting-profiles, readOnly: true }
 {{- end }}
 {{- if .Values.fieldCrypt.keysSecret }}
-            - { name: field-crypt, mountPath: /var/run/passage/field-crypt, readOnly: true }
+            - { name: field-crypt, mountPath: /var/run/depot/field-crypt, readOnly: true }
 {{- end }}
           ports:
             - { name: http, containerPort: 8080 }

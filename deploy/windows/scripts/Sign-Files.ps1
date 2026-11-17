@@ -1,7 +1,7 @@
 <#
   Authenticode-sign files with signtool (SHA-256, RFC 3161 timestamp). The certificate comes from a base64 PFX in an environment
   variable (the workflow maps the repository secrets onto them); it is written to a temp file that is deleted afterwards.
-    Sign-Files.ps1 -Path out\bin\*.exe,out\Passage.msi
+    Sign-Files.ps1 -Path out\bin\*.exe,out\Depot.msi
   Environment: SIGNING_PFX_BASE64, SIGNING_PFX_PASSWORD, TIMESTAMP_URL (default DigiCert).
 #>
 param([Parameter(Mandatory)] [string[]] $Path)

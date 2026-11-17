@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
 )
 
 // printerStatuses serves GET /print/v1/printers/status (§6.32.14 printer status).

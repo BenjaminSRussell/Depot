@@ -9,9 +9,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 // DeliveredNotInvoiced records the filter and answers with the canned rows.
@@ -135,7 +135,7 @@ func TestDeliveredNotInvoiced_Validation(t *testing.T) {
 
 func TestDeliveredNotInvoiced_NeedsWarehouseView(t *testing.T) {
 	rec := do(t, newServer(t, &fakeStore{}), http.MethodGet, "/v1/fulfillment/delivered-not-invoiced?legalEntityId="+ids.New(), "",
-		map[string]string{"X-Passage-Duties": "fulfillment.warehouse.pick"})
+		map[string]string{"X-Depot-Duties": "fulfillment.warehouse.pick"})
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want 403", rec.Code)
 	}

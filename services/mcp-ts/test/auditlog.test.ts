@@ -8,7 +8,7 @@ const entry = { at: "2026-01-01T00:00:00Z", tenantId: TENANT, userId: "jane.doe@
 describe("the tool-call audit line", () => {
   it("pseudonymizes the user under the eu-data-boundary overlay", async () => {
     const lines: string[] = [];
-    await stdoutAuditSink({ PASSAGE_CLOUD_PROFILE: "commercial+eu-data-boundary", FIELDCRYPT_KEYS: `k1=${KEY_B64}`, FIELDCRYPT_CURRENT_KEY_ID: "k1" }, (l) => lines.push(l)).record(entry);
+    await stdoutAuditSink({ DEPOT_CLOUD_PROFILE: "commercial+eu-data-boundary", FIELDCRYPT_KEYS: `k1=${KEY_B64}`, FIELDCRYPT_CURRENT_KEY_ID: "k1" }, (l) => lines.push(l)).record(entry);
     expect(lines[0]).not.toContain("jane.doe");
     expect(JSON.parse(lines[0]!)).toMatchObject({ message: "mcp.tool_call", service: "mcp-ts", tenantId: TENANT, tool: "list_vendors" });
     expect(JSON.parse(lines[0]!).userId).toMatch(/^pn_[0-9a-f]{16}$/);

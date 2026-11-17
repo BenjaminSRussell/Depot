@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/sources"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/sources"
 )
 
 // exPayables is payables' vendor-invoice intake.

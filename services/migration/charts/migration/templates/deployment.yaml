@@ -12,10 +12,10 @@ spec:
   template:
     metadata:
       labels:
-        {{- with include "passage.wiLabels" $ }}{{ . | nindent 8 }}{{- end }}
+        {{- with include "depot.wiLabels" $ }}{{ . | nindent 8 }}{{- end }}
         app.kubernetes.io/name: migration
     spec:
-      {{- with include "passage.wiServiceAccount" (dict "root" $ "name" "passage-migration") }}{{ . | nindent 6 }}{{- end }}
+      {{- with include "depot.wiServiceAccount" (dict "root" $ "name" "depot-migration") }}{{ . | nindent 6 }}{{- end }}
       securityContext:
         runAsNonRoot: true
         {{- if or .Values.fieldCrypt.keysSecret .Values.serviceIdentity.signingKeySecret }}
@@ -54,7 +54,7 @@ spec:
             capabilities:
               drop: [ALL]
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -67,7 +67,7 @@ spec:
             - name: MIG_EGRESS_ALLOW
               value: {{ concat .Values.egress.allowCidrs .Values.egress.allowHostPorts | join "," | quote }}
 {{- if .Values.fieldCrypt.keysSecret }}
-            - { name: FIELDCRYPT_KEYS_FILE, value: /var/run/passage/field-crypt/keys }
+            - { name: FIELDCRYPT_KEYS_FILE, value: /var/run/depot/field-crypt/keys }
             - { name: FIELDCRYPT_CURRENT_KEY_ID, value: {{ .Values.fieldCrypt.currentKeyId | quote }} }
 {{- end }}
 {{- if .Values.dropRoot.path }}
@@ -75,17 +75,17 @@ spec:
 {{- end }}
             # The loader signs its calls to the owning services as the service named "migration". With any address set
             # and a signing key, POST /v1/integration/migration-runs extracts and loads; without them it answers 501.
-            - { name: PASSAGE_SERVICE_NAME, value: migration }
+            - { name: DEPOT_SERVICE_NAME, value: migration }
 {{- if .Values.serviceIdentity.signingKeySecret }}
-            - { name: PASSAGE_SERVICE_SIGNING_KEY_FILE, value: /var/run/passage/service-identity/signing-key }
+            - { name: DEPOT_SERVICE_SIGNING_KEY_FILE, value: /var/run/depot/service-identity/signing-key }
 {{- if .Values.serviceIdentity.keyId }}
-            - { name: PASSAGE_SERVICE_KEY_ID, value: {{ .Values.serviceIdentity.keyId | quote }} }
+            - { name: DEPOT_SERVICE_KEY_ID, value: {{ .Values.serviceIdentity.keyId | quote }} }
 {{- end }}
 {{- end }}
 {{- with .Values.serviceIdentity.publicKeys }}
             # Callers' public keys (name[:kid]=base64,...): the integration hub's key lets it call the outbound render
             # and xref:record routes (integration track S5).
-            - { name: PASSAGE_SERVICE_PUBLIC_KEYS, value: {{ . | quote }} }
+            - { name: DEPOT_SERVICE_PUBLIC_KEYS, value: {{ . | quote }} }
 {{- end }}
 {{- with .Values.targets.partyUrl }}
             - { name: MIG_TARGET_PARTY_URL, value: {{ . | quote }} }
@@ -108,10 +108,10 @@ spec:
           {{- if or .Values.fieldCrypt.keysSecret .Values.dropRoot.existingClaim .Values.serviceIdentity.signingKeySecret }}
           volumeMounts:
 {{- if .Values.fieldCrypt.keysSecret }}
-            - { name: field-crypt, mountPath: /var/run/passage/field-crypt, readOnly: true }
+            - { name: field-crypt, mountPath: /var/run/depot/field-crypt, readOnly: true }
 {{- end }}
 {{- if .Values.serviceIdentity.signingKeySecret }}
-            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
 {{- end }}
 {{- if .Values.dropRoot.existingClaim }}
             - { name: drop-root, mountPath: {{ .Values.dropRoot.path | quote }}, readOnly: true }

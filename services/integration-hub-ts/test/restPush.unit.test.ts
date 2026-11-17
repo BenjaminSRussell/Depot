@@ -127,7 +127,7 @@ test("the migration service token is signed by integration-hub and carries only 
 
 // ---- auth schemes through RestPusher with a fake exchange --------------------------------------------------------
 
-const event: HubEvent = { eventId: "evt-1", type: "dev.passage.sales.order.confirmed.v1", aggregateId: "o1", sequence: 1, occurredAt: 1_800_000_000, data: { order_id: "o1" }, legalEntityId: "33333333-4444-4555-8666-777777777777" };
+const event: HubEvent = { eventId: "evt-1", type: "dev.depot.sales.order.confirmed.v1", aggregateId: "o1", sequence: 1, occurredAt: 1_800_000_000, data: { order_id: "o1" }, legalEntityId: "33333333-4444-4555-8666-777777777777" };
 const migration: MigrationClient = {
   async render(_i: RenderInput) {
     return { ok: true, rendered: { body: { id: "o1" }, idempotencyKey: "k", refs: [{ entity: "salesOrder", id: "o1" }], lookups: [] } };
@@ -236,7 +236,7 @@ test("the HTTP migration client calls the S5 contract with a service token and m
   assert.deepEqual(await client.render(input), { ok: true, rendered: { body: { a: 1 }, idempotencyKey: "k1", refs: [1], lookups: [] } });
   assert.equal(seen[0]?.url, `http://migration.svc:8080/v1/integration/outbound-mappings/${MAPPING}:render`);
   assert.deepEqual(seen[0]?.body, { event: { id: "e1" } });
-  const claims = JSON.parse(Buffer.from((seen[0]?.headers["x-passage-service-token"] as string).split(".")[0] as string, "base64url").toString());
+  const claims = JSON.parse(Buffer.from((seen[0]?.headers["x-depot-service-token"] as string).split(".")[0] as string, "base64url").toString());
   assert.equal(claims.iss, "integration-hub");
   assert.equal(claims.tid, TENANT);
   assert.deepEqual(await client.render(input), { ok: false, status: 422, code: "MIG-XREF-UNRESOLVED", detail: "no key", retryable: false });
@@ -249,7 +249,7 @@ test("the HTTP migration client calls the S5 contract with a service token and m
   // A mapping the service does not know is its refusal; a 404 without a problem code means the S5 route is not there.
   assert.deepEqual(await client.render(input), { ok: false, status: 404, code: "MIG-0404", detail: "no such mapping", retryable: false });
   assert.deepEqual(await client.render({ ...input, actor: "11111111-1111-4111-8111-111111111111" }), { ok: false, status: 404, code: null, detail: RENDER_ROUTE_MISSING, retryable: false });
-  const last = JSON.parse(Buffer.from((seen.at(-1)?.headers["x-passage-service-token"] as string).split(".")[0] as string, "base64url").toString());
+  const last = JSON.parse(Buffer.from((seen.at(-1)?.headers["x-depot-service-token"] as string).split(".")[0] as string, "base64url").toString());
   assert.equal(last.act, "11111111-1111-4111-8111-111111111111");
   assert.equal(last.le, "33333333-4444-4555-8666-777777777777");
 });
@@ -312,7 +312,7 @@ test("render decodes the Go answer: body, idempotencyKey and refs [] or [{entity
 
 test("render 422 MIG-XREF-UNRESOLVED keeps the code and is not retried", async () => {
   // failRender in outbound.go: problem body with code, detail, errors and unresolved[].
-  const out = await clientFor(422, { type: "https://passage.dev/problems/MIG-XREF-UNRESOLVED", title: "Unprocessable Entity", status: 422, detail: "customer c1 has no legacy key", code: "MIG-XREF-UNRESOLVED", errors: { customer: "no legacy key" }, unresolved: [{ name: "customer", entity: "customer", id: "c1", reason: "no legacy key" }] }).render(renderIn);
+  const out = await clientFor(422, { type: "https://depot.dev/problems/MIG-XREF-UNRESOLVED", title: "Unprocessable Entity", status: 422, detail: "customer c1 has no legacy key", code: "MIG-XREF-UNRESOLVED", errors: { customer: "no legacy key" }, unresolved: [{ name: "customer", entity: "customer", id: "c1", reason: "no legacy key" }] }).render(renderIn);
   assert.deepEqual(out, { ok: false, status: 422, code: "MIG-XREF-UNRESOLVED", detail: "customer c1 has no legacy key", retryable: false });
 });
 

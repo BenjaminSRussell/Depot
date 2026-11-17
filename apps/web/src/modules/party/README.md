@@ -1,4 +1,4 @@
-# Party module (web, PSG-7 AC6)
+# Party module (web, DPT-7 AC6)
 
 Workspace for the party service (`services/party/api/openapi.yaml`). The shell discovers `module.ts`. Nav and routes are gated on duties already seeded in `policies/authz/data.json`. `party.merge` is not granted to any role and is not on these screens (issue #450).
 

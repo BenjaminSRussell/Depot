@@ -2,25 +2,25 @@ import { describe, expect, it } from "vitest";
 import { CopilotAnswerCache, COPILOT_MODES, dutiesKey, gateCopilotTools } from "../src/domain/copilot.js";
 
 const TOOLS = [
-  { name: "passage.ap.invoice.list", requiredDuty: "APInvoiceView" },
-  { name: "passage.ledger.journal.get", requiredDuty: "LedgerView" },
-  { name: "passage.ap.invoice.post", requiredDuty: "APInvoicePost" },
+  { name: "depot.ap.invoice.list", requiredDuty: "APInvoiceView" },
+  { name: "depot.ledger.journal.get", requiredDuty: "LedgerView" },
+  { name: "depot.ap.invoice.post", requiredDuty: "APInvoicePost" },
 ];
 
 describe("gateCopilotTools (BR-47.11, AGT-0203)", () => {
   it("allows only tools whose duty the user holds", () => {
     const gate = gateCopilotTools(new Set(["APInvoiceView"]), TOOLS);
-    expect(gate.allowed).toEqual(["passage.ap.invoice.list"]);
-    expect(gate.denied.map((d) => d.tool)).toEqual(["passage.ledger.journal.get", "passage.ap.invoice.post"]);
+    expect(gate.allowed).toEqual(["depot.ap.invoice.list"]);
+    expect(gate.denied.map((d) => d.tool)).toEqual(["depot.ledger.journal.get", "depot.ap.invoice.post"]);
   });
 
   it("answers each denial with AGT-0203 and the catalog text", () => {
     const [first] = gateCopilotTools(new Set(), TOOLS).denied;
     expect(first).toEqual({
-      tool: "passage.ap.invoice.list",
+      tool: "depot.ap.invoice.list",
       duty: "APInvoiceView",
       code: "AGT-0203",
-      message: "I cannot do that: you do not hold duty APInvoiceView required by passage.ap.invoice.list.",
+      message: "I cannot do that: you do not hold duty APInvoiceView required by depot.ap.invoice.list.",
     });
   });
 

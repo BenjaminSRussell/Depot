@@ -21,7 +21,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
 )
 
 // maxSecretBytes caps one secret file.

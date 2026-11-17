@@ -11,13 +11,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/domain"
-	ledgerevents "github.com/BenjaminSRussell/passage/services/ledger/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/domain"
+	ledgerevents "github.com/BenjaminSRussell/depot/services/ledger/internal/events"
 )
 
 // Problem codes of the journal workspace (README error table).
@@ -34,7 +34,7 @@ const (
 	batchAggregate              = "journal_batch"
 	batchListLimit              = 200
 	maxLastErrorLength          = 1000
-	manualJournalSourceURIRoot  = "passage://ledger/journal-batches/"
+	manualJournalSourceURIRoot  = "depot://ledger/journal-batches/"
 )
 
 // BatchLine is one line of a manual journal batch (FR-11.9). Amount is a
@@ -268,7 +268,7 @@ func getBatchTx(ctx context.Context, tx pgx.Tx, tenantID, id string, lock bool) 
 }
 
 // moveBatch sets the batch status, bumps its version and enqueues
-// dev.passage.ledger.batch.statuschanged.v1 in the same transaction.
+// dev.depot.ledger.batch.statuschanged.v1 in the same transaction.
 func moveBatch(ctx context.Context, tx pgx.Tx, tenantID string, b *Batch, to, actor string) error {
 	if _, err := tx.Exec(ctx, `update journal_batch set status = $3, version = version + 1, updated_at = now()
 		where tenant_id = $1 and id = $2`, tenantID, b.ID, to); err != nil {
@@ -279,7 +279,7 @@ func moveBatch(ctx context.Context, tx pgx.Tx, tenantID string, b *Batch, to, ac
 	return batchEvent(ctx, tx, tenantID, from, to, actor, "")
 }
 
-// batchEvent enqueues dev.passage.ledger.batch.statuschanged.v1 for b moving to to.
+// batchEvent enqueues dev.depot.ledger.batch.statuschanged.v1 for b moving to to.
 func batchEvent(ctx context.Context, tx pgx.Tx, tenantID string, b Batch, to, actor, postedEntryID string) error {
 	return enqueueFor(ctx, tx, batchAggregate, b.ID, ledgerevents.BatchStatusChanged, tenantID, ledgerevents.BatchStatusChangedData{
 		BatchID: b.ID, LedgerID: b.LedgerID, JournalName: b.JournalName, From: b.Status, To: to, Actor: actor, PostedEntryID: postedEntryID})

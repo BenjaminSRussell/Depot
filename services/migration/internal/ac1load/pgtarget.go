@@ -9,9 +9,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 const targetSchemaSQL = `
@@ -27,15 +27,15 @@ create table ac1.target (
 alter table ac1.target enable row level security;
 alter table ac1.target force row level security;
 create policy target_tenant_access on ac1.target as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy target_legal_entity_scope on ac1.target as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*');
+  using (current_setting('depot.legal_entity_scopes', true) = '*');
 do $$
 begin
-  if exists (select 1 from pg_roles where rolname = 'passage_app') then
-    grant usage on schema ac1 to passage_app;
-    grant select, insert, update, delete on ac1.target to passage_app;
+  if exists (select 1 from pg_roles where rolname = 'depot_app') then
+    grant usage on schema ac1 to depot_app;
+    grant select, insert, update, delete on ac1.target to depot_app;
   end if;
 end
 $$;`

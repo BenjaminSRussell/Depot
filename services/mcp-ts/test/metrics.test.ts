@@ -5,7 +5,7 @@ import { Metrics, routeLabel, startAdminServer } from "../src/metrics.js";
 import { startServer } from "../src/server.js";
 import { readTool, rig } from "./fixtures.js";
 
-const catalog = buildCatalog([readTool("passage.ap.invoice.list", "APInvoiceView")]);
+const catalog = buildCatalog([readTool("depot.ap.invoice.list", "APInvoiceView")]);
 
 let server: Server | undefined;
 let admin: Server | undefined;
@@ -81,8 +81,8 @@ describe("admin listener", () => {
       method: "POST",
       headers: {
         authorization: "Bearer t",
-        "x-passage-tenant": "00000000-0000-7000-8000-000000000001",
-        "x-passage-user": "00000000-0000-7000-8000-0000000000a1",
+        "x-depot-tenant": "00000000-0000-7000-8000-000000000001",
+        "x-depot-user": "00000000-0000-7000-8000-0000000000a1",
         "content-type": "application/json",
       },
       body: "{}",

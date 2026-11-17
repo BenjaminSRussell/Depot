@@ -6,10 +6,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/costacct/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/costacct/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/costacct/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/costacct/internal/store"
 )
 
 func (a *API) registerBehavior(r chi.Router) {

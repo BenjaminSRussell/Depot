@@ -184,10 +184,10 @@ func parallelInput() ParallelInput {
 			{Area: "TB", Key: "USMF|1100|USD|2026-11", Legacy: d("120.00")},
 			{Area: "AR", Key: "CIV-00123", Legacy: d("99.99")},
 		},
-		Passage: []Line{
-			{Area: "TB", Key: "USMF|4000|USD|2026-11", Passage: d("500000.01")},
-			{Area: "TB", Key: "USMF|1100|USD|2026-11", Passage: d("150.00")},
-			{Area: "AR", Key: "CIV-00123", Passage: d("99.99")},
+		Depot: []Line{
+			{Area: "TB", Key: "USMF|4000|USD|2026-11", Depot: d("500000.01")},
+			{Area: "TB", Key: "USMF|1100|USD|2026-11", Depot: d("150.00")},
+			{Area: "AR", Key: "CIV-00123", Depot: d("99.99")},
 		},
 	}
 }
@@ -224,8 +224,8 @@ func TestParallelInput_Validate(t *testing.T) {
 		"month 13":           func(in *ParallelInput) { in.Period = "2026-13" },
 		"negative documents": func(in *ParallelInput) { in.DocumentsReplayed = -1 },
 		"negative revenue":   func(in *ParallelInput) { in.Revenue = d("-1") },
-		"no tuples":          func(in *ParallelInput) { in.Legacy, in.Passage = nil, nil },
-		"blank key":          func(in *ParallelInput) { in.Passage[0].Key = " " },
+		"no tuples":          func(in *ParallelInput) { in.Legacy, in.Depot = nil, nil },
+		"blank key":          func(in *ParallelInput) { in.Depot[0].Key = " " },
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -245,7 +245,7 @@ func TestParallelInput_HashIgnoresTupleOrder(t *testing.T) {
 	if a.Hash() != b.Hash() {
 		t.Fatal("same tuples in another order must hash the same")
 	}
-	b.Passage[1].Passage = d("150.01")
+	b.Depot[1].Depot = d("150.01")
 	if a.Hash() == b.Hash() {
 		t.Fatal("a changed amount must change the hash")
 	}

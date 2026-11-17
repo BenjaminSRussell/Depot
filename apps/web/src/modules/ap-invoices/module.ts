@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { GrirPage } from "./GrirPage";
 import { IntakeDetailPage } from "./IntakeDetailPage";
 import { IntakePage } from "./IntakePage";
@@ -9,7 +9,7 @@ import { PostInvoicePage } from "./PostInvoicePage";
 import { SubmissionDetailPage } from "./SubmissionDetailPage";
 import { SubmissionsPage } from "./SubmissionsPage";
 
-const apInvoices: PassageModule = {
+const apInvoices: DepotModule = {
   id: "ap-invoices",
   title: "AP invoices",
   description: "See goods received and not yet invoiced, post vendor invoices against them, review invoices vendors submitted in the supplier portal, match the invoices that arrived electronically to their orders and receipts, and look up what was posted.",

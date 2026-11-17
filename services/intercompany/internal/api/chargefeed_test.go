@@ -8,12 +8,12 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/reimbursement"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/chargefeed"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/reimbursement"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/chargefeed"
 )
 
 func feedFor(e *registryEnv) *chargefeed.Feed {
@@ -139,7 +139,7 @@ func TestChargeFeed_RefusesWhatIsNotAnEventOfTheProducer(t *testing.T) {
 	e := newRegistryEnv(t)
 	f := feedFor(e)
 	d := map[string]any{"transactionId": ids.New(), "version": 1}
-	if err := f.HandleHours(feedCtx(t), feedEvent(t, chargefeed.TransactionPostedType, "/passage/sales", d)); err == nil {
+	if err := f.HandleHours(feedCtx(t), feedEvent(t, chargefeed.TransactionPostedType, "/depot/sales", d)); err == nil {
 		t.Error("another source is refused")
 	}
 	if err := f.HandleHours(context.Background(), feedEvent(t, chargefeed.TransactionPostedType, chargefeed.ProjectsSource, d)); err == nil {

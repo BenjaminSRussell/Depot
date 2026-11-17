@@ -12,13 +12,13 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/migrations"
 )
 
-// End to end over HTTP and Postgres (skipped without PASSAGE_TEST_DATABASE_URL):
+// End to end over HTTP and Postgres (skipped without DEPOT_TEST_DATABASE_URL):
 // a worker is created once per Idempotency-Key, clocks a 10.5 h Tuesday, and the
 // supervisor calculates, lists and approves the day.
 func TestHTTP_WorkerToApprovedDay(t *testing.T) {

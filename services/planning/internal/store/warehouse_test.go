@@ -7,11 +7,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/domain"
-	events "github.com/BenjaminSRussell/passage/services/planning/internal/events"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/domain"
+	events "github.com/BenjaminSRussell/depot/services/planning/internal/events"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/store"
 )
 
 // warehousePlan plans a site item with 100 on hand and a warehouse scope that needs a

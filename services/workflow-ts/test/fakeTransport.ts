@@ -38,7 +38,7 @@ export class FakeTransport {
 
   readonly fetch: typeof fetch = async (input, init) => {
     const headers = new Headers(init?.headers);
-    const claims = decodeClaims(headers.get("X-Passage-Service-Token"));
+    const claims = decodeClaims(headers.get("X-Depot-Service-Token"));
     if (!claims || claims.iss !== "workflow-ts" || claims.aud !== "transport" || claims.duties.join() !== "transport.tender.execute" || !claims.act) {
       return problem(401, "missing or wrong service token", "AUTH-0001");
     }

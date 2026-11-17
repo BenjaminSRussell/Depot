@@ -3,29 +3,29 @@ info:
   title: ops
   version: 0.3.0
   description: >
-    Events of the ops control plane (PSG-50). Each is a CloudEvents envelope written to the ops outbox in the transaction of the change
+    Events of the ops control plane (DPT-50). Each is a CloudEvents envelope written to the ops outbox in the transaction of the change
     it reports and relayed by Debezium. The platform-wide events (failover completed, SLO breached) carry the operator tenant as tenantid;
     tenant.provisioned and license.changed carry the tenant they describe.
 channels:
-  passage.ops.failover:
-    address: passage.ops.failover
+  depot.ops.failover:
+    address: depot.ops.failover
     messages:
       completed:
         $ref: '#/components/messages/failoverCompleted'
-  passage.ops.tenant:
-    address: passage.ops.tenant
+  depot.ops.tenant:
+    address: depot.ops.tenant
     messages:
       provisioned:
         $ref: '#/components/messages/tenantProvisioned'
       decommissioned:
         $ref: '#/components/messages/tenantDecommissioned'
-  passage.ops.slo:
-    address: passage.ops.slo
+  depot.ops.slo:
+    address: depot.ops.slo
     messages:
       breached:
         $ref: '#/components/messages/sloBreached'
-  passage.ops.license:
-    address: passage.ops.license
+  depot.ops.license:
+    address: depot.ops.license
     messages:
       changed:
         $ref: '#/components/messages/licenseChanged'
@@ -33,37 +33,37 @@ operations:
   onFailoverCompleted:
     action: send
     summary: Every step of a failover's plan is DONE (written once, with the last step).
-    channel: { $ref: '#/channels/passage.ops.failover' }
+    channel: { $ref: '#/channels/depot.ops.failover' }
     messages:
-      - $ref: '#/channels/passage.ops.failover/messages/completed'
+      - $ref: '#/channels/depot.ops.failover/messages/completed'
   onTenantProvisioned:
     action: send
     summary: The last provisioning step of a tenant is DONE.
-    channel: { $ref: '#/channels/passage.ops.tenant' }
+    channel: { $ref: '#/channels/depot.ops.tenant' }
     messages:
-      - $ref: '#/channels/passage.ops.tenant/messages/provisioned'
+      - $ref: '#/channels/depot.ops.tenant/messages/provisioned'
   onTenantDecommissioned:
     action: send
     summary: The last decommission step of a tenant is DONE (the realm is gone).
-    channel: { $ref: '#/channels/passage.ops.tenant' }
+    channel: { $ref: '#/channels/depot.ops.tenant' }
     messages:
-      - $ref: '#/channels/passage.ops.tenant/messages/decommissioned'
+      - $ref: '#/channels/depot.ops.tenant/messages/decommissioned'
   onSloBreached:
     action: send
     summary: The hourly SLO check found a service newly breached (once per breach, again only after it recovered).
-    channel: { $ref: '#/channels/passage.ops.slo' }
+    channel: { $ref: '#/channels/depot.ops.slo' }
     messages:
-      - $ref: '#/channels/passage.ops.slo/messages/breached'
+      - $ref: '#/channels/depot.ops.slo/messages/breached'
   onLicenseChanged:
     action: send
     summary: A licence was installed, or the hourly licence check found its state moved.
-    channel: { $ref: '#/channels/passage.ops.license' }
+    channel: { $ref: '#/channels/depot.ops.license' }
     messages:
-      - $ref: '#/channels/passage.ops.license/messages/changed'
+      - $ref: '#/channels/depot.ops.license/messages/changed'
 components:
   messages:
     failoverCompleted:
-      name: dev.passage.ops.failover.completed.v1
+      name: dev.depot.ops.failover.completed.v1
       title: Failover completed
       summary: A recorded failover ran every step of its plan. Subject and aggregate are the failover event id.
       payload:
@@ -78,7 +78,7 @@ components:
           steps: { type: integer }
           completedAt: { type: string, format: date-time }
     tenantDecommissioned:
-      name: dev.passage.ops.tenant.decommissioned.v1
+      name: dev.depot.ops.tenant.decommissioned.v1
       title: Tenant decommissioned
       summary: Every decommission step (lakehouse, kafka-acls, databases, realm) is DONE. Subject and tenantid are the tenant.
       payload:
@@ -89,7 +89,7 @@ components:
           reason: { type: string }
           decommissionedAt: { type: string, format: date-time }
     tenantProvisioned:
-      name: dev.passage.ops.tenant.provisioned.v1
+      name: dev.depot.ops.tenant.provisioned.v1
       title: Tenant provisioned
       summary: Step 7 of docs/ops/tenant-provisioning.md. Subject and tenantid are the new tenant.
       payload:
@@ -104,7 +104,7 @@ components:
           realm: { type: string }
           provisionedAt: { type: string, format: date-time }
     sloBreached:
-      name: dev.passage.ops.slo.breached.v1
+      name: dev.depot.ops.slo.breached.v1
       title: SLO breached
       summary: A service's availability or p95 latency over the last hour missed its target. Subject is the service (scrape job).
       payload:
@@ -119,7 +119,7 @@ components:
           latencyTargetMs: { type: number }
           breachedAt: { type: string, format: date-time }
     licenseChanged:
-      name: dev.passage.ops.license.changed.v1
+      name: dev.depot.ops.license.changed.v1
       title: Licence changed
       summary: A licence was installed (reason installed) or its evaluated state moved (reason state_changed). Subject and tenantid are the licensee.
       payload:

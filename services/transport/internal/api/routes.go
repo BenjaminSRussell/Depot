@@ -11,10 +11,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/optimizer"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/optimizer"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/store"
 )
 
 // Optimizer solves routes and stacks load plans in services/routing-py.

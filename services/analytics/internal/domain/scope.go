@@ -4,8 +4,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 // Reasons and codes for the row-level scope mirror (FR-46.7, BR-46.9).

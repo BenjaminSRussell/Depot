@@ -28,7 +28,7 @@ replicaCount: 2
 # principal table. Its KafkaUser, ACLs and dead-letter topic are
 # deploy/kafka/revrec-consumer.yaml; off by default, like the other consumers in
 # dev, until it is turned on per environment (billing's outbox connector, which
-# creates passage.billing.invoice, is not deployed yet).
+# creates depot.billing.invoice, is not deployed yet).
 consumer:
   enabled: false
   replicaCount: 1
@@ -36,7 +36,7 @@ consumer:
     brokers: ""
     group: revrec-creditnotes
     username: revrec-consumer
-    dlqTopic: passage.revrec.creditnotes.dlq
+    dlqTopic: depot.revrec.creditnotes.dlq
     secret: ""
   resources:
     requests: { cpu: 50m, memory: 64Mi }

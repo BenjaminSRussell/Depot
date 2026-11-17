@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
 )
 
 const (
@@ -169,7 +169,7 @@ func TestPost_SendsHeadersAndBodyAndReturnsID(t *testing.T) {
 		if got.URL.Path != domain.LedgerPostPath || got.Method != http.MethodPost {
 			t.Fatalf("request %s %s", got.Method, got.URL.Path)
 		}
-		if got.Header.Get("Idempotency-Key") != "post:receiving:productreceipt:r-1:receipt" || got.Header.Get("X-Passage-Tenant") != tenantID {
+		if got.Header.Get("Idempotency-Key") != "post:receiving:productreceipt:r-1:receipt" || got.Header.Get("X-Depot-Tenant") != tenantID {
 			t.Fatalf("headers %v", got.Header)
 		}
 		if strings.Contains(string(*raw), "post:receiving") {
@@ -184,7 +184,7 @@ func TestPostForwardsTheCallersDutiesAndUser(t *testing.T) {
 	if _, err := client.Post(ctx, testEntry()); err != nil {
 		t.Fatal(err)
 	}
-	if got.Header.Get("X-Passage-Duties") != "ledger.journal.post,receiving.receipt.post" || got.Header.Get("X-Passage-User") != "u-1" || got.Header.Get("X-Passage-Legal-Entity") != "le-1" {
+	if got.Header.Get("X-Depot-Duties") != "ledger.journal.post,receiving.receipt.post" || got.Header.Get("X-Depot-User") != "u-1" || got.Header.Get("X-Depot-Legal-Entity") != "le-1" {
 		t.Fatalf("headers %v", got.Header)
 	}
 }
@@ -398,7 +398,7 @@ func TestSignedPostSendsServiceTokenInsteadOfUserDuties(t *testing.T) {
 	if _, err := client.Post(ctx, entry); err != nil {
 		t.Fatal(err)
 	}
-	for _, h := range []string{"X-Passage-Duties", "X-Passage-User", "X-Passage-Tenant", "X-Passage-Legal-Entity"} {
+	for _, h := range []string{"X-Depot-Duties", "X-Depot-User", "X-Depot-Tenant", "X-Depot-Legal-Entity"} {
 		if got.Header.Get(h) != "" {
 			t.Fatalf("%s must not be sent with a service token: %v", h, got.Header)
 		}

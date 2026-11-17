@@ -11,9 +11,9 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: {{ $root.Release.Name }}-passage-hr-{{ $job.command }}
+  name: {{ $root.Release.Name }}-depot-hr-{{ $job.command }}
   labels:
-    app.kubernetes.io/name: passage-hr-{{ $job.command }}
+    app.kubernetes.io/name: depot-hr-{{ $job.command }}
     app.kubernetes.io/instance: {{ $root.Release.Name }}
 spec:
   schedule: {{ $job.values.schedule | quote }}
@@ -28,11 +28,11 @@ spec:
       template:
         metadata:
           labels:
-            {{- with include "passage.wiLabels" $ }}{{ . | nindent 12 }}{{- end }}
-            app.kubernetes.io/name: passage-hr-{{ $job.command }}
+            {{- with include "depot.wiLabels" $ }}{{ . | nindent 12 }}{{- end }}
+            app.kubernetes.io/name: depot-hr-{{ $job.command }}
             app.kubernetes.io/instance: {{ $root.Release.Name }}
         spec:
-          {{- with include "passage.wiServiceAccount" (dict "root" $ "name" "passage-hr") }}{{ . | nindent 10 }}{{- end }}
+          {{- with include "depot.wiServiceAccount" (dict "root" $ "name" "depot-hr") }}{{ . | nindent 10 }}{{- end }}
           restartPolicy: Never
           securityContext:
             {{- toYaml $root.Values.podSecurityContext | nindent 12 }}
@@ -45,7 +45,7 @@ spec:
           {{- end }}
           containers:
             - name: {{ $job.command }}
-              image: "{{ (include "passage.imageRepository" $root) }}{{ if $root.Values.image.digest }}@{{ $root.Values.image.digest }}{{ else }}:{{ $root.Values.image.tag }}{{ end }}"
+              image: "{{ (include "depot.imageRepository" $root) }}{{ if $root.Values.image.digest }}@{{ $root.Values.image.digest }}{{ else }}:{{ $root.Values.image.tag }}{{ end }}"
               imagePullPolicy: {{ $root.Values.image.pullPolicy }}
               args:
                 - {{ $job.command }}
@@ -55,7 +55,7 @@ spec:
               securityContext:
                 {{- toYaml $root.Values.containerSecurityContext | nindent 16 }}
               env:
-                {{- include "passage.cloudEnv" $root | nindent 16 }}
+                {{- include "depot.cloudEnv" $root | nindent 16 }}
                 - name: DATABASE_URL
                   valueFrom:
                     secretKeyRef:
@@ -66,19 +66,19 @@ spec:
                   value: {{ $root.Values.complianceUrl | default (printf "http://compliance-compliance.%s.svc:8080" $root.Release.Namespace) | quote }}
                 - name: HR_RETENTION_PURGE_ENABLED
                   value: {{ $root.Values.config.retentionPurgeEnabled | quote }}
-                - name: PASSAGE_SERVICE_NAME
+                - name: DEPOT_SERVICE_NAME
                   value: hr
-                - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
-                  value: /var/run/passage/service-identity/signing-key
+                - name: DEPOT_SERVICE_SIGNING_KEY_FILE
+                  value: /var/run/depot/service-identity/signing-key
                 {{- if $root.Values.serviceIdentity.keyId }}
-                - name: PASSAGE_SERVICE_KEY_ID
+                - name: DEPOT_SERVICE_KEY_ID
                   value: {{ $root.Values.serviceIdentity.keyId | quote }}
                 {{- end }}
                 {{- end }}
               {{- if $job.signed }}
               volumeMounts:
                 - name: service-identity
-                  mountPath: /var/run/passage/service-identity
+                  mountPath: /var/run/depot/service-identity
                   readOnly: true
               {{- end }}
               resources:

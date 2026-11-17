@@ -10,7 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/services/close/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/close/internal/domain"
 )
 
 type expectedEntry struct {

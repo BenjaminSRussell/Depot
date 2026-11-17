@@ -10,9 +10,9 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/domain"
 )
 
 const entityColumns = `entity, legal_entity_id::text, ledger_id, currency, country, fx_difference_account, output_tax_account, input_tax_account, tax_group`

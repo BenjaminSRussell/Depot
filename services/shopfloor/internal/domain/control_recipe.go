@@ -7,7 +7,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // Control recipes (FR-25.15, BR-25.11, BR-25.15). A control recipe is the ISA-88 structure of one order

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/bankconnect"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/bankconnect"
 )
 
 const pollTenant = "0190b7a0-0000-7000-8000-000000000001"
@@ -456,7 +456,7 @@ func TestVaultKeys_OnboardingNeverReadsTheE002PrivateKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, c := range e.vault.calls {
-		if strings.HasSuffix(c, "secret/data/passage/ebics-e002") {
+		if strings.HasSuffix(c, "secret/data/depot/ebics-e002") {
 			t.Fatalf("vault calls %v; HIA and letters must use the separately stored public key", e.vault.calls)
 		}
 	}
@@ -551,7 +551,7 @@ func TestKeyVersion_PinnedAtInitialisationAndSignaturesIgnoreRotation(t *testing
 
 func TestKeyVersion_AnUnpinnedKeyNeverSigns(t *testing.T) {
 	e := newEnv(t, true)
-	keys, err := e.client.Keys(Subscriber{A006Key: "ebics-a006", X002Key: "ebics-x002", E002KVPath: "passage/ebics-e002"})
+	keys, err := e.client.Keys(Subscriber{A006Key: "ebics-a006", X002Key: "ebics-x002", E002KVPath: "depot/ebics-e002"})
 	if err != nil {
 		t.Fatal(err)
 	}

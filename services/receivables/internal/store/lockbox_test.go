@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
 )
 
 func TestImportLockbox_PersistsChecksAndRefusesDuplicate(t *testing.T) {
@@ -45,7 +45,7 @@ func TestImportLockbox_PersistsChecksAndRefusesDuplicate(t *testing.T) {
 	if err != nil || len(batches) != 1 || batches[0].PaymentCount != 2 || batches[0].ImportedAt == nil || batches[0].Payments != nil {
 		t.Fatalf("batches = %+v (%v), want the one import without its payments", batches, err)
 	}
-	if got := countOutbox(t, s, ctx, "dev.passage.receivables.payment.received.v1"); got != 2 {
+	if got := countOutbox(t, s, ctx, "dev.depot.receivables.payment.received.v1"); got != 2 {
 		t.Errorf("payment.received events = %d, want one per check", got)
 	}
 }

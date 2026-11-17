@@ -12,11 +12,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/store"
 )
 
 func (f *fakeStore) PostRates(_ context.Context, in []store.RateInput) ([]store.Posted, error) {
@@ -115,8 +115,8 @@ func doKeyed(r http.Handler, method, path, body, key string) *httptest.ResponseR
 
 func doKeyedAs(r http.Handler, tenantN int, method, path, body, key string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(tenantN))
-	req.Header.Set("X-Passage-Duties", allDuties)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(tenantN))
+	req.Header.Set("X-Depot-Duties", allDuties)
 	if key != "" {
 		req.Header.Set("Idempotency-Key", key)
 	}
@@ -188,8 +188,8 @@ func TestPublishRatesFailureIsNotRecorded(t *testing.T) {
 
 func TestPublishRatesNeedsMaintainDuty(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/v1/fx/rates", strings.NewReader(publishBody))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", "fx.rate.view")
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", "fx.rate.view")
 	req.Header.Set("Idempotency-Key", "k1")
 	rec := httptest.NewRecorder()
 	f := &fakeStore{}

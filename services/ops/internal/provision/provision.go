@@ -1,4 +1,4 @@
-// Package provision runs the steps of a tenant provision and of a tenant decommission (PSG-50, FR-50.8;
+// Package provision runs the steps of a tenant provision and of a tenant decommission (DPT-50, FR-50.8;
 // docs/ops/tenant-provisioning.md). The systems the steps change sit behind four small interfaces (a Keycloak realm, the
 // databases and RLS schemas, Kafka ACLs and topics, the lakehouse namespace) so the runner is tested with fakes and run with
 // DryRun, which asks each adapter what it would do and changes nothing. Every adapter call is idempotent: a step that already
@@ -161,7 +161,7 @@ func (r *Runner) Provision(ctx context.Context, t Tenant) (Result, error) {
 }
 
 // Decommission removes the tenant's systems in reverse order. It does not decide whether that is allowed: the API refuses to
-// open a decommission for a tenant that is not suspended, and the caller opens it first (`passage-ops decommission` does).
+// open a decommission for a tenant that is not suspended, and the caller opens it first (`depot-ops decommission` does).
 func (r *Runner) Decommission(ctx context.Context, t Tenant) (Result, error) {
 	return r.run(ctx, t, DecommissionOrder, r.Exec.remove, r.Reporter.DecommissionDone, r.Reporter.ReportDecommissionStep, false)
 }
@@ -268,10 +268,10 @@ func (a LogAdapter) note(system, verb string, t Tenant, dry bool) (string, error
 }
 
 func (a LogAdapter) EnsureRealm(_ context.Context, t Tenant, dry bool) (string, error) {
-	return a.note("Keycloak", "create realm passage-"+t.ID, t, dry)
+	return a.note("Keycloak", "create realm depot-"+t.ID, t, dry)
 }
 func (a LogAdapter) DeleteRealm(_ context.Context, t Tenant, dry bool) (string, error) {
-	return a.note("Keycloak", "delete realm passage-"+t.ID, t, dry)
+	return a.note("Keycloak", "delete realm depot-"+t.ID, t, dry)
 }
 func (a LogAdapter) EnsureDatabases(_ context.Context, t Tenant, dry bool) (string, error) {
 	return a.note("database", "create the tenant's schemas and RLS grants", t, dry)

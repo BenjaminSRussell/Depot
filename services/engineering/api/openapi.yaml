@@ -4,14 +4,14 @@ info:
   version: 0.1.0
   description: Engineering data service. Covers BOM versions, explosion, where-used, routing lead time, engineering change orders, and (slice 4) work calendars, resource groups, capabilities and resources, and (slice 6) read APIs for route versions, the active route version as of a date, and BOM version detail, and (slice 8) resource, resource group and capability lists and route version activation.
 servers:
-  - url: https://app.local.passage.dev
+  - url: https://app.local.depot.dev
 paths:
   /v1/engineering/bom-versions:
     post:
       operationId: createBomVersion
       summary: Create a BOM version
-      x-passage-duty: engineering.bom.write
-      x-passage-duty-alternatives: [engineering.import.write]
+      x-depot-duty: engineering.bom.write
+      x-depot-duty-alternatives: [engineering.import.write]
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -25,7 +25,7 @@ paths:
     get:
       operationId: listBomVersions
       summary: List BOM versions
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -46,8 +46,8 @@ paths:
     get:
       operationId: getBomVersion
       summary: Get a BOM version with its lines
-      x-passage-duty: engineering.read
-      x-passage-duty-alternatives: [engineering.import.read]
+      x-depot-duty: engineering.read
+      x-depot-duty-alternatives: [engineering.import.read]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -59,7 +59,7 @@ paths:
     put:
       operationId: updateBomVersion
       summary: Save an edited draft BOM version
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -86,7 +86,7 @@ paths:
     post:
       operationId: activateBomVersion
       summary: Activate a draft BOM version
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -106,7 +106,7 @@ paths:
     post:
       operationId: cancelBomVersion
       summary: Cancel a draft BOM version
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -123,7 +123,7 @@ paths:
     post:
       operationId: copyBomVersion
       summary: Copy a BOM version into a new draft
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -150,7 +150,7 @@ paths:
     get:
       operationId: listRouteVersions
       summary: List route versions
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -168,8 +168,8 @@ paths:
     post:
       operationId: createRouteVersion
       summary: Create a draft route version
-      x-passage-duty: engineering.route.write
-      x-passage-duty-alternatives: [engineering.import.write]
+      x-depot-duty: engineering.route.write
+      x-depot-duty-alternatives: [engineering.import.write]
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -194,7 +194,7 @@ paths:
     get:
       operationId: getActiveRouteVersion
       summary: Get the active route version as of a date
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: productId, in: query, required: true, schema: { type: string, maxLength: 64 } }
         - { name: siteId, in: query, required: true, schema: { type: string, maxLength: 64 } }
@@ -209,8 +209,8 @@ paths:
     get:
       operationId: getRouteVersion
       summary: Get a route version with its operations
-      x-passage-duty: engineering.read
-      x-passage-duty-alternatives: [engineering.import.read]
+      x-depot-duty: engineering.read
+      x-depot-duty-alternatives: [engineering.import.read]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -222,7 +222,7 @@ paths:
     put:
       operationId: updateRouteVersion
       summary: Save an edited draft route version
-      x-passage-duty: engineering.route.write
+      x-depot-duty: engineering.route.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -249,7 +249,7 @@ paths:
     post:
       operationId: activateRouteVersion
       summary: Activate a route version
-      x-passage-duty: engineering.route.write
+      x-depot-duty: engineering.route.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -269,7 +269,7 @@ paths:
     post:
       operationId: cancelRouteVersion
       summary: Cancel a draft route version
-      x-passage-duty: engineering.route.write
+      x-depot-duty: engineering.route.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -289,7 +289,7 @@ paths:
     post:
       operationId: copyRouteVersion
       summary: Copy a route version into a new draft
-      x-passage-duty: engineering.route.write
+      x-depot-duty: engineering.route.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -316,7 +316,7 @@ paths:
     post:
       operationId: explodeBom
       summary: Explode a BOM to its components
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/ExplodeRequest' } } }
@@ -329,7 +329,7 @@ paths:
     get:
       operationId: whereUsedBom
       summary: List where a component is used
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: component, in: query, required: true, schema: { type: string } }
         - { name: asOf, in: query, schema: { type: string, format: date } }
@@ -345,7 +345,7 @@ paths:
     post:
       operationId: computeRouteLeadTime
       summary: Compute routing lead time
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/LeadTimeRequest' } } }
@@ -358,7 +358,7 @@ paths:
     post:
       operationId: createEco
       summary: Create an engineering change order
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -384,7 +384,7 @@ paths:
     get:
       operationId: listEcos
       summary: List engineering change orders
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -400,7 +400,7 @@ paths:
     get:
       operationId: getEco
       summary: Get an engineering change order
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -413,7 +413,7 @@ paths:
     get:
       operationId: getEcoImpact
       summary: Get the impact report of an engineering change order
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: asOf, in: query, description: 'Date the where-used is evaluated. Defaults to the ECO release date when it is in the future, otherwise today.', schema: { type: string, format: date } }
@@ -436,7 +436,7 @@ paths:
     post:
       operationId: releaseEco
       summary: Approve and release an engineering change order
-      x-passage-duty: engineering.eco.approve or engineering.eco.workflow
+      x-depot-duty: engineering.eco.approve or engineering.eco.workflow
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -449,7 +449,7 @@ paths:
     post:
       operationId: approveEco
       summary: Record the approval of a submitted engineering change order
-      x-passage-duty: engineering.eco.workflow
+      x-depot-duty: engineering.eco.workflow
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -465,7 +465,7 @@ paths:
     post:
       operationId: rejectEco
       summary: Record the rejection of a submitted engineering change order
-      x-passage-duty: engineering.eco.workflow
+      x-depot-duty: engineering.eco.workflow
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -481,7 +481,7 @@ paths:
     post:
       operationId: cancelEco
       summary: Cancel a submitted engineering change order
-      x-passage-duty: engineering.eco.workflow
+      x-depot-duty: engineering.eco.workflow
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -497,7 +497,7 @@ paths:
     post:
       operationId: createEcr
       summary: Raise an engineering change request
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -517,7 +517,7 @@ paths:
     get:
       operationId: listEcrs
       summary: List engineering change requests
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -534,7 +534,7 @@ paths:
     get:
       operationId: getEcr
       summary: Get an engineering change request
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -547,7 +547,7 @@ paths:
     post:
       operationId: submitEcr
       summary: Submit a draft engineering change request
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -563,7 +563,7 @@ paths:
     post:
       operationId: reviewEcr
       summary: Start the review of a submitted engineering change request
-      x-passage-duty: engineering.ecr.review
+      x-depot-duty: engineering.ecr.review
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -582,7 +582,7 @@ paths:
     post:
       operationId: approveEcr
       summary: Approve an engineering change request under review
-      x-passage-duty: engineering.ecr.review
+      x-depot-duty: engineering.ecr.review
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -601,7 +601,7 @@ paths:
     post:
       operationId: rejectEcr
       summary: Reject an engineering change request under review
-      x-passage-duty: engineering.ecr.review
+      x-depot-duty: engineering.ecr.review
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -620,7 +620,7 @@ paths:
     post:
       operationId: cancelEcr
       summary: Withdraw an engineering change request
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -642,7 +642,7 @@ paths:
     get:
       operationId: listCalendars
       summary: List work calendars
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -657,7 +657,7 @@ paths:
     post:
       operationId: createCalendar
       summary: Create a work calendar
-      x-passage-duty: engineering.resource.write
+      x-depot-duty: engineering.resource.write
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -674,7 +674,7 @@ paths:
     get:
       operationId: getCalendar
       summary: Get a work calendar
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -688,7 +688,7 @@ paths:
     post:
       operationId: generateCalendar
       summary: Generate calendar days for a range
-      x-passage-duty: engineering.resource.write
+      x-depot-duty: engineering.resource.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -706,7 +706,7 @@ paths:
     get:
       operationId: listCalendarDays
       summary: List generated calendar days
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: from, in: query, required: true, schema: { type: string, format: date } }
@@ -724,7 +724,7 @@ paths:
     get:
       operationId: listResourceGroups
       summary: List resource groups
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -740,7 +740,7 @@ paths:
     post:
       operationId: createResourceGroup
       summary: Create a resource group
-      x-passage-duty: engineering.resource.write
+      x-depot-duty: engineering.resource.write
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -757,7 +757,7 @@ paths:
     get:
       operationId: listCapabilities
       summary: List capabilities
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -772,7 +772,7 @@ paths:
     post:
       operationId: createCapability
       summary: Create a capability
-      x-passage-duty: engineering.resource.write
+      x-depot-duty: engineering.resource.write
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -788,7 +788,7 @@ paths:
     get:
       operationId: getCapability
       summary: Get a capability
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -802,7 +802,7 @@ paths:
     get:
       operationId: getResourceGroup
       summary: Get a resource group
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -816,7 +816,7 @@ paths:
     get:
       operationId: listResources
       summary: List resources (also readable with lean.kanban.work, eam.work-order.execute or eam.work.plan, for the resource lookup)
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -835,7 +835,7 @@ paths:
     post:
       operationId: createResource
       summary: Create a resource
-      x-passage-duty: engineering.resource.write
+      x-depot-duty: engineering.resource.write
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -853,7 +853,7 @@ paths:
     get:
       operationId: getResource
       summary: Get a resource (also readable with lean.kanban.work, eam.work-order.execute or eam.work.plan)
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -865,7 +865,7 @@ paths:
     put:
       operationId: updateResource
       summary: Save an edited resource
-      x-passage-duty: engineering.resource.write
+      x-depot-duty: engineering.resource.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -891,7 +891,7 @@ paths:
     delete:
       operationId: deleteResource
       summary: Delete a resource
-      x-passage-duty: engineering.resource.write
+      x-depot-duty: engineering.resource.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -909,7 +909,7 @@ paths:
     post:
       operationId: createOrganization
       summary: Create an engineering organization
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -923,7 +923,7 @@ paths:
     get:
       operationId: listOrganizations
       summary: List engineering organizations
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -938,7 +938,7 @@ paths:
     get:
       operationId: getOrganization
       summary: Get an engineering organization
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -951,7 +951,7 @@ paths:
     post:
       operationId: createNomenclature
       summary: Create a version nomenclature
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -965,7 +965,7 @@ paths:
     get:
       operationId: listNomenclatures
       summary: List version nomenclatures
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -980,7 +980,7 @@ paths:
     get:
       operationId: getNomenclature
       summary: Get a version nomenclature
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -993,7 +993,7 @@ paths:
     get:
       operationId: nextNomenclature
       summary: Allocate the next version code
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: last, in: query, schema: { type: string }, description: Previous version code; empty starts at each segment's start. }
@@ -1006,7 +1006,7 @@ paths:
     post:
       operationId: createCategory
       summary: Create an engineering category
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -1020,7 +1020,7 @@ paths:
     get:
       operationId: listCategories
       summary: List engineering categories
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -1035,7 +1035,7 @@ paths:
     get:
       operationId: getCategory
       summary: Get an engineering category
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1048,7 +1048,7 @@ paths:
     post:
       operationId: createEngineeringVersion
       summary: Create an engineering version
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -1062,7 +1062,7 @@ paths:
     get:
       operationId: listEngineeringVersions
       summary: List engineering versions
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -1078,7 +1078,7 @@ paths:
     get:
       operationId: getEngineeringVersion
       summary: Get an engineering version
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1091,7 +1091,7 @@ paths:
     put:
       operationId: putIdentifier
       summary: Map an external part identifier to a product
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/ProductIdentifier' } } }
@@ -1104,7 +1104,7 @@ paths:
     post:
       operationId: createReleasePolicy
       summary: Create a product-release policy
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -1118,7 +1118,7 @@ paths:
     get:
       operationId: listReleasePolicies
       summary: List product-release policies
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -1133,7 +1133,7 @@ paths:
     get:
       operationId: getReleasePolicy
       summary: Get a product-release policy
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1146,7 +1146,7 @@ paths:
     put:
       operationId: putSiteMapping
       summary: Map an engineering site onto an operational site
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/SiteMapping' } } }
@@ -1159,7 +1159,7 @@ paths:
     post:
       operationId: createReleaseSession
       summary: Send an engineering version to operational legal entities
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -1173,7 +1173,7 @@ paths:
     get:
       operationId: listReleaseSessions
       summary: List product-release sessions
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -1188,7 +1188,7 @@ paths:
     get:
       operationId: getReleaseSession
       summary: Get a product-release session with its lines
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1201,7 +1201,7 @@ paths:
     get:
       operationId: listReleaseLines
       summary: List product-release lines
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -1218,7 +1218,7 @@ paths:
     post:
       operationId: acceptReleaseLine
       summary: Accept a product-release line
-      x-passage-duty: engineering.release.accept
+      x-depot-duty: engineering.release.accept
       requestBody:
         content: { application/json: { schema: { type: object, properties: { reason: { type: string, maxLength: 200 } } } } }
       parameters:
@@ -1236,7 +1236,7 @@ paths:
     post:
       operationId: rejectReleaseLine
       summary: Reject a product-release line
-      x-passage-duty: engineering.release.accept
+      x-depot-duty: engineering.release.accept
       requestBody:
         content: { application/json: { schema: { type: object, properties: { reason: { type: string, maxLength: 200 } } } } }
       parameters:
@@ -1251,7 +1251,7 @@ paths:
     post:
       operationId: createReadinessPolicy
       summary: Create a product-readiness policy
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -1265,7 +1265,7 @@ paths:
     get:
       operationId: listReadinessPolicies
       summary: List product-readiness policies
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -1280,7 +1280,7 @@ paths:
     get:
       operationId: getReadinessPolicy
       summary: Get a product-readiness policy
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1293,7 +1293,7 @@ paths:
     get:
       operationId: listReleasedProducts
       summary: List products released to operational legal entities
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -1309,7 +1309,7 @@ paths:
     get:
       operationId: getReleasedProduct
       summary: Get a released product and its readiness checks
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1322,7 +1322,7 @@ paths:
     get:
       operationId: processPolicy
       summary: Ask whether a process may use this released product
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: process, in: query, required: true, schema: { type: string } }
@@ -1335,7 +1335,7 @@ paths:
     post:
       operationId: signReadinessCheck
       summary: Sign a mandatory readiness check
-      x-passage-duty: engineering.release.accept
+      x-depot-duty: engineering.release.accept
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: key, in: path, required: true, schema: { type: string } }
@@ -1349,7 +1349,7 @@ paths:
     post:
       operationId: createDocumentType
       summary: Create an engineering document type
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -1363,7 +1363,7 @@ paths:
     get:
       operationId: listDocumentTypes
       summary: List engineering document types
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -1378,7 +1378,7 @@ paths:
     get:
       operationId: getDocumentType
       summary: Get an engineering document type by code
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: code, in: path, required: true, schema: { type: string, maxLength: 64 } }
       responses:
@@ -1391,7 +1391,7 @@ paths:
     post:
       operationId: createDocument
       summary: Create an engineering document version
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -1405,7 +1405,7 @@ paths:
     get:
       operationId: listDocuments
       summary: List engineering documents
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -1421,7 +1421,7 @@ paths:
     get:
       operationId: getDocument
       summary: Get an engineering document version
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1434,7 +1434,7 @@ paths:
     post:
       operationId: transitionDocument
       summary: Move a document along its status network
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -1449,12 +1449,12 @@ paths:
     post:
       operationId: signDocument
       summary: Electronically sign a document (21 CFR Part 11)
-      x-passage-duty: engineering.doc.sign
+      x-depot-duty: engineering.doc.sign
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: X-Passage-Reauth-Assertion, in: header, required: false, schema: { type: string }, description: 'Step-up proof from re-authentication of the signer (21 CFR 11.200), bound to the document id and record hash. No step-up issuer is configured yet, so outside PASSAGE_ENV=dev every sign is refused with 503 ENG-DOC-REAUTH-UNAVAILABLE; the web form never asks the user to type it.' }
+        - { name: X-Depot-Reauth-Assertion, in: header, required: false, schema: { type: string }, description: 'Step-up proof from re-authentication of the signer (21 CFR 11.200), bound to the document id and record hash. No step-up issuer is configured yet, so outside DEPOT_ENV=dev every sign is refused with 503 ENG-DOC-REAUTH-UNAVAILABLE; the web form never asks the user to type it.' }
       requestBody:
-        content: { application/json: { schema: { type: object, properties: { printedName: { type: string, maxLength: 200 }, method: { type: string, maxLength: 64, description: 'Requested re-authentication method, passed to the verifier as a hint. The signature records the method the verifier proved, never this value (dev-unverified under PASSAGE_ENV=dev).' }, to: { type: string } } } } }
+        content: { application/json: { schema: { type: object, properties: { printedName: { type: string, maxLength: 200 }, method: { type: string, maxLength: 64, description: 'Requested re-authentication method, passed to the verifier as a hint. The signature records the method the verifier proved, never this value (dev-unverified under DEPOT_ENV=dev).' }, to: { type: string } } } } }
       responses:
         '200':
           description: The signed document. Records meaning, timestamp, record id and the record hash (id, number, part, version, type and the sorted originals) in an append-only signature, and queues the audit change in the same transaction; a relay delivers it to the audit service with retry and backoff. A successor of a released change-controlled version stays in_review, signed, until its approved ECO releases it.
@@ -1476,7 +1476,7 @@ paths:
     get:
       operationId: listSignatures
       summary: List Part 11 signatures on a document
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1490,7 +1490,7 @@ paths:
     get:
       operationId: documentWhereUsed
       summary: Find every product, BOM and route that names this document
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1504,7 +1504,7 @@ paths:
     put:
       operationId: setDocumentStructure
       summary: Set a document's child documents
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -1519,7 +1519,7 @@ paths:
     post:
       operationId: importEbom
       summary: Import an engineering BOM from CAD or PLM
-      x-passage-duty: engineering.bom.write
+      x-depot-duty: engineering.bom.write
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -1533,7 +1533,7 @@ paths:
     get:
       operationId: listEbomImports
       summary: List eBOM imports
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -1548,7 +1548,7 @@ paths:
     get:
       operationId: getEbomImport
       summary: Get an eBOM import
-      x-passage-duty: engineering.read
+      x-depot-duty: engineering.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1561,14 +1561,14 @@ paths:
     get:
       operationId: liveness
       summary: Liveness probe
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Process is alive. }
   /readyz:
     get:
       operationId: readiness
       summary: Readiness probe
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Database reachable. }
         '503': { description: Database unreachable. }
@@ -2122,7 +2122,7 @@ components:
         meaning: { type: string }
         signedAt: { type: string, format: date-time }
         originalsHash: { type: string, description: 'sha256 of the canonical record: id, number, part, version, type and the originals sorted by key (name kept for compatibility).' }
-        method: { type: string, description: The re-authentication method the verifier proved; dev-unverified marks a PASSAGE_ENV=dev signature with no re-authentication. }
+        method: { type: string, description: The re-authentication method the verifier proved; dev-unverified marks a DEPOT_ENV=dev signature with no re-authentication. }
     DocumentWhereUsed:
       type: object
       properties:
@@ -2166,8 +2166,8 @@ components:
     Problem:
       type: object
       required: [type, title, status]
-      x-passage-platform-codes: [unbalanced_entry, period_closed, dimension_invalid, validation_failed, unique_violation, state_transition_invalid, conflict_version, idempotency_key_reuse, idempotency_in_progress, forbidden_duty, forbidden_tenant, sod_conflict, approval_required, inventory_insufficient, rate_limited, upstream_unavailable]
-      properties: { type: { type: string }, title: { type: string }, status: { type: integer }, detail: { type: string }, instance: { type: string }, code: { type: string, description: 'ENG-*, COM-* and AUTH-* codes of this service, or idempotency_key_reuse. x-passage-platform-codes lists the shared platform vocabulary; this service emits only idempotency_key_reuse from it.' }, serviceCode: { type: string }, traceId: { type: string }, errors: { type: object, additionalProperties: { type: string } } }
+      x-depot-platform-codes: [unbalanced_entry, period_closed, dimension_invalid, validation_failed, unique_violation, state_transition_invalid, conflict_version, idempotency_key_reuse, idempotency_in_progress, forbidden_duty, forbidden_tenant, sod_conflict, approval_required, inventory_insufficient, rate_limited, upstream_unavailable]
+      properties: { type: { type: string }, title: { type: string }, status: { type: integer }, detail: { type: string }, instance: { type: string }, code: { type: string, description: 'ENG-*, COM-* and AUTH-* codes of this service, or idempotency_key_reuse. x-depot-platform-codes lists the shared platform vocabulary; this service emits only idempotency_key_reuse from it.' }, serviceCode: { type: string }, traceId: { type: string }, errors: { type: object, additionalProperties: { type: string } } }
   responses:
     Problem:
       description: RFC 9457 problem details.

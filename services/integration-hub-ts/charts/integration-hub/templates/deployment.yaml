@@ -51,7 +51,7 @@ spec:
             capabilities:
               drop: [ALL]
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -78,19 +78,19 @@ spec:
 {{- if .Values.restPush.migrationUrl }}
             - name: MIGRATION_URL
               value: {{ .Values.restPush.migrationUrl | quote }}
-            - name: PASSAGE_SERVICE_SIGNING_KEY
+            - name: DEPOT_SERVICE_SIGNING_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ required "restPush.signingKeySecret is required with restPush.migrationUrl" .Values.restPush.signingKeySecret }}
                   key: seed
 {{- if .Values.restPush.keyId }}
-            - name: PASSAGE_SERVICE_KEY_ID
+            - name: DEPOT_SERVICE_KEY_ID
               value: {{ .Values.restPush.keyId | quote }}
 {{- end }}
 {{- end }}
 {{- if .Values.fieldCrypt.keysSecret }}
             - name: FIELDCRYPT_KEYS_FILE
-              value: /var/run/passage/field-crypt/keys
+              value: /var/run/depot/field-crypt/keys
             - name: FIELDCRYPT_CURRENT_KEY_ID
               value: {{ required "fieldCrypt.currentKeyId is required with fieldCrypt.keysSecret" .Values.fieldCrypt.currentKeyId | quote }}
 {{- end }}
@@ -107,18 +107,18 @@ spec:
             - name: KAFKA_USERNAME
               value: {{ .Values.kafka.username | quote }}
             - name: KAFKA_PASSWORD_FILE
-              value: /var/run/passage/kafka/password
+              value: /var/run/depot/kafka/password
             - name: KAFKA_TLS_CA_FILE
-              value: /var/run/passage/kafka/ca.crt
+              value: /var/run/depot/kafka/ca.crt
 {{- end }}
 {{- end }}
 {{- if or .Values.kafka.secret .Values.fieldCrypt.keysSecret }}
           volumeMounts:
 {{- if .Values.kafka.secret }}
-            - { name: kafka, mountPath: /var/run/passage/kafka, readOnly: true }
+            - { name: kafka, mountPath: /var/run/depot/kafka, readOnly: true }
 {{- end }}
 {{- if .Values.fieldCrypt.keysSecret }}
-            - { name: field-crypt, mountPath: /var/run/passage/field-crypt, readOnly: true }
+            - { name: field-crypt, mountPath: /var/run/depot/field-crypt, readOnly: true }
 {{- end }}
 {{- end }}
           ports:

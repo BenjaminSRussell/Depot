@@ -8,13 +8,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
 )
 
 const sheetTable = "receiving_service_entry_sheet"
@@ -28,7 +28,7 @@ func sampleSheet(id, legalEntityID string, amount string) store.ServiceSheet {
 }
 
 func sheetEvent(s store.ServiceSheet) (events.Event, error) {
-	return events.New("dev.passage.receiving.serviceentrysheet.decided.v1", "/passage/receiving/receiving", s.ID, testkit.TenantID(1), map[string]string{"decision": s.Status})
+	return events.New("dev.depot.receiving.serviceentrysheet.decided.v1", "/depot/receiving/receiving", s.ID, testkit.TenantID(1), map[string]string{"decision": s.Status})
 }
 
 func TestServiceSheet_CapDecisionSegregationAndIsolation(t *testing.T) {
@@ -79,7 +79,7 @@ func TestServiceSheet_CapDecisionSegregationAndIsolation(t *testing.T) {
 		"an update of the author": `update ` + sheetTable + ` set created_by = 'bob'`,
 	} {
 		if err := db.run(db.one, sql); err == nil {
-			t.Errorf("passage_app must not run %s", name)
+			t.Errorf("depot_app must not run %s", name)
 		}
 	}
 }
@@ -129,7 +129,7 @@ func TestServiceSheet_AcceptWritesPostedReceiptAndGrir(t *testing.T) {
 		if err != nil {
 			return store.SheetAcceptOutcome{}, err
 		}
-		posted, err := events.New("dev.passage.receiving.receipt.posted.v1", "/passage/receiving/receiving", rec.ID, testkit.TenantID(1), map[string]string{"receipt_id": rec.ID})
+		posted, err := events.New("dev.depot.receiving.receipt.posted.v1", "/depot/receiving/receiving", rec.ID, testkit.TenantID(1), map[string]string{"receipt_id": rec.ID})
 		if err != nil {
 			return store.SheetAcceptOutcome{}, err
 		}
@@ -185,7 +185,7 @@ func TestServiceSheet_AcceptWritesPostedReceiptAndGrir(t *testing.T) {
 
 func selfBillBuilder(t *testing.T, db settlementDB, inv store.Invoice) store.SelfBillBuild {
 	return func(number string) (store.SelfBill, events.Event, error) {
-		evt, err := events.New("dev.passage.receiving.ersselfbill.issued.v1", "/passage/receiving/receiving", inv.ID, testkit.TenantID(1), map[string]string{"invoice_id": inv.ID, "document_number": number})
+		evt, err := events.New("dev.depot.receiving.ersselfbill.issued.v1", "/depot/receiving/receiving", inv.ID, testkit.TenantID(1), map[string]string{"invoice_id": inv.ID, "document_number": number})
 		if err != nil {
 			t.Fatal(err)
 		}

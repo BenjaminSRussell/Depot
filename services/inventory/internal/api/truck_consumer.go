@@ -12,11 +12,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 // The truck consumer books field service's completed work orders (FR-45.9, BR-45.7): each PART
@@ -30,8 +30,8 @@ import (
 // is created when it is below its minimum.
 const (
 	// WorkOrderCompletedType is fieldservice's workorder.completed.v1, on WorkOrderTopic.
-	WorkOrderCompletedType = "dev.passage.service.workorder.completed.v1"
-	WorkOrderTopic         = "passage.service.workorder.completed"
+	WorkOrderCompletedType = "dev.depot.service.workorder.completed.v1"
+	WorkOrderTopic         = "depot.service.workorder.completed"
 	ServiceSource          = "fieldservice"
 
 	sourceServiceLine = "SERVICE_LINE"

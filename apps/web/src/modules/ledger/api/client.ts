@@ -203,7 +203,7 @@ async function fetchCsv(url: string, fetchImpl: FetchLike): Promise<CsvExport> {
   const res = await fetchImpl(url, { headers: { Accept: "text/csv" } });
   if (!res.ok) throw await readProblem(res);
   const name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1];
-  return { blob: await res.blob(), filename: name ?? "ledger-export.csv", truncated: res.headers.get("X-Passage-Export-Truncated") === "true" };
+  return { blob: await res.blob(), filename: name ?? "ledger-export.csv", truncated: res.headers.get("X-Depot-Export-Truncated") === "true" };
 }
 
 /** GET /api/v1/ledger/balances?format=csv: the trial balance as one CSV file. */

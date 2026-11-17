@@ -20,8 +20,8 @@ CREATE TABLE IF NOT EXISTS main_account (
 ALTER TABLE main_account ENABLE ROW LEVEL SECURITY;
 ALTER TABLE main_account FORCE ROW LEVEL SECURITY;
 CREATE POLICY main_account_tenant_access ON main_account AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Ledgers: one accounting currency, up to 20 dimension attributes (FR-11.2).
 CREATE TABLE IF NOT EXISTS ledger (
@@ -43,8 +43,8 @@ CREATE TABLE IF NOT EXISTS ledger (
 ALTER TABLE ledger ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ledger FORCE ROW LEVEL SECURITY;
 CREATE POLICY ledger_tenant_access ON ledger AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY ledger_legal_entity_scope ON ledger AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

@@ -1,4 +1,4 @@
--- PSG-25 slice 3: bundle split (BR-25.1) and offline clock correction (BR-25.7).
+-- DPT-25 slice 3: bundle split (BR-25.1) and offline clock correction (BR-25.7).
 -- clock_offset_s records the device clock offset (server minus device, seconds)
 -- applied to a registration's times when the device was more than 5 minutes off.
 

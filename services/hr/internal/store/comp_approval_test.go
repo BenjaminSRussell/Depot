@@ -6,9 +6,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/domain"
-	hrevents "github.com/BenjaminSRussell/passage/services/hr/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/domain"
+	hrevents "github.com/BenjaminSRussell/depot/services/hr/internal/events"
 )
 
 func workerWithUser(t *testing.T, f personnelFixture, name, user string) Worker {

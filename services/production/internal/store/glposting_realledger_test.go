@@ -6,11 +6,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/production/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/production/internal/ledgertest"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/production/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/production/internal/ledgertest"
 )
 
 // profileAccounts are the accounts of testProfile, opened in the real ledger's chart.

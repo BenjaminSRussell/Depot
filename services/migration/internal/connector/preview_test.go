@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/connector"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/connector"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 const customerMapping = `{"entity":"customer","version":1,"fields":[

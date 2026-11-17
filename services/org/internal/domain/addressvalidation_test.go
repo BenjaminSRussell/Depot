@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/org/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/org/migrations"
+	"github.com/BenjaminSRussell/depot/services/org/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/org/migrations"
 )
 
 func fixtureRows(t *testing.T, name string) [][]string {

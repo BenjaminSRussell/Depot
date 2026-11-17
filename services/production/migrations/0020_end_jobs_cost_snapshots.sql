@@ -35,18 +35,18 @@ ALTER TABLE production_cost_snapshot ENABLE ROW LEVEL SECURITY;
 ALTER TABLE production_cost_snapshot FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS production_cost_snapshot_tenant_access ON production_cost_snapshot;
 CREATE POLICY production_cost_snapshot_tenant_access ON production_cost_snapshot AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS production_cost_snapshot_legal_entity_scope ON production_cost_snapshot;
 CREATE POLICY production_cost_snapshot_legal_entity_scope ON production_cost_snapshot AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The store inserts, and replaces the day's row on a second run (upsert), never deletes.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON production_cost_snapshot TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON production_cost_snapshot TO depot_app';
   END IF;
 END
 $$;

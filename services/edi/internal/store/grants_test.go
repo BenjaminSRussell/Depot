@@ -8,9 +8,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/edi/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/edi/migrations"
 )
 
 func TestGrants_AppRoleLocksAndRewritesButPartnerKeysAreWriteOnce(t *testing.T) {
@@ -31,10 +31,10 @@ func TestGrants_AppRoleLocksAndRewritesButPartnerKeysAreWriteOnce(t *testing.T) 
 	}
 	res, _, err := st.ReprocessInterchange(ctx, "rp", "h", ic.InterchangeID, false, plan)
 	if err != nil || res.Changed != 1 {
-		t.Fatalf("reprocess locks interchange and message FOR UPDATE as passage_app: %+v, %v", res, err)
+		t.Fatalf("reprocess locks interchange and message FOR UPDATE as depot_app: %+v, %v", res, err)
 	}
 	if _, _, err := st.CreateOutbound(ctx, "out", "h", outbound(p.ID, "856")); err != nil {
-		t.Fatalf("control number upsert as passage_app: %v", err)
+		t.Fatalf("control number upsert as depot_app: %v", err)
 	}
 	for _, stmt := range []string{
 		// The partner update writes only its own columns (0009).

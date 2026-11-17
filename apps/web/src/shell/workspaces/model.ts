@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PassageModule } from "../../modules/registry";
+import type { DepotModule } from "../../modules/registry";
 import { recordError } from "../telemetry";
 import auditData from "./navAudit.json";
 import baseConfigData from "./workspaces.json";
@@ -93,7 +93,7 @@ export interface NavEntry {
   gated: boolean;
 }
 
-export function resolveNavEntries(modules: PassageModule[], areas: Area[]): NavEntry[] {
+export function resolveNavEntries(modules: DepotModule[], areas: Area[]): NavEntry[] {
   const areaLabels = new Map(areas.map((a) => [a.id, a.label]));
   return modules.flatMap((m) =>
     m.nav.map((n) => {

@@ -5,7 +5,7 @@ package events
 // The PRD writes the entity as "change-order"; the platform type rule allows
 // only [a-z0-9] per segment, so the entity is "changeorder" (as "plannedorder"
 // in planning).
-const ChangeOrderApplied = "dev.passage.projects.changeorder.applied.v1"
+const ChangeOrderApplied = "dev.depot.projects.changeorder.applied.v1"
 
 // ChangeOrderAppliedData is the data of ChangeOrderApplied (PRD §8.41.5).
 // Amounts are decimal strings in Currency: the deltas are Σ revenue impact and

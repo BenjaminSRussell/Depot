@@ -92,23 +92,23 @@ CREATE TABLE IF NOT EXISTS ebr_signer_lockout (
 ALTER TABLE ebr_signature ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ebr_signature FORCE ROW LEVEL SECURITY;
 CREATE POLICY ebr_signature_tenant_access ON ebr_signature AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY ebr_signature_legal_entity_scope ON ebr_signature AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE ebr_signer_lockout ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ebr_signer_lockout FORCE ROW LEVEL SECURITY;
 CREATE POLICY ebr_signer_lockout_tenant_access ON ebr_signer_lockout AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON ebr_signature TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ebr_signer_lockout TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON ebr_signature TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ebr_signer_lockout TO depot_app';
   END IF;
 END
 $$;

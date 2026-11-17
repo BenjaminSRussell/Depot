@@ -7,7 +7,7 @@
       <NbOfTxs>3</NbOfTxs>
       <CtrlSum>7733.31</CtrlSum>
       <InitgPty>
-        <Nm>Passage Schweiz AG</Nm>
+        <Nm>Depot Schweiz AG</Nm>
       </InitgPty>
     </GrpHdr>
     <PmtInf>
@@ -25,7 +25,7 @@
         <Dt>2026-11-02</Dt>
       </ReqdExctnDt>
       <Dbtr>
-        <Nm>Passage Schweiz AG</Nm>
+        <Nm>Depot Schweiz AG</Nm>
         <PstlAdr>
           <StrtNm>Paradeplatz 1</StrtNm>
           <PstCd>8001</PstCd>

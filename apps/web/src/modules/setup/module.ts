@@ -1,8 +1,8 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { ChecklistPage, DemoCompanyPage, FeaturesPage, SetupWizardPage } from "./pages";
 
-const setup: PassageModule = {
+const setup: DepotModule = {
   id: "setup",
   title: "Company setup",
   description: "The setup guide, the checklist of what is missing, features and the demo company.",

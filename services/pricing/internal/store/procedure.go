@@ -9,12 +9,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	pevents "github.com/BenjaminSRussell/passage/services/pricing/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	pevents "github.com/BenjaminSRussell/depot/services/pricing/internal/events"
 )
 
 const procedureColumns = `id::text, legal_entity_id::text, name, version, status, revision, steps`

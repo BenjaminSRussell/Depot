@@ -1,4 +1,4 @@
-"""Render tests for the passage-multiregion chart. Run: python3 -m unittest discover -s deploy/multi-region
+"""Render tests for the depot-multiregion chart. Run: python3 -m unittest discover -s deploy/multi-region
 
 They call `helm template`, split the output into documents and assert what each region role renders.
 Stdlib only; skipped when helm is not on PATH.
@@ -58,7 +58,7 @@ class TestRoles(unittest.TestCase):
     def test_passive_is_an_async_replica_of_the_primary(self) -> None:
         cluster = doc(render("eu-central.yaml"), "Cluster")
         self.assertRegex(cluster, r"replica:\n\s+enabled: true")
-        self.assertIn('host: "passage-pg-rw.eu-west.passage.internal"', cluster)
+        self.assertIn('host: "depot-pg-rw.eu-west.depot.internal"', cluster)
         self.assertIn("sslmode: verify-full", cluster)
         self.assertNotIn("synchronous:", cluster)
         self.assertNotIn("initdb", cluster)
@@ -70,7 +70,7 @@ class TestRoles(unittest.TestCase):
         self.assertNotIn("replica:", cluster)  # keeps the former primary's spec until re-seeded
         self.assertNotIn("Pooler", kinds(docs))
         policy = doc(docs, "NetworkPolicy")
-        self.assertIn("cnpg.io/cluster: passage-pg", policy)
+        self.assertIn("cnpg.io/cluster: depot-pg", policy)
         self.assertIn("kubernetes.io/metadata.name: cnpg-system", policy)
 
     def test_game_day_fence_applies_to_a_primary(self) -> None:
@@ -86,19 +86,19 @@ class TestBackup(unittest.TestCase):
         cluster = doc(docs, "Cluster")
         self.assertIn("name: barman-cloud.cloudnative-pg.io", cluster)
         self.assertIn("isWALArchiver: true", cluster)
-        self.assertIn("barmanObjectName: passage-pg-backup", cluster)
+        self.assertIn("barmanObjectName: depot-pg-backup", cluster)
         store = doc(docs, "ObjectStore")
-        self.assertIn("name: passage-pg-backup", store)
-        self.assertIn('destinationPath: "s3://passage-pg-backups-eu-west/"', store)
+        self.assertIn("name: depot-pg-backup", store)
+        self.assertIn('destinationPath: "s3://depot-pg-backups-eu-west/"', store)
         self.assertIn('retentionPolicy: "30d"', store)
         self.assertIn("key: ACCESS_SECRET_KEY", store)
         scheduled = doc(docs, "ScheduledBackup")
         self.assertIn('schedule: "0 0 2 * * *"', scheduled)
         self.assertIn("method: plugin", scheduled)
-        self.assertRegex(scheduled, r"cluster:\n\s+name: passage-pg\s*$")
+        self.assertRegex(scheduled, r"cluster:\n\s+name: depot-pg\s*$")
 
     def test_each_region_archives_to_its_own_bucket(self) -> None:
-        self.assertIn("passage-pg-backups-eu-central", doc(render("eu-west.yaml", "region.id=eu-central"), "ObjectStore"))
+        self.assertIn("depot-pg-backups-eu-central", doc(render("eu-west.yaml", "region.id=eu-central"), "ObjectStore"))
         self.assertIn("s3://override/", doc(render("eu-west.yaml", "backup.destinationPath=s3://override/"), "ObjectStore"))
 
     def test_passive_replica_does_not_archive(self) -> None:
@@ -111,7 +111,7 @@ class TestBackup(unittest.TestCase):
         docs = render("eu-west.yaml", "backup.enabled=false")
         self.assertNotIn("ObjectStore", kinds(docs))
         self.assertNotIn("barman-cloud", doc(docs, "Cluster"))
-        self.assertNotIn("PassageBackupStale", doc(docs, "PrometheusRule"))
+        self.assertNotIn("DepotBackupStale", doc(docs, "PrometheusRule"))
 
     def test_backup_alerts_page_on_archive_failure(self) -> None:
         rules = doc(render("eu-west.yaml"), "PrometheusRule")
@@ -119,7 +119,7 @@ class TestBackup(unittest.TestCase):
         self.assertIn("max(barman_cloud_cloudnative_pg_io_last_available_backup_timestamp{", rules)
         self.assertNotIn("cnpg_collector_last_available_backup_timestamp", rules)
         self.assertIn("or absent(barman_cloud_cloudnative_pg_io_last_available_backup_timestamp{", rules)
-        self.assertIn("alert: PassageWalArchiveFailing", rules)
+        self.assertIn("alert: DepotWalArchiveFailing", rules)
         self.assertIn("cnpg_pg_stat_archiver_last_failed_time", rules)
 
     def test_schema_rejects_bad_retention_and_schedule(self) -> None:
@@ -138,7 +138,7 @@ class TestMirrorMaker(unittest.TestCase):
         self.assertIn('connectCluster: "eu-central"', mm2)
         self.assertIn('sourceCluster: "eu-west"', mm2)
         self.assertIn("namespace: kafka", mm2)
-        self.assertIn("secretName: passage-cluster-ca-cert", mm2)
+        self.assertIn("secretName: depot-cluster-ca-cert", mm2)
         self.assertIn("sync.group.offsets.enabled", mm2)
         self.assertIn("PodMonitor", kinds(docs))
 
@@ -150,7 +150,7 @@ class TestMirrorMaker(unittest.TestCase):
     def test_every_region_has_the_mm2_user(self) -> None:
         for f in ("eu-west.yaml", "eu-central.yaml"):
             user = doc(render(f), "KafkaUser")
-            self.assertIn("strimzi.io/cluster: passage", user)
+            self.assertIn("strimzi.io/cluster: depot", user)
             self.assertIn("type: scram-sha-512", user)
 
 
@@ -161,7 +161,7 @@ class TestAlerts(unittest.TestCase):
 
     def test_every_alert_links_a_runbook_that_exists(self) -> None:
         alerts = re.findall(r"- alert: (\S+)", self.rules)
-        urls = re.findall(r"runbook_url: https://docs.passage.dev/ops/runbooks/(\S+)", self.rules)
+        urls = re.findall(r"runbook_url: https://docs.depot.dev/ops/runbooks/(\S+)", self.rules)
         self.assertEqual(len(alerts), len(urls))
         runbooks = HERE.parent.parent / "docs" / "ops" / "runbooks"
         for page in set(urls):
@@ -169,17 +169,17 @@ class TestAlerts(unittest.TestCase):
 
     def test_burn_rate_rules_are_recorded_here(self) -> None:
         for w in ("5m", "30m", "1h", "6h"):
-            self.assertIn(f"record: passage:slo_burn_rate:{w}", self.rules)
+            self.assertIn(f"record: depot:slo_burn_rate:{w}", self.rules)
         self.assertIn("/ (1 - 0.999)", self.rules)
-        self.assertIn("passage:slo_burn_rate:1h > 14.4 and passage:slo_burn_rate:5m > 14.4", self.rules)
+        self.assertIn("depot:slo_burn_rate:1h > 14.4 and depot:slo_burn_rate:5m > 14.4", self.rules)
 
     def test_license_alerts_do_not_overlap(self) -> None:
-        self.assertIn("<= 30 and min by (tenant_id) (passage_license_days_to_expiry) > 7", self.rules)
-        self.assertIn("<= 7 and min by (tenant_id) (passage_license_days_to_expiry) > 1", self.rules)
-        self.assertRegex(self.rules, r"expr: min by \(tenant_id\) \(passage_license_days_to_expiry\) <= 1\n")
+        self.assertIn("<= 30 and min by (tenant_id) (depot_license_days_to_expiry) > 7", self.rules)
+        self.assertIn("<= 7 and min by (tenant_id) (depot_license_days_to_expiry) > 1", self.rules)
+        self.assertRegex(self.rules, r"expr: min by \(tenant_id\) \(depot_license_days_to_expiry\) <= 1\n")
 
     def test_cnpg_alerts_select_instance_pods(self) -> None:
-        self.assertIn('pod=~"passage-pg-[0-9]+"', self.rules)
+        self.assertIn('pod=~"depot-pg-[0-9]+"', self.rules)
 
 
 @unittest.skipUnless(HELM, "helm not installed")
@@ -208,7 +208,7 @@ class TestSchema(unittest.TestCase):
 PROFILES = HERE.parent / "cloud-profiles" / "values"
 
 
-def render_profile(values_file: str, profile: str, *sets: str, registry: str = "passage.azurecr.io") -> list[str]:
+def render_profile(values_file: str, profile: str, *sets: str, registry: str = "depot.azurecr.io") -> list[str]:
     """Render with a cloud profile's global values (deploy/cloud-profiles/values/<profile>.yaml) under a region file."""
     cmd = [HELM, "template", "mr", str(CHART), "-f", str(PROFILES / f"{profile}.yaml"), "-f", str(HERE / "values" / values_file)]
     if registry:
@@ -229,7 +229,7 @@ class TestAzureBlobBackups(unittest.TestCase):
     def test_primary_archives_to_blob_on_the_profile_suffix_with_workload_identity(self) -> None:
         docs = render_profile("us/eastus2.yaml", "commercial", self.ID)
         store = doc(docs, "ObjectStore")
-        self.assertIn('destinationPath: "https://passagepgbkpeastus2.blob.core.windows.net/pg-backups/"', store)
+        self.assertIn('destinationPath: "https://depotpgbkpeastus2.blob.core.windows.net/pg-backups/"', store)
         self.assertIn("inheritFromAzureAD: true", store)
         self.assertNotIn("s3Credentials", store)
         self.assertNotIn("ACCESS_KEY_ID", store)
@@ -246,7 +246,7 @@ class TestAzureBlobBackups(unittest.TestCase):
 
     def test_gov_cloud_destination_uses_the_gov_blob_suffix(self) -> None:
         store = doc(render_profile("us/eastus2.yaml", "gcc-high", self.ID), "ObjectStore")
-        self.assertIn("https://passagepgbkpeastus2.blob.core.usgovcloudapi.net/pg-backups/", store)
+        self.assertIn("https://depotpgbkpeastus2.blob.core.usgovcloudapi.net/pg-backups/", store)
 
     def test_storage_key_secret_when_workload_identity_is_off(self) -> None:
         store = doc(render_profile("us/eastus2.yaml", "commercial", "backup.azure.useWorkloadIdentity=false"), "ObjectStore")
@@ -271,7 +271,7 @@ class TestAzureBlobBackups(unittest.TestCase):
         self.assertRegex(doc(docs, "Cluster"), r"replica:\n\s+enabled: true")
 
     def test_s3_is_still_the_default_store(self) -> None:
-        self.assertIn('destinationPath: "s3://passage-pg-backups-eu-west/"', doc(render("eu-west.yaml"), "ObjectStore"))
+        self.assertIn('destinationPath: "s3://depot-pg-backups-eu-west/"', doc(render("eu-west.yaml"), "ObjectStore"))
 
     def test_schema_rejects_an_unknown_store(self) -> None:
         proc = subprocess.run([HELM, "template", "mr", str(CHART), "--set", "backup.store=gcs"], capture_output=True, text=True)
@@ -282,8 +282,8 @@ class TestAzureBlobBackups(unittest.TestCase):
 @unittest.skipUnless(HELM, "helm not installed")
 class TestRegistryMirror(unittest.TestCase):
     def test_image_comes_from_the_mirror(self) -> None:
-        cluster = doc(render_profile("us/eastus2.yaml", "commercial", TestAzureBlobBackups.ID, registry="passage.azurecr.io"), "Cluster")
-        self.assertIn("imageName: passage.azurecr.io/cloudnative-pg/postgresql:17", cluster)
+        cluster = doc(render_profile("us/eastus2.yaml", "commercial", TestAzureBlobBackups.ID, registry="depot.azurecr.io"), "Cluster")
+        self.assertIn("imageName: depot.azurecr.io/cloudnative-pg/postgresql:17", cluster)
 
     def test_a_mirror_only_profile_fails_without_a_mirror(self) -> None:
         proc = subprocess.run(

@@ -31,14 +31,14 @@ CREATE INDEX project_name_idx ON migration.project (tenant_id, name, id);
 ALTER TABLE migration.project ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.project FORCE ROW LEVEL SECURITY;
 CREATE POLICY project_tenant_access ON migration.project AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY project_legal_entity_scope ON migration.project AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*');
+  USING (current_setting('depot.legal_entity_scopes', true) = '*');
 
 -- Rewrite rules belong to a project; replacing a project's rules deletes and re-inserts them. The key is checked on
 -- every new or changed row. NOT VALID because a row written before 0006 would carry a project id nothing points at,
--- and this migration (run as passage_owner, NOBYPASSRLS, under FORCE RLS) can neither see nor remove such a row. No
+-- and this migration (run as depot_owner, NOBYPASSRLS, under FORCE RLS) can neither see nor remove such a row. No
 -- route wrote rules before 0006 (only store tests did), and rules are read by project, so an orphan is unreachable;
 -- VALIDATE CONSTRAINT stays an operator step (NOT-IMPLEMENTED.md).
 ALTER TABLE migration.key_rewrite_rule ADD CONSTRAINT key_rewrite_rule_project_fk
@@ -46,11 +46,11 @@ ALTER TABLE migration.key_rewrite_rule ADD CONSTRAINT key_rewrite_rule_project_f
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
     -- UPDATE: the store edits a project under its version and locks it while replacing rewrite rules.
-    GRANT SELECT, INSERT, UPDATE ON migration.project TO passage_app;
+    GRANT SELECT, INSERT, UPDATE ON migration.project TO depot_app;
     -- DELETE: replacing a project's rewrite rules removes the old set.
-    GRANT DELETE ON migration.key_rewrite_rule TO passage_app;
+    GRANT DELETE ON migration.key_rewrite_rule TO depot_app;
   END IF;
 END
 $$;

@@ -11,18 +11,18 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/production/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/production/internal/store"
 )
 
 const (
 	// PlannedOrderFirmedType is planning's plannedorder.firmed.v1 (w22, FR-22.10): a planned order was
 	// firmed and the owning context creates the target order.
-	PlannedOrderFirmedType  = "dev.passage.planning.plannedorder.firmed.v1"
-	PlannedOrderFirmedTopic = "passage.planning.plannedorder"
+	PlannedOrderFirmedType  = "dev.depot.planning.plannedorder.firmed.v1"
+	PlannedOrderFirmedTopic = "depot.planning.plannedorder"
 	// PlannedOrderSource is the CloudEvents source planning writes on its events.
 	PlannedOrderSource = "planning"
 	// PlanningConsumerName is the consumer (and Kafka group) that follows planning's firmed planned

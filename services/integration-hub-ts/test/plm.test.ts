@@ -48,7 +48,7 @@ test("BR-35.16: an effectivity before today moves to today and raises EDI-0139",
   assert.equal(CODE_EFFECTIVITY_MOVED, "EDI-0139");
 });
 
-test("BR-35.16: an ECO targeting a BOM version already released in Passage becomes a task", () => {
+test("BR-35.16: an ECO targeting a BOM version already released in Depot becomes a task", () => {
   const state: ImportState = { importedKeys: new Set(), releasedBomVersions: new Set(["BOM-B"]) };
   const d = decideEcoImport(eco, today, state, "alpha");
   assert.equal(d.action, "TASK");

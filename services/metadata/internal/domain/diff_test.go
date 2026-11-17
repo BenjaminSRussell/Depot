@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/gen"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/gen"
 )
 
 const baseVendor = `name: Vendor

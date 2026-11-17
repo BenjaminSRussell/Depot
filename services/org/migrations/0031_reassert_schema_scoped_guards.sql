@@ -11,13 +11,13 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = current_schema() AND tablename = 'org_unit_translation' AND policyname = 'org_unit_translation_tenant_access') THEN
     CREATE POLICY org_unit_translation_tenant_access ON org_unit_translation AS PERMISSIVE
-      USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-      WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+      USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+      WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = current_schema() AND tablename = 'org_unit_translation' AND policyname = 'org_unit_translation_legal_entity_scope') THEN
     CREATE POLICY org_unit_translation_legal_entity_scope ON org_unit_translation AS RESTRICTIVE
-      USING (current_setting('passage.legal_entity_scopes', true) = '*'
+      USING (current_setting('depot.legal_entity_scopes', true) = '*'
              OR legal_entity_id IS NULL
-             OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+             OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
   END IF;
 END $$;

@@ -1,4 +1,4 @@
-// Command processmfg runs the Passage process-manufacturing service.
+// Command processmfg runs the Depot process-manufacturing service.
 package main
 
 import (
@@ -9,14 +9,14 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/features"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/api"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/shopfloor"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/store"
-	"github.com/BenjaminSRussell/passage/services/processmfg/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/features"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/api"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/shopfloor"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/store"
+	"github.com/BenjaminSRussell/depot/services/processmfg/migrations"
 )
 
 const defaultHTTPAddr = ":8080"
@@ -59,7 +59,7 @@ func run(ctx context.Context, getenv func(string) string) error {
 	h := api.New(store.New(pool))
 	// Batch record signing fails closed (503) until a step-up verifier exists;
 	// only a dev deployment binds the stand-in, whose signatures say unverified.
-	if getenv("PASSAGE_ENV") == "dev" {
+	if getenv("DEPOT_ENV") == "dev" {
 		h.WithReauth(api.DevReauth{})
 	}
 	identityURL, shopfloorURL := getenv("IDENTITY_URL"), getenv("SHOPFLOOR_URL")
@@ -69,7 +69,7 @@ func run(ctx context.Context, getenv func(string) string) error {
 			return err
 		}
 		if signer == nil {
-			return errors.New("IDENTITY_URL and SHOPFLOOR_URL need a service signing key (PASSAGE_SERVICE_NAME and PASSAGE_SERVICE_SIGNING_KEY or PASSAGE_SERVICE_SIGNING_KEY_FILE)")
+			return errors.New("IDENTITY_URL and SHOPFLOOR_URL need a service signing key (DEPOT_SERVICE_NAME and DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE)")
 		}
 		if identityURL != "" {
 			source := features.NewCache(features.NewHTTPSource(identityURL, nil, signer), features.DefaultTTL)

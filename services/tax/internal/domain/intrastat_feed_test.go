@@ -3,7 +3,7 @@ package domain_test
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/tax/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/domain"
 )
 
 const (

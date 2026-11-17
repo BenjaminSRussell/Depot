@@ -1,4 +1,4 @@
-# HR module (web, PSG-42 slices 1 to 5)
+# HR module (web, DPT-42 slices 1 to 5)
 
 The HR workspace for the HR service (`services/hr/api/openapi.yaml`).
 Routes and nav are in `module.ts`; the shell discovers it through the registry.

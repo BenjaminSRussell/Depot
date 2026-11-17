@@ -103,8 +103,8 @@ BEGIN
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
     EXECUTE format('DROP POLICY IF EXISTS %I_tenant_access ON %I', t, t);
     EXECUTE format('CREATE POLICY %I_tenant_access ON %I AS PERMISSIVE
-      USING (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)
-      WITH CHECK (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)', t, t);
+      USING (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)
+      WITH CHECK (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)', t, t);
   END LOOP;
 END $$;
 
@@ -113,9 +113,9 @@ END $$;
 -- once, so it also gets UPDATE; nothing deletes stops.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON maintenance_round, round_stop TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON work_order_stop TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON maintenance_round, round_stop TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON work_order_stop TO depot_app';
   END IF;
 END
 $$;

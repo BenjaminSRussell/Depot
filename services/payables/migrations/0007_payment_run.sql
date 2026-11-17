@@ -122,11 +122,11 @@ CREATE TRIGGER ap_payment_run_guard BEFORE INSERT OR UPDATE ON ap_payment_run FO
 ALTER TABLE ap_payment_run ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ap_payment_run FORCE ROW LEVEL SECURITY;
 CREATE POLICY ap_payment_run_tenant_access ON ap_payment_run AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY ap_payment_run_legal_entity_scope ON ap_payment_run AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS ap_payment (
   tenant_id uuid NOT NULL,
@@ -150,11 +150,11 @@ CREATE TABLE IF NOT EXISTS ap_payment (
 ALTER TABLE ap_payment ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ap_payment FORCE ROW LEVEL SECURITY;
 CREATE POLICY ap_payment_tenant_access ON ap_payment AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY ap_payment_legal_entity_scope ON ap_payment AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS ap_payment_proposal_payee (
   tenant_id uuid NOT NULL,
@@ -177,20 +177,20 @@ CREATE TRIGGER ap_payment_proposal_payee_guard BEFORE INSERT ON ap_payment_propo
 ALTER TABLE ap_payment_proposal_payee ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ap_payment_proposal_payee FORCE ROW LEVEL SECURITY;
 CREATE POLICY ap_payment_proposal_payee_tenant_access ON ap_payment_proposal_payee AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY ap_payment_proposal_payee_legal_entity_scope ON ap_payment_proposal_payee AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON ap_payment_proposal_payee TO passage_app';
-    EXECUTE 'GRANT UPDATE (executed_at, failed_at) ON ap_payment_proposal TO passage_app';
-    EXECUTE 'GRANT UPDATE (settled) ON ap_payment_proposal_line TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON ap_payment_run, ap_payment TO passage_app';
-    EXECUTE 'GRANT UPDATE (status, file_number, file_sealed, file_sha256, payment_count, file_generated_at, journal_requested_at, journal_rejected_at, journal_entry_id, journal_posted_at, settled_at, failure_reason, completed_at) ON ap_payment_run TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON ap_payment_proposal_payee TO depot_app';
+    EXECUTE 'GRANT UPDATE (executed_at, failed_at) ON ap_payment_proposal TO depot_app';
+    EXECUTE 'GRANT UPDATE (settled) ON ap_payment_proposal_line TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON ap_payment_run, ap_payment TO depot_app';
+    EXECUTE 'GRANT UPDATE (status, file_number, file_sealed, file_sha256, payment_count, file_generated_at, journal_requested_at, journal_rejected_at, journal_entry_id, journal_posted_at, settled_at, failure_reason, completed_at) ON ap_payment_run TO depot_app';
   END IF;
 END
 $$;

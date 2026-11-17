@@ -12,14 +12,14 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/inbox"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/schema"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/inbox"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/schema"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/store"
 )
 
 const (
@@ -395,11 +395,11 @@ func (a *API) putPreference(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) topics(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, []map[string]string{
-		{"topic": "passage.workflow.instance", "type": "dev.passage.workflow.instance.submitted.v1"},
-		{"topic": "passage.workflow.workitem", "type": "dev.passage.workflow.workitem.assigned.v1"},
-		{"topic": "passage.batch.run", "type": "dev.passage.batch.run.completed.v1"},
-		{"topic": "passage.notify.message", "type": "dev.passage.notify.message.sent.v1"},
-		{"topic": "passage.metadata.entity", "type": "dev.passage.metadata.entity.published.v1"},
+		{"topic": "depot.workflow.instance", "type": "dev.depot.workflow.instance.submitted.v1"},
+		{"topic": "depot.workflow.workitem", "type": "dev.depot.workflow.workitem.assigned.v1"},
+		{"topic": "depot.batch.run", "type": "dev.depot.batch.run.completed.v1"},
+		{"topic": "depot.notify.message", "type": "dev.depot.notify.message.sent.v1"},
+		{"topic": "depot.metadata.entity", "type": "dev.depot.metadata.entity.published.v1"},
 	})
 }
 

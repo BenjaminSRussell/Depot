@@ -9,11 +9,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/revrec/internal/domain"
-	rev "github.com/BenjaminSRussell/passage/services/revrec/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/revrec/internal/domain"
+	rev "github.com/BenjaminSRussell/depot/services/revrec/internal/events"
 )
 
 // supportAndLicence is a 2,000.00 contract of 2027-01-01: a perpetual licence (milestone, SSP 800.00) and a 12-month support plan

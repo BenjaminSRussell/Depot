@@ -11,18 +11,18 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
 )
 
 const (
 	// OperationStatusType is production's operation.statuschanged.v1 (w21): an operation was
 	// finished (the finish command, or the last report as finished) or reopened.
-	OperationStatusType  = "dev.passage.production.operation.statuschanged.v1"
-	OperationStatusTopic = "passage.production.operation"
+	OperationStatusType  = "dev.depot.production.operation.statuschanged.v1"
+	OperationStatusTopic = "depot.production.operation"
 	// OperationStatusSource is the CloudEvents source production writes on its events. Who may
 	// write to the topic at all is the broker's ACL (only production's outbox relay); the check
 	// keeps an event another service mislabels or misroutes from closing operations.

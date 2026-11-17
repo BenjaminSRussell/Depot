@@ -12,10 +12,10 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/audit/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/audit/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/store"
 )
 
 const (
@@ -180,16 +180,16 @@ func (a *API) verifyReads(w http.ResponseWriter, r *http.Request) {
 // Chain verification headers of the export: an auditor keeps the head to prove later that no row was cut off the end.
 //
 // Entries and Head describe the whole chain that was verified, not the filtered rows in the body. The body's own
-// completeness is in the trailers: X-Passage-Read-Export-Rows (rows written) and X-Passage-Read-Export-Complete: true,
+// completeness is in the trailers: X-Depot-Read-Export-Rows (rows written) and X-Depot-Read-Export-Complete: true,
 // sent only after the last row. A failure once rows are streaming aborts the connection, so a client never sees a
 // clean end of a truncated export; a body without the completion trailer is incomplete.
 const (
-	trailerExportRows     = "X-Passage-Read-Export-Rows"
-	trailerExportComplete = "X-Passage-Read-Export-Complete"
-	headerChainVerified   = "X-Passage-Read-Chain-Verified"
-	headerChainEntries  = "X-Passage-Read-Chain-Entries"
-	headerChainHead     = "X-Passage-Read-Chain-Head"
-	headerChainBroken   = "X-Passage-Read-Chain-Broken-At"
+	trailerExportRows     = "X-Depot-Read-Export-Rows"
+	trailerExportComplete = "X-Depot-Read-Export-Complete"
+	headerChainVerified   = "X-Depot-Read-Chain-Verified"
+	headerChainEntries    = "X-Depot-Read-Chain-Entries"
+	headerChainHead       = "X-Depot-Read-Chain-Head"
+	headerChainBroken     = "X-Depot-Read-Chain-Broken-At"
 )
 
 // exportReads is GET /v1/audit/reads:export?format=csv|ndjson for one tenant. The chain is verified first and the result

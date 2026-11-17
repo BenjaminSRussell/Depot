@@ -69,38 +69,38 @@ CREATE TABLE IF NOT EXISTS recurring_journal_run (
 ALTER TABLE recurring_journal ENABLE ROW LEVEL SECURITY;
 ALTER TABLE recurring_journal FORCE ROW LEVEL SECURITY;
 CREATE POLICY recurring_journal_tenant_access ON recurring_journal AS PERMISSIVE
-    USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+    USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY recurring_journal_legal_entity_scope ON recurring_journal AS RESTRICTIVE
-    USING (current_setting('passage.legal_entity_scopes', true) = '*'
-           OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+    USING (current_setting('depot.legal_entity_scopes', true) = '*'
+           OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE recurring_journal_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE recurring_journal_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY recurring_journal_line_tenant_access ON recurring_journal_line AS PERMISSIVE
-    USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+    USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY recurring_journal_line_legal_entity_scope ON recurring_journal_line AS RESTRICTIVE
-    USING (current_setting('passage.legal_entity_scopes', true) = '*'
-           OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+    USING (current_setting('depot.legal_entity_scopes', true) = '*'
+           OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE recurring_journal_run ENABLE ROW LEVEL SECURITY;
 ALTER TABLE recurring_journal_run FORCE ROW LEVEL SECURITY;
 CREATE POLICY recurring_journal_run_tenant_access ON recurring_journal_run AS PERMISSIVE
-    USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+    USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY recurring_journal_run_legal_entity_scope ON recurring_journal_run AS RESTRICTIVE
-    USING (current_setting('passage.legal_entity_scopes', true) = '*'
-           OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+    USING (current_setting('depot.legal_entity_scopes', true) = '*'
+           OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Templates are updated in place and their lines replaced wholesale on a change
 -- (DELETE on lines); runs are an append-only history (SELECT, INSERT).
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON recurring_journal TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON recurring_journal_line TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON recurring_journal_run TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON recurring_journal TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON recurring_journal_line TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON recurring_journal_run TO depot_app';
   END IF;
 END
 $$;

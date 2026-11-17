@@ -13,8 +13,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/store"
 )
 
 // CSV exports (PRD 2.11 exports: chart of accounts, trial balance, ledger transactions). Each is the
@@ -24,11 +24,11 @@ import (
 const (
 	formatCSV = "csv"
 	// maxExportRows bounds one export file; a longer result is cut at a page boundary and says so in
-	// X-Passage-Export-Truncated (and, for lines, X-Passage-Export-Next-Cursor to continue from).
+	// X-Depot-Export-Truncated (and, for lines, X-Depot-Export-Next-Cursor to continue from).
 	maxExportRows = 50000
 
-	headerExportTruncated = "X-Passage-Export-Truncated"
-	headerExportNext      = "X-Passage-Export-Next-Cursor"
+	headerExportTruncated = "X-Depot-Export-Truncated"
+	headerExportNext      = "X-Depot-Export-Next-Cursor"
 )
 
 // exportFormat reads ?format=. It is "" for the JSON default and formatCSV for a CSV export; anything
@@ -150,7 +150,7 @@ func exportTrialBalance(w http.ResponseWriter, tb store.TrialBalance) {
 		head = append(head, "dim."+g)
 	}
 	head = append(head, "debit", "credit", "net", "line_count", "quantity_net_by_unit")
-	out := startCSV(w, "trial-balance-"+tb.Currency+".csv", map[string]string{"X-Passage-Currency": tb.Currency})
+	out := startCSV(w, "trial-balance-"+tb.Currency+".csv", map[string]string{"X-Depot-Currency": tb.Currency})
 	out.row(head...)
 	for _, row := range tb.Rows {
 		rec := []string{row.Account, row.Name}

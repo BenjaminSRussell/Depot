@@ -28,11 +28,11 @@ spec:
             capabilities:
               drop: [ALL]
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
-            - name: PASSAGE_API_URL
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
+            - name: DEPOT_API_URL
               value: {{ .Values.apiUrl | quote }}
-            - name: PASSAGE_OPENAPI_JSON
-              value: /etc/passage/openapi/{{ .Values.openApi.key }}
+            - name: DEPOT_OPENAPI_JSON
+              value: /etc/depot/openapi/{{ .Values.openApi.key }}
             - name: HTTP_ADDR
               value: "0.0.0.0:8080"
             - name: ADMIN_ADDR
@@ -44,7 +44,7 @@ spec:
             - { name: admin, containerPort: 9090 }
           volumeMounts:
             - name: openapi
-              mountPath: /etc/passage/openapi
+              mountPath: /etc/depot/openapi
               readOnly: true
           startupProbe:
             httpGet: { path: /healthz, port: http }

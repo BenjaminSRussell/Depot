@@ -1,4 +1,4 @@
-# Copilot module (wave 47, PSG-47)
+# Copilot module (wave 47, DPT-47)
 
 The shell's copilot page (PRD 9.47 FR-47.3) and the MCP tool catalog
 (9.47.14). Four copilot modes: ask the data, explain this record, draft,

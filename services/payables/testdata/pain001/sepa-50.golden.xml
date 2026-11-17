@@ -7,7 +7,7 @@
       <NbOfTxs>50</NbOfTxs>
       <CtrlSum>71567.00</CtrlSum>
       <InitgPty>
-        <Nm>Passage Holding GmbH</Nm>
+        <Nm>Depot Holding GmbH</Nm>
       </InitgPty>
     </GrpHdr>
     <PmtInf>
@@ -25,7 +25,7 @@
         <Dt>2026-11-02</Dt>
       </ReqdExctnDt>
       <Dbtr>
-        <Nm>Passage Holding GmbH</Nm>
+        <Nm>Depot Holding GmbH</Nm>
         <PstlAdr>
           <StrtNm>Friedrichstrasse 100</StrtNm>
           <PstCd>10117</PstCd>
@@ -680,7 +680,7 @@
         <Dt>2026-11-03</Dt>
       </ReqdExctnDt>
       <Dbtr>
-        <Nm>Passage Holding GmbH</Nm>
+        <Nm>Depot Holding GmbH</Nm>
         <PstlAdr>
           <StrtNm>Friedrichstrasse 100</StrtNm>
           <PstCd>10117</PstCd>
@@ -1273,7 +1273,7 @@
         <Dt>2026-11-04</Dt>
       </ReqdExctnDt>
       <Dbtr>
-        <Nm>Passage Holding GmbH</Nm>
+        <Nm>Depot Holding GmbH</Nm>
         <PstlAdr>
           <StrtNm>Friedrichstrasse 100</StrtNm>
           <PstCd>10117</PstCd>

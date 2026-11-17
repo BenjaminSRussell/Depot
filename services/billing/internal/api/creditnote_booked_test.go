@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	billingevents "github.com/BenjaminSRussell/passage/services/billing/internal/events"
+	billingevents "github.com/BenjaminSRussell/depot/services/billing/internal/events"
 )
 
 // bookedEvents reads the creditnote.booked events billing wrote to its outbox for a document (the admin pool: the app role

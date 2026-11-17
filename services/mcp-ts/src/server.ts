@@ -6,7 +6,7 @@ import { rateLimitHeaders, type RateLimiter } from "./ratelimit.js";
 import { Metrics, routeLabel } from "./metrics.js";
 
 /** Header carrying the build identifier on every response (kernel-standard). */
-export const API_BUILD_HEADER = "x-passage-api-build";
+export const API_BUILD_HEADER = "x-depot-api-build";
 /** Request bodies above this size are refused with 413 before parsing. */
 export const MAX_BODY_BYTES = 1024 * 1024;
 /**
@@ -24,7 +24,7 @@ const BEARER = /^Bearer ([A-Za-z0-9._~+/=-]+)$/;
 
 export interface ServerOptions {
   deps: GatewayDeps;
-  /** Build identifier echoed in X-Passage-Api-Build. */
+  /** Build identifier echoed in X-Depot-Api-Build. */
   build: string;
   /** Readiness probe for /readyz; the caller wires catalog and upstream checks. */
   ready: () => Promise<boolean>;
@@ -55,13 +55,13 @@ export function principalFromHeaders(h: IncomingHttpHeaders): PrincipalResult {
   const auth = header(h, "authorization");
   const match = auth === undefined ? null : BEARER.exec(auth);
   if (!match) return { ok: false, message: "missing bearer token" };
-  const tenantId = header(h, "x-passage-tenant")?.trim().toLowerCase();
-  const userId = header(h, "x-passage-user")?.trim().toLowerCase();
+  const tenantId = header(h, "x-depot-tenant")?.trim().toLowerCase();
+  const userId = header(h, "x-depot-user")?.trim().toLowerCase();
   if (tenantId === undefined || !UUID.test(tenantId) || tenantId === NIL_UUID) {
     return { ok: false, message: "missing or invalid tenant" };
   }
   if (userId === undefined || !UUID.test(userId)) return { ok: false, message: "missing or invalid user" };
-  const duties = (header(h, "x-passage-duties") ?? "")
+  const duties = (header(h, "x-depot-duties") ?? "")
     .split(",")
     .map((d) => d.trim())
     .filter((d) => d.length > 0);
@@ -115,7 +115,7 @@ const TITLES: Readonly<Record<number, string>> = {
 
 /** RFC 9457 problem details in the kernel's shape: type, title, status, code, detail. */
 function problem(res: ServerResponse, build: string, status: number, code: string, detail: string, extra: Record<string, string> = {}): void {
-  const payload = JSON.stringify({ type: `https://passage.dev/problems/${code}`, title: TITLES[status] ?? "Error", status, code, detail });
+  const payload = JSON.stringify({ type: `https://depot.dev/problems/${code}`, title: TITLES[status] ?? "Error", status, code, detail });
   res.writeHead(status, {
     "content-type": "application/problem+json",
     "cache-control": "no-store",

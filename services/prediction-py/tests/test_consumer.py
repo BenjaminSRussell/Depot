@@ -26,14 +26,14 @@ from prediction.consumer import (
 from prediction.domain import OpenInvoice
 from prediction.sync import Report
 
-T = "dev.passage.receivables."
+T = "dev.depot.receivables."
 
 
 def event(type_: str, data: dict, *, id_: str | None = None, tenant: str = TENANT, le: str | None = LE, extra: dict | None = None) -> Record:
     env = {"specversion": "1.0", "id": id_ or str(uuid.uuid4()), "source": "receivables", "type": T + type_, "time": NOW.isoformat(), "datacontenttype": "application/json", "tenantid": tenant, "data": data, **(extra or {})}
     if le is not None:
         data.setdefault("legal_entity_id", le)
-    return Record("passage.receivables.payment", 0, 1, json.dumps(env).encode())
+    return Record("depot.receivables.payment", 0, 1, json.dumps(env).encode())
 
 
 def applied(items: list[str], id_: str | None = None, le: str = LE) -> Record:
@@ -97,7 +97,7 @@ def test_decoding_reads_the_entity_from_the_envelope_and_binary_mode_events():
 def test_a_type_this_service_does_not_handle_is_skipped_and_a_broken_message_is_malformed():
     assert decode(event("case.opened.v1", {"x": 1})) is None
     assert HANDLED_TYPES >= {T + "payment.applied.v1", T + "creditsettlement.reversed.v1", T + "dispute.opened.v1", T + "dunningletter.issued.v1"}
-    assert "passage.receivables.payment" in DEFAULT_TOPICS
+    assert "depot.receivables.payment" in DEFAULT_TOPICS
     for bad in (b"not json", b"[]", json.dumps({"specversion": "0.3", "id": "x", "type": T + "payment.applied.v1"}).encode(), json.dumps({"specversion": "1.0", "type": T + "payment.applied.v1"}).encode()):
         with pytest.raises(MalformedEvent):
             decode(Record("t", 0, 1, bad))

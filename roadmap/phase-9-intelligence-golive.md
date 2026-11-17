@@ -62,7 +62,7 @@ Analytics stack and embedded dashboards live across all workspaces.
 
 **Deliverable**
 
-- MCP server exposing every Passage API/entity/report as governed tools, respecting OPA permissions and tenant isolation
+- MCP server exposing every Depot API/entity/report as governed tools, respecting OPA permissions and tenant isolation
 - Copilot UI in the shell: ask-the-data (semantic layer), explain-this-record, draft documents, summarize workflows
 - Agent runtime (Temporal-backed) for autonomous tasks with approval gates: AP invoice coding, cash application suggestions, MRP exception triage, collections outreach, anomaly detection on journals
 - Eval harness: golden datasets per agent, accuracy/precision thresholds gating deploys; prompt/version registry; cost/token budgets per tenant
@@ -97,7 +97,7 @@ Copilot enabled in all workspaces; two agents (AP coding, cash application) runn
 
 **Phase 9 — Intelligence, Compliance & Go-Live**
 
-**Goal.** Passage runs legally in target countries (statutory reports, e-invoicing mandates, localized documents) and passes SOC 2 / ISO 27001-style controls with segregation of duties.
+**Goal.** Depot runs legally in target countries (statutory reports, e-invoicing mandates, localized documents) and passes SOC 2 / ISO 27001-style controls with segregation of duties.
 
 **Replaces**
 
@@ -166,7 +166,7 @@ Localization packs installed per demo entity; compliance workspace with SoD and 
 
 - Transactional migration packs: open AP/AR items, open POs/SOs, on-hand by dimension, in-process production orders, fixed asset NBVs, GL balances by dimension, project WIP, employee/payroll YTD
 - Historical data load into the lakehouse (read-only history with cross-reference to legacy ids)
-- Parallel-run harness: replay a legacy period's transactions into Passage and diff trial balances, inventory values and subledgers
+- Parallel-run harness: replay a legacy period's transactions into Depot and diff trial balances, inventory values and subledgers
 - Cutover runbook generator: freeze, extract, load, reconcile, go/no-go checklist, rollback plan
 - Legacy coexistence adapters for phased cutovers (entity-by-entity)
 - Project beginning balance journals: opening project transactions by category with WIP, on-account and estimate state, reconciled to the legacy project ledger
@@ -196,7 +196,7 @@ Migration factory workspace with packs for AX and SAP; rehearsal environment pro
 
 **Phase 9 — Intelligence, Compliance & Go-Live**
 
-**Goal.** Passage runs a real customer in production at enterprise scale with multi-region resilience, documented operations and a public release.
+**Goal.** Depot runs a real customer in production at enterprise scale with multi-region resilience, documented operations and a public release.
 
 **Replaces**
 
@@ -215,7 +215,7 @@ Migration factory workspace with packs for AX and SAP; rehearsal environment pro
 
 - [ ] Load test results published meeting all targets with p99 latencies within SLOs
 - [ ] DR game day: region failover completes within RTO 1 h / RPO 5 min with zero data loss
-- [ ] First customer runs a full month-end on Passage in production with reconciled close
+- [ ] First customer runs a full month-end on Depot in production with reconciled close
 - [ ] v1.0 tagged, signed, release notes and docs published; roadmap for v2 opened
 
 **Deploy**

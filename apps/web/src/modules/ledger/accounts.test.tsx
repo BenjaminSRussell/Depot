@@ -174,7 +174,7 @@ describe("CSV exports", () => {
   });
 
   it("reports a truncated export and turns a problem into an error", async () => {
-    const file = await exportAccountsCsv("STD", async () => csvResponse({ "X-Passage-Export-Truncated": "true" }));
+    const file = await exportAccountsCsv("STD", async () => csvResponse({ "X-Depot-Export-Truncated": "true" }));
     expect(file.truncated).toBe(true);
     await expect(exportAccountsCsv("STD", async () => new Response(JSON.stringify({ code: "LEDGER_NOT_FOUND", detail: "ledger not found" }), { status: 404 }))).rejects.toMatchObject({ code: "LEDGER_NOT_FOUND" });
   });

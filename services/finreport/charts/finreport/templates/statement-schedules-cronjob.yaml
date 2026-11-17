@@ -4,7 +4,7 @@
 {{- end }}
 # FR-15.8 statement schedules: `finreport fire-schedules` runs the distribution
 # schedules that came due, stores the files in the report library and writes
-# dev.passage.reporting.distribution.sent.v1 per file (statement.failed.v1 for a
+# dev.depot.reporting.distribution.sent.v1 per file (statement.failed.v1 for a
 # failed firing). It runs in process against the database (no route, no service
 # call, no signing key).
 apiVersion: batch/v1
@@ -37,7 +37,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: finreport-statement-schedules
-              image: {{ if .Values.image.digest }}{{ printf "%s@%s" (include "passage.imageRepository" $) .Values.image.digest | quote }}{{ else }}{{ printf "%s:%s" (include "passage.imageRepository" $) (.Values.image.tag | default "latest") | quote }}{{ end }}
+              image: {{ if .Values.image.digest }}{{ printf "%s@%s" (include "depot.imageRepository" $) .Values.image.digest | quote }}{{ else }}{{ printf "%s:%s" (include "depot.imageRepository" $) (.Values.image.tag | default "latest") | quote }}{{ end }}
               imagePullPolicy: {{ .Values.image.pullPolicy }}
               args:
                 - fire-schedules
@@ -50,7 +50,7 @@ spec:
                 capabilities:
                   drop: [ALL]
               env:
-                {{- include "passage.cloudEnv" $ | nindent 16 }}
+                {{- include "depot.cloudEnv" $ | nindent 16 }}
                 - name: DATABASE_URL
                   valueFrom:
                     secretKeyRef:

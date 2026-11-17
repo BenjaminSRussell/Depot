@@ -12,10 +12,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/sales/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/store"
 )
 
 const (
@@ -136,7 +136,7 @@ func (c *customerHarness) get(t *testing.T, customer, path string, extra map[str
 func (c *customerHarness) getWith(path, token string, extra map[string]string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodGet, path, nil)
 	if token != "" {
-		req.Header.Set("X-Passage-Service-Token", token)
+		req.Header.Set("X-Depot-Service-Token", token)
 	}
 	for k, v := range extra {
 		req.Header.Set(k, v)
@@ -242,7 +242,7 @@ func TestCustomerPortal_OnlyTheCustomerPortalTokenReachesTheRoutes(t *testing.T)
 	paths := []string{"/orders", "/orders/" + ordA, "/returns", "/returns/" + retA}
 	for _, path := range paths {
 		// A staff user with every duty, naming a customer in a header and a query, is not a customer.
-		rec := serve(t, s, http.MethodGet, customerPortal+path+"?customerId="+custA, principal(dutyCustomerPortal, dutyRead, dutyWrite), map[string]string{"X-Passage-Customer": custA})
+		rec := serve(t, s, http.MethodGet, customerPortal+path+"?customerId="+custA, principal(dutyCustomerPortal, dutyRead, dutyWrite), map[string]string{"X-Depot-Customer": custA})
 		if rec.Code != http.StatusForbidden {
 			t.Errorf("%s as a user: %d %s, want 403", path, rec.Code, rec.Body)
 		}
@@ -262,7 +262,7 @@ func TestCustomerPortal_TokenCannotReachStaffRoutes(t *testing.T) {
 	c := newCustomerHarness(t, newCustomerStore(false))
 	for _, path := range []string{"/v1/sales/orders", "/v1/sales/orders/" + ordB, "/v1/sales/return-orders", "/v1/sales/return-orders/" + retB,
 		"/v1/sales/credit-profiles/" + custB, "/v1/sales/orders?customerId=" + custB} {
-		if rec := c.get(t, custA, path, map[string]string{"X-Passage-Duties": dutyRead}); rec.Code != http.StatusForbidden {
+		if rec := c.get(t, custA, path, map[string]string{"X-Depot-Duties": dutyRead}); rec.Code != http.StatusForbidden {
 			t.Errorf("%s with a customer portal token: %d %s, want 403", path, rec.Code, rec.Body)
 		}
 	}

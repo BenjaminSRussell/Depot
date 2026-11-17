@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check memory growth over a soak run (PSG-50, PRD 9.50.9 "Soak": 24 h at 50% load, growth <= 10%).
+"""Check memory growth over a soak run (DPT-50, PRD 9.50.9 "Soak": 24 h at 50% load, growth <= 10%).
 
 Usage:
     python3 load/tools/check_soak.py results/soak-memory-*.csv [--max-growth 0.10] [--min-span-hours 24]

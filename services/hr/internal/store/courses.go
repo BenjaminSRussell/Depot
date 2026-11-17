@@ -9,11 +9,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/domain"
-	hrevents "github.com/BenjaminSRussell/passage/services/hr/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/domain"
+	hrevents "github.com/BenjaminSRussell/depot/services/hr/internal/events"
 )
 
 // Course problem codes raised by the store (FR-42.14). None is in the 8.42.18

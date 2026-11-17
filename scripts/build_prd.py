@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble the full Passage PRD from docs/PRD.md + docs/prd/*.md.
+"""Assemble the full Depot PRD from docs/PRD.md + docs/prd/*.md.
 
   python3 scripts/build_prd.py          # writes docs/PRD-full.md, prints word/page counts
   python3 scripts/build_prd.py --pdf    # also renders docs/PRD-full.pdf via pandoc if installed
@@ -82,7 +82,7 @@ def render_pdf(md_path):
     tool = ROOT / "tools" / "docs"
     if not (tool / "node_modules").exists():
         subprocess.run(["npm", "install", "--silent"], cwd=tool, check=True)
-    subprocess.run(["node", str(tool / "md2html.mjs"), str(md_path), str(html_path), "Passage PRD"], check=True)
+    subprocess.run(["node", str(tool / "md2html.mjs"), str(md_path), str(html_path), "Depot PRD"], check=True)
     chrome = CHROME if pathlib.Path(CHROME).exists() else shutil.which("google-chrome") or shutil.which("chromium")
     if not chrome:
         print("Chrome not found; wrote HTML only:", html_path.relative_to(ROOT), file=sys.stderr)

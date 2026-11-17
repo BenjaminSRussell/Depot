@@ -1,14 +1,14 @@
 package events
 
 const (
-	ProductCreated      = "dev.passage.product.product.created.v1"
-	ProductUpdated      = "dev.passage.product.product.updated.v1"
-	VariantCreated      = "dev.passage.product.variant.created.v1"
-	ProductReleased     = "dev.passage.product.product.released.v1"
-	ReleasedUpdated     = "dev.passage.product.releasedproduct.updated.v1"
-	IdentifierAdded     = "dev.passage.product.identifier.added.v1"
-	ConfigurationSolved = "dev.passage.product.configuration.solved.v1"
-	RelationChanged     = "dev.passage.product.relation.changed.v1"
+	ProductCreated      = "dev.depot.product.product.created.v1"
+	ProductUpdated      = "dev.depot.product.product.updated.v1"
+	VariantCreated      = "dev.depot.product.variant.created.v1"
+	ProductReleased     = "dev.depot.product.product.released.v1"
+	ReleasedUpdated     = "dev.depot.product.releasedproduct.updated.v1"
+	IdentifierAdded     = "dev.depot.product.identifier.added.v1"
+	ConfigurationSolved = "dev.depot.product.configuration.solved.v1"
+	RelationChanged     = "dev.depot.product.relation.changed.v1"
 )
 
 type ProductCreatedData struct {

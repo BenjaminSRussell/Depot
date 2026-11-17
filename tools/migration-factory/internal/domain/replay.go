@@ -10,7 +10,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 )
 
 // Parallel-run replay (FR-49.5 step 1, D4): the legacy period's journal documents are posted, in
@@ -152,7 +152,7 @@ func DocumentCounts(docs []ReplayDocument, period string) map[string]int {
 }
 
 // TBLines turns a trial balance into the parallel run's TB tuples for one side ("legacy" or
-// "passage"). Accounts are summed per key, so a repeated account adds up. documents gives each
+// "depot"). Accounts are summed per key, so a repeated account adds up. documents gives each
 // tuple's document count (DocumentCounts); nil leaves the counts out.
 func TBLines(tb []TBAccount, period, side string, documents map[string]int) []Line {
 	byKey := map[string]decimal.Decimal{}
@@ -166,7 +166,7 @@ func TBLines(tb []TBAccount, period, side string, documents map[string]int) []Li
 		if side == "legacy" {
 			l.Legacy = byKey[k]
 		} else {
-			l.Passage = byKey[k]
+			l.Depot = byKey[k]
 		}
 		out = append(out, l)
 	}

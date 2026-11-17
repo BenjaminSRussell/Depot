@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 type fakeXref struct {
@@ -28,7 +28,7 @@ func (f *fakeXref) Resolve(_ context.Context, _, le, system, entity string, keys
 	return f.found, f.err
 }
 
-// A legacy customer with no Passage id on the record or in the map is resolved through the party migration's cross-reference
+// A legacy customer with no Depot id on the record or in the map is resolved through the party migration's cross-reference
 // (H-S8-6): company-qualified first, then the bare party; AP lines, UUID parties and mapped parties are not asked about.
 func TestResolveCustomers_FillsTheMapFromTheCrossReference(t *testing.T) {
 	const c1, c2, mapped = "0195f0a0-0000-7000-8000-0000000000c1", "0195f0a0-0000-7000-8000-0000000000c2", "0195f0a0-0000-7000-8000-0000000000c3"
@@ -55,7 +55,7 @@ func TestResolveCustomers_FillsTheMapFromTheCrossReference(t *testing.T) {
 	}
 }
 
-// A legacy vendor of an AP line with no Passage vendor on the record or in load.payables.vendorIds is resolved through the same
+// A legacy vendor of an AP line with no Depot vendor on the record or in load.payables.vendorIds is resolved through the same
 // cross-reference as a customer, as entity vendor (#49); AR lines, UUID parties and mapped vendors are not asked about.
 func TestResolveVendors_FillsTheMapFromTheCrossReference(t *testing.T) {
 	const v1, v2, mapped = "0195f0a0-0000-7000-8000-0000000000d1", "0195f0a0-0000-7000-8000-0000000000d2", "0195f0a0-0000-7000-8000-0000000000d3"

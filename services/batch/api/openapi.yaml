@@ -4,13 +4,13 @@ info:
   version: 0.1.0
   description: Event backbone, approval workflow, batch jobs and notify (Wave 04).
 servers:
-  - url: https://app.local.passage.dev
+  - url: https://app.local.depot.dev
 paths:
   /v1/workflows/definitions:
     post:
       operationId: saveWorkflowDefinition
       summary: "Save a workflow definition"
-      x-passage-duty: workflow.write
+      x-depot-duty: workflow.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/Definition' } } }
@@ -21,7 +21,7 @@ paths:
     post:
       operationId: submitInstance
       summary: "Submit a workflow instance"
-      x-passage-duty: workflow.write
+      x-depot-duty: workflow.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/Submit' } } }
@@ -32,7 +32,7 @@ paths:
     get:
       operationId: getInstance
       summary: "Get a workflow instance"
-      x-passage-duty: workflow.read
+      x-depot-duty: workflow.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -42,7 +42,7 @@ paths:
     post:
       operationId: instanceAction
       summary: "Act on a workflow instance"
-      x-passage-duty: workflow.write
+      x-depot-duty: workflow.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -56,7 +56,7 @@ paths:
     get:
       operationId: listWorkItems
       summary: "List the work items waiting for the caller"
-      x-passage-duty: workflow.approve
+      x-depot-duty: workflow.approve
       parameters:
         - { name: assignee, in: query, schema: { type: string } }
         - { name: status, in: query, schema: { type: string } }
@@ -65,7 +65,7 @@ paths:
   /v1/inbox:
     get:
       operationId: getInbox
-      x-passage-duty: inbox.read
+      x-depot-duty: inbox.read
       summary: My work - what is waiting for the caller across requisition approvals, customer changes, journal batches and payment holds
       description: >-
         Merges the sources the caller is entitled to act on: a source is read only when the caller holds its approval duty
@@ -92,7 +92,7 @@ paths:
     post:
       operationId: actOnWorkItem
       summary: "Act on a work item"
-      x-passage-duty: workflow.approve
+      x-depot-duty: workflow.approve
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -105,7 +105,7 @@ paths:
     post:
       operationId: saveJob
       summary: "Save a batch job"
-      x-passage-duty: batch.write
+      x-depot-duty: batch.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/Job' } } }
@@ -116,7 +116,7 @@ paths:
     get:
       operationId: getJob
       summary: "Get a batch job"
-      x-passage-duty: batch.read
+      x-depot-duty: batch.read
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
       responses:
@@ -125,7 +125,7 @@ paths:
     post:
       operationId: startRun
       summary: "Start a run of a batch job"
-      x-passage-duty: batch.write
+      x-depot-duty: batch.write
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
         - { name: Idempotency-Key, in: header, schema: { type: string } }
@@ -141,7 +141,7 @@ paths:
     get:
       operationId: getRun
       summary: "Get a batch run"
-      x-passage-duty: batch.read
+      x-depot-duty: batch.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -150,7 +150,7 @@ paths:
     post:
       operationId: publishTemplate
       summary: "Publish a notification template"
-      x-passage-duty: notify.write
+      x-depot-duty: notify.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/Template' } } }
@@ -161,7 +161,7 @@ paths:
     get:
       operationId: listMessages
       summary: "List notification messages"
-      x-passage-duty: notify.read
+      x-depot-duty: notify.read
       parameters:
         - { name: status, in: query, schema: { type: string } }
       responses:
@@ -169,7 +169,7 @@ paths:
     post:
       operationId: enqueueMessage
       summary: "Queue a notification message"
-      x-passage-duty: notify.send
+      x-depot-duty: notify.send
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/Message' } } }
@@ -179,7 +179,7 @@ paths:
     post:
       operationId: retryMessage
       summary: "Retry a notification message"
-      x-passage-duty: notify.write
+      x-depot-duty: notify.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -190,7 +190,7 @@ paths:
     put:
       operationId: putMyPreference
       summary: "Set the caller's notification preference"
-      x-passage-duty: notify.write
+      x-depot-duty: notify.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/Preference' } } }
@@ -200,14 +200,14 @@ paths:
     get:
       operationId: listTopics
       summary: "List the event topics"
-      x-passage-duty: events.read
+      x-depot-duty: events.read
       responses:
         '200': { description: Topic catalog. }
   /v1/events/asyncapi/{domain}:
     get:
       operationId: getAsyncAPI
       summary: "Get the AsyncAPI document of an event domain"
-      x-passage-duty: events.read
+      x-depot-duty: events.read
       parameters:
         - { name: domain, in: path, required: true, schema: { type: string } }
       responses:
@@ -216,7 +216,7 @@ paths:
     get:
       operationId: getSchema
       summary: "Get an event schema"
-      x-passage-duty: events.read
+      x-depot-duty: events.read
       parameters:
         - { name: type, in: path, required: true, schema: { type: string } }
       responses:
@@ -224,7 +224,7 @@ paths:
     post:
       operationId: registerSchema
       summary: "Register an event schema"
-      x-passage-duty: events.write
+      x-depot-duty: events.write
       parameters:
         - { name: type, in: path, required: true, schema: { type: string } }
       requestBody:
@@ -237,19 +237,19 @@ paths:
     post:
       operationId: replayTopic
       summary: "Replay a topic"
-      x-passage-duty: batch.write
+      x-depot-duty: batch.write
       responses:
         '202': { description: Replay accepted. }
   /healthz:
     get:
       operationId: liveness
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Process is alive. }
   /readyz:
     get:
       operationId: readiness
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Database reachable. }
         '503': { description: Database unreachable. }

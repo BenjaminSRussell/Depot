@@ -17,13 +17,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/api"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/pki"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/api"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/pki"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/migrations"
 )
 
 const (

@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/audit/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/audit/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/store"
 )
 
 func (f *fakeStore) ListBreakGlass(_ context.Context, status string, limit int, afterSeq int64) ([]store.BreakGlassRead, error) {
@@ -56,9 +56,9 @@ const dutyReviewer = "audit.read-log.review"
 // doAs is do with another user, so a reviewer can differ from the reader (user-1).
 func doAs(r http.Handler, user, method, path, body, duties string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-User", user)
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-User", user)
+	req.Header.Set("X-Depot-Duties", duties)
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
 )
 
 func settlementFor(amount, currency string) domain.Settlement {

@@ -12,10 +12,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/config"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/config"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/store"
 )
 
 const (
@@ -182,7 +182,7 @@ func TestSharedContent_NeedsNoIdentityAndIsNeverCached(t *testing.T) {
 	}
 	h := w.Header()
 	if h.Get("Cache-Control") != "private, no-store" || h.Get("Referrer-Policy") != "no-referrer" || h.Get("X-Content-Type-Options") != "nosniff" ||
-		h.Get("ETag") != `"`+strings.Repeat("ab", 32)+`"` || h.Get("X-Passage-Content-Sha256") != strings.Repeat("ab", 32) ||
+		h.Get("ETag") != `"`+strings.Repeat("ab", 32)+`"` || h.Get("X-Depot-Content-Sha256") != strings.Repeat("ab", 32) ||
 		h.Get("Content-Disposition") != `attachment; filename="BS_STD_2026.csv"` || h.Get("Content-Type") != "text/csv; charset=utf-8" ||
 		!strings.Contains(h.Get("Content-Security-Policy"), "sandbox") || h.Get("X-Frame-Options") != "DENY" {
 		t.Fatalf("headers %v", h)

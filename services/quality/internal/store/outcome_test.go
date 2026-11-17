@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/quality/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/quality/internal/domain"
 )
 
 func TestOutcomeMaster_CreateSearchRetireAndTenantScope(t *testing.T) {

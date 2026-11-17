@@ -7,8 +7,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
-	rcvevents "github.com/BenjaminSRussell/passage/services/receivables/internal/events"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
+	rcvevents "github.com/BenjaminSRussell/depot/services/receivables/internal/events"
 )
 
 func camtCredit(stmt, ref, amount string) domain.CAMTCredit {

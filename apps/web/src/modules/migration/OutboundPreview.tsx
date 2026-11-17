@@ -8,7 +8,7 @@ import { ProblemMessage } from "../../shell/errors";
 const unresolvedColumns: DataTableColumn<UnresolvedRef>[] = [
   { key: "name", header: "Lookup", mono: true },
   { key: "entity", header: "Entity" },
-  { key: "id", header: "Passage id or key", mono: true, render: (row) => row.id ?? "" },
+  { key: "id", header: "Depot id or key", mono: true, render: (row) => row.id ?? "" },
   { key: "reason", header: "Why" },
 ];
 

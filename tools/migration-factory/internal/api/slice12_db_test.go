@@ -12,7 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/migrations"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/migrations"
 )
 
 // S11-a: a receivable and a payable with the same legacy id (AX CustTransOpen and VendTransOpen RecIds)
@@ -191,8 +191,8 @@ func TestMigration0016_RunsAsTableOwnerWithoutBypass(t *testing.T) {
 	for _, sql := range []string{
 		`alter table legacy_xref disable trigger legacy_xref_confirm_target`,
 		`update legacy_xref set source_table = 'open_items' where run_id = '` + run.RunID + `'`,
-		`insert into legacy_xref (tenant_id, xref_id, source_system, source_company, source_table, source_id, passage_entity, passage_id, run_id, amount, currency)
-			select '` + tenantB + `', gen_random_uuid(), source_system, source_company, 'open_items', source_id, passage_entity, gen_random_uuid(), '` + otherRun + `', amount, currency
+		`insert into legacy_xref (tenant_id, xref_id, source_system, source_company, source_table, source_id, depot_entity, depot_id, run_id, amount, currency)
+			select '` + tenantB + `', gen_random_uuid(), source_system, source_company, 'open_items', source_id, depot_entity, gen_random_uuid(), '` + otherRun + `', amount, currency
 			from legacy_xref where run_id = '` + run.RunID + `' and source_id = 'AR-7'`,
 		`alter table legacy_xref enable trigger legacy_xref_confirm_target`,
 		`update pack_run set receivables_load = null where run_id = '` + run.RunID + `'`,

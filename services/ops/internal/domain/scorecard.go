@@ -2,7 +2,7 @@ package domain
 
 import "time"
 
-// Game-day scorecard (PSG-50, AC-50.3): the same measures as deploy/multi-region/gameday/score.py, computed from the steps a
+// Game-day scorecard (DPT-50, AC-50.3): the same measures as deploy/multi-region/gameday/score.py, computed from the steps a
 // failover recorded. RTO runs from the start of the fence step to the end of the DNS flip (fence to DNS verified); RPO is the
 // replication lag at the fence, which is the data the target could be missing.
 const (

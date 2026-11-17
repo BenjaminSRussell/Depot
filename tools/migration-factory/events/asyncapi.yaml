@@ -1,49 +1,49 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Migration Factory events
+  title: Depot Migration Factory events
   version: 0.4.0
   description: |
     Events the migration factory writes to its transactional outbox (PRD 9.49.5), in the same
     transaction as the state change. Debezium relays them to Kafka topic
-    passage.<context>.<entity>, keyed by aggregate id. Each message is a CloudEvents 1.0
-    structured envelope; `data` carries the payload below. Source: passage/migration-factory.
+    depot.<context>.<entity>, keyed by aggregate id. Each message is a CloudEvents 1.0
+    structured envelope; `data` carries the payload below. Source: depot/migration-factory.
     The constants live in internal/events.
 defaultContentType: application/cloudevents+json
 channels:
   migrationPack:
-    address: passage.migration.pack
+    address: depot.migration.pack
     messages:
       packReconciled:
         $ref: "#/components/messages/PackReconciled"
       packLoaded:
         $ref: "#/components/messages/PackLoaded"
   migrationParallelRun:
-    address: passage.migration.parallelrun
+    address: depot.migration.parallelrun
     messages:
       parallelRunDiffed:
         $ref: "#/components/messages/ParallelRunDiffed"
   cutoverStep:
-    address: passage.cutover.step
+    address: depot.cutover.step
     messages:
       stepCompleted:
         $ref: "#/components/messages/CutoverStepCompleted"
   cutoverPlan:
-    address: passage.cutover.plan
+    address: depot.cutover.plan
     messages:
       planRolledBack:
         $ref: "#/components/messages/CutoverPlanRolledBack"
   cutoverDecision:
-    address: passage.cutover.decision
+    address: depot.cutover.decision
     messages:
       decisionRecorded:
         $ref: "#/components/messages/CutoverDecisionRecorded"
   migrationTolerance:
-    address: passage.migration.tolerance
+    address: depot.migration.tolerance
     messages:
       toleranceConfigured:
         $ref: "#/components/messages/ToleranceConfigured"
   migrationCoexistence:
-    address: passage.migration.coexistence
+    address: depot.migration.coexistence
     messages:
       coexistenceChanged:
         $ref: "#/components/messages/CoexistenceChanged"
@@ -99,49 +99,49 @@ operations:
 components:
   messages:
     PackReconciled:
-      name: dev.passage.migration.pack.reconciled.v1
+      name: dev.depot.migration.pack.reconciled.v1
       title: Pack run reconciled
       summary: A pack run computed its control totals. Written for every run, whether or not it reached RECONCILED, and again when releasing a quarantined record brings a LOADED run to RECONCILED.
       payload:
         $ref: "#/components/schemas/PackReconciledEnvelope"
     PackLoaded:
-      name: dev.passage.migration.pack.loaded.v1
+      name: dev.depot.migration.pack.loaded.v1
       title: Pack run loaded into its target
       summary: A pass of the load of a pack run into the target service (receivables for open_items) finished. Written after the rows were sent and the target's totals were compared, and again by every later pass; status says whether the target's totals equal what the factory sent.
       payload:
         $ref: "#/components/schemas/PackLoadedEnvelope"
     ParallelRunDiffed:
-      name: dev.passage.migration.parallelrun.diffed.v1
+      name: dev.depot.migration.parallelrun.diffed.v1
       title: Parallel run diffed
-      summary: A parallel run outer-joined the legacy and Passage tuples and classified the variances (FR-49.5); it is in REVIEW.
+      summary: A parallel run outer-joined the legacy and Depot tuples and classified the variances (FR-49.5); it is in REVIEW.
       payload:
         $ref: "#/components/schemas/ParallelRunDiffedEnvelope"
     CutoverStepCompleted:
-      name: dev.passage.cutover.step.completed.v1
+      name: dev.depot.cutover.step.completed.v1
       title: Cutover step completed
       summary: A runbook step was marked done.
       payload:
         $ref: "#/components/schemas/CutoverStepCompletedEnvelope"
     CutoverPlanRolledBack:
-      name: dev.passage.cutover.plan.rolledback.v1
+      name: dev.depot.cutover.plan.rolledback.v1
       title: Cutover plan rolled back
       summary: A cutover plan's rollback was executed with two distinct approvers (FR-49.9). It lists the coexistence flags the rollback handed back to LEGACY, and the integration hub resumes those coexistence adapters on it (AC-49.7).
       payload:
         $ref: "#/components/schemas/CutoverPlanRolledBackEnvelope"
     CutoverDecisionRecorded:
-      name: dev.passage.cutover.decision.recorded.v1
+      name: dev.depot.cutover.decision.recorded.v1
       title: Cutover go/no-go decision recorded
       summary: A GO or NO_GO decision was recorded on a cutover plan with its approvers and the checklist items that were not met (none for a GO). Audit and platform-ops consume it.
       payload:
         $ref: "#/components/schemas/CutoverDecisionRecordedEnvelope"
     CoexistenceChanged:
-      name: dev.passage.migration.coexistence.changed.v1
+      name: dev.depot.migration.coexistence.changed.v1
       title: Coexistence flag changed
-      summary: An entity kind of a legacy company was cut over to Passage or handed back to the legacy system (FR-49.7, BR-49.10). The integration hub suspends the kind's coexistence adapter on PASSAGE and resumes it on LEGACY, in flag version order.
+      summary: An entity kind of a legacy company was cut over to Depot or handed back to the legacy system (FR-49.7, BR-49.10). The integration hub suspends the kind's coexistence adapter on DEPOT and resumes it on LEGACY, in flag version order.
       payload:
         $ref: "#/components/schemas/CoexistenceChangedEnvelope"
     ToleranceConfigured:
-      name: dev.passage.migration.tolerance.configured.v1
+      name: dev.depot.migration.tolerance.configured.v1
       title: Control-total tolerance configured
       summary: A tolerance for a control total of a pack was set or changed (FR-49.2). Audit consumes it, because a tolerance lets a run reconcile with a non-zero delta.
       payload:
@@ -156,7 +156,7 @@ components:
         id:
           type: string
         source:
-          const: passage/migration-factory
+          const: depot/migration-factory
         type:
           type: string
         subject:
@@ -178,7 +178,7 @@ components:
         - type: object
           properties:
             type:
-              const: dev.passage.migration.pack.reconciled.v1
+              const: dev.depot.migration.pack.reconciled.v1
             data:
               type: object
               required: [run_id, pack, source_system, source_company, status, totals_match, totals_mismatch, quarantined, records_loaded]
@@ -210,7 +210,7 @@ components:
         - type: object
           properties:
             type:
-              const: dev.passage.migration.pack.loaded.v1
+              const: dev.depot.migration.pack.loaded.v1
             data:
               type: object
               required: [run_id, pack, target, import_source, legal_entity_id, status, created, updated, unchanged, skipped, rejected, not_available, pending, totals_match, totals_mismatch]
@@ -258,7 +258,7 @@ components:
         - type: object
           properties:
             type:
-              const: dev.passage.migration.parallelrun.diffed.v1
+              const: dev.depot.migration.parallelrun.diffed.v1
             data:
               type: object
               required: [parallel_run_id, period, source_system, variance_count, unexplained_count, unexplained_amount]
@@ -285,7 +285,7 @@ components:
         - type: object
           properties:
             type:
-              const: dev.passage.cutover.step.completed.v1
+              const: dev.depot.cutover.step.completed.v1
             data:
               type: object
               required: [plan_id, step_id, name, actual_duration_min, status, completed_by]
@@ -311,7 +311,7 @@ components:
         - type: object
           properties:
             type:
-              const: dev.passage.cutover.plan.rolledback.v1
+              const: dev.depot.cutover.plan.rolledback.v1
             data:
               type: object
               required: [plan_id, approvers, executed_by, rekey_journal_lines, rekey_document_lines, pack_runs_rolled_back, coexistence_resumed]
@@ -340,7 +340,7 @@ components:
                   description: Loaded and reconciled pack runs of the plan's legacy companies and packs moved to ROLLED_BACK (BR-49.1).
                 coexistence_resumed:
                   type: array
-                  description: The coexistence flags the rollback flipped back to LEGACY (one per legacy system, company and entity kind that Passage mastered); the hub resumes their adapters. Empty when nothing was cut over.
+                  description: The coexistence flags the rollback flipped back to LEGACY (one per legacy system, company and entity kind that Depot mastered); the hub resumes their adapters. Empty when nothing was cut over.
                   items:
                     $ref: "#/components/schemas/CoexistenceEntry"
     CutoverDecisionRecordedEnvelope:
@@ -349,7 +349,7 @@ components:
         - type: object
           properties:
             type:
-              const: dev.passage.cutover.decision.recorded.v1
+              const: dev.depot.cutover.decision.recorded.v1
             data:
               type: object
               required: [plan_id, decision, approvers, reason, open_items, waivers, decided_by, timestamp]
@@ -399,7 +399,7 @@ components:
         - type: object
           properties:
             type:
-              const: dev.passage.migration.tolerance.configured.v1
+              const: dev.depot.migration.tolerance.configured.v1
             data:
               type: object
               required: [pack, total, amount, previous_amount, reason, version, configured_by]
@@ -440,7 +440,7 @@ components:
           enum: [customer, vendor, product, open_items, open_orders, onhand, gl_journal, fixed_asset, worker]
         mode:
           type: string
-          enum: [LEGACY, PASSAGE]
+          enum: [LEGACY, DEPOT]
         version:
           type: integer
           minimum: 1
@@ -451,7 +451,7 @@ components:
         - type: object
           properties:
             type:
-              const: dev.passage.migration.coexistence.changed.v1
+              const: dev.depot.migration.coexistence.changed.v1
             subject:
               description: source_system/source_company/entity.
             data:
@@ -467,14 +467,14 @@ components:
                   type: string
                 mode:
                   type: string
-                  enum: [LEGACY, PASSAGE]
+                  enum: [LEGACY, DEPOT]
                 version:
                   type: integer
                   minimum: 1
                 cutover_at:
                   type: [string, "null"]
                   format: date-time
-                  description: When Passage took the kind over; null once it is back on LEGACY.
+                  description: When Depot took the kind over; null once it is back on LEGACY.
                 changed_by:
                   type: string
                 plan_id:

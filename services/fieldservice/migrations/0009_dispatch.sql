@@ -1,4 +1,4 @@
--- Field service, slice 7 (PSG-4507): technicians, work-order scheduling data,
+-- Field service, slice 7 (DPT-4507): technicians, work-order scheduling data,
 -- manual assignment with the BR-45.3 hard constraints, the dispatch board and
 -- publishing a territory-day (FR-45.7, FR-45.6). Skills are free codes until wave
 -- 42 owns them.
@@ -38,11 +38,11 @@ CREATE INDEX IF NOT EXISTS service_technician_recent ON service_technician (tena
 ALTER TABLE service_technician ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_technician FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_technician_tenant_access ON service_technician AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY service_technician_legal_entity_scope ON service_technician AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Scheduling data of a work order (PRD 8.45.4) and its one active assignment.
 ALTER TABLE service_work_order ADD COLUMN IF NOT EXISTS required_skills text[] NOT NULL DEFAULT '{}';
@@ -92,11 +92,11 @@ CREATE INDEX IF NOT EXISTS service_dispatch_run_recent ON service_dispatch_run (
 ALTER TABLE service_dispatch_run ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_dispatch_run FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_dispatch_run_tenant_access ON service_dispatch_run AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY service_dispatch_run_legal_entity_scope ON service_dispatch_run AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Application role privileges, in the style of 0002. Technicians are updated (edits,
 -- and locked while an assignment is checked); dispatch runs are append-only;
@@ -104,10 +104,10 @@ CREATE POLICY service_dispatch_run_legal_entity_scope ON service_dispatch_run AS
 -- the role does not exist (developer databases without the role split).
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON service_technician TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON service_dispatch_run TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON service_technician TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON service_dispatch_run TO depot_app';
   END IF;
 END
 $$;

@@ -10,10 +10,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	purchasingevents "github.com/BenjaminSRussell/passage/services/purchasing/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	purchasingevents "github.com/BenjaminSRussell/depot/services/purchasing/internal/events"
 )
 
 // RequisitionEdit is a change to a DRAFT requisition (BR-17.1). Lines, when not nil, replace all the lines; the

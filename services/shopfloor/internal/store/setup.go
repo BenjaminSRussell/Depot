@@ -12,12 +12,12 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
 )
 
 // Pay setup problem codes (see README).
@@ -167,7 +167,7 @@ func profileEvent(ctx context.Context, tx pgx.Tx, tenantID string, p TimeProfile
 }
 
 // CreateTimeProfile stores a profile with its days under the Idempotency-Key and
-// publishes dev.passage.shopfloor.timeprofile.saved.v1 in the same transaction.
+// publishes dev.depot.shopfloor.timeprofile.saved.v1 in the same transaction.
 // A code already used is SF-0142.
 func (s *Postgres) CreateTimeProfile(ctx context.Context, in TimeProfileInput, createdBy string, idem Idem) (TimeProfile, error) {
 	p, _ := tenant.FromContext(ctx)
@@ -320,7 +320,7 @@ func agreementEvent(ctx context.Context, tx pgx.Tx, tenantID string, a PayAgreem
 }
 
 // CreatePayAgreement stores an agreement under the Idempotency-Key and publishes
-// dev.passage.shopfloor.payagreement.saved.v1 in the same transaction. A code already
+// dev.depot.shopfloor.payagreement.saved.v1 in the same transaction. A code already
 // used is SF-0142.
 func (s *Postgres) CreatePayAgreement(ctx context.Context, in PayAgreementInput, createdBy string, idem Idem) (PayAgreement, error) {
 	p, _ := tenant.FromContext(ctx)
@@ -421,7 +421,7 @@ func (s *Postgres) ListPayAgreements(ctx context.Context, activeOnly bool, limit
 // A newly chosen profile or agreement must exist (SF-0140, SF-0141, 422) and be active
 // (SF-0144, 422); the one the worker is already linked to may stay linked after it was
 // deactivated, so changing only the other link still works. It publishes
-// dev.passage.shopfloor.worker.assigned.v1 in the same transaction. Days already
+// dev.depot.shopfloor.worker.assigned.v1 in the same transaction. Days already
 // calculated keep their lines until recalculated.
 func (s *Postgres) AssignWorkerSetup(ctx context.Context, workerID string, version int, profileID, agreementID *string, assignedBy string, idem Idem) (Worker, error) {
 	p, _ := tenant.FromContext(ctx)
@@ -466,7 +466,7 @@ const CodeResourceUnknown = "SF-0156"
 // make up the worker's dispatch list, when version is the worker's stored version (SF-0143,
 // 412). Resources belong to engineering data (w9), so the store accepts only a resource this
 // tenant's shop floor knows: a registered machine's resource or one with dispatch jobs
-// (SF-0156, 422). It publishes dev.passage.shopfloor.worker.assigned.v1 in the same
+// (SF-0156, 422). It publishes dev.depot.shopfloor.worker.assigned.v1 in the same
 // transaction; pay calculation does not read the resource, so no pay line changes.
 func (s *Postgres) AssignWorkerResource(ctx context.Context, workerID string, version int, resourceID *string, assignedBy string, idem Idem) (Worker, error) {
 	p, _ := tenant.FromContext(ctx)

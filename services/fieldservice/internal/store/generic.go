@@ -11,12 +11,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/domain"
-	svcevents "github.com/BenjaminSRussell/passage/services/fieldservice/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/domain"
+	svcevents "github.com/BenjaminSRussell/depot/services/fieldservice/internal/events"
 )
 
 // Problem codes of generic case management (FR-45.12). Each is listed in the service README.
@@ -572,7 +572,7 @@ func (s *Postgres) moveCase(ctx context.Context, id string, version int, key, re
 
 // AdvanceStage moves an OPEN case to the next stage once the current stage's
 // required activities are DONE (CASE-STG-001), or back one stage with a reason
-// (BR-45.9, AC-45.10). The move is logged and dev.passage.case.stage.changed.v1 is
+// (BR-45.9, AC-45.10). The move is logged and dev.depot.case.stage.changed.v1 is
 // written to the outbox in the same transaction.
 func (s *Postgres) AdvanceStage(ctx context.Context, m CaseMove, key, requestHash string) (GenericCase, bool, error) {
 	tid := tenantOf(ctx)

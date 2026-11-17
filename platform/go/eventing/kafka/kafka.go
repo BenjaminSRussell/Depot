@@ -10,7 +10,7 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 	"github.com/twmb/franz-go/pkg/sasl/scram"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
 )
 
 const (

@@ -64,7 +64,7 @@ The **Import your first records** step of the setup guide checks a CSV file befo
 
 If the step says no file import is set up yet, an administrator first creates a file connection, a mapping and a binding under **Data migration**. The step links to each one.
 
-## Try Passage with the demo company
+## Try Depot with the demo company
 
 Open **Company setup**, then **Demo company**, to fill a trial tenant with a sample manufacturer.
 
@@ -83,7 +83,7 @@ Open **Analytics**, then **UX telemetry**. You need the duty to view UX telemetr
 
 If a later step shows more sessions than the first, some sessions began the flow before the chosen dates or under another release. Shares of the first step are then capped at 100%.
 
-Counts are by browser session. Passage does not keep names, and it drops search text that looks like an email address or a long number.
+Counts are by browser session. Depot does not keep names, and it drops search text that looks like an email address or a long number.
 
 ## Common messages
 

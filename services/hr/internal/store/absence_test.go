@@ -9,11 +9,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/domain"
 )
 
 // usPTO15 is the BR-42.3 example plan: 1.25 days a month on the last day,
@@ -260,7 +260,7 @@ func TestAbsenceRequestRules(t *testing.T) {
 		t.Fatalf("balance after approving 1.00 of 2.00 = %s, want 1.00", got.Total)
 	}
 	events := outboxFor(t, s, ctx, a.ID)
-	if len(events) != 1 || events[0].Type != "dev.passage.hr.absence.approved.v1" ||
+	if len(events) != 1 || events[0].Type != "dev.depot.hr.absence.approved.v1" ||
 		events[0].Data["worker_id"] != w.ID || events[0].Data["date_from"] != "2026-03-02" || events[0].Data["date_to"] != "2026-03-03" ||
 		events[0].Data["quantity"] != "1.00" || events[0].Data["unit"] != "DAYS" {
 		t.Fatalf("approval event = %+v", events)

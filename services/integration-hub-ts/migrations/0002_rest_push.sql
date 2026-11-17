@@ -1,6 +1,6 @@
 -- Integration hub: rest-push subscriptions (push events into a customer's existing ERP).
 -- No new table: the columns below are on tables 0001 created, which already carry tenant_id,
--- row-level security and the passage_app grants (SELECT, INSERT, UPDATE on hub_delivery; SELECT, INSERT,
+-- row-level security and the depot_app grants (SELECT, INSERT, UPDATE on hub_delivery; SELECT, INSERT,
 -- UPDATE, DELETE on hub_subscription).
 
 ALTER TABLE hub_subscription ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'webhook' CHECK (kind IN ('webhook', 'rest-push'));

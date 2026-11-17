@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/store"
 )
 
 func (f *fakeStore) GetFXSetting(_ context.Context, le string) (store.FXSetting, error) {

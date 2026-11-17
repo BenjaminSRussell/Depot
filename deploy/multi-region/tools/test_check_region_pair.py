@@ -15,7 +15,7 @@ region:
   role: PRIMARY
 postgres:
   primary:
-    host: passage-pg-rw.eu-central.passage.internal
+    host: depot-pg-rw.eu-central.depot.internal
 kafka:
   localAlias: eu-west
   remoteAlias: eu-central
@@ -30,7 +30,7 @@ region:
   role: PASSIVE
 postgres:
   primary:
-    host: passage-pg-rw.eu-west.passage.internal
+    host: depot-pg-rw.eu-west.depot.internal
 kafka:
   localAlias: eu-central
   remoteAlias: eu-west
@@ -45,7 +45,7 @@ region:
   role: PRIMARY
 postgres:
   primary:
-    host: passage-pg-rw.eu-central.passage.internal
+    host: depot-pg-rw.eu-central.depot.internal
     port: 5432
 kafka:
   localAlias: eu-west
@@ -53,7 +53,7 @@ kafka:
 mm2:
   sourceAlias: eu-west
   targetAlias: eu-central
-  topicsPattern: "passage\\\\.(?!internal\\\\.).*"
+  topicsPattern: "depot\\\\.(?!internal\\\\.).*"
   lagAlertMessages: 100000    # mm2.lag_alert_messages, >= 1000
 failover:
   maxLagSeconds: 300
@@ -78,7 +78,7 @@ def chart() -> dict:
 
 
 def failed_over() -> dict:
-    """The pair after `passage-ops failover --to eu-central` (docs/ops/runbooks/failover.md step 3)."""
+    """The pair after `depot-ops failover --to eu-central` (docs/ops/runbooks/failover.md step 3)."""
     files = pair()
     files["eu-west"]["region"]["role"] = "FENCED"
     files["eu-central"]["region"]["role"] = "PRIMARY"
@@ -278,7 +278,7 @@ region:
   provider: aks
 postgres:
   primary:
-    host: passage-pg-rw.centralus.passage.internal
+    host: depot-pg-rw.centralus.depot.internal
 backup:
   store: azure-blob
   azure:
@@ -300,7 +300,7 @@ region:
   provider: aks
 postgres:
   primary:
-    host: passage-pg-rw.eastus2.passage.internal
+    host: depot-pg-rw.eastus2.depot.internal
 backup:
   store: azure-blob
   azure:
@@ -447,7 +447,7 @@ class TestMain(unittest.TestCase):
                 self.assertEqual(code, 1, provider)
                 self.assertTrue("s3 backup destination is not allowed" in text or "needs backup.store azure-blob" in text, text)
         eks_path = self._eu(US_EAST).replace("provider: aks", "provider: eks").replace(
-            "    container: pg-backups", "    container: pg-backups\n  destinationPath: s3://passage-pg-backups-eu/"
+            "    container: pg-backups", "    container: pg-backups\n  destinationPath: s3://depot-pg-backups-eu/"
         )
         with tempfile.TemporaryDirectory() as tmp:
             code, text = self._run(*self._eu_layout(Path(tmp), eks_path, self._eu(US_CENTRAL)), "--cloud-profile", self.EU_OVERLAY)

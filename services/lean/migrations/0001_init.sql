@@ -127,45 +127,45 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE production_flow ENABLE ROW LEVEL SECURITY;
 ALTER TABLE production_flow FORCE ROW LEVEL SECURITY;
 CREATE POLICY production_flow_tenant_access ON production_flow AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE flow_activity ENABLE ROW LEVEL SECURITY;
 ALTER TABLE flow_activity FORCE ROW LEVEL SECURITY;
 CREATE POLICY flow_activity_tenant_access ON flow_activity AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE kanban_rule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE kanban_rule FORCE ROW LEVEL SECURITY;
 CREATE POLICY kanban_rule_tenant_access ON kanban_rule AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE kanban ENABLE ROW LEVEL SECURITY;
 ALTER TABLE kanban FORCE ROW LEVEL SECURITY;
 CREATE POLICY kanban_tenant_access ON kanban AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE idempotency_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE idempotency_keys FORCE ROW LEVEL SECURITY;
 CREATE POLICY idempotency_keys_tenant_access ON idempotency_keys AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- The application role reads and writes through RLS; it never owns the tables.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON production_flow, flow_activity, kanban_rule, kanban, idempotency_keys, outbox TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON production_flow, flow_activity, kanban_rule, kanban, idempotency_keys, outbox TO depot_app';
   END IF;
 END
 $$;

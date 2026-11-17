@@ -19,8 +19,8 @@ CREATE TABLE IF NOT EXISTS audit_entry (
 ALTER TABLE audit_entry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_entry FORCE ROW LEVEL SECURITY;
 CREATE POLICY audit_entry_tenant_access ON audit_entry AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE INDEX IF NOT EXISTS audit_entry_record ON audit_entry (tenant_id, entity, record_id, seq);
 
 CREATE FUNCTION audit_entry_immutable() RETURNS trigger AS $$
@@ -44,8 +44,8 @@ CREATE TABLE IF NOT EXISTS alert_rule (
 ALTER TABLE alert_rule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE alert_rule FORCE ROW LEVEL SECURITY;
 CREATE POLICY alert_rule_tenant_access ON alert_rule AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS alert_inbox (
   tenant_id uuid NOT NULL,
@@ -61,8 +61,8 @@ CREATE TABLE IF NOT EXISTS alert_inbox (
 ALTER TABLE alert_inbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE alert_inbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY alert_inbox_tenant_access ON alert_inbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS outbox (
   id text PRIMARY KEY,
@@ -76,5 +76,5 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

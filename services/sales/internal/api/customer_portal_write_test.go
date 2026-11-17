@@ -13,11 +13,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/sales/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/sales/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/store"
 )
 
 const (
@@ -149,7 +149,7 @@ func (w *writeHarness) post(t *testing.T, customer, path, key, body string, duti
 		t.Fatal(err)
 	}
 	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Service-Token", token)
+	req.Header.Set("X-Depot-Service-Token", token)
 	req.Header.Set("Content-Type", "application/json")
 	if key != "" {
 		req.Header.Set(idempotencyKey, key)
@@ -167,7 +167,7 @@ func (w *writeHarness) get(t *testing.T, customer, path string) *httptest.Respon
 		t.Fatal(err)
 	}
 	req := httptest.NewRequest(http.MethodGet, path, nil)
-	req.Header.Set("X-Passage-Service-Token", token)
+	req.Header.Set("X-Depot-Service-Token", token)
 	rec := httptest.NewRecorder()
 	w.h.ServeHTTP(rec, req)
 	return rec

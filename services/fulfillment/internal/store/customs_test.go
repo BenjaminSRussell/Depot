@@ -3,8 +3,8 @@ package store_test
 import (
 	"testing"
 
-	fulevents "github.com/BenjaminSRussell/passage/services/fulfillment/internal/events"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	fulevents "github.com/BenjaminSRussell/depot/services/fulfillment/internal/events"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 // Worked example (#13): 40 units are picked, packed and posted at a unit cost of 2.00 to the customer's warehouse in Austria (countryCode AT;

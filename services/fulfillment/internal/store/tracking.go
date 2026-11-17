@@ -8,11 +8,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	fulevents "github.com/BenjaminSRussell/passage/services/fulfillment/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	fulevents "github.com/BenjaminSRussell/depot/services/fulfillment/internal/events"
 )
 
 // TrackingEvent is one carrier scan or status change for a shipment (FR-28.10).

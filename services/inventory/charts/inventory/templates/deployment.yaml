@@ -37,7 +37,7 @@ spec:
             capabilities:
               drop: [ALL]
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -45,10 +45,10 @@ spec:
                   key: DATABASE_URL
             - name: MIGRATE_ON_START
               value: {{ .Values.migrateOnStart | quote }}
-            - name: PASSAGE_SERVICE_NAME
+            - name: DEPOT_SERVICE_NAME
               value: inventory
             {{- if .Values.serviceIdentity.publicKeys }}
-            - name: PASSAGE_SERVICE_PUBLIC_KEYS
+            - name: DEPOT_SERVICE_PUBLIC_KEYS
               value: {{ .Values.serviceIdentity.publicKeys | quote }}
             {{- end }}
             - name: INV_NEGATIVE_DEFAULT
@@ -84,16 +84,16 @@ spec:
             - { name: LEDGER_URL, value: {{ .Values.ledgerUrl | quote }} }
 {{- end }}
 {{- if .Values.serviceIdentity.signingKeySecret }}
-            - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
-              value: /var/run/passage/service-identity/signing-key
+            - name: DEPOT_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/depot/service-identity/signing-key
 {{- if .Values.serviceIdentity.keyId }}
-            - name: PASSAGE_SERVICE_KEY_ID
+            - name: DEPOT_SERVICE_KEY_ID
               value: {{ .Values.serviceIdentity.keyId | quote }}
 {{- end }}
 {{- end }}
 {{- if .Values.serviceIdentity.signingKeySecret }}
           volumeMounts:
-            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
 {{- end }}
           ports:
             - { name: http, containerPort: 8080 }

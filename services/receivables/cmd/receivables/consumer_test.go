@@ -13,14 +13,14 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/store"
-	"github.com/BenjaminSRussell/passage/services/receivables/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/store"
+	"github.com/BenjaminSRussell/depot/services/receivables/migrations"
 )
 
 const (
@@ -379,13 +379,13 @@ func TestBillingConsumer_StartsOnlyWhileItsPrincipalIsSeededAndSubscribesToBilli
 		t.Fatal("platform table does not seed service:" + api.BillingConsumerName)
 	}
 	cfg, err := billingKafkaConfig(func(k string) string { return map[string]string{"KAFKA_BROKERS": "kafka:9092"}[k] })
-	if err != nil || cfg.Group != api.BillingConsumerName || len(cfg.Topics) != 1 || cfg.Topics[0] != "passage.billing.invoice" {
+	if err != nil || cfg.Group != api.BillingConsumerName || len(cfg.Topics) != 1 || cfg.Topics[0] != "depot.billing.invoice" {
 		t.Fatalf("kafka config %+v %v", cfg, err)
 	}
 	if _, err := billingKafkaConfig(func(string) string { return "" }); err == nil {
 		t.Fatal("kafka config without KAFKA_BROKERS accepted")
 	}
-	for _, typ := range []string{"dev.passage.billing.invoice.posted.v1", "dev.passage.billing.creditnote.posted.v1"} {
+	for _, typ := range []string{"dev.depot.billing.invoice.posted.v1", "dev.depot.billing.creditnote.posted.v1"} {
 		if _, ok := billingConfig(nil).Handlers[typ]; !ok {
 			t.Fatalf("no handler for %s", typ)
 		}

@@ -14,7 +14,7 @@ import {
   type ShellRequest,
 } from "./shellCache";
 
-const ORIGIN = "https://devices.passage.dev";
+const ORIGIN = "https://devices.depot.dev";
 
 const req = (over: Partial<ShellRequest>): ShellRequest => ({
   method: "GET",

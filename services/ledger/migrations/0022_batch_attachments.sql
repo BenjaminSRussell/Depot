@@ -29,17 +29,17 @@ CREATE INDEX IF NOT EXISTS batch_attachment_batch ON batch_attachment (tenant_id
 ALTER TABLE batch_attachment ENABLE ROW LEVEL SECURITY;
 ALTER TABLE batch_attachment FORCE ROW LEVEL SECURITY;
 CREATE POLICY batch_attachment_tenant_access ON batch_attachment AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY batch_attachment_legal_entity_scope ON batch_attachment AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Inserted and deleted (before posting, or after retention); never updated.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON batch_attachment TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON batch_attachment TO depot_app';
   END IF;
 END
 $$;

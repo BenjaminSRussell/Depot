@@ -1,10 +1,10 @@
 // Package chargefeed raises intercompany charges from the events of expense and projects (#40). When another legal entity bears the
 // cost, the entity that paid or employed is the lender and the bearing entity the borrower:
 //
-//   - dev.passage.expense.report.approved.v1 lists, in chargedLines, the report lines whose chargeToLegalEntityId differs from the
+//   - dev.depot.expense.report.approved.v1 lists, in chargedLines, the report lines whose chargeToLegalEntityId differs from the
 //     entity that pays the report. Each becomes an Expense charge from the paying entity to the bearing one, quantity 1 at the line
 //     amount, keyed expense:<lineId> version 1.
-//   - dev.passage.projects.transaction.posted.v1 is published for every HOUR transaction. When it names the worker's employing
+//   - dev.depot.projects.transaction.posted.v1 is published for every HOUR transaction. When it names the worker's employing
 //     entity and that differs from the project's entity, it becomes an Hour charge from the employing entity to the project's, the
 //     hours at the hourly cost, keyed projects:<transactionId> version 1.
 //
@@ -27,13 +27,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/reimbursement"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/reimbursement"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/domain"
 )
 
 const (
@@ -41,14 +41,14 @@ const (
 	ConsumerName = "intercompany-charges"
 	// Duty is the only duty of that principal.
 	Duty            = "intercompany.charge.from-event"
-	DeadLetterTopic = "passage.intercompany.charges.dlq"
-	ExpenseTopic    = "passage.expense.report"
-	ProjectsTopic   = "passage.projects.transaction"
+	DeadLetterTopic = "depot.intercompany.charges.dlq"
+	ExpenseTopic    = "depot.expense.report"
+	ProjectsTopic   = "depot.projects.transaction"
 	// ExpenseSource and ProjectsSource are the CloudEvents sources the two services publish with.
-	ExpenseSource  = "/passage/expense/expense"
+	ExpenseSource  = "/depot/expense/expense"
 	ProjectsSource = "projects"
 	// TransactionPostedType is projects' HOUR transaction event.
-	TransactionPostedType = "dev.passage.projects.transaction.posted.v1"
+	TransactionPostedType = "dev.depot.projects.transaction.posted.v1"
 )
 
 // Submitter runs a charge request the way POST /v1/interco/charges does; *api.API implements it.

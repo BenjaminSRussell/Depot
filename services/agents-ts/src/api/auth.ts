@@ -1,6 +1,6 @@
 // Caller authentication for the agents API. The caller's identity comes from the bearer token it sends (the same token
 // the runtime forwards to the MCP gateway), verified here: RS256 against the realm's signing keys, issuer, audience and
-// expiry. The X-Passage-* edge headers are never the source of identity; when present they must agree with the token,
+// expiry. The X-Depot-* edge headers are never the source of identity; when present they must agree with the token,
 // so a request that reaches the pod without passing the edge (or with headers changed on the way) is refused.
 
 import { createPublicKey, verify, type JsonWebKey, type KeyObject } from "node:crypto";
@@ -134,9 +134,9 @@ export function createAuthenticator(cfg: JwtConfig, fetcher: Fetch = fetch, now:
     const m = raw === undefined ? null : /^Bearer ([A-Za-z0-9._~+/=-]+)$/.exec(raw.trim());
     if (m === null || m[1] === undefined) throw unauthorized("a bearer token is required");
     const principal = await verifyBearer(m[1], cfg, keys, now());
-    const tenant = header(headers, "x-passage-tenant");
-    const user = header(headers, "x-passage-user");
-    const duties = header(headers, "x-passage-duties");
+    const tenant = header(headers, "x-depot-tenant");
+    const user = header(headers, "x-depot-user");
+    const duties = header(headers, "x-depot-duties");
     if (
       (tenant !== undefined && tenant.trim().toLowerCase() !== principal.tenantId) ||
       (user !== undefined && user.trim().toLowerCase() !== principal.userId) ||

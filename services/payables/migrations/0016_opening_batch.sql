@@ -17,11 +17,11 @@ CREATE TABLE IF NOT EXISTS ap_opening_batch (
 ALTER TABLE ap_opening_batch ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ap_opening_batch FORCE ROW LEVEL SECURITY;
 CREATE POLICY ap_opening_batch_tenant_access ON ap_opening_batch AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY ap_opening_batch_legal_entity_scope ON ap_opening_batch AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE ap_open_item DROP CONSTRAINT IF EXISTS ap_open_item_due_date_source_check;
 ALTER TABLE ap_open_item ADD CONSTRAINT ap_open_item_due_date_source_check CHECK (due_date_source IN ('EVENT', 'DEFAULTED', 'OPENING'));
@@ -33,8 +33,8 @@ CREATE INDEX IF NOT EXISTS ap_open_item_opening_batch ON ap_open_item (tenant_id
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON ap_opening_batch TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON ap_opening_batch TO depot_app';
   END IF;
 END
 $$;

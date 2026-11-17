@@ -9,9 +9,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 // Stable error codes of the planned-order intake (FR-22.10, BR-22.9).
@@ -116,7 +116,7 @@ func (s *Postgres) RecordPlannedOrder(ctx context.Context, tx pgx.Tx, in Planned
 		scope = *in.LegalEntityID
 	}
 	var saved string
-	if err := tx.QueryRow(ctx, `select coalesce(current_setting('passage.legal_entity_scopes', true), ''), set_config('passage.legal_entity_scopes', $1, true)`,
+	if err := tx.QueryRow(ctx, `select coalesce(current_setting('depot.legal_entity_scopes', true), ''), set_config('depot.legal_entity_scopes', $1, true)`,
 		scope).Scan(&saved, new(string)); err != nil {
 		return false, err
 	}
@@ -129,7 +129,7 @@ func (s *Postgres) RecordPlannedOrder(ctx context.Context, tx pgx.Tx, in Planned
 	if err != nil {
 		return false, err
 	}
-	if _, err := tx.Exec(ctx, `select set_config('passage.legal_entity_scopes', $1, true)`, saved); err != nil {
+	if _, err := tx.Exec(ctx, `select set_config('depot.legal_entity_scopes', $1, true)`, saved); err != nil {
 		return false, err
 	}
 	return tag.RowsAffected() > 0, nil

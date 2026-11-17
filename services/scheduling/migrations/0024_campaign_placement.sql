@@ -41,13 +41,13 @@ CREATE INDEX IF NOT EXISTS scheduling_campaign_cleanout_resource ON scheduling_c
 ALTER TABLE scheduling_campaign_cleanout ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduling_campaign_cleanout FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduling_campaign_cleanout_tenant_access ON scheduling_campaign_cleanout AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON scheduling_campaign_cleanout TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON scheduling_campaign_cleanout TO depot_app';
   END IF;
 END
 $$;

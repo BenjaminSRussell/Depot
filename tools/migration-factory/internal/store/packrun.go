@@ -11,10 +11,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	mfevents "github.com/BenjaminSRussell/passage/tools/migration-factory/internal/events"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	mfevents "github.com/BenjaminSRussell/depot/tools/migration-factory/internal/events"
 )
 
 // OpenItemsRun is a validated open_items extract ready to load. Run carries the identity,
@@ -48,7 +48,7 @@ func (s *Postgres) RunOpenItems(ctx context.Context, idem Idem, in OpenItemsRun)
 func runOpenItems(ctx context.Context, tx pgx.Tx, in OpenItemsRun) (domain.PackRun, error) {
 	run := in.Run
 	sys, company := string(run.SourceSystem), run.SourceCompany
-	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('xref|' || current_setting('passage.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`,
+	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('xref|' || current_setting('depot.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`,
 		sys, company, domain.TableOpenItems); err != nil {
 		return domain.PackRun{}, fmt.Errorf("lock legacy_xref: %w", err)
 	}
@@ -59,7 +59,7 @@ func runOpenItems(ctx context.Context, tx pgx.Tx, in OpenItemsRun) (domain.PackR
 	// The side is part of the key: a receivable and a payable with the same legacy id are two items.
 	present := map[string]decimal.Decimal{}
 	rows, err := tx.Query(ctx, `select source_table, source_id, amount::text from legacy_xref
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_system = $1 and source_company = $2
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_system = $1 and source_company = $2
 		  and source_table = any($3) and source_id = any($4)`, sys, company, []string{domain.TableOpenItemsReceivable, domain.TableOpenItemsPayable}, idsIn)
 	if err != nil {
 		return domain.PackRun{}, fmt.Errorf("read legacy_xref: %w", err)
@@ -102,17 +102,17 @@ func runOpenItems(ctx context.Context, tx pgx.Tx, in OpenItemsRun) (domain.PackR
 		return domain.PackRun{}, err
 	}
 	if n := len(plan.ToLoad); n > 0 {
-		xrefIDs, passageIDs, sourceIDs, tables := make([]string, n), make([]string, n), make([]string, n), make([]string, n)
+		xrefIDs, depotIDs, sourceIDs, tables := make([]string, n), make([]string, n), make([]string, n), make([]string, n)
 		amounts, currencies := make([]string, n), make([]string, n)
 		for i, r := range plan.ToLoad {
-			xrefIDs[i], passageIDs[i], sourceIDs[i], tables[i] = ids.New(), ids.New(), r.LegacyID, domain.OpenItemsTable(r.Side())
+			xrefIDs[i], depotIDs[i], sourceIDs[i], tables[i] = ids.New(), ids.New(), r.LegacyID, domain.OpenItemsTable(r.Side())
 			amounts[i], currencies[i] = r.Amount.String(), r.Currency
 		}
 		tag, err := tx.Exec(ctx, `insert into legacy_xref (tenant_id, xref_id, source_system, source_company, source_table, source_id,
-			passage_entity, passage_id, run_id, amount, currency)
-			select current_setting('passage.tenant_id', true)::uuid, x, $1, $2, tb, s, 'open_item', p, $3, a, c
+			depot_entity, depot_id, run_id, amount, currency)
+			select current_setting('depot.tenant_id', true)::uuid, x, $1, $2, tb, s, 'open_item', p, $3, a, c
 			from unnest($4::uuid[], $5::text[], $6::text[], $7::uuid[], $8::numeric[], $9::text[]) as t(x, tb, s, p, a, c)`,
-			sys, company, run.RunID, xrefIDs, tables, sourceIDs, passageIDs, amounts, currencies)
+			sys, company, run.RunID, xrefIDs, tables, sourceIDs, depotIDs, amounts, currencies)
 		if err != nil {
 			return domain.PackRun{}, fmt.Errorf("insert legacy_xref: %w", err)
 		}
@@ -158,7 +158,7 @@ func storeNewRun(ctx context.Context, tx pgx.Tx, run *domain.PackRun, startedBy 
 	run.Version = 1
 	if err := tx.QueryRow(ctx, `insert into pack_run (tenant_id, run_id, pack, source_system, source_company, cutoff_ts, input_hash, status,
 		records_in, records_loaded, records_quarantined, already_present, started_by, parties, open_items_run_id, gl_run_id)
-		values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) returning created_at`,
+		values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) returning created_at`,
 		run.RunID, string(run.Pack), string(run.SourceSystem), run.SourceCompany, run.CutoffTS, run.InputHash, string(run.Status),
 		run.RecordsIn, run.RecordsLoaded, run.RecordsQuarantined, run.AlreadyPresent, startedBy, parties, openItemsRun, glRun).Scan(&run.CreatedAt); err != nil {
 		return fmt.Errorf("insert pack_run: %w", err)
@@ -175,7 +175,7 @@ func insertTotals(ctx context.Context, tx pgx.Tx, runID string, totals []domain.
 		}
 		if _, err := tx.Exec(ctx, `insert into control_total (tenant_id, total_id, run_id, seq, name, key_json, source_value, target_value,
 			delta, tolerance, tolerance_reason, status)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
 			ids.New(), runID, fromSeq+i+1, t.Name, key, t.Source.String(), t.Target.String(), t.Delta.String(), t.Tolerance.Amount.String(), t.Tolerance.Reason, string(t.Status)); err != nil {
 			return fmt.Errorf("insert control_total: %w", err)
 		}
@@ -201,14 +201,14 @@ func insertQuarantineLine(ctx context.Context, tx pgx.Tx, runID string, seq int,
 		}
 	}
 	if _, err := tx.Exec(ctx, `insert into pack_quarantine (tenant_id, run_id, seq, legacy_id, rule, reason, record, line)
-		values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7)`,
+		values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7)`,
 		runID, seq, legacyID, rule, reason, rec, raw); err != nil {
 		return fmt.Errorf("insert pack_quarantine: %w", err)
 	}
 	return nil
 }
 
-// enqueueReconciled writes dev.passage.migration.pack.reconciled.v1 for the run's current state.
+// enqueueReconciled writes dev.depot.migration.pack.reconciled.v1 for the run's current state.
 func enqueueReconciled(ctx context.Context, tx pgx.Tx, run domain.PackRun) error {
 	match, mismatch := domain.CountTotals(run.Totals)
 	if err := enqueue(ctx, tx, mfevents.PackReconciled, "pack_run", run.RunID, mfevents.PackReconciledData{
@@ -261,7 +261,7 @@ func (s *Postgres) GetRun(ctx context.Context, id string) (domain.PackRun, error
 
 // getRun reads a run with its totals and quarantine; forUpdate takes the run's row lock first.
 func getRun(ctx context.Context, tx pgx.Tx, id string, forUpdate bool) (domain.PackRun, error) {
-	q := `select ` + runColumns + ` from pack_run where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`
+	q := `select ` + runColumns + ` from pack_run where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`
 	if forUpdate {
 		q += ` for update`
 	}
@@ -273,7 +273,7 @@ func getRun(ctx context.Context, tx pgx.Tx, id string, forUpdate bool) (domain.P
 		return domain.PackRun{}, err
 	}
 	rows, err := tx.Query(ctx, `select name, key_json, source_value::text, target_value::text, delta::text, tolerance::text, tolerance_reason, status
-		from control_total where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 order by seq`, id)
+		from control_total where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 order by seq`, id)
 	if err != nil {
 		return domain.PackRun{}, err
 	}
@@ -298,7 +298,7 @@ func getRun(ctx context.Context, tx pgx.Tx, id string, forUpdate bool) (domain.P
 		return domain.PackRun{}, err
 	}
 	rows, err = tx.Query(ctx, `select seq, rule, reason, record, status, released_record, released_by, released_at
-		from pack_quarantine where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 order by seq`, id)
+		from pack_quarantine where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 order by seq`, id)
 	if err != nil {
 		return domain.PackRun{}, err
 	}
@@ -357,7 +357,7 @@ func (s *Postgres) ListRuns(ctx context.Context, f RunFilter) ([]domain.PackRun,
 		var afterID *string
 		if f.After != "" {
 			var at time.Time
-			err := tx.QueryRow(ctx, `select created_at from pack_run where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, f.After).Scan(&at)
+			err := tx.QueryRow(ctx, `select created_at from pack_run where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, f.After).Scan(&at)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrNotFound
 			}
@@ -367,7 +367,7 @@ func (s *Postgres) ListRuns(ctx context.Context, f RunFilter) ([]domain.PackRun,
 			after, afterID = &at, &f.After
 		}
 		rows, err := tx.Query(ctx, `select `+runColumns+` from pack_run
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and ($1 = '' or pack = $1) and ($2 = '' or status = $2)
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and ($1 = '' or pack = $1) and ($2 = '' or status = $2)
 			  and ($3::timestamptz is null or (created_at, run_id) < ($3, $4::uuid))
 			order by created_at desc, run_id desc limit $5`, f.Pack, f.Status, after, afterID, clampLimit(f.Limit))
 		if err != nil {

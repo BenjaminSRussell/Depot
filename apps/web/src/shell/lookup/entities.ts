@@ -123,7 +123,7 @@ export interface LookupDef {
 }
 
 export const PAGE_SIZE = 20;
-export const LOOKUP_HEADER = "X-Passage-Lookup";
+export const LOOKUP_HEADER = "X-Depot-Lookup";
 
 type Raw = Record<string, unknown>;
 

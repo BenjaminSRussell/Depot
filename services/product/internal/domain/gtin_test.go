@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/product/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/product/internal/domain"
 )
 
 func TestGS1Vectors(t *testing.T) {

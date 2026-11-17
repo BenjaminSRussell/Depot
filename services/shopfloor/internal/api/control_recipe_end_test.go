@@ -11,10 +11,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/migrations"
 )
 
 // recipeEnv is a migrated database, the full router and an edge node bound to the connector edge-7.
@@ -52,9 +52,9 @@ func newRecipeEnv(t *testing.T) *recipeEnv {
 func (e *recipeEnv) send(method, path, body, duties, user string) *httptest.ResponseRecorder {
 	e.calls++
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-User", user)
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-User", user)
+	req.Header.Set("X-Depot-Duties", duties)
 	req.Header.Set("Idempotency-Key", fmt.Sprintf("call-%d", e.calls))
 	rec := httptest.NewRecorder()
 	e.h.ServeHTTP(rec, req)

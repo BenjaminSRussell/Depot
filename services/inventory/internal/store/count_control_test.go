@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 func controlPlan(t *testing.T, s *store.Postgres, ctx context.Context, edit func(*domain.CountPlan)) domain.CountPlan {
@@ -124,7 +124,7 @@ func TestFreezeRefusesMovementsUntilTheSheetIsFinal(t *testing.T) {
 	if err != nil || posted.Status != domain.CountPosted {
 		t.Fatalf("a frozen sheet posts its own journal: %v", err)
 	}
-	if n := outboxCount(t, admin, "dev.passage.inventory.countsheet.changed.v1"); n != 2 {
+	if n := outboxCount(t, admin, "dev.depot.inventory.countsheet.changed.v1"); n != 2 {
 		t.Fatalf("countsheet.changed events %d, want 2 (the cancellation and the posting)", n)
 	}
 }
@@ -208,7 +208,7 @@ func TestFourEyesRecountAndApprovalFlow(t *testing.T) {
 		t.Fatalf("cancel a posted sheet: %v", err)
 	}
 	// submitted, recount requested, submitted, approved, posted
-	if n := outboxCount(t, admin, "dev.passage.inventory.countsheet.changed.v1"); n != 5 {
+	if n := outboxCount(t, admin, "dev.depot.inventory.countsheet.changed.v1"); n != 5 {
 		t.Fatalf("countsheet.changed events %d, want 5", n)
 	}
 }

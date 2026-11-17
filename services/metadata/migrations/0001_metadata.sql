@@ -13,8 +13,8 @@ CREATE INDEX metadata_entity_version_current
 ALTER TABLE metadata_entity_version ENABLE ROW LEVEL SECURITY;
 ALTER TABLE metadata_entity_version FORCE ROW LEVEL SECURITY;
 CREATE POLICY metadata_entity_version_tenant_access ON metadata_entity_version AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE metadata_extension (
   tenant_id uuid NOT NULL,
@@ -30,8 +30,8 @@ CREATE TABLE metadata_extension (
 ALTER TABLE metadata_extension ENABLE ROW LEVEL SECURITY;
 ALTER TABLE metadata_extension FORCE ROW LEVEL SECURITY;
 CREATE POLICY metadata_extension_tenant_access ON metadata_extension AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE metadata_record (
   tenant_id uuid NOT NULL,
@@ -49,8 +49,8 @@ CREATE INDEX metadata_record_list ON metadata_record (tenant_id, entity_name, cr
 ALTER TABLE metadata_record ENABLE ROW LEVEL SECURITY;
 ALTER TABLE metadata_record FORCE ROW LEVEL SECURITY;
 CREATE POLICY metadata_record_tenant_access ON metadata_record AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE metadata_decision_table (
   tenant_id uuid NOT NULL,
@@ -64,8 +64,8 @@ CREATE TABLE metadata_decision_table (
 ALTER TABLE metadata_decision_table ENABLE ROW LEVEL SECURITY;
 ALTER TABLE metadata_decision_table FORCE ROW LEVEL SECURITY;
 CREATE POLICY metadata_decision_table_tenant_access ON metadata_decision_table AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE metadata_usage_daily (
   tenant_id uuid NOT NULL,
@@ -83,5 +83,5 @@ CREATE TABLE metadata_usage_daily (
 ALTER TABLE metadata_usage_daily ENABLE ROW LEVEL SECURITY;
 ALTER TABLE metadata_usage_daily FORCE ROW LEVEL SECURITY;
 CREATE POLICY metadata_usage_daily_tenant_access ON metadata_usage_daily AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

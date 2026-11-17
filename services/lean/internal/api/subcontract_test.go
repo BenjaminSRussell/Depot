@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/lean/internal/store"
+	"github.com/BenjaminSRussell/depot/services/lean/internal/store"
 )
 
 const subcontractPath = "/v1/lean/subcontracting:preview"

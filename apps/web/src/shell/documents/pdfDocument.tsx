@@ -50,7 +50,7 @@ interface PostalAddress {
 async function getJson<T>(path: string, legalEntityId?: string): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
   // Addresses sit behind the legal-entity policy of the org service, so their reads name the document's legal entity.
-  if (legalEntityId) headers["X-Passage-LegalEntity"] = legalEntityId;
+  if (legalEntityId) headers["X-Depot-LegalEntity"] = legalEntityId;
   const res = await apiFetch(path, { headers });
   if (!res.ok) throw await readProblem(res);
   return (await res.json()) as T;
@@ -189,7 +189,7 @@ export async function renderDocument(request: DocumentRequest): Promise<Rendered
     body: JSON.stringify(request),
   });
   if (!res.ok) throw await readProblem(res);
-  const unprintable = Number(res.headers?.get?.("X-Passage-Unprintable-Characters") ?? 0);
+  const unprintable = Number(res.headers?.get?.("X-Depot-Unprintable-Characters") ?? 0);
   return { blob: await res.blob(), unprintable: Number.isFinite(unprintable) && unprintable > 0 ? unprintable : 0 };
 }
 

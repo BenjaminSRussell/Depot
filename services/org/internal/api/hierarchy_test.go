@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
 const (
@@ -27,7 +27,7 @@ const (
 )
 
 func TestHierarchyTypeCreate(t *testing.T) {
-	scoped := []string{"X-Passage-Legal-Entity", testkit.TenantID(2)}
+	scoped := []string{"X-Depot-Legal-Entity", testkit.TenantID(2)}
 	tests := []struct {
 		name       string
 		body       string
@@ -64,7 +64,7 @@ func TestHierarchyTypeCreate(t *testing.T) {
 
 func TestHierarchyDraftCreate(t *testing.T) {
 	draftPath := hierarchyTypesPath + "/" + hierarchyTypeID + "/versions"
-	scoped := []string{"X-Passage-Legal-Entity", testkit.TenantID(2)}
+	scoped := []string{"X-Depot-Legal-Entity", testkit.TenantID(2)}
 	tests := []struct {
 		name       string
 		path       string
@@ -90,7 +90,7 @@ func TestHierarchyDraftCreate(t *testing.T) {
 }
 
 func TestHierarchyReplaceNodes(t *testing.T) {
-	scoped := []string{"X-Passage-Legal-Entity", testkit.TenantID(2)}
+	scoped := []string{"X-Depot-Legal-Entity", testkit.TenantID(2)}
 	valid := fmt.Sprintf(`{"version":1,"nodes":[{"orgUnitId":%q},{"orgUnitId":%q,"parentOrgUnitId":%q,"sortOrder":4}]}`, unitA, unitB, unitA)
 	tests := []struct {
 		name       string
@@ -178,7 +178,7 @@ func routerAt(f *fakeStore) http.Handler {
 }
 
 func TestHierarchyPublish(t *testing.T) {
-	scoped := []string{"X-Passage-Legal-Entity", testkit.TenantID(2)}
+	scoped := []string{"X-Depot-Legal-Entity", testkit.TenantID(2)}
 	tests := []struct {
 		name          string
 		path          string
@@ -225,7 +225,7 @@ func TestHierarchyPublish(t *testing.T) {
 
 func TestHierarchyPublishMapsStoreErrorsAndForwardsUser(t *testing.T) {
 	f := &fakeStore{}
-	do(routerAt(f), http.MethodPost, publishPath, forwardBody, publishDuties, true, "X-Passage-User", "user-7")
+	do(routerAt(f), http.MethodPost, publishPath, forwardBody, publishDuties, true, "X-Depot-User", "user-7")
 	if f.publishedBy != "user-7" {
 		t.Fatalf("publishedBy = %q; want the principal user id", f.publishedBy)
 	}
@@ -292,7 +292,7 @@ func TestHierarchyCompare(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			f := &fakeStore{err: tc.err}
-			rec := do(routerAt(f), http.MethodGet, tc.path, "", tc.duties, tc.withTenant, "X-Passage-Legal-Entity", testkit.TenantID(2))
+			rec := do(routerAt(f), http.MethodGet, tc.path, "", tc.duties, tc.withTenant, "X-Depot-Legal-Entity", testkit.TenantID(2))
 			if rec.Code != tc.wantStatus || !strings.Contains(rec.Body.String(), tc.wantBody) || strings.Contains(rec.Body.String(), "secret") {
 				t.Fatalf("got %d %s; want %d containing %s", rec.Code, rec.Body.String(), tc.wantStatus, tc.wantBody)
 			}
@@ -322,7 +322,7 @@ func TestHierarchyPublishAndAsOfMetrics(t *testing.T) {
 var _ store.Store = (*fakeStore)(nil)
 
 func TestHierarchyTypeReads(t *testing.T) {
-	scoped := []string{"X-Passage-Legal-Entity", testkit.TenantID(2)}
+	scoped := []string{"X-Depot-Legal-Entity", testkit.TenantID(2)}
 	seeded := []store.HierarchyType{{Code: "A1"}, {Code: "B2"}, {Code: "C3"}}
 	tests := []struct {
 		name       string
@@ -394,7 +394,7 @@ func TestHierarchyVersionGet(t *testing.T) {
 const hierarchyVersionPath = "/v1/org/hierarchy-versions/" + hierarchyVersionID
 
 func TestHierarchyDraftDelete(t *testing.T) {
-	scoped := []string{"X-Passage-Legal-Entity", testkit.TenantID(2)}
+	scoped := []string{"X-Depot-Legal-Entity", testkit.TenantID(2)}
 	tests := []struct {
 		name       string
 		path       string
@@ -439,7 +439,7 @@ func TestHierarchyDraftDelete(t *testing.T) {
 }
 
 func TestHierarchyVersionList(t *testing.T) {
-	scoped := []string{"X-Passage-Legal-Entity", testkit.TenantID(2)}
+	scoped := []string{"X-Depot-Legal-Entity", testkit.TenantID(2)}
 	versionsPath := hierarchyTypesPath + "/" + hierarchyTypeID + "/versions"
 	seeded := []store.HierarchyVersionSummary{{VersionNo: 3}, {VersionNo: 2}, {VersionNo: 1}}
 	tests := []struct {
@@ -490,7 +490,7 @@ func TestHierarchyMakerChecker(t *testing.T) {
 	f := &fakeStore{}
 	r, a := newRouter(f)
 	a.SetClock(func() time.Time { return time.Date(2026, 3, 1, 15, 0, 0, 0, time.UTC) })
-	user := []string{"X-Passage-User", "user-7"}
+	user := []string{"X-Depot-User", "user-7"}
 	do(r, http.MethodPost, hierarchyTypesPath+"/"+hierarchyTypeID+"/versions", "", hierarchyDuties, true, user...)
 	do(r, http.MethodPut, "/v1/org/hierarchy-versions/"+hierarchyVersionID+"/nodes", `{"version":1,"nodes":[]}`, hierarchyDuties, true, user...)
 	if f.draftEditor != "user-7" || f.replaceEditor != "user-7" {

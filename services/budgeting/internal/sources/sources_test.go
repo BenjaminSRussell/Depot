@@ -10,7 +10,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const le = "00000000-0000-0000-0000-0000000000e1"
@@ -24,7 +24,7 @@ func testReader(t *testing.T, h http.Handler) *Reader {
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 	signer, err := tenant.ServiceSignerFromEnv(func(k string) string {
-		return map[string]string{"PASSAGE_SERVICE_NAME": "budgeting", "PASSAGE_SERVICE_SIGNING_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}[k]
+		return map[string]string{"DEPOT_SERVICE_NAME": "budgeting", "DEPOT_SERVICE_SIGNING_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}[k]
 	})
 	if err != nil || signer == nil {
 		t.Fatalf("signer: %v", err)

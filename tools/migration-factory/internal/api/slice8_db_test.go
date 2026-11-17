@@ -129,7 +129,7 @@ func TestRollback_DecisionVoidsPendingApproval(t *testing.T) {
 	if n := count(t, admin, `select count(*) from cutover_rollback_approval where plan_id = $1 and (round, approver) in ((1, 'alice'), (2, 'bob'))`, plan.PlanID); n != 2 {
 		t.Fatalf("stored approvals by round = %d, want 2", n)
 	}
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.cutover.plan.rolledback.v1'`); n != 1 {
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.cutover.plan.rolledback.v1'`); n != 1 {
 		t.Fatalf("rolledback events = %d, want 1", n)
 	}
 }

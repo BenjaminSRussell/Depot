@@ -2,7 +2,7 @@
 
 **Status:** Accepted — 2026-11-05 (proposed 2026-11-04; option 2, as #479 recommends)
 **Deciders:** Ben Russell, Zach Demanche
-**Issues:** [#22](https://github.com/BenjaminSRussell/Passage/issues/22) (AC4), [#479](https://github.com/BenjaminSRussell/Passage/issues/479)
+**Issues:** [#22](https://github.com/BenjaminSRussell/Depot/issues/22) (AC4), [#479](https://github.com/BenjaminSRussell/Depot/issues/479)
 
 ## Context
 
@@ -18,7 +18,7 @@ What already stands in for an external reference:
 - Property tests on pegging and the net requirements view, and the `mrp-50k` determinism test (AC2, AC-22.3).
 
 frePPLe is open source (AGPL-3.0 community edition, Python/C++, Django and its own Postgres schema). Its planning
-semantics differ from Passage's AX-style engine: it is built around constrained planning (capacity, material and
+semantics differ from Depot's AX-style engine: it is built around constrained planning (capacity, material and
 lead time), uses its own buffer, operation and demand-priority model, and has no direct equivalent of AX coverage codes, time fences or
 action/futures messages. A comparison would therefore need a mapping layer and an unconstrained, lot-for-lot
 subset of the data before "within tolerance" means anything.
@@ -53,7 +53,7 @@ by hand, on their data (option 3's manual run), not as a frePPLe harness maintai
 
 ## Consequences
 
-- #22: AC4 is checked off as "dropped by ADR-0002", not as passed (`roadmap/tickets/PSG-22.md`).
+- #22: AC4 is checked off as "dropped by ADR-0002", not as passed (`roadmap/tickets/DPT-22.md`).
 - The wave 22 proof list (`roadmap/waves.json`, `roadmap/phase-4-manufacturing.md`) no longer asks for the
   comparison.
 - `services/planning/NOT-IMPLEMENTED.md`: the AC4 row reads "dropped (ADR-0002)" instead of "later slice".

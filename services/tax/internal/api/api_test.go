@@ -12,10 +12,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/tax/internal/api"
-	"github.com/BenjaminSRussell/passage/services/tax/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/api"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/domain"
 )
 
 const (
@@ -57,8 +57,8 @@ func newRouter(db fakeDB, providers map[string]domain.TaxProvider) (*chi.Mux, *a
 func do(r http.Handler, method, path, body, tenantID, duties string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	if tenantID != "" {
-		req.Header.Set("X-Passage-Tenant", tenantID)
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Tenant", tenantID)
+		req.Header.Set("X-Depot-Duties", duties)
 	}
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)

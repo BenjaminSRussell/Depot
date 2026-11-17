@@ -1,5 +1,5 @@
 image:
-  repository: ghcr.io/benjaminsrussell/passage-projects
+  repository: ghcr.io/benjaminsrussell/depot-projects
   # Digest-pinned by Argo CD in deploy/; the tag is a fallback for local k3d.
   tag: "0.1.0"
   digest: ""
@@ -18,7 +18,7 @@ database:
   secretKey: DATABASE_URL
 
 env:
-  PASSAGE_ENV: dev
+  DEPOT_ENV: dev
   SERVICE_NAME: projects
   HTTP_ADDR: ":8080"
   MIGRATE_ON_START: "false"

@@ -8,20 +8,20 @@ BEGIN
   LOOP
     EXECUTE format(
       'CREATE POLICY %I ON %I AS RESTRICTIVE USING (
-         current_setting(''passage.legal_entity_scopes'', true) = ''*''
+         current_setting(''depot.legal_entity_scopes'', true) = ''*''
          OR EXISTS (
            SELECT 1 FROM load AS scope_parent
            WHERE scope_parent.tenant_id = %I.tenant_id
              AND scope_parent.id = %I.load_id
-             AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '',''))
+             AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '',''))
          )
        ) WITH CHECK (
-         current_setting(''passage.legal_entity_scopes'', true) = ''*''
+         current_setting(''depot.legal_entity_scopes'', true) = ''*''
          OR EXISTS (
            SELECT 1 FROM load AS scope_parent
            WHERE scope_parent.tenant_id = %I.tenant_id
              AND scope_parent.id = %I.load_id
-             AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '',''))
+             AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '',''))
          )
        )',
       child_table || '_legal_entity_scope', child_table,

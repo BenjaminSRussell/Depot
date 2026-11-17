@@ -8,7 +8,7 @@ import (
 
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
 )
 
 // The GS1 general-specification example uses GTIN 09501101020917, which passes

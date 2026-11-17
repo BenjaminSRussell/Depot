@@ -9,15 +9,15 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const (
-	ProviderDegraded = "dev.passage.fx.provider.degraded.v1"
+	ProviderDegraded = "dev.depot.fx.provider.degraded.v1"
 	RunRunning       = "running"
 	RunSucceeded     = "succeeded"
 	RunFailed        = "failed"
@@ -220,7 +220,7 @@ func (s *Postgres) finishUnhealthy(ctx context.Context, runID string, attempts i
 			from exchange_rate_type t where t.tenant_id=$1 and t.id=$3`, p.TenantID, provider, typeID).Scan(&code, &lastSuccess); err != nil {
 			return err
 		}
-		evt, err := events.New(ProviderDegraded, "passage/fx", runID, p.TenantID, map[string]any{
+		evt, err := events.New(ProviderDegraded, "depot/fx", runID, p.TenantID, map[string]any{
 			"provider": provider, "last_success_at": lastSuccess, "rate_type": code, "error": message,
 			"status": status, "fallback": fallback, "retryable": retryable,
 		})

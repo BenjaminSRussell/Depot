@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/domain"
-	tmsevents "github.com/BenjaminSRussell/passage/services/transport/internal/events"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/store"
-	"github.com/BenjaminSRussell/passage/services/transport/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/domain"
+	tmsevents "github.com/BenjaminSRussell/depot/services/transport/internal/events"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/transport/migrations"
 )
 
 func releaseOf(load string, carriers ...string) domain.LoadRelease {
@@ -96,7 +96,7 @@ func TestReleaseLoad_PublishesTheVerifiedReleaser(t *testing.T) {
 	if string(gotJSON) != string(wantJSON) {
 		t.Fatalf("event data = %s, want %s", gotJSON, wantJSON)
 	}
-	if e.AggregateType != "load" || e.Source != "/passage/tms/transport" || e.Subject != loadA || e.TenantID != testkit.TenantID(1) || e.Actor != "u" {
+	if e.AggregateType != "load" || e.Source != "/depot/tms/transport" || e.Subject != loadA || e.TenantID != testkit.TenantID(1) || e.Actor != "u" {
 		t.Fatalf("event envelope = %+v", e)
 	}
 

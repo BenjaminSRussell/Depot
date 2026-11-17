@@ -9,9 +9,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 // OpenOrdersRun is a validated open_orders extract ready to load (FR-49.1). Run carries the
@@ -24,7 +24,7 @@ type OpenOrdersRun struct {
 	StartedBy string
 }
 
-// RunOpenOrders loads the accepted lines that Passage does not hold yet (by order type and legacy
+// RunOpenOrders loads the accepted lines that Depot does not hold yet (by order type and legacy
 // id), each with its legacy_xref row (source table open_orders.sales or open_orders.purchase) and its open_order_opening_line row, reconciles the run and stores it with its
 // totals, quarantine and the pack.reconciled event, in one transaction. Runs of one (system,
 // company) serialize on an advisory lock. Nothing posts to sales or purchasing here.
@@ -44,7 +44,7 @@ func (s *Postgres) RunOpenOrders(ctx context.Context, idem Idem, in OpenOrdersRu
 func runOpenOrders(ctx context.Context, tx pgx.Tx, in OpenOrdersRun) (domain.PackRun, error) {
 	run := in.Run
 	sys, company := string(run.SourceSystem), run.SourceCompany
-	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('xref|' || current_setting('passage.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`,
+	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('xref|' || current_setting('depot.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`,
 		sys, company, domain.TableOpenOrders); err != nil {
 		return domain.PackRun{}, fmt.Errorf("lock legacy_xref: %w", err)
 	}
@@ -56,7 +56,7 @@ func runOpenOrders(ctx context.Context, tx pgx.Tx, in OpenOrdersRun) (domain.Pac
 	rows, err := tx.Query(ctx, `select legacy_id, order_type, order_number, line_number, item, party, unit, currency,
 			ordered_qty::text, delivered_qty::text, unit_price::text, coalesce(to_char(delivery_date, 'YYYY-MM-DD'), '')
 		from open_order_opening_line
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_system = $1 and source_company = $2
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_system = $1 and source_company = $2
 		  and (order_type, legacy_id) in (select * from unnest($3::text[], $4::text[]))`,
 		sys, company, typesIn, idsIn)
 	if err != nil {
@@ -110,8 +110,8 @@ func runOpenOrders(ctx context.Context, tx pgx.Tx, in OpenOrdersRun) (domain.Pac
 	for _, o := range toLoad {
 		xrefID, lineID := ids.New(), ids.New()
 		batch.Queue(`insert into legacy_xref (tenant_id, xref_id, source_system, source_company, source_table, source_id,
-			passage_entity, passage_id, run_id, amount, currency)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, 'open_order_opening_line', $6, $7, $8, $9)`,
+			depot_entity, depot_id, run_id, amount, currency)
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, 'open_order_opening_line', $6, $7, $8, $9)`,
 			xrefID, sys, company, domain.OrderSourceTable(o.OrderType), o.LegacyID, lineID, run.RunID, o.OpenValue().String(), o.Currency)
 		var delivery any
 		if o.DeliveryDate != "" {
@@ -119,7 +119,7 @@ func runOpenOrders(ctx context.Context, tx pgx.Tx, in OpenOrdersRun) (domain.Pac
 		}
 		batch.Queue(`insert into open_order_opening_line (tenant_id, line_id, run_id, legacy_xref_id, source_system, source_company, legacy_id,
 			order_type, order_number, line_number, item, party, unit, currency, ordered_qty, delivered_qty, unit_price, delivery_date)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::date)`,
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::date)`,
 			lineID, run.RunID, xrefID, sys, company, o.LegacyID, o.OrderType, o.OrderNumber, o.LineNumber, o.Item, o.Party, o.Unit, o.Currency,
 			o.OrderedQty.String(), o.DeliveredQty.String(), o.UnitPrice.String(), delivery)
 	}
@@ -145,7 +145,7 @@ func runOpenOrders(ctx context.Context, tx pgx.Tx, in OpenOrdersRun) (domain.Pac
 		}
 		seenOrder[k] = struct{}{}
 		orderBatch.Queue(`insert into pack_run_order (tenant_id, run_id, order_type, order_number)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3)`, run.RunID, h.OrderType, h.OrderNumber)
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3)`, run.RunID, h.OrderType, h.OrderNumber)
 	}
 	if orderBatch.Len() > 0 {
 		if err := tx.SendBatch(ctx, orderBatch).Close(); err != nil {
@@ -165,7 +165,7 @@ func runOpenOrders(ctx context.Context, tx pgx.Tx, in OpenOrdersRun) (domain.Pac
 	return run, nil
 }
 
-// checkOrderLines refuses a line whose order type, order and line number Passage already holds for
+// checkOrderLines refuses a line whose order type, order and line number Depot already holds for
 // the company under another legacy id: loading it would open the order line twice (FR-49.10). One
 // conflict rejects the run before anything is written.
 func checkOrderLines(ctx context.Context, tx pgx.Tx, sys, company string, toLoad []domain.OpenOrderLine) error {
@@ -179,7 +179,7 @@ func checkOrderLines(ctx context.Context, tx pgx.Tx, sys, company string, toLoad
 	var typ, order, line, legacyID, runID string
 	err := tx.QueryRow(ctx, `select h.order_type, h.order_number, h.line_number, h.legacy_id, h.run_id::text from open_order_opening_line h
 		join unnest($3::text[], $4::text[], $5::text[]) as t(ty, o, l) on (h.order_type, h.order_number, h.line_number) = (t.ty, t.o, t.l)
-		where h.tenant_id = current_setting('passage.tenant_id', true)::uuid and h.source_system = $1 and h.source_company = $2
+		where h.tenant_id = current_setting('depot.tenant_id', true)::uuid and h.source_system = $1 and h.source_company = $2
 		order by h.order_type, h.order_number, h.line_number limit 1`, sys, company, types, orders, lines).Scan(&typ, &order, &line, &legacyID, &runID)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):

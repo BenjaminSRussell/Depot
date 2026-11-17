@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 func replayPool(t *testing.T) (*tenant.PostgresReplayStore, func() *tenant.PostgresReplayStore) {
@@ -120,7 +120,7 @@ func TestVerifierFailsClosedWhenTheSharedStoreFailsAndCountsIt(t *testing.T) {
 		t.Fatalf("a store failure must be a retryable 503, got %d %v", rec.Code, rec.Header())
 	}
 	tenant.WriteReplayMetrics(&after)
-	if before.String() == after.String() || !strings.Contains(after.String(), "passage_service_token_replay_store_failures_total") {
+	if before.String() == after.String() || !strings.Contains(after.String(), "depot_service_token_replay_store_failures_total") {
 		t.Fatalf("the failure must be counted:\n%s", after.String())
 	}
 }

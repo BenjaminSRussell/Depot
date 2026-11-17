@@ -47,12 +47,12 @@ ALTER TABLE gateway_payment ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gateway_payment FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS gateway_payment_tenant_access ON gateway_payment;
 CREATE POLICY gateway_payment_tenant_access ON gateway_payment AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS gateway_payment_legal_entity_scope ON gateway_payment;
 CREATE POLICY gateway_payment_legal_entity_scope ON gateway_payment AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The open items an attempt pays and the amount on each, as the customer chose them.
 CREATE TABLE IF NOT EXISTS gateway_payment_allocation (
@@ -72,12 +72,12 @@ ALTER TABLE gateway_payment_allocation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gateway_payment_allocation FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS gateway_payment_allocation_tenant_access ON gateway_payment_allocation;
 CREATE POLICY gateway_payment_allocation_tenant_access ON gateway_payment_allocation AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS gateway_payment_allocation_legal_entity_scope ON gateway_payment_allocation;
 CREATE POLICY gateway_payment_allocation_legal_entity_scope ON gateway_payment_allocation AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Every provider webhook event handled, by the provider's event id: a redelivered or replayed event is answered without being
 -- handled twice, and the list is the attempt's history on the payment page.
@@ -99,15 +99,15 @@ ALTER TABLE gateway_event ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gateway_event FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS gateway_event_tenant_access ON gateway_event;
 CREATE POLICY gateway_event_tenant_access ON gateway_event AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS gateway_event_legal_entity_scope ON gateway_event;
 CREATE POLICY gateway_event_legal_entity_scope ON gateway_event AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Cross-tenant route from a provider payment id to its attempt, for the unauthenticated webhook listener (like edi.transport_work):
--- no passage_app grant, maintained by the SECURITY DEFINER trigger on gateway_payment and read only by receivables_gateway_route(),
+-- no depot_app grant, maintained by the SECURITY DEFINER trigger on gateway_payment and read only by receivables_gateway_route(),
 -- which returns the tenant, legal entity and attempt ids and nothing else. The webhook is authenticated by its signature first.
 CREATE TABLE IF NOT EXISTS gateway_route (
   provider text NOT NULL,
@@ -149,10 +149,10 @@ CREATE TRIGGER gateway_payment_route AFTER INSERT OR UPDATE OF provider_intent_i
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON gateway_payment, gateway_payment_allocation TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON gateway_event TO passage_app';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION receivables_gateway_route(text, text) TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON gateway_payment, gateway_payment_allocation TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON gateway_event TO depot_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION receivables_gateway_route(text, text) TO depot_app';
   END IF;
 END
 $$;

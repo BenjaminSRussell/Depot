@@ -131,7 +131,7 @@ export function planReplay(
 
 /** Headers that mark a delivery as a replay so consumers can apply it idempotently (BR-35.9). */
 export function replayHeaders(): Record<string, string> {
-  return { "ce-passagereplay": "true" };
+  return { "ce-depotreplay": "true" };
 }
 
 /** A Retry-After longer than the last schedule step is not honoured beyond it. */

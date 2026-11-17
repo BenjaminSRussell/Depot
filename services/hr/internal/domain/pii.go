@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"unicode/utf8"
 
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
 )
 
 // PIIReadDuty is the duty that permits an unmasked read (FR-42.1).

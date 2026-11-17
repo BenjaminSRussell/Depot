@@ -12,9 +12,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/domain"
 )
 
 // The fixtures live with the domain tests, which hold their reference scripts.
@@ -83,7 +83,7 @@ type entAnswer struct {
 	ResolutionWarnAt string  `json:"resolutionWarnAt"`
 }
 
-// AC-45.1 against Postgres (as passage_app): every svc-entitlement-50 case that
+// AC-45.1 against Postgres (as depot_app): every svc-entitlement-50 case that
 // case open can express is opened through OpenCase with its own customer,
 // legal entities, service objects and agreements, and lands on the reference
 // agreement, SLA profile and the four clock instants, also after a re-read.
@@ -252,7 +252,7 @@ type billAnswer struct {
 	Lines               [][6]string     `json:"lines"`
 }
 
-// Ticket AC3 against Postgres (as passage_app): each svc-billing-30 order is a
+// Ticket AC3 against Postgres (as depot_app): each svc-billing-30 order is a
 // real work order on a case (on a service object carrying the order's warranty
 // when it has one, under the customer's agreement when it names one), walked
 // to COMPLETED on its completion day and posted. The stored posting matches
@@ -408,7 +408,7 @@ func checkPostedEvent(t *testing.T, s *Postgres, ctx context.Context, woID strin
 	t.Helper()
 	var payload []byte
 	if err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `select payload from outbox where aggregate_id = $1 and type = 'dev.passage.service.workorder.posted.v1'`, woID).Scan(&payload)
+		return tx.QueryRow(ctx, `select payload from outbox where aggregate_id = $1 and type = 'dev.depot.service.workorder.posted.v1'`, woID).Scan(&payload)
 	}); err != nil {
 		t.Fatal(err)
 	}

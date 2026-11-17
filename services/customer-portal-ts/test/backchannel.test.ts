@@ -44,7 +44,7 @@ describe("back-channel logout", () => {
 
   it.each([
     ["another issuer", { iss: "https://evil.example.invalid" }],
-    ["another client", { aud: "passage-web" }],
+    ["another client", { aud: "depot-web" }],
     ["no logout event", { events: {} }],
     ["a nonce", { nonce: "n" }],
     ["no jti", { jti: undefined }],

@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	platform "github.com/BenjaminSRussell/passage/platform/eventing"
+	platform "github.com/BenjaminSRussell/depot/platform/eventing"
 )
 
 type PgSource struct{ pool *pgxpool.Pool }

@@ -10,7 +10,7 @@ import type { ModelProvider, ModelRequest, ModelResponse } from "../src/runtime/
 import { REAL_IBAN } from "./fakes.js";
 import { FakeMcp, headers, MemoryStore, serve, tool } from "./surface-fakes.js";
 
-const GET = "passage.ap.invoice.get";
+const GET = "depot.ap.invoice.get";
 const DUTIES = "mcp.copilot.use,ap.invoice.read";
 
 const bodyOf = (chunks: string[]): ReadableStream<Uint8Array> => {
@@ -310,7 +310,7 @@ describe("copilot streaming: refused answers and gone clients", () => {
     const streamOf = (input: unknown) => messageStream([JSON.stringify(input)]);
     let n = 0;
     const turns = [
-      streamOf({ tool: "passage.knowledge.search", text: "Let me check the policy first.", args: { query: "meals" }, confidence: 1, amount: { amount: "0", currency: "USD" } }),
+      streamOf({ tool: "depot.knowledge.search", text: "Let me check the policy first.", args: { query: "meals" }, confidence: 1, amount: { amount: "0", currency: "USD" } }),
       streamOf({ tool: "", text: "Meals are fully covered." }),
     ];
     const provider = createAnthropicProvider({

@@ -1,7 +1,7 @@
 # data (wave 46 lakehouse and semantic layer)
 
-Configuration and models for the Passage data platform. Owned by wave 46
-(PSG-46). The Go service that enforces metric definitions and reconciliation is
+Configuration and models for the Depot data platform. Owned by wave 46
+(DPT-46). The Go service that enforces metric definitions and reconciliation is
 in `../services/analytics`.
 
 ```
@@ -12,10 +12,10 @@ cube/                         Cube data model and queryRewrite scope mirror (FR-
 
 ## How the pieces fit
 
-1. Debezium reads each domain database with `pgoutput`. Passage tables live
+1. Debezium reads each domain database with `pgoutput`. Depot tables live
    in `public`, so Debezium names topics `cdc.<domain>.public.<table>`; the
    `route` transform rewrites that to `cdc.<domain>.<table>` (FR-46.1). Every
-   Passage primary key starts with `tenant_id`, so the message key is
+   Depot primary key starts with `tenant_id`, so the message key is
    `(tenant_id, primary key)`. Placeholders: `DOMAIN`, `DOMAIN_DB_HOST`,
    `CDC_DB_USER`, `TABLE_INCLUDE_LIST` (for the ledger:
    `public.journal_line,public.journal_entry,public.main_account,public.ledger`;
@@ -50,7 +50,7 @@ cube/                         Cube data model and queryRewrite scope mirror (FR-
 
 ```
 node --test cube/                      # queryRewrite row-level security tests
-cd dbt && dbt deps && dbt build        # needs a profile named passage_trino
+cd dbt && dbt deps && dbt build        # needs a profile named depot_trino
 ```
 
 `services/analytics/internal/domain/cube_contract_test.go` (run by `go test`)

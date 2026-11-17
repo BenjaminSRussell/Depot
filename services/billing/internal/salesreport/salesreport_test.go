@@ -17,14 +17,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/salesreport"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/store"
-	"github.com/BenjaminSRussell/passage/services/billing/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/salesreport"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/billing/migrations"
 )
 
 func setup(t *testing.T) (*store.Postgres, *pgxpool.Pool, context.Context) {

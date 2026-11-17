@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/compliance/internal/domain"
-	cevents "github.com/BenjaminSRussell/passage/services/compliance/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/compliance/internal/domain"
+	cevents "github.com/BenjaminSRussell/depot/services/compliance/internal/events"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -237,7 +237,7 @@ func TestRequestErasure_LinkedRequestMustBeAnApprovedErasureOfTheSameSubject(t *
 
 func TestLegalHold_AppRoleCannotDeleteHoldsOrCommands(t *testing.T) {
 	if os.Getenv(testkit.EnvAppURL) == "" {
-		t.Skip("needs PASSAGE_TEST_APP_DATABASE_URL")
+		t.Skip("needs DEPOT_TEST_APP_DATABASE_URL")
 	}
 	s, _ := migrated(t)
 	tenantID, le := ids.New(), ids.New()
@@ -251,7 +251,7 @@ func TestLegalHold_AppRoleCannotDeleteHoldsOrCommands(t *testing.T) {
 			return err
 		})
 		if err == nil {
-			t.Errorf("passage_app deleted from %s", table)
+			t.Errorf("depot_app deleted from %s", table)
 		}
 	}
 }

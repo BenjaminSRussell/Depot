@@ -1,8 +1,8 @@
 {{- define "costacct.image" -}}
 {{- if .Values.image.digest -}}
-{{ (include "passage.imageRepository" $) }}@{{ .Values.image.digest }}
+{{ (include "depot.imageRepository" $) }}@{{ .Values.image.digest }}
 {{- else -}}
-{{ (include "passage.imageRepository" $) }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+{{ (include "depot.imageRepository" $) }}:{{ .Values.image.tag | default .Chart.AppVersion }}
 {{- end -}}
 {{- end -}}
 
@@ -15,7 +15,7 @@
 {{- end -}}
 
 {{- define "costacct.ledgerEnv" -}}
-- name: PASSAGE_SERVICE_NAME
+- name: DEPOT_SERVICE_NAME
   value: costacct
 {{- if .Values.ledgerUrl }}
 - name: LEDGER_URL
@@ -24,10 +24,10 @@
   value: {{ include "costacct.ledgerIds" . | quote }}
 {{- end }}
 {{- if .Values.serviceIdentity.signingKeySecret }}
-- name: PASSAGE_SERVICE_SIGNING_KEY_FILE
-  value: /var/run/passage/service-identity/signing-key
+- name: DEPOT_SERVICE_SIGNING_KEY_FILE
+  value: /var/run/depot/service-identity/signing-key
 {{- if .Values.serviceIdentity.keyId }}
-- name: PASSAGE_SERVICE_KEY_ID
+- name: DEPOT_SERVICE_KEY_ID
   value: {{ .Values.serviceIdentity.keyId | quote }}
 {{- end }}
 {{- end }}
@@ -46,6 +46,6 @@ volumes:
 {{- define "costacct.identityMount" -}}
 {{- if .Values.serviceIdentity.signingKeySecret }}
 volumeMounts:
-  - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+  - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
 {{- end }}
 {{- end -}}

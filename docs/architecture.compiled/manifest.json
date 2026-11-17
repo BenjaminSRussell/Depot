@@ -1,7 +1,7 @@
 {
   "version": 2,
   "source": {
-    "path": "/Users/benjaminrussell/Desktop/Passage/docs/architecture.md",
+    "path": "/Users/benjaminrussell/Desktop/Depot/docs/architecture.md",
     "sha256": "7db7f82e96857e353ac37e56b7ac6e071d41f4aeae66d4061201f93d8fc1e12f",
     "lines": 7844
   },
@@ -140,7 +140,7 @@
       "name": "Integration",
       "slug": "integration",
       "file": "components/integration.md",
-      "keywords": ["webhook-subscriptions", "webhook-deliveries", "X-Passage-Signature", "edi-messages", "partner-profiles", "AS2", "e-invoices", "event-egress", "event-replays", "message-monitor", "FR-6.5"],
+      "keywords": ["webhook-subscriptions", "webhook-deliveries", "X-Depot-Signature", "edi-messages", "partner-profiles", "AS2", "e-invoices", "event-egress", "event-replays", "message-monitor", "FR-6.5"],
       "aliases": ["integration-ts", "EDI", "Peppol", "webhooks", "developer portal"],
       "jira": { "epics": [], "labels": [] },
       "depends_on": ["platform-kernel", "platform", "eventing-backbone", "migration-framework"]
@@ -176,7 +176,7 @@
       "name": "web-bff",
       "slug": "web-bff",
       "file": "components/web-bff.md",
-      "keywords": ["/bff/login", "/bff/callback", "/bff/v1/me", "/bff/v1/permissions", "/bff/v1/stream", "/bff/v1/search", "token handler", "__Host-passage_sid", "X-Passage-CSRF", "GraphQL", "SSE"],
+      "keywords": ["/bff/login", "/bff/callback", "/bff/v1/me", "/bff/v1/permissions", "/bff/v1/stream", "/bff/v1/search", "token handler", "__Host-depot_sid", "X-Depot-CSRF", "GraphQL", "SSE"],
       "aliases": ["bff-ts", "web-bff-ts", "browser session BFF"],
       "jira": { "epics": [], "labels": [] },
       "depends_on": ["platform", "edge-identity"]
@@ -185,7 +185,7 @@
       "name": "device-bff",
       "slug": "device-bff",
       "file": "components/device-bff.md",
-      "keywords": ["/bff/v1/sync", "/bff/v1/packets", "device enroll", "worker-session", "badge PIN", "offline replay", "passage-kiosk", "device-bff-ts", "commandId"],
+      "keywords": ["/bff/v1/sync", "/bff/v1/packets", "device enroll", "worker-session", "badge PIN", "offline replay", "depot-kiosk", "device-bff-ts", "commandId"],
       "aliases": ["device-bff-ts", "kiosk BFF", "scanner BFF"],
       "jira": { "epics": [], "labels": [] },
       "depends_on": ["platform", "edge-identity", "manufacturing", "warehouse", "projects"]
@@ -194,7 +194,7 @@
       "name": "portal-bff",
       "slug": "portal-bff",
       "file": "components/portal-bff.md",
-      "keywords": ["persisted queries", "portal-bff-ts", "supplier portal session", "customer portal session", "passage-portal-supplier", "passage-portal-customer", "graphql read model"],
+      "keywords": ["persisted queries", "portal-bff-ts", "supplier portal session", "customer portal session", "depot-portal-supplier", "depot-portal-customer", "graphql read model"],
       "aliases": ["portal-bff-ts", "external portal BFF"],
       "jira": { "epics": [], "labels": [] },
       "depends_on": ["procurement", "sales", "party", "projects", "edge-identity"]
@@ -203,7 +203,7 @@
       "name": "Web Shell",
       "slug": "web-shell",
       "file": "components/web-shell.md",
-      "keywords": ["apps/web", "module federation", "module.ts", "PassageModule", "entityRoutes", "@passage/forms", "LookupField", "saved views", "approvals inbox", "LegalEntitySwitcher", "env.json", "WCAG 2.1 AA"],
+      "keywords": ["apps/web", "module federation", "module.ts", "DepotModule", "entityRoutes", "@depot/forms", "LookupField", "saved views", "approvals inbox", "LegalEntitySwitcher", "env.json", "WCAG 2.1 AA"],
       "aliases": ["shell", "frontend", "React shell", "module remotes", "MFE"],
       "jira": { "epics": [], "labels": [] },
       "depends_on": ["web-bff", "platform", "edge-identity"]
@@ -212,7 +212,7 @@
       "name": "PWA Apps",
       "slug": "pwa-apps",
       "file": "components/pwa-apps.md",
-      "keywords": ["shopfloor kiosk", "warehouse-mobile", "technician app", "supplier-portal", "customer-portal", "@passage/offline", "QueuedCommand", "FlowRunner", "GS1 scanning", "offline queue", "touch targets"],
+      "keywords": ["shopfloor kiosk", "warehouse-mobile", "technician app", "supplier-portal", "customer-portal", "@depot/offline", "QueuedCommand", "FlowRunner", "GS1 scanning", "offline queue", "touch targets"],
       "aliases": ["mobile apps", "kiosk", "scanner app", "portals UI"],
       "jira": { "epics": [], "labels": [] },
       "depends_on": ["device-bff", "portal-bff", "manufacturing", "warehouse", "projects"]

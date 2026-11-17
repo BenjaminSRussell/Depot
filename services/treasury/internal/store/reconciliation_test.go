@@ -20,9 +20,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/domain"
 )
 
 type camtEntry struct{ ref, amount string }
@@ -150,7 +150,7 @@ func TestRunReconciliation_StoresOneToOneAndBatchMatchesOnceAndPublishesEvents(t
 			t.Errorf("line %d status = %s; want %s", no, status, want[no])
 		}
 	}
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.treasury.reconciliation.matched.v1'`); n != 3 {
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.treasury.reconciliation.matched.v1'`); n != 3 {
 		t.Fatalf("%d matched events in the outbox; want 3", n)
 	}
 	again, err := f.s.RunReconciliation(f.ctx, RunInput{StatementID: f.statement.ID, LegalEntityID: f.le, Items: f.items}, key)
@@ -259,7 +259,7 @@ func TestManualMatch_BalanceReasonDoubleMatchAndUnmatch(t *testing.T) {
 	if problemCode(t, err) != CodeMatchState || !errors.As(err, &twice) || twice.Status != http.StatusConflict {
 		t.Fatalf("second unmatch: %v; want 409 %s", err, CodeMatchState)
 	}
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.treasury.reconciliation.unmatched.v1'`); n != 1 {
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.treasury.reconciliation.unmatched.v1'`); n != 1 {
 		t.Fatalf("%d unmatched events; want 1", n)
 	}
 	one2many, err := f.s.CreateManualMatch(f.ctx, NewMatch{StatementID: f.statement.ID, LegalEntityID: f.le, LineNos: []int{1, 2}, Items: []MatchItem{item("je-1", "150.00")}, Reason: "one item, two lines"}, ids.New())

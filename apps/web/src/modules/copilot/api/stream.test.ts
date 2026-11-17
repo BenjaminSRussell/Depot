@@ -4,7 +4,7 @@ import { askCopilot, parseSseFrames, streamChat, toStreamEvent, type StreamEvent
 const donePayload = {
   answer: "Revenue rose 4.2%.",
   citations: [{ sourceType: "METRIC", sourceRef: "revenue", label: "Revenue, Sep vs Aug" }],
-  toolCalls: [{ tool: "passage.ledger.statement.get", status: "OK" }],
+  toolCalls: [{ tool: "depot.ledger.statement.get", status: "OK" }],
   refusal: null,
   generated: true,
 };

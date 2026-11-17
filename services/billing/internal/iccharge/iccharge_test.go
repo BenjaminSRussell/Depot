@@ -7,18 +7,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/iccharge"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/store"
-	"github.com/BenjaminSRussell/passage/services/billing/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/iccharge"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/billing/migrations"
 )
 
 // publishedSource is what intercompany's enqueue passes to events.New (services/intercompany/internal/events.Source).
-const publishedSource = "/passage/intercompany"
+const publishedSource = "/depot/intercompany"
 
 // published builds the event the way intercompany's store enqueues it: events.New with the publisher's source.
 func published(t *testing.T, data map[string]any) events.Event {
@@ -109,7 +109,7 @@ func TestHandle_RefusesWhatCannotBeInvoiced(t *testing.T) {
 			t.Errorf("%s: accepted", name)
 		}
 	}
-	other, err := events.New(iccharge.ChargeInvoiceRequestedType, "/passage/sales", ids.New(), testkit.TenantID(1), good)
+	other, err := events.New(iccharge.ChargeInvoiceRequestedType, "/depot/sales", ids.New(), testkit.TenantID(1), good)
 	if err != nil {
 		t.Fatal(err)
 	}

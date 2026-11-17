@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/domain"
 )
 
 const lookupTestID = "00000000-0000-4000-8000-0000000000b1"

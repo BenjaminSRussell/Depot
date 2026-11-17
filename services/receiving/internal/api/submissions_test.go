@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store/memstore"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store/memstore"
 )
 
 const receiptA = "55555555-5555-4555-8555-555555555555"
@@ -100,7 +100,7 @@ func (s *submissionRig) vendor(t *testing.T, vendor, method, path, body string) 
 	}
 	s.keys++
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Service-Token", token)
+	req.Header.Set("X-Depot-Service-Token", token)
 	req.Header.Set("Idempotency-Key", "k-"+string(rune('a'+s.keys)))
 	rec := httptest.NewRecorder()
 	s.h.ServeHTTP(rec, req)
@@ -202,10 +202,10 @@ func TestInvoiceSubmission_BuyerRoutesNeedTheBuyersDutiesAndAPNeedsAReason(t *te
 	}
 	buyer := func(method, path, body, duties string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-Legal-Entity", legalEntityID)
-		req.Header.Set("X-Passage-User", "ap-clerk")
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-Legal-Entity", legalEntityID)
+		req.Header.Set("X-Depot-User", "ap-clerk")
+		req.Header.Set("X-Depot-Duties", duties)
 		req.Header.Set("Idempotency-Key", "kk-"+method+path)
 		rec := httptest.NewRecorder()
 		s.h.ServeHTTP(rec, req)

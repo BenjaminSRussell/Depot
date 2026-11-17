@@ -517,7 +517,7 @@ describe("work context", () => {
     await user.click(screen.getByRole("combobox", { name: "Current site" }));
     await user.click(await screen.findByRole("option", { name: /Head office/ }));
     expect(screen.getByLabelText("context")).toHaveTextContent("le-1|s-1");
-    expect(JSON.parse(window.localStorage.getItem(`passage.workContext.${IDENTITY}`) ?? "{}")).toEqual({ legalEntityId: "le-1", siteId: "s-1" });
+    expect(JSON.parse(window.localStorage.getItem(`depot.workContext.${IDENTITY}`) ?? "{}")).toEqual({ legalEntityId: "le-1", siteId: "s-1" });
     await user.click(screen.getByRole("combobox", { name: "Current legal entity" }));
     await user.click(await screen.findByRole("option", { name: /Acme DE/ }));
     expect(screen.getByLabelText("context")).toHaveTextContent("le-2|");
@@ -537,7 +537,7 @@ describe("work context", () => {
   });
 
   it("keeps the remembered legal entity through a server error and drops it only when it is gone", async () => {
-    const remember = () => window.localStorage.setItem(`passage.workContext.${IDENTITY}`, JSON.stringify({ legalEntityId: "le-9", siteId: "" }));
+    const remember = () => window.localStorage.setItem(`depot.workContext.${IDENTITY}`, JSON.stringify({ legalEntityId: "le-9", siteId: "" }));
     const mount = () =>
       render(
         <MemoryRouter>
@@ -563,7 +563,7 @@ describe("work context", () => {
   });
 
   it("starts from the remembered choice", () => {
-    window.localStorage.setItem(`passage.workContext.${IDENTITY}`, JSON.stringify({ legalEntityId: "le-9", siteId: "s-9" }));
+    window.localStorage.setItem(`depot.workContext.${IDENTITY}`, JSON.stringify({ legalEntityId: "le-9", siteId: "s-9" }));
     render(
       <WorkContextProvider identity={IDENTITY}>
         <Reader />
@@ -580,7 +580,7 @@ describe("work context isolation", () => {
   }
 
   beforeEach(() => {
-    window.localStorage.setItem(`passage.workContext.${IDENTITY}`, JSON.stringify({ legalEntityId: "le-9", siteId: "" }));
+    window.localStorage.setItem(`depot.workContext.${IDENTITY}`, JSON.stringify({ legalEntityId: "le-9", siteId: "" }));
   });
 
   it("does not hand one user's choice to another user on the same browser", () => {
@@ -662,7 +662,7 @@ describe("work context prefill", () => {
   }
 
   beforeEach(() => {
-    window.localStorage.setItem(`passage.workContext.${IDENTITY}`, JSON.stringify({ legalEntityId: "le-9", siteId: "" }));
+    window.localStorage.setItem(`depot.workContext.${IDENTITY}`, JSON.stringify({ legalEntityId: "le-9", siteId: "" }));
   });
 
   it("fills an empty legal entity field from the working context", async () => {

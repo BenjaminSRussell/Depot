@@ -9,24 +9,24 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/customsdata"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/compliance"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/inventory"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/ledger"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/ocr"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/party"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/partydata"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/periods"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/purchasing"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/tax"
+	"github.com/BenjaminSRussell/depot/platform/customsdata"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/compliance"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/inventory"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/ledger"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/ocr"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/party"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/partydata"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/periods"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/purchasing"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/tax"
 )
 
 func buildPorts(getenv func(string) string) (api.Ports, error) {
-	allowFakes := getenv("PASSAGE_ALLOW_FAKES") == "1"
+	allowFakes := getenv("DEPOT_ALLOW_FAKES") == "1"
 	var ports api.Ports
 	signer, err := tenant.ServiceSignerFromEnv(getenv)
 	if err != nil {
@@ -36,19 +36,19 @@ func buildPorts(getenv func(string) string) (api.Ports, error) {
 	case url != "":
 		ports.Ledger = ledger.New(url, nil).WithSigner(signer)
 	case allowFakes:
-		slog.Warn("LEDGER_URL is empty: journal entries go to an in-memory fake and are lost on restart", "flag", "PASSAGE_ALLOW_FAKES")
+		slog.Warn("LEDGER_URL is empty: journal entries go to an in-memory fake and are lost on restart", "flag", "DEPOT_ALLOW_FAKES")
 		ports.Ledger = &domain.FakeLedger{}
 	default:
-		return api.Ports{}, fmt.Errorf("LEDGER_URL is required (set PASSAGE_ALLOW_FAKES=1 only for local development)")
+		return api.Ports{}, fmt.Errorf("LEDGER_URL is required (set DEPOT_ALLOW_FAKES=1 only for local development)")
 	}
 	switch url := getenv("CLOSE_URL"); {
 	case url != "":
 		ports.Periods = periods.New(url, nil).WithSigner(signer)
 	case allowFakes:
-		slog.Warn("CLOSE_URL is empty: every AP period reads as open", "flag", "PASSAGE_ALLOW_FAKES")
+		slog.Warn("CLOSE_URL is empty: every AP period reads as open", "flag", "DEPOT_ALLOW_FAKES")
 		ports.Periods = domain.FakePeriods{Status: domain.PeriodOpen}
 	default:
-		return api.Ports{}, fmt.Errorf("CLOSE_URL is required (set PASSAGE_ALLOW_FAKES=1 only for local development)")
+		return api.Ports{}, fmt.Errorf("CLOSE_URL is required (set DEPOT_ALLOW_FAKES=1 only for local development)")
 	}
 	switch url := getenv("PURCHASING_URL"); {
 	case url != "":
@@ -56,17 +56,17 @@ func buildPorts(getenv func(string) string) (api.Ports, error) {
 		ports.PurchaseOrders, ports.InvoicingPlans, ports.PlanRowSettlements = client, client, client
 		ports.RequirePOLine = true
 	case allowFakes:
-		slog.Warn("PURCHASING_URL is empty: purchase order and invoicing plan lookups find nothing", "flag", "PASSAGE_ALLOW_FAKES")
+		slog.Warn("PURCHASING_URL is empty: purchase order and invoicing plan lookups find nothing", "flag", "DEPOT_ALLOW_FAKES")
 		ports.PurchaseOrders, ports.InvoicingPlans = domain.FakePurchaseOrders{}, domain.FakeInvoicingPlans{}
 		ports.PlanRowSettlements = domain.FakePlanRowSettlements{}
 	default:
-		return api.Ports{}, fmt.Errorf("PURCHASING_URL is required (set PASSAGE_ALLOW_FAKES=1 only for local development)")
+		return api.Ports{}, fmt.Errorf("PURCHASING_URL is required (set DEPOT_ALLOW_FAKES=1 only for local development)")
 	}
 	switch url := getenv("INVENTORY_URL"); {
 	case url != "":
 		ports.OwnershipChanges = inventory.New(url, nil).WithSigner(signer)
 	case allowFakes:
-		slog.Warn("INVENTORY_URL is empty: consignment settlement finds no ownership changes", "flag", "PASSAGE_ALLOW_FAKES")
+		slog.Warn("INVENTORY_URL is empty: consignment settlement finds no ownership changes", "flag", "DEPOT_ALLOW_FAKES")
 		ports.OwnershipChanges = domain.FakeOwnershipChanges{}
 	default:
 		slog.Warn("INVENTORY_URL is empty: consignment settlement answers 503 until it is set")
@@ -75,7 +75,7 @@ func buildPorts(getenv func(string) string) (api.Ports, error) {
 	case url != "":
 		ports.VendorGroups = party.New(url, nil).WithSigner(signer)
 	case allowFakes:
-		slog.Warn("PARTY_URL is empty: invoice.posted carries no vendor_group_id", "flag", "PASSAGE_ALLOW_FAKES")
+		slog.Warn("PARTY_URL is empty: invoice.posted carries no vendor_group_id", "flag", "DEPOT_ALLOW_FAKES")
 		ports.VendorGroups = domain.FakeVendorGroups{}
 	default:
 		slog.Warn("PARTY_URL is empty: invoice.posted carries no vendor_group_id")
@@ -94,7 +94,7 @@ func buildPorts(getenv func(string) string) (api.Ports, error) {
 	case url != "":
 		ports.LegalHolds = compliance.New(url, nil).WithSigner(signer)
 	case allowFakes:
-		slog.Warn("COMPLIANCE_URL is empty: no legal hold covers anything", "flag", "PASSAGE_ALLOW_FAKES")
+		slog.Warn("COMPLIANCE_URL is empty: no legal hold covers anything", "flag", "DEPOT_ALLOW_FAKES")
 		ports.LegalHolds = &domain.FakeLegalHolds{}
 	default:
 		slog.Warn("COMPLIANCE_URL is empty: one-time payee erasure answers 503 until it is set")
@@ -112,7 +112,7 @@ func buildPorts(getenv func(string) string) (api.Ports, error) {
 		}
 		ports.SelfBillParties = partydata.New(partyURL, orgURL, nil).WithSigner(signer)
 	} else if allowFakes {
-		slog.Warn("TAX_URL is empty: ERS settlement skips every receipt as TAX_NOT_DETERMINED unless faked", "flag", "PASSAGE_ALLOW_FAKES")
+		slog.Warn("TAX_URL is empty: ERS settlement skips every receipt as TAX_NOT_DETERMINED unless faked", "flag", "DEPOT_ALLOW_FAKES")
 	} else {
 		slog.Warn("TAX_URL is empty: ERS settlement skips every receipt as TAX_NOT_DETERMINED")
 	}
@@ -138,10 +138,10 @@ func buildPorts(getenv func(string) string) (api.Ports, error) {
 	case seed != "":
 		sampler, err = domain.NewSampler([]byte(seed))
 	case allowFakes:
-		slog.Warn("AUDIT_SAMPLE_SEED is empty: using a random seed, so audit draws are not reproducible across restarts", "flag", "PASSAGE_ALLOW_FAKES")
+		slog.Warn("AUDIT_SAMPLE_SEED is empty: using a random seed, so audit draws are not reproducible across restarts", "flag", "DEPOT_ALLOW_FAKES")
 		sampler, err = domain.NewRandomSampler()
 	default:
-		return api.Ports{}, fmt.Errorf("AUDIT_SAMPLE_SEED is required (at least 16 characters, from a secret; set PASSAGE_ALLOW_FAKES=1 only for local development)")
+		return api.Ports{}, fmt.Errorf("AUDIT_SAMPLE_SEED is required (at least 16 characters, from a secret; set DEPOT_ALLOW_FAKES=1 only for local development)")
 	}
 	if err != nil {
 		return api.Ports{}, fmt.Errorf("AUDIT_SAMPLE_SEED: %w", err)
@@ -202,7 +202,7 @@ func buildProfile(getenv func(string) string, allowFakes bool) (domain.PostingPr
 			slog.Warn("posting account is empty: using the development default", "key", e.key, "account", e.fake)
 			value = e.fake
 		default:
-			return domain.PostingProfile{}, fmt.Errorf("%s is required (set PASSAGE_ALLOW_FAKES=1 only for local development)", e.key)
+			return domain.PostingProfile{}, fmt.Errorf("%s is required (set DEPOT_ALLOW_FAKES=1 only for local development)", e.key)
 		}
 		*e.field(&profile) = value
 	}

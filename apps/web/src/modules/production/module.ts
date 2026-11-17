@@ -2,7 +2,7 @@ import { ProblemMessage } from "../../shell/errors";
 import { createElement } from "react";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { getPlannedIntake, describeProblem, type PlannedIntake, type ProductionOrder, type Problem } from "./api/client";
 import { AsBuiltInquiryPage } from "./AsBuiltInquiryPage";
 import { CostSnapshotsPage } from "./CostSnapshotsPage";
@@ -187,7 +187,7 @@ function ChangeDetailRoute() {
   });
 }
 
-const production: PassageModule = {
+const production: DepotModule = {
   id: "production",
   title: "Production",
   description:

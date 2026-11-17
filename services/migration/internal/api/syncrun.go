@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/syncer"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/syncer"
 )
 
 // ExtractSince lets the pipeline read a delta through the classified-failure wrapper.
@@ -80,7 +80,7 @@ func (r syncRunner) Run(ctx context.Context, st store.SyncState, runID string) (
 	}
 	pipeline := domain.Pipeline{Extractor: backend.Extractor, Loader: backend.Loader, Reader: backend.Reader, Xref: a.store.Xref(), IDGen: ids.New}
 	run.Report, err = pipeline.Run(ctx, domain.RunSpec{SourceSystem: run.SourceSystem, Entity: run.Entity, Mapping: mapping,
-		Since: since, HoldExisting: st.SourceOfTruth == domain.SourcePassage, Acknowledged: kept})
+		Since: since, HoldExisting: st.SourceOfTruth == domain.SourceDepot, Acknowledged: kept})
 	// The extractor read from a little before the watermark, so what it returns can be smaller than what is stored.
 	if run.Report.Watermark != "" || watermark != "" {
 		run.Report.Watermark = domain.MaxCursor(binding.CursorType, watermark, run.Report.Watermark)

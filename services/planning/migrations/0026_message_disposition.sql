@@ -5,7 +5,7 @@
 -- decision onto the new version's message; carried_from names the message the
 -- planner decided. No table is added: action_message is already under RLS (tenant
 -- and legal-entity policies) and granted SELECT, INSERT, UPDATE and DELETE to
--- passage_app.
+-- depot_app.
 ALTER TABLE action_message ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'open';
 ALTER TABLE action_message ADD COLUMN IF NOT EXISTS version integer NOT NULL DEFAULT 1;
 ALTER TABLE action_message ADD COLUMN IF NOT EXISTS decided_by text;

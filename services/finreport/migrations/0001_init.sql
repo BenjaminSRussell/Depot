@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Report definitions. A code has at most one draft (version 0, editable, revision-checked)
 -- and any number of immutable published versions (1..n).
@@ -38,8 +38,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS report_definition_one_draft ON report_definiti
 ALTER TABLE report_definition ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_definition FORCE ROW LEVEL SECURITY;
 CREATE POLICY report_definition_tenant_access ON report_definition AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Read model: one row per ledger x period x account x dimension combination x currency type.
 -- net = debit - credit; closing_net = the part of net posted by closing entries (excluded from P&L).
@@ -62,8 +62,8 @@ CREATE INDEX IF NOT EXISTS reporting_balance_ledger_account ON reporting_balance
 ALTER TABLE reporting_balance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reporting_balance FORCE ROW LEVEL SECURITY;
 CREATE POLICY reporting_balance_tenant_access ON reporting_balance AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Highest posting sequence the read model reflects, per ledger.
 CREATE TABLE IF NOT EXISTS reporting_hwm (
@@ -76,8 +76,8 @@ CREATE TABLE IF NOT EXISTS reporting_hwm (
 ALTER TABLE reporting_hwm ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reporting_hwm FORCE ROW LEVEL SECURITY;
 CREATE POLICY reporting_hwm_tenant_access ON reporting_hwm AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS statement_run (
   tenant_id uuid NOT NULL,
@@ -105,8 +105,8 @@ CREATE TABLE IF NOT EXISTS statement_run (
 ALTER TABLE statement_run ENABLE ROW LEVEL SECURITY;
 ALTER TABLE statement_run FORCE ROW LEVEL SECURITY;
 CREATE POLICY statement_run_tenant_access ON statement_run AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS statement_cell (
   tenant_id uuid NOT NULL,
@@ -126,8 +126,8 @@ CREATE TABLE IF NOT EXISTS statement_cell (
 ALTER TABLE statement_cell ENABLE ROW LEVEL SECURITY;
 ALTER TABLE statement_cell FORCE ROW LEVEL SECURITY;
 CREATE POLICY statement_cell_tenant_access ON statement_cell AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Idempotency-Key replay store for commands without their own key column
 -- (definition import); same shape as dbx.IdempotencyDDL.
@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
 ALTER TABLE idempotency_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE idempotency_keys FORCE ROW LEVEL SECURITY;
 CREATE POLICY idempotency_keys_tenant_access ON idempotency_keys AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE INDEX IF NOT EXISTS statement_run_started ON statement_run (tenant_id, started_at DESC, id);

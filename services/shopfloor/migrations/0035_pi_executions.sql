@@ -46,13 +46,13 @@ CREATE TABLE IF NOT EXISTS pi_execution_step (
 ALTER TABLE pi_execution ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pi_execution FORCE ROW LEVEL SECURITY;
 CREATE POLICY pi_execution_tenant_access ON pi_execution AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 ALTER TABLE pi_execution_step ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pi_execution_step FORCE ROW LEVEL SECURITY;
 CREATE POLICY pi_execution_step_tenant_access ON pi_execution_step AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE OR REPLACE FUNCTION pi_execution_append_only() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
@@ -70,8 +70,8 @@ CREATE TRIGGER pi_execution_step_truncate BEFORE TRUNCATE ON pi_execution_step F
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON pi_execution, pi_execution_step TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON pi_execution, pi_execution_step TO depot_app';
   END IF;
 END
 $$;

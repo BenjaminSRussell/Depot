@@ -1,4 +1,4 @@
--- PSG-1507 (wave 15, slice 7): statement runs over a derived hierarchy (FR-15.4,
+-- DPT-1507 (wave 15, slice 7): statement runs over a derived hierarchy (FR-15.4,
 -- FR-15.13). A run that takes its rows from a hierarchy records the hierarchy
 -- version it used and the expanded definition it evaluated (one row per node), so
 -- the statement page, the downloads and drill level 2 show exactly those rows

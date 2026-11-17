@@ -10,14 +10,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/close/internal/api"
-	"github.com/BenjaminSRussell/passage/services/close/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/close/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/close/internal/api"
+	"github.com/BenjaminSRussell/depot/services/close/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/close/internal/store"
 )
 
 func registerJan(t *testing.T, s *store.Postgres, ctx context.Context) {

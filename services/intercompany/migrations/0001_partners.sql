@@ -1,6 +1,6 @@
 -- Wave 40 slice 4: outbox, idempotency keys and trading partners (FR-40.1).
 -- Every table carries tenant_id first and is tenant-scoped by row-level
--- security (dbx.RLSPolicy); the GUC passage.tenant_id is set per transaction
+-- security (dbx.RLSPolicy); the GUC depot.tenant_id is set per transaction
 -- by dbx.WithTenantTx.
 
 CREATE TABLE IF NOT EXISTS outbox (
@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS idempotency_keys (
   tenant_id uuid NOT NULL,
@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
 ALTER TABLE idempotency_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE idempotency_keys FORCE ROW LEVEL SECURITY;
 CREATE POLICY idempotency_keys_tenant_access ON idempotency_keys AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- One pairing per direction: the seller entity's IC customer stands for the
 -- buyer, the buyer entity's IC vendor for the seller. Percentages are
@@ -69,5 +69,5 @@ CREATE INDEX IF NOT EXISTS intercompany_partner_buyer
 ALTER TABLE intercompany_partner ENABLE ROW LEVEL SECURITY;
 ALTER TABLE intercompany_partner FORCE ROW LEVEL SECURITY;
 CREATE POLICY intercompany_partner_tenant_access ON intercompany_partner AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

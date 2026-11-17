@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
 )
 
 // ErrWrongDocumentFormat is returned when a payload cannot print on the device

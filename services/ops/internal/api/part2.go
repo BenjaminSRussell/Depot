@@ -10,11 +10,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/failover"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/failover"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/store"
 )
 
 // requireFailover admits a caller who holds ops.failover.execute, or a named operator inside an active, logged
@@ -53,8 +53,8 @@ func (a *API) writeGauges(w http.ResponseWriter, r *http.Request) {
 		slog.Error("ops gauges", "err", err)
 		return
 	}
-	_, _ = fmt.Fprintf(w, "# HELP passage_ops_region_fenced Regions currently FENCED.\n# TYPE passage_ops_region_fenced gauge\npassage_ops_region_fenced %d\n", g.FencedRegions)
-	_, _ = fmt.Fprintf(w, "# HELP passage_ops_failover_in_progress Failovers with steps not yet DONE.\n# TYPE passage_ops_failover_in_progress gauge\npassage_ops_failover_in_progress %d\n", g.FailoversInProgress)
+	_, _ = fmt.Fprintf(w, "# HELP depot_ops_region_fenced Regions currently FENCED.\n# TYPE depot_ops_region_fenced gauge\ndepot_ops_region_fenced %d\n", g.FencedRegions)
+	_, _ = fmt.Fprintf(w, "# HELP depot_ops_failover_in_progress Failovers with steps not yet DONE.\n# TYPE depot_ops_failover_in_progress gauge\ndepot_ops_failover_in_progress %d\n", g.FailoversInProgress)
 	_, _ = fmt.Fprintf(w, "# HELP ops_break_glass_active Break-glass windows open now.\n# TYPE ops_break_glass_active gauge\nops_break_glass_active %d\n", g.BreakGlassActive)
 	_, _ = fmt.Fprintf(w, "# HELP ops_break_glass_review_overdue Break-glass windows past their review date without a review.\n# TYPE ops_break_glass_review_overdue gauge\nops_break_glass_review_overdue %d\n", g.BreakGlassOverdue)
 	a.writeLicenseMetrics(w, r)

@@ -7,12 +7,12 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
 )
 
 const (
@@ -163,8 +163,8 @@ func TestHandle_InvalidEventsArePermanent(t *testing.T) {
 		})
 	}
 	others := map[string]func(*events.Event){
-		"type":   func(e *events.Event) { e.Type = "dev.passage.ledger.journal.reversed.v1" },
-		"source": func(e *events.Event) { e.Source = "/passage/payables/payables" },
+		"type":   func(e *events.Event) { e.Type = "dev.depot.ledger.journal.reversed.v1" },
+		"source": func(e *events.Event) { e.Source = "/depot/payables/payables" },
 		"tenant": func(e *events.Event) { e.TenantID = "00000000-0000-0000-0000-000000000002" },
 	}
 	for name, mutate := range others {

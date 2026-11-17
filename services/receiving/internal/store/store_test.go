@@ -9,11 +9,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
-	"github.com/BenjaminSRussell/passage/services/receiving/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/services/receiving/migrations"
 )
 
 const (
@@ -41,8 +41,8 @@ func TestMigrationsApplyWithRLS(t *testing.T) {
 	var currentUser string
 	var roleSuper, roleBypass bool
 	metadataErr := pool.QueryRow(ctx, `select current_user, r.rolsuper, r.rolbypassrls from pg_roles r where r.rolname = current_user`).Scan(&currentUser, &roleSuper, &roleBypass)
-	if metadataErr != nil || currentUser != "passage_app" || roleSuper || roleBypass {
-		t.Fatalf("RLS test must use non-bypass passage_app role: user=%q super=%v bypass=%v err=%v", currentUser, roleSuper, roleBypass, metadataErr)
+	if metadataErr != nil || currentUser != "depot_app" || roleSuper || roleBypass {
+		t.Fatalf("RLS test must use non-bypass depot_app role: user=%q super=%v bypass=%v err=%v", currentUser, roleSuper, roleBypass, metadataErr)
 	}
 	tables := []string{"receiving_receipt", "receiving_receipt_line", "receiving_serial", "receiving_grir_open_item", "idempotency_keys", "outbox", "consumer_inbox", "receiving_number_counter", "receiving_ers_self_bill"}
 	for _, table := range tables {
@@ -273,10 +273,10 @@ func TestMigration0005_InvoiceTablesIsolationAndUniqueNumber(t *testing.T) {
 		t.Errorf("another tenant must not see the pending posting: %v", err)
 	}
 	if err := run(one, `delete from receiving_vendor_invoice where tenant_id = $1`, one.TenantID); err == nil {
-		t.Error("passage_app must not be able to delete invoices")
+		t.Error("depot_app must not be able to delete invoices")
 	}
 	if err := run(one, `update receiving_vendor_invoice set total = 0 where tenant_id = $1`, one.TenantID); err == nil {
-		t.Error("passage_app must not be able to update invoices")
+		t.Error("depot_app must not be able to update invoices")
 	}
 }
 

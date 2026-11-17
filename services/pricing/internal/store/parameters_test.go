@@ -8,10 +8,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
 
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
 )
 
 // fourEyesOn switches journal_four_eyes on for the test legal entity (stored version 0 -> 1).
@@ -85,7 +85,7 @@ func TestPostgres_ParametersVersionedAndAnnounced(t *testing.T) {
 	// the conflicts and the refused write add nothing.
 	var changes []map[string]any
 	for _, r := range outboxRows(t, ctx, pool) {
-		if r.Type == "dev.passage.pricing.parameters.changed.v1" {
+		if r.Type == "dev.depot.pricing.parameters.changed.v1" {
 			changes = append(changes, r.Data)
 		}
 	}
@@ -230,7 +230,7 @@ func TestPostgres_ParameterBasesAndSmartRoundingBands(t *testing.T) {
 	}
 	ev := outboxRows(t, ctx, pool)
 	last := ev[len(ev)-1]
-	if last.Type != "dev.passage.pricing.parameters.changed.v1" || last.Data["pricing_date_basis"] != "DELIVERY_DATE" || last.Data["total_discount_basis"] != "GROSS" || len(last.Data["smart_rounding_bands"].([]any)) != 2 {
+	if last.Type != "dev.depot.pricing.parameters.changed.v1" || last.Data["pricing_date_basis"] != "DELIVERY_DATE" || last.Data["total_discount_basis"] != "GROSS" || len(last.Data["smart_rounding_bands"].([]any)) != 2 {
 		t.Fatalf("event = %+v", last)
 	}
 

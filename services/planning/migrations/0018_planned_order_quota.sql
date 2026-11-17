@@ -2,7 +2,7 @@
 -- planned orders. The order records the arrangement and the source it was
 -- allocated to (a purchase order also gets the source's vendor in vendor_id);
 -- firming books the quantity against the source (quota_source.allocated_qty).
--- No new table: both tables are already under RLS and granted to passage_app.
+-- No new table: both tables are already under RLS and granted to depot_app.
 ALTER TABLE planned_order
   ADD COLUMN IF NOT EXISTS quota_arrangement_id uuid,
   ADD COLUMN IF NOT EXISTS quota_source_id uuid;

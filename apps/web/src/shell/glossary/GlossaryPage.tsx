@@ -6,7 +6,7 @@ export function GlossaryPage() {
   const sorted = [...glossary].sort((a, b) => a.term.localeCompare(b.term));
   return (
     <>
-      <PageHeader title="Glossary" description="What the business words in Passage mean. Words with a dotted underline show their meaning when you point at them or tab to them." />
+      <PageHeader title="Glossary" description="What the business words in Depot mean. Words with a dotted underline show their meaning when you point at them or tab to them." />
       <dl className={styles.list}>
         {sorted.map((t) => (
           <div key={t.id} id={t.id}>

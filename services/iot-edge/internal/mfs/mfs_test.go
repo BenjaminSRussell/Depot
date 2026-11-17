@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/iot-edge/internal/mfs"
+	"github.com/BenjaminSRussell/depot/services/iot-edge/internal/mfs"
 )
 
 // sscc completes 17 digits with the GS1 mod-10 check digit.

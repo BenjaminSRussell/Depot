@@ -2,7 +2,7 @@
 -- postpone or advance message of the parent supply it serves, so the set of message
 -- actions grows, and a derived message names the parent's action in parent_action
 -- (what to do with the component receipt); every other message keeps it empty. No
--- table is added: action_message is already under RLS and granted to passage_app.
+-- table is added: action_message is already under RLS and granted to depot_app.
 -- Both constraints only widen what existing rows already satisfy (no row is derived
 -- yet and the new column defaults to ''), and every statement can be run again.
 ALTER TABLE action_message DROP CONSTRAINT IF EXISTS action_message_action_check;

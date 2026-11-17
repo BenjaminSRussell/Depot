@@ -6,8 +6,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/domain"
 )
 
 func reconFixture(t *testing.T) (domain.ReconRun, []domain.ReconItem) {
@@ -49,7 +49,7 @@ func TestReconRun_IsImmutableExceptResolvingAnOpenItem(t *testing.T) {
 		t.Fatalf("resolving an open item is the one allowed change: %v", err)
 	}
 	events := outbox(t, pool, ctx)
-	if len(events) != 1 || events[0]["_type"] != "dev.passage.interco.reconciliation.flagged.v1" {
+	if len(events) != 1 || events[0]["_type"] != "dev.depot.interco.reconciliation.flagged.v1" {
 		t.Fatalf("events = %v", events)
 	}
 }

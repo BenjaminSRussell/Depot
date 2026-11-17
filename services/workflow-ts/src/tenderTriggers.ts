@@ -2,14 +2,14 @@ import { WorkflowExecutionAlreadyStartedError, WorkflowIdReusePolicy, WorkflowNo
 import type { Client } from "@temporalio/client";
 import { tenderResponseSignal, tenderWorkflow, tenderWorkflowId, validateTenderInput, type TenderInput } from "./tenderWorkflow.js";
 
-export const loadReleasedType = "dev.passage.tms.load.released.v1";
+export const loadReleasedType = "dev.depot.tms.load.released.v1";
 /**
  * The only producer of load.released. Its contract (events/asyncapi.yaml, schemas/current/tms.load.released.v1.json) has
  * transport fill releasedBy and legalEntityScope from the gateway-verified principal of the release request, never from
  * its body; the tender's scoped=true service token rests on that, so an event from any other source starts nothing.
  */
-export const loadReleasedSource = "/passage/tms/transport";
-export const tenderOutcomeTypes = ["dev.passage.tms.tender.accepted.v1", "dev.passage.tms.tender.declined.v1"] as const;
+export const loadReleasedSource = "/depot/tms/transport";
+export const tenderOutcomeTypes = ["dev.depot.tms.tender.accepted.v1", "dev.depot.tms.tender.declined.v1"] as const;
 
 export interface LoadReleasedEvent {
   type: string;

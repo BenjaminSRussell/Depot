@@ -12,7 +12,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
 )
 
 // Fixture is a catalog of BOM versions with the explosion request it is

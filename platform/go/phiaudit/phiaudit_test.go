@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/phiaudit"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/phiaudit"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 func signer(t *testing.T) (*tenant.ServiceSigner, ed25519.PublicKey) {
@@ -173,7 +173,7 @@ func TestEnabledFollowsTheHIPAAOverlayUnlessSwitched(t *testing.T) {
 	env := func(profile, sw string) func(string) string {
 		return func(k string) string {
 			switch k {
-			case "PASSAGE_CLOUD_PROFILE":
+			case "DEPOT_CLOUD_PROFILE":
 				return profile
 			case phiaudit.EnvReadAudit:
 				return sw

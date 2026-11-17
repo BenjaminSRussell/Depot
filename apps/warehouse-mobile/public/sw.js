@@ -6,7 +6,7 @@
 // enter the cache, and the offline queue stays in IndexedDB.
 
 const SHELL_CACHE_VERSION = "v1";
-const SHELL_CACHE_PREFIX = "passage-mobile-";
+const SHELL_CACHE_PREFIX = "depot-mobile-";
 const SHELL_DOCUMENT = "/index.html";
 const SHELL_PRECACHE = ["/manifest.webmanifest"];
 const HASHED_ASSET_PREFIX = "/assets/";

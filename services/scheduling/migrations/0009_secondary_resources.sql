@@ -33,13 +33,13 @@ CREATE INDEX IF NOT EXISTS scheduled_job_secondary_job ON scheduled_job_secondar
 ALTER TABLE scheduled_job_secondary ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduled_job_secondary FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduled_job_secondary_tenant_access ON scheduled_job_secondary AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON scheduled_job_secondary TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON scheduled_job_secondary TO depot_app';
   END IF;
 END
 $$;

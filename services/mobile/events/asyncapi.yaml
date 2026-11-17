@@ -1,6 +1,6 @@
 asyncapi: 3.0.0
 info:
-  title: Passage mobile events (wave 32)
+  title: Depot mobile events (wave 32)
   version: 0.1.0
   description: >
     Flow, session and offline-conflict events, written to the outbox in the same
@@ -11,16 +11,16 @@ info:
 defaultContentType: application/json
 channels:
   mobileFlow:
-    address: passage.mobile.flow
+    address: depot.mobile.flow
     messages:
       flowPublished: { $ref: "#/components/messages/flowPublished" }
   mobileSession:
-    address: passage.mobile.session
+    address: depot.mobile.session
     messages:
       sessionStarted: { $ref: "#/components/messages/sessionStarted" }
       sessionEnded: { $ref: "#/components/messages/sessionEnded" }
   mobileOffline:
-    address: passage.mobile.offline
+    address: depot.mobile.offline
     messages:
       offlineConflict: { $ref: "#/components/messages/offlineConflict" }
       offlineResolved: { $ref: "#/components/messages/offlineResolved" }
@@ -48,7 +48,7 @@ operations:
 components:
   messages:
     flowPublished:
-      name: dev.passage.mobile.flow.published.v1
+      name: dev.depot.mobile.flow.published.v1
       title: Flow published
       summary: A flow version was published; devices pick it up on their next menu load (at most 60 s).
       payload:
@@ -60,16 +60,16 @@ components:
           version: { type: integer, minimum: 1 }
           warehouses: { type: array, items: { type: string, format: uuid }, description: Empty means every warehouse. }
     sessionStarted:
-      name: dev.passage.mobile.session.started.v1
+      name: dev.depot.mobile.session.started.v1
       title: Device session started
       payload: { $ref: "#/components/schemas/Session" }
     sessionEnded:
-      name: dev.passage.mobile.session.ended.v1
+      name: dev.depot.mobile.session.ended.v1
       title: Device session ended
       summary: reason is SIGN_OUT, FORCE_SIGNOUT or TAKEOVER (a session silent past the idle timeout was replaced).
       payload: { $ref: "#/components/schemas/Session" }
     offlineConflict:
-      name: dev.passage.mobile.offline.conflict.v1
+      name: dev.depot.mobile.offline.conflict.v1
       title: Offline transaction parked as CONFLICT
       summary: The warehouse refused a replayed transaction because its target changed (MOB-0107). It waits in the supervisor queue and blocks the device's later transactions.
       payload:
@@ -80,7 +80,7 @@ components:
           command: { type: string }
           reason: { type: string }
     offlineResolved:
-      name: dev.passage.mobile.offline.resolved.v1
+      name: dev.depot.mobile.offline.resolved.v1
       title: Offline conflict resolved by a supervisor
       summary: action REJECT ends the transaction. action REAPPLY records the decision to move the inventory as scanned; the mobile service does not move it, a consumer does.
       payload:

@@ -3,8 +3,8 @@ info:
   title: product
   version: 0.1.0
 channels:
-  passage.product.product:
-    address: passage.product.product
+  depot.product.product:
+    address: depot.product.product
     messages:
       created:
         $ref: '#/components/messages/created'
@@ -12,64 +12,64 @@ channels:
         $ref: '#/components/messages/released'
       updated:
         $ref: '#/components/messages/updated'
-  passage.product.variant:
-    address: passage.product.variant
+  depot.product.variant:
+    address: depot.product.variant
     messages:
       created:
         $ref: '#/components/messages/variantCreated'
-  passage.product.releasedproduct:
-    address: passage.product.releasedproduct
+  depot.product.releasedproduct:
+    address: depot.product.releasedproduct
     messages:
       updated:
         $ref: '#/components/messages/releasedUpdated'
-  passage.product.identifier:
-    address: passage.product.identifier
+  depot.product.identifier:
+    address: depot.product.identifier
     messages:
       added:
         $ref: '#/components/messages/identifierAdded'
-  passage.product.configuration:
-    address: passage.product.configuration
+  depot.product.configuration:
+    address: depot.product.configuration
     messages:
       solved:
         $ref: '#/components/messages/solved'
-  passage.product.relation:
-    address: passage.product.relation
+  depot.product.relation:
+    address: depot.product.relation
     messages:
       changed:
         $ref: '#/components/messages/relationChanged'
 operations:
   onCreated:
     action: send
-    channel: { $ref: '#/channels/passage.product.product' }
-    messages: [{ $ref: '#/channels/passage.product.product/messages/created' }]
+    channel: { $ref: '#/channels/depot.product.product' }
+    messages: [{ $ref: '#/channels/depot.product.product/messages/created' }]
   onUpdated:
     action: send
-    channel: { $ref: '#/channels/passage.product.product' }
-    messages: [{ $ref: '#/channels/passage.product.product/messages/updated' }]
+    channel: { $ref: '#/channels/depot.product.product' }
+    messages: [{ $ref: '#/channels/depot.product.product/messages/updated' }]
   onReleased:
     action: send
-    channel: { $ref: '#/channels/passage.product.product' }
-    messages: [{ $ref: '#/channels/passage.product.product/messages/released' }]
+    channel: { $ref: '#/channels/depot.product.product' }
+    messages: [{ $ref: '#/channels/depot.product.product/messages/released' }]
   onVariantCreated:
     action: send
-    channel: { $ref: '#/channels/passage.product.variant' }
-    messages: [{ $ref: '#/channels/passage.product.variant/messages/created' }]
+    channel: { $ref: '#/channels/depot.product.variant' }
+    messages: [{ $ref: '#/channels/depot.product.variant/messages/created' }]
   onReleasedUpdated:
     action: send
-    channel: { $ref: '#/channels/passage.product.releasedproduct' }
-    messages: [{ $ref: '#/channels/passage.product.releasedproduct/messages/updated' }]
+    channel: { $ref: '#/channels/depot.product.releasedproduct' }
+    messages: [{ $ref: '#/channels/depot.product.releasedproduct/messages/updated' }]
   onIdentifierAdded:
     action: send
-    channel: { $ref: '#/channels/passage.product.identifier' }
-    messages: [{ $ref: '#/channels/passage.product.identifier/messages/added' }]
+    channel: { $ref: '#/channels/depot.product.identifier' }
+    messages: [{ $ref: '#/channels/depot.product.identifier/messages/added' }]
   onSolved:
     action: send
-    channel: { $ref: '#/channels/passage.product.configuration' }
-    messages: [{ $ref: '#/channels/passage.product.configuration/messages/solved' }]
+    channel: { $ref: '#/channels/depot.product.configuration' }
+    messages: [{ $ref: '#/channels/depot.product.configuration/messages/solved' }]
   onRelationChanged:
     action: send
-    channel: { $ref: '#/channels/passage.product.relation' }
-    messages: [{ $ref: '#/channels/passage.product.relation/messages/changed' }]
+    channel: { $ref: '#/channels/depot.product.relation' }
+    messages: [{ $ref: '#/channels/depot.product.relation/messages/changed' }]
 components:
   messages:
     created:
@@ -87,7 +87,7 @@ components:
           baseUom: { type: string }
           lifecycleState: { type: string }
           version: { type: integer }
-      x-passage-type: dev.passage.product.product.created.v1
+      x-depot-type: dev.depot.product.product.created.v1
     updated:
       name: updated
       title: Product master data updated
@@ -102,7 +102,7 @@ components:
           lifecycleState: { type: string }
           changedFields: { type: array, items: { type: string } }
           version: { type: integer }
-      x-passage-type: dev.passage.product.product.updated.v1
+      x-depot-type: dev.depot.product.product.updated.v1
     released:
       name: released
       title: Product released to a legal entity
@@ -118,7 +118,7 @@ components:
           itemModelGroupId: { type: string }
           defaultSiteId: { type: string }
           defaultWarehouseId: { type: string }
-      x-passage-type: dev.passage.product.product.released.v1
+      x-depot-type: dev.depot.product.product.released.v1
     variantCreated:
       name: variantCreated
       title: Variant explosion checkpoint
@@ -129,7 +129,7 @@ components:
           masterId: { type: string }
           variantIds: { type: array, items: { type: string } }
           dimensionValues: { type: array, items: { type: object } }
-      x-passage-type: dev.passage.product.variant.created.v1
+      x-depot-type: dev.depot.product.variant.created.v1
     releasedUpdated:
       name: releasedUpdated
       title: Released product updated
@@ -141,7 +141,7 @@ components:
           changedFields: { type: array, items: { type: string } }
           lifecycleState: { type: string }
           blocks: { type: object, additionalProperties: { type: boolean } }
-      x-passage-type: dev.passage.product.releasedproduct.updated.v1
+      x-depot-type: dev.depot.product.releasedproduct.updated.v1
     identifierAdded:
       name: identifierAdded
       title: GS1 identifier stored
@@ -153,7 +153,7 @@ components:
           type: { type: string }
           value: { type: string }
           uomId: { type: string }
-      x-passage-type: dev.passage.product.identifier.added.v1
+      x-depot-type: dev.depot.product.identifier.added.v1
     solved:
       name: solved
       title: Configuration solved
@@ -164,7 +164,7 @@ components:
           masterId: { type: string }
           selections: { type: object }
           resultProductId: { type: string }
-      x-passage-type: dev.passage.product.configuration.solved.v1
+      x-depot-type: dev.depot.product.configuration.solved.v1
     relationChanged:
       name: relationChanged
       title: Product relation created or deleted
@@ -175,4 +175,4 @@ components:
           toProductId: { type: string }
           typeCode: { type: string }
           action: { type: string }
-      x-passage-type: dev.passage.product.relation.changed.v1
+      x-depot-type: dev.depot.product.relation.changed.v1

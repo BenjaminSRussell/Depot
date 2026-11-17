@@ -7,7 +7,7 @@ import (
 
 // EventType is the CloudEvents type of an automation event published for the warehouse
 // (wave 32, FR-32.12). The warehouse consumes it to confirm transport work.
-const EventType = "dev.passage.warehouse.automation.event.v1"
+const EventType = "dev.depot.warehouse.automation.event.v1"
 
 // Event kinds.
 const (

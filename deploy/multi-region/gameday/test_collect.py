@@ -16,7 +16,7 @@ SPEC: dict[str, Any] = {
     "ledger": {"sql": "LEDGER", "checkpoint_sql": "CHECKPOINT :tenant :seq"},
     "rows": {"ledger.journal_line": "ROWS_JL", "inventory.txn": "ROWS_INV"},
     "sequences": {"fiscal-invoice-FR": "SEQ_FR"},
-    "offsets_cluster": "passage-kafka-eu-central",
+    "offsets_cluster": "depot-kafka-eu-central",
     "offsets_cmd": ["offsets"],
 }
 
@@ -50,7 +50,7 @@ POST_ANSWERS = {
 
 def fake_cmd(argv: list[str]) -> str:
     assert argv == ["offsets"]
-    return json.dumps({"passage.ledger.journal.v1-0": 55, "passage.ledger.journal.v1-1": 60})
+    return json.dumps({"depot.ledger.journal.v1-0": 55, "depot.ledger.journal.v1-1": 60})
 
 
 class TestValidateSpec(unittest.TestCase):
@@ -98,11 +98,11 @@ class TestCollect(unittest.TestCase):
         self.assertEqual(facts["ledger"]["t-2"], {"seq": 4, "head": "h4", "checkpoints": {"4": "h4"}})
         self.assertEqual(facts["rows"], {"ledger.journal_line": 1200, "inventory.txn": 300})
         self.assertEqual(facts["sequences"], {"fiscal-invoice-FR": [1, 2, 3, 4]})
-        self.assertEqual(facts["offsets"]["passage.ledger.journal.v1-1"], 60)
-        self.assertEqual(facts["offsetsCluster"], "passage-kafka-eu-central")
+        self.assertEqual(facts["offsets"]["depot.ledger.journal.v1-1"], 60)
+        self.assertEqual(facts["offsetsCluster"], "depot-kafka-eu-central")
         manifest = baseline.capture(facts)
         self.assertEqual(manifest["ledger"]["t-1"], {"seq": 10, "head": "h10"})
-        self.assertEqual(manifest["offsetsCluster"], "passage-kafka-eu-central")
+        self.assertEqual(manifest["offsetsCluster"], "depot-kafka-eu-central")
 
     def test_post_failover_run_reads_the_checkpoint_at_the_baseline_sequence(self) -> None:
         manifest = baseline.capture(collect.collect(SPEC, fake_query, fake_cmd))

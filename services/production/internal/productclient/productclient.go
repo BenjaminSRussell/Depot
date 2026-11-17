@@ -17,8 +17,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const (
@@ -88,7 +88,7 @@ func FromEnv(getenv func(string) string) (Resolver, error) {
 		return nil, err
 	}
 	if signer == nil {
-		return nil, errors.New("PRODUCT_URL needs PASSAGE_SERVICE_SIGNING_KEY or PASSAGE_SERVICE_SIGNING_KEY_FILE")
+		return nil, errors.New("PRODUCT_URL needs DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE")
 	}
 	c, err := New(baseURL, signer, nil)
 	if err != nil {

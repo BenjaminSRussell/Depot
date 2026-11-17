@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
 )
 
 func TestStatement_ForwardsTheQueryAndReturnsSections(t *testing.T) {
@@ -65,7 +65,7 @@ func TestStatement_RejectsBadQueriesAndChecksDutyAndScope(t *testing.T) {
 	if rec := do(h, http.MethodGet, base, "", "receivables.payment.post", nil); rec.Code != http.StatusForbidden {
 		t.Errorf("without receivables.view: status %d, want 403", rec.Code)
 	}
-	rec := do(h, http.MethodGet, base, "", "receivables.view", map[string]string{"X-Passage-Legal-Entity": "00000000-0000-0000-0000-0000000000ff"})
+	rec := do(h, http.MethodGet, base, "", "receivables.view", map[string]string{"X-Depot-Legal-Entity": "00000000-0000-0000-0000-0000000000ff"})
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("other legal entity in scope: status %d, want 403", rec.Code)
 	}
@@ -170,7 +170,7 @@ func TestCreatePayment_RejectsBadPayerIdentity(t *testing.T) {
 
 func TestScopeAllows_RefusesACallerWithNoLegalEntityScope(t *testing.T) {
 	rec := do(router(&fakeStore{}), http.MethodPost, "/v1/receivables/aging-snapshots", `{"legalEntityId":"`+testLE+`"}`, "receivables.aging.run",
-		map[string]string{"X-Passage-Legal-Entity": ""})
+		map[string]string{"X-Depot-Legal-Entity": ""})
 	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "AUTH-0003") {
 		t.Fatalf("no scope: %d %s", rec.Code, rec.Body.String())
 	}

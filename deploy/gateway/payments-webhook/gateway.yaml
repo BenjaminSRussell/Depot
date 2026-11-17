@@ -1,26 +1,26 @@
-# The payment webhook edge (#30). Stripe posts webhook events without a Passage token; receivables authenticates each by its
-# Stripe-Signature HMAC over the raw body before reading it. A Gateway of its own, so SecurityPolicy/passage-api-jwt (which
-# targets Gateway passage-api) can never apply here, and its only route is HTTPRoute/receivables-payments-webhook. HTTPS only;
-# the hostname is per environment (payments-webhook.<env>.passage.dev). The receivables chart's NetworkPolicy admits only this
+# The payment webhook edge (#30). Stripe posts webhook events without a Depot token; receivables authenticates each by its
+# Stripe-Signature HMAC over the raw body before reading it. A Gateway of its own, so SecurityPolicy/depot-api-jwt (which
+# targets Gateway depot-api) can never apply here, and its only route is HTTPRoute/receivables-payments-webhook. HTTPS only;
+# the hostname is per environment (payments-webhook.<env>.depot.dev). The receivables chart's NetworkPolicy admits only this
 # Gateway's Envoy proxies to the webhook port. deploy/scripts/test_payments_webhook_gateway.py checks all of it.
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: passage-payments-webhook
+  name: depot-payments-webhook
   namespace: hello-ledger
 spec:
-  gatewayClassName: passage-envoy
+  gatewayClassName: depot-envoy
   listeners:
     - name: webhook-https
       protocol: HTTPS
       port: 443
-      hostname: payments-webhook.dev.passage.dev
+      hostname: payments-webhook.dev.depot.dev
       tls:
         mode: Terminate
         certificateRefs:
           - group: ""
             kind: Secret
-            name: passage-payments-webhook-tls
+            name: depot-payments-webhook-tls
       allowedRoutes:
         namespaces:
           from: Same

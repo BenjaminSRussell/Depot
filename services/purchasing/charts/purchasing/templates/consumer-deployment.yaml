@@ -28,9 +28,9 @@ spec:
       containers:
         - name: {{ .Chart.Name }}-consumer
           {{- if .Values.image.digest }}
-          image: "{{ (include "passage.imageRepository" $) }}@{{ .Values.image.digest }}"
+          image: "{{ (include "depot.imageRepository" $) }}@{{ .Values.image.digest }}"
           {{- else }}
-          image: "{{ (include "passage.imageRepository" $) }}:{{ .Values.image.tag }}"
+          image: "{{ (include "depot.imageRepository" $) }}:{{ .Values.image.tag }}"
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args: [consume]
@@ -38,7 +38,7 @@ spec:
             - name: admin
               containerPort: 9090
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: ADMIN_ADDR
               value: ":9090"
             - name: SERVICE_NAME
@@ -55,11 +55,11 @@ spec:
             - name: KAFKA_USERNAME
               value: {{ .Values.consumer.kafka.username | quote }}
             - name: KAFKA_PASSWORD_FILE
-              value: /var/run/passage/kafka/password
+              value: /var/run/depot/kafka/password
             - name: KAFKA_TLS_CA_FILE
-              value: /var/run/passage/kafka/ca.crt
+              value: /var/run/depot/kafka/ca.crt
           volumeMounts:
-            - { name: kafka, mountPath: /var/run/passage/kafka, readOnly: true }
+            - { name: kafka, mountPath: /var/run/depot/kafka, readOnly: true }
           livenessProbe:
             httpGet: { path: /healthz, port: admin }
             initialDelaySeconds: 5

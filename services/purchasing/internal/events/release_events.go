@@ -5,7 +5,7 @@ import "github.com/shopspring/decimal"
 // RequisitionReleaseCompleted is written when a requisition release run (FR-17.3, PRD 3.17.16) has ordered what it could
 // of the approved requisition lines that had a vendor. The subject is the run id. A run that found nothing to release
 // writes no event. A buyer notification keys on SkippedCount > 0: those lines are still in the consolidation queue.
-const RequisitionReleaseCompleted = "dev.passage.procurement.requisitionrelease.completed.v1"
+const RequisitionReleaseCompleted = "dev.depot.procurement.requisitionrelease.completed.v1"
 
 // ReleasedOrder is a draft purchase order a run created.
 type ReleasedOrder struct {

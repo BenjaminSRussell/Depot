@@ -17,16 +17,16 @@ ALTER TABLE partner_tax_registration ENABLE ROW LEVEL SECURITY;
 ALTER TABLE partner_tax_registration FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS partner_tax_registration_tenant_access ON partner_tax_registration;
 CREATE POLICY partner_tax_registration_tenant_access ON partner_tax_registration AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS partner_tax_registration_legal_entity_scope ON partner_tax_registration;
 CREATE POLICY partner_tax_registration_legal_entity_scope ON partner_tax_registration AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON partner_tax_registration TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON partner_tax_registration TO depot_app';
   END IF;
 END
 $$;

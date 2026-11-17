@@ -49,7 +49,7 @@ func TestPartnerTransport_Validate(t *testing.T) {
 	rules := TransportRules{Now: now}
 	rsaCert, ecCert := certPEM(t, false, now.Add(24*time.Hour)), certPEM(t, true, now.Add(24*time.Hour))
 	as2 := func(mut func(*AS2Settings)) PartnerTransport {
-		a := AS2Settings{PartnerAS2ID: "ACME", OurAS2ID: "PASSAGE", URL: "https://as2.acme.example/as2", PartnerCertificate: rsaCert, SigningKeyRef: "as2-passage"}
+		a := AS2Settings{PartnerAS2ID: "ACME", OurAS2ID: "DEPOT", URL: "https://as2.acme.example/as2", PartnerCertificate: rsaCert, SigningKeyRef: "as2-depot"}
 		if mut != nil {
 			mut(&a)
 		}
@@ -131,7 +131,7 @@ func TestPartnerTransport_Validate(t *testing.T) {
 	if f := sftp(func(s *SFTPSettings) { s.Host = "2001:db8::1" }).Validate(rules); len(f) != 0 {
 		t.Fatalf("IPv6 host: %v", f)
 	}
-	for _, ref := range []string{"a", "as2-passage", "k.pem", "x_1"} {
+	for _, ref := range []string{"a", "as2-depot", "k.pem", "x_1"} {
 		if !ValidSecretRef(ref) {
 			t.Errorf("%q refused", ref)
 		}

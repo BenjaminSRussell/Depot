@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 func dueOperation(t *testing.T, s *store.Postgres, ctxOrder string, minutes int, due time.Time, resource string) store.Operation {

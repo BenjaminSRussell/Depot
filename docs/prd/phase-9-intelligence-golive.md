@@ -2,7 +2,7 @@
 
 ## 9.0 Phase overview
 
-**Business outcome at phase exit.** A manufacturer runs its entire business on Passage in production, off AX/SAP, with the vendor dependencies of the legacy systems removed: analytics no longer needs Entity store, BYOD or BW extractors because every domain streams into one governed lakehouse; users ask questions and delegate work to agents that act only within their own permissions; the tenant runs legally in seven countries with statutory outputs validated against regulator schemas; segregation of duties, SOC 2 evidence and privacy requests are system functions rather than spreadsheets; the customer's open items, balances and history were moved by a migration factory that reconciled every control total; and the platform has demonstrated 10k concurrent users, a region failover and a reconciled production month-end. v1.0 is tagged, signed and published.
+**Business outcome at phase exit.** A manufacturer runs its entire business on Depot in production, off AX/SAP, with the vendor dependencies of the legacy systems removed: analytics no longer needs Entity store, BYOD or BW extractors because every domain streams into one governed lakehouse; users ask questions and delegate work to agents that act only within their own permissions; the tenant runs legally in seven countries with statutory outputs validated against regulator schemas; segregation of duties, SOC 2 evidence and privacy requests are system functions rather than spreadsheets; the customer's open items, balances and history were moved by a migration factory that reconciled every control total; and the platform has demonstrated 10k concurrent users, a region failover and a reconciled production month-end. v1.0 is tagged, signed and published.
 
 **Phase-exit sign-off criteria** (all measured in the production-candidate environment unless stated)
 
@@ -42,20 +42,20 @@
 
 | Event (CloudEvents type) | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| `dev.passage.analytics.snapshot.committed.v1` | analytics-ingest | semantic, catalog | table, snapshot_id, row_delta, max_source_lsn, watermark |
-| `dev.passage.analytics.metric.reconciled.v1` | semantic | compliance, alerting | metric_id, date, semantic_value, source_value, delta, status |
-| `dev.passage.agent.run.completed.v1` | agent-runtime | audit, copilot-ui, evals | run_id, agent, version, tool_calls[], tokens, outcome |
-| `dev.passage.agent.approval.requested.v1` | agent-runtime | workflow inbox | run_id, action_id, proposed_change, risk_score |
-| `dev.passage.ereporting.document.submitted.v1` | ereporting | AR/AP, compliance | mandate, format_version, document_ref, regulator_ack |
-| `dev.passage.sod.conflict.detected.v1` | sod | compliance, workflow | user_id, rule_id, roles[], severity |
-| `dev.passage.privacy.request.completed.v1` | privacy | audit | request_id, type, subject_ref, affected_domains[] |
-| `dev.passage.migration.pack.reconciled.v1` | migration-factory | cutover | run_id, pack, control_totals[], status |
-| `dev.passage.migration.parallelrun.diffed.v1` | migration-factory | cutover | run_id, period, variances_unexplained, variances_explained |
-| `dev.passage.ops.failover.completed.v1` | platform-ops | all services (fencing) | from_region, to_region, promoted_lsn, rpo_seconds, rto_seconds |
-| `dev.passage.documents.print.routed.v1` | docgen | print agent, audit | render_id, rule_id, destinations[] |
-| `dev.passage.compliance.esign.signed.v1` | compliance | quality, production, audit | esign_id, record, meaning, signer |
-| `dev.passage.trade.screening.hit.v1` | trade-compliance | sales, procurement, payments | subject, list_code, score |
-| `dev.passage.security.incident.breach_confirmed.v1` | security | privacy, notifications | incident_id, regimes[], deadlines[] |
+| `dev.depot.analytics.snapshot.committed.v1` | analytics-ingest | semantic, catalog | table, snapshot_id, row_delta, max_source_lsn, watermark |
+| `dev.depot.analytics.metric.reconciled.v1` | semantic | compliance, alerting | metric_id, date, semantic_value, source_value, delta, status |
+| `dev.depot.agent.run.completed.v1` | agent-runtime | audit, copilot-ui, evals | run_id, agent, version, tool_calls[], tokens, outcome |
+| `dev.depot.agent.approval.requested.v1` | agent-runtime | workflow inbox | run_id, action_id, proposed_change, risk_score |
+| `dev.depot.ereporting.document.submitted.v1` | ereporting | AR/AP, compliance | mandate, format_version, document_ref, regulator_ack |
+| `dev.depot.sod.conflict.detected.v1` | sod | compliance, workflow | user_id, rule_id, roles[], severity |
+| `dev.depot.privacy.request.completed.v1` | privacy | audit | request_id, type, subject_ref, affected_domains[] |
+| `dev.depot.migration.pack.reconciled.v1` | migration-factory | cutover | run_id, pack, control_totals[], status |
+| `dev.depot.migration.parallelrun.diffed.v1` | migration-factory | cutover | run_id, period, variances_unexplained, variances_explained |
+| `dev.depot.ops.failover.completed.v1` | platform-ops | all services (fencing) | from_region, to_region, promoted_lsn, rpo_seconds, rto_seconds |
+| `dev.depot.documents.print.routed.v1` | docgen | print agent, audit | render_id, rule_id, destinations[] |
+| `dev.depot.compliance.esign.signed.v1` | compliance | quality, production, audit | esign_id, record, meaning, signer |
+| `dev.depot.trade.screening.hit.v1` | trade-compliance | sales, procurement, payments | subject, list_code, score |
+| `dev.depot.security.incident.breach_confirmed.v1` | security | privacy, notifications | incident_id, regimes[], deadlines[] |
 
 **Phase-level risks**
 
@@ -73,11 +73,11 @@
 
 ### 9.46.1 Scope and business context
 
-AX customers build analytics on Entity store aggregate measurements refreshed by batch, BYOD exports to Azure SQL and Power BI embedded workspaces; SSRS runs document layouts through `SrsReportDataProvider` classes. SAP customers extract into BW/4HANA InfoProviders via ODP, expose `@Analytics.dataCategory: #CUBE` CDS views and embed SAC stories. Both put analytical load on OLTP or on a copy that is hours stale. This wave gives every Passage domain a CDC path into an Apache Iceberg lakehouse, a Cube semantic layer with governed metrics whose row-level security mirrors OPA, embedded dashboards in each workspace, a self-service explorer, scheduled reports, an operational document designer that replaces SSRS layouts, and OpenMetadata for catalog and lineage. At wave exit a controller sees revenue on a dashboard within 60 s of posting and knows it equals the GL. Out of scope: natural-language querying (wave 47), historical legacy data (wave 49), customer-built ML models.
+AX customers build analytics on Entity store aggregate measurements refreshed by batch, BYOD exports to Azure SQL and Power BI embedded workspaces; SSRS runs document layouts through `SrsReportDataProvider` classes. SAP customers extract into BW/4HANA InfoProviders via ODP, expose `@Analytics.dataCategory: #CUBE` CDS views and embed SAC stories. Both put analytical load on OLTP or on a copy that is hours stale. This wave gives every Depot domain a CDC path into an Apache Iceberg lakehouse, a Cube semantic layer with governed metrics whose row-level security mirrors OPA, embedded dashboards in each workspace, a self-service explorer, scheduled reports, an operational document designer that replaces SSRS layouts, and OpenMetadata for catalog and lineage. At wave exit a controller sees revenue on a dashboard within 60 s of posting and knows it equals the GL. Out of scope: natural-language querying (wave 47), historical legacy data (wave 49), customer-built ML models.
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Entity store refresh (`AggregateMeasurement`, batch job "Refresh entity store") runs hourly at best; Power BI tiles show numbers up to 4 h old and controllers re-query the GL to confirm | Batch copy from OLTP into a separate star schema; no change feed | Debezium CDC → Iceberg → Cube; freshness badge on every tile | Latency 4 h batch → p95 < 60 s |
 | Revenue on a dashboard and revenue on the trial balance disagree; nobody knows which is right (BYOD export gaps, BW extractor delta failures in `RSA7`) | Export jobs drop deltas silently; no reconciliation step | Daily automated metric ↔ GL reconciliation with hard fail and banner | Reconciliation effort 2 person-days/month → 0; delta tolerance 0.005 |
@@ -87,7 +87,7 @@ AX customers build analytics on Entity store aggregate measurements refreshed by
 
 ### 9.46.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Analytical store | Entity store, `AggregateMeasurement` (e.g. `LedgerActivityMeasure`), batch refresh | BW/4HANA ADSO, CompositeProvider, ODP extractors (`RSA1`) | Debezium CDC → Iceberg `raw.*`, dbt `core.*`/`mart.*` | Improved (streaming, no batch refresh) |
 | Data export for BI | BYOD (`DMFDataEntity` export to Azure SQL), Export to Data Lake | SLT, Datasphere replication flows | Iceberg tables queryable via Trino; CDC is the export | Improved |
@@ -225,13 +225,13 @@ Query validation: ≤ 10 measures, ≤ 8 dimensions, time range ≤ 5 years at d
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.analytics.snapshot.committed.v1` | Iceberg commit | domain, table, snapshot_id, rows_added, rows_deleted, max_lsn, watermark_ts | semantic (cache invalidation), catalog |
-| `dev.passage.analytics.metric.reconciled.v1` | daily job | metric_id, tenant_id, date, semantic_value, source_value, delta, status | compliance evidence, alerting |
-| `dev.passage.analytics.report.delivered.v1` | schedule run | schedule_id, run_id, format, destination, row_count, bytes | audit |
-| `dev.passage.documents.template.published.v1` | version publish | template_id, version, document_type, visual_hash | print management, catalog |
-| `dev.passage.documents.print.routed.v1` | destination resolved at render | render_id, document_type, record_id, rule_id, destinations[] | print agent, audit |
-| `dev.passage.catalog.dq.scored.v1` | hourly evaluation | asset_fqn, rule_id, pass_pct, failed_rows, severity | data owner inbox, dashboard |
-| `dev.passage.archive.partition.moved.v1` | archive job verified a partition | domain, table, period, rows, content_hash | compliance evidence (CC6.5), catalog |
+| `dev.depot.analytics.snapshot.committed.v1` | Iceberg commit | domain, table, snapshot_id, rows_added, rows_deleted, max_lsn, watermark_ts | semantic (cache invalidation), catalog |
+| `dev.depot.analytics.metric.reconciled.v1` | daily job | metric_id, tenant_id, date, semantic_value, source_value, delta, status | compliance evidence, alerting |
+| `dev.depot.analytics.report.delivered.v1` | schedule run | schedule_id, run_id, format, destination, row_count, bytes | audit |
+| `dev.depot.documents.template.published.v1` | version publish | template_id, version, document_type, visual_hash | print management, catalog |
+| `dev.depot.documents.print.routed.v1` | destination resolved at render | render_id, document_type, record_id, rule_id, destinations[] | print agent, audit |
+| `dev.depot.catalog.dq.scored.v1` | hourly evaluation | asset_fqn, rule_id, pass_pct, failed_rows, severity | data owner inbox, dashboard |
+| `dev.depot.archive.partition.moved.v1` | archive job verified a partition | domain, table, period, rows, content_hash | compliance evidence (CC6.5), catalog |
 
 ### 9.46.6 User experience
 
@@ -310,7 +310,7 @@ Reconciliation: `revenue`, `cogs` ↔ ledger balance movements by account catego
 
 ### 9.46.10 Deployment and operations
 
-Helm charts: `passage-cdc` (Kafka Connect cluster with Debezium and Iceberg sink, 3 workers), `passage-lakehouse` (Iceberg REST catalog, Nessie-compatible, object storage via S3 API), `passage-trino` (coordinator + 4 workers, autoscaling to 16), `passage-clickhouse` (optional accelerator for `mart.*` pre-aggregations), `passage-cube` (API + refresh workers), `passage-dbt-runner` (Temporal worker), `passage-docgen`, `passage-openmetadata`.
+Helm charts: `depot-cdc` (Kafka Connect cluster with Debezium and Iceberg sink, 3 workers), `depot-lakehouse` (Iceberg REST catalog, Nessie-compatible, object storage via S3 API), `depot-trino` (coordinator + 4 workers, autoscaling to 16), `depot-clickhouse` (optional accelerator for `mart.*` pre-aggregations), `depot-cube` (API + refresh workers), `depot-dbt-runner` (Temporal worker), `depot-docgen`, `depot-openmetadata`.
 Config: `CDC_DOMAINS` list, `ICEBERG_COMMIT_INTERVAL=30s`, `LATE_DATA_WATERMARK=5m`, `RECON_TOLERANCE=0.005`, object-store credentials from Vault.
 Migrations: `analytics` database (Atlas); Iceberg schemas managed by the sink.
 Feature flags: `analytics.dashboards`, `analytics.explorer`, `docgen.designer` per tenant.
@@ -322,7 +322,7 @@ Rollback: Helm rollback of services; Iceberg `rollback_to_snapshot` per table; c
 
 ### 9.46.11 Migration from AX / SAP
 
-| Source | Passage | Notes |
+| Source | Depot | Notes |
 |---|---|---|
 | Entity store `AggregateMeasurement` definitions | `semantic_metric` | mapped by hand; measures become Cube measures, dimensions become joins |
 | Power BI `.pbix` over BYOD | Dashboards | not converted; rebuilt on Cube; Power BI Desktop can connect to Trino |
@@ -516,11 +516,11 @@ Setup sequence per legal entity: install document templates → map party contac
 
 ### 9.47.1 Scope and business context
 
-D365 ships Copilot for finance and operations (summaries, draft e-mails, Copilot in workflow history) and Power Automate flows triggered from business events; SAP ships Joule and SAP Build Process Automation. Neither lets a governed agent execute a multi-step ERP process under the invoking user's exact permissions with an eval gate. This wave exposes every Passage API, entity and report as MCP tools through a gateway that forwards the user's token to OPA-protected APIs; adds a copilot in the shell (ask-the-data over the wave-46 semantic layer, explain-this-record, draft documents, summarize workflows); runs agents on Temporal with approval gates; gates deployment on an eval harness; and enforces responsible-AI controls with a provider-agnostic model layer (Claude default; Bedrock, Azure OpenAI, open-weights via vLLM selectable). Out of scope: training custom models, autonomous posting without approval in v1, voice.
+D365 ships Copilot for finance and operations (summaries, draft e-mails, Copilot in workflow history) and Power Automate flows triggered from business events; SAP ships Joule and SAP Build Process Automation. Neither lets a governed agent execute a multi-step ERP process under the invoking user's exact permissions with an eval gate. This wave exposes every Depot API, entity and report as MCP tools through a gateway that forwards the user's token to OPA-protected APIs; adds a copilot in the shell (ask-the-data over the wave-46 semantic layer, explain-this-record, draft documents, summarize workflows); runs agents on Temporal with approval gates; gates deployment on an eval harness; and enforces responsible-AI controls with a provider-agnostic model layer (Claude default; Bedrock, Azure OpenAI, open-weights via vLLM selectable). Out of scope: training custom models, autonomous posting without approval in v1, voice.
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Coding a vendor invoice in `VendInvoiceJour`/`MIRO` means opening the PO, the vendor history and the chart of accounts in three forms, then keying account, dimensions and tax code per line | No suggestion engine; copilots cannot read the posting context | AP coding agent proposes account, dimensions, tax code, PO match per line; approver confirms | Clicks per invoice 18 → 2; coding time 4 min → 20 s; top-1 accuracy ≥ 92% |
 | Cash application: `CustPaymMatch` rules and `F-28` match exact amounts only; partials and multi-invoice remittances go to a manual queue | Rule-based matching without reading remittance text | Cash application agent ranks settlements from remittance text and tolerances | Auto-matched share 60% → 90%+; unapplied cash aged > 7 d reduced 10× |
@@ -530,7 +530,7 @@ D365 ships Copilot for finance and operations (summaries, draft e-mails, Copilot
 
 ### 9.47.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Conversational assistant | D365 Copilot sidecar (`CopilotFeatureManagement`), Copilot summaries on workflow history | Joule in S/4HANA Cloud, Fiori launchpad | Copilot panel in shell | Improved (acts, not only answers) |
 | Ask the data | Copilot "ask about data" over Dataverse virtual entities | Joule analytics via SAC | `ask_data` tool → Cube query with OPA scope | Full |
@@ -547,10 +547,10 @@ D365 ships Copilot for finance and operations (summaries, draft e-mails, Copilot
 
 ### 9.47.3 Functional requirements
 
-- **FR-47.1 MCP gateway** — Must. The system shall expose Passage capabilities as MCP tools from a single gateway (`mcp.passage.<tenant>`), generated from OpenAPI/AsyncAPI and entity metadata.
-  - Notes: tool names `passage.<domain>.<entity>.<verb>` (e.g. `passage.ap.invoice.list`, `passage.ap.invoice.propose_coding`, `passage.ledger.journal.get`); `inputSchema` is the endpoint's JSON Schema with tenant_id removed (injected from token); each tool declares `annotations.readOnlyHint`, `destructiveHint`, `idempotentHint`, and a Passage extension `x-passage-duty` (required duty) and `x-passage-approval` (`none`, `suggest`, `approve_before_commit`); read tools return ≤ 200 rows per call with cursor; a tool call carries `traceparent` and `x-agent-run-id`.
+- **FR-47.1 MCP gateway** — Must. The system shall expose Depot capabilities as MCP tools from a single gateway (`mcp.depot.<tenant>`), generated from OpenAPI/AsyncAPI and entity metadata.
+  - Notes: tool names `depot.<domain>.<entity>.<verb>` (e.g. `depot.ap.invoice.list`, `depot.ap.invoice.propose_coding`, `depot.ledger.journal.get`); `inputSchema` is the endpoint's JSON Schema with tenant_id removed (injected from token); each tool declares `annotations.readOnlyHint`, `destructiveHint`, `idempotentHint`, and a Depot extension `x-depot-duty` (required duty) and `x-depot-approval` (`none`, `suggest`, `approve_before_commit`); read tools return ≤ 200 rows per call with cursor; a tool call carries `traceparent` and `x-agent-run-id`.
 - **FR-47.2 Permission inheritance** — Must. The system shall execute every tool call with the invoking user's Keycloak token (on-behalf-of exchange, `act` claim = agent id), so OPA evaluates the user's duties and data scope at the API; agents hold no credentials of their own.
-  - Notes: token lifetime for agent runs 15 min, refreshed by Temporal activity; a tool whose `x-passage-duty` the user lacks is not listed to the model; contract test: for each of 400 tools, a user without the duty receives 403 from the gateway and the API.
+  - Notes: token lifetime for agent runs 15 min, refreshed by Temporal activity; a tool whose `x-depot-duty` the user lacks is not listed to the model; contract test: for each of 400 tools, a user without the duty receives 403 from the gateway and the API.
 - **FR-47.3 Copilot UI** — Must. The system shall provide a shell panel with modes ask-the-data, explain-this-record, draft (e-mail, PO text, dunning letter), summarize (workflow history, case) with citations to records and metrics used.
   - Notes: streaming responses; every answer lists tool calls made; "explain" uses the record's audit trail and related documents; drafts are inserted only on user click.
 - **FR-47.4 Agent runtime** — Must. The system shall run agents as Temporal workflows (`AgentRunWorkflow`) with steps plan → tool calls → proposal → approval gate → commit, each tool call an activity with retry policy and 60 s timeout, run timeout 24 h including approval wait.
@@ -565,7 +565,7 @@ D365 ships Copilot for finance and operations (summaries, draft e-mails, Copilot
 - **FR-47.12 Responsible-AI controls** — Must. The system shall: redact PII (names, IBAN, tax ids, emails) from prompts to external providers using the wave-42 PII classification, replacing with stable pseudonyms resolved after response; log every action (prompt hash, tool calls, outputs, approver); provide a tenant and global kill switch that halts all runs within 10 s; prohibit model-initiated posting without `approve_before_commit` or auto-mode policy; label all generated text in UI; keep a model card per agent version; allow provider selection per tenant with data-residency constraint checked against wave-48 tenant residency.
 - **FR-47.13 Provider layer** — Must. The system shall abstract chat completion, tool use and embeddings behind one interface with adapters for Anthropic API, Amazon Bedrock, Azure, and OpenAI-compatible open-weights endpoints; feature parity test per adapter.
 
-- **FR-47.14 Knowledge retrieval tool** — Should. The system shall expose `passage.knowledge.search` (hybrid BM25 + embedding search over wave-45 knowledge articles, wave-50 documentation, and tenant policy documents uploaded by an administrator) so copilot answers to "how do I" questions cite the article or document section; the tool respects article visibility (internal, portal) through the user's token.
+- **FR-47.14 Knowledge retrieval tool** — Should. The system shall expose `depot.knowledge.search` (hybrid BM25 + embedding search over wave-45 knowledge articles, wave-50 documentation, and tenant policy documents uploaded by an administrator) so copilot answers to "how do I" questions cite the article or document section; the tool respects article visibility (internal, portal) through the user's token.
   - Notes: embeddings are computed by the provider layer (FR-47.13) and stored in Postgres `pgvector` in the `knowledge` database; index refresh within 5 min of article publish; answers without a citation above similarity 0.75 say so instead of guessing.
 - **FR-47.15 Payment-date prediction** — Should. The system shall train a per-tenant model (Python, gradient-boosted trees) weekly on paid invoices (customer, terms, amount, invoice day-of-month, dunning history, disputes, seasonality) and score every open customer invoice with `predicted_payment_date` and `p_late_30d`, feeding the collections agent (FR-47.7), the wave-30 collections workspace and the `dso_days` forecast tile.
   - Notes: minimum 500 paid invoices per tenant before scoring is enabled, else a terms-plus-average-delay heuristic is used and labeled; model card per version; MAE on held-out set ≤ 6 days or the previous model stays active.
@@ -576,7 +576,7 @@ D365 ships Copilot for finance and operations (summaries, draft e-mails, Copilot
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| tool_name | text | Y | PK, `passage.<domain>.<entity>.<verb>` |
+| tool_name | text | Y | PK, `depot.<domain>.<entity>.<verb>` |
 | version | int | Y | from OpenAPI version |
 | input_schema | jsonb | Y | JSON Schema draft 2020-12 |
 | output_schema | jsonb | Y | |
@@ -631,12 +631,12 @@ Validation: run start rejects when tenant budget state HARD, kill switch active,
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.agent.run.completed.v1` | run end | run_id, agent_id, version, status, tool_calls[], tokens, cost_usd | audit, evals, copilot |
-| `dev.passage.agent.approval.requested.v1` | gate reached | run_id, action_id, tool_name, proposal, confidence, risk_score | workflow inbox |
-| `dev.passage.agent.budget.threshold.v1` | 80%/100% | tenant_id, month, pct, state | alerting, admin UI |
-| `dev.passage.agent.killswitch.changed.v1` | toggle | scope, active, by_user | all agent workers |
-| `dev.passage.prediction.payment.scored.v1` | weekly scoring or invoice change | invoice_id, model_version, predicted_payment_date, p_late_30d | collections workspace, analytics |
-| `dev.passage.agent.version.promoted.v1` | production pointer change | agent_id, from_version, to_version, eval_run_id, by_user | audit, workers |
+| `dev.depot.agent.run.completed.v1` | run end | run_id, agent_id, version, status, tool_calls[], tokens, cost_usd | audit, evals, copilot |
+| `dev.depot.agent.approval.requested.v1` | gate reached | run_id, action_id, tool_name, proposal, confidence, risk_score | workflow inbox |
+| `dev.depot.agent.budget.threshold.v1` | 80%/100% | tenant_id, month, pct, state | alerting, admin UI |
+| `dev.depot.agent.killswitch.changed.v1` | toggle | scope, active, by_user | all agent workers |
+| `dev.depot.prediction.payment.scored.v1` | weekly scoring or invoice change | invoice_id, model_version, predicted_payment_date, p_late_30d | collections workspace, analytics |
+| `dev.depot.agent.version.promoted.v1` | production pointer change | agent_id, from_version, to_version, eval_run_id, by_user | audit, workers |
 
 ### 9.47.6 User experience
 
@@ -670,7 +670,7 @@ Rules: `Ctrl+/` opens copilot with current record context; approvals support key
 ### 9.47.8 Acceptance criteria
 
 - **AC-47.1** (FR-47.1) Given an authenticated user, when `tools/list` is called, then only tools whose `required_duty` the user holds are returned.
-- **AC-47.2** (FR-47.2) Given user without duty `APInvoicePost`, when the agent calls `passage.ap.invoice.post`, then gateway returns 403 and the action is logged `DENIED`.
+- **AC-47.2** (FR-47.2) Given user without duty `APInvoicePost`, when the agent calls `depot.ap.invoice.post`, then gateway returns 403 and the action is logged `DENIED`.
 - **AC-47.3** (FR-47.5, 47.9) Given the `eval-ap-coding-v3` dataset (2,000 invoices), when evals run, then top-1 accuracy ≥ 0.92 and the CI job passes.
 - **AC-47.4** (FR-47.6, 47.9) Given `eval-cash-app-v2` (1,500 payments), when evals run, then precision ≥ 0.90.
 - **AC-47.5** (FR-47.8) Given a coding proposal with confidence 0.80, when the run reaches the gate, then an approval task appears in the inbox and nothing is posted.
@@ -690,7 +690,7 @@ Fixtures: `eval-ap-coding-v3` (2,000 labeled invoices, 40 vendors, 3 entities, f
 | Test | Type | Target | Pass criterion |
 |---|---|---|---|
 | Permission inheritance | contract | gateway + 400 tools | 0 cases where agent exceeds user |
-| Tool schema conformance | contract | gateway | every tool validates against MCP spec and `x-passage-*` |
+| Tool schema conformance | contract | gateway | every tool validates against MCP spec and `x-depot-*` |
 | Agent evals | eval | 5 agents | thresholds in FR-47.9 |
 | Adversarial refusal | eval | copilot | ≥ 0.99 correct refusals |
 | Redaction scanner | unit/property | redaction | 0 PII patterns in stored prompts across 100k generated samples |
@@ -702,11 +702,11 @@ Reconciliation: tokens billed by provider ↔ `agent_run.tokens_*` within 1%; `a
 
 ### 9.47.10 Deployment and operations
 
-Helm: `passage-mcp-gateway` (TS, 3 replicas), `passage-agent-runtime` (TS workers on Temporal namespace `agents`), `passage-copilot-bff`, `passage-agent-evals` (Python job runner). Config: `MODEL_PROVIDER_DEFAULT=anthropic`, `MODEL_ID` pinned per agent version, provider keys in Vault, `TOKEN_BUDGET_DEFAULT_IN=50000000`. Flags: `copilot.enabled`, `agent.<id>.mode` (off/suggest/auto) per tenant and legal entity. Jobs: budget rollover monthly, eval nightly on production datasets, model-card export weekly. SLOs: copilot first-token p95 < 2 s; run success rate ≥ 99%; gateway availability 99.9%. Alerts: eval regression, budget 80/100%, provider error rate > 5%, kill switch toggled. Runbook: rotate provider keys, replay a run in sandbox, demote version. Rollback: `promote` previous `agent_version`; Helm rollback.
+Helm: `depot-mcp-gateway` (TS, 3 replicas), `depot-agent-runtime` (TS workers on Temporal namespace `agents`), `depot-copilot-bff`, `depot-agent-evals` (Python job runner). Config: `MODEL_PROVIDER_DEFAULT=anthropic`, `MODEL_ID` pinned per agent version, provider keys in Vault, `TOKEN_BUDGET_DEFAULT_IN=50000000`. Flags: `copilot.enabled`, `agent.<id>.mode` (off/suggest/auto) per tenant and legal entity. Jobs: budget rollover monthly, eval nightly on production datasets, model-card export weekly. SLOs: copilot first-token p95 < 2 s; run success rate ≥ 99%; gateway availability 99.9%. Alerts: eval regression, budget 80/100%, provider error rate > 5%, kill switch toggled. Runbook: rotate provider keys, replay a run in sandbox, demote version. Rollback: `promote` previous `agent_version`; Helm rollback.
 
 ### 9.47.11 Migration from AX / SAP
 
-| Source | Passage | Notes |
+| Source | Depot | Notes |
 |---|---|---|
 | Power Automate flows on business events | Agent or Temporal workflow definitions | catalogued; rebuilt by hand; the business-event catalog maps to CloudEvents types |
 | `VendInvoiceAutomation` parameters | AP coding agent thresholds | tolerance and auto-post limits imported |
@@ -867,7 +867,7 @@ No document is posted or sent by this wave on its own; every outbound artifact i
 | AX 12.31 inventory rows "Copilot / Ask-the-data", "Copilot → Agent runs", "Copilot settings" | COVERED-47 | confirmed by FR-47.3, 47.4, 9.47.13 | |
 | AX 12.21 inventory row "Planning → MRP exception triage agent" | COVERED-47 | confirmed by FR-47.7 | |
 | SAP 13.37 inventory rows "Responsible AI", "Agent action audit", "Token/cost budget", "AI governance policies", "Business AI scenario activation" | COVERED-47 | confirmed by FR-47.5, 47.11, 47.12 and 9.47.13 (`agent.<id>.mode`) | |
-| SAP 13.99.2 rows 348/352/354 — BRF+ / decision tables (PARTIAL-3, not this wave) | PARTIAL-3 | SUPERSEDED by FR-3.13 (wave 3); `POST /v1/rules/{code}/evaluate` is exposed as MCP tool `passage.rules.ruleset.evaluate`, agents never embed rules in prompts | listed for traceability only |
+| SAP 13.99.2 rows 348/352/354 — BRF+ / decision tables (PARTIAL-3, not this wave) | PARTIAL-3 | SUPERSEDED by FR-3.13 (wave 3); `POST /v1/rules/{code}/evaluate` is exposed as MCP tool `depot.rules.ruleset.evaluate`, agents never embed rules in prompts | listed for traceability only |
 
 ## 9.48 Wave 48: Globalization, Localization & Compliance Controls
 
@@ -877,7 +877,7 @@ AX delivers country/region localizations, Electronic Reporting (`ERModel`, `ERFo
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | A regulator changes an XML schema; the ER configuration must be re-imported from RCS/LCS, tested in a sandbox and deployed, or an SAP note applied via `SNOTE` with a transport | Formats bundled with the application release cycle | Mandates registry with effective-dated `er_format` versions, schema validation in CI | Schema update 3 weeks → 1 day; 0 regulator rejections for schema errors |
 | SoD conflicts in `SysSecSegregationOfDutiesConflict` are found after assignment; GRC AC risk analysis runs as a batch and mitigations live in a separate system | Detection decoupled from role assignment | `sod/simulate` before save; nightly evaluation; mitigation workflow in the same workspace | Detection latency 1 day batch → < 2 s at assignment; unmitigated HIGH conflicts 0 |
@@ -887,7 +887,7 @@ AX delivers country/region localizations, Electronic Reporting (`ERModel`, `ERFo
 
 ### 9.48.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Country localization | Country/region-specific features gated by `CountryRegionCodes`, Localization feature keys | Country versions, `T005` country settings, localization BC sets | `country_pack` with tax, reports, layouts, bank formats, calendars | Full (7 countries) |
 | Electronic reporting | ER `ERModel`, `ERFormat`, `ERModelMapping`, RCS, `ERFormatMappingRun` | DRC e-documents (`EDOC_COCKPIT`), statutory reports (`SRF`), Advanced Compliance Reporting | ER designer: `er_model`, `er_mapping`, `er_format` with mandates registry | Full |
@@ -917,7 +917,7 @@ AX delivers country/region localizations, Electronic Reporting (`ERModel`, `ERFo
 - **FR-48.1 Country pack framework** — Must. The system shall package per-country tax rules, statutory report formats, document layouts, bank formats (NACHA, BACS, SEPA CT/DD, NEFT/RTGS, SPEI, EFT), holiday calendars and address/tax-id validators as a versioned `country_pack`, installable per legal entity.
   - Notes: packs are metadata plus ER formats, never code forks; a legal entity has exactly one primary pack; pack upgrade is a versioned migration with preview.
 - **FR-48.2 First seven packs** — Must. US (sales/use tax, 1099-NEC/MISC, ACH), UK (MTD VAT, BACS, Companies House XBRL tags), DE (UStVA, ZM, SEPA, GoBD export, DATEV), FR (CA3, DEB, FEC file, SEPA), IN (GST returns GSTR-1/3B, e-invoice IRP, TDS), MX (CFDI 4.0 with PAC, DIOT, SPEI), CA (GST/HST/PST, EFT, T4A).
-- **FR-48.3 Electronic reporting designer** — Must. The system shall provide `er_model` (logical data model), `er_mapping` (Passage entities → model), `er_format` (XML/JSON/CSV/fixed-width output with XSD/JSON-schema validation), versioned with effective dates and a mandates registry (`mandate`: regulator, jurisdiction, schema version, effective_from, sunset).
+- **FR-48.3 Electronic reporting designer** — Must. The system shall provide `er_model` (logical data model), `er_mapping` (Depot entities → model), `er_format` (XML/JSON/CSV/fixed-width output with XSD/JSON-schema validation), versioned with effective dates and a mandates registry (`mandate`: regulator, jurisdiction, schema version, effective_from, sunset).
   - Notes: format execution is a Temporal job; every output is stored with hash and regulator acknowledgment; schema validation failure blocks submission.
 - **FR-48.4 SoD rules engine** — Must. The system shall evaluate rules of the form `duty_a CONFLICTS duty_b` (and privilege-level) against every user's effective roles on each assignment change and nightly, raising conflicts with severity.
   - Rule schema: `rule_id`, `name`, `duty_a`, `duty_b`, `severity` (HIGH/MEDIUM/LOW), `risk_id` (GRC-style, e.g. `P2P-001`), `description`, `mitigation_allowed` bool, `max_mitigation_days` (default 365), `status`.
@@ -1070,17 +1070,17 @@ Validation: pack install rejects if the entity's fiscal calendar is open-period 
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.ereporting.document.submitted.v1` | regulator ack | mandate_id, format_version, document_ref, ack_id, status | AR/AP (mark invoice sent), compliance |
-| `dev.passage.sod.conflict.detected.v1` | evaluation | user_id, rule_id, severity, roles[] | workflow, compliance |
-| `dev.passage.sod.mitigation.approved.v1` | approval | conflict_id, approver, expires_at | audit |
-| `dev.passage.privacy.request.completed.v1` | close | request_id, type, affected_domains[], delivered_at | audit |
-| `dev.passage.compliance.evidence.collected.v1` | collector | control_id, evidence_id, hash | compliance UI |
-| `dev.passage.compliance.esign.signed.v1` | signature stored | esign_id, entity_type, record_id, meaning, signer, signed_at | quality, production, audit |
-| `dev.passage.compliance.audit.violation.created.v1` | audit policy run | policy_id, document_type, document_id, score | audit case UI, workflow |
-| `dev.passage.trade.screening.hit.v1` | screening match | subject_type, subject_id, list_code, score | sales, procurement, payments (block) |
-| `dev.passage.security.elevated.started.v1` / `.ended.v1` | break-glass | session_id, user_id, roles[], reason | SOC, audit, reviewer inbox |
-| `dev.passage.security.incident.breach_confirmed.v1` | breach flag set | incident_id, regimes[], deadlines[] | privacy, notifications |
-| `dev.passage.ereporting.message.status_changed.v1` | e-message transition | message_id, type, from, to, receipt_id | compliance UI, tax |
+| `dev.depot.ereporting.document.submitted.v1` | regulator ack | mandate_id, format_version, document_ref, ack_id, status | AR/AP (mark invoice sent), compliance |
+| `dev.depot.sod.conflict.detected.v1` | evaluation | user_id, rule_id, severity, roles[] | workflow, compliance |
+| `dev.depot.sod.mitigation.approved.v1` | approval | conflict_id, approver, expires_at | audit |
+| `dev.depot.privacy.request.completed.v1` | close | request_id, type, affected_domains[], delivered_at | audit |
+| `dev.depot.compliance.evidence.collected.v1` | collector | control_id, evidence_id, hash | compliance UI |
+| `dev.depot.compliance.esign.signed.v1` | signature stored | esign_id, entity_type, record_id, meaning, signer, signed_at | quality, production, audit |
+| `dev.depot.compliance.audit.violation.created.v1` | audit policy run | policy_id, document_type, document_id, score | audit case UI, workflow |
+| `dev.depot.trade.screening.hit.v1` | screening match | subject_type, subject_id, list_code, score | sales, procurement, payments (block) |
+| `dev.depot.security.elevated.started.v1` / `.ended.v1` | break-glass | session_id, user_id, roles[], reason | SOC, audit, reviewer inbox |
+| `dev.depot.security.incident.breach_confirmed.v1` | breach flag set | incident_id, regimes[], deadlines[] | privacy, notifications |
+| `dev.depot.ereporting.message.status_changed.v1` | e-message transition | message_id, type, from, to, receipt_id | compliance UI, tax |
 
 ### 9.48.6 User experience
 
@@ -1176,11 +1176,11 @@ Reconciliation: statutory VAT return boxes ↔ tax settlement totals (wave 13) t
 
 ### 9.48.10 Deployment and operations
 
-Helm: `passage-localization`, `passage-ereporting` (TS + Temporal), `passage-sod` (Go), `passage-compliance`, `passage-privacy`. Config: `COUNTRY_PACKS_ENABLED`, regulator adapter credentials (HMRC, PAC, IRP) in Vault, `SOD_BLOCK_HIGH`, `PRIVACY_DEADLINE_DAYS`. Migrations: `compliance` and `localization` databases. Flags per tenant: `pack.<code>`, `sod.enforce`, `privacy.portal`. Jobs: SoD nightly 00:30, evidence collectors per control schedule, retention purge monthly, backup drill monthly, secrets rotation. SLOs: format run p95 < 5 min for 100k lines; SoD evaluation < 2 s per assignment. Alerts: schema validation failure, regulator rejection, HIGH conflict unmitigated > 7 days, drill failure. Rollback: pack version downgrade with preview; ER format supersede; Helm rollback.
+Helm: `depot-localization`, `depot-ereporting` (TS + Temporal), `depot-sod` (Go), `depot-compliance`, `depot-privacy`. Config: `COUNTRY_PACKS_ENABLED`, regulator adapter credentials (HMRC, PAC, IRP) in Vault, `SOD_BLOCK_HIGH`, `PRIVACY_DEADLINE_DAYS`. Migrations: `compliance` and `localization` databases. Flags per tenant: `pack.<code>`, `sod.enforce`, `privacy.portal`. Jobs: SoD nightly 00:30, evidence collectors per control schedule, retention purge monthly, backup drill monthly, secrets rotation. SLOs: format run p95 < 5 min for 100k lines; SoD evaluation < 2 s per assignment. Alerts: schema validation failure, regulator rejection, HIGH conflict unmitigated > 7 days, drill failure. Rollback: pack version downgrade with preview; ER format supersede; Helm rollback.
 
 ### 9.48.11 Migration from AX / SAP
 
-| Source | Passage | Notes |
+| Source | Depot | Notes |
 |---|---|---|
 | `SysSecSegregationOfDutiesRule` | `sod_rule` | duties mapped via wave-2 role mapping; severity imported |
 | `SysSecSegregationOfDutiesConflict` with resolution | `sod_conflict` + `mitigation` | open conflicts re-evaluated; mitigations imported with original approver and expiry |
@@ -1467,7 +1467,7 @@ AX 2012 → D365 uses the data upgrade scripts (`ReleaseUpdateDB` classes, LCS d
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Open items loaded through DIXF (`DMFDefinitionGroup`) or Migration Cockpit staging tables (`/1LT/DS*`) are reconciled in Excel against `VendTransOpen`/`BSIK` totals; mismatches found days later | No built-in control totals at sub-total grain | `control_total` per pack at (entity, account, currency) grain with hashes, computed in-run | Reconciliation 5 person-days per entity → 10 min automated; mismatches found in-run |
 | Re-running a failed load creates duplicates (`InventSum` doubled, duplicate `BKPF` opening documents) | Loaders without natural-key idempotency | Idempotent packs keyed on `legacy_xref` | Duplicate rate after re-run 0 |
@@ -1477,7 +1477,7 @@ AX 2012 → D365 uses the data upgrade scripts (`ReleaseUpdateDB` classes, LCS d
 
 ### 9.49.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Open AP/AR items | `VendTrans`/`VendTransOpen`, `CustTrans`/`CustTransOpen`, `VendSettlement` | `BSIK`/`BSID` (ECC), `ACDOCA` open items (S/4), `BSEG` | pack `open_items` → AP/AR open items with `legacy_xref` | Full |
 | GL balances | `GeneralJournalAccountEntry`, `DimensionAttributeValueCombination`, `LedgerBalance*` | `GLT0`/`FAGLFLEXT` (ECC), `ACDOCA` (S/4) | pack `gl_balances` → opening journal per dimension | Full |
@@ -1496,20 +1496,20 @@ AX 2012 → D365 uses the data upgrade scripts (`ReleaseUpdateDB` classes, LCS d
 - **FR-49.1 Transactional packs** — Must. The system shall provide packs `open_items`, `gl_balances`, `onhand`, `open_orders`, `wip_prod`, `fixed_assets`, `project_wip`, `payroll_ytd`, `bank_balances`, each with AX and SAP extractors, mapping, validation (Great Expectations suites), load and reconciliation steps.
 - **FR-49.2 Control totals** — Must. The system shall compute and compare per pack: `open_items`: count, sum amount in transaction currency per currency, sum in accounting currency, per (entity, account, currency) sub-totals, hash of sorted (legacy_id, amount); `gl_balances`: per (entity, account, dimension combination, currency) balance, trial balance debit = credit, count of non-zero combinations; `onhand`: per (item, site, warehouse, location, batch, serial) quantity and per (item, site) value, total value per entity; `open_orders`: order count, line count, remaining quantity, remaining amount; `wip_prod`: order count, WIP value per order; `fixed_assets`: count, acquisition cost, accumulated depreciation, NBV per book; `project_wip`: WIP value per project; `payroll_ytd`: gross, tax, net per worker; `bank_balances`: per account.
   - Notes: every total must match exactly (0.00) unless a tolerance rule is explicitly configured with reason; totals are stored on `control_total` with source and target values and timestamp.
-- **FR-49.3 Legacy cross-reference** — Must. The system shall store `legacy_xref` (system, company, table, legacy_id → passage entity, id) for every migrated record and expose it on every record detail and in the lakehouse.
-- **FR-49.4 Historical load** — Must. The system shall load closed legacy transactions (journals, invoices, inventory transactions, orders) for N years (default 7) into Iceberg `history.<system>.*` with the legacy schema preserved, mapped views `history.unified.*` on the Passage model, queryable in explorer with `source=legacy` filter.
-- **FR-49.5 Parallel-run harness** — Must. The system shall replay a legacy period's source documents (vendor invoices, customer invoices, inventory movements, journals, production postings) into a Passage rehearsal tenant through the public posting APIs in original sequence and compare results.
+- **FR-49.3 Legacy cross-reference** — Must. The system shall store `legacy_xref` (system, company, table, legacy_id → depot entity, id) for every migrated record and expose it on every record detail and in the lakehouse.
+- **FR-49.4 Historical load** — Must. The system shall load closed legacy transactions (journals, invoices, inventory transactions, orders) for N years (default 7) into Iceberg `history.<system>.*` with the legacy schema preserved, mapped views `history.unified.*` on the Depot model, queryable in explorer with `source=legacy` filter.
+- **FR-49.5 Parallel-run harness** — Must. The system shall replay a legacy period's source documents (vendor invoices, customer invoices, inventory movements, journals, production postings) into a Depot rehearsal tenant through the public posting APIs in original sequence and compare results.
   - Diff algorithm: (1) normalize both sides to canonical tuples `(entity, account, dimension set, currency, period, amount)` for trial balance, `(item, dims, qty, value)` for inventory, `(subledger, open item id, amount)` for subledgers; (2) outer-join on key; (3) classify each difference: EXPECTED (rule-based: known rounding ≤ 0.01, policy differences registered in `variance_rule`, e.g. different FX rounding step), EXPLAINED (operator attaches a reason), UNEXPLAINED; (4) aggregate by rule; (5) report unexplained count and amount; (6) exit criterion unexplained = 0 and explained amount ≤ 0.1% of period revenue.
 - **FR-49.6 Cutover runbook generator** — Must. The system shall generate `cutover_plan` with timed steps from T−14d to T+30d from the selected packs, entities and legacy systems, with owners, durations from the last rehearsal, go/no-go items and rollback steps.
-  - Timeline baseline: T−14d freeze master-data changes in legacy, final pack dry run; T−7d second rehearsal, sign-off on variance report; T−3d freeze configuration in Passage; T−1d 18:00 legacy transaction freeze, final extracts of master data and static reference data; T−0 00:00 extract transactional packs; T+4h load and reconcile master and balances; T+12h load open items, orders, on-hand, WIP; T+24h reconciliation complete, go/no-go meeting; T+30h user access opened; T+36h abort deadline if go/no-go fails; T+1d first postings, hypercare starts; T+7d first weekly reconciliation; T+30d first month-end close, hypercare review.
-- **FR-49.7 Coexistence adapters** — Should. The system shall support entity-by-entity cutover with intercompany documents and consolidation data exchanged with the legacy system through wave-35 integration hub adapters (AX OData/`DMF` entities; SAP IDoc/BAPI) for `INVOIC`, `ORDERS`, GL postings, and master-data sync one way (legacy → Passage) until the last entity cuts over.
+  - Timeline baseline: T−14d freeze master-data changes in legacy, final pack dry run; T−7d second rehearsal, sign-off on variance report; T−3d freeze configuration in Depot; T−1d 18:00 legacy transaction freeze, final extracts of master data and static reference data; T−0 00:00 extract transactional packs; T+4h load and reconcile master and balances; T+12h load open items, orders, on-hand, WIP; T+24h reconciliation complete, go/no-go meeting; T+30h user access opened; T+36h abort deadline if go/no-go fails; T+1d first postings, hypercare starts; T+7d first weekly reconciliation; T+30d first month-end close, hypercare review.
+- **FR-49.7 Coexistence adapters** — Should. The system shall support entity-by-entity cutover with intercompany documents and consolidation data exchanged with the legacy system through wave-35 integration hub adapters (AX OData/`DMF` entities; SAP IDoc/BAPI) for `INVOIC`, `ORDERS`, GL postings, and master-data sync one way (legacy → Depot) until the last entity cuts over.
 - **FR-49.8 Rehearsal environment** — Must. The system shall provision a rehearsal tenant from pipeline (Terraform + Helm + seed) in ≤ 2 h, with masked extracts, and tear it down.
-- **FR-49.9 Rollback plan** — Must. The system shall generate a rollback plan per cutover: stop Passage access, restore legacy write access, export any Passage postings made after go-live as journal/document files for re-keying, with a decision point at T+36h.
+- **FR-49.9 Rollback plan** — Must. The system shall generate a rollback plan per cutover: stop Depot access, restore legacy write access, export any Depot postings made after go-live as journal/document files for re-keying, with a decision point at T+36h.
 - **FR-49.10 Idempotent re-runs** — Must. The system shall re-run any pack without duplicates (wave-10 natural keys plus `legacy_xref` uniqueness) and record every run with inputs' hashes.
 - **FR-49.11 Validation suites** — Must. The system shall run Great Expectations suites per pack before load: referential (every vendor on open items exists), domain (currency codes ISO 4217), balance (debit = credit), uniqueness; failures above 0 block load unless the record is quarantined to `pack_quarantine` with reason.
 
 - **FR-49.12 Project beginning balance journals** — Must. The system shall load, per open project, opening transactions by category (hours, expense, item, fee, on-account billing) with quantity, cost, sales value, transaction date, worker/resource, activity and dimensions as `project_opening_line`, flagged `beginning_balance=true`, together with WIP already recognized (WIP cost, WIP sales value, accrued revenue, invoiced on-account) and the remaining estimate, so that wave-41 estimates, billing rules and revenue recognition continue from the cutover state.
-  - Notes: opening lines never post to the GL (the GL WIP and revenue balances arrive in pack `gl_balances`); control totals per project and category (cost, sales value, WIP, on-account) must equal the legacy `ProjTrans*`/`COSP`-`COSS` and RA results to 0.00; lines marked "chargeable, not invoiced" are invoiceable in Passage with the legacy transaction date; fixed-price projects carry percent complete and recognized revenue to date; time-and-material projects carry unbilled transactions at legacy sales price.
+  - Notes: opening lines never post to the GL (the GL WIP and revenue balances arrive in pack `gl_balances`); control totals per project and category (cost, sales value, WIP, on-account) must equal the legacy `ProjTrans*`/`COSP`-`COSS` and RA results to 0.00; lines marked "chargeable, not invoiced" are invoiceable in Depot with the legacy transaction date; fixed-price projects carry percent complete and recognized revenue to date; time-and-material projects carry unbilled transactions at legacy sales price.
 
 ### 9.49.4 Data model
 
@@ -1529,14 +1529,14 @@ AX 2012 → D365 uses the data upgrade scripts (`ReleaseUpdateDB` classes, LCS d
 
 **`control_total`**: total_id, run_id, name, key_json (e.g. {entity, account, currency}), source_value numeric(28,6), target_value numeric(28,6), delta, tolerance, status (MATCH, WITHIN_TOLERANCE, MISMATCH), computed_at.
 
-**`legacy_xref`**: xref_id, tenant_id, source_system, source_company, source_table, source_id, passage_entity, passage_id, run_id; unique (source_system, source_company, source_table, source_id).
+**`legacy_xref`**: xref_id, tenant_id, source_system, source_company, source_table, source_id, depot_entity, depot_id, run_id; unique (source_system, source_company, source_table, source_id).
 
-**`parallel_run`**: parallel_run_id, tenant_id, period, source_system, documents_replayed, state (REPLAYING, DIFFING, REVIEW, SIGNED_OFF), unexplained_count, unexplained_amount, explained_amount, signed_off_by. **`variance`**: variance_id, parallel_run_id, area (TB/INV/AP/AR/FA), key_json, legacy_value, passage_value, delta, class (EXPECTED/EXPLAINED/UNEXPLAINED), rule_id, reason.
+**`parallel_run`**: parallel_run_id, tenant_id, period, source_system, documents_replayed, state (REPLAYING, DIFFING, REVIEW, SIGNED_OFF), unexplained_count, unexplained_amount, explained_amount, signed_off_by. **`variance`**: variance_id, parallel_run_id, area (TB/INV/AP/AR/FA), key_json, legacy_value, depot_value, delta, class (EXPECTED/EXPLAINED/UNEXPLAINED), rule_id, reason.
 
 **`cutover_step`**: step_id, plan_id, seq, offset_minutes (from T−0), name, owner, planned_duration_min, actual_start, actual_end, status, rollback_step_id, go_nogo bool.
 
 Invariants: a pack run reaches RECONCILED only if every `control_total.status != MISMATCH`; `legacy_xref` is append-only; a `parallel_run` can be SIGNED_OFF only when unexplained_count = 0; cutover steps with `go_nogo=true` must all be complete before the "open user access" step can start.
-Indexing: `legacy_xref` unique index as above plus (passage_entity, passage_id); `control_total` (run_id, status); `variance` (parallel_run_id, class).
+Indexing: `legacy_xref` unique index as above plus (depot_entity, depot_id); `control_total` (run_id, status); `variance` (parallel_run_id, class).
 
 **Additional entity (FR-49.12).** `project_opening_line`: line_id, tenant_id, project_id, category (HOUR, EXPENSE, ITEM, FEE, ON_ACCOUNT), transaction_date, qty numeric(28,6), cost_amount, sales_amount, currency, worker_id, activity_id, dimensions_json, billing_status (CHARGEABLE_UNBILLED, BILLED, NON_CHARGEABLE), wip_cost, wip_sales, legacy_xref_id, run_id; unique (tenant_id, legacy_xref_id).
 
@@ -1560,10 +1560,10 @@ Validation: pack run rejects extracts with `cutoff_ts` later than the legacy fre
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.migration.pack.reconciled.v1` | reconciliation done | run_id, pack, totals_match, totals_mismatch, quarantined | cutover, notifications |
-| `dev.passage.migration.parallelrun.diffed.v1` | diff done | parallel_run_id, period, unexplained_count, unexplained_amount | cutover |
-| `dev.passage.cutover.step.completed.v1` | step done | plan_id, step_id, actual_duration_min, status | cutover dashboard |
-| `dev.passage.cutover.decision.recorded.v1` | go/no-go | plan_id, decision, approvers[], timestamp | audit, platform-ops |
+| `dev.depot.migration.pack.reconciled.v1` | reconciliation done | run_id, pack, totals_match, totals_mismatch, quarantined | cutover, notifications |
+| `dev.depot.migration.parallelrun.diffed.v1` | diff done | parallel_run_id, period, unexplained_count, unexplained_amount | cutover |
+| `dev.depot.cutover.step.completed.v1` | step done | plan_id, step_id, actual_duration_min, status | cutover dashboard |
+| `dev.depot.cutover.decision.recorded.v1` | go/no-go | plan_id, decision, approvers[], timestamp | audit, platform-ops |
 
 ### 9.49.6 User experience
 
@@ -1572,7 +1572,7 @@ Validation: pack run rejects extracts with `cutoff_ts` later than the legacy fre
 | Migration factory workspace | run pack, view totals, open quarantine, re-run | pack, source, status, records, mismatches | MigrationRun |
 | Control-total board | drill mismatch to records, export | name, key, source, target, delta | MigrationView |
 | Quarantine | edit field, release, reject | record, rule failed, reason | MigrationRun |
-| Parallel-run review | classify variances, attach reason, sign off | area, key, legacy, passage, delta, class | MigrationReview |
+| Parallel-run review | classify variances, attach reason, sign off | area, key, legacy, depot, delta, class | MigrationReview |
 | Cutover runbook | start/complete step, timer, go/no-go checklist, rollback | seq, T-offset, owner, planned vs actual, status | CutoverManager |
 | Legacy reference (on any record) | open xref | system, company, table, id | all |
 
@@ -1584,15 +1584,15 @@ Rules: control-total board auto-refreshes every 10 s during a run; variance grid
 - **BR-49.2** Open items are loaded against an opening-balance clearing account; the sum of open items per control account must equal the GL balance migrated for that account to 0.00 before RECONCILED.
 - **BR-49.3** On-hand is loaded at legacy cost per dimension; the inventory GL account opening balance is migrated as a single line and must equal the loaded value per entity.
 - **BR-49.4** Open orders are loaded with `qty_delivered` and `qty_invoiced` history so remaining quantities match; prior deliveries are not re-posted.
-- **BR-49.5** WIP production orders carry consumed material and reported hours as a WIP opening entry; remaining operations are rebuilt from the Passage route.
+- **BR-49.5** WIP production orders carry consumed material and reported hours as a WIP opening entry; remaining operations are rebuilt from the Depot route.
 - **BR-49.6** Fixed assets load acquisition date and accumulated depreciation per book; the next depreciation run must equal legacy's projected amount within 0.01 or the asset is flagged.
-- **BR-49.7** Amount rounding during replay follows Passage rules; a difference ≤ 0.01 per document is classified EXPECTED by rule `RND-001`.
-- **BR-49.8** Historical loads are read-only; a legacy document with no mapped Passage type lands in `history.<system>.unmapped`.
+- **BR-49.7** Amount rounding during replay follows Depot rules; a difference ≤ 0.01 per document is classified EXPECTED by rule `RND-001`.
+- **BR-49.8** Historical loads are read-only; a legacy document with no mapped Depot type lands in `history.<system>.unmapped`.
 - **BR-49.9** Cutover abort at T+36h: if any go/no-go item is open, the rollback plan executes automatically after CutoverManager confirmation.
 - **BR-49.10** Coexistence: a document received from legacy that already exists by `legacy_xref` is acknowledged and ignored.
 
 - **BR-49.11** Project opening lines are excluded from GL posting and from the wave-41 cost-to-GL reconciliation for the cutover period; they are included in project estimates, billing and revenue-recognition calculations.
-- **BR-49.12** A project whose opening totals do not reconcile to the legacy project subledger cannot be invoiced or estimated in Passage until the mismatch is resolved (status `OPENING_MISMATCH`).
+- **BR-49.12** A project whose opening totals do not reconcile to the legacy project subledger cannot be invoiced or estimated in Depot until the mismatch is resolved (status `OPENING_MISMATCH`).
 
 ### 9.49.8 Acceptance criteria
 
@@ -1602,12 +1602,12 @@ Rules: control-total board auto-refreshes every 10 s during a run; variance grid
 - **AC-49.4** (FR-49.10) Given a completed `open_items` run, when the same extract is run again, then records_loaded = 0 and totals are unchanged.
 - **AC-49.5** (FR-49.5) Given one month of legacy documents replayed, when the diff runs, then unexplained_count = 0 and explained amount ≤ 0.1% of revenue.
 - **AC-49.6** (FR-49.6) Given the generated runbook, when the rehearsal is executed, then all steps from T−0 to "open user access" complete in < 48 h.
-- **AC-49.7** (FR-49.9) Given a rehearsal cutover, when rollback executes, then the legacy coexistence adapters resume and Passage postings since T−0 are exported as re-keying files.
-- **AC-49.8** (FR-49.3) Given migrated customer invoice legacy id `CIV-00123` (AX `CustInvoiceJour.InvoiceId`), when a user opens the Passage invoice, then the legacy reference panel shows system, company and id.
+- **AC-49.7** (FR-49.9) Given a rehearsal cutover, when rollback executes, then the legacy coexistence adapters resume and Depot postings since T−0 are exported as re-keying files.
+- **AC-49.8** (FR-49.3) Given migrated customer invoice legacy id `CIV-00123` (AX `CustInvoiceJour.InvoiceId`), when a user opens the Depot invoice, then the legacy reference panel shows system, company and id.
 - **AC-49.9** (FR-49.4) Given 7 years of legacy journals loaded, when the explorer queries `revenue` with `source=legacy` for a closed year, then it equals the legacy trial balance for that year.
 - **AC-49.10** (FR-49.8) Given a pipeline trigger, when a rehearsal tenant is requested, then it is ready in ≤ 2 h with masked data.
 
-- **AC-49.11** (FR-49.12) Given an AX T&M project with 120 chargeable unbilled hour transactions, when `project_wip` loads, then 120 opening lines exist, totals per category match legacy, no GL posting was created, and the first Passage invoice proposal lists the 120 lines at legacy sales price.
+- **AC-49.11** (FR-49.12) Given an AX T&M project with 120 chargeable unbilled hour transactions, when `project_wip` loads, then 120 opening lines exist, totals per category match legacy, no GL posting was created, and the first Depot invoice proposal lists the 120 lines at legacy sales price.
 
 ### 9.49.9 Test plan and fixtures
 
@@ -1624,17 +1624,17 @@ Fixtures: `fx-ax-synth-year` (AX 2012 R3 schema: `CustTrans`, `VendTrans`, `Inve
 | Rollback | E2E | rollback | coexistence resumes; exported files complete |
 | History load throughput | performance | Iceberg | ≥ 200k rows/min |
 
-Reconciliation: trial balance (Passage opening) ↔ legacy trial balance per entity/currency; open items ↔ control accounts; on-hand value ↔ inventory account; NBV ↔ asset accounts; parallel-run TB ↔ legacy period TB.
+Reconciliation: trial balance (Depot opening) ↔ legacy trial balance per entity/currency; open items ↔ control accounts; on-hand value ↔ inventory account; NBV ↔ asset accounts; parallel-run TB ↔ legacy period TB.
 
 ### 9.49.10 Deployment and operations
 
-Helm: `passage-migration-factory` (Go extractors, TS orchestration on Temporal namespace `migration`), `passage-legacy-adapters` (AX OData/SQL, SAP RFC/ODP via wave-35 hub), `passage-rehearsal-provisioner` (pipeline job). Config: legacy connection strings in Vault, `HISTORY_YEARS=7`, `MASK_PII=true` for rehearsal. Flags: `migration.coexistence` per entity. Jobs: nightly delta extract during coexistence; weekly reconciliation post go-live for 30 days. SLOs: pack load ≥ 50k records/min; control totals computed within 10 min of load. Alerts: MISMATCH, quarantine > 1%, step overrun > 125%. Runbook entries: resume a failed pack from VALIDATED; rebuild xref; execute rollback. Rollback: per BR-49.1 and FR-49.9.
+Helm: `depot-migration-factory` (Go extractors, TS orchestration on Temporal namespace `migration`), `depot-legacy-adapters` (AX OData/SQL, SAP RFC/ODP via wave-35 hub), `depot-rehearsal-provisioner` (pipeline job). Config: legacy connection strings in Vault, `HISTORY_YEARS=7`, `MASK_PII=true` for rehearsal. Flags: `migration.coexistence` per entity. Jobs: nightly delta extract during coexistence; weekly reconciliation post go-live for 30 days. SLOs: pack load ≥ 50k records/min; control totals computed within 10 min of load. Alerts: MISMATCH, quarantine > 1%, step overrun > 125%. Runbook entries: resume a failed pack from VALIDATED; rebuild xref; execute rollback. Rollback: per BR-49.1 and FR-49.9.
 
 ### 9.49.11 Migration from AX / SAP
 
 This wave is the migration. Summary mapping:
 
-| Source | Passage entity | Transformation |
+| Source | Depot entity | Transformation |
 |---|---|---|
 | `CustTransOpen`/`VendTransOpen`, `BSID`/`BSIK` | AR/AP open items | amount in transaction and accounting currency; due date; settlement history collapsed to remaining amount |
 | `GeneralJournalAccountEntry` + `DimensionAttributeValueCombination`, `ACDOCA`/`FAGLFLEXT` | opening journal | balances per account × dimension × currency at cutoff; P&L closed to retained earnings if cutoff is year-end |
@@ -1656,7 +1656,7 @@ Depends on: wave 10 (framework, connectors), wave 35 (integration hub for coexis
 | Extract window exceeds freeze | Medium | High | delta extracts; parallelized extractors; rehearsal timing |
 | Coexistence creates duplicate intercompany documents | Medium | Medium | xref dedupe (BR-49.10) |
 
-Open questions: (1) History years default 7 vs 10 for DE GoBD — proposed 10 when DE pack installed; decide by wave 50. (2) Payroll YTD for countries without a Passage payroll engine — proposed: load as balances only; decide by wave 50.
+Open questions: (1) History years default 7 vs 10 for DE GoBD — proposed 10 when DE pack installed; decide by wave 50. (2) Payroll YTD for countries without a Depot payroll engine — proposed: load as balances only; decide by wave 50.
 
 ### 9.49.13 Parameters and setup
 
@@ -1688,13 +1688,13 @@ Open questions: (1) History years default 7 vs 10 for DE GoBD — proposed 10 wh
 | Pack runs | list inquiry | pack, system, entity, status | records in/loaded/quarantined, duration, input hash | `pack_run` | DIXF execution history (`DMFExecution`) | Migration Cockpit monitoring (`LTMC` → Monitoring) |
 | Control-total board | operational report | run, status | name, key, source, target, delta, tolerance | `control_total` | none (Excel) | Migration Cockpit "Migration results" |
 | Quarantine | list inquiry | run, rule | record, rule failed, reason, age | `pack_quarantine` | DIXF staging errors | Staging table messages |
-| Opening trial balance vs legacy | statutory/operational report | entity, currency | account × dimension, legacy, Passage, delta | `control_total` + ledger | Trial balance | `S_ALR_87012277`, `FAGLB03` |
+| Opening trial balance vs legacy | statutory/operational report | entity, currency | account × dimension, legacy, Depot, delta | `control_total` + ledger | Trial balance | `S_ALR_87012277`, `FAGLB03` |
 | Open items reconciliation | operational report | entity, control account | open items sum, GL balance, delta | AP/AR + ledger | Vendor/customer balance list with aging | `S_ALR_87012082`/`87012172` |
 | Inventory opening valuation | operational report | entity, site | qty, value by item/dims vs legacy | inventory + `control_total` | Inventory value report | `MB5L`, `MC.9` |
 | Project opening balances | operational report | project, category | cost, sales, WIP, on-account vs legacy | `project_opening_line` | Project beginning balance journal list | `CJI3`/RA results (`KKA3`) |
-| Parallel-run variance report | drill-down | parallel run, area, class | key, legacy, Passage, delta, rule, reason | `variance` | none | none |
+| Parallel-run variance report | drill-down | parallel run, area, class | key, legacy, Depot, delta, rule, reason | `variance` | none | none |
 | Cutover runbook status | KPI | plan | steps done/total, elapsed vs plan, overruns, go/no-go items | `cutover_step` | none | none |
-| Legacy cross-reference lookup | list inquiry | system, table, legacy id | Passage entity and id | `legacy_xref` | none | none |
+| Legacy cross-reference lookup | list inquiry | system, table, legacy id | Depot entity and id | `legacy_xref` | none | none |
 | History queries | drill-down | `source=legacy`, period | any metric | `history.unified.*` | AX legacy database kept online | SARI/archive, SDT history |
 
 ### 9.49.15 Printed and electronic documents
@@ -1702,11 +1702,11 @@ Open questions: (1) History years default 7 vs 10 for DE GoBD — proposed 10 wh
 | Document | Trigger | Layout elements | Formats | Numbering sequence | Legal / retention requirement |
 |---|---|---|---|---|---|
 | Reconciliation certificate per pack | pack RECONCILED | run, entity, cutoff, each control total with source/target/delta, signer | PDF with e-signature (FR-48.13) | run id | audit evidence; 10 years with opening balances |
-| Opening trial balance sign-off | `gl_balances` RECONCILED | entity, currency, account × dimension balances, legacy reference, controller signature | PDF, XLSX | entity + cutoff | statutory link between legacy and Passage books (GoBD/FEC continuity) |
+| Opening trial balance sign-off | `gl_balances` RECONCILED | entity, currency, account × dimension balances, legacy reference, controller signature | PDF, XLSX | entity + cutoff | statutory link between legacy and Depot books (GoBD/FEC continuity) |
 | Parallel-run sign-off report | parallel run SIGNED_OFF | period, unexplained = 0, explained by rule, approvers | PDF | parallel run id | audit evidence |
 | Cutover runbook and go/no-go record | plan generated / decision | steps, owners, timings, decision, approvers | PDF, CSV | plan id | 7 years |
 | Rollback re-keying files | rollback executed | postings since T−0 as journals and documents | CSV, legacy import formats (AX DIXF package, SAP `LTMC` template) | rollback id | until re-keyed and reconciled |
-| Legacy cross-reference export | on demand | system, table, legacy id, Passage id | CSV, Parquet | n/a | retained with history (FR-49.4) |
+| Legacy cross-reference export | on demand | system, table, legacy id, Depot id | CSV, Parquet | n/a | retained with history (FR-49.4) |
 
 ### 9.49.16 Periodic and batch jobs
 
@@ -1755,7 +1755,7 @@ Open questions: (1) History years default 7 vs 10 for DE GoBD — proposed 10 wh
 
 | Operation | Volume assumption | Latency target (p50 / p95 / p99) | Throughput target | Storage growth per year | Index / partition strategy | Degradation under 3× load |
 |---|---|---|---|---|---|---|
-| Pack load | 1.3M rows per synthetic year, up to 50M for large customers | n/a (batch) | ≥ 50k records/min | `legacy_xref` ~1 KB per migrated record (50 GB per 50M) | `legacy_xref` unique (system, company, table, id) + (passage_entity, passage_id) | parallelism capped; window extends, rehearsal timing updated |
+| Pack load | 1.3M rows per synthetic year, up to 50M for large customers | n/a (batch) | ≥ 50k records/min | `legacy_xref` ~1 KB per migrated record (50 GB per 50M) | `legacy_xref` unique (system, company, table, id) + (depot_entity, depot_id) | parallelism capped; window extends, rehearsal timing updated |
 | Control-total computation | per run | < 10 min after load | n/a | `control_total` < 1 GB | (run_id, status) | 30 min |
 | Historical load | 7 years, 300M rows | n/a | ≥ 200k rows/min | 1–3 TB Parquet | `history.<system>.*` partitioned by (year, company) | longer load before cutover, not during |
 | Parallel-run replay | 42k–500k documents/month | per document p95 < 1 s via public APIs | 50 docs/s | rehearsal tenant only | n/a | replay over two nights |
@@ -1764,9 +1764,9 @@ Open questions: (1) History years default 7 vs 10 for DE GoBD — proposed 10 wh
 
 ### 9.49.20 Localization and compliance hooks
 
-- Opening balances must preserve statutory continuity: DE GoBD and FR FEC require that the closing balances of the legacy books equal the opening balances in Passage and that the link is documented (opening trial balance sign-off, 9.49.15); the FR FEC for the cutover year is produced from legacy history plus Passage postings with `history.unified.*`.
+- Opening balances must preserve statutory continuity: DE GoBD and FR FEC require that the closing balances of the legacy books equal the opening balances in Depot and that the link is documented (opening trial balance sign-off, 9.49.15); the FR FEC for the cutover year is produced from legacy history plus Depot postings with `history.unified.*`.
 - History years default to 10 when the DE or FR pack is installed (retention minimum), 8 for IN, 7 for US, 6 for UK/CA, 5 for MX (`migration.history_years` cannot go below the wave-48 retention minimum).
-- Gap-free document numbering: legacy invoice numbers are kept in `legacy_xref` and shown on reprints; new fiscal sequences start in Passage per pack rules (MX CFDI series/folio, IN invoice series per GSTIN and fiscal year, FR chronological numbering).
+- Gap-free document numbering: legacy invoice numbers are kept in `legacy_xref` and shown on reprints; new fiscal sequences start in Depot per pack rules (MX CFDI series/folio, IN invoice series per GSTIN and fiscal year, FR chronological numbering).
 - Tax: open AR/AP items keep their original tax amounts and tax codes mapped through the pack tax mapping; IN GST ITC balances and TDS certificates pending issue are migrated as balances with references; MX CFDI UUIDs of open invoices are retained for payment complements (REP).
 - Payroll YTD (pack `payroll_ytd`) is limited to US and DE engines in v1; other countries load balances only (open question 2).
 - Privacy: rehearsal extracts are masked per FR-48.26; production extracts are encrypted in transit and at rest, retained 90 days after go-live then deleted with a destruction record.
@@ -1777,7 +1777,7 @@ Open questions: (1) History years default 7 vs 10 for DE GoBD — proposed 10 wh
 | Register row (inventory section + AX form or SAP T-code) | Status before | Disposition | Note |
 |---|---|---|---|
 | AX 12.99.4 row 91 — 12.11.1 Project management → Beginning balance journals | PARTIAL-49 | ADDED as FR-49.12 | opening lines by category with WIP and estimate state |
-| AX 12.32 inventory row "Parallel-run replay (Passage migration factory)" | COVERED-49 | confirmed by FR-49.5 | |
+| AX 12.32 inventory row "Parallel-run replay (Depot migration factory)" | COVERED-49 | confirmed by FR-49.5 | |
 | SAP 13.4 inventory rows `AS91`–`AS94` legacy asset transfer, `OASV` balance transfer, `OAYE`/`OAYF` legacy transfer date | COVERED-49 | confirmed by FR-49.1 (`fixed_assets`, `gl_balances`) and `migration.cutoff_ts` | |
 | SAP 13.99.2 row 345 — TDMS masked refresh (PARTIAL-48) | PARTIAL-48 | ADDED as FR-48.26; consumed here by FR-49.8 rehearsal tenants | closed in 9.48.21 |
 | AX 12.99.1 theme "Project depth — beginning balance journals (49)" | PARTIAL | ADDED as FR-49.12 | same row as above, theme view |
@@ -1787,11 +1787,11 @@ Open questions: (1) History years default 7 vs 10 for DE GoBD — proposed 10 wh
 
 ### 9.50.1 Scope and business context
 
-AX customers rely on LCS-managed production environments and Microsoft SLAs; SAP customers on Basis operations, HA/DR setups (HANA system replication, cluster failover) or RISE. Passage must prove the same in a self-operated, cloud-agnostic stack: a performance campaign to 10k concurrent users, 1M journal lines/h and 100k order lines/h; active/passive multi-region with cross-region Postgres replication, Kafka MirrorMaker 2 and DNS failover; SRE runbooks, capacity and cost models, zero-downtime upgrades, tenant provisioning automation; complete documentation; the first customer's production go-live and the public v1.0 release. Out of scope: active/active multi-region, per-tenant dedicated clusters, marketplace listings.
+AX customers rely on LCS-managed production environments and Microsoft SLAs; SAP customers on Basis operations, HA/DR setups (HANA system replication, cluster failover) or RISE. Depot must prove the same in a self-operated, cloud-agnostic stack: a performance campaign to 10k concurrent users, 1M journal lines/h and 100k order lines/h; active/passive multi-region with cross-region Postgres replication, Kafka MirrorMaker 2 and DNS failover; SRE runbooks, capacity and cost models, zero-downtime upgrades, tenant provisioning automation; complete documentation; the first customer's production go-live and the public v1.0 release. Out of scope: active/active multi-region, per-tenant dedicated clusters, marketplace listings.
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | D365 One Version updates and SAP SUM upgrades require a downtime window (hours) and a sandbox cycle; customers defer and accumulate risk | Monolithic application server; schema changes applied in place | Rolling deploys with expand/contract migrations and N/N−1 API contract tests | Upgrade downtime 4–8 h → 0; release cadence quarterly → weekly |
 | DR is a service request to LCS or a Basis project with HANA system replication; failover is rarely rehearsed and RPO/RTO are unknown | DR owned by vendor or built per customer | One-command failover, quarterly game day with measured RTO/RPO | RTO ≤ 1 h, RPO ≤ 5 min, measured every quarter |
@@ -1807,7 +1807,7 @@ AX customers rely on LCS-managed production environments and Microsoft SLAs; SAP
 
 ### 9.50.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Production environment management | LCS production, sandbox tiers (Tier-2–5), service requests | Basis: `SM51` servers, `RZ10` profiles, RISE managed | Tenant provisioning automation, environment tiers via Helm values | Full |
 | HA/DR | Microsoft-managed geo-secondary, LCS disaster recovery | HANA system replication, Pacemaker clusters, DR site | CNPG replica clusters cross-region, MirrorMaker 2, DNS failover | Full |
@@ -1816,7 +1816,7 @@ AX customers rely on LCS-managed production environments and Microsoft SLAs; SAP
 | Monitoring | LCS Environment monitoring, Application Insights | `RZ20` CCMS, Solution Manager, Focused Run | Prometheus/Grafana SLO dashboards, Loki, Tempo | Full |
 | Upgrades | One Version monthly updates, LCS deployable packages, downtime | SUM, maintenance planner, zero-downtime option (ZDO) | Expand/contract Atlas migrations, rolling deploys, no downtime | Improved |
 | Batch and job scheduling | Batch framework (`SysOperation`), batch groups | `SM36`/`SM37`, Redwood | Temporal schedules (from wave 4) with multi-region continuity | Full |
-| Licensing | Dynamics 365 per-user licenses | SAP named user licenses, FUE | Passage license file per tenant, user-type metering | Full |
+| Licensing | Dynamics 365 per-user licenses | SAP named user licenses, FUE | Depot license file per tenant, user-type metering | Full |
 | Documentation | Microsoft Learn | SAP Help Portal | Docs site: admin, implementer, API, functional guides, training | Full |
 
 ### 9.50.3 Functional requirements
@@ -1840,7 +1840,7 @@ AX customers rely on LCS-managed production environments and Microsoft SLAs; SAP
 - **FR-50.2 Postgres tuning** — Must. The system shall partition the journal line table by month (range) and hash by tenant (16), inventory transactions by month, audit by week; CNPG clusters with 1 primary + 2 synchronous-quorum replicas (`synchronous_standby_names ANY 1`); PgBouncer transaction pooling; `pg_stat_statements` top-50 reviewed with indexes added before exit.
 - **FR-50.3 Kafka and cache tuning** — Must. The system shall run Strimzi with 6 brokers, `min.insync.replicas=2`, `acks=all`, topic partitions sized at ≥ 2× consumer parallelism, and Redis-compatible caches for pricing and policy bundles with ≤ 5 s invalidation.
 - **FR-50.4 Multi-region active/passive** — Must. The system shall run a passive region with CNPG replica clusters streaming from the primary (async, lag SLO < 30 s; ledger cluster quorum-synchronous across regions when the customer accepts the latency), MirrorMaker 2 for all topics with offset translation, object-store replication for lakehouse and documents, Temporal multi-cluster replication, and DNS failover (health-checked, TTL 60 s).
-- **FR-50.5 Failover procedure** — Must. The system shall promote the passive region by one command (`passage-ops failover --to eu-west`), which fences the old primary (revoke writes, scale to zero), promotes CNPG replicas, switches MirrorMaker direction, activates Temporal, flips DNS, and verifies the ledger hash chain; RTO ≤ 1 h, RPO ≤ 5 min.
+- **FR-50.5 Failover procedure** — Must. The system shall promote the passive region by one command (`depot-ops failover --to eu-west`), which fences the old primary (revoke writes, scale to zero), promotes CNPG replicas, switches MirrorMaker direction, activates Temporal, flips DNS, and verifies the ledger hash chain; RTO ≤ 1 h, RPO ≤ 5 min.
 - **FR-50.6 DR game day** — Must. The system shall run a quarterly game day: (1) announce window, freeze deploys; (2) take baseline hashes (ledger chain head per tenant, row counts per domain, Kafka end offsets); (3) inject failure (primary region network partition via NetworkPolicy, then node pool scale-down); (4) on-call executes failover runbook with timer; (5) verify: hash chain head matches or exceeds baseline, no gap in gap-free sequences, in-flight Temporal workflows resumed, reconciliation jobs green; (6) run smoke suite of 12 processes; (7) measure RTO/RPO; (8) fail back during a planned window; (9) post-game review with actions. Pass: RTO ≤ 1 h, RPO ≤ 5 min, zero committed-transaction loss.
 - **FR-50.7 Zero-downtime upgrades** — Must. The system shall deploy services with rolling updates and expand/contract schema migrations (add → backfill → switch → drop in separate releases), with API compatibility tests between N and N−1 and a 30-minute automatic rollback window on SLO breach.
 - **FR-50.8 Tenant provisioning** — Must. The system shall create a tenant (Keycloak realm, databases/schemas with RLS, Kafka ACLs, lakehouse namespace, object-store prefixes, residency region, license) from one API call in ≤ 15 min, and decommission with retention export.
@@ -1893,10 +1893,10 @@ Validation: failover rejects if target region replication lag > 300 s unless `--
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.ops.failover.completed.v1` | promotion done | from_region, to_region, promoted_lsn, rpo_seconds, rto_seconds | all services (reconnect), audit |
-| `dev.passage.ops.tenant.provisioned.v1` | provisioning done | tenant_id, region, realm, databases[] | billing, catalog |
-| `dev.passage.ops.slo.breached.v1` | SLO burn rate | slo_id, window, burn_rate, tenant_id | alerting, release gate |
-| `dev.passage.ops.license.state_changed.v1` | license check | tenant_id, state, expires_at | shell banner, admin |
+| `dev.depot.ops.failover.completed.v1` | promotion done | from_region, to_region, promoted_lsn, rpo_seconds, rto_seconds | all services (reconnect), audit |
+| `dev.depot.ops.tenant.provisioned.v1` | provisioning done | tenant_id, region, realm, databases[] | billing, catalog |
+| `dev.depot.ops.slo.breached.v1` | SLO burn rate | slo_id, window, burn_rate, tenant_id | alerting, release gate |
+| `dev.depot.ops.license.state_changed.v1` | license check | tenant_id, state, expires_at | shell banner, admin |
 
 ### 9.50.6 User experience
 
@@ -1959,11 +1959,11 @@ Reconciliation: post-failover row counts and ledger hash heads ↔ baseline; pro
 
 ### 9.50.10 Deployment and operations
 
-Helm: `passage-platform` umbrella with per-region values; `passage-mm2` (MirrorMaker 2), `passage-ops` (Go control plane), `passage-status-page`, `passage-docs`. CNPG `Cluster` with `replica.enabled` in the passive region; Temporal multi-cluster. Config: `REGION_ROLE`, `DNS_PROVIDER` (thin Terraform module per provider), `FAILOVER_MAX_LAG_S=300`, `LICENSE_PUBLIC_KEY`. Migrations: `ops` database. Flags: `ops.failover.enabled`, `license.enforce`. Jobs: cost meter monthly, capacity model nightly, game day quarterly (scheduled Temporal workflow with human task), backup drill monthly, SLO report weekly. SLOs: as FR-50.1; control-plane API p99 < 500 ms. Alerts: replication lag > 60 s, MM2 lag > 100k messages, SLO fast/slow burn, license expiry 30/7/1 days, failover in progress. Runbooks: failover, fail-back, broker replacement, Postgres primary loss, slot bloat, cache stampede, Temporal namespace replication lag, certificate expiry, object-store replication lag, release rollback. Rollback: Argo CD rollback by digest; database contract step deferred to the next release; DNS weight restore.
+Helm: `depot-platform` umbrella with per-region values; `depot-mm2` (MirrorMaker 2), `depot-ops` (Go control plane), `depot-status-page`, `depot-docs`. CNPG `Cluster` with `replica.enabled` in the passive region; Temporal multi-cluster. Config: `REGION_ROLE`, `DNS_PROVIDER` (thin Terraform module per provider), `FAILOVER_MAX_LAG_S=300`, `LICENSE_PUBLIC_KEY`. Migrations: `ops` database. Flags: `ops.failover.enabled`, `license.enforce`. Jobs: cost meter monthly, capacity model nightly, game day quarterly (scheduled Temporal workflow with human task), backup drill monthly, SLO report weekly. SLOs: as FR-50.1; control-plane API p99 < 500 ms. Alerts: replication lag > 60 s, MM2 lag > 100k messages, SLO fast/slow burn, license expiry 30/7/1 days, failover in progress. Runbooks: failover, fail-back, broker replacement, Postgres primary loss, slot bloat, cache stampede, Temporal namespace replication lag, certificate expiry, object-store replication lag, release rollback. Rollback: Argo CD rollback by digest; database contract step deferred to the next release; DNS weight restore.
 
 ### 9.50.11 Migration from AX / SAP
 
-| Source | Passage | Notes |
+| Source | Depot | Notes |
 |---|---|---|
 | LCS environment inventory (production, sandboxes) | Tenant and environment tiers | documented; sandboxes re-created from masked production via provisioning |
 | LCS deployable packages / Basis transports (`STMS`) | GitOps releases | not migrated; release notes map customer changes to metadata extensions |
@@ -1971,7 +1971,7 @@ Helm: `passage-platform` umbrella with per-region values; `passage-mm2` (MirrorM
 | Monitoring thresholds (CCMS `RZ20`, LCS alerts) | Prometheus alert rules | mapped per alert category |
 | D365 / SAP user licenses | `tenant_license` user types | full ↔ Dynamics full user / SAP professional; operational ↔ activity / functional; self-service ↔ team member / productivity |
 
-Not migrated: Microsoft/SAP SLAs and support contracts (replaced by Passage support terms), proprietary performance traces.
+Not migrated: Microsoft/SAP SLAs and support contracts (replaced by Depot support terms), proprietary performance traces.
 
 ### 9.50.12 Dependencies, risks, open questions
 
@@ -2070,7 +2070,7 @@ Open questions: (1) Active/active for read-only analytics in the passive region 
 | ReleaseManager | promote release by digest, pause ring, trigger rollback | with code approval of the same change (MEDIUM, `CHG-001`: four-eyes) | Release manager |
 | OnCallResponder | runbook actions (restart, scale, replay), incident updates | none | SRE on-call |
 | TenantAdmin | `GET /ops/tenants/{id}/cost`, user-type assignment within license | with PlatformAdmin (MEDIUM) | Customer administrator |
-| LicenseIssuer (offline) | sign license files with the Ed25519 private key (HSM/Vault transit) | with PlatformAdmin (HIGH) | Passage commercial operations |
+| LicenseIssuer (offline) | sign license files with the Ed25519 private key (HSM/Vault transit) | with PlatformAdmin (HIGH) | Depot commercial operations |
 | StatusPagePublisher | publish incident notices | none | Support lead |
 | CutoverDecisionOwner | record go/no-go at production cutover | with CutoverStepOwner of checklist items (MEDIUM) | Customer CFO / project sponsor |
 
@@ -2113,7 +2113,7 @@ The SLO table in FR-50.1 is the binding budget. Capacity assumptions per referen
 - Retention on decommission follows the tenant's country packs (BR-50.9): encrypted export kept for the longest applicable record-class minimum (DE/FR 10 years) unless the customer takes custody and signs a release.
 - Status page and release notes are published in English with German and French translations for customer-facing incident notices (contractual notice language per tenant).
 - Time zones: maintenance windows, game days and hypercare stand-ups are scheduled in the tenant's time zone; SLO reports use UTC.
-- Licensing and cost: cost statements show USD and EUR with ECB month-average FX (BR-50.10); taxes on Passage's own invoices are outside the product.
+- Licensing and cost: cost statements show USD and EUR with ECB month-average FX (BR-50.10); taxes on Depot's own invoices are outside the product.
 - Compliance evidence produced here (game-day reports, SBOMs, signatures, backup verification, change records) flows into the wave-48 evidence store for CC7.5, CC8.1 and A1.2/A1.3 (availability criteria).
 - Extension points: per-provider Terraform modules, Helm values per region, `slo.<id>.target` per contract tier.
 

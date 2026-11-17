@@ -6,7 +6,7 @@ const TENANT = "11111111-1111-4111-8111-111111111111";
 const VENDOR = "0b1c2d3e-0000-4000-8000-0000000000aa";
 const LE = "00000000-0000-4000-8000-0000000000a1";
 const BASE = "https://id.example.invalid";
-const ADMIN = `${BASE}/admin/realms/passage`;
+const ADMIN = `${BASE}/admin/realms/depot`;
 
 const user: NewPortalUser = { email: "Sam@Vendor.example", displayName: "Sam Supplier", tenantId: TENANT, legalEntityId: LE, vendorId: VENDOR, role: "supplier-user" };
 
@@ -42,7 +42,7 @@ function fakeKeycloak(existing: Record<string, unknown> | null, existingRoles: {
     if (method === "PUT") return new Response(null, { status: 204 });
     return new Response(null, { status: 404 });
   };
-  const provisioner = new KeycloakProvisioner({ baseUrl: `${BASE}/`, realm: "passage", clientId: "portal-admin", clientSecret: "s", portalClientId: "passage-portal-supplier", redirectUri: "https://supplier.example.invalid/", fetcher });
+  const provisioner = new KeycloakProvisioner({ baseUrl: `${BASE}/`, realm: "depot", clientId: "portal-admin", clientSecret: "s", portalClientId: "depot-portal-supplier", redirectUri: "https://supplier.example.invalid/", fetcher });
   return { calls, provisioner };
 }
 
@@ -61,14 +61,14 @@ describe("Keycloak provisioner", () => {
     const role = kc.calls.find((c) => c.method === "POST" && c.url === `${ADMIN}/users/kc-new/role-mappings/realm`);
     expect(role?.body).toEqual([{ id: "role-1", name: "supplier-user" }]);
     const email = kc.calls.find((c) => c.method === "PUT" && c.url.includes("/execute-actions-email"));
-    expect(new URL(email!.url).searchParams.get("client_id")).toBe("passage-portal-supplier");
+    expect(new URL(email!.url).searchParams.get("client_id")).toBe("depot-portal-supplier");
     expect(kc.calls.every((c) => c.url.endsWith("/token") || c.url.startsWith(ADMIN))).toBe(true);
   });
 
   it("adopts its own leftover of an earlier attempt, and nothing else", async () => {
     // Mid-onboarding: the required actions are still pending. Its legal-entity list is kept, never replaced.
     const leftover = { id: "kc-old", username: "sam@vendor.example", email: "sam@vendor.example", enabled: true, requiredActions: ["UPDATE_PASSWORD"], attributes: { tenant_id: [TENANT], vendor_id: [VENDOR], legal_entity_id: ["le-earlier"], portal_contact: ["supplier"] } };
-    const kc = fakeKeycloak(leftover, [{ name: "default-roles-passage" }]);
+    const kc = fakeKeycloak(leftover, [{ name: "default-roles-depot" }]);
     expect(await kc.provisioner.createUser(user)).toEqual({ created: true });
     expect(kc.calls.some((c) => c.method === "PUT" && c.url === `${ADMIN}/users/kc-old`)).toBe(false);
     expect(kc.calls.some((c) => c.method === "POST" && c.url === `${ADMIN}/users`)).toBe(false);
@@ -117,7 +117,7 @@ describe("Keycloak provisioner", () => {
   });
 
   it("fails when Keycloak refuses, so the invitation is not accepted", async () => {
-    const provisioner = new KeycloakProvisioner({ baseUrl: BASE, realm: "passage", clientId: "c", clientSecret: "s", portalClientId: "p", redirectUri: "/", fetcher: async () => new Response(null, { status: 401 }) });
+    const provisioner = new KeycloakProvisioner({ baseUrl: BASE, realm: "depot", clientId: "c", clientSecret: "s", portalClientId: "p", redirectUri: "/", fetcher: async () => new Response(null, { status: 401 }) });
     await expect(provisioner.createUser(user)).rejects.toBeInstanceOf(KeycloakProvisionError);
   });
 

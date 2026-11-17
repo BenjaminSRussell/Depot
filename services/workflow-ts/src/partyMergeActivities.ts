@@ -50,7 +50,7 @@ export function createPartyMergeHttpClient(
     const reject = action === "reject" && decision.decision === "approved";
     return fetchImpl(`${baseUrl}/v1/party/merge-requests/${encodeURIComponent(decision.mergeRequestId)}:${action}`, {
       method: "POST",
-      headers: { "X-Passage-Service-Token": token, ...(reject ? { "Content-Type": "application/json" } : {}) },
+      headers: { "X-Depot-Service-Token": token, ...(reject ? { "Content-Type": "application/json" } : {}) },
       ...(reject ? { body: JSON.stringify({ reason: STALE_MERGE_REASON }) } : {}),
       signal,
     });

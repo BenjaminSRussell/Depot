@@ -1,6 +1,6 @@
 # analytics (web module)
 
-Wave 46 (PSG-46), slices 1 to 4. Screens over `services/analytics/api/openapi.yaml`:
+Wave 46 (DPT-46), slices 1 to 4. Screens over `services/analytics/api/openapi.yaml`:
 
 | Route | Page | API | Duty |
 |---|---|---|---|

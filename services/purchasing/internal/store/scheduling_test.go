@@ -9,13 +9,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/domain"
-	purchasingevents "github.com/BenjaminSRussell/passage/services/purchasing/internal/events"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
+	purchasingevents "github.com/BenjaminSRussell/depot/services/purchasing/internal/events"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
 
 // weeklyAgreement is the AC-17.11 agreement: 100 EA weekly for 12 weeks from

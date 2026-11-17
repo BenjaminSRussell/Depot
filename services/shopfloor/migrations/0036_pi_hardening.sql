@@ -38,13 +38,13 @@ CREATE TABLE IF NOT EXISTS pi_readout_claim (
 ALTER TABLE pi_readout_claim ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pi_readout_claim FORCE ROW LEVEL SECURITY;
 CREATE POLICY pi_readout_claim_tenant_access ON pi_readout_claim AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON pi_readout_claim TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON pi_readout_claim TO depot_app';
   END IF;
 END
 $$;

@@ -7,9 +7,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
 )
 
 func (s *Store) PutTradeProfile(ctx context.Context, partnerID string, p domain.TradeProfile) (domain.TradeProfile, error) {

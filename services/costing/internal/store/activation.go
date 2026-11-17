@@ -11,14 +11,14 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/costing/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/costing/internal/domain"
 )
 
 const (
@@ -30,7 +30,7 @@ const (
 	CodeActivationConflict = "CST-ACT-008"
 	// MaxPageSize bounds every list read.
 	MaxPageSize  = 200
-	eventSource  = "/passage/costing"
+	eventSource  = "/depot/costing"
 	costAggType  = "item_cost"
 	activateLock = "costing.activate"
 )
@@ -108,7 +108,7 @@ type ItemCostPage struct {
 	Next  string
 }
 
-// costChanged is the payload of dev.passage.costing.cost.changed.v1 (3.20.5).
+// costChanged is the payload of dev.depot.costing.cost.changed.v1 (3.20.5).
 // oldCost is absent when the product x site had no active standard. An
 // activation names its version; a manual on-hand adjustment (FR-20.6) names
 // the adjustment instead, with the warehouse and valuation type it revalued.

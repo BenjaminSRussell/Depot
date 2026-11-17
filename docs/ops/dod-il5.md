@@ -1,6 +1,6 @@
 # DoD IL5 (Azure Government) and IL6 readiness
 
-Passage for US Department of Defense customers at Impact Level 5, on Microsoft 365 DoD and Azure Government (#603). IL5 builds on [GCC High](gcc-high.md): the same Azure Government endpoints, FIPS builds, private cluster, in-boundary egress and HSM-wrapped keys, plus compute isolation and customer-managed keys everywhere they apply. The last section covers IL6 (SECRET, Azure Government Secret), which is built only when a classified customer is under contract.
+Depot for US Department of Defense customers at Impact Level 5, on Microsoft 365 DoD and Azure Government (#603). IL5 builds on [GCC High](gcc-high.md): the same Azure Government endpoints, FIPS builds, private cluster, in-boundary egress and HSM-wrapped keys, plus compute isolation and customer-managed keys everywhere they apply. The last section covers IL6 (SECRET, Azure Government Secret), which is built only when a classified customer is under contract.
 
 ## What the `dod` profile adds to `gcc-high`
 
@@ -35,7 +35,7 @@ As for [GCC High](gcc-high.md), with `-var-file=../../cloud-profiles/tofu/dod.tf
 
 ## RMF package inputs
 
-Passage as a cloud service for DoD needs a DoD provisional authorization, or a mission-owner ATO under DoD RMF (DoDI 8510.01) with FedRAMP High plus the DoD FedRAMP+ controls as the baseline. This repository supplies:
+Depot as a cloud service for DoD needs a DoD provisional authorization, or a mission-owner ATO under DoD RMF (DoDI 8510.01) with FedRAMP High plus the DoD FedRAMP+ controls as the baseline. This repository supplies:
 
 - **System boundary.** The AKS cluster, its private endpoints (Key Vault, Managed HSM, Blob, ACR, PostgreSQL) and the in-boundary alert receiver. Outside the boundary: the customer's Entra ID tenant (Microsoft 365 DoD) and their browsers. Nothing else, because the egress allowlist render test proves the charts call no other host.
 - **Data flows.** Browser to the gateway (TLS) to services. Services to PostgreSQL (TLS `verify-full`), Kafka and Temporal inside the cluster. Backups to Blob in the same region. Keycloak brokers to Entra ID (`login.microsoftonline.us`). `agents-ts` calls Azure OpenAI in Azure Government only. Alerts go to the in-boundary webhook.
@@ -44,7 +44,7 @@ Passage as a cloud service for DoD needs a DoD provisional authorization, or a m
 
 ## Control inheritance
 
-| Area | Azure Government (PA) | Passage | Mission owner |
+| Area | Azure Government (PA) | Depot | Mission owner |
 |---|---|---|---|
 | Physical, environmental, platform maintenance | inherited | | |
 | Hypervisor and compute isolation | dedicated hosts or isolated sizes | selects isolated pools (plan fails otherwise) | approves region choice |
@@ -57,7 +57,7 @@ Passage as a cloud service for DoD needs a DoD provisional authorization, or a m
 
 ## Personnel
 
-Microsoft staff with elevated access to DoD IL5 data hold DoD IT-2 adjudication (OPM Tier 3). Passage operators with production access need comparable vetting, set in the customer contract: at least the GCC High US-person policy plus the adjudication level the contract names. Access is by named identity with MFA and just-in-time elevation, and it is logged.
+Microsoft staff with elevated access to DoD IL5 data hold DoD IT-2 adjudication (OPM Tier 3). Depot operators with production access need comparable vetting, set in the customer contract: at least the GCC High US-person policy plus the adjudication level the contract names. Access is by named identity with MFA and just-in-time elevation, and it is logged.
 
 ## IL6 readiness (gate: classified customer signed)
 
@@ -68,9 +68,9 @@ IL6 runs in Azure Government Secret, which connects only to SIPRNet and is opera
 ```
 docker run -d -p 5000:5000 registry:2                      # throwaway staging registry
 make offline-bundle KEY=cosign.key OUT=dist/offline       # on a connected build machine
-python3 deploy/offline/offline_bundle.py verify dist/offline/passage-offline.tar.gz --key cosign.pub
-python3 deploy/offline/offline_bundle.py install dist/offline/passage-offline.tar.gz \
-    --registry registry.enclave:5000 --git-url https://git.enclave/passage.git --key cosign.pub
+python3 deploy/offline/offline_bundle.py verify dist/offline/depot-offline.tar.gz --key cosign.pub
+python3 deploy/offline/offline_bundle.py install dist/offline/depot-offline.tar.gz \
+    --registry registry.enclave:5000 --git-url https://git.enclave/depot.git --key cosign.pub
 ```
 
 - `build` collects every image the in-repo charts render plus `deploy/offline/extra-images.txt` (operator images of third-party charts) and pins each by digest. For each image it checks the publisher's signature against `deploy/offline/provenance.json` (the expected keyless identity, or a key; an image marked `unsignedUpstream` records the reason instead). An image or chart with no entry fails the build. It then copies the image into a throwaway staging registry, writes an SPDX SBOM with `syft`, signs the digest and attests the SBOM with the offline key (`cosign sign` and `cosign attest --type spdxjson`, no transparency log), and saves the image with its signature and attestation (`cosign save`). Every in-repo chart is packaged. Third-party charts are pulled with `helm pull --verify --keyring` when `provenance.json` names a keyring, or checked against a pinned sha256. None of them has a confirmed keyring yet, so they are marked `unverified` until `offline_bundle.py pin-charts` pins their archives on the connected build machine. Any failing step stops the build. The archive also holds the offline Kyverno policies, the OPA bundle, `manifest.json` (with each image's upstream state and each chart's provenance) and `SHA256SUMS`, and it is signed with `cosign sign-blob`.

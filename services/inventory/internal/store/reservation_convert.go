@@ -7,10 +7,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	invevents "github.com/BenjaminSRussell/passage/services/inventory/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	invevents "github.com/BenjaminSRussell/depot/services/inventory/internal/events"
 
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
 )
 
 // convertOrderedReservations turns reservations against the expected receipt of a dimension

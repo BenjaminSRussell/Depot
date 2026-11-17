@@ -3,7 +3,7 @@ package events
 import (
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 )
 
 // CustomerBalanceChanged is the PRD's customer-balance.changed.v1 (§5.30.5); the
@@ -13,7 +13,7 @@ import (
 // earlier snapshot, so sales credit and the portal read balances without polling.
 var CustomerBalanceChanged = events.Type(Context, "customerbalance", "changed", 1)
 
-// CustomerBalanceChangedData is the payload of dev.passage.receivables.customerbalance.changed.v1
+// CustomerBalanceChangedData is the payload of dev.depot.receivables.customerbalance.changed.v1
 // (customer_id, balance, overdue, oldest_item_days, dunning_level, risk_score). The
 // balance is net of credit-side open items and is negative for a customer in credit.
 type CustomerBalanceChangedData struct {

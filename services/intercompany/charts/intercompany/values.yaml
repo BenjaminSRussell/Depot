@@ -37,7 +37,7 @@ consumer:
     brokers: ""
     group: intercompany-charges
     username: intercompany-consumer
-    dlqTopic: passage.intercompany.charges.dlq
+    dlqTopic: depot.intercompany.charges.dlq
     secret: ""
   accounts:
     cost: ""

@@ -29,8 +29,8 @@ create unique index ux_cash_desk_day_open on cash_desk_day (tenant_id, desk_id) 
 -- The journal stays append-only; only the posting outcome of a line may be written after the insert.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT UPDATE (posting_status, ledger_entry_id, posted_at) ON cash_desk_entry TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT UPDATE (posting_status, ledger_entry_id, posted_at) ON cash_desk_entry TO depot_app';
   END IF;
 END
 $$;

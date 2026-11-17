@@ -11,10 +11,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/quality/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/quality/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/quality/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/quality/internal/store"
 )
 
 func (f *fakeStore) CreateComplianceList(_ context.Context, l domain.ComplianceList, _ string) (domain.ComplianceList, bool, error) {

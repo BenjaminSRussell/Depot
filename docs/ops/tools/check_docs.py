@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Docs link and runbook checker for docs/ops (PSG-50, PRD 9.50.9 docs row, FR-50.10).
+"""Docs link and runbook checker for docs/ops (DPT-50, PRD 9.50.9 docs row, FR-50.10).
 
 Four checks, all must pass (exit 1 otherwise):
   1. Markdown links: every relative link under docs/ops resolves to a file, and every #anchor resolves to
      a heading in the target file (GitHub slug rules). External http(s)/mailto links are not fetched.
   2. Alert runbooks: every alert in the multi-region PrometheusRule carries a runbook_url, each URL points
-     into https://docs.passage.dev/ops/runbooks/ and the page exists in docs/ops/runbooks/ (FR-50.10).
+     into https://docs.depot.dev/ops/runbooks/ and the page exists in docs/ops/runbooks/ (FR-50.10).
   3. Runbook directory hygiene: docs/ops/runbooks holds only .md pages (stray files fail).
   4. Repository paths: every `services/...` or `apps/...` path written in backticks in prose names a file or
      directory that exists in the repository, so a guide cannot point readers at a service that is not there.
@@ -23,7 +23,7 @@ import re
 import sys
 from pathlib import Path
 
-RUNBOOK_PREFIX = "https://docs.passage.dev/ops/runbooks/"
+RUNBOOK_PREFIX = "https://docs.depot.dev/ops/runbooks/"
 LINK_RE = re.compile(r"\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 ALERT_RE = re.compile(r"^\s*- alert:\s*(\S+)", re.MULTILINE)

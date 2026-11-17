@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 const (
@@ -188,8 +188,8 @@ func newRouter(s store.Store) http.Handler {
 
 func do(h http.Handler, method, path, body, duties, key string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", tenantID)
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Tenant", tenantID)
+	req.Header.Set("X-Depot-Duties", duties)
 	req.Header.Set("Content-Type", "application/json")
 	if key != "" {
 		req.Header.Set("Idempotency-Key", key)
@@ -470,8 +470,8 @@ func TestMoveAndFirm_PassIfMatchToTheStore(t *testing.T) {
 	h := newRouter(f)
 	send := func(path, body, key string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
-		req.Header.Set("X-Passage-Tenant", tenantID)
-		req.Header.Set("X-Passage-Duties", allDuties)
+		req.Header.Set("X-Depot-Tenant", tenantID)
+		req.Header.Set("X-Depot-Duties", allDuties)
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Idempotency-Key", key)
 		req.Header.Set("If-Match", `"abc123"`)

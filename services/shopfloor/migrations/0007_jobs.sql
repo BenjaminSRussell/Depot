@@ -1,4 +1,4 @@
--- PSG-25 slice 7: the dispatch projection of scheduled jobs (FR-25.3), operator feedback
+-- DPT-25 slice 7: the dispatch projection of scheduled jobs (FR-25.3), operator feedback
 -- with good and scrap quantities and the finished flag (FR-25.4), and quality check results
 -- with the finish gate and supervisor override (FR-25.5, AC-25.9, SF-0005). The projection
 -- is written by the w23 schedule through POST /api/v1/shopfloor/jobs. Every table is tenant
@@ -29,8 +29,8 @@ CREATE INDEX IF NOT EXISTS shop_job_dispatch_ix ON shop_job (tenant_id, resource
 ALTER TABLE shop_job ENABLE ROW LEVEL SECURITY;
 ALTER TABLE shop_job FORCE ROW LEVEL SECURITY;
 CREATE POLICY shop_job_tenant_access ON shop_job AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- One row per client-generated feedback id, so an offline replay is a no-op (FR-25.12).
 -- checks keeps the values of this posting with their evaluation, for audit; the latest value
@@ -57,8 +57,8 @@ CREATE INDEX IF NOT EXISTS job_feedback_job_ix ON job_feedback (tenant_id, job_i
 ALTER TABLE job_feedback ENABLE ROW LEVEL SECURITY;
 ALTER TABLE job_feedback FORCE ROW LEVEL SECURITY;
 CREATE POLICY job_feedback_tenant_access ON job_feedback AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Latest recorded value per check code on a job, and the feedback that recorded it.
 CREATE TABLE IF NOT EXISTS job_check_result (
@@ -76,13 +76,13 @@ CREATE TABLE IF NOT EXISTS job_check_result (
 ALTER TABLE job_check_result ENABLE ROW LEVEL SECURITY;
 ALTER TABLE job_check_result FORCE ROW LEVEL SECURITY;
 CREATE POLICY job_check_result_tenant_access ON job_check_result AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON shop_job, job_feedback, job_check_result TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON shop_job, job_feedback, job_check_result TO depot_app';
   END IF;
 END
 $$;

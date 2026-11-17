@@ -24,8 +24,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 const (
@@ -108,7 +108,7 @@ func FromEnv(getenv func(string) string) (*Client, error) {
 		return nil, err
 	}
 	if signer == nil {
-		return nil, errors.New("SALES_URL needs PASSAGE_SERVICE_SIGNING_KEY or PASSAGE_SERVICE_SIGNING_KEY_FILE")
+		return nil, errors.New("SALES_URL needs DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE")
 	}
 	return New(base, signer, nil)
 }

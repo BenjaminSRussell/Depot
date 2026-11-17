@@ -16,8 +16,8 @@ create table if not exists idempotency_keys (
 alter table idempotency_keys enable row level security;
 alter table idempotency_keys force row level security;
 create policy idempotency_keys_tenant_access on idempotency_keys as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- One rule on one catalog asset. version is the optimistic-concurrency version
 -- the API exposes as the ETag.
@@ -40,8 +40,8 @@ create table if not exists dq_rule (
 alter table dq_rule enable row level security;
 alter table dq_rule force row level security;
 create policy dq_rule_tenant_access on dq_rule as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create index if not exists dq_rule_asset on dq_rule (tenant_id, asset_fqn);
 
 -- One evaluation of one rule for one day; a later evaluation the same day
@@ -70,8 +70,8 @@ create table if not exists dq_score (
 alter table dq_score enable row level security;
 alter table dq_score force row level security;
 create policy dq_score_tenant_access on dq_score as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create index if not exists dq_score_asset on dq_score (tenant_id, asset_fqn, score_date desc);
 
 -- Archive tier partitions (FR-46.18, BR-46.14). One row per domain, table and month.
@@ -101,8 +101,8 @@ create table if not exists archive_partition (
 alter table archive_partition enable row level security;
 alter table archive_partition force row level security;
 create policy archive_partition_tenant_access on archive_partition as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create index if not exists archive_partition_status on archive_partition (tenant_id, status, domain);
 
 -- Scheduled dashboard and query deliveries (FR-46.10). Times are UTC; timezone
@@ -128,8 +128,8 @@ create table if not exists report_schedule (
 alter table report_schedule enable row level security;
 alter table report_schedule force row level security;
 create policy report_schedule_tenant_access on report_schedule as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create index if not exists report_schedule_next_run on report_schedule (tenant_id, next_run_at);
 
 -- Application role privileges for the slice-2 tables (see 0002_grants.sql).
@@ -137,10 +137,10 @@ create index if not exists report_schedule_next_run on report_schedule (tenant_i
 -- idempotency keys are deleted once older than 24 hours.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON idempotency_keys TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON dq_rule, dq_score, archive_partition TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON report_schedule TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON idempotency_keys TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON dq_rule, dq_score, archive_partition TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON report_schedule TO depot_app';
   END IF;
 END
 $$;

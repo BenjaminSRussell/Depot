@@ -14,12 +14,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/product/internal/api"
-	"github.com/BenjaminSRussell/passage/services/product/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/product/internal/orgclient"
-	"github.com/BenjaminSRussell/passage/services/product/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/product/internal/api"
+	"github.com/BenjaminSRussell/depot/services/product/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/product/internal/orgclient"
+	"github.com/BenjaminSRussell/depot/services/product/internal/store"
 )
 
 type fakeStore struct {
@@ -259,8 +259,8 @@ func newRouter(f *fakeStore) *chi.Mux {
 
 func do(r http.Handler, method, path, body, duties string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", duties)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -680,8 +680,8 @@ func TestProductItemGroupAndTrackingFlagsCreateReadPatchAndListGroups(t *testing
 		t.Fatalf("read %d %s", read.Code, read.Body.String())
 	}
 	patch := httptest.NewRequest(http.MethodPatch, "/v1/product/products/"+body.ID, strings.NewReader(`{"serialTracked":true,"batchTracked":false}`))
-	patch.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	patch.Header.Set("X-Passage-Duties", "product.write")
+	patch.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	patch.Header.Set("X-Depot-Duties", "product.write")
 	patch.Header.Set("If-Match", `"1"`)
 	patch.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -697,8 +697,8 @@ func TestProductItemGroupAndTrackingFlagsCreateReadPatchAndListGroups(t *testing
 		}
 	}
 	badPatch := httptest.NewRequest(http.MethodPatch, "/v1/product/products/"+body.ID, strings.NewReader(`{"itemGroupId":"nope"}`))
-	badPatch.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	badPatch.Header.Set("X-Passage-Duties", "product.write")
+	badPatch.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	badPatch.Header.Set("X-Depot-Duties", "product.write")
 	badPatch.Header.Set("If-Match", `"2"`)
 	badPatch.Header.Set("Content-Type", "application/json")
 	badRec := httptest.NewRecorder()

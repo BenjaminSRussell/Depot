@@ -1,6 +1,6 @@
 # ops
 
-Ops control plane, parts 1 and 2 (PSG-50, FR-50.5, FR-50.9, FR-50.12; issue #50 subtask 50-3). It is platform state, not tenant data:
+Ops control plane, parts 1 and 2 (DPT-50, FR-50.5, FR-50.9, FR-50.12; issue #50 subtask 50-3). It is platform state, not tenant data:
 the tables have no `tenant_id` and no RLS (allowlisted in `tools/rlscheck`), and every route needs an operator duty.
 
 | Route | Duty | What it does |
@@ -42,14 +42,14 @@ the tables have no `tenant_id` and no RLS (allowlisted in `tools/rlscheck`), and
   DNS, ledger hash chain check). A retry with the same event id returns the first outcome.
 
 ## Failover execution (part 2)
-`passage-ops` (`cmd/passage-ops`, in the image as `/passage-ops`) is the operator's command line:
+`depot-ops` (`cmd/depot-ops`, in the image as `/depot-ops`) is the operator's command line:
 
 ```
-passage-ops failover --to eu-central [--accept-data-loss] [--dry-run] [--event <id>]
-passage-ops failover approve --request <id>     # the second operator
-passage-ops failover resume --event <id>
-passage-ops break-glass open --reason REGION_LOSS --ticket INC-42 [--minutes 60] | list | revoke --id | review --id --outcome
-passage-ops lag-report --region eu-central [--once]
+depot-ops failover --to eu-central [--accept-data-loss] [--dry-run] [--event <id>]
+depot-ops failover approve --request <id>     # the second operator
+depot-ops failover resume --event <id>
+depot-ops break-glass open --reason REGION_LOSS --ticket INC-42 [--minutes 60] | list | revoke --id | review --id --outcome
+depot-ops lag-report --region eu-central [--once]
 ```
 It needs `OPS_API_URL` (the gateway) and `OPS_TOKEN`. A failover is recorded through the API first (roles flip in one transaction,
 OPS-1701/1702 apply), then the ordered steps run with the credentials of the machine and each result is reported back. The
@@ -63,10 +63,10 @@ Environment of the CLI: `OPS_KUBE_REGIONS` (JSON or `@file`: per region `server`
 `OPS_DNS_RECORD`, `DNS_TTL_S`, `OPS_CHAIN_VERIFY_CMD`.
 
 Fenced region (BR-50.2, OPS-1703): every Go service built on `platform/go/httpx` answers 503 `Retry-After: 30` while its region is FENCED,
-except `/healthz`, `/readyz`, `/healthz/region` and `/metrics`. It is off unless `global.regionFenceUrl` (env `PASSAGE_REGION_FENCE_URL`, the ops
-`/healthz/region` of this region) or `PASSAGE_REGION_FENCE_FILE` is set; one background poll (default 5 s, `PASSAGE_REGION_FENCE_INTERVAL`) caches the
+except `/healthz`, `/readyz`, `/healthz/region` and `/metrics`. It is off unless `global.regionFenceUrl` (env `DEPOT_REGION_FENCE_URL`, the ops
+`/healthz/region` of this region) or `DEPOT_REGION_FENCE_FILE` is set; one background poll (default 5 s, `DEPOT_REGION_FENCE_INTERVAL`) caches the
 role, so no request waits on it, and an unreadable source keeps the last state. This service opts out (`httpx.DisableFence`) so it can run the rejoin.
-`GET /healthz/region` reaches DNS health checks through the `passage-region` Gateway (`deploy/gateway/region-gateway.yaml`), which has no JWT.
+`GET /healthz/region` reaches DNS health checks through the `depot-region` Gateway (`deploy/gateway/region-gateway.yaml`), which has no JWT.
 
 Break-glass: an operator without `ops.failover.execute` but with `ops.breakglass.request` opens a window for themselves (15 to 120 minutes,
 reason code, ticket). While it lasts the failover, rejoin, approve and step routes accept them; each use is written to `ops_break_glass_use` and
@@ -80,7 +80,7 @@ Lag trust: a lag reading older than `OPS_LAG_STALE_S` (default 90 s, about three
 region that never reported is unknown too. A lost old region is failed over with `--accept-data-loss --fence-unreachable "<reason>"` (second operator
 approval; the step is recorded `forced`); see the failover runbook.
 
-Lag reporter: `passage-ops lag-report` reads `pg_stat_replication` (mode primary) or the standby's replay position (mode standby) and reports it with
+Lag reporter: `depot-ops lag-report` reads `pg_stat_replication` (mode primary) or the standby's replay position (mode standby) and reports it with
 `PUT /v1/ops/regions/{name}/lag`; a measurement that fails reports a value far above the limit (`--unknown-lag-s`, default 86400) so a broken reporter
 blocks a failover instead of leaving a stale low number. The chart can run it (`lagReporter.enabled`).
 
@@ -101,13 +101,13 @@ A provision running past 15 minutes is `overdue`.
 Cost statements: `OPS_COST_RATES` holds the USD unit rates (`{"cpu_core_hours":"0.04",...,"overhead":"0.12"}`); the statement follows
 `docs/ops/tools/cost_meter.py` (one rounding to cents, EUR from the unrounded total at the ECB month average).
 
-Events (outbox, migration 0006, `events/asyncapi.yaml`): `dev.passage.ops.failover.completed.v1` (with the last DONE step of a failover),
+Events (outbox, migration 0006, `events/asyncapi.yaml`): `dev.depot.ops.failover.completed.v1` (with the last DONE step of a failover),
 `tenant.provisioned.v1`, `slo.breached.v1` and `license.changed.v1`. The platform-wide ones carry the operator tenant; the others the tenant they describe.
 
 Web: the operations console (`apps/web/src/modules/ops`) shows failover status, break-glass windows, service levels and licences.
 
 ## Part 4: provisioning runners, decommission, metering, reporters, clone schedules
-`passage-ops tenant provision|decommission --tenant <id> [--reason <text>] [--dry-run]` runs the steps with `internal/provision`: four interfaces
+`depot-ops tenant provision|decommission --tenant <id> [--reason <text>] [--dry-run]` runs the steps with `internal/provision`: four interfaces
 (Keycloak realm, databases and RLS schemas, Kafka ACLs and topics, lakehouse namespace), each call idempotent, `--dry-run` asks each adapter what it
 would do and reports nothing, and a rerun resumes at the first step the API does not have as DONE. Only the `LogAdapter` exists (it logs and says
 so in the step detail). Decommission opens the record first (the API checks with identity that the tenant is suspended and audits the request),
@@ -115,10 +115,10 @@ then removes in reverse order; the API refuses a step whose predecessor is not D
 
 The hourly tick (`OPS_CHECK_INTERVAL`) also runs: the licence user-count reporter (identity's `GET /v1/tenants/{id}/user-counts`, every active user counted as
 full), the monthly metering job (last month's statement for every PROVISIONED tenant without one, from `OPS_METER_QUERIES`, `OPS_METER_MODEL_VERSION`, `OPS_USD_PER_EUR`,
-`OPS_COST_RATES`) and the clone job (`OPS_CLONE_ENABLED=true`, `OPS_CLONE_COMMAND`). Identity and print are reached with `PASSAGE_SERVICE_SIGNING_KEY(_FILE)` as the
+`OPS_COST_RATES`) and the clone job (`OPS_CLONE_ENABLED=true`, `OPS_CLONE_COMMAND`). Identity and print are reached with `DEPOT_SERVICE_SIGNING_KEY(_FILE)` as the
 service principal `ops-reporter` in the operator tenant (grants `ops` -> `identity.ops.tenant-read` and `print.ops.render`; add ops's public key to those services'
-`PASSAGE_SERVICE_PUBLIC_KEYS`). `IDENTITY_URL`, `PRINT_URL`, `OPS_SELLER_NAME`. Per-operation SLOs: `SLO_OPERATIONS` (JSON array, chart `slo.operations`; per route across its methods, since the shared series have no method label, and a `method` field is refused), shown under
-`operations` in `GET /v1/ops/slo`. Migrations: `0007_cdc_publication`, `0008_cdc_role_grants` (the `outbox-ops` connector), `0009_ops_part4`, `0010_clone_lease` (clone leases, soft delete). A real `passage-ops tenant` run is refused until real adapters are wired in (the logging adapter fails a non-dry run, so nothing is reported DONE); clone runs execute in the background with a lease (`OPS_CLONE_LEASE`) and every schedule change and run is audited. New event:
+`DEPOT_SERVICE_PUBLIC_KEYS`). `IDENTITY_URL`, `PRINT_URL`, `OPS_SELLER_NAME`. Per-operation SLOs: `SLO_OPERATIONS` (JSON array, chart `slo.operations`; per route across its methods, since the shared series have no method label, and a `method` field is refused), shown under
+`operations` in `GET /v1/ops/slo`. Migrations: `0007_cdc_publication`, `0008_cdc_role_grants` (the `outbox-ops` connector), `0009_ops_part4`, `0010_clone_lease` (clone leases, soft delete). A real `depot-ops tenant` run is refused until real adapters are wired in (the logging adapter fails a non-dry run, so nothing is reported DONE); clone runs execute in the background with a lease (`OPS_CLONE_LEASE`) and every schedule change and run is audited. New event:
 `tenant.decommissioned.v1`.
 
 ## Configuration
@@ -128,7 +128,7 @@ only when the table is empty), `FAILOVER_MAX_LAG_S`, `RTO_TARGET_MIN` (60), `RPO
 `SLO_LATENCY_P95_MS`, `SLO_LATENCY_P95_BY`, `OPS_COST_RATES`, `OPS_CHECK_INTERVAL` (chart `prometheusUrl`, `slo.*`, `costRates`, `checkInterval`).
 
 ## Test
-`go test ./...`; the store and API tests need `PASSAGE_TEST_DATABASE_URL` (see `.github/postgres-test-setup.sql`) and skip without it.
+`go test ./...`; the store and API tests need `DEPOT_TEST_DATABASE_URL` (see `.github/postgres-test-setup.sql`) and skip without it.
 The capacity tests pin the figures of `docs/ops/tools/capacity_estimate.py`.
 
 Open items are in `NOT-IMPLEMENTED.md`.

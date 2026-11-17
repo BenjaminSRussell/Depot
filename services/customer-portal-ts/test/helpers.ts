@@ -12,12 +12,12 @@ export const CUSTOMER_B = "0c1d2e3f-0000-4000-8000-0000000000bb";
 export const LE_1 = "00000000-0000-4000-8000-0000000000a1";
 export const LE_2 = "00000000-0000-4000-8000-0000000000b1";
 export const ID_1 = "22222222-2222-4222-8222-222222222222";
-export const ISSUER = "https://keycloak.example.invalid/realms/passage";
+export const ISSUER = "https://keycloak.example.invalid/realms/depot";
 export const APP = "https://customer.example.invalid";
 
 export const oidc: OidcConfig = {
   issuer: ISSUER,
-  clientId: "passage-portal-customer",
+  clientId: "depot-portal-customer",
   clientSecret: "secret",
   redirectUri: `${APP}/bff/callback`,
   authorizationEndpoint: `${ISSUER}/protocol/openid-connect/auth`,

@@ -6,7 +6,7 @@ import (
 	"maps"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/gs1"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/gs1"
 )
 
 var (

@@ -1,4 +1,4 @@
--- PSG-25 slice 8: job dispatch from registrations (FR-25.3, BR-25.7).
+-- DPT-25 slice 8: job dispatch from registrations (FR-25.3, BR-25.7).
 -- flags carries review flags on a registration: `job-finished-conflict` on a job-start
 -- for a job the server had already finished (BR-25.7, SF-0004), `auto-stopped` and
 -- `auto-stop-capped` on the job-stops the server writes when a worker starts another job

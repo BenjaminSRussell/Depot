@@ -13,15 +13,15 @@ const (
 
 	JournalClosing           = "closing"
 	JournalReverseClosing    = "reverseClosing"
-	EventYearEndCompleted    = "dev.passage.close.yearend.completed.v1"
-	EventPeriodStatusChanged = "dev.passage.close.period.statuschanged.v1"
-	EventCloseRunCreated     = "dev.passage.close.run.created.v1"
-	EventCloseTaskCompleted  = "dev.passage.close.task.completed.v1"
-	EventCloseTaskReassigned = "dev.passage.close.task.reassigned.v1"
-	EventAllocationCompleted = "dev.passage.close.allocation.completed.v1"
-	EventAccrualScheduled    = "dev.passage.close.accrual.scheduled.v1"
-	EventAccrualCancelled    = "dev.passage.close.accrual.cancelled.v1"
-	EventRegroupingCompleted = "dev.passage.close.regrouping.completed.v1"
+	EventYearEndCompleted    = "dev.depot.close.yearend.completed.v1"
+	EventPeriodStatusChanged = "dev.depot.close.period.statuschanged.v1"
+	EventCloseRunCreated     = "dev.depot.close.run.created.v1"
+	EventCloseTaskCompleted  = "dev.depot.close.task.completed.v1"
+	EventCloseTaskReassigned = "dev.depot.close.task.reassigned.v1"
+	EventAllocationCompleted = "dev.depot.close.allocation.completed.v1"
+	EventAccrualScheduled    = "dev.depot.close.accrual.scheduled.v1"
+	EventAccrualCancelled    = "dev.depot.close.accrual.cancelled.v1"
+	EventRegroupingCompleted = "dev.depot.close.regrouping.completed.v1"
 	maxDimensionAttributes   = 5
 )
 

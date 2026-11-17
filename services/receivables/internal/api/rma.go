@@ -8,10 +8,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/store"
 )
 
 type rmaCreditRequest struct {
@@ -151,7 +151,7 @@ func legalEntityScoped(w http.ResponseWriter, r *http.Request) bool {
 	p, _ := tenant.FromContext(r.Context())
 	if len(tenant.LegalEntityScopeList(p)) == 0 {
 		p := httpx.NewProblem(http.StatusBadRequest, "COM-0001", validationDetail)
-		p.Errors = map[string]string{"X-Passage-Legal-Entity": "posting an RMA credit needs a caller scoped to its legal entity"}
+		p.Errors = map[string]string{"X-Depot-Legal-Entity": "posting an RMA credit needs a caller scoped to its legal entity"}
 		httpx.Fail(w, r, p)
 		return false
 	}

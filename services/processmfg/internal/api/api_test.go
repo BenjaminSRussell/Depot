@@ -11,9 +11,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/store"
 )
 
 const (
@@ -200,11 +200,11 @@ func (c call) do(h http.Handler) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(c.method, c.path, strings.NewReader(c.body))
 	req.Header.Set("Content-Type", "application/json")
 	if !c.noTenant {
-		req.Header.Set("X-Passage-Tenant", tenantID)
-		req.Header.Set("X-Passage-Legal-Entity", entityID)
-		req.Header.Set("X-Passage-User", "planner-1")
+		req.Header.Set("X-Depot-Tenant", tenantID)
+		req.Header.Set("X-Depot-Legal-Entity", entityID)
+		req.Header.Set("X-Depot-User", "planner-1")
 	}
-	req.Header.Set("X-Passage-Duties", c.duties)
+	req.Header.Set("X-Depot-Duties", c.duties)
 	for k, v := range c.headers {
 		req.Header.Set(k, v)
 	}
@@ -481,7 +481,7 @@ func TestCreateBatchOrder_RefusesACallerWithNoLegalEntityScope(t *testing.T) {
 	fs := &fakeStore{}
 	body := `{"formulaId":"` + formulaID + `","batchSize":"2500","legalEntityId":"` + entityID + `"}`
 	headers := key("o-1")
-	headers["X-Passage-Legal-Entity"] = ""
+	headers["X-Depot-Legal-Entity"] = ""
 	rec := call{method: "POST", path: "/v1/production/batch-orders", body: body, duties: DutyBatchOrderWrite, headers: headers}.do(newRouter(fs))
 	if rec.Code != http.StatusForbidden || problemOf(t, rec).Code != "AUTH-0003" || fs.gotOrder.FormulaID != "" {
 		t.Fatalf("no scope: %d %s", rec.Code, rec.Body)

@@ -10,12 +10,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
 )
 
 const (
@@ -377,7 +377,7 @@ func (a *API) failRender(w http.ResponseWriter, r *http.Request, err error) {
 		w.Header().Set("Content-Type", "application/problem+json")
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		_ = json.NewEncoder(w).Encode(problemBody{
-			Type: "https://passage.dev/problems/" + domain.CodeXrefUnresolved, Title: "Unprocessable Entity", Status: http.StatusUnprocessableEntity,
+			Type: "https://depot.dev/problems/" + domain.CodeXrefUnresolved, Title: "Unprocessable Entity", Status: http.StatusUnprocessableEntity,
 			Detail: unresolved.Error(), Instance: r.URL.Path, Code: domain.CodeXrefUnresolved, ServiceCode: domain.CodeXrefUnresolved,
 			TraceID: middleware.GetReqID(r.Context()), Errors: errs, Unresolved: unresolved.Refs,
 		})

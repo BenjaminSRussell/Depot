@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/print/internal/transport"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/print/internal/transport"
 )
 
 func TestTCP_SendDeliversZPLBytes(t *testing.T) {

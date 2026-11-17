@@ -19,5 +19,5 @@ create index "ix_benefit_elections_01" on "benefit_elections" ("tenant_id", "emp
 alter table benefit_elections enable row level security;
 alter table benefit_elections force row level security;
 create policy benefit_elections_tenant_access on benefit_elections as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);

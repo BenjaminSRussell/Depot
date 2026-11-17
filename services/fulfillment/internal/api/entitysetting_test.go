@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 func (f *fakeStore) ListLegalEntitySettings(context.Context) ([]store.LegalEntitySetting, error) {
@@ -70,13 +70,13 @@ func TestLegalEntitySetting_ReadSaveValidateAndDuty(t *testing.T) {
 		t.Fatalf("a supervisor without %s may not change cogs_at_shipment: %+v", store.DutyCogsPolicy, savedEntitySetting)
 	}
 	if rec := do(t, h, http.MethodPut, path, body, map[string]string{"If-Match": `"2"`, "Idempotency-Key": "e-6",
-		"X-Passage-Duties": "fulfillment.warehouse.release," + store.DutyCogsPolicy}); rec.Code != http.StatusOK || !savedEntitySetting.CanChangeCogs {
+		"X-Depot-Duties": "fulfillment.warehouse.release," + store.DutyCogsPolicy}); rec.Code != http.StatusOK || !savedEntitySetting.CanChangeCogs {
 		t.Fatalf("save with the ledger setup duty: %d %+v", rec.Code, savedEntitySetting)
 	}
-	if rec := do(t, h, http.MethodPut, path, body, map[string]string{"If-Match": `"2"`, "Idempotency-Key": "e-5", "X-Passage-Duties": "fulfillment.warehouse.view"}); rec.Code != http.StatusForbidden {
+	if rec := do(t, h, http.MethodPut, path, body, map[string]string{"If-Match": `"2"`, "Idempotency-Key": "e-5", "X-Depot-Duties": "fulfillment.warehouse.view"}); rec.Code != http.StatusForbidden {
 		t.Fatalf("viewer save: %d", rec.Code)
 	}
-	if rec := do(t, h, http.MethodPut, path, body, map[string]string{"If-Match": `"2"`, "Idempotency-Key": "e-7", "X-Passage-Duties": store.DutyCogsPolicy}); rec.Code != http.StatusForbidden {
+	if rec := do(t, h, http.MethodPut, path, body, map[string]string{"If-Match": `"2"`, "Idempotency-Key": "e-7", "X-Depot-Duties": store.DutyCogsPolicy}); rec.Code != http.StatusForbidden {
 		t.Fatalf("ledger setup alone (no fulfillment.warehouse.release) save: %d", rec.Code)
 	}
 }

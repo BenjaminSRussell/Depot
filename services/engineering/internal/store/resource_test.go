@@ -13,17 +13,17 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/store"
-	"github.com/BenjaminSRussell/passage/services/engineering/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/store"
+	"github.com/BenjaminSRussell/depot/services/engineering/migrations"
 )
 
 const (
-	calendarGenerated = "dev.passage.engineering.calendar.generated.v1"
-	resourceChanged   = "dev.passage.engineering.resource.changed.v1"
+	calendarGenerated = "dev.depot.engineering.calendar.generated.v1"
+	resourceChanged   = "dev.depot.engineering.resource.changed.v1"
 )
 
 type calendarFixture struct {

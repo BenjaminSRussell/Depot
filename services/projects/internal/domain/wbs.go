@@ -6,7 +6,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // CodeWBSDuplicate is PROJ-WBS-002 (§8.41.18): a WBS code repeats in one plan version.

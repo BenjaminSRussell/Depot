@@ -55,7 +55,7 @@ const sqlProfile: ConnectionProfile = {
   name: "Acme ERP",
   kind: "sql",
   sourceSystem: "custom_acme",
-  config: { driver: "sqlserver", host: "erp.acme.example", database: "erp", user: "passage" },
+  config: { driver: "sqlserver", host: "erp.acme.example", database: "erp", user: "depot" },
   secretSet: true,
   status: "active",
   version: 2,
@@ -159,7 +159,7 @@ describe("new binding", () => {
     expect(calls.filter((c) => c.method === "POST")).toHaveLength(0);
 
     fireEvent.change(screen.getByLabelText("Connection"), { target: { value: PROFILE } });
-    fireEvent.change(screen.getByLabelText("Passage entity"), { target: { value: "customer" } });
+    fireEvent.change(screen.getByLabelText("Depot entity"), { target: { value: "customer" } });
     fireEvent.change(screen.getByLabelText(/^Table or view/), { target: { value: "CustTable" } });
     fireEvent.change(screen.getByLabelText(/^Schema/), { target: { value: "dbo" } });
     fireEvent.change(screen.getByLabelText("Key fields"), { target: { value: "ACCOUNTNUM" } });
@@ -202,7 +202,7 @@ describe("new binding", () => {
     renderAt("/migration/bindings/new");
     await screen.findByRole("option", { name: /Acme ERP/ });
     fireEvent.change(screen.getByLabelText("Connection"), { target: { value: PROFILE } });
-    fireEvent.change(screen.getByLabelText("Passage entity"), { target: { value: "customer" } });
+    fireEvent.change(screen.getByLabelText("Depot entity"), { target: { value: "customer" } });
     fireEvent.change(screen.getByLabelText(/^Read-only query/), { target: { value: "select 1" } });
     fireEvent.change(screen.getByLabelText("Key fields"), { target: { value: "id" } });
     fireEvent.click(screen.getByRole("button", { name: "Preview rows" }));
@@ -224,7 +224,7 @@ describe("new binding", () => {
     renderAt("/migration/bindings/new");
     await screen.findByRole("option", { name: /Acme drop/ });
     fireEvent.change(screen.getByLabelText("Connection"), { target: { value: fileProfile.id } });
-    fireEvent.change(screen.getByLabelText("Passage entity"), { target: { value: "customer" } });
+    fireEvent.change(screen.getByLabelText("Depot entity"), { target: { value: "customer" } });
     fireEvent.change(screen.getByLabelText("File name"), { target: { value: "cust.csv" } });
     fireEvent.change(screen.getByLabelText("Key fields"), { target: { value: "id" } });
     const file = new File(["id,name\n1,Acme\n"], "cust.csv", { type: "text/csv" });

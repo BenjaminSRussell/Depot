@@ -28,24 +28,24 @@ CREATE UNIQUE INDEX IF NOT EXISTS description_template_scope_uq
 ALTER TABLE description_template ENABLE ROW LEVEL SECURITY;
 ALTER TABLE description_template FORCE ROW LEVEL SECURITY;
 CREATE POLICY description_template_tenant_access ON description_template AS PERMISSIVE
-    USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+    USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 -- Tenant templates are shared by every legal entity; a legal entity's own
 -- templates are visible and writable only inside the caller's scopes.
 CREATE POLICY description_template_legal_entity_scope ON description_template AS RESTRICTIVE
     USING (legal_entity_id IS NULL
-           OR current_setting('passage.legal_entity_scopes', true) = '*'
-           OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')))
+           OR current_setting('depot.legal_entity_scopes', true) = '*'
+           OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')))
     WITH CHECK (legal_entity_id IS NULL
-           OR current_setting('passage.legal_entity_scopes', true) = '*'
-           OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+           OR current_setting('depot.legal_entity_scopes', true) = '*'
+           OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The app role needs the new table (0005_grants.sql cannot cover it). Templates
 -- are configuration: no DELETE, as for reason codes and structures.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON description_template TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON description_template TO depot_app';
   END IF;
 END
 $$;

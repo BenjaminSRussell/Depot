@@ -13,9 +13,9 @@ var createTable = regexp.MustCompile(`(?is)CREATE TABLE IF NOT EXISTS (\w+)\s*\(
 
 // TestEveryTableHasTenantRowLevelSecurity is the static half of the tenant isolation
 // check (CONVENTIONS, DoD 4): every table carries tenant_id, enables and forces row-level
-// security, and has a tenant_access policy keyed on passage.tenant_id for reads and
+// security, and has a tenant_access policy keyed on depot.tenant_id for reads and
 // writes. The outbox is included: the Debezium relay reads it with a BYPASSRLS role. The
-// live isolation test is internal/store, which runs when PASSAGE_TEST_DATABASE_URL is set.
+// live isolation test is internal/store, which runs when DEPOT_TEST_DATABASE_URL is set.
 func TestEveryTableHasTenantRowLevelSecurity(t *testing.T) {
 	files, err := fs.Glob(FS, "*.sql")
 	if err != nil {
@@ -36,7 +36,7 @@ func TestEveryTableHasTenantRowLevelSecurity(t *testing.T) {
 		}
 	}
 	sql := strings.Join(strings.Fields(all.String()), " ")
-	const tenantClause = "tenant_id = current_setting('passage.tenant_id', true)::uuid"
+	const tenantClause = "tenant_id = current_setting('depot.tenant_id', true)::uuid"
 
 	for _, name := range []string{"print_device", "print_job", "print_routing_rule", "outbox"} {
 		if _, ok := tables[name]; !ok {

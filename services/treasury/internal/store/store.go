@@ -15,14 +15,14 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/domain"
-	tevents "github.com/BenjaminSRussell/passage/services/treasury/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/domain"
+	tevents "github.com/BenjaminSRussell/depot/services/treasury/internal/events"
 )
 
 // Problem codes raised by the store (see README). TRS-0405, TRS-0406, TRS-0408
@@ -40,7 +40,7 @@ const (
 	MaxLinesPage          = 500
 	uniqueViolation       = "23505"
 	checkViolation        = "23514"
-	eventSource           = "/passage/treasury/treasury"
+	eventSource           = "/depot/treasury/treasury"
 )
 
 // BankAccount is the API view of a bank account. The IBAN itself is never

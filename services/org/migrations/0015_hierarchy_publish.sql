@@ -18,5 +18,5 @@ CREATE INDEX IF NOT EXISTS hierarchy_closure_descendant ON hierarchy_closure (te
 ALTER TABLE hierarchy_closure ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hierarchy_closure FORCE ROW LEVEL SECURITY;
 CREATE POLICY hierarchy_closure_tenant_access ON hierarchy_closure AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

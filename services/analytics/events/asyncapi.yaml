@@ -1,27 +1,27 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Analytics events
+  title: Depot Analytics events
   version: 1.0.0
   description: Events published by the analytics service. Only implemented events are listed; the rest of the wave-46 catalog is tracked in NOT-IMPLEMENTED.md.
 defaultContentType: application/cloudevents+json
 channels:
   analyticsMetric:
-    address: passage.analytics.metric
+    address: depot.analytics.metric
     messages:
       metricReconciled:
         $ref: "#/components/messages/MetricReconciled"
   catalogDq:
-    address: passage.catalog.dq
+    address: depot.catalog.dq
     messages:
       dqScored:
         $ref: "#/components/messages/DQScored"
   archivePartition:
-    address: passage.archive.partition
+    address: depot.archive.partition
     messages:
       archivePartitionMoved:
         $ref: "#/components/messages/ArchivePartitionMoved"
   analyticsReport:
-    address: passage.analytics.report
+    address: depot.analytics.report
     messages:
       reportDelivered:
         $ref: "#/components/messages/ReportDelivered"
@@ -57,11 +57,11 @@ operations:
 components:
   messages:
     MetricReconciled:
-      name: dev.passage.analytics.metric.reconciled.v1
+      name: dev.depot.analytics.metric.reconciled.v1
       contentType: application/cloudevents+json
       payload:
         type: object
-        description: CloudEvents 1.0 envelope (platform/go/events) with the Passage tenantid, correlationid, causationid and actor extensions. Written to the outbox in the transaction that stores the result.
+        description: CloudEvents 1.0 envelope (platform/go/events) with the Depot tenantid, correlationid, causationid and actor extensions. Written to the outbox in the transaction that stores the result.
         required: [specversion, id, source, type, subject, time, datacontenttype, tenantid, data]
         properties:
           specversion:
@@ -74,7 +74,7 @@ components:
             const: analytics
           type:
             type: string
-            const: dev.passage.analytics.metric.reconciled.v1
+            const: dev.depot.analytics.metric.reconciled.v1
           subject:
             type: string
             description: metricId/legalEntityId/date
@@ -126,7 +126,7 @@ components:
               trusted:
                 type: boolean
     DQScored:
-      name: dev.passage.catalog.dq.scored.v1
+      name: dev.depot.catalog.dq.scored.v1
       contentType: application/cloudevents+json
       payload:
         type: object
@@ -143,7 +143,7 @@ components:
             const: analytics
           type:
             type: string
-            const: dev.passage.catalog.dq.scored.v1
+            const: dev.depot.catalog.dq.scored.v1
           subject:
             type: string
             description: ruleId/date
@@ -203,7 +203,7 @@ components:
                 type: string
                 description: Present when notify_owner is true; one task per rule per day
     ArchivePartitionMoved:
-      name: dev.passage.archive.partition.moved.v1
+      name: dev.depot.archive.partition.moved.v1
       contentType: application/cloudevents+json
       payload:
         type: object
@@ -220,7 +220,7 @@ components:
             const: analytics
           type:
             type: string
-            const: dev.passage.archive.partition.moved.v1
+            const: dev.depot.archive.partition.moved.v1
           subject:
             type: string
             description: partitionId
@@ -260,7 +260,7 @@ components:
                 type: string
                 format: date-time
     ReportDelivered:
-      name: dev.passage.analytics.report.delivered.v1
+      name: dev.depot.analytics.report.delivered.v1
       contentType: application/cloudevents+json
       payload:
         type: object
@@ -277,7 +277,7 @@ components:
             const: analytics
           type:
             type: string
-            const: dev.passage.analytics.report.delivered.v1
+            const: dev.depot.analytics.report.delivered.v1
           subject:
             type: string
             description: scheduleId

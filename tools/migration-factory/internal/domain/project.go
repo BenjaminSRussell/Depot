@@ -35,7 +35,7 @@ func ParseCategory(s string) (Category, error) {
 	return "", fmt.Errorf("%w: category %q is not HOUR, EXPENSE, ITEM, FEE or ON_ACCOUNT", ErrInvalid, s)
 }
 
-// BillingStatus is the billing state a project opening line carries into Passage.
+// BillingStatus is the billing state a project opening line carries into Depot.
 type BillingStatus string
 
 const (
@@ -145,7 +145,7 @@ func measures(cost, sales, wipCost, wipSales decimal.Decimal) [4]decimal.Decimal
 	return [4]decimal.Decimal{cost, sales, wipCost, wipSales}
 }
 
-// ProjectTotals compares the opening lines Passage holds for one project with the legacy totals
+// ProjectTotals compares the opening lines Depot holds for one project with the legacy totals
 // per category and measure (FR-49.12: cost, sales value, WIP cost and WIP sales must match to
 // 0.00). Categories on either side appear; one missing on a side counts as zero.
 func ProjectTotals(projectID string, lines []OpeningLine, legacy []LegacyCategoryTotal) ([]ControlTotal, error) {
@@ -220,7 +220,7 @@ func ProjectsOf(totals []ControlTotal) []string {
 }
 
 // ReconcileProjects finishes a project_wip run once its accepted lines are in legacy_xref.
-// loaded is how many lines this run inserted; present holds every opening line Passage has
+// loaded is how many lines this run inserted; present holds every opening line Depot has
 // for the run's projects in this (system, company), including lines loaded by earlier runs. It
 // moves the run from VALIDATED to LOADED and, when every project reconciles, to RECONCILED.
 func ReconcileProjects(r *PackRun, accepted, loaded int, projects []string, present []OpeningLine, legacy map[string][]LegacyCategoryTotal) error {

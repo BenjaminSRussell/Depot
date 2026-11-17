@@ -30,7 +30,7 @@ spec:
                   type: Redis
                   redis:
                     url: ratelimit-valkey.envoy-gateway-system.svc.cluster.local:6379
-    - repoURL: https://github.com/BenjaminSRussell/Passage.git
+    - repoURL: https://github.com/BenjaminSRussell/Depot.git
       targetRevision: main
       path: deploy/envoy-gateway
   destination:

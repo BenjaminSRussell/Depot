@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS quality_compliance_list (
 ALTER TABLE quality_compliance_list ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_compliance_list FORCE ROW LEVEL SECURITY;
 CREATE POLICY quality_compliance_list_tenant_access ON quality_compliance_list AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Item compositions are immutable versions; the highest version is current (BR-33.11).
 CREATE TABLE IF NOT EXISTS quality_item_composition (
@@ -42,8 +42,8 @@ CREATE TABLE IF NOT EXISTS quality_item_composition (
 ALTER TABLE quality_item_composition ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_item_composition FORCE ROW LEVEL SECURITY;
 CREATE POLICY quality_item_composition_tenant_access ON quality_item_composition AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Evaluation results are versioned per (item, list version, region): a
 -- re-evaluation appends a version only when the outcome changed (BR-33.11).
@@ -65,8 +65,8 @@ CREATE TABLE IF NOT EXISTS quality_compliance_result (
 ALTER TABLE quality_compliance_result ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_compliance_result FORCE ROW LEVEL SECURITY;
 CREATE POLICY quality_compliance_result_tenant_access ON quality_compliance_result AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Stability studies and their generated pull points (FR-33.16, BR-33.14).
 CREATE TABLE IF NOT EXISTS quality_stability_study (
@@ -92,8 +92,8 @@ CREATE INDEX IF NOT EXISTS quality_stability_study_created ON quality_stability_
 ALTER TABLE quality_stability_study ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_stability_study FORCE ROW LEVEL SECURITY;
 CREATE POLICY quality_stability_study_tenant_access ON quality_stability_study AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS quality_pull_point (
   tenant_id uuid NOT NULL,
@@ -111,8 +111,8 @@ CREATE INDEX IF NOT EXISTS quality_pull_point_due ON quality_pull_point (tenant_
 ALTER TABLE quality_pull_point ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_pull_point FORCE ROW LEVEL SECURITY;
 CREATE POLICY quality_pull_point_tenant_access ON quality_pull_point AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- SPC reads the first-attempt results of one test on one item's orders (FR-33.11).
 CREATE INDEX IF NOT EXISTS quality_result_test ON quality_result (tenant_id, test_id, retest_no, quality_order_id);

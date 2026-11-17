@@ -13,10 +13,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/domain"
 )
 
 const ledger1 = "00000000-0000-0000-0000-0000000000b1"
@@ -61,7 +61,7 @@ func settledCount(t *testing.T, s *Postgres, ctx context.Context) (settled, even
 		if err := tx.QueryRow(ctx, `select count(*) from ap_open_item where status = 'SETTLED' and open_amount = 0 and version = 2`).Scan(&settled); err != nil {
 			return err
 		}
-		return tx.QueryRow(ctx, `select count(*) from outbox where type = 'dev.passage.payables.openitem.settled.v1'`).Scan(&events)
+		return tx.QueryRow(ctx, `select count(*) from outbox where type = 'dev.depot.payables.openitem.settled.v1'`).Scan(&events)
 	})
 	if err != nil {
 		t.Fatal(err)

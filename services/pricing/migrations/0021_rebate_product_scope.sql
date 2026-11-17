@@ -2,7 +2,7 @@
 -- "product scope"; AX rebate agreements and SAP condition contracts name the products or
 -- material group they pay on). An agreement with neither column accrues every invoice line, as
 -- before; with product_id it accrues only lines of that product; with product_group_id only
--- lines of that product group. The table, its row level security and its grants to passage_app
+-- lines of that product group. The table, its row level security and its grants to depot_app
 -- come from 0002 and 0008; no new table here.
 ALTER TABLE rebate_agreement ADD COLUMN IF NOT EXISTS product_id uuid;
 ALTER TABLE rebate_agreement ADD COLUMN IF NOT EXISTS product_group_id uuid;

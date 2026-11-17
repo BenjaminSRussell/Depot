@@ -6,9 +6,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/quality/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/quality/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/quality/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/quality/internal/store"
 )
 
 // RecordCertificate mirrors the Postgres store: key replay (refused on another

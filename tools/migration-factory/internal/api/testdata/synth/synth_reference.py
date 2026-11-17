@@ -9,7 +9,7 @@ notes, payroll through a clearing account, accruals and their reversals, depreci
 asset purchases, and project transactions. From that year it derives, per entity, the extracts the
 migration factory takes at the cutoff (open_items, gl_balances, project_wip, already mapped to the
 factory's request shape with legacy ids in each system's own conventions) and writes them to
-ax2012.json and sapecc.json. It also writes the Passage postings of the first days after go-live
+ax2012.json and sapecc.json. It also writes the Depot postings of the first days after go-live
 that the rollback rehearsal hands back for re-keying.
 
 Separately it computes, from its own reading of FR-49.2 and the README, every control total the
@@ -369,7 +369,7 @@ def gen_projects(sd, company, ccy, rng):
 
 
 def gen_rekey(sd, entities, rng):
-    """Passage postings of the first days after go-live (journals and documents), plus a few
+    """Depot postings of the first days after go-live (journals and documents), plus a few
     dated before T-0, that a rollback hands back for re-keying (FR-49.9)."""
     A = sd["acct"]
     out = []

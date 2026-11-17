@@ -166,22 +166,22 @@ type RunSpec struct {
 	// Since is the watermark of the last committed delta run (integration track S4): an extractor that can read a
 	// delta returns only rows changed after it. "" reads everything, and so does an extractor without a cursor.
 	Since string
-	// HoldExisting is set when Passage is the source of truth of the binding: a row whose record an earlier run
+	// HoldExisting is set when Depot is the source of truth of the binding: a row whose record an earlier run
 	// loaded and whose mapped content now differs is reported as a conflict (MIG-TARGET-DRIFT) and not applied.
 	HoldExisting bool
 	// Acknowledged holds, per source key, the content hash of a legacy row an operator chose to leave out
-	// ("keep Passage"); the same row is not reported again, a row that changed again is.
+	// ("keep Depot"); the same row is not reported again, a row that changed again is.
 	Acknowledged map[string]string
 }
 
-// CodeSourceOfTruth is the reject code of a held row. It is the code the loader uses for a record changed in Passage
-// since the last load, because to the operator both mean the same thing: Passage and the legacy system disagree.
+// CodeSourceOfTruth is the reject code of a held row. It is the code the loader uses for a record changed in Depot
+// since the last load, because to the operator both mean the same thing: Depot and the legacy system disagree.
 const CodeSourceOfTruth = "MIG-TARGET-DRIFT"
 
 // CodeTargetUnavailable is the loader's reject code for a target service that did not answer (retries exhausted).
 const CodeTargetUnavailable = "MIG-TARGET-UNAVAILABLE"
 
-// Conflict is a legacy row held back because Passage is the source of truth.
+// Conflict is a legacy row held back because Depot is the source of truth.
 type Conflict struct {
 	SourceKey   string
 	TargetID    string
@@ -330,7 +330,7 @@ func (p *Pipeline) Run(ctx context.Context, spec RunSpec) (Report, error) {
 			}
 			rep.Conflicted++
 			rep.Conflicts = append(rep.Conflicts, Conflict{SourceKey: r.Key, TargetID: x.TargetID, ContentHash: hash, Fields: r.Fields})
-			rep.Rejects = append(rep.Rejects, RowReject{r.Key, []Reject{{"", CodeSourceOfTruth, "Passage is the source of truth for this binding; the legacy row differs from the loaded record and was not applied"}}})
+			rep.Rejects = append(rep.Rejects, RowReject{r.Key, []Reject{{"", CodeSourceOfTruth, "Depot is the source of truth for this binding; the legacy row differs from the loaded record and was not applied"}}})
 			continue
 		}
 		idemKey := IdempotencyKey(spec.SourceSystem, spec.Entity, r.Key, hash)

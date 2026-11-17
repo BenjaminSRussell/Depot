@@ -23,14 +23,14 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/domain"
-	ledgerevents "github.com/BenjaminSRussell/passage/services/ledger/internal/events"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/domain"
+	ledgerevents "github.com/BenjaminSRussell/depot/services/ledger/internal/events"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/store"
 )
 
 const (
@@ -229,7 +229,7 @@ func (a *API) fail(w http.ResponseWriter, r *http.Request, err error) {
 		a.rejected.Add(1)
 		first := rej.Violations[0]
 		body := violationProblem{
-			Problem: httpx.Problem{Type: "https://passage.dev/problems/" + first.Code, Title: http.StatusText(http.StatusUnprocessableEntity),
+			Problem: httpx.Problem{Type: "https://depot.dev/problems/" + first.Code, Title: http.StatusText(http.StatusUnprocessableEntity),
 				Status: http.StatusUnprocessableEntity, Code: first.Code, Detail: first.Message, Instance: r.URL.Path,
 				TraceID: middleware.GetReqID(r.Context())},
 			Violations: rej.Violations,

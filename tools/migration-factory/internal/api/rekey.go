@@ -8,15 +8,15 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 // rollbackBodyLimit bounds a rollback request, which carries the postings made since T-0.
 const rollbackBodyLimit = 16 << 20
 
-// postingDTO is one Passage posting line since T-0 that a rollback exports for re-keying
+// postingDTO is one Depot posting line since T-0 that a rollback exports for re-keying
 // (FR-49.9). The amount is a signed decimal string: debit positive, credit negative.
 type postingDTO struct {
 	Kind        string    `json:"kind"`

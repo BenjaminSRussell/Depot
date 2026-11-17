@@ -30,8 +30,8 @@ describe("MetadataForm", () => {
       "/api/v1/metadata/entities/Vendor/schema",
       expect.objectContaining({
         headers: expect.objectContaining({
-          "X-Passage-Tenant": "00000000-0000-0000-0000-000000000001",
-          "X-Passage-Duties": expect.stringContaining("metadata.read"),
+          "X-Depot-Tenant": "00000000-0000-0000-0000-000000000001",
+          "X-Depot-Duties": expect.stringContaining("metadata.read"),
         }),
       }),
     );

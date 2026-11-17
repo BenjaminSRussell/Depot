@@ -10,11 +10,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/store"
 )
 
 // DecideCapexRequest mirrors the store: version check, the domain move, the
@@ -63,7 +63,7 @@ func inApproval(f *fakeStore) string {
 }
 
 func decide(h http.Handler, id, action, body, duties, user, etag string) *httptest.ResponseRecorder {
-	headers := map[string]string{"X-Passage-User": user}
+	headers := map[string]string{"X-Depot-User": user}
 	if etag != "" {
 		headers["If-Match"] = etag
 	}

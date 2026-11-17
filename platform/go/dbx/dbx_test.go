@@ -13,9 +13,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 func principal(legalEntity string, duties ...string) tenant.Principal {
@@ -61,9 +61,9 @@ func TestWithTenantTxLegalEntityVisibility(t *testing.T) {
 	if err := admin.QueryRow(ctx, "select current_schema()").Scan(&schema); err != nil {
 		t.Fatal(err)
 	}
-	ddl := `grant usage on schema ` + schema + ` to passage_app;create table scoped (tenant_id uuid not null, legal_entity_id uuid not null);` +
+	ddl := `grant usage on schema ` + schema + ` to depot_app;create table scoped (tenant_id uuid not null, legal_entity_id uuid not null);` +
 		dbx.RLSPolicy("scoped") + dbx.LegalEntityScopePolicy("scoped") +
-		`grant select, insert on scoped to passage_app;`
+		`grant select, insert on scoped to depot_app;`
 	if _, err := admin.Exec(ctx, ddl); err != nil {
 		t.Fatal(err)
 	}
@@ -154,12 +154,12 @@ func TestWithTenantTxReleasesTheConnectionWhenTheClosurePanics(t *testing.T) {
 
 // Under a profile that requires verified TLS, Connect refuses a weaker sslmode before it dials (#602).
 func TestConnectRefusesWeakTLSUnderAGovernmentProfile(t *testing.T) {
-	t.Setenv("PASSAGE_CLOUD_PROFILE", "gcc-high")
+	t.Setenv("DEPOT_CLOUD_PROFILE", "gcc-high")
 	_, err := dbx.Connect(context.Background(), "postgres://u:p@127.0.0.1:1/x?sslmode=disable")
 	if err == nil || !strings.Contains(err.Error(), "verify-full") {
 		t.Fatalf("Connect err = %v, want a verify-full refusal", err)
 	}
-	t.Setenv("PASSAGE_CLOUD_PROFILE", "no-such-profile")
+	t.Setenv("DEPOT_CLOUD_PROFILE", "no-such-profile")
 	if _, err := dbx.Connect(context.Background(), "postgres://u:p@127.0.0.1:1/x"); err == nil || !strings.Contains(err.Error(), "unknown cloud profile") {
 		t.Fatalf("a typo in the profile name must fail closed, got %v", err)
 	}
@@ -282,11 +282,11 @@ func TestMigrateWaitForTheLockHonoursTheContext(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer holder.Release()
-	if _, err := holder.Exec(ctx, `select pg_advisory_lock(hashtextextended('passage.dbx.migrate:' || current_schema(), 0))`); err != nil {
+	if _, err := holder.Exec(ctx, `select pg_advisory_lock(hashtextextended('depot.dbx.migrate:' || current_schema(), 0))`); err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
-		_, _ = holder.Exec(ctx, `select pg_advisory_unlock(hashtextextended('passage.dbx.migrate:' || current_schema(), 0))`)
+		_, _ = holder.Exec(ctx, `select pg_advisory_unlock(hashtextextended('depot.dbx.migrate:' || current_schema(), 0))`)
 	}()
 	timeout, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
 	defer cancel()

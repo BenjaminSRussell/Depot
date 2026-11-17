@@ -7,7 +7,7 @@ import { helpForRoute, type RouteHelp } from "./routeHelp";
 import { isOptedOut, setOptOut } from "../uxEvents";
 
 /** Where the end-user guides are read. A docs site can replace this at build time. */
-const GUIDE_BASE = import.meta.env.VITE_USER_GUIDE_BASE ?? "https://github.com/BenjaminSRussell/Passage/blob/main/docs/user/";
+const GUIDE_BASE = import.meta.env.VITE_USER_GUIDE_BASE ?? "https://github.com/BenjaminSRussell/Depot/blob/main/docs/user/";
 
 export const guideUrl = (guide: RouteHelp["guide"]): string => {
   const [file = "", anchor = ""] = guide.split("#");

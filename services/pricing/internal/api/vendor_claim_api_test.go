@@ -108,7 +108,7 @@ func TestVendorRebate_ClaimLifecycle(t *testing.T) {
 	claim := func(user, mode string) (int, map[string]any) {
 		t.Helper()
 		body := fmt.Sprintf(`{"agreementId":"%s","period":"2027-03","settlementMode":"%s"}`, aid, mode)
-		return call(t, h, http.MethodPost, "/v1/pricing/rebates/vendor-claims", allDuties, body, "X-Passage-User", user, "Idempotency-Key", "k-"+user+mode)
+		return call(t, h, http.MethodPost, "/v1/pricing/rebates/vendor-claims", allDuties, body, "X-Depot-User", user, "Idempotency-Key", "k-"+user+mode)
 	}
 
 	if code, out := claim("u1", ""); code != http.StatusUnprocessableEntity || out["code"] != "PRC-0043" {
@@ -137,7 +137,7 @@ func TestVendorRebate_ClaimLifecycle(t *testing.T) {
 	}
 
 	approve := func(id, user, duties string, version int) (int, map[string]any) {
-		return call(t, h, http.MethodPost, "/v1/pricing/rebates/vendor-claims/"+id+":approve", duties, fmt.Sprintf(`{"version":%d}`, version), "X-Passage-User", user)
+		return call(t, h, http.MethodPost, "/v1/pricing/rebates/vendor-claims/"+id+":approve", duties, fmt.Sprintf(`{"version":%d}`, version), "X-Depot-User", user)
 	}
 	if code, out := approve(first["id"].(string), "u2", allDuties, 1); code != http.StatusOK || out["status"] != "APPROVED" {
 		t.Fatalf("approval of RC-000001 = %d %v", code, out)

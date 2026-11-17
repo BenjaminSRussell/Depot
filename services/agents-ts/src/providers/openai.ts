@@ -16,7 +16,7 @@ export interface OpenAICompatibleConfig {
   maxTokens?: number;
   fetchFn?: typeof fetch;
   timeoutMs?: number;
-  /** Cloud profile egress check (#599); defaults to PASSAGE_CLOUD_PROFILE. `region` is where the endpoint is hosted. */
+  /** Cloud profile egress check (#599); defaults to DEPOT_CLOUD_PROFILE. `region` is where the endpoint is hosted. */
   egress?: EgressOptions;
 }
 

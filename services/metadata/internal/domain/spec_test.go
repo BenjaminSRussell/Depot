@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/domain"
 )
 
 func firstViolation(t *testing.T, data string) domain.Violation {

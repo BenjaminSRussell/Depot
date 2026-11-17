@@ -122,35 +122,35 @@ CREATE INDEX IF NOT EXISTS absence_request_queue ON absence_request (tenant_id, 
 ALTER TABLE absence_plan ENABLE ROW LEVEL SECURITY;
 ALTER TABLE absence_plan FORCE ROW LEVEL SECURITY;
 CREATE POLICY absence_plan_tenant_access ON absence_plan AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE absence_balance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE absence_balance FORCE ROW LEVEL SECURITY;
 CREATE POLICY absence_balance_tenant_access ON absence_balance AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE absence_accrual_period ENABLE ROW LEVEL SECURITY;
 ALTER TABLE absence_accrual_period FORCE ROW LEVEL SECURITY;
 CREATE POLICY absence_accrual_period_tenant_access ON absence_accrual_period AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE absence_accrual_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE absence_accrual_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY absence_accrual_line_tenant_access ON absence_accrual_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE absence_close_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE absence_close_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY absence_close_line_tenant_access ON absence_close_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE absence_request ENABLE ROW LEVEL SECURITY;
 ALTER TABLE absence_request FORCE ROW LEVEL SECURITY;
 CREATE POLICY absence_request_tenant_access ON absence_request AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

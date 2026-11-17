@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { AttributeDefinitionsPage, BatchDetailPage, BatchesPage, NewBatchPage } from "./BatchRecordPages";
 import { BatchOrderDetailPage, BatchOrdersPage, NewBatchOrderPage } from "./BatchOrderPages";
 import { BatchAttributesPage, PickingPage, ReworkPage } from "./BatchQualityPages";
@@ -15,7 +15,7 @@ import { ProcessHome } from "./pages";
 import { StoredMergePage } from "./StoredMergePage";
 import { StoredPickingPage } from "./StoredPickingPage";
 
-const processmfg: PassageModule = {
+const processmfg: DepotModule = {
   id: "processmfg",
   title: "Process manufacturing",
   description:

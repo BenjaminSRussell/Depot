@@ -15,12 +15,12 @@ ALTER TABLE inventory_journal_counter ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_journal_counter FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS inventory_journal_counter_tenant_access ON inventory_journal_counter;
 CREATE POLICY inventory_journal_counter_tenant_access ON inventory_journal_counter AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS inventory_journal_counter_legal_entity_scope ON inventory_journal_counter;
 CREATE POLICY inventory_journal_counter_legal_entity_scope ON inventory_journal_counter AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE OR REPLACE FUNCTION inventory_journal_assign_number() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
@@ -42,7 +42,7 @@ CREATE TRIGGER inventory_journal_number BEFORE INSERT ON inventory_journal FOR E
 -- order they were created, after the legal entity's counter (so a re-run never
 -- reuses a number the trigger already gave out), and the counter moves on past
 -- them. It reads every tenant, so it runs only under a role that bypasses
--- row-level security; under passage_app it is skipped with a notice.
+-- row-level security; under depot_app it is skipped with a notice.
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = current_user AND (rolsuper OR rolbypassrls)) THEN
@@ -70,8 +70,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS inventory_journal_number_key ON inventory_jour
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON inventory_journal_counter TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON inventory_journal_counter TO depot_app';
   END IF;
 END
 $$;

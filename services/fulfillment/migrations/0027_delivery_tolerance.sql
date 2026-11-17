@@ -21,8 +21,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS delivery_tolerance_scope_uq ON delivery_tolera
 ALTER TABLE delivery_tolerance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE delivery_tolerance FORCE ROW LEVEL SECURITY;
 CREATE POLICY delivery_tolerance_tenant_access ON delivery_tolerance AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- A pick may exceed the planned quantity by the tolerance in force when it was
 -- confirmed. The line keeps that percentage, and the check keeps the picked
@@ -47,9 +47,9 @@ ALTER TABLE shipment_line ADD CONSTRAINT shipment_line_picked_within_tolerance
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON delivery_tolerance TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON delivery_tolerance TO depot_app';
   END IF;
 END
 $$;

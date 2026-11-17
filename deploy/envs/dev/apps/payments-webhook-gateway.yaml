@@ -6,11 +6,11 @@ metadata:
   # The payment webhook edge (#30): its own Gateway and route for Stripe, kept apart from the API gateway kustomization.
   annotations:
     argocd.argoproj.io/sync-wave: "1"
-    passage.dev/requires: envoy-gateway>=v1.4 with crds, a public certificate and the Stripe webhook endpoint (#213)
+    depot.dev/requires: envoy-gateway>=v1.4 with crds, a public certificate and the Stripe webhook endpoint (#213)
 spec:
   project: default
   source:
-    repoURL: https://github.com/BenjaminSRussell/Passage.git
+    repoURL: https://github.com/BenjaminSRussell/Depot.git
     targetRevision: main
     path: deploy/gateway/payments-webhook
   destination:

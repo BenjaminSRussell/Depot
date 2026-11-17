@@ -19,8 +19,8 @@ CREATE TABLE IF NOT EXISTS load_build (
 ALTER TABLE load_build ENABLE ROW LEVEL SECURITY;
 ALTER TABLE load_build FORCE ROW LEVEL SECURITY;
 CREATE POLICY load_build_tenant_access ON load_build AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- TMS load (§6.34.4). The id is shared with wms.Load. A rule-built load never
 -- exceeds its capacity in any dimension (BR-34.8).
@@ -54,8 +54,8 @@ CREATE INDEX IF NOT EXISTS load_created ON load (tenant_id, created_at DESC);
 ALTER TABLE load ENABLE ROW LEVEL SECURITY;
 ALTER TABLE load FORCE ROW LEVEL SECURITY;
 CREATE POLICY load_tenant_access ON load AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- LoadShipment: a shipment is on at most one load (the primary key), which also
 -- stops two concurrent builds from planning the same shipment twice.
@@ -71,8 +71,8 @@ CREATE TABLE IF NOT EXISTS load_shipment (
 ALTER TABLE load_shipment ENABLE ROW LEVEL SECURITY;
 ALTER TABLE load_shipment FORCE ROW LEVEL SECURITY;
 CREATE POLICY load_shipment_tenant_access ON load_shipment AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- DG check results per load (DgCheckResult, the DG load report of §6.34.14).
 -- Findings and shipping-paper lines are JSON with decimal-string quantities.
@@ -94,8 +94,8 @@ CREATE INDEX IF NOT EXISTS dg_check_load ON dg_check (tenant_id, load_id, checke
 ALTER TABLE dg_check ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dg_check FORCE ROW LEVEL SECURITY;
 CREATE POLICY dg_check_tenant_access ON dg_check AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Approvals and disputes of freight bills, append-only: who decided, when, why
 -- and the state change (BR-34.4).
@@ -119,13 +119,13 @@ CREATE INDEX IF NOT EXISTS freight_bill_decision_bill ON freight_bill_decision (
 ALTER TABLE freight_bill_decision ENABLE ROW LEVEL SECURITY;
 ALTER TABLE freight_bill_decision FORCE ROW LEVEL SECURITY;
 CREATE POLICY freight_bill_decision_tenant_access ON freight_bill_decision AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON load_build, load, load_shipment, dg_check, freight_bill_decision TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON load_build, load, load_shipment, dg_check, freight_bill_decision TO depot_app';
   END IF;
 END
 $$;

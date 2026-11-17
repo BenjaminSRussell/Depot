@@ -494,7 +494,7 @@ function lookup(n: { path: string[]; name: string }, e: FilterEvent): Value | un
   if (typeof cur === "number" && Number.isInteger(cur)) {
     return cur;
   }
-  // null, objects, arrays and fractional numbers are not CESQL values; a decimal is a string in Passage events.
+  // null, objects, arrays and fractional numbers are not CESQL values; a decimal is a string in Depot events.
   return undefined;
 }
 

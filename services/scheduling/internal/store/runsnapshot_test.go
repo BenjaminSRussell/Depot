@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 // A run keeps what it placed; comparing two runs lists the jobs that moved
@@ -80,7 +80,7 @@ func TestRunSnapshots_CompareAndRollback(t *testing.T) {
 			t.Errorf("job %s = %v..%v, want %v..%v", id, after[id].Start, after[id].End, first[id].Start, first[id].End)
 		}
 	}
-	if got := outboxCount(t, admin, "dev.passage.scheduling.run.completed.v1"); got != 3 {
+	if got := outboxCount(t, admin, "dev.depot.scheduling.run.completed.v1"); got != 3 {
 		t.Fatalf("run.completed events = %d, want 3 (two runs and the rollback)", got)
 	}
 

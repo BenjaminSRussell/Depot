@@ -3,7 +3,7 @@ package config
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
 )
 
 func env(m map[string]string) func(string) string {

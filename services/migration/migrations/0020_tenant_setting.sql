@@ -13,16 +13,16 @@ CREATE TABLE migration.tenant_setting (
 ALTER TABLE migration.tenant_setting ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.tenant_setting FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_setting_tenant_access ON migration.tenant_setting AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY tenant_setting_legal_entity_scope ON migration.tenant_setting AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*');
+  USING (current_setting('depot.legal_entity_scopes', true) = '*');
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
     -- UPDATE: the store changes the row under its version.
-    GRANT SELECT, INSERT, UPDATE ON migration.tenant_setting TO passage_app;
+    GRANT SELECT, INSERT, UPDATE ON migration.tenant_setting TO depot_app;
   END IF;
 END
 $$;

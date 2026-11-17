@@ -3,10 +3,10 @@ import type { AgentVersion } from "../domain/registry.js";
 /**
  * The five PRD agents as version-1 definitions (FR-47.5 to FR-47.7, suggest
  * mode). Each agent's model-visible tool list holds only read tools and
- * propose/draft tools (FR-47.1 naming, `passage.ap.invoice.propose_coding`).
+ * propose/draft tools (FR-47.1 naming, `depot.ap.invoice.propose_coding`).
  * The engine calls the proposed tool only after the approval gate (FR-47.8),
  * and that tool records a suggestion in the owning domain; posting, applying
- * or sending (for example `passage.ap.invoice.post`) is never on an
+ * or sending (for example `depot.ap.invoice.post`) is never on an
  * allow-list, so no agent version can commit a document itself (9.47.1: no
  * autonomous posting in v1).
  */
@@ -33,12 +33,12 @@ const DEFINITIONS: Record<AgentId, Definition> = {
       "You propose general-ledger coding for one unposted vendor invoice: account, dimensions, tax code and the PO line it matches. Use the vendor history to resolve ambiguity. Report a confidence between 0 and 1. Propose only; a person approves before anything is posted. " +
       INJECTION_GUARD,
     allowedTools: [
-      "passage.ap.invoice.get",
-      "passage.ap.vendor.history.list",
-      "passage.ap.po.line.list",
-      "passage.ledger.account.list",
-      "passage.tax.code.list",
-      "passage.ap.invoice.propose_coding",
+      "depot.ap.invoice.get",
+      "depot.ap.vendor.history.list",
+      "depot.ap.po.line.list",
+      "depot.ledger.account.list",
+      "depot.tax.code.list",
+      "depot.ap.invoice.propose_coding",
     ],
     requiredDuties: ["ap.invoice.read", "ap.vendor.read", "ledger.account.read", "tax.code.read"],
   },
@@ -47,10 +47,10 @@ const DEFINITIONS: Record<AgentId, Definition> = {
       "You rank settlements for one unapplied customer payment. Read the remittance text, amounts and tolerances, then propose settlements ordered by confidence. Never propose more than 20 invoices for one payment, and never propose a write-off above tolerance. " +
       INJECTION_GUARD,
     allowedTools: [
-      "passage.ar.payment.get",
-      "passage.ar.invoice.list",
-      "passage.ar.tolerance.get",
-      "passage.ar.settlement.propose",
+      "depot.ar.payment.get",
+      "depot.ar.invoice.list",
+      "depot.ar.tolerance.get",
+      "depot.ar.settlement.propose",
     ],
     requiredDuties: ["ar.payment.read", "ar.invoice.read", "ar.payment.apply_proposal"],
   },
@@ -59,9 +59,9 @@ const DEFINITIONS: Record<AgentId, Definition> = {
       "You group MRP action messages by cause and propose expedite or postpone for each group, with the reason. Propose only. " +
       INJECTION_GUARD,
     allowedTools: [
-      "passage.mrp.action_message.list",
-      "passage.mrp.supply.get",
-      "passage.mrp.action_message.propose_triage",
+      "depot.mrp.action_message.list",
+      "depot.mrp.supply.get",
+      "depot.mrp.action_message.propose_triage",
     ],
     requiredDuties: ["mrp.action_message.read", "mrp.supply.read"],
   },
@@ -70,10 +70,10 @@ const DEFINITIONS: Record<AgentId, Definition> = {
       "You draft collection outreach for overdue customer invoices under the dunning policy the user cites. Use the payment prediction to choose the timing. Drafts are text for a person to review; you never send anything. " +
       INJECTION_GUARD,
     allowedTools: [
-      "passage.ar.invoice.list",
-      "passage.ar.invoice.prediction.get",
-      "passage.collections.dunning_policy.get",
-      "passage.collections.letter.draft",
+      "depot.ar.invoice.list",
+      "depot.ar.invoice.prediction.get",
+      "depot.collections.dunning_policy.get",
+      "depot.collections.letter.draft",
     ],
     requiredDuties: ["ar.invoice.read", "collections.view"],
   },
@@ -82,10 +82,10 @@ const DEFINITIONS: Record<AgentId, Definition> = {
       "You score one journal entry for anomaly on amount, account pairing, posting time and posting user, and explain the main factors. Score above 0.8 is flagged for review. Propose a flag only; you never change a journal. " +
       INJECTION_GUARD,
     allowedTools: [
-      "passage.ledger.journal.get",
-      "passage.ledger.journal.list",
-      "passage.ledger.account.list",
-      "passage.ledger.journal.propose_flag",
+      "depot.ledger.journal.get",
+      "depot.ledger.journal.list",
+      "depot.ledger.account.list",
+      "depot.ledger.journal.propose_flag",
     ],
     requiredDuties: ["ledger.journal.read", "ledger.account.read"],
   },
@@ -100,7 +100,7 @@ export function defaultCatalog(modelId: string): AgentVersion[] {
 }
 
 /** Model-visible tool names must be read tools or proposals. */
-export const MODEL_VISIBLE_TOOL = /^passage(\.[a-z_]+){2,}\.(get|list|draft|propose|propose_[a-z_]+)$/;
+export const MODEL_VISIBLE_TOOL = /^depot(\.[a-z_]+){2,}\.(get|list|draft|propose|propose_[a-z_]+)$/;
 
 /** Tool name suffixes that commit or post. They must never be model-visible. */
 export const COMMIT_SUFFIX = /\.(post|apply|apply_coding|commit|reverse|send|pay)$/;

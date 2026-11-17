@@ -12,11 +12,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/close/internal/api"
-	"github.com/BenjaminSRussell/passage/services/close/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/close/internal/api"
+	"github.com/BenjaminSRussell/depot/services/close/internal/domain"
 )
 
 const runsPath = "/v1/close/year-end-runs"
@@ -260,9 +260,9 @@ func yearEndBody() string {
 
 func (f yearEndFixture) send(method, target, payload, duties string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, target, strings.NewReader(payload))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", duties)
-	req.Header.Set("X-Passage-Legal-Entity", testkit.TenantID(9))
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", duties)
+	req.Header.Set("X-Depot-Legal-Entity", testkit.TenantID(9))
 	rec := httptest.NewRecorder()
 	f.router.ServeHTTP(rec, req)
 	return rec

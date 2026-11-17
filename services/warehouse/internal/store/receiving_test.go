@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/domain"
 )
 
 func slot(h, m int) time.Time { return time.Date(2026, 10, 27, h, m, 0, 0, time.UTC) }
@@ -170,7 +170,7 @@ func TestStore_ReceiveASNPallet(t *testing.T) {
 	if _, _, err := st.ReceiveLine(ctx, key("recv-x"), ReceiveInput{ReceiptID: ids.New(), LineNo: 1, Qty: dq("1"), User: "clerk", Now: time.Now()}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("unknown receipt: err = %v", err)
 	}
-	if n := outboxCount(t, adminOf(st), "dev.passage.wms.receipt.registered.v1"); n != 1 {
+	if n := outboxCount(t, adminOf(st), "dev.depot.wms.receipt.registered.v1"); n != 1 {
 		t.Fatalf("receipt.registered events = %d, want 1", n)
 	}
 

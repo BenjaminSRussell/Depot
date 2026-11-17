@@ -1,6 +1,6 @@
 # migration-factory web module
 
-Migration factory workspace for wave 49 (PSG-49), discovered by the shell via `module.ts`. Screens
+Migration factory workspace for wave 49 (DPT-49), discovered by the shell via `module.ts`. Screens
 call the service at `tools/migration-factory` through `api/client.ts` (paths from its
 `api/openapi.yaml`):
 
@@ -23,10 +23,10 @@ call the service at `tools/migration-factory` through `api/client.ts` (paths fro
 - `/migration-factory/runs/:id/projects/:project`: a project's totals per category against legacy
   and its opening lines, paged by legacy id.
 - `/migration-factory/parallel-runs`: parallel runs with a state filter.
-- `/migration-factory/parallel-runs/new`: diff a replayed period from pasted legacy and Passage tuples.
+- `/migration-factory/parallel-runs/new`: diff a replayed period from pasted legacy and Depot tuples.
 - `/migration-factory/parallel-runs/:id`: the variance report with a class filter, explain, and
   sign-off once the exit criterion holds.
-- `/migration-factory/xref`: resolve a legacy id to the Passage record it became.
+- `/migration-factory/xref`: resolve a legacy id to the Depot record it became.
 - `/migration-factory/cutover`: cutover plans with progress.
 - `/migration-factory/cutover/new`: generate a plan.
 - `/migration-factory/cutover/:id`: the runbook, go/no-go checklist, step start with a timer that

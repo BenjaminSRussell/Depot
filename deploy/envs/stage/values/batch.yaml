@@ -1,9 +1,9 @@
 # Stage values for the batch Application (deploy/envs/stage/apps/services.yaml). The SMTP notify adapter reads its
-# credentials through the ESO ExternalSecret `batch-notify` from Vault keys passage/stage/batch/notify/{smtp-host,smtp-port,
+# credentials through the ESO ExternalSecret `batch-notify` from Vault keys depot/stage/batch/notify/{smtp-host,smtp-port,
 # smtp-user,smtp-password}; until they exist the pod does not start (an enabled adapter without credentials fails startup).
 notify:
   enabled: true
-  smtp: { enabled: true, from: notify@stage.passage.dev, tls: starttls }
+  smtp: { enabled: true, from: notify@stage.depot.dev, tls: starttls }
   webhook: { enabled: false, url: "" }
   externalSecret:
     environment: stage

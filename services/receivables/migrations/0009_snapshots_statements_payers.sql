@@ -21,11 +21,11 @@ CREATE TABLE IF NOT EXISTS payer_account_binding (
 ALTER TABLE payer_account_binding ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payer_account_binding FORCE ROW LEVEL SECURITY;
 CREATE POLICY payer_account_binding_tenant_access ON payer_account_binding AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY payer_account_binding_legal_entity_scope ON payer_account_binding AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Normalized payer names applied to a customer, learned on apply (R5).
 CREATE TABLE IF NOT EXISTS payer_name_binding (
@@ -39,11 +39,11 @@ CREATE TABLE IF NOT EXISTS payer_name_binding (
 ALTER TABLE payer_name_binding ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payer_name_binding FORCE ROW LEVEL SECURITY;
 CREATE POLICY payer_name_binding_tenant_access ON payer_name_binding AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY payer_name_binding_legal_entity_scope ON payer_name_binding AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- One balance per customer, currency and key date (job key = (customer, date)).
 CREATE TABLE IF NOT EXISTS customer_balance_snapshot (
@@ -64,11 +64,11 @@ CREATE INDEX IF NOT EXISTS customer_balance_snapshot_date_idx ON customer_balanc
 ALTER TABLE customer_balance_snapshot ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customer_balance_snapshot FORCE ROW LEVEL SECURITY;
 CREATE POLICY customer_balance_snapshot_tenant_access ON customer_balance_snapshot AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY customer_balance_snapshot_legal_entity_scope ON customer_balance_snapshot AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The statement reads settlements and clearings by item and payment up to its date.
 CREATE INDEX IF NOT EXISTS settlement_payment_idx ON settlement (tenant_id, payment_id);

@@ -11,9 +11,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	schedevents "github.com/BenjaminSRussell/passage/services/scheduling/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	schedevents "github.com/BenjaminSRussell/depot/services/scheduling/internal/events"
 )
 
 // Problem codes of operation maintenance.

@@ -17,16 +17,16 @@ def good_doc() -> dict:
         "asyncapi": "3.0.0",
         "info": {"title": "org", "version": "0.12.0"},
         "channels": {
-            "passage.org.site": {
-                "address": "passage.org.site",
+            "depot.org.site": {
+                "address": "depot.org.site",
                 "messages": {"created": {"$ref": "#/components/messages/siteCreated"}},
             }
         },
         "operations": {
             "onSiteCreated": {
                 "action": "send",
-                "channel": {"$ref": "#/channels/passage.org.site"},
-                "messages": [{"$ref": "#/channels/passage.org.site/messages/created"}],
+                "channel": {"$ref": "#/channels/depot.org.site"},
+                "messages": [{"$ref": "#/channels/depot.org.site/messages/created"}],
             }
         },
         "components": {
@@ -42,7 +42,7 @@ def good_doc() -> dict:
                             "type": {"type": ["string", "null"]},
                         },
                     },
-                    "x-passage-type": "dev.passage.org.site.created.v1",
+                    "x-depot-type": "dev.depot.org.site.created.v1",
                 }
             }
         },
@@ -54,8 +54,8 @@ def named_doc() -> dict:
     payload is a $ref to components.schemas."""
     doc = good_doc()
     msg = doc["components"]["messages"]["siteCreated"]
-    del msg["x-passage-type"]
-    msg["name"] = "dev.passage.org.site.created.v1"
+    del msg["x-depot-type"]
+    msg["name"] = "dev.depot.org.site.created.v1"
     doc["components"]["schemas"] = {"Site": msg["payload"]}
     msg["payload"] = {"$ref": "#/components/schemas/Site"}
     return doc
@@ -63,7 +63,7 @@ def named_doc() -> dict:
 
 class TestEventType(unittest.TestCase):
     def test_valid_types(self):
-        for t in ("dev.passage.org.site.created.v1", "dev.passage.ops.license.state_changed.v12"):
+        for t in ("dev.depot.org.site.created.v1", "dev.depot.ops.license.state_changed.v12"):
             self.assertTrue(ar.event_type_valid(t), t)
 
     def test_invalid_types(self):
@@ -71,24 +71,24 @@ class TestEventType(unittest.TestCase):
             None,
             "",
             "org.site.created.v1",
-            "dev.passage.org.site.created",
-            "dev.passage.org.site.created.v0",
-            "dev.passage.Org.site.created.v1",
-            "dev.passage.org.site.created.v1.extra",
+            "dev.depot.org.site.created",
+            "dev.depot.org.site.created.v0",
+            "dev.depot.Org.site.created.v1",
+            "dev.depot.org.site.created.v1.extra",
         ):
             self.assertFalse(ar.event_type_valid(t), repr(t))
 
-    def test_x_passage_type_wins_over_name(self):
+    def test_x_depot_type_wins_over_name(self):
         self.assertEqual(
-            ar.event_type({"name": "dev.passage.a.b.c.v1", "x-passage-type": "dev.passage.x.y.z.v2"}),
-            "dev.passage.x.y.z.v2",
+            ar.event_type({"name": "dev.depot.a.b.c.v1", "x-depot-type": "dev.depot.x.y.z.v2"}),
+            "dev.depot.x.y.z.v2",
         )
 
     def test_name_is_the_type_when_no_extension(self):
-        self.assertEqual(ar.event_type({"name": "dev.passage.a.b.c.v1"}), "dev.passage.a.b.c.v1")
+        self.assertEqual(ar.event_type({"name": "dev.depot.a.b.c.v1"}), "dev.depot.a.b.c.v1")
 
     def test_blank_extension_is_not_replaced_by_name(self):
-        self.assertEqual(ar.event_type({"name": "dev.passage.a.b.c.v1", "x-passage-type": ""}), "")
+        self.assertEqual(ar.event_type({"name": "dev.depot.a.b.c.v1", "x-depot-type": ""}), "")
 
 
 class TestGaps(unittest.TestCase):
@@ -98,25 +98,25 @@ class TestGaps(unittest.TestCase):
 
     def test_channel_without_address(self):
         doc = good_doc()
-        del doc["channels"]["passage.org.site"]["address"]
-        self.assertIn("channel passage.org.site: missing address", ar.gaps(doc))
+        del doc["channels"]["depot.org.site"]["address"]
+        self.assertIn("channel depot.org.site: missing address", ar.gaps(doc))
 
     def test_channel_message_must_be_an_object(self):
         doc = good_doc()
-        doc["channels"]["passage.org.site"]["messages"]["gone"] = "not-a-ref"
-        self.assertIn("channel passage.org.site: message gone is not an object", ar.gaps(doc))
+        doc["channels"]["depot.org.site"]["messages"]["gone"] = "not-a-ref"
+        self.assertIn("channel depot.org.site: message gone is not an object", ar.gaps(doc))
 
     def test_message_without_type_description_or_payload(self):
         doc = good_doc()
         msg = doc["components"]["messages"]["siteCreated"]
-        del msg["x-passage-type"]
+        del msg["x-depot-type"]
         msg["name"] = " "
         del msg["title"]
         msg["payload"] = {}
         self.assertEqual(
             ar.gaps(doc),
             [
-                "message siteCreated: no event type (set x-passage-type, or name the message after its type)",
+                "message siteCreated: no event type (set x-depot-type, or name the message after its type)",
                 "message siteCreated: missing title, summary or description",
                 "message siteCreated: missing payload schema",
                 "operation onSiteCreated: missing title, summary or description (and its messages are not all described)",
@@ -127,7 +127,7 @@ class TestGaps(unittest.TestCase):
         doc = named_doc()
         doc["components"]["messages"]["siteCreated"]["name"] = "POCancelled"
         self.assertIn(
-            "message siteCreated: event type 'POCancelled' is not dev.passage.<context>.<entity>.<verb>.v<n>",
+            "message siteCreated: event type 'POCancelled' is not dev.depot.<context>.<entity>.<verb>.v<n>",
             ar.gaps(doc),
         )
 
@@ -146,29 +146,29 @@ class TestGaps(unittest.TestCase):
 
     def test_bad_extension_type_is_reported(self):
         doc = good_doc()
-        doc["components"]["messages"]["siteCreated"]["x-passage-type"] = "site.created"
+        doc["components"]["messages"]["siteCreated"]["x-depot-type"] = "site.created"
         problems = ar.gaps(doc)
         self.assertIn(
-            "message siteCreated: event type 'site.created' is not dev.passage.<context>.<entity>.<verb>.v<n>", problems
+            "message siteCreated: event type 'site.created' is not dev.depot.<context>.<entity>.<verb>.v<n>", problems
         )
 
     def test_duplicate_event_type_is_reported(self):
         doc = good_doc()
         doc["components"]["messages"]["siteUpdated"] = copy.deepcopy(doc["components"]["messages"]["siteCreated"])
         self.assertIn(
-            "message siteUpdated: event type dev.passage.org.site.created.v1 also declared by siteCreated",
+            "message siteUpdated: event type dev.depot.org.site.created.v1 also declared by siteCreated",
             ar.gaps(doc),
         )
 
     def test_inline_channel_message_is_checked(self):
         doc = good_doc()
-        doc["channels"]["passage.org.site"]["messages"]["deleted"] = {"name": "deleted", "payload": {"type": "object"}}
+        doc["channels"]["depot.org.site"]["messages"]["deleted"] = {"name": "deleted", "payload": {"type": "object"}}
         problems = ar.gaps(doc)
         self.assertIn(
-            "message passage.org.site/deleted: event type 'deleted' is not dev.passage.<context>.<entity>.<verb>.v<n>",
+            "message depot.org.site/deleted: event type 'deleted' is not dev.depot.<context>.<entity>.<verb>.v<n>",
             problems,
         )
-        self.assertIn("message passage.org.site/deleted: missing title, summary or description", problems)
+        self.assertIn("message depot.org.site/deleted: missing title, summary or description", problems)
 
     def test_operation_action(self):
         doc = good_doc()
@@ -184,20 +184,20 @@ class TestGaps(unittest.TestCase):
 
     def test_operation_message_must_belong_to_its_channel(self):
         doc = good_doc()
-        doc["channels"]["passage.org.other"] = copy.deepcopy(doc["channels"]["passage.org.site"])
-        doc["channels"]["passage.org.other"]["address"] = "passage.org.other"
-        doc["operations"]["onSiteCreated"]["channel"] = {"$ref": "#/channels/passage.org.other"}
+        doc["channels"]["depot.org.other"] = copy.deepcopy(doc["channels"]["depot.org.site"])
+        doc["channels"]["depot.org.other"]["address"] = "depot.org.other"
+        doc["operations"]["onSiteCreated"]["channel"] = {"$ref": "#/channels/depot.org.other"}
         self.assertEqual(
             ar.gaps(doc),
             [
-                "operation onSiteCreated: message #/channels/passage.org.site/messages/created is not one of "
-                "channel #/channels/passage.org.other's messages"
+                "operation onSiteCreated: message #/channels/depot.org.site/messages/created is not one of "
+                "channel #/channels/depot.org.other's messages"
             ],
         )
 
     def test_operation_channel_must_be_a_reference(self):
         doc = good_doc()
-        doc["operations"]["onSiteCreated"]["channel"] = {"address": "passage.org.site"}
+        doc["operations"]["onSiteCreated"]["channel"] = {"address": "depot.org.site"}
         self.assertIn("operation onSiteCreated: channel must be a $ref to a channel", ar.gaps(doc))
 
     def test_unresolved_channel_reference_is_an_input_error(self):
@@ -208,7 +208,7 @@ class TestGaps(unittest.TestCase):
 
     def test_unresolved_message_reference_is_an_input_error(self):
         doc = good_doc()
-        doc["operations"]["onSiteCreated"]["messages"] = [{"$ref": "#/channels/passage.org.site/messages/missing"}]
+        doc["operations"]["onSiteCreated"]["messages"] = [{"$ref": "#/channels/depot.org.site/messages/missing"}]
         with self.assertRaises(ValueError):
             ar.gaps(doc)
 
@@ -225,21 +225,21 @@ class TestRender(unittest.TestCase):
         self.assertIn("# org event reference", text)
         self.assertIn("AsyncAPI 3.0.0, API version 0.12.0", text)
         self.assertIn("1 channels, 1 operations, 1 events.", text)
-        self.assertIn("| onSiteCreated | send | passage.org.site | Site created |", text)
-        self.assertIn("| dev.passage.org.site.created.v1 | Site created | `id`, `type` |", text)
-        self.assertIn("## dev.passage.org.site.created.v1", text)
+        self.assertIn("| onSiteCreated | send | depot.org.site | Site created |", text)
+        self.assertIn("| dev.depot.org.site.created.v1 | Site created | `id`, `type` |", text)
+        self.assertIn("## dev.depot.org.site.created.v1", text)
         self.assertIn("- `id` (string)", text)
         self.assertIn("- `type` (string|null)", text)
 
     def test_referenced_payload_is_followed(self):
         text = ar.render("org", named_doc())
-        self.assertIn("| dev.passage.org.site.created.v1 | Site created | `id`, `type` |", text)
+        self.assertIn("| dev.depot.org.site.created.v1 | Site created | `id`, `type` |", text)
         self.assertIn("- `id` (string)", text)
 
     def test_operation_summary_and_pipe_escaping(self):
         doc = good_doc()
         doc["operations"]["onSiteCreated"]["summary"] = "a | b"
-        self.assertIn("| onSiteCreated | send | passage.org.site | a \\| b |", ar.render("org", doc))
+        self.assertIn("| onSiteCreated | send | depot.org.site | a \\| b |", ar.render("org", doc))
 
     def test_render_is_deterministic(self):
         self.assertEqual(ar.render("org", good_doc()), ar.render("org", good_doc()))
@@ -280,7 +280,7 @@ class TestMain(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             doc = good_doc()
             msg = doc["components"]["messages"]["siteCreated"]
-            del msg["x-passage-type"]
+            del msg["x-depot-type"]
             del msg["title"]
             spec = self._write(Path(tmp) / "services/org/events/asyncapi.json", doc)
             code, text = self._run(["--spec", str(spec)])

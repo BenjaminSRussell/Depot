@@ -1,38 +1,38 @@
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
-  name: passage-api-jwt
+  name: depot-api-jwt
   namespace: hello-ledger
 spec:
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
-      name: passage-api
+      name: depot-api
   jwt:
     providers:
-      - name: passage-dev-idp
-        issuer: https://idp.dev.passage.dev/realms/dev
+      - name: depot-dev-idp
+        issuer: https://idp.dev.depot.dev/realms/dev
         audiences:
-          - passage-api
+          - depot-api
         localJWKS:
           type: ValueRef
           valueRef:
             group: ""
             kind: ConfigMap
-            name: passage-dev-jwks
+            name: depot-dev-jwks
         claimToHeaders:
           - claim: tid
-            header: X-Passage-Tenant
+            header: X-Depot-Tenant
           - claim: le
-            header: X-Passage-Legal-Entity
+            header: X-Depot-Legal-Entity
           - claim: sub
-            header: X-Passage-User
+            header: X-Depot-User
           - claim: duties
-            header: X-Passage-Duties
+            header: X-Depot-Duties
           - claim: tier
-            header: X-Passage-Tier
+            header: X-Depot-Tier
           - claim: auth_time
-            header: X-Passage-Auth-Time
+            header: X-Depot-Auth-Time
   authorization:
     defaultAction: Allow
     rules:
@@ -40,7 +40,7 @@ spec:
         action: Deny
         principal:
           jwt:
-            provider: passage-dev-idp
+            provider: depot-dev-idp
             claims:
               - name: tid
                 valueType: String

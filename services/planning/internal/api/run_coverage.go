@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/store"
 )
 
 // withStoredCoverage fills what a run item leaves out from the item's stored

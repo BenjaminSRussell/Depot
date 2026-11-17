@@ -20,5 +20,5 @@ create index "ix_users_01" on "users" ("tenant_id", "email") where email is not 
 alter table users enable row level security;
 alter table users force row level security;
 create policy users_tenant_access on users as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);

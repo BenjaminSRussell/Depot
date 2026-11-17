@@ -9,11 +9,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/domain"
-	icevents "github.com/BenjaminSRussell/passage/services/intercompany/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/domain"
+	icevents "github.com/BenjaminSRussell/depot/services/intercompany/internal/events"
 )
 
 // activePairingIndex is the partial unique index of migrations/0001_partners.sql.

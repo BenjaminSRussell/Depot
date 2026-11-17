@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Top-SQL review from a pg_stat_statements export (PSG-50, FR-50.2, AC-50.2).
+"""Top-SQL review from a pg_stat_statements export (DPT-50, FR-50.2, AC-50.2).
 
 Input is CSV from ``\\copy (select ...) to 'stats.csv' csv header`` over pg_stat_statements.
 Columns used: query, calls, total_exec_time, mean_exec_time, max_exec_time, rows. The PostgreSQL 12

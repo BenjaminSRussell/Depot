@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/numbering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/numbering/internal/domain"
 )
 
 func def(mode string) domain.Definition {

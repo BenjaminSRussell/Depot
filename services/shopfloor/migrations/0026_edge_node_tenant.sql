@@ -16,8 +16,8 @@ REVOKE ALL ON FUNCTION edge_node_tenant(uuid) FROM PUBLIC;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT EXECUTE ON FUNCTION edge_node_tenant(uuid) TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT EXECUTE ON FUNCTION edge_node_tenant(uuid) TO depot_app';
   END IF;
 END
 $$;

@@ -7,11 +7,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
-	rcvevents "github.com/BenjaminSRussell/passage/services/receivables/internal/events"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
+	rcvevents "github.com/BenjaminSRussell/depot/services/receivables/internal/events"
 )
 
 func creditSetup(t *testing.T) (*Postgres, context.Context, map[string]OpenItem) {

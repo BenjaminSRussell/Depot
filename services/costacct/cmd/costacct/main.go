@@ -10,12 +10,12 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/services/costacct/internal/api"
-	"github.com/BenjaminSRussell/passage/services/costacct/internal/store"
-	"github.com/BenjaminSRussell/passage/services/costacct/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/services/costacct/internal/api"
+	"github.com/BenjaminSRussell/depot/services/costacct/internal/store"
+	"github.com/BenjaminSRussell/depot/services/costacct/migrations"
 )
 
 const (

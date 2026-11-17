@@ -102,7 +102,7 @@ describe("buildKillSwitchChange validation", () => {
 describe("killSwitchChangedEvent", () => {
   it("addresses a global toggle to the operator tenant and keeps the scope explicit", () => {
     const evt = killSwitchChangedEvent(globalChange(7, true), OPERATOR);
-    expect(evt.type).toBe("dev.passage.agent.killswitch.changed.v1");
+    expect(evt.type).toBe("dev.depot.agent.killswitch.changed.v1");
     expect(evt.tenantId).toBe(OPERATOR);
     expect(evt.data).toEqual({ scope: "GLOBAL", tenant_id: null, active: true, version: 7, by_user: OPERATOR, changed_at: NOW });
   });
@@ -144,7 +144,7 @@ function result(overrides: Partial<RunResult> = {}): RunResult {
   const action = buildActionRecord({
     runId: "run-1",
     seq: 1,
-    toolName: "passage.ap.invoice.post",
+    toolName: "depot.ap.invoice.post",
     inputRedacted: '{"remitTo":"[IBAN-1]"}',
     outputRedacted: '{"ok":true}',
     approverUserId: OPERATOR,
@@ -168,14 +168,14 @@ function result(overrides: Partial<RunResult> = {}): RunResult {
 describe("runCompletedEvent", () => {
   it("summarises tool calls without inputs, outputs or display text", () => {
     const evt = runCompletedEvent({ tenantId: T1, agentId: "ap_coding", version: 3, result: result(), costUsd: "0.012345" });
-    expect(evt.type).toBe("dev.passage.agent.run.completed.v1");
+    expect(evt.type).toBe("dev.depot.agent.run.completed.v1");
     expect(evt.data).toEqual({
       run_id: "run-1",
       agent_id: "ap_coding",
       version: 3,
       status: "COMMITTED",
       code: null,
-      tool_calls: [{ seq: 1, tool: "passage.ap.invoice.post", decision: "APPROVED" }],
+      tool_calls: [{ seq: 1, tool: "depot.ap.invoice.post", decision: "APPROVED" }],
       tokens_in: 120,
       tokens_out: 45,
       estimated: false,
@@ -213,7 +213,7 @@ describe("event payloads match events/asyncapi.yaml", () => {
           tenantId: T1,
           runId: "run-1",
           actionId: "act-1",
-          toolName: "passage.ar.payment.apply",
+          toolName: "depot.ar.payment.apply",
           proposalRedacted: "apply to INV-1",
           confidence: 0.9,
           riskScore: 0.1,

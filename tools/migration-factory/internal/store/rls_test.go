@@ -8,11 +8,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/migrations"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/migrations"
 )
 
 const insertRun = `insert into pack_run (tenant_id, run_id, pack, source_system, source_company, cutoff_ts, input_hash, status,
@@ -33,31 +33,31 @@ const insertParallelWithHash = `insert into parallel_run (tenant_id, parallel_ru
 // insertXrefForLine creates the run and the xref row an opening line references; $3 is the xref id.
 const insertXrefForLine = `with r as (insert into pack_run (tenant_id, run_id, pack, source_system, source_company, cutoff_ts, input_hash, status,
 	records_in, records_loaded, records_quarantined) values ($1, $2, 'project_wip', 'AX2012', 'USMF', now(), 'h', 'LOADED', 1, 1, 0) returning run_id)
-	insert into legacy_xref (tenant_id, run_id, xref_id, source_system, source_company, source_table, source_id, passage_entity, passage_id, amount, currency)
+	insert into legacy_xref (tenant_id, run_id, xref_id, source_system, source_company, source_table, source_id, depot_entity, depot_id, amount, currency)
 	select $1, run_id, $3::uuid, 'AX2012', 'USMF', 'project_wip', $3::text, 'project_opening_line', $3::uuid, 10, 'USD' from r`
 
 // insertXrefForOnhand creates the onhand run and the xref row an opening stock line references; $3 is the xref id.
 const insertXrefForOnhand = `with r as (insert into pack_run (tenant_id, run_id, pack, source_system, source_company, cutoff_ts, input_hash, status,
 	records_in, records_loaded, records_quarantined) values ($1, $2, 'onhand', 'AX2012', 'USMF', now(), 'h', 'LOADED', 1, 1, 0) returning run_id)
-	insert into legacy_xref (tenant_id, run_id, xref_id, source_system, source_company, source_table, source_id, passage_entity, passage_id, amount, currency)
+	insert into legacy_xref (tenant_id, run_id, xref_id, source_system, source_company, source_table, source_id, depot_entity, depot_id, amount, currency)
 	select $1, run_id, $3::uuid, 'AX2012', 'USMF', 'onhand', $3::text, 'onhand_opening_balance', $3::uuid, 10, 'USD' from r`
 
 // insertXrefForBalance creates the gl_balances run and the xref row an opening balance references; $3 is the xref id.
 const insertXrefForBalance = `with r as (insert into pack_run (tenant_id, run_id, pack, source_system, source_company, cutoff_ts, input_hash, status,
 	records_in, records_loaded, records_quarantined) values ($1, $2, 'gl_balances', 'AX2012', 'USMF', now(), 'h', 'LOADED', 1, 1, 0) returning run_id)
-	insert into legacy_xref (tenant_id, run_id, xref_id, source_system, source_company, source_table, source_id, passage_entity, passage_id, amount, currency)
+	insert into legacy_xref (tenant_id, run_id, xref_id, source_system, source_company, source_table, source_id, depot_entity, depot_id, amount, currency)
 	select $1, run_id, $3::uuid, 'AX2012', 'USMF', 'gl_balances', $3::text, 'gl_opening_balance', $3::uuid, 10, 'USD' from r`
 
 // insertXrefForOrder creates the open_orders run and the xref row an opening order line references; $3 is the xref id.
 const insertXrefForOrder = `with r as (insert into pack_run (tenant_id, run_id, pack, source_system, source_company, cutoff_ts, input_hash, status,
 	records_in, records_loaded, records_quarantined) values ($1, $2, 'open_orders', 'AX2012', 'USMF', now(), 'h', 'LOADED', 1, 1, 0) returning run_id)
-	insert into legacy_xref (tenant_id, run_id, xref_id, source_system, source_company, source_table, source_id, passage_entity, passage_id, amount, currency)
+	insert into legacy_xref (tenant_id, run_id, xref_id, source_system, source_company, source_table, source_id, depot_entity, depot_id, amount, currency)
 	select $1, run_id, $3::uuid, 'AX2012', 'USMF', 'open_orders.sales', $3::text, 'open_order_opening_line', $3::uuid, 10, 'USD' from r`
 
 // insertXrefForBank creates the bank_balances run and the xref row a bank opening balance references; $3 is the xref id.
 const insertXrefForBank = `with r as (insert into pack_run (tenant_id, run_id, pack, source_system, source_company, cutoff_ts, input_hash, status,
 	records_in, records_loaded, records_quarantined) values ($1, $2, 'bank_balances', 'AX2012', 'USMF', now(), 'h', 'LOADED', 1, 1, 0) returning run_id)
-	insert into legacy_xref (tenant_id, run_id, xref_id, source_system, source_company, source_table, source_id, passage_entity, passage_id, amount, currency)
+	insert into legacy_xref (tenant_id, run_id, xref_id, source_system, source_company, source_table, source_id, depot_entity, depot_id, amount, currency)
 	select $1, run_id, $3::uuid, 'AX2012', 'USMF', 'bank_balances', $3::text, 'bank_opening_balance', $3::uuid, -10, 'USD' from r`
 
 const insertPlan = `insert into cutover_plan (tenant_id, plan_id, t0, packs, entities, abort_offset_min)
@@ -101,7 +101,7 @@ func TestAppRole_CrossTenantRLS(t *testing.T) {
 		{
 			Table:  "legacy_xref",
 			Before: insertRunWithHash,
-			Insert: `insert into legacy_xref (tenant_id, run_id, xref_id, source_system, source_company, source_table, source_id, passage_entity, passage_id, amount, currency)
+			Insert: `insert into legacy_xref (tenant_id, run_id, xref_id, source_system, source_company, source_table, source_id, depot_entity, depot_id, amount, currency)
 				values ($1, $2, $3::uuid, 'AX2012', 'USMF', 'open_items', $3::text, 'open_item', $3::uuid, 10, 'USD')`,
 			Args:     func(tenantID, _ string) []any { return []any{tenantID, ids.New(), ids.New()} },
 			NoUpdate: true,
@@ -114,7 +114,7 @@ func TestAppRole_CrossTenantRLS(t *testing.T) {
 		{
 			Table:  "variance",
 			Before: insertParallelWithHash,
-			Insert: `insert into variance (tenant_id, parallel_run_id, variance_id, seq, area, key_text, legacy_value, passage_value, delta, class)
+			Insert: `insert into variance (tenant_id, parallel_run_id, variance_id, seq, area, key_text, legacy_value, depot_value, delta, class)
 				values ($1, $2, $3, 1, 'TB', 'USMF|1100|USD|2026-11', 10, 15, 5, 'UNEXPLAINED')`,
 			Args: func(tenantID, _ string) []any { return []any{tenantID, ids.New(), ids.New()} },
 		},
@@ -227,7 +227,7 @@ func TestAppRole_LegacyXrefIsAppendOnly(t *testing.T) {
 		if _, err := tx.Exec(ctx, insertRun, tenantID, runID); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `insert into legacy_xref (tenant_id, run_id, xref_id, source_system, source_company, source_table, source_id, passage_entity, passage_id, amount, currency)
+		_, err := tx.Exec(ctx, `insert into legacy_xref (tenant_id, run_id, xref_id, source_system, source_company, source_table, source_id, depot_entity, depot_id, amount, currency)
 			values ($1, $2, $3, 'AX2012', 'USMF', 'open_items', 'OI-1', 'open_item', $3, 10, 'USD')`, tenantID, runID, ids.New())
 		return err
 	}); err != nil {
@@ -245,7 +245,7 @@ func TestAppRole_LegacyXrefIsAppendOnly(t *testing.T) {
 		err := inTenant(func(tx pgx.Tx) error { _, err := tx.Exec(ctx, stmt); return err })
 		var pgErr *pgconn.PgError
 		if !errors.As(err, &pgErr) || pgErr.Code != "42501" {
-			t.Errorf("%s as passage_app: %v, want permission denied", stmt, err)
+			t.Errorf("%s as depot_app: %v, want permission denied", stmt, err)
 		}
 	}
 }

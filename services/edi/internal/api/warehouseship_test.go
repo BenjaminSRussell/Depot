@@ -10,10 +10,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/autosend"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/autosend"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
 )
 
 // packedShipment is the fake shipment as fulfillment shows it when it left the dock without a packing slip: PACKED, no actual

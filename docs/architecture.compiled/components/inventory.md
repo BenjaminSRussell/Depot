@@ -1,7 +1,7 @@
 # Inventory
 
 ## Purpose & Boundaries
-Context `inventory` (Go only, database `passage_inventory`; waves 16, 20, 33, 39). Owns inventory transactions, on-hand projection, reservations, journals, counting, cost layers, costing versions/sheets, close, quality (orders, NCR/CAPA). Is the VALUATION OWNER: posts through `ledger.Post` for receipt valuation true-up, shipment COGS and RAF finished-goods valuation, triggered by events consumed as commands. Writes only its own tables (never receipt/shipment/production order rows).
+Context `inventory` (Go only, database `depot_inventory`; waves 16, 20, 33, 39). Owns inventory transactions, on-hand projection, reservations, journals, counting, cost layers, costing versions/sheets, close, quality (orders, NCR/CAPA). Is the VALUATION OWNER: posts through `ledger.Post` for receipt valuation true-up, shipment COGS and RAF finished-goods valuation, triggered by events consumed as commands. Writes only its own tables (never receipt/shipment/production order rows).
 
 ## Interfaces
 - Reads: `GET /v1/inventory/inventory-transactions` (read-only; created only by posted journals/consumers), `on-hand` (lock-free), `cost-layers`, `cost-closes/{id}`, `cost-variances`, `valuation-report?asOf=`, `supplier-scorecards`.

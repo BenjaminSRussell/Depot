@@ -3,7 +3,7 @@ package registry
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/domain"
 )
 
 func TestSummarizeCountsEveryChangeKind(t *testing.T) {

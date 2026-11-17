@@ -62,7 +62,7 @@ func TestOrderSubledgerAndKeys(t *testing.T) {
 	}
 }
 
-func TestSubledgerLinesNormalizeLegacyAndPassageSides(t *testing.T) {
+func TestSubledgerLinesNormalizeLegacyAndDepotSides(t *testing.T) {
 	docs := []SubledgerDocument{
 		sl(1, "I1", AreaAR, "INVOICE", "2026-05-02", "C1", "100"),
 		sl(2, "P1", AreaAR, "PAYMENT", "2026-05-03", "C1", "-40"),
@@ -76,9 +76,9 @@ func TestSubledgerLinesNormalizeLegacyAndPassageSides(t *testing.T) {
 	if ar.Key != "C1|USD|2026-05" || !ar.Legacy.Equal(decimal.NewFromInt(60)) || ar.Documents != 2 {
 		t.Fatalf("AR line %+v", ar)
 	}
-	passage := SubledgerLines([]SubledgerBalance{{Area: AreaAR, Key: "C1", Currency: "USD", Net: decimal.NewFromInt(60)}}, "2026-05", "passage", nil)
-	vs := Diff(legacy, passage, DefaultRules(), nil)
-	// AR matches; AP is missing at Passage and is unexplained.
+	depot := SubledgerLines([]SubledgerBalance{{Area: AreaAR, Key: "C1", Currency: "USD", Net: decimal.NewFromInt(60)}}, "2026-05", "depot", nil)
+	vs := Diff(legacy, depot, DefaultRules(), nil)
+	// AR matches; AP is missing at Depot and is unexplained.
 	unexplained := 0
 	for _, v := range vs {
 		if v.Class == ClassUnexplained {

@@ -1,6 +1,6 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Treasury events (PSG-36)
+  title: Depot Treasury events (DPT-36)
   version: 0.3.0
   description: |
     CloudEvents 1.0 structured envelope from platform/go/events (extensions
@@ -11,19 +11,19 @@ info:
 defaultContentType: application/json
 channels:
   statementImported:
-    address: passage.treasury.statement
+    address: depot.treasury.statement
     description: Topic for treasury statement events (Debezium outbox router).
     messages:
       statementImported:
         $ref: "#/components/messages/StatementImported"
   checkVoided:
-    address: passage.treasury.check
+    address: depot.treasury.check
     description: Topic for treasury check events (Debezium outbox router).
     messages:
       checkVoided:
         $ref: "#/components/messages/CheckVoided"
   reconciliationMatched:
-    address: passage.treasury.reconciliation
+    address: depot.treasury.reconciliation
     description: Topic for treasury reconciliation events (Debezium outbox router).
     messages:
       reconciliationMatched:
@@ -31,7 +31,7 @@ channels:
       reconciliationUnmatched:
         $ref: "#/components/messages/ReconciliationUnmatched"
   cashDesk:
-    address: passage.treasury.cashdesk
+    address: depot.treasury.cashdesk
     description: Topic for cash desk events (Debezium outbox router); the outbox aggregate is the desk id.
     messages:
       cashDeskCreated:
@@ -111,7 +111,7 @@ operations:
 components:
   messages:
     StatementImported:
-      name: dev.passage.treasury.statement.imported.v1
+      name: dev.depot.treasury.statement.imported.v1
       title: Statement imported
       contentType: application/cloudevents+json
       payload:
@@ -119,8 +119,8 @@ components:
         required: [specversion, id, source, type, time, datacontenttype, tenantid, data]
         properties:
           specversion: {type: string, const: "1.0"}
-          type: {type: string, const: dev.passage.treasury.statement.imported.v1}
-          source: {type: string, const: /passage/treasury/treasury}
+          type: {type: string, const: dev.depot.treasury.statement.imported.v1}
+          source: {type: string, const: /depot/treasury/treasury}
           id: {type: string}
           subject: {type: string, description: statement id}
           time: {type: string, format: date-time}
@@ -141,7 +141,7 @@ components:
               openingBalance: {type: string, description: decimal string}
               closingBalance: {type: string, description: decimal string}
     CheckVoided:
-      name: dev.passage.treasury.check.voided.v1
+      name: dev.depot.treasury.check.voided.v1
       title: Check voided
       contentType: application/cloudevents+json
       payload:
@@ -149,8 +149,8 @@ components:
         required: [specversion, id, source, type, time, datacontenttype, tenantid, data]
         properties:
           specversion: {type: string, const: "1.0"}
-          type: {type: string, const: dev.passage.treasury.check.voided.v1}
-          source: {type: string, const: /passage/treasury/treasury}
+          type: {type: string, const: dev.depot.treasury.check.voided.v1}
+          source: {type: string, const: /depot/treasury/treasury}
           id: {type: string}
           subject: {type: string, description: check id}
           time: {type: string, format: date-time}
@@ -169,7 +169,7 @@ components:
               reason: {type: string}
               positivePayVoid: {type: boolean, description: "true when the check was sent or stopped, so the bank's positive pay file needs a void record (BR-36.5)"}
     ReconciliationMatched:
-      name: dev.passage.treasury.reconciliation.matched.v1
+      name: dev.depot.treasury.reconciliation.matched.v1
       title: Reconciliation matched
       contentType: application/cloudevents+json
       payload:
@@ -177,8 +177,8 @@ components:
         required: [specversion, id, source, type, time, datacontenttype, tenantid, data]
         properties:
           specversion: {type: string, const: "1.0"}
-          type: {type: string, const: dev.passage.treasury.reconciliation.matched.v1}
-          source: {type: string, const: /passage/treasury/treasury}
+          type: {type: string, const: dev.depot.treasury.reconciliation.matched.v1}
+          source: {type: string, const: /depot/treasury/treasury}
           id: {type: string}
           subject: {type: string, description: match id}
           time: {type: string, format: date-time}
@@ -200,7 +200,7 @@ components:
               itemCount: {type: integer, minimum: 1}
               score: {type: integer, minimum: 0, maximum: 100, description: auto matches only}
     ReconciliationUnmatched:
-      name: dev.passage.treasury.reconciliation.unmatched.v1
+      name: dev.depot.treasury.reconciliation.unmatched.v1
       title: Reconciliation unmatched
       contentType: application/cloudevents+json
       payload:
@@ -208,8 +208,8 @@ components:
         required: [specversion, id, source, type, time, datacontenttype, tenantid, data]
         properties:
           specversion: {type: string, const: "1.0"}
-          type: {type: string, const: dev.passage.treasury.reconciliation.unmatched.v1}
-          source: {type: string, const: /passage/treasury/treasury}
+          type: {type: string, const: dev.depot.treasury.reconciliation.unmatched.v1}
+          source: {type: string, const: /depot/treasury/treasury}
           id: {type: string}
           subject: {type: string, description: match id}
           time: {type: string, format: date-time}
@@ -229,7 +229,7 @@ components:
               reason: {type: string}
               unmatchedBy: {type: string}
     CashDeskCreated:
-      name: dev.passage.treasury.cashdesk.created.v1
+      name: dev.depot.treasury.cashdesk.created.v1
       title: Cash Desk Created
       contentType: application/cloudevents+json
       payload:
@@ -237,8 +237,8 @@ components:
         required: [specversion, id, source, type, time, datacontenttype, tenantid, data]
         properties:
           specversion: {type: string, const: "1.0"}
-          type: {type: string, const: dev.passage.treasury.cashdesk.created.v1}
-          source: {type: string, const: /passage/treasury/treasury}
+          type: {type: string, const: dev.depot.treasury.cashdesk.created.v1}
+          source: {type: string, const: /depot/treasury/treasury}
           id: {type: string}
           subject: {type: string, description: desk id}
           time: {type: string, format: date-time}
@@ -259,7 +259,7 @@ components:
               maxBalance: {type: string, description: decimal string}
               dualControl: {type: boolean}
     CashDeskUpdated:
-      name: dev.passage.treasury.cashdesk.updated.v1
+      name: dev.depot.treasury.cashdesk.updated.v1
       title: Cash Desk Updated
       contentType: application/cloudevents+json
       payload:
@@ -267,8 +267,8 @@ components:
         required: [specversion, id, source, type, time, datacontenttype, tenantid, data]
         properties:
           specversion: {type: string, const: "1.0"}
-          type: {type: string, const: dev.passage.treasury.cashdesk.updated.v1}
-          source: {type: string, const: /passage/treasury/treasury}
+          type: {type: string, const: dev.depot.treasury.cashdesk.updated.v1}
+          source: {type: string, const: /depot/treasury/treasury}
           id: {type: string}
           subject: {type: string, description: desk id}
           time: {type: string, format: date-time}
@@ -289,7 +289,7 @@ components:
               maxBalance: {type: string, description: decimal string}
               dualControl: {type: boolean}
     CashDeskDeactivated:
-      name: dev.passage.treasury.cashdesk.deactivated.v1
+      name: dev.depot.treasury.cashdesk.deactivated.v1
       title: Cash Desk Deactivated
       contentType: application/cloudevents+json
       payload:
@@ -297,8 +297,8 @@ components:
         required: [specversion, id, source, type, time, datacontenttype, tenantid, data]
         properties:
           specversion: {type: string, const: "1.0"}
-          type: {type: string, const: dev.passage.treasury.cashdesk.deactivated.v1}
-          source: {type: string, const: /passage/treasury/treasury}
+          type: {type: string, const: dev.depot.treasury.cashdesk.deactivated.v1}
+          source: {type: string, const: /depot/treasury/treasury}
           id: {type: string}
           subject: {type: string, description: desk id}
           time: {type: string, format: date-time}
@@ -319,7 +319,7 @@ components:
               maxBalance: {type: string, description: decimal string}
               dualControl: {type: boolean}
     CashDeskDayClosed:
-      name: dev.passage.treasury.cashdeskday.closed.v1
+      name: dev.depot.treasury.cashdeskday.closed.v1
       title: Cash Desk Day Closed
       contentType: application/cloudevents+json
       payload:
@@ -327,8 +327,8 @@ components:
         required: [specversion, id, source, type, time, datacontenttype, tenantid, data]
         properties:
           specversion: {type: string, const: "1.0"}
-          type: {type: string, const: dev.passage.treasury.cashdeskday.closed.v1}
-          source: {type: string, const: /passage/treasury/treasury}
+          type: {type: string, const: dev.depot.treasury.cashdeskday.closed.v1}
+          source: {type: string, const: /depot/treasury/treasury}
           id: {type: string}
           subject: {type: string, description: desk id}
           time: {type: string, format: date-time}
@@ -352,7 +352,7 @@ components:
               closedBy: {type: string}
               approvedBy: {type: string, description: the second signature, when the desk needs one}
     CashDeskEntryPosted:
-      name: dev.passage.treasury.cashdeskentry.posted.v1
+      name: dev.depot.treasury.cashdeskentry.posted.v1
       title: Cash Desk Entry Posted
       contentType: application/cloudevents+json
       payload:
@@ -360,8 +360,8 @@ components:
         required: [specversion, id, source, type, time, datacontenttype, tenantid, data]
         properties:
           specversion: {type: string, const: "1.0"}
-          type: {type: string, const: dev.passage.treasury.cashdeskentry.posted.v1}
-          source: {type: string, const: /passage/treasury/treasury}
+          type: {type: string, const: dev.depot.treasury.cashdeskentry.posted.v1}
+          source: {type: string, const: /depot/treasury/treasury}
           id: {type: string}
           subject: {type: string, description: desk id}
           time: {type: string, format: date-time}

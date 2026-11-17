@@ -17,5 +17,5 @@ create table "tenants" (
 alter table tenants enable row level security;
 alter table tenants force row level security;
 create policy tenants_tenant_access on tenants as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);

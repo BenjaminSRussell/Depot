@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // Collections (integration track S5 follow-up): array iteration in the outbound mapping. A collection maps every
@@ -48,7 +48,7 @@ type OutboundCollection struct {
 	MaxItems int `json:"maxItems,omitempty"`
 	// Optional leaves the array out of the body when the event has none; otherwise a missing or empty array is refused.
 	Optional bool `json:"optional,omitempty"`
-	// Subject names the Passage record each element creates in the legacy ERP (an order line); IDPath is relative to
+	// Subject names the Depot record each element creates in the legacy ERP (an order line); IDPath is relative to
 	// the element. The render lists one ref per element, so the hub can record the legacy key the ERP assigns each
 	// line with xref:record and a later change to a line updates it by key.
 	Subject *OutboundSubject `json:"subject,omitempty"`
@@ -371,7 +371,7 @@ func (d OutboundDefinition) resolveItems(ctx context.Context, resolver LegacyKey
 }
 
 // itemSubjectRefs lists the subject of every element of the collections that name one, in collection and element order.
-// An element without a Passage id (UUID) at the subject path is unresolved (at most maxUnresolvedPerList per
+// An element without a Depot id (UUID) at the subject path is unresolved (at most maxUnresolvedPerList per
 // collection, then a count): the push would create a line that xref:record could not tie a key to.
 func itemSubjectRefs(items []itemRows) ([]OutboundRef, []UnresolvedRef) {
 	var (
@@ -393,7 +393,7 @@ func itemSubjectRefs(items []itemRows) ([]OutboundRef, []UnresolvedRef) {
 			case !ok:
 				reason = "the element has no id at " + it.c.Subject.IDPath
 			case !ids.Valid(id):
-				reason = "the id at " + it.c.Subject.IDPath + " is not a Passage id (UUID)"
+				reason = "the id at " + it.c.Subject.IDPath + " is not a Depot id (UUID)"
 			}
 			if reason != "" {
 				if over++; over <= maxUnresolvedPerList {

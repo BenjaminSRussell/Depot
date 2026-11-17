@@ -21,11 +21,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/certtrust"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/secrets"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/transport"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/certtrust"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/secrets"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/transport"
 )
 
 // Defaults of the dispatcher.

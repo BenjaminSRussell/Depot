@@ -4,7 +4,7 @@ import { createAnthropicProvider } from "../src/providers/anthropic.js";
 import { ProviderError } from "../src/providers/wire.js";
 import { REAL_IBAN } from "./fakes.js";
 
-const ALLOWED = ["passage.ap.invoice.post"];
+const ALLOWED = ["depot.ap.invoice.post"];
 const ARGS = { remitTo: "[IBAN-1]", invoiceId: "INV-7" };
 const AMOUNT = { amount: "1200.00", currency: "USD" };
 const FIXED = new Date("2026-03-04T05:06:07.000Z");
@@ -35,7 +35,7 @@ const converseAnswer = {
           toolUse: {
             toolUseId: "tooluse_1",
             name: "propose_action",
-            input: { text: "Coded to the posting account.", tool: "passage.ap.invoice.post", args: ARGS, confidence: 0.8, amount: AMOUNT },
+            input: { text: "Coded to the posting account.", tool: "depot.ap.invoice.post", args: ARGS, confidence: 0.8, amount: AMOUNT },
           },
         },
       ],
@@ -47,7 +47,7 @@ const converseAnswer = {
 
 const expected = {
   text: "Coded to the posting account.",
-  proposal: { tool: "passage.ap.invoice.post", args: ARGS, confidence: 0.8, amount: AMOUNT },
+  proposal: { tool: "depot.ap.invoice.post", args: ARGS, confidence: 0.8, amount: AMOUNT },
   usage: { tokensIn: 120, tokensOut: 45 },
 };
 
@@ -70,7 +70,7 @@ describe("Bedrock adapter (FR-47.13)", () => {
       fetchFn: fakeFetch(
         200,
         {
-          content: [{ type: "tool_use", name: "propose_action", input: { text: "Coded to the posting account.", tool: "passage.ap.invoice.post", args: ARGS, confidence: 0.8, amount: AMOUNT } }],
+          content: [{ type: "tool_use", name: "propose_action", input: { text: "Coded to the posting account.", tool: "depot.ap.invoice.post", args: ARGS, confidence: 0.8, amount: AMOUNT } }],
           usage: { input_tokens: 120, output_tokens: 45 },
         },
         [],

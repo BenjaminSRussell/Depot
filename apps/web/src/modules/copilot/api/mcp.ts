@@ -21,8 +21,8 @@ export const toolSchema = z.object({
     destructiveHint: z.boolean(),
     idempotentHint: z.boolean(),
   }),
-  "x-passage-duty": z.string(),
-  "x-passage-approval": z.enum(APPROVAL_MODES),
+  "x-depot-duty": z.string(),
+  "x-depot-approval": z.enum(APPROVAL_MODES),
 });
 
 export type McpTool = z.infer<typeof toolSchema>;
@@ -60,7 +60,7 @@ export async function listTools(signal?: AbortSignal, fetchFn: typeof fetch = ap
   return parsed.data.result.tools;
 }
 
-/** passage.<domain>.<entity>.<verb> -> "<domain>". */
+/** depot.<domain>.<entity>.<verb> -> "<domain>". */
 export function toolDomain(name: string): string {
   return name.split(".")[1] ?? "";
 }

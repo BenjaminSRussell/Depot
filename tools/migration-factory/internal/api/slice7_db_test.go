@@ -12,7 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 func insertPackRun(t *testing.T, admin *pgxpool.Pool, tenantID, pack, company, status string, at time.Time) string {
@@ -192,7 +192,7 @@ func TestGoNoGo_TwoAuthenticatedApprovers(t *testing.T) {
 	if r := c.post("alice", goBody(1, attestations()), "go-alice"); r.Code != http.StatusAccepted || r.Header().Get("Idempotent-Replayed") != "true" {
 		t.Fatalf("replay: %d %s", r.Code, r.Body)
 	}
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.cutover.decision.recorded.v1'`); n != 0 {
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.cutover.decision.recorded.v1'`); n != 0 {
 		t.Fatalf("events after one approval = %d", n)
 	}
 	rd := c.get(t)
@@ -226,7 +226,7 @@ func TestGoNoGo_TwoAuthenticatedApprovers(t *testing.T) {
 		}
 	}
 	var payload []byte
-	if err := admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.passage.cutover.decision.recorded.v1' and aggregate_id = $1`, plan.PlanID).Scan(&payload); err != nil {
+	if err := admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.depot.cutover.decision.recorded.v1' and aggregate_id = $1`, plan.PlanID).Scan(&payload); err != nil {
 		t.Fatal(err)
 	}
 	var evt struct {
@@ -293,7 +293,7 @@ func TestGoNoGo_NoGoVoidsAPendingApproval(t *testing.T) {
 	if r := c.post("alice", `{"decision":"GO"}`, ""); r.Code != http.StatusCreated || decode[decisionResponse](t, r).Decision.Seq != 2 {
 		t.Fatalf("alice completes round 2: %d %s", r.Code, r.Body)
 	}
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.cutover.decision.recorded.v1'`); n != 2 {
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.cutover.decision.recorded.v1'`); n != 2 {
 		t.Fatalf("decision events = %d, want 2", n)
 	}
 }
@@ -344,7 +344,7 @@ func TestGoNoGo_WaiverOfStagedPackNeedsBothApprovers(t *testing.T) {
 		t.Fatalf("stored waivers %q %v", stored, err)
 	}
 	var payload []byte
-	if err := admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.passage.cutover.decision.recorded.v1' and aggregate_id = $1`, plan.PlanID).Scan(&payload); err != nil {
+	if err := admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.depot.cutover.decision.recorded.v1' and aggregate_id = $1`, plan.PlanID).Scan(&payload); err != nil {
 		t.Fatal(err)
 	}
 	var evt struct {

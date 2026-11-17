@@ -1,4 +1,4 @@
-# prediction-py (wave 47, PSG-47, FR-47.15)
+# prediction-py (wave 47, DPT-47, FR-47.15)
 
 Payment-date prediction per tenant. Numeric work only, per the Python rules in the engineering
 conventions. Pure Python: a small gradient-boosted tree implementation in the standard library
@@ -18,7 +18,7 @@ conventions. Pure Python: a small gradient-boosted tree implementation in the st
 
 ## API
 
-Identity from the edge headers `x-passage-tenant`, `x-passage-user`, `x-passage-duties` (401 when
+Identity from the edge headers `x-depot-tenant`, `x-depot-user`, `x-depot-duties` (401 when
 missing, malformed or the nil tenant); the tenant is never read from a body.
 
 | Route | Duty | Notes |
@@ -37,10 +37,10 @@ OpenAPI: `api/openapi.yaml`. Event: `events/asyncapi.yaml`.
 and customer statistics as a JSON artifact, at most one ACTIVE per tenant), `payment_prediction` (latest per
 invoice; `actual_paid_date` is stamped when the invoice turns up paid in a retrain), `prediction_settings` and
 `outbox`. Every table has tenant row-level security (forced); each call runs in its own transaction with
-`passage.tenant_id` and `passage.legal_entity_scopes` set (migration 0003: `payment_prediction` and `prediction_sync` carry the restrictive legal-entity policy). Scoring writes one `dev.passage.prediction.payment.scored.v1` outbox row per invoice in
+`depot.tenant_id` and `depot.legal_entity_scopes` set (migration 0003: `payment_prediction` and `prediction_sync` carry the restrictive legal-entity policy). Scoring writes one `dev.depot.prediction.payment.scored.v1` outbox row per invoice in
 the same transaction. A retrain holds a per-tenant advisory lock while it swaps the ACTIVE model.
 
-Env: `DATABASE_URL` (role `passage_app`; without it the process keeps everything in memory, for tests and local
+Env: `DATABASE_URL` (role `depot_app`; without it the process keeps everything in memory, for tests and local
 runs), `MIGRATE_ON_START` (`true` runs the migrations as the owner role at start), `PREDICTION_MIN_ROWS`,
 `PREDICTION_MAE_MAX_DAYS` (service defaults).
 
@@ -48,7 +48,7 @@ runs), `MIGRATE_ON_START` (`true` runs the migrations as the owner role at start
 
 `python -m prediction.consumer` (src/prediction/consumer.py; chart `consumer`, off by default) consumes the receivables payment,
 credit settlement, dispute, dunning letter, deduction, down payment and opening-item events (CloudEvents on
-`passage.receivables.*`, structured or binary mode) from Kafka in the group `prediction`, and rescores the invoices they touch.
+`depot.receivables.*`, structured or binary mode) from Kafka in the group `prediction`, and rescores the invoices they touch.
 Each event names its tenant, legal entity and the open items it changed; the recompute is the sync delta for that entity
 (`prediction.sync.delta`), so the invoices the event names, and anything else changed since the entity's watermark, are scored
 again. One pass serves all events of a batch for the same entity. Each event is recorded in `consumer_inbox` (migration 0004,
@@ -63,7 +63,7 @@ recompute writes through its own idempotent upserts), so delivery is at least on
 safety net. Needs `KAFKA_BROKERS`, `RECEIVABLES_URL` and the service signing key (the same as the sync jobs); optional
 `PREDICTION_KAFKA_GROUP` and `PREDICTION_KAFKA_TOPICS`; SCRAM-SHA-512 over TLS with `KAFKA_USERNAME`, `KAFKA_PASSWORD_FILE` and
 `KAFKA_TLS_CA_FILE` (chart `consumer.kafka.secret`; `deploy/kafka/prediction-consumer.yaml` is the KafkaUser with read ACLs on the seven
-topics and the group `prediction`). The `passage.receivables.*` topics are written by `outbox-receivables` in
+topics and the group `prediction`). The `depot.receivables.*` topics are written by `outbox-receivables` in
 `deploy/kafka/connect.yaml` (routed by event type; receivables migrations 0030 and 0031 publish the outbox to `debezium_cdc_receivables`);
 until that connector runs on the cluster no event reaches the consumer (`auto.create.topics.enable` is false). Tests: `tests/test_consumer.py` with a fake source and a fake Kafka client.
 
@@ -78,7 +78,7 @@ uvicorn prediction.api:app --port 8080
 ```
 
 `tests/test_api.py` needs the dev extras (fastapi, httpx) and skips without them. `tests/test_store.py` runs the
-repository contract against the in-memory repository and, with `PASSAGE_TEST_DATABASE_URL` (owner) and
-`PASSAGE_TEST_APP_DATABASE_URL` (`passage_app`) set, against Postgres in a private schema.
+repository contract against the in-memory repository and, with `DEPOT_TEST_DATABASE_URL` (owner) and
+`DEPOT_TEST_APP_DATABASE_URL` (`depot_app`) set, against Postgres in a private schema.
 `prediction.synth` generates a deterministic synthetic receivables history (fictional Cedar Ridge Pumps
 customers); the AC-47.12 test trains on 2,000 of its paid invoices.

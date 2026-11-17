@@ -10,17 +10,17 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/projects/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/projects/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/projects/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/projects/migrations"
 )
 
 // tenantCtx returns a principal for tenant n with no legal-entity restriction, so
-// the restrictive RLS scope policy (passage.legal_entity_scopes = '*') allows all rows.
+// the restrictive RLS scope policy (depot.legal_entity_scopes = '*') allows all rows.
 func tenantCtx(n int, duties ...string) context.Context {
 	p := tenant.Principal{TenantID: testkit.TenantID(n), UserID: "user-test", Duties: testkit.ScopeDuties("")}
 	for _, d := range duties {
@@ -337,7 +337,7 @@ func TestTransitionProject_OutboxCarriesCloudEvent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fmt.Sprint(types) != "[dev.passage.projects.project.created.v1 dev.passage.projects.project.updated.v1]" {
+	if fmt.Sprint(types) != "[dev.depot.projects.project.created.v1 dev.depot.projects.project.updated.v1]" {
 		t.Fatalf("outbox types = %v", types)
 	}
 	if last.Subject != "PROJ-EVT" || last.TenantID != testkit.TenantID(10) || last.Actor != "user-test" ||

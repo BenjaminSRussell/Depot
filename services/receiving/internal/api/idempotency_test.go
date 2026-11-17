@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store/memstore"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store/memstore"
 )
 
 type claimErrStore struct {
@@ -170,7 +170,7 @@ func TestArrival_KeysAreScopedPerTenant(t *testing.T) {
 	r, _ := newRouter(memstore.New())
 	doWith(r, http.MethodPost, arrivalsPath, arrivalJSON("PS-1", ""), maintainer("k1"))
 	other := maintainer("k1")
-	other["X-Passage-Tenant"] = testkit.TenantID(2)
+	other["X-Depot-Tenant"] = testkit.TenantID(2)
 	rec := doWith(r, http.MethodPost, arrivalsPath, arrivalJSON("PS-1", ""), other)
 	if rec.Code != http.StatusCreated || rec.Header().Get("Idempotent-Replayed") != "" {
 		t.Fatalf("got %d %s", rec.Code, rec.Body.String())

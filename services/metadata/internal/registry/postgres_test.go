@@ -8,12 +8,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/registry"
-	"github.com/BenjaminSRussell/passage/services/metadata/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/registry"
+	"github.com/BenjaminSRussell/depot/services/metadata/migrations"
 )
 
 func TestPostgresRegistryPublishesExtensionAndRecords(t *testing.T) {

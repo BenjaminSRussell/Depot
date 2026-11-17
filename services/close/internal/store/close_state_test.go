@@ -12,12 +12,12 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/close/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/close/internal/store"
-	"github.com/BenjaminSRussell/passage/services/close/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/close/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/close/internal/store"
+	"github.com/BenjaminSRussell/depot/services/close/migrations"
 )
 
 const (
@@ -38,7 +38,7 @@ var closeStateRows = []seedRow{
 	{"close_task", `insert into close_task(tenant_id, id, run_id, legal_entity_id, task_key, module, name, assignee_role, due_at, status) values($1, $2, $3, $4, 'k', 'gl', 'n', 'controller', now(), 'not_started')`, []int{1, 2, 6, 5}},
 	{"period_status_change", `insert into period_status_change(tenant_id, id, legal_entity_id, ledger_id, fiscal_period_id, module, from_status, to_status, actor) values($1, $2, $3, $4, $5, 'gl', 'open', 'closed', 'u')`, []int{1, 2, 5, 7, 4}},
 	{"period_reopen_request", `insert into period_reopen_request(tenant_id, id, legal_entity_id, ledger_id, fiscal_period_id, module, reason, requested_by, required_approvals, status, expires_days) values($1, $2, $3, $4, $5, 'gl', 'ten chars!!', 'u', 2, 'pending', 3)`, []int{1, 2, 5, 7, 4}},
-	{"outbox", `insert into outbox(id, tenant_id, aggregate_type, aggregate_id, type, payload) values($2::text, $1, 'close_run', 'a', 'dev.passage.close.run.created.v1', '{}')`, []int{1, 2}},
+	{"outbox", `insert into outbox(id, tenant_id, aggregate_type, aggregate_id, type, payload) values($2::text, $1, 'close_run', 'a', 'dev.depot.close.run.created.v1', '{}')`, []int{1, 2}},
 	{"idempotency_keys", `insert into idempotency_keys(tenant_id, key, request_hash) values($1, $2::text, 'h')`, []int{1, 2}},
 }
 
@@ -265,8 +265,8 @@ func TestDefinerFunctionsIgnoreTempTableShadow(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, stmt := range []string{
-		`select set_config('passage.tenant_id', '` + victim + `', true)`,
-		`select set_config('passage.legal_entity_scopes', '*', true)`,
+		`select set_config('depot.tenant_id', '` + victim + `', true)`,
+		`select set_config('depot.legal_entity_scopes', '*', true)`,
 		`insert into period_status(tenant_id, legal_entity_id, ledger_id, fiscal_period_id, module, status, reopen_expires_at, changed_by) values('` + victim + `','` + entityID + `','` + ledgerID + `','` + periodID + `','gl','open', now() - interval '1 hour','t')`,
 	} {
 		if _, err := tx.Exec(ctx, stmt); err != nil {
@@ -321,7 +321,7 @@ func idempotentStore(t *testing.T) (*pgxpool.Pool, *pgxpool.Pool, *store.Postgre
 func writeOutbox(id string) func(tx pgx.Tx) (int, any, error) {
 	return func(tx pgx.Tx) (int, any, error) {
 		_, err := tx.Exec(context.Background(),
-			`insert into outbox(id, tenant_id, aggregate_type, aggregate_id, type, payload) values($1, current_setting('passage.tenant_id', true)::uuid, 'close_run', 'a', 'dev.passage.close.run.created.v1', '{}')`, id)
+			`insert into outbox(id, tenant_id, aggregate_type, aggregate_id, type, payload) values($1, current_setting('depot.tenant_id', true)::uuid, 'close_run', 'a', 'dev.depot.close.run.created.v1', '{}')`, id)
 		return 201, map[string]string{"id": id}, err
 	}
 }

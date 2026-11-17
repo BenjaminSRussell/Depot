@@ -2,9 +2,9 @@
 //
 // Configuration is read from the environment (12-factor):
 //
-//	DATABASE_URL       required, Postgres URL for the passage_reporting database
+//	DATABASE_URL       required, Postgres URL for the depot_reporting database
 //	MIGRATE_ON_START   "true" applies migrations at startup (dev only; not in consume mode)
-//	LEDGER_URL, PASSAGE_SERVICE_*   balance verification when serving, and the consumer; KAFKA_* consume mode only
+//	LEDGER_URL, DEPOT_SERVICE_*   balance verification when serving, and the consumer; KAFKA_* consume mode only
 //	HTTP_ADDR          listen address, default :8080
 //	REPORTING_*        tunables, validated at startup (see internal/config)
 //
@@ -24,16 +24,16 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/api"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/config"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/ledgerbalances"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/store"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/verify"
-	"github.com/BenjaminSRussell/passage/services/finreport/migrations"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/api"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/config"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/ledgerbalances"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/verify"
+	"github.com/BenjaminSRussell/depot/services/finreport/migrations"
 )
 
 func main() {

@@ -15,7 +15,7 @@ import (
 	"github.com/shopspring/decimal"
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/services/payables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/domain"
 )
 
 var (
@@ -129,7 +129,7 @@ func baseInput(t tester) domain.Pain001Input {
 	day := time.Date(2026, 11, 2, 0, 0, 0, 0, time.UTC)
 	return domain.Pain001Input{
 		FileNumber: "F1", Created: created,
-		Debtor:        domain.Pain001Party{Name: "Passage Holding", Address: domain.PostalAddress{Country: "DE"}},
+		Debtor:        domain.Pain001Party{Name: "Depot Holding", Address: domain.PostalAddress{Country: "DE"}},
 		DebtorAccount: domain.Pain001Account{IBAN: "GB29NWBK60161331926819"}, DebtorBIC: "NWBKGB2L",
 		Profile:  profileFor(t, domain.VariantSEPA, nil),
 		Payments: []domain.Pain001Payment{payment(t, "PAY-1", "100.50", day)},
@@ -284,9 +284,9 @@ func TestGeneratePain001_Profiles(t *testing.T) {
 			}
 		}},
 		{"initiating party id only when set", func(t *testing.T, in *domain.Pain001Input) {
-			in.Profile = profileFor(t, domain.VariantSEPA, map[string]string{"initiating_party_id": `"PASSAGE-01"`})
+			in.Profile = profileFor(t, domain.VariantSEPA, map[string]string{"initiating_party_id": `"DEPOT-01"`})
 		}, func(t *testing.T, d parsedDoc) {
-			if d.PartyID != "PASSAGE-01" || d.Name != "Passage Holding" {
+			if d.PartyID != "DEPOT-01" || d.Name != "Depot Holding" {
 				t.Fatalf("%+v", d)
 			}
 		}},

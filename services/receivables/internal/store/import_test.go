@@ -10,11 +10,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
-	rcvevents "github.com/BenjaminSRussell/passage/services/receivables/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
+	rcvevents "github.com/BenjaminSRussell/depot/services/receivables/internal/events"
 )
 
 const importCustomer = "00000000-0000-0000-0000-0000000000d1"
@@ -114,7 +114,7 @@ func TestOpeningImport_CreatesDebitsAndCreditsAndIsRerunnable(t *testing.T) {
 	}
 }
 
-func TestOpeningImport_RefusesItemsSettledInPassage(t *testing.T) {
+func TestOpeningImport_RefusesItemsSettledInDepot(t *testing.T) {
 	s := setup(t)
 	ctx := tenantCtx(1)
 	batch := openingBatch(openingRow("1", "INVOICE", "DEBIT", "1000.00", "1000.00"), openingRow("2", "INVOICE", "DEBIT", "500.00", "500.00"),
@@ -152,7 +152,7 @@ func TestOpeningImport_RefusesItemsSettledInPassage(t *testing.T) {
 }
 
 // A payment applied and later undone leaves the open amount where the import put
-// it, but the item was still worked in Passage: a changed snapshot is refused.
+// it, but the item was still worked in Depot: a changed snapshot is refused.
 func TestOpeningImport_RefusesItemsOncePaidEvenIfUndone(t *testing.T) {
 	s := setup(t)
 	ctx := tenantCtx(1)

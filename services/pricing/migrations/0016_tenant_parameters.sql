@@ -23,14 +23,14 @@ CREATE TABLE IF NOT EXISTS pricing_tenant_parameter (
 ALTER TABLE pricing_tenant_parameter ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pricing_tenant_parameter FORCE ROW LEVEL SECURITY;
 CREATE POLICY pricing_tenant_parameter_tenant_access ON pricing_tenant_parameter AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- The store reads, inserts and updates by version. Skipped when the role does not exist.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON pricing_tenant_parameter TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON pricing_tenant_parameter TO depot_app';
   END IF;
 END
 $$;

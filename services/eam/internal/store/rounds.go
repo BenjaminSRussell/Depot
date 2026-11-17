@@ -8,9 +8,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/eam/internal/domain"
-	eamevents "github.com/BenjaminSRussell/passage/services/eam/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/eam/internal/domain"
+	eamevents "github.com/BenjaminSRussell/depot/services/eam/internal/events"
 )
 
 // Round is a maintenance round: ordered stops on assets of one site, inspected

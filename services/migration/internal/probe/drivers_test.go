@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/probe"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/probe"
 )
 
 // Every registered engine makes its network connections through the dial function it is given (the egress guard's), to

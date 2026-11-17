@@ -8,13 +8,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
-const addressChangedType = "dev.passage.org.address.changed.v1"
+const addressChangedType = "dev.depot.org.address.changed.v1"
 
 func problemErrors(err error) map[string]string {
 	var problem *httpx.Problem

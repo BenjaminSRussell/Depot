@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { PurchaseAgreementCreatePage, PurchaseAgreementDetailPage, PurchaseAgreementsPage } from "./AgreementPages";
 import { ApprovalInboxPage } from "./ApprovalPages";
 import { CatalogImportCreatePage, CatalogImportDetailPage, CatalogImportsPage } from "./CatalogImportPages";
@@ -47,7 +47,7 @@ import { TradeAgreementCreatePage, TradeAgreementDetailPage, TradeAgreementsPage
 import { ModelServiceSpecCreatePage, ModelServiceSpecDetailPage, ModelServiceSpecsPage, ServiceSpecPage } from "./ServicePages";
 import { WorkspacePage } from "./WorkspacePage";
 
-const purchasing: PassageModule = {
+const purchasing: DepotModule = {
   id: "purchasing",
   title: "Purchasing",
   description:

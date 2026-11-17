@@ -11,7 +11,7 @@ metadata:
   namespace: {{ .Values.kafka.namespace }}
   labels:
     strimzi.io/cluster: {{ .Values.kafka.clusterName }}
-    {{- include "passage-mr.labels" . | nindent 4 }}
+    {{- include "depot-mr.labels" . | nindent 4 }}
 spec:
   authentication:
     type: scram-sha-512
@@ -25,10 +25,10 @@ spec:
       - resource: {type: cluster}
         operations: [Describe, DescribeConfigs]
 {{- end }}
-{{- if include "passage-mr.mm2Here" . }}
+{{- if include "depot-mr.mm2Here" . }}
 ---
-# MirrorMaker 2 for every Passage topic (passage.<ctx>.<entity>; the pattern
-# skips passage.internal.*). It runs in the target region, in the namespace of
+# MirrorMaker 2 for every Depot topic (depot.<ctx>.<entity>; the pattern
+# skips depot.internal.*). It runs in the target region, in the namespace of
 # the Strimzi cluster so the local cluster CA secret is readable. Offset
 # translation and group offset sync are on, so consumers reconnect in the
 # target region at translated offsets (FR-50.4). IdentityReplicationPolicy keeps
@@ -37,10 +37,10 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaMirrorMaker2
 metadata:
-  name: passage-mm2
+  name: depot-mm2
   namespace: {{ .Values.kafka.namespace }}
   labels:
-    {{- include "passage-mr.labels" . | nindent 4 }}
+    {{- include "depot-mr.labels" . | nindent 4 }}
 spec:
   version: {{ .Values.mm2.version }}
   replicas: {{ .Values.mm2.replicas }}
@@ -97,7 +97,7 @@ spec:
     type: jmxPrometheusExporter
     valueFrom:
       configMapKeyRef:
-        name: passage-mm2-metrics
+        name: depot-mm2-metrics
         key: metrics-config.yml
 ---
 # JMX exporter rules for MM2. kafka_mm2_records_lag is the per-partition lag of
@@ -106,10 +106,10 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: passage-mm2-metrics
+  name: depot-mm2-metrics
   namespace: {{ .Values.kafka.namespace }}
   labels:
-    {{- include "passage-mr.labels" . | nindent 4 }}
+    {{- include "depot-mr.labels" . | nindent 4 }}
 data:
   metrics-config.yml: |
     lowercaseOutputName: true
@@ -142,15 +142,15 @@ data:
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
-  name: passage-mm2
+  name: depot-mm2
   namespace: {{ .Values.kafka.namespace }}
   labels:
-    {{- include "passage-mr.labels" . | nindent 4 }}
+    {{- include "depot-mr.labels" . | nindent 4 }}
 spec:
   selector:
     matchLabels:
       strimzi.io/kind: KafkaMirrorMaker2
-      strimzi.io/cluster: passage-mm2
+      strimzi.io/cluster: depot-mm2
   podMetricsEndpoints:
     - path: /metrics
       port: tcp-prometheus

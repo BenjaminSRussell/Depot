@@ -87,7 +87,7 @@ consumer:
     brokers: ""
     group: billing-iccharge
     username: billing-consumer
-    dlqTopic: passage.billing.iccharge.dlq
+    dlqTopic: depot.billing.iccharge.dlq
     secret: ""
   resources:
     requests: { cpu: 50m, memory: 64Mi }

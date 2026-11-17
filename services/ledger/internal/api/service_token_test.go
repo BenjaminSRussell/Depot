@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const testLegalEntity = "0190a000-0000-7000-8000-0000000000a1"
@@ -204,10 +204,10 @@ func TestNarrowHumanPostDutiesEachOpenOneRoute(t *testing.T) {
 func TestPostedByServiceIsTheVerifiedTokenIssuer(t *testing.T) {
 	rig := newTokenRig(t)
 	token, _ := rig.receiving.Mint("ledger", endUser(), "")
-	if rec := serviceCall(rig.handler, http.MethodPost, "/v1/ledger/journal-entries", entryBody, token, map[string]string{"X-Passage-Service": "close"}); rec.Code != http.StatusCreated {
+	if rec := serviceCall(rig.handler, http.MethodPost, "/v1/ledger/journal-entries", entryBody, token, map[string]string{"X-Depot-Service": "close"}); rec.Code != http.StatusCreated {
 		t.Fatalf("post status %d: %s", rec.Code, rec.Body.String())
 	}
-	rec := call(rig.handler, http.MethodPost, "/v1/ledger/journal-entries", entryBody, dutyPost, map[string]string{"X-Passage-Service": "close", "Idempotency-Key": "end-user-key-1"})
+	rec := call(rig.handler, http.MethodPost, "/v1/ledger/journal-entries", entryBody, dutyPost, map[string]string{"X-Depot-Service": "close", "Idempotency-Key": "end-user-key-1"})
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("end-user post status %d: %s", rec.Code, rec.Body.String())
 	}

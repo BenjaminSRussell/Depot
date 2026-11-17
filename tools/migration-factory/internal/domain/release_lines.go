@@ -19,7 +19,7 @@ type BankCorrection struct {
 func (c BankCorrection) IsZero() bool { return strings.TrimSpace(c.BankAccount) == "" }
 
 // ReleaseBankBalance re-runs the bank_balances suite on a corrected quarantined line and, when it
-// passes, books the line into the run as loaded: the Passage side of the account, entity and count
+// passes, books the line into the run as loaded: the Depot side of the account, entity and count
 // totals gains it, a corrected bank account moves the legacy balance from the extracted account's
 // subtotal to the corrected one (as if the extract had mapped it there), the counts move from
 // quarantined to loaded, and the run moves to RECONCILED when no total is MISMATCH any more.
@@ -37,7 +37,7 @@ func ReleaseBankBalance(r *PackRun, original BankBalanceLine, fix BankCorrection
 		line.BankAccount = a
 	}
 	// Validated alone: the extract-wide uniqueness of the legacy id and account was decided when the
-	// run was started; the store refuses an account Passage already holds under another legacy id.
+	// run was started; the store refuses an account Depot already holds under another legacy id.
 	if _, quarantined := ValidateBankBalances([]BankBalanceLine{line}, accounts); len(quarantined) > 0 {
 		q := quarantined[0]
 		return BankBalanceLine{}, fmt.Errorf("%w: %s rule still fails: %s", ErrInvalid, q.Rule, q.Reason)
@@ -99,7 +99,7 @@ func (c OnhandCorrection) Apply(o OnhandLine) OnhandLine {
 // corrected line and books it into the run. The quantity totals (per item and dimension) and the
 // value totals (per item, site and currency) move the legacy figures from the extracted keys to the
 // corrected ones; the entity value and, when the run reconciled an inventory GL account (BR-49.3),
-// that account's total gain the line on the Passage side. items is the item master.
+// that account's total gain the line on the Depot side. items is the item master.
 func ReleaseOnhand(r *PackRun, original OnhandLine, fix OnhandCorrection, items map[string]struct{}) (OnhandLine, error) {
 	if r.Pack != PackOnhand {
 		return OnhandLine{}, fmt.Errorf("%w: run is a %s run, not onhand", ErrUnknownPack, r.Pack)
@@ -193,7 +193,7 @@ func (c OrderCorrection) Apply(o OpenOrderLine) OpenOrderLine {
 // corrected line and books it into the run. The open quantity moves from the extracted (order type,
 // item, unit) to the corrected one on the legacy side; the open value, the line count and, when the
 // run's loaded side holds no line of the order yet (newOrder), the order count gain the line on the
-// Passage side. masters are the item, customer and vendor masters to check the line against.
+// Depot side. masters are the item, customer and vendor masters to check the line against.
 func ReleaseOpenOrder(r *PackRun, original OpenOrderLine, fix OrderCorrection, masters OrderMasters, newOrder bool) (OpenOrderLine, error) {
 	if r.Pack != PackOpenOrders {
 		return OpenOrderLine{}, fmt.Errorf("%w: run is a %s run, not open_orders", ErrUnknownPack, r.Pack)

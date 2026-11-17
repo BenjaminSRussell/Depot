@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
 )
 
 func TestSurvive(t *testing.T) {

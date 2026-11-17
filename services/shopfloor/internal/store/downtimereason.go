@@ -8,11 +8,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
 )
 
 // Downtime reason problem codes (see README).
@@ -64,7 +64,7 @@ func reasonEvent(ctx context.Context, tx pgx.Tx, tenantID string, r DowntimeReas
 }
 
 // CreateDowntimeReason stores a reason under the Idempotency-Key and publishes
-// dev.passage.shopfloor.downtimereason.saved.v1 in the same transaction. A code already used is SF-0142.
+// dev.depot.shopfloor.downtimereason.saved.v1 in the same transaction. A code already used is SF-0142.
 func (s *Postgres) CreateDowntimeReason(ctx context.Context, in DowntimeReasonInput, createdBy string, idem Idem) (DowntimeReason, error) {
 	p, _ := tenant.FromContext(ctx)
 	var out DowntimeReason

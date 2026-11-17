@@ -3,5 +3,5 @@
 -- table check: ship_date becomes the actual date at shipment and may pass the plan).
 -- Partial shipments need no schema change: shipped_qty on the line accumulates across
 -- shipments. No new table, so no new grant (transfer_order is already granted SELECT,
--- INSERT and UPDATE to passage_app).
+-- INSERT and UPDATE to depot_app).
 ALTER TABLE transfer_order ADD COLUMN IF NOT EXISTS planned_receipt_date date;

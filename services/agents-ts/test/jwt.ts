@@ -1,11 +1,11 @@
 // Test identity: a realm key pair generated once per test process, bearer tokens signed with it, and the authenticator
-// that trusts it. Requests in tests carry a signed token whose claims match their X-Passage-* headers, as the edge sends.
+// that trusts it. Requests in tests carry a signed token whose claims match their X-Depot-* headers, as the edge sends.
 
 import { createSign, generateKeyPairSync, type JsonWebKey } from "node:crypto";
 import { createAuthenticator } from "../src/api/auth.js";
 
-export const ISSUER = "https://idp.test.passage.dev/realms/passage";
-export const AUDIENCE = "passage-api";
+export const ISSUER = "https://idp.test.depot.dev/realms/depot";
+export const AUDIENCE = "depot-api";
 export const KID = "test-key-1";
 
 const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -39,14 +39,14 @@ export function tokenFor(tenant: string, user: string, duties: string): string {
   return signToken({ tid: tenant, sub: user, duties });
 }
 
-/** Request headers as the edge forwards them: the caller's token and the matching X-Passage-* headers. */
+/** Request headers as the edge forwards them: the caller's token and the matching X-Depot-* headers. */
 export function edgeHeaders(tenant: string, user: string, duties: string): Record<string, string> {
   return {
     "content-type": "application/json",
     authorization: `Bearer ${tokenFor(tenant, user, duties)}`,
-    "x-passage-tenant": tenant,
-    "x-passage-user": user,
-    "x-passage-duties": duties,
+    "x-depot-tenant": tenant,
+    "x-depot-user": user,
+    "x-depot-duties": duties,
   };
 }
 

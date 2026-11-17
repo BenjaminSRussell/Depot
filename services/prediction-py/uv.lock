@@ -331,7 +331,7 @@ wheels = [
 ]
 
 [[package]]
-name = "passage-prediction"
+name = "depot-prediction"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

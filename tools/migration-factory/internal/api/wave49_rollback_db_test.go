@@ -12,15 +12,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/coexist"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/coexist"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 // postGoLive books the journals of postings (the rollback request shape) in the fake ledger as
-// Passage did after go-live, so the compensations can be checked to take them off again.
+// Depot did after go-live, so the compensations can be checked to take them off again.
 func postGoLive(t *testing.T, fake *ledgerclient.Fake, legalEntityID, ledgerID string, postings []map[string]string) {
 	t.Helper()
 	type doc struct {
@@ -82,7 +82,7 @@ type rolledBackEvent struct {
 func readRolledBackEvent(t *testing.T, admin *pgxpool.Pool, planID string) rolledBackEvent {
 	t.Helper()
 	var payload []byte
-	if err := admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.passage.cutover.plan.rolledback.v1' and aggregate_id = $1`, planID).Scan(&payload); err != nil {
+	if err := admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.depot.cutover.plan.rolledback.v1' and aggregate_id = $1`, planID).Scan(&payload); err != nil {
 		t.Fatal(err)
 	}
 	var evt rolledBackEvent
@@ -108,7 +108,7 @@ func rollbackWithLedgers(t *testing.T, h http.Handler, planID, body, le string) 
 
 // AC-49.7, BR-49.1 (issue #49 proof 4a): rolling back a rehearsal cutover restores legacy
 // coexistence. The rollback moves the plan's pack runs to ROLLED_BACK, hands every entity kind
-// Passage mastered back to LEGACY so the adapters resume (and lists them on
+// Depot mastered back to LEGACY so the adapters resume (and lists them on
 // cutover.plan.rolledback for the integration hub), and posts the compensating journals, which net
 // the go-live postings to zero in the ledger. Runs and flags outside the plan are untouched.
 func TestWave49_RollbackRehearsalRestoresLegacyCoexistence(t *testing.T) {
@@ -136,12 +136,12 @@ func TestWave49_RollbackRehearsalRestoresLegacyCoexistence(t *testing.T) {
 	plan := decode[planDTO](t, do(t, h, request{method: "POST", path: "/api/v1/cutover/plans/generate", tenant: tenantA, duties: "migration.cutover.manage",
 		body: generateBody(time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC), 36), user: "manager"}))
 
-	// Go-live: customers, vendors and open items of USMF are cut over to Passage, as is DEMF's
+	// Go-live: customers, vendors and open items of USMF are cut over to Depot, as is DEMF's
 	// customer master (another plan). The adapter follows each flag.
 	adapter := &fakeAdapter{suspended: map[string]bool{}}
 	cut := func(company, entity string) {
 		r := do(t, h, request{method: "PUT", path: "/api/v1/migration/coexistence/AX2012/" + company + "/" + entity, tenant: tenantA, duties: "migration.cutover.manage",
-			body: `{"mode":"PASSAGE","expectedVersion":0}`, user: "manager"})
+			body: `{"mode":"DEPOT","expectedVersion":0}`, user: "manager"})
 		if r.Code != http.StatusOK {
 			t.Fatalf("cut over %s %s: %d %s", company, entity, r.Code, r.Body)
 		}
@@ -161,7 +161,7 @@ func TestWave49_RollbackRehearsalRestoresLegacyCoexistence(t *testing.T) {
 		t.Fatalf("suspended after go-live: %v", adapter.suspended)
 	}
 
-	// Passage posted two journals before the abort; they come back for re-keying and are compensated.
+	// Depot posted two journals before the abort; they come back for re-keying and are compensated.
 	var postings struct {
 		Postings []map[string]string `json:"postings"`
 	}
@@ -203,7 +203,7 @@ func TestWave49_RollbackRehearsalRestoresLegacyCoexistence(t *testing.T) {
 	if strings.Count(list.Body.String(), `"mode":"LEGACY"`) != len(domain.CoexistEntities) {
 		t.Fatalf("USMF flags after the rollback: %s", list.Body)
 	}
-	if f, _ := st.GetCoexistence(ctx, domain.SourceAX2012, "DEMF", "customer"); f.Mode != domain.CoexistPassage {
+	if f, _ := st.GetCoexistence(ctx, domain.SourceAX2012, "DEMF", "customer"); f.Mode != domain.CoexistDepot {
 		t.Fatalf("DEMF is not in the plan: %+v", f)
 	}
 
@@ -213,7 +213,7 @@ func TestWave49_RollbackRehearsalRestoresLegacyCoexistence(t *testing.T) {
 	if evt.Data.PackRunsRolledBack != 2 || len(evt.Data.CoexistenceResumed) != 3 {
 		t.Fatalf("rolledback event %+v", evt.Data)
 	}
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.migration.coexistence.changed.v1' and payload->'data'->>'plan_id' = $1
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.migration.coexistence.changed.v1' and payload->'data'->>'plan_id' = $1
 		and payload->'data'->>'mode' = 'LEGACY'`, plan.PlanID); n != 3 {
 		t.Fatalf("coexistence.changed for the rollback: %d", n)
 	}

@@ -1,5 +1,5 @@
--- PSG-25 slice 17: shop floor follows production's operation status (FR-25.3). Production (w21)
--- emits dev.passage.production.operation.statuschanged.v1 when an operation is finished (by the
+-- DPT-25 slice 17: shop floor follows production's operation status (FR-25.3). Production (w21)
+-- emits dev.depot.production.operation.statuschanged.v1 when an operation is finished (by the
 -- finish command or the last report as finished) and again when it is reopened. The consumer keeps
 -- the latest status per (order, operation) here, apart from shop_job, so an event that arrives
 -- before the schedule has projected the job is not lost. Job starts at or after the finish are
@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS consumer_inbox (
 ALTER TABLE consumer_inbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE consumer_inbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY consumer_inbox_tenant_access ON consumer_inbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- order_ref is the production order id (lower case) and operation_ref the operation number as
 -- text, the references the schedule projects on shop_job. Events are ordered by (order_version,
@@ -42,14 +42,14 @@ CREATE TABLE IF NOT EXISTS operation_production_status (
 ALTER TABLE operation_production_status ENABLE ROW LEVEL SECURITY;
 ALTER TABLE operation_production_status FORCE ROW LEVEL SECURITY;
 CREATE POLICY operation_production_status_tenant_access ON operation_production_status AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON consumer_inbox TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON operation_production_status TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON consumer_inbox TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON operation_production_status TO depot_app';
   END IF;
 END
 $$;

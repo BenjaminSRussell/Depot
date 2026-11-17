@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 // Queue times are stored on the operation, change the placement stale, ride on
@@ -39,7 +39,7 @@ func TestOperationQueueTimes_RunHonoursThemAndPatchStalesTheJobs(t *testing.T) {
 	if err != nil || !upd.JobsRemoved || upd.QueueBeforeMinutes != 0 || upd.Status != "open" {
 		t.Fatalf("patch = %+v err=%v, want jobs removed and queue before 0", upd, err)
 	}
-	if got := outboxCount(t, admin, "dev.passage.scheduling.operation.updated.v1"); got != 1 {
+	if got := outboxCount(t, admin, "dev.depot.scheduling.operation.updated.v1"); got != 1 {
 		t.Fatalf("operation.updated events = %d, want 1", got)
 	}
 	// Only o2 is selected: o1 keeps its slot and its queue after still holds o2.
@@ -59,7 +59,7 @@ func TestOperationQueueTimes_RunHonoursThemAndPatchStalesTheJobs(t *testing.T) {
 	if _, _, err := s.UpdateOperation(ctx, op1.ID, 1, store.OperationPatch{QueueAfterMinutes: &after}, idem("q2")); problemCode(err) != store.CodeOperationFirmed {
 		t.Fatalf("queue change on a firmed operation: %v, want SCHED-0138", err)
 	}
-	if got := outboxCount(t, admin, "dev.passage.scheduling.operation.updated.v1"); got != 1 {
+	if got := outboxCount(t, admin, "dev.depot.scheduling.operation.updated.v1"); got != 1 {
 		t.Fatalf("operation.updated events = %d after the refusal, want still 1", got)
 	}
 	if bar, ok := barsOf(t, ctx, s)[op1.ID]; !ok || !bar.End.Equal(at(0, 9, 0)) {

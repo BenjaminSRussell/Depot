@@ -41,8 +41,8 @@ CREATE INDEX IF NOT EXISTS scheduling_capacity_load_flagged
 ALTER TABLE scheduling_capacity_load ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduling_capacity_load FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduling_capacity_load_tenant_access ON scheduling_capacity_load AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS scheduling_bottleneck_episode (
   tenant_id uuid NOT NULL,
@@ -66,14 +66,14 @@ CREATE INDEX IF NOT EXISTS scheduling_bottleneck_episode_detected
 ALTER TABLE scheduling_bottleneck_episode ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduling_bottleneck_episode FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduling_bottleneck_episode_tenant_access ON scheduling_bottleneck_episode AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON scheduling_capacity_load TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON scheduling_bottleneck_episode TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON scheduling_capacity_load TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON scheduling_bottleneck_episode TO depot_app';
   END IF;
 END
 $$;

@@ -34,8 +34,8 @@ CREATE TABLE IF NOT EXISTS buffer_profile (
 ALTER TABLE buffer_profile ENABLE ROW LEVEL SECURITY;
 ALTER TABLE buffer_profile FORCE ROW LEVEL SECURITY;
 CREATE POLICY buffer_profile_tenant_access ON buffer_profile AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS ddmrp_buffer (
   tenant_id uuid NOT NULL,
@@ -75,8 +75,8 @@ CREATE INDEX IF NOT EXISTS ddmrp_buffer_profile_ix ON ddmrp_buffer (tenant_id, p
 ALTER TABLE ddmrp_buffer ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ddmrp_buffer FORCE ROW LEVEL SECURITY;
 CREATE POLICY ddmrp_buffer_tenant_access ON ddmrp_buffer AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Item coverage now refers to a stored buffer profile (FR-22.16
 -- buffer_profile_id). NOT VALID keeps rows written by slice 9 before profiles

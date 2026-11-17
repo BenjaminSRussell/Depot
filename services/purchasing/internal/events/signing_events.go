@@ -2,7 +2,7 @@ package events
 
 // SigningLimitChanged is written when a signing limit is set or changed by an approved
 // request, or recertified (FR-17.17). The subject is the signing limit id.
-const SigningLimitChanged = "dev.passage.procurement.signinglimit.changed.v1"
+const SigningLimitChanged = "dev.depot.procurement.signinglimit.changed.v1"
 
 // SigningLimitData is the data member of signinglimit.changed.v1.
 type SigningLimitData struct {

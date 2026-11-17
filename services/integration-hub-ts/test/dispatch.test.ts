@@ -133,6 +133,6 @@ test("the replay cap must be an integer between 1 and 10,000,000", () => {
   assert.throws(() => planReplay(events, 0, 2, -1), RangeError);
 });
 
-test("replayed deliveries carry ce-passagereplay: true", () => {
-  assert.deepEqual(replayHeaders(), { "ce-passagereplay": "true" });
+test("replayed deliveries carry ce-depotreplay: true", () => {
+  assert.deepEqual(replayHeaders(), { "ce-depotreplay": "true" });
 });

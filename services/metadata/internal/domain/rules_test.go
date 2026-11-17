@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/domain"
 )
 
 func TestDecisionTableFirstHitExplainsMatchedRow(t *testing.T) {

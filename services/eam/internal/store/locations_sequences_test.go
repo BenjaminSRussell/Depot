@@ -11,11 +11,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/eam/internal/domain"
-	eamevents "github.com/BenjaminSRussell/passage/services/eam/internal/events"
-	"github.com/BenjaminSRussell/passage/services/eam/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/eam/internal/domain"
+	eamevents "github.com/BenjaminSRussell/depot/services/eam/internal/events"
+	"github.com/BenjaminSRussell/depot/services/eam/migrations"
 )
 
 // fixtureSite is the site of the fixture asset (setup).
@@ -397,7 +397,7 @@ func TestSequences_Rules(t *testing.T) {
 	}
 }
 
-// TestGrants_AppRoleLocationsSequences runs the slice 4 paths as passage_app (no
+// TestGrants_AppRoleLocationsSequences runs the slice 4 paths as depot_app (no
 // BYPASSRLS, migration 0006 grants): locations, placement with its history, a
 // sequence row lock and occurrence with its work order, and the append-only
 // history and occurrence tables refusing updates and deletes.
@@ -418,33 +418,33 @@ func TestGrants_AppRoleLocationsSequences(t *testing.T) {
 	}
 	root, err := s.CreateLocation(ctx, FunctionalLocation{Code: "PLANT", Name: "Plant", SiteID: fixtureSite}, "g-root")
 	if err != nil {
-		t.Fatalf("location insert as passage_app: %v", err)
+		t.Fatalf("location insert as depot_app: %v", err)
 	}
 	line, err := s.CreateLocation(ctx, FunctionalLocation{Code: "LINE-1", Name: "Line 1", SiteID: fixtureSite, ParentID: &root.ID}, "g-line")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if page, err := s.ListLocations(ctx, LocationListOptions{Under: root.ID, Limit: 10}); err != nil || len(page.Items) != 2 {
-		t.Fatalf("subtree as passage_app = %+v %v", page, err)
+		t.Fatalf("subtree as depot_app = %+v %v", page, err)
 	}
 	placed, err := s.PlaceAsset(ctx, a.ID, line.ID, a.Version, "g-place")
 	if err != nil {
-		t.Fatalf("placement as passage_app: %v", err)
+		t.Fatalf("placement as depot_app: %v", err)
 	}
 	if _, err := s.PlaceAsset(ctx, a.ID, root.ID, placed.Version, "g-move"); err != nil {
 		t.Fatal(err)
 	}
 	if h, err := s.ListLocationHistory(ctx, a.ID); err != nil || len(h) != 2 {
-		t.Fatalf("history as passage_app = %+v %v", h, err)
+		t.Fatalf("history as depot_app = %+v %v", h, err)
 	}
 	days := "DAYS"
 	seq, err := s.CreateSequence(ctx, MaintenanceSequence{Code: "PRESS-SEQ", Name: "Press", AssetID: &a.ID, BaseIntervalValue: 30,
 		BaseIntervalUnit: &days, Steps: []domain.SequenceStep{{Code: "A", JobType: "LUBE", Multiple: 1, Hierarchy: 1}}}, "g-seq")
 	if err != nil {
-		t.Fatalf("sequence insert as passage_app: %v", err)
+		t.Fatalf("sequence insert as depot_app: %v", err)
 	}
 	if occ, err := s.GenerateOccurrence(ctx, seq.ID, OccurrenceInput{Currency: "USD"}, "g-occ"); err != nil || occ.WorkOrderID == nil {
-		t.Fatalf("occurrence (row lock, update, work order) as passage_app = %+v %v", occ, err)
+		t.Fatalf("occurrence (row lock, update, work order) as depot_app = %+v %v", occ, err)
 	}
 	for _, stmt := range []string{
 		`update asset_location_history set actor = actor`,

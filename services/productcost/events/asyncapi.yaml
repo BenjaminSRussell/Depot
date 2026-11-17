@@ -1,11 +1,11 @@
 asyncapi: 3.0.0
 info:
-  title: Passage product costing events (wave 39, slices 1-5)
+  title: Depot product costing events (wave 39, slices 1-5)
   version: 0.5.0
   description: |
     Events published by the costing service through the outbox, in the same
     transaction as the change. CloudEvents 1.0 envelope; type
-    dev.passage.costing.<entity>.<verb>.v1; source productcost; subject and
+    dev.depot.costing.<entity>.<verb>.v1; source productcost; subject and
     Kafka key are the aggregate id; actor is the calling user.
     Slice 5 publishes the cost structure and the costing version lifecycle.
     These four events are not in the PRD event table (section 7.39.5); they
@@ -17,37 +17,37 @@ info:
 defaultContentType: application/cloudevents+json
 channels:
   costComponentCreated:
-    address: passage.costing.costcomponent
+    address: depot.costing.costcomponent
     messages:
       costComponentCreated:
         $ref: "#/components/messages/CostComponentCreated"
   costGroupCreated:
-    address: passage.costing.costgroup
+    address: depot.costing.costgroup
     messages:
       costGroupCreated:
         $ref: "#/components/messages/CostGroupCreated"
   versionCreated:
-    address: passage.costing.version
+    address: depot.costing.version
     messages:
       versionCreated:
         $ref: "#/components/messages/VersionCreated"
   versionTransitioned:
-    address: passage.costing.version
+    address: depot.costing.version
     messages:
       versionTransitioned:
         $ref: "#/components/messages/VersionTransitioned"
   standardCostActivated:
-    address: passage.costing.standardcost
+    address: depot.costing.standardcost
     messages:
       standardCostActivated:
         $ref: "#/components/messages/StandardCostActivated"
   postingAccountsChanged:
-    address: passage.costing.postingaccounts
+    address: depot.costing.postingaccounts
     messages:
       postingAccountsChanged:
         $ref: "#/components/messages/PostingAccountsChanged"
   activationAttemptResolved:
-    address: passage.costing.activationattempt
+    address: depot.costing.activationattempt
     messages:
       activationAttemptResolved:
         $ref: "#/components/messages/ActivationAttemptResolved"
@@ -83,37 +83,37 @@ operations:
 components:
   messages:
     CostComponentCreated:
-      name: dev.passage.costing.costcomponent.created.v1
+      name: dev.depot.costing.costcomponent.created.v1
       summary: A cost component (a bucket of the cost split) was created
       contentType: application/cloudevents+json
       payload: { $ref: "#/components/schemas/CostComponentCreatedData" }
     CostGroupCreated:
-      name: dev.passage.costing.costgroup.created.v1
+      name: dev.depot.costing.costgroup.created.v1
       summary: A cost group was created and mapped to a cost component
       contentType: application/cloudevents+json
       payload: { $ref: "#/components/schemas/CostGroupCreatedData" }
     VersionCreated:
-      name: dev.passage.costing.version.created.v1
+      name: dev.depot.costing.version.created.v1
       summary: A costing version was created
       contentType: application/cloudevents+json
       payload: { $ref: "#/components/schemas/VersionCreatedData" }
     VersionTransitioned:
-      name: dev.passage.costing.version.transitioned.v1
+      name: dev.depot.costing.version.transitioned.v1
       summary: A costing version changed status (blocked, unblocked, closed or activated)
       contentType: application/cloudevents+json
       payload: { $ref: "#/components/schemas/VersionTransitionedData" }
     StandardCostActivated:
-      name: dev.passage.costing.standardcost.activated.v1
+      name: dev.depot.costing.standardcost.activated.v1
       summary: A standard cost activation (or its reversal) was recorded, with the revaluation journal it posted
       contentType: application/cloudevents+json
       payload: { $ref: "#/components/schemas/StandardCostActivatedData" }
     PostingAccountsChanged:
-      name: dev.passage.costing.postingaccounts.changed.v1
+      name: dev.depot.costing.postingaccounts.changed.v1
       summary: The ledger accounts that activations of a legal entity post to changed
       contentType: application/cloudevents+json
       payload: { $ref: "#/components/schemas/PostingAccountsChangedData" }
     ActivationAttemptResolved:
-      name: dev.passage.costing.activationattempt.resolved.v1
+      name: dev.depot.costing.activationattempt.resolved.v1
       summary: An operator confirmed whether the ledger entry of an old activation attempt landed, and the attempt was recorded or discarded
       contentType: application/cloudevents+json
       payload: { $ref: "#/components/schemas/ActivationAttemptResolvedData" }

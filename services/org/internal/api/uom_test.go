@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 const unitsPath = "/v1/org/uom/units"
@@ -109,7 +109,7 @@ func TestUnits_CreateAndPatchRefuseLegalEntityScopedCaller(t *testing.T) {
 		{http.MethodPost, unitsPath, `{"code":"bx","name":"Box","class":"each","decimalPrecision":0}`},
 		{http.MethodPatch, unitsPath + "/lb", `{"status":"inactive"}`},
 	} {
-		rec := do(r, tc.method, tc.path, tc.body, referenceDuties, true, "X-Passage-Legal-Entity", testkit.TenantID(2))
+		rec := do(r, tc.method, tc.path, tc.body, referenceDuties, true, "X-Depot-Legal-Entity", testkit.TenantID(2))
 		if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "AUTH-0003") {
 			t.Fatalf("%s = %d %s; want 403 AUTH-0003", tc.method, rec.Code, rec.Body.String())
 		}
@@ -289,7 +289,7 @@ func TestConversions_CreateRefusesWithoutTenantAndLegalEntityScopedCaller(t *tes
 	if rec := do(r, http.MethodPost, conversionsPath, gToLb, "", false); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("without a tenant = %d; want 401", rec.Code)
 	}
-	rec := do(r, http.MethodPost, conversionsPath, gToLb, referenceDuties, true, "X-Passage-Legal-Entity", testkit.TenantID(2))
+	rec := do(r, http.MethodPost, conversionsPath, gToLb, referenceDuties, true, "X-Depot-Legal-Entity", testkit.TenantID(2))
 	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "AUTH-0003") || f.conversionCreates != 0 {
 		t.Fatalf("scoped caller = %d %s; want 403 AUTH-0003 and no write", rec.Code, rec.Body)
 	}

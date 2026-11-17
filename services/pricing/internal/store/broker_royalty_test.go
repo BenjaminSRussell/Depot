@@ -9,8 +9,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
 )
 
 const (
@@ -142,12 +142,12 @@ func TestPostgres_BrokerContractAccrualCreditAndClaim(t *testing.T) {
 	var posted, claims int
 	for _, e := range outboxRows(t, maker, pool) {
 		switch e.Type {
-		case "dev.passage.pricing.contractaccrual.posted.v1":
+		case "dev.depot.pricing.contractaccrual.posted.v1":
 			posted++
 			if e.Data["debit_account"] != "6210" || e.Data["credit_account"] != "2175" || e.Data["vendor_id"] != brokerVendor || e.Data["contract_kind"] != "BROKER" {
 				t.Fatalf("accrual payload = %v; want Dr 6210 / Cr 2175 for the broker", e.Data)
 			}
-		case "dev.passage.pricing.contractclaim.created.v1", "dev.passage.pricing.contractclaim.approved.v1":
+		case "dev.depot.pricing.contractclaim.created.v1", "dev.depot.pricing.contractclaim.approved.v1":
 			claims++
 		}
 	}
@@ -305,7 +305,7 @@ func TestPostgres_RoyaltyTiersMinimumAndClaims(t *testing.T) {
 
 	var shortfalls int
 	for _, e := range outboxRows(t, maker, pool) {
-		if e.Type == "dev.passage.pricing.contractaccrual.posted.v1" && e.Data["kind"] == "SHORTFALL" {
+		if e.Type == "dev.depot.pricing.contractaccrual.posted.v1" && e.Data["kind"] == "SHORTFALL" {
 			shortfalls++
 			if e.Data["debit_account"] != "6220" || e.Data["credit_account"] != "2176" || e.Data["contract_kind"] != "ROYALTY" ||
 				(e.Data["period_id"] == "2027-03" && e.Data["posting_date"] != "2027-03-31") {

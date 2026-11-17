@@ -3,7 +3,7 @@ info:
   title: payroll
   version: 0.1.0
   description: >-
-    Payroll engine of PSG-43. Serves a stateless gross-to-net preview (no Idempotency-Key), stored pay runs with a review/finalize lifecycle, GL posting and reconciliation. The preview under a
+    Payroll engine of DPT-43. Serves a stateless gross-to-net preview (no Idempotency-Key), stored pay runs with a review/finalize lifecycle, GL posting and reconciliation. The preview under a
     versioned rule set (US-FED-2025.1: Pub 15-T Worksheet 1A annual percentage method for
     every filing status, standard and Step 2 checkbox schedules, 2020+ and pre-2020 W-4;
     Social Security with the wage base cap, Medicare with the employee-only additional tax,
@@ -11,12 +11,12 @@ info:
     arrears (BR-43.10) and employer costs and persists nothing. Money is a decimal string with two places, never a float.
     Error codes: COM-0001, AUTH-0001, AUTH-0003, PAY-RULE-001, PAY-RUN-004 to PAY-RUN-009, PAY-GL-001 to PAY-GL-005, COM-0500.
 servers:
-  - url: https://app.local.passage.dev
+  - url: https://app.local.depot.dev
 paths:
   /v1/payroll/calculations:
     post:
       operationId: calculatePayStatement
-      x-passage-duty: payroll.run.maintain
+      x-depot-duty: payroll.run.maintain
       description: >-
         Gross-to-net for one worker and one period. 401 AUTH-0001 without a valid tenant,
         403 AUTH-0003 without the duty, 400 COM-0001 on validation (including pre-tax above
@@ -37,7 +37,7 @@ paths:
   /v1/payroll/runs:
     post:
       operationId: createPayRun
-      x-passage-duty: payroll.run.maintain
+      x-depot-duty: payroll.run.maintain
       description: >-
         Calculates and stores a CALCULATED pay run. Idempotency-Key is required and scoped to the caller and legal entity:
         a replay with an equivalent body (key order and whitespace ignored) returns the caller's stored run, the same key with another body is 409 PAY-RUN-008,
@@ -62,7 +62,7 @@ paths:
     get:
       operationId: getPayRun
       summary: "Get a pay run"
-      x-passage-duty: payroll.run.read
+      x-depot-duty: payroll.run.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -75,7 +75,7 @@ paths:
   /v1/payroll/runs/{id}/review:
     post:
       operationId: reviewPayRun
-      x-passage-duty: payroll.run.maintain
+      x-depot-duty: payroll.run.maintain
       description: CALCULATED to REVIEWED. 422 PAY-RUN-005 on an illegal transition.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -89,7 +89,7 @@ paths:
   /v1/payroll/runs/{id}/finalize:
     post:
       operationId: finalizePayRun
-      x-passage-duty: payroll.run.finalize
+      x-depot-duty: payroll.run.finalize
       description: REVIEWED to FINALIZED. 422 PAY-RUN-004 when the finalizer calculated the run (separation of duties), 422 PAY-RUN-005 on an illegal transition.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -103,7 +103,7 @@ paths:
   /v1/payroll/runs/{id}/post:
     post:
       operationId: postPayRun
-      x-passage-duty: payroll.run.post
+      x-depot-duty: payroll.run.post
       description: >-
         Posts the balanced run journal to the general ledger under the key payroll-run:{id}. GL accounts come from the
         legal entity's stored posting profile, never from the request. 422 PAY-GL-003 when the profile lacks an account for a role,
@@ -136,7 +136,7 @@ paths:
   /v1/payroll/gl-reconciliation:
     get:
       operationId: reconcilePayrollToGL
-      x-passage-duty: payroll.run.read
+      x-depot-duty: payroll.run.read
       description: >-
         Per payroll GL account, the journal the POSTED runs of the legal entity imply against the ledger balance. difference is ledger minus register.
         502 PAY-GL-001 when the ledger cannot be read.
@@ -155,7 +155,7 @@ paths:
       - { name: legalEntityId, in: path, required: true, schema: { type: string, format: uuid } }
     put:
       operationId: setPostingProfile
-      x-passage-duty: payroll.posting-profile.maintain
+      x-depot-duty: payroll.posting-profile.maintain
       description: >-
         Stores the given payroll role to GL account mappings for a legal entity (roles not named keep their account) and returns the whole profile.
         400 COM-0001 on a malformed role or account, 403 AUTH-0003 without the duty or outside the legal-entity scope.
@@ -174,7 +174,7 @@ paths:
     get:
       operationId: getPostingProfile
       summary: "Get the payroll posting profile of a legal entity"
-      x-passage-duty: payroll.run.read
+      x-depot-duty: payroll.run.read
       responses:
         '200':
           description: The stored profile.
@@ -185,20 +185,20 @@ paths:
   /readyz:
     get:
       operationId: readyz
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Database reachable. }
         '503': { description: Database unreachable. }
   /healthz:
     get:
       operationId: healthz
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Process is alive. }
   /v1/payroll/opening-ytd:
     post:
       operationId: importOpeningYTD
-      x-passage-duty: payroll.opening-ytd.import
+      x-depot-duty: payroll.opening-ytd.import
       description: >-
         Cutover import of the year-to-date payroll balances of the legacy system, called by the migration factory with a service token. All or nothing, 1 to 1000 lines of one legal
         entity, numbered from 1 in errors. A line is one pay element (GROSS, TAX, DEDUCTIONS or NET) of one worker's tax year, with a unique reference (the legacy id of the worker's
@@ -247,7 +247,7 @@ paths:
         '500': { $ref: '#/components/responses/Problem' }
     get:
       operationId: listOpeningYTD
-      x-passage-duty: payroll.opening-ytd.read
+      x-depot-duty: payroll.opening-ytd.read
       description: >-
         Imported opening batches of one legal entity (legal_entity), newest first, optionally one batch_key, with keyset paging (limit 1 to 200, default 50;
         pass the previous nextCursor as cursor). lineCount and totals are read back from the stored lines, so the loader can verify what landed against what it sent.
@@ -295,7 +295,7 @@ components:
       type: object
       required: [type, title, status]
       properties:
-        type: { type: string, example: 'https://passage.dev/problems/PAY-RULE-001' }
+        type: { type: string, example: 'https://depot.dev/problems/PAY-RULE-001' }
         title: { type: string }
         status: { type: integer }
         detail: { type: string }

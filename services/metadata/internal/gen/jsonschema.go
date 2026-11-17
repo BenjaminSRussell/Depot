@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/domain"
 )
 
 // JSONSchema returns the effective input schema for a generated entity API.
@@ -19,13 +19,13 @@ func JSONSchema(entity *domain.Entity) (string, error) {
 			}
 			if field.Computed != "" {
 				schema["readOnly"] = true
-				schema["x-passage-computed"] = field.Computed
+				schema["x-depot-computed"] = field.Computed
 			}
 			if field.Visibility != "" {
-				schema["x-passage-visibility"] = field.Visibility
+				schema["x-depot-visibility"] = field.Visibility
 			}
 			if field.Audit != nil {
-				schema["x-passage-audit"] = *field.Audit
+				schema["x-depot-audit"] = *field.Audit
 			}
 			if field.Label != "" {
 				schema["title"] = field.Label
@@ -38,7 +38,7 @@ func JSONSchema(entity *domain.Entity) (string, error) {
 	}
 	schema := obj{
 		"$schema":              "https://json-schema.org/draft/2020-12/schema",
-		"$id":                  "https://passage.dev/schemas/" + entity.Domain + "/" + entity.Name,
+		"$id":                  "https://depot.dev/schemas/" + entity.Domain + "/" + entity.Name,
 		"title":                entity.Name,
 		"type":                 "object",
 		"additionalProperties": false,

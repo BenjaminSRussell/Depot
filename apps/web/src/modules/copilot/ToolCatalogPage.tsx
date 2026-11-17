@@ -16,11 +16,11 @@ const columns: DataTableColumn<McpTool>[] = [
   { key: "name", header: "Tool", mono: true },
   { key: "domain", header: "Domain", render: (t) => toolDomain(t.name) },
   { key: "description", header: "Description" },
-  { key: "duty", header: "Required duty", mono: true, render: (t) => t["x-passage-duty"] },
+  { key: "duty", header: "Required duty", mono: true, render: (t) => t["x-depot-duty"] },
   {
     key: "approval",
     header: "Approval",
-    render: (t) => <Badge tone={approvalTone(t["x-passage-approval"])}>{approvalLabel(t["x-passage-approval"])}</Badge>,
+    render: (t) => <Badge tone={approvalTone(t["x-depot-approval"])}>{approvalLabel(t["x-depot-approval"])}</Badge>,
   },
   { key: "access", header: "Access", render: (t) => (t.annotations.readOnlyHint ? "Read" : "Write") },
 ];
@@ -39,8 +39,8 @@ export function ToolCatalogPage({ load = listTools, onOpen }: ToolCatalogPagePro
     const q = search.trim().toLowerCase();
     return (state.data ?? []).filter(
       (t) =>
-        (approval === "" || t["x-passage-approval"] === approval) &&
-        (q === "" || t.name.toLowerCase().includes(q) || t["x-passage-duty"].toLowerCase().includes(q)),
+        (approval === "" || t["x-depot-approval"] === approval) &&
+        (q === "" || t.name.toLowerCase().includes(q) || t["x-depot-duty"].toLowerCase().includes(q)),
     );
   }, [state.data, search, approval]);
 
@@ -49,7 +49,7 @@ export function ToolCatalogPage({ load = listTools, onOpen }: ToolCatalogPagePro
     <div className={styles.stack}>
       <PageHeader
         title="Tool catalog"
-        description="The Passage tools the copilot and agents can call on your behalf. You only see tools whose duty you hold; every call runs with your permissions."
+        description="The Depot tools the copilot and agents can call on your behalf. You only see tools whose duty you hold; every call runs with your permissions."
       />
       <div className={styles.toolbar}>
         <FormField id="tool-search" label="Tool or duty">

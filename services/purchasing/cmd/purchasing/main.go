@@ -1,5 +1,5 @@
 // Command purchasing runs the purchasing API: requisitions, purchase orders,
-// trade agreements and price lookup (PSG-17, wave 17 slice 1).
+// trade agreements and price lookup (DPT-17, wave 17 slice 1).
 package main
 
 import (
@@ -11,13 +11,13 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/api"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/budget"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
-	"github.com/BenjaminSRussell/passage/services/purchasing/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/api"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/budget"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/purchasing/migrations"
 )
 
 const (
@@ -89,7 +89,7 @@ func run(ctx context.Context, getenv func(string) string) error {
 			return err
 		}
 		if signer == nil {
-			return errors.New("BUDGETING_URL needs a service signing key (PASSAGE_SERVICE_SIGNING_KEY_FILE)")
+			return errors.New("BUDGETING_URL needs a service signing key (DEPOT_SERVICE_SIGNING_KEY_FILE)")
 		}
 		client := budget.New(url, nil, signer)
 		st.WithBudgetCalls(true).WithOrderHook(budget.Hook(client, st))

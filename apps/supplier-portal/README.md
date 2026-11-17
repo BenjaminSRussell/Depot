@@ -1,6 +1,6 @@
 # supplier-portal
 
-Vendor-facing portal for wave 20 (PSG-20, issue #511), served at `supplier.<env>.passage.dev`. A standalone Vite + React 19 app
+Vendor-facing portal for wave 20 (DPT-20, issue #511), served at `supplier.<env>.depot.dev`. A standalone Vite + React 19 app
 (like `apps/warehouse-mobile`), not a shell module: suppliers are external users who must never reach the buyer shell. It talks only
 to its BFF, `services/supplier-portal-ts`.
 

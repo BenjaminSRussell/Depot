@@ -1,6 +1,6 @@
 # print
 
-Passage print service (wave 32, PSG-32). One per site network. It renders ZPL label
+Depot print service (wave 32, DPT-32). One per site network. It renders ZPL label
 templates, sends them to printers (ZPL II and PCL 6 over raw TCP 9100, PDF over IPP), fails over between the devices of
 a queue, and resolves document routing rules. Printers on site networks are reached only
 from this pod; nothing connects inbound to the cluster.
@@ -38,7 +38,7 @@ from this pod; nothing connects inbound to the cluster.
   devices print the standard layout. The GS1 carton label is 4 x 6 in only. An item label with
   lot, expiry and serial is too wide for 1 in devices and fails over. A reprint reuses the
   stored standard payload, so a 1 in device refuses it (see NOT-IMPLEMENTED.md).
-  The LP label's SSCC barcode is GS1-128: FNC1, AI 00, then the 18 digits. Completion writes `dev.passage.print.job.completed.v1` to the outbox
+  The LP label's SSCC barcode is GS1-128: FNC1, AI 00, then the 18 digits. Completion writes `dev.depot.print.job.completed.v1` to the outbox
   in the same transaction.
 - **Templates**: `LP_LABEL`, `LOCATION_LABEL`, `ITEM_LABEL` (gtin, optional lot, expiry
   `YYMMDD` and serial) and `GS1_CARTON_LABEL` (sscc and shipToName, optional poNumber and
@@ -67,7 +67,7 @@ from this pod; nothing connects inbound to the cluster.
   the other columns share the rest and wrap long text at spaces (a word wider than its column is
   broken). A row is never split: a row that does not fit goes to the next page, which repeats a
   short running header and the table header. Every page ends with "Page n of m". The response
-  carries the page count in `X-Passage-Document-Pages`.
+  carries the page count in `X-Depot-Document-Pages`.
   - **Text** is Unicode. It is put in NFC, every kind of space (no-break, narrow no-break, thin)
     and the tab print as a plain space, and invisible format characters (soft hyphen, zero-width
     space, byte order mark) are dropped. The PDF embeds subsets of two fonts, Go Regular and Go
@@ -82,7 +82,7 @@ from this pod; nothing connects inbound to the cluster.
     letter, and not the currency signs ₹, ₽, ₺, ₩ and ₪. Such a character does not fail the
     document: it prints as the replacement character (U+FFFD, a question mark in a diamond), the
     original text is kept in the PDF as ActualText so copying and searching still find it, and
-    the response counts the characters in `X-Passage-Unprintable-Characters` so the caller can
+    the response counts the characters in `X-Depot-Unprintable-Characters` so the caller can
     tell the user. Text also runs left to right only. Covering those scripts needs a font that
     has them (see NOT-IMPLEMENTED.md).
   - **Deterministic**: no dates, no random ids, no compressed streams, a subset tag derived from
@@ -151,7 +151,7 @@ print a label or a PDF document, job detail with "print again") live in `apps/we
 ## Run
 
 ```sh
-export DATABASE_URL=postgres://passage_app:...@localhost:5432/passage_print
+export DATABASE_URL=postgres://depot_app:...@localhost:5432/depot_print
 export MIGRATE_ON_START=true     # dev only; stage and prod run migrations as a PreSync Job
 export HTTP_ADDR=:8080           # default
 export ADMIN_ADDR=:9090          # default, serves /metrics
@@ -187,7 +187,7 @@ compares the LP label with `testdata/golden/lp-label.zpl`; the item label is com
 for byte in `gs1label_test.go`. Transport tests decode the IPP request independently against
 an `httptest` server and send PCL 6 to a local TCP listener. `migrations/rls_test.go` is the
 static RLS check: every table has `tenant_id`, ENABLE and FORCE row-level security and the
-`passage.tenant_id` policy. API tests use an in-memory store.
+`depot.tenant_id` policy. API tests use an in-memory store.
 The document renderer has golden PDFs in `testdata/golden` (also `statement-of-account.pdf`, `balance-confirmation.pdf` and `invoice-with-template.pdf` for docgen), among them: `purchase-order.pdf`,
 `invoice-unicode.pdf` (Polish, Czech, Greek and Cyrillic names, a wrapped description, an
 additional party, and CJK text the fonts lack) and `packing-slip-3-pages.pdf` (page breaks with
@@ -196,8 +196,8 @@ layout change, and `DOCUMENT_PDF_DIR=<dir>` also writes each rendered PDF there 
 tests check the PDF structure (xref offsets, stream lengths, the embedded font programs parse),
 and a rapid property test lays out random documents and checks that every piece of text stays
 between the margins and above the footer and that every page is numbered. Store tests (`internal/store`) run against Postgres through
-`platform/go/testkit` and are skipped without `PASSAGE_TEST_DATABASE_URL`; the RLS test also
-needs `PASSAGE_TEST_APP_DATABASE_URL` (a role without BYPASSRLS).
+`platform/go/testkit` and are skipped without `DEPOT_TEST_DATABASE_URL`; the RLS test also
+needs `DEPOT_TEST_APP_DATABASE_URL` (a role without BYPASSRLS).
 
 ## Error codes
 
@@ -223,7 +223,7 @@ needs `PASSAGE_TEST_APP_DATABASE_URL` (a role without BYPASSRLS).
 | MOB-0112 | 422 / 201 (job FAILED) | No routing rule matches the document, or the queue has no devices |
 | idempotency_key_reuse | 422 | Same Idempotency-Key with a different request body |
 
-Problem responses are RFC 9457 with `type` `https://passage.dev/problems/<code>`.
+Problem responses are RFC 9457 with `type` `https://depot.dev/problems/<code>`.
 
 ## Dependencies
 

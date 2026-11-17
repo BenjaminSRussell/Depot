@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/routefeed"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/routefeed"
 )
 
 // A change of a technician's route (assignment, publication, checklist, manual status move) raises a NOTIFY in its own

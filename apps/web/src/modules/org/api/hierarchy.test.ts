@@ -60,7 +60,7 @@ describe("hierarchy client", () => {
     await compareHierarchyVersions("t1", 1, 2);
     for (const call of fetchMock.mock.calls) {
       const names = [...new Headers(call[1]?.headers).keys()];
-      expect(names.filter((name) => name.startsWith("x-passage-legalentity"))).toEqual([]);
+      expect(names.filter((name) => name.startsWith("x-depot-legalentity"))).toEqual([]);
     }
   });
 

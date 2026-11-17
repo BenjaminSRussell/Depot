@@ -6,7 +6,7 @@ import { tokenFor } from "./jwt.js";
 import { FakeMcp, headers, MemoryStore, OTHER, serve, T1, tool, USER } from "./surface-fakes.js";
 
 const AP_DUTIES = "agents.invoke,ap.invoice.read,ap.vendor.read,ledger.account.read,tax.code.read,ap.invoice.propose";
-const PROPOSE = "passage.ap.invoice.propose_coding";
+const PROPOSE = "depot.ap.invoice.propose_coding";
 
 const setup = async (opts: { killed?: boolean; evalPassed?: boolean; mcp?: FakeMcp; provider?: ScriptedProvider } = {}) => {
   const store = new MemoryStore();
@@ -84,7 +84,7 @@ describe("POST /api/v1/agents/{agent_id}/runs", () => {
     expect(actions.items).toEqual([expect.objectContaining({ toolName: PROPOSE, decision: "APPROVED", approverUserId: OTHER, committedEntityRef: "coding-1" })]);
     // The system reads the invoice before the approval request (the risk facts: amount, vendor, creator), then commits the proposal.
     expect(s.mcp.calls).toEqual([
-      { name: "passage.ap.invoice.get", args: { id: "INV-7" } },
+      { name: "depot.ap.invoice.get", args: { id: "INV-7" } },
       { name: PROPOSE, args: { invoiceId: "INV-7" } },
     ]);
   });

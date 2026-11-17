@@ -25,8 +25,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/gateway"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/gateway"
 )
 
 const (
@@ -222,7 +222,7 @@ func (g *Gateway) CheckAmount(amount decimal.Decimal, currency string) error {
 func (g *Gateway) CancelIntent(ctx context.Context, account, intentID, attemptID string) error {
 	var out intentJSON
 	form := url.Values{"cancellation_reason": {"abandoned"}}
-	err := g.call(ctx, http.MethodPost, "/v1/payment_intents/"+url.PathEscape(intentID)+"/cancel", form, account, "passage-pi-cancel-"+attemptID, &out)
+	err := g.call(ctx, http.MethodPost, "/v1/payment_intents/"+url.PathEscape(intentID)+"/cancel", form, account, "depot-pi-cancel-"+attemptID, &out)
 	if err == nil {
 		return nil
 	}
@@ -241,7 +241,7 @@ func (g *Gateway) CancelIntent(ctx context.Context, account, intentID, attemptID
 }
 
 // IdempotencyKey is the Stripe Idempotency-Key of a payment attempt's create.
-func IdempotencyKey(attemptID string) string { return "passage-pi-" + attemptID }
+func IdempotencyKey(attemptID string) string { return "depot-pi-" + attemptID }
 
 type intentJSON struct {
 	ID           string `json:"id"`
@@ -499,7 +499,7 @@ func ParseEvent(payload []byte) (gateway.Event, error) {
 			return gateway.Event{}, gateway.ErrMalformed
 		}
 		if c.PaymentIntent == "" {
-			// A charge made without a PaymentIntent is never Passage's: acknowledged and ignored.
+			// A charge made without a PaymentIntent is never Depot's: acknowledged and ignored.
 			return ev, nil
 		}
 		cur := strings.ToUpper(c.Currency)

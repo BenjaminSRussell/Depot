@@ -29,7 +29,7 @@ export interface UpstreamResponse {
   body: unknown;
 }
 
-/** Calls the Passage API. The real implementation is createFetchUpstream. */
+/** Calls the Depot API. The real implementation is createFetchUpstream. */
 export interface Upstream {
   send(req: UpstreamRequest): Promise<UpstreamResponse>;
 }

@@ -9,24 +9,24 @@ region:
   id: eastus2
   role: PRIMARY
   provider: aks
-  namespace: passage-data
+  namespace: depot-data
 
 postgres:
   primary:
-    host: passage-pg-rw.centralus.passage.internal
+    host: depot-pg-rw.centralus.depot.internal
 
 backup:
   store: azure-blob
   azure:
-    storageAccount: passagepgbkpeastus2
+    storageAccount: depotpgbkpeastus2
     storageAccountRegion: eastus2
     container: pg-backups
 
 kafka:
   localAlias: eastus2
-  localBootstrap: passage-kafka-bootstrap.kafka.svc:9093
+  localBootstrap: depot-kafka-bootstrap.kafka.svc:9093
   remoteAlias: centralus
-  remoteBootstrap: passage-kafka-bootstrap.kafka.passage-centralus.internal:9093
+  remoteBootstrap: depot-kafka-bootstrap.kafka.depot-centralus.internal:9093
 
 mm2:
   sourceAlias: eastus2

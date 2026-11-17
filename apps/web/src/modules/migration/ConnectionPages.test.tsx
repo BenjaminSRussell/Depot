@@ -53,7 +53,7 @@ const base: ConnectionProfile = {
   name: "Acme ERP",
   kind: "sql",
   sourceSystem: "custom_acme",
-  config: { driver: "postgres", host: "erp.acme.example", port: 5432, database: "erp", user: "passage" },
+  config: { driver: "postgres", host: "erp.acme.example", port: 5432, database: "erp", user: "depot" },
   secretSet: false,
   status: "active",
   version: 1,
@@ -127,14 +127,14 @@ describe("new connection", () => {
     fireEvent.change(screen.getByLabelText("Host"), { target: { value: "erp.acme.example" } });
     fireEvent.change(screen.getByLabelText("Port"), { target: { value: "70000" } });
     fireEvent.change(screen.getByLabelText("Database"), { target: { value: "erp" } });
-    fireEvent.change(screen.getByLabelText("User"), { target: { value: "passage" } });
+    fireEvent.change(screen.getByLabelText("User"), { target: { value: "depot" } });
     fireEvent.click(screen.getByRole("button", { name: "Create connection" }));
     expect(await screen.findByText("Enter a whole number from 1 to 65535.")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Port"), { target: { value: "5432" } });
     fireEvent.click(screen.getByRole("button", { name: "Create connection" }));
     expect(await screen.findByRole("heading", { name: "Acme ERP" })).toBeInTheDocument();
     const post = calls.find((c) => c.method === "POST");
-    expect(post?.body).toEqual({ name: "Acme ERP", kind: "sql", sourceSystem: "custom_acme", config: { driver: "postgres", host: "erp.acme.example", port: 5432, database: "erp", user: "passage" } });
+    expect(post?.body).toEqual({ name: "Acme ERP", kind: "sql", sourceSystem: "custom_acme", config: { driver: "postgres", host: "erp.acme.example", port: 5432, database: "erp", user: "depot" } });
     expect(new Headers(post?.init.headers).get("Idempotency-Key")).toBeTruthy();
   });
 
@@ -265,7 +265,7 @@ describe("connection detail", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
     expect(await screen.findByText("erp2.acme.example")).toBeInTheDocument();
     const patch = calls.find((c) => c.method === "PATCH");
-    expect(patch?.body).toEqual({ version: 1, name: "Acme ERP", config: { driver: "postgres", host: "erp2.acme.example", port: 5432, database: "erp", user: "passage" } });
+    expect(patch?.body).toEqual({ version: 1, name: "Acme ERP", config: { driver: "postgres", host: "erp2.acme.example", port: 5432, database: "erp", user: "depot" } });
   });
 
   it("warns before and after a repoint that the server cleared the secret", async () => {

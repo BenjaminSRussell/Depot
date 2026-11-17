@@ -9,7 +9,7 @@ describe("session rules on /api/v1", () => {
   it("needs a session", async () => {
     rig = await startRig();
     expect((await api(rig, undefined, "GET", "/api/v1/invoices")).status).toBe(401);
-    expect((await api(rig, { cookie: "__Host-passage_customer=forged", csrf: "x" }, "GET", "/api/v1/invoices")).status).toBe(401);
+    expect((await api(rig, { cookie: "__Host-depot_customer=forged", csrf: "x" }, "GET", "/api/v1/invoices")).status).toBe(401);
     expect(rig.calls).toHaveLength(0);
   });
 
@@ -48,15 +48,15 @@ describe("customer scoping", () => {
     const s = await signIn(rig);
     const evil = `customer=${CUSTOMER_B}&customerId=${CUSTOMER_B}&customer_id=${CUSTOMER_B}&legalEntityId=${LE_2}&tenantId=x`;
     const res = await api(rig, s, "GET", `/api/v1/invoices?limit=5&status=POSTED&${evil}`, undefined, {
-      "x-passage-tenant": "evil", "x-passage-customer": CUSTOMER_B, "x-customer-id": CUSTOMER_B, "x-passage-duties": "billing.invoice.view",
+      "x-depot-tenant": "evil", "x-depot-customer": CUSTOMER_B, "x-customer-id": CUSTOMER_B, "x-depot-duties": "billing.invoice.view",
     });
     expect(res.status).toBe(200);
     const call = rig.calls[0]!;
     const url = new URL(call.url);
     expect(url.origin + url.pathname).toBe("http://billing.test/v1/billing/customer-portal/invoices");
     expect([...url.searchParams.keys()].sort()).toEqual(["limit", "status"]);
-    for (const h of ["x-passage-tenant", "x-passage-customer", "x-customer-id", "x-passage-duties", "cookie"]) expect(call.headers.get(h), h).toBeNull();
-    expect(tokenClaims(call.headers.get("x-passage-service-token") as string)).toMatchObject({
+    for (const h of ["x-depot-tenant", "x-depot-customer", "x-customer-id", "x-depot-duties", "cookie"]) expect(call.headers.get(h), h).toBeNull();
+    expect(tokenClaims(call.headers.get("x-depot-service-token") as string)).toMatchObject({
       iss: "customer-portal", aud: "billing", tid: TENANT, le: LE_1, act: "user-1", cus: CUSTOMER_A, duties: ["billing.customer-portal.read"],
     });
   });
@@ -72,7 +72,7 @@ describe("customer scoping", () => {
       const url = new URL(call.url);
       for (const forbidden of ["customer", "customerId", "customer_id", "legalEntityId", "tenantId"]) expect(url.searchParams.has(forbidden), `${path} ${forbidden}`).toBe(false);
       expect(JSON.stringify([...call.headers])).not.toContain(CUSTOMER_B);
-      expect(tokenClaims(call.headers.get("x-passage-service-token") as string)).toMatchObject({ cus: CUSTOMER_A, le: LE_1 });
+      expect(tokenClaims(call.headers.get("x-depot-service-token") as string)).toMatchObject({ cus: CUSTOMER_A, le: LE_1 });
     }
   });
 
@@ -85,7 +85,7 @@ describe("customer scoping", () => {
     await api(rig, a, "GET", "/api/v1/open-items");
     await api(rig, b, "GET", "/api/v1/open-items");
     await api(rig, a, "GET", `/api/v1/orders/${ID_1}`);
-    const cus = rig.calls.map((c) => (tokenClaims(c.headers.get("x-passage-service-token") as string) as { cus: string }).cus);
+    const cus = rig.calls.map((c) => (tokenClaims(c.headers.get("x-depot-service-token") as string) as { cus: string }).cus);
     expect(cus).toEqual([CUSTOMER_A, CUSTOMER_B, CUSTOMER_A]);
   });
 
@@ -123,7 +123,7 @@ describe("customer scoping", () => {
     expect((await api(rig, s, "GET", "/api/v1/orders", undefined, { "x-legal-entity": "nope" })).status).toBe(400);
     expect(rig.calls).toHaveLength(0);
     expect((await api(rig, s, "GET", "/api/v1/orders", undefined, { "x-legal-entity": LE_2.toUpperCase() })).status).toBe(200);
-    expect(tokenClaims(rig.calls[0]!.headers.get("x-passage-service-token") as string)["le"]).toBe(LE_2);
+    expect(tokenClaims(rig.calls[0]!.headers.get("x-depot-service-token") as string)["le"]).toBe(LE_2);
   });
 });
 

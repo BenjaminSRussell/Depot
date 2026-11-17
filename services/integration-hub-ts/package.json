@@ -1,5 +1,5 @@
 {
-  "name": "@passage/integration-hub",
+  "name": "@depot/integration-hub",
   "version": "0.2.0",
   "private": true,
   "type": "module",

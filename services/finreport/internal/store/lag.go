@@ -7,10 +7,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/events"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/events"
 )
 
 // LagRow reports how far the read model has advanced for one ledger (FR-15.1).
@@ -120,9 +120,9 @@ type LagCheck struct {
 // lagCheckLock serialises CheckLag per tenant (transaction-scoped advisory
 // lock), so two overlapping checks cannot both open or alert the same episode
 // nor deadlock over each other's episode rows.
-const lagCheckLock = `select pg_advisory_xact_lock(hashtextextended('finreport.lag-check:' || current_setting('passage.tenant_id', true), 0))`
+const lagCheckLock = `select pg_advisory_xact_lock(hashtextextended('finreport.lag-check:' || current_setting('depot.tenant_id', true), 0))`
 
-// CheckLag raises dev.passage.reporting.lag.exceeded.v1 once per episode for
+// CheckLag raises dev.depot.reporting.lag.exceeded.v1 once per episode for
 // each ledger whose lag stayed above maxLag for sustain seconds (PRD §2.15.5:
 // "lag > threshold for 60 s"). The first sighting opens an episode row; the
 // event goes to the outbox in the same transaction as the row's alerted_at; a
