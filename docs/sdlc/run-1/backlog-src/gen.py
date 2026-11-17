@@ -86,12 +86,18 @@ def expand(p):
     return [x for alt in m.group(1).split(',') for x in expand(p[:m.start()] + alt + p[m.end():])]
 def pat_of(f): return f.split(' (')[0].strip()
 def is_new(f): return '(new' in f
+_RX = {}
 def glob_match(path, pat):
-    if '**' in pat:
-        pre, post = pat.split('**', 1)
-        if not fnmatch.fnmatch(path[:len(pre)], pre) if '*' in pre or '?' in pre else not path.startswith(pre): return False
-        return post in ('', '/') or fnmatch.fnmatch(path, pat.replace('**', '*'))
-    return fnmatch.fnmatch(path, pat)
+    rx = _RX.get(pat)
+    if rx is None:
+        out = ''; i = 0
+        while i < len(pat):
+            if pat.startswith('**', i): out += '.*'; i += 2
+            elif pat[i] == '*': out += '[^/]*'; i += 1
+            elif pat[i] == '?': out += '[^/]'; i += 1
+            else: out += re.escape(pat[i]); i += 1
+        rx = _RX[pat] = re.compile(out + '$')
+    return bool(rx.match(path))
 TRACKED_DIRS = set()
 for t in TRACKED:
     parts = t.split('/')
@@ -101,11 +107,12 @@ def resolves(f):
     for p in pats:
         if any(glob_match(t, p) for t in TRACKED): continue
         if new:
-            parent = p.rstrip('/').rsplit('/', 1)[0]
-            parent = re.split(r'[*?]', parent)[0].rstrip('/')
-            while parent and parent not in TRACKED_DIRS and '/' in parent and ('dir' in f or '**' in p):
-                parent = parent.rsplit('/', 1)[0]
-            if parent in TRACKED_DIRS or parent == '': continue
+            parent = re.split(r'[*?]', p)[0].rstrip('/')
+            parent = parent.rsplit('/', 1)[0] if '/' in parent else ''
+            hops = 2 if ('dir' in f or 'from B-' in f) else 0
+            while parent and parent not in TRACKED_DIRS and hops > 0:
+                parent = parent.rsplit('/', 1)[0] if '/' in parent else ''; hops -= 1
+            if parent == '' or parent in TRACKED_DIRS: continue
         return False
     return True
 def files_of(b):
