@@ -441,28 +441,10 @@ func dueCompare(a, b time.Time) int {
 	return 0
 }
 
-// MaxOrderNumber is the longest order number an operation accepts: the most a
-// formatted number sequence value can hold (FR-5.8).
-const MaxOrderNumber = 40
-
-// orderNumberCompare orders order numbers ascending with "no number" last.
-// Order numbers come from a number sequence whose number segment has a fixed
-// width (FR-5.8), so a plain string comparison follows the numbering.
-func orderNumberCompare(a, b string) int {
-	switch {
-	case a == b:
-		return 0
-	case a == "":
-		return 1
-	case b == "":
-		return -1
-	}
-	return strings.Compare(a, b)
-}
-
 // orderPlan sorts operations by order (delivery date, priority, order number,
 // FR-23.5) and then operation number, so each order's operations are
-// contiguous and ascending. The order id (a uuid) only breaks what is left
+// contiguous and ascending. Order numbers compare naturally (digit runs by
+// value, CompareOrderNumbers). The order id (a uuid) only breaks what is left
 // tied, such as two orders without a number, so the plan stays deterministic.
 func orderPlan(ops []Operation) []Operation {
 	type key struct {

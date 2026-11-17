@@ -124,8 +124,11 @@ func CleanoutDue(r CleanoutRule, batchesSince, minutesSince int, campaignEnd boo
 // SetupOrder is an order waiting for a resource or campaign slot. Minutes is
 // its run time; RouteSetupMinutes is the route's static setup, used as the
 // changeover when the matrix has no entry for the pair (FR-23.15).
+// OrderNumber is the order's business number, the tie-break after the due
+// date in nearest-neighbour sequencing (BR-23.12); empty when none is known.
 type SetupOrder struct {
 	OrderID           string
+	OrderNumber       string
 	SetupGroup        string
 	Due               time.Time
 	Minutes           int
@@ -184,7 +187,8 @@ func (s *Sequence) add(prevGroup, prevOrder string, o SetupOrder, e SetupEntry, 
 // from the resource's current setup group, it repeatedly picks the unscheduled
 // order with the smallest changeover from the previous group; a pair without
 // a matrix entry costs the order's route setup time. Ties go to the earliest
-// due date (no due date last), then to the order id.
+// due date (no due date last), then to the order number (natural order, no
+// number last), then to the order id so the sequence stays deterministic.
 func SequenceNearest(m SetupMatrix, current string, orders []SetupOrder) Sequence {
 	rest := slices.Clone(orders)
 	out := Sequence{Orders: make([]SetupOrder, 0, len(orders)), Changeovers: []Changeover{}, Missing: []string{}}
@@ -226,6 +230,9 @@ func nearer(a SetupOrder, ea SetupEntry, b SetupOrder, eb SetupEntry) bool {
 		return ea.Minutes < eb.Minutes
 	}
 	if c := dueCompare(a.Due, b.Due); c != 0 {
+		return c < 0
+	}
+	if c := orderNumberCompare(a.OrderNumber, b.OrderNumber); c != 0 {
 		return c < 0
 	}
 	return a.OrderID < b.OrderID

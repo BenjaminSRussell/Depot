@@ -67,7 +67,7 @@ type ProposedCampaign struct {
 // operation number on a tie), so it never lands in two proposals. A group
 // needs at least two orders to be worth a campaign, and a group longer than
 // MaxProposalOrders is split into consecutive proposals. Proposals come back
-// by planned start, then key, then resource, so the same input always gives
+// by planned start, then key, then resource, then first order id, so the same input always gives
 // the same answer.
 func ProposeCampaigns(cands []ProposalCandidate, from time.Time, windowDays int) []ProposedCampaign {
 	if windowDays < 1 || windowDays > MaxProposalWindowDays {
@@ -95,6 +95,9 @@ func ProposeCampaigns(cands []ProposalCandidate, from time.Time, windowDays int)
 	}
 	out := []ProposedCampaign{}
 	for k, members := range groups {
+		// FR-23.14 names no key for orders starting at the same time; the
+		// order id is an arbitrary but stable tie-break, so the same input
+		// always gives the same proposals.
 		slices.SortFunc(members, func(a, b ProposalCandidate) int {
 			if c := a.Start.Compare(b.Start); c != 0 {
 				return c
@@ -123,7 +126,12 @@ func ProposeCampaigns(cands []ProposalCandidate, from time.Time, windowDays int)
 		if c := strings.Compare(a.CampaignKey, b.CampaignKey); c != 0 {
 			return c
 		}
-		return strings.Compare(a.ResourceID, b.ResourceID)
+		if c := strings.Compare(a.ResourceID, b.ResourceID); c != 0 {
+			return c
+		}
+		// Two chunks of one group can share a planned start; their first
+		// orders differ, which keeps the answer the same run to run.
+		return strings.Compare(a.Orders[0].OrderID, b.Orders[0].OrderID)
 	})
 	return out
 }

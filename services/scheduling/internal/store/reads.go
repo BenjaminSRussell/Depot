@@ -195,6 +195,23 @@ func (s *Postgres) CreateOperation(ctx context.Context, in Operation, idem Idem)
 				return err
 			}
 		}
+		// One order has one number (FR-23.5): a new operation takes the number
+		// the order's operations already carry, and a different one is refused.
+		// The order lock is the import's, so a concurrent import or create of
+		// the same order waits.
+		if err := lockOrderImport(ctx, tx, in.OrderID); err != nil {
+			return err
+		}
+		have, err := orderNumberOf(ctx, tx, in.OrderID, "")
+		if err != nil {
+			return err
+		}
+		switch {
+		case in.OrderNumber == nil && have != "":
+			in.OrderNumber = &have
+		case in.OrderNumber != nil && have != "" && *in.OrderNumber != have:
+			return orderNumberMismatch(have)
+		}
 		var known int
 		if err := tx.QueryRow(ctx, `select count(*) from scheduling_resource where id = any($1::uuid[])`, in.ResourceIDs).Scan(&known); err != nil {
 			return err
@@ -380,14 +397,13 @@ func loadResources(ctx context.Context, tx pgx.Tx) ([]domain.Resource, map[strin
 // qualified with o.), ordered by order and operation number, with the code of
 // the network each names. lock takes row locks on the operations so
 // concurrent runs and moves over the same operations serialize. The order
-// number (FR-23.5) is the operation's own, or else the imported order's for
-// operations written before operations carried one.
+// number (FR-23.5) is the column GET /operations shows (migration 0026
+// backfilled it from the order imports), so reads and runs agree.
 func loadOperations(ctx context.Context, tx pgx.Tx, where string, lock bool, args ...any) ([]domain.Operation, error) {
-	q := `select o.id::text, o.order_id::text, coalesce(o.order_number, i.order_number, ''), o.oper_number, o.minutes, o.due_at, o.ready_at, o.priority, o.candidate_resource_ids::text[], o.secondary_resource_ids::text[],
+	q := `select o.id::text, o.order_id::text, coalesce(o.order_number, ''), o.oper_number, o.minutes, o.due_at, o.ready_at, o.priority, o.candidate_resource_ids::text[], o.secondary_resource_ids::text[],
 			coalesce(o.setup_group, ''), o.setup_minutes, o.queue_before_minutes, o.queue_after_minutes, o.quantity::text, o.overlap_quantity::text, o.attributes, coalesce(n.code, '')
 		from scheduling_operation o
 		left join scheduling_resource_network n on n.tenant_id = o.tenant_id and n.id = o.network_id
-		left join scheduling_order_import i on i.tenant_id = o.tenant_id and i.order_id = o.order_id
 		where ` + where + ` order by o.order_id, o.oper_number`
 	if lock {
 		q += ` for update of o`

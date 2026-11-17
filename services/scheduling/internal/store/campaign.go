@@ -44,6 +44,10 @@ type CampaignOrder struct {
 	DueAt             *time.Time      `json:"dueAt,omitempty"`
 	Position          int             `json:"position"`
 	Sequence          *int            `json:"sequence"`
+	// OrderNumber is read from the order's operations (or its production
+	// import) when the campaign is loaded; nearest-neighbour sequencing breaks
+	// ties on it (BR-23.12). Not part of the campaign's API shape.
+	OrderNumber string `json:"-"`
 }
 
 // Message is a coded warning on a plan, such as SCHED-0012.
@@ -203,8 +207,12 @@ func loadCampaign(ctx context.Context, tx pgx.Tx, id string, lock bool) (Campaig
 	if err != nil {
 		return Campaign{}, err
 	}
-	rows, err := tx.Query(ctx, `select order_id::text, setup_group, quantity::text, run_minutes, route_setup_minutes, due_at, position, sequence
-		from scheduling_campaign_order where campaign_id = $1 order by coalesce(sequence, position), position`, id)
+	// The order number (BR-23.12 tie-break) is the one the order's operations
+	// carry, else the one its production import recorded.
+	rows, err := tx.Query(ctx, `select co.order_id::text, co.setup_group, co.quantity::text, co.run_minutes, co.route_setup_minutes, co.due_at, co.position, co.sequence,
+			coalesce((select min(op.order_number) from scheduling_operation op where op.tenant_id = co.tenant_id and op.order_id = co.order_id),
+				(select i.order_number from scheduling_order_import i where i.tenant_id = co.tenant_id and i.order_id = co.order_id), '')
+		from scheduling_campaign_order co where co.campaign_id = $1 order by coalesce(co.sequence, co.position), co.position`, id)
 	if err != nil {
 		return Campaign{}, err
 	}
@@ -213,7 +221,7 @@ func loadCampaign(ctx context.Context, tx pgx.Tx, id string, lock bool) (Campaig
 	for rows.Next() {
 		var o CampaignOrder
 		var qty string
-		if err := rows.Scan(&o.OrderID, &o.SetupGroup, &qty, &o.RunMinutes, &o.RouteSetupMinutes, &o.DueAt, &o.Position, &o.Sequence); err != nil {
+		if err := rows.Scan(&o.OrderID, &o.SetupGroup, &qty, &o.RunMinutes, &o.RouteSetupMinutes, &o.DueAt, &o.Position, &o.Sequence, &o.OrderNumber); err != nil {
 			return Campaign{}, err
 		}
 		o.Quantity = dec(qty)
@@ -254,7 +262,7 @@ func domainOrders(os []CampaignOrder) []domain.CampaignOrder {
 		if o.DueAt != nil {
 			due = *o.DueAt
 		}
-		out = append(out, domain.CampaignOrder{SetupOrder: domain.SetupOrder{OrderID: o.OrderID, SetupGroup: o.SetupGroup, Due: due,
+		out = append(out, domain.CampaignOrder{SetupOrder: domain.SetupOrder{OrderID: o.OrderID, OrderNumber: o.OrderNumber, SetupGroup: o.SetupGroup, Due: due,
 			Minutes: o.RunMinutes, RouteSetupMinutes: o.RouteSetupMinutes}, Qty: o.Quantity})
 	}
 	return out

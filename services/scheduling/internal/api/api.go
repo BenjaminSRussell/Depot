@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -465,8 +466,8 @@ func (a *API) createOperation(w http.ResponseWriter, r *http.Request) {
 		fields["orderId"] = "must be a UUID"
 	}
 	if req.OrderNumber != nil {
-		if n := len(strings.TrimSpace(*req.OrderNumber)); n < 1 || n > domain.MaxOrderNumber || n != len(*req.OrderNumber) {
-			fields["orderNumber"] = fmt.Sprintf("must be 1 to %d characters without surrounding spaces, or omitted", domain.MaxOrderNumber)
+		if msg := validOrderNumber(*req.OrderNumber); msg != "" {
+			fields["orderNumber"] = msg + ", or omitted"
 		}
 	}
 	if msg := validSecondaries(req.SecondaryResourceIDs, req.ResourceIDs); msg != "" {
@@ -574,6 +575,16 @@ func (a *API) createOperation(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Idempotent-Replayed", "true")
 	}
 	httpx.JSON(w, status, op)
+}
+
+// validOrderNumber checks an order number: 1 to domain.MaxOrderNumber
+// characters (not bytes, as OpenAPI maxLength counts) without surrounding
+// spaces.
+func validOrderNumber(n string) string {
+	if c := utf8.RuneCountInString(n); c < 1 || c > domain.MaxOrderNumber || strings.TrimSpace(n) != n {
+		return fmt.Sprintf("must be 1 to %d characters without surrounding spaces", domain.MaxOrderNumber)
+	}
+	return ""
 }
 
 // validSecondaries checks the secondary resources of an operation: at most
