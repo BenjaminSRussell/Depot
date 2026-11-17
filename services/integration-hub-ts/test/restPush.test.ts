@@ -617,6 +617,11 @@ describe.skipIf(ownerUrl === undefined)("rest-push on Postgres", () => {
     expect((await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:test`, { tenant }, { event: unscoped }, le)).body).toMatchObject({ stage: "built" });
     expect((await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:test`, { tenant, duties: ["hub.delivery.read"] }, { event: sample }, le)).status).toBe(403);
     expect((await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:test`, { tenant: randomUUID() }, { event: sample }, le)).status).toBe(404);
+    // The shell's selection only narrows the claim (B-03a): without a claim it is refused, inside a claim list it scopes the render.
+    const selected = { "x-depot-legalentity": "22222222-3333-4444-8555-666666666666" };
+    expect((await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:test`, { tenant }, { event: sample }, selected)).body).toMatchObject({ code: "HUB-0403" });
+    const listed = await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:test`, { tenant }, { event: sample }, { ...selected, "x-depot-legal-entity": `${randomUUID()},22222222-3333-4444-8555-666666666666` });
+    expect(listed.status, JSON.stringify(listed.body)).toBe(200);
   });
 
   test("tenant isolation: another tenant cannot replay this tenant's dead letter", async () => {

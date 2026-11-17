@@ -123,10 +123,42 @@ export function principalFromHeaders(h: IncomingHttpHeaders): Principal {
   return { userId, tenantId, duties };
 }
 
-/** The one legal entity the edge scoped the caller to (X-Depot-Legal-Entity), or undefined. */
-export function legalEntityFromHeaders(h: IncomingHttpHeaders): string | undefined {
-  const raw = (header(h, "x-depot-legal-entity") ?? header(h, "x-depot-legalentity"))?.trim().toLowerCase();
-  return raw !== undefined && UUID.test(raw) && raw !== NIL_UUID ? raw : undefined;
+const MAX_LEGAL_ENTITIES = 100;
+const TENANT_ADMIN_DUTY = "tenant.administer";
+
+/** A comma list of non-nil UUIDs, canonical and deduplicated; an empty or absent header is []. Malformed is 400. */
+function legalEntityList(raw: string | undefined): string[] {
+  if (raw === undefined || raw.trim() === "") {
+    return [];
+  }
+  const parts = raw.split(",").map((p) => p.trim().toLowerCase());
+  if (parts.length > MAX_LEGAL_ENTITIES || parts.some((p) => !UUID.test(p) || p === NIL_UUID)) {
+    throw new ApiError(400, "HUB-0400", "invalid legal entity");
+  }
+  return [...new Set(parts)];
+}
+
+/**
+ * The one legal entity the caller works in, or undefined when there is none (or more than one). The kernel tenant
+ * middleware's rule (platform/go/tenant requestLegalEntity; ADR-0006 rule 4, D33, B-03a): the gateway-asserted claim
+ * X-Depot-Legal-Entity (the token's `le`, one entity or a comma list) is the scope, and the shell's selection
+ * X-Depot-LegalEntity can only narrow it. A selection outside the claim is 403. A selection without a claim is 403
+ * unless the caller holds tenant.administer (which never carries a claim and is entitled to every entity of the tenant).
+ */
+export function legalEntityFromHeaders(h: IncomingHttpHeaders, duties: ReadonlySet<string>): string | undefined {
+  const claim = legalEntityList(header(h, "x-depot-legal-entity"));
+  const selection = legalEntityList(header(h, "x-depot-legalentity"));
+  let scope = claim;
+  if (selection.length > 0) {
+    if (claim.length === 0 && !duties.has(TENANT_ADMIN_DUTY)) {
+      throw new ApiError(403, "HUB-0403", "legal entity selection without a legal-entity claim");
+    }
+    if (claim.length > 0 && selection.some((s) => !claim.includes(s))) {
+      throw new ApiError(403, "HUB-0403", "legal entity selection is outside the token's scope");
+    }
+    scope = selection;
+  }
+  return scope.length === 1 ? scope[0] : undefined;
 }
 
 export function requireDuty(principal: Principal, duty: string): void {
@@ -859,7 +891,7 @@ export function createHubHandler(deps: HubApiDeps): (req: IncomingMessage, res: 
         // The render runs for the caller: their tenant, the legal entity the edge scoped them to, and their user id
         // as the token's actor. A sample naming another legal entity is refused rather than rendered under the hub's grant.
         const sample = body["event"] as Record<string, unknown>;
-        const scoped = legalEntityFromHeaders(req.headers);
+        const scoped = legalEntityFromHeaders(req.headers, p.duties);
         if (sample["legalentityid"] !== undefined && (typeof sample["legalentityid"] !== "string" || sample["legalentityid"].toLowerCase() !== scoped)) {
           throw new ApiError(403, "HUB-0403", "the sample event's legalentityid must be the legal entity you are working in");
         }
