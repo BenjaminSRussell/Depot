@@ -35,13 +35,15 @@ restPush:
   signingKeySecret: ""
   keyId: ""
 kafka:
-  # Empty brokers or topics: the consumer is not started (API and poller only).
+  # Empty brokers or topics: the consumer is not started (API and poller only). The SCRAM-SHA-512 TLS listener, for
+  # example depot-kafka-bootstrap.kafka.svc:9093.
   brokers: ""
   group: integration-hub
-  # CloudEvents topics to consume, comma separated (depot.<context>.<entity>).
+  # CloudEvents topics to consume, comma separated (depot.<context>.<entity>). deploy/kafka/integration-hub-consumer.yaml
+  # grants Read on exactly these topics; a topic added here needs an ACL there (deploy/scripts/test_kafka_consumers.py).
   topics: "depot.sales.order,depot.billing.invoice"
-  dlqTopic: integration-hub.dlq
-  username: integration-hub
+  dlqTopic: depot.hub.consumer.dlq
+  username: integration-hub-consumer
   # Secret with the keys password and ca.crt (the KafkaUser secret).
   secret: ""
 resources:

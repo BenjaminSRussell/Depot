@@ -1,0 +1,40 @@
+# The purchasing inbound consumer (`purchasing consume`, group purchasing-inbound) changes purchase orders on
+# fulfillment's dropship.closed and dropship.cancelled and planning's message.applied, and parks what it cannot apply on
+# depot.procurement.inbound.dlq (one dead-letter topic for both sources; the x-origin-* headers name the source). The
+# chart's consumer.kafka.username names this user. Literal ACLs: the user reads only the two source topics
+# (outbox-fulfillment and outbox-planning in connect.yaml write them) and writes only its dead-letter topic (B-05b, D34).
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: purchasing-consumer
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot
+spec:
+  authentication:
+    type: scram-sha-512
+  authorization:
+    type: simple
+    acls:
+      - resource: {type: topic, name: depot.fulfillment.dropship, patternType: literal}
+        operations: [Read, Describe]
+      - resource: {type: topic, name: depot.planning.plan, patternType: literal}
+        operations: [Read, Describe]
+      - resource: {type: topic, name: depot.procurement.inbound.dlq, patternType: literal}
+        operations: [Write, Describe]
+      - resource: {type: group, name: purchasing-inbound, patternType: literal}
+        operations: [Read, Describe]
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: depot-procurement-inbound-dlq
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot
+spec:
+  topicName: depot.procurement.inbound.dlq
+  partitions: 3
+  replicas: 3
+  config:
+    retention.ms: 2592000000

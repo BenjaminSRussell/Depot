@@ -30,12 +30,14 @@ config:
 # depot.pricing.campaign and depot.pricing.parameters, under a Kafka group of its own.
 # Off by default: without it a replica's caches follow other replicas' changes within the
 # snapshot lifetime. Needs the service principal pricing-cache with the flag duty
-# pricing.cache.invalidate (see NOT-IMPLEMENTED.md).
+# pricing.cache.invalidate (see NOT-IMPLEMENTED.md). Kafka user and ACLs: deploy/kafka/pricing-consumer.yaml (Read on
+# the two topics and on the group prefix pricing-cache-, Write on depot.pricing.cache.dlq).
 cacheConsumer:
   enabled: false
+  # The SCRAM-SHA-512 TLS listener, for example depot-kafka-bootstrap.kafka.svc:9093.
   brokers: ""
-  username: pricing-cache
-  # Secret holding the SCRAM password under the key "password".
+  username: pricing-consumer
+  # Secret with the KafkaUser's password and the cluster CA (keys password and ca.crt), mounted as files.
   secret: ""
 
 autoscaling:
@@ -57,6 +59,8 @@ serviceMonitor:
 
 podSecurityContext:
   runAsNonRoot: true
+  # Group of the mounted Kafka credentials (mode 0440) when the cache consumer is on.
+  fsGroup: 65532
   seccompProfile:
     type: RuntimeDefault
 

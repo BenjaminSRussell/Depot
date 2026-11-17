@@ -1,0 +1,4 @@
+# workflow in stage: tenderWorkflow's activities call transport, which stage releases under the same name and namespace as
+# dev. The tender and budget plan trigger (kafka.*) stays off: stage has no Kafka cluster or KafkaUser credentials yet
+# (#213); dev turns it on in deploy/envs/dev/values/workflow.yaml (D34, B-05b).
+transportUrl: http://transport.hello-ledger.svc:8080
