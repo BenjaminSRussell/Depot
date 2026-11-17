@@ -170,6 +170,8 @@ export function createMessageHandler(options: HandlerOptions): (message: KafkaMe
 
 export interface RunningConsumer {
   stop(): Promise<void>;
+  /** Resolves with the error when kafkajs's consumer crashes and will not restart itself (CRASH with restart=false). */
+  failed: Promise<unknown>;
 }
 
 /** Connects to Kafka and feeds every message of the configured topics to the handler. */
@@ -207,6 +209,15 @@ export async function startConsumer(
       });
     },
   });
+  // A failure after run() resolved (GROUP_AUTHORIZATION_FAILED at group join, say) surfaces only as this event. With
+  // restart=false kafkajs has given up, so it goes back to startInBackground's retry loop.
+  let crashed: (err: unknown) => void = () => undefined;
+  const failed = new Promise<unknown>((resolve) => (crashed = resolve));
+  consumer.on(consumer.events.CRASH, ({ payload }) => {
+    if (!payload.restart) {
+      crashed(payload.error);
+    }
+  });
   try {
     await producer.connect();
     await consumer.connect();
@@ -224,6 +235,7 @@ export async function startConsumer(
     throw err;
   }
   return {
+    failed,
     async stop() {
       await consumer.disconnect();
       await producer.disconnect();

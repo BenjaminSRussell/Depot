@@ -561,8 +561,9 @@ def go_consumers(bases=CODE_BASES):
     """(consumers, dead-letter configs, problems) of every Go package that builds a consumer.
 
     The service is the first directory under a base (services/<service>/...). Fails closed: a group or topic list the
-    evaluator cannot work out, a `cfg.Group`/`cfg.Topics` assignment it cannot tie to a ConfigFromEnv call in the same
-    function, and a kafka.Config literal (a consumer that skips ConfigFromEnv) are problems.
+    evaluator cannot work out, a `.Group`/`.Topics` assignment anywhere in the package (any file, any receiver chain such
+    as `h.cfg.Group`) that it cannot tie to a ConfigFromEnv call in the same function, and a kafka.Config literal (a
+    consumer that skips ConfigFromEnv) are problems.
     """
     consumers, dlqs, problems = [], [], []
     dirs = set()
@@ -573,6 +574,7 @@ def go_consumers(bases=CODE_BASES):
     for base, d in sorted(dirs):
         pkg = GoPackage.at(d)
         service = d.relative_to(base).parts[0]
+        tied = set()  # (file, offset of the `.`) of each `.Group =` / `.Topics =` a ConfigFromEnv call explains
         for file, text in pkg.files.items():
             imports = {path: alias for alias, path in pkg.imports(file).items()}
             where = lambda pos, file=file, text=text: f"{rel(file)}:{text.count(chr(10), 0, pos) + 1}"  # noqa: E731
@@ -580,7 +582,6 @@ def go_consumers(bases=CODE_BASES):
                 alias = imports[EVENTING_KAFKA]
                 for m in re.finditer(rf"(?<![\w.]){alias}\.Config\{{", text):
                     problems.append(f"{where(m.start())}: a {alias}.Config literal; build consumer configs with ConfigFromEnv")
-                tied = set()
                 for m in re.finditer(rf"(?<![\w.]){alias}\.ConfigFromEnv\(", text):
                     args = call_args(text, m.start())
                     func = pkg.enclosing(file, m.start())
@@ -591,7 +592,7 @@ def go_consumers(bases=CODE_BASES):
                         body = text[func.body_start:func.body_end]
                         for o in re.finditer(rf"(?<![\w.]){var.group(1)}\.(Group|Topics)\s*=(?!=)\s*", body):
                             overrides[o.group(1)] = read_expr(body, o.end())
-                            tied.add(func.body_start + o.start())
+                            tied.add((file, func.body_start + o.start() + len(var.group(1))))
                     group_expr, topics_expr = overrides.get("Group", args[1]), overrides.get("Topics", args[3])
                     for env in bindings(pkg, func, [group_expr, topics_expr]):
                         ctx = Ctx(pkg, file, func, env)
@@ -606,10 +607,6 @@ def go_consumers(bases=CODE_BASES):
                         else:
                             c.groups, c.topics = {groups[0]}, set(topics[0])
                             consumers.append(c)
-                for o in re.finditer(r"(?<![\w.])\w+\.(Group|Topics)\s*=(?!=)", text):
-                    if o.start() not in tied:
-                        problems.append(f"{where(o.start())}: sets .{o.group(1)} where no ConfigFromEnv call of the same "
-                                        "function explains it; the check cannot see the consumer's real group or topics")
             if EVENTING in imports:
                 for m in re.finditer(rf"(?<![\w.]){imports[EVENTING]}\.Config\{{", text):
                     fields = literal_fields(text, m.start())
@@ -626,6 +623,15 @@ def go_consumers(bases=CODE_BASES):
                             problems.append(f"{where(m.start())}: cannot work out Name/DeadLetterTopic: {names} {values}")
                             continue
                         dlqs.append(Consumer(service, where(m.start()), dlqs=set(values), name=names[0]))
+        # Every file of the package, whether or not it imports eventing/kafka (Go infers cfg's type), and any receiver
+        # chain (`h.cfg.Group = ...`): an override the evaluator did not follow would leave the KafkaUser granting the
+        # wrong group or topics.
+        for file, text in pkg.files.items():
+            for o in re.finditer(r"\.(Group|Topics)\s*=(?!=)", text):
+                if (file, o.start()) not in tied:
+                    problems.append(f"{rel(file)}:{text.count(chr(10), 0, o.start()) + 1}: sets .{o.group(1)} where no "
+                                    "ConfigFromEnv call of the same function explains it; the check cannot see the "
+                                    "consumer's real group or topics")
     return consumers, dlqs, problems
 
 
@@ -1242,8 +1248,9 @@ func consumerConfig() eventing.Config { return eventing.Config{Name: group, Dead
 EXTRA
 """
 
-    def go_tree(self, override="", extra=""):
-        root = self.write_tree({"demo/cmd/demo/consumer.go": self.GO_CONSUMER.replace("OVERRIDE", override).replace("EXTRA", extra)})
+    def go_tree(self, override="", extra="", files=None):
+        root = self.write_tree({"demo/cmd/demo/consumer.go": self.GO_CONSUMER.replace("OVERRIDE", override).replace("EXTRA", extra),
+                                **{f"demo/cmd/demo/{name}": text for name, text in (files or {}).items()}})
         return go_consumers([root])
 
     def test_go_derivation_follows_group_and_topics_set_after_config_from_env(self):
@@ -1262,6 +1269,23 @@ EXTRA
         self.assertTrue(any("sets .Group where no ConfigFromEnv" in p for p in problems), problems)
         _, _, problems = self.go_tree(extra='var raw = kafka.Config{Group: "raw", Topics: []string{"depot.raw"}}')
         self.assertTrue(any("kafka.Config literal" in p for p in problems), problems)
+
+    def test_go_overrides_in_other_files_and_through_selector_chains_fail(self):
+        # The two shapes the B-05b re-review slipped past the check (R3): an override in another file of the package that
+        # does not import eventing/kafka (Go infers cfg's type), and one through a struct field.
+        main = ('package main\n\nimport "os"\n\nfunc main() {\n\tcfg, err := kafkaConfig(os.Getenv)\n'
+                '\tcfg.Group = "demo-group-v2"\n\t_, _ = cfg, err\n}\n')
+        _, _, problems = self.go_tree(files={"main.go": main})
+        self.assertTrue(any("demo/cmd/demo/main.go:7: sets .Group where no ConfigFromEnv" in p for p in problems), problems)
+        chain = ('type handler struct{ cfg kafka.Config }\n\n'
+                 'func (h *handler) regroup() {\n\th.cfg.Group = "elsewhere"\n\th.cfg.Topics = []string{"depot.other"}\n}')
+        _, _, problems = self.go_tree(extra=chain)
+        self.assertTrue(any("sets .Group where no ConfigFromEnv" in p for p in problems), problems)
+        self.assertTrue(any("sets .Topics where no ConfigFromEnv" in p for p in problems), problems)
+        # An override tied to the ConfigFromEnv call of its function is still followed, not reported.
+        consumers, _, problems = self.go_tree('cfg.Group = "demo-group-v2"', files={"main.go": "package main\n\nfunc main() {}\n"})
+        self.assertEqual([], problems)
+        self.assertEqual([{"demo-group-v2"}], [c.groups for c in consumers])
 
     TS_CONSUMER = """import { Kafka } from "kafkajs";
 export function configFromEnv(env: Record<string, string | undefined>) {

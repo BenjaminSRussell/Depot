@@ -151,6 +151,8 @@ export function createEventHandler(options: EventHandlerOptions): (message: Even
 
 export interface RunningEventConsumer {
   stop(): Promise<void>;
+  /** Resolves with the error when kafkajs's consumer crashes and will not restart itself (CRASH with restart=false). */
+  failed: Promise<unknown>;
 }
 
 /** Connects to Kafka and feeds every message of the tender and budget plan topics to the handler. */
@@ -180,6 +182,15 @@ export async function startEventConsumer(
       await producer.send({ topic: record.topic, messages: [{ key: record.key, value: record.value, headers: record.headers }] });
     },
   });
+  // A failure after run() resolved (GROUP_AUTHORIZATION_FAILED at group join, say) surfaces only as this event. With
+  // restart=false kafkajs has given up, so it goes back to startInBackground's retry loop.
+  let crashed: (err: unknown) => void = () => undefined;
+  const failed = new Promise<unknown>((resolve) => (crashed = resolve));
+  consumer.on(consumer.events.CRASH, ({ payload }) => {
+    if (!payload.restart) {
+      crashed(payload.error);
+    }
+  });
   try {
     await producer.connect();
     await consumer.connect();
@@ -197,6 +208,7 @@ export async function startEventConsumer(
     throw err;
   }
   return {
+    failed,
     async stop() {
       await consumer.disconnect();
       await producer.disconnect();
@@ -204,26 +216,44 @@ export async function startEventConsumer(
   };
 }
 
+type LogFn = (message: string, attributes: Record<string, string>) => void;
+
+export interface EventConsumerLog {
+  info?: LogFn;
+  warn?: LogFn;
+  error?: LogFn;
+}
+
+/**
+ * Consecutive failures after which "event consumer not running; retrying" is logged at error rather than warn level:
+ * about 10 minutes of backoff (5, 10, 20, 40, 80 s, then 2 min). The worker has no metrics endpoint, so this error line is
+ * what alerting keys on for a permanent misconfiguration (a wrong password, a missing CA file or ACL).
+ */
+export const ERROR_AFTER_FAILURES = 10;
+
 /**
  * Starts the consumer without holding up or failing the worker (D34): a failure to connect or subscribe, such as a source
  * topic that does not exist yet (topic auto-creation is off and Debezium creates a topic with its first event) or a broker
- * that is down, is logged and retried with backoff, 5 s doubling to 2 min, while the worker keeps serving every other
- * workflow. stop() ends the retries and stops the consumer once it runs.
+ * that is down, and a crash kafkajs does not restart from, are logged and retried with backoff, 5 s doubling to 2 min,
+ * while the worker keeps serving every other workflow. stop() ends the retries and stops the consumer once it runs.
  */
 export function startEventConsumerInBackground(
   config: EventConsumerConfig,
   client: Pick<Client, "workflow">,
   taskQueue: string,
-  warn?: (message: string, attributes: Record<string, string>) => void,
+  log: EventConsumerLog = {},
   options: BackgroundStartOptions = {},
 ): BackgroundStarted {
-  return startInBackground(() => startEventConsumer(config, client, taskQueue, warn), {
-    onError: (err, retryInMs) =>
-      warn?.("event consumer not started; retrying", {
+  const topics = config.topics.join(",");
+  return startInBackground(() => startEventConsumer(config, client, taskQueue, log.warn), {
+    onError: (err, retryInMs, failures) =>
+      (failures >= ERROR_AFTER_FAILURES ? log.error : log.warn)?.("event consumer not running; retrying", {
         error: err instanceof Error ? err.message : String(err),
+        failures: String(failures),
         retryInMs: String(retryInMs),
-        topics: config.topics.join(","),
+        topics,
       }),
+    onRunning: (running) => log.info?.(running ? "event consumer running" : "event consumer stopped", { topics }),
     ...options,
   });
 }

@@ -46,7 +46,10 @@ waits for a worker signing key, without which the workflows it starts could run 
 
 Topic auto-creation is off and an outbox relay creates a topic with its first event, so the source topics of every
 consumer that is on are declared as KafkaTopics in `connect.yaml`; the test requires it. The kafkajs consumers
-(workflow-ts, integration-hub-ts) also start in the background and retry, so a missing topic never stops their process.
+(workflow-ts, integration-hub-ts) also start in the background and retry, so a missing topic never stops their process;
+a consumer crash kafkajs does not restart from is retried too. The hub's `kafka_consumer_running` gauge (alert
+`DepotKafkaConsumerNotRunning` after 15 minutes at 0) and workflow-ts's error-level log after 10 consecutive failures
+make a permanent misconfiguration visible.
 
 The User Operator writes each user's Secret next to the KafkaUser, in `kafka`. A consumer that is on gets a copy in its
 own namespace from `deploy/envs/dev/kafka-consumer-credentials`: a `SecretStore` (External Secrets, Kubernetes provider)
