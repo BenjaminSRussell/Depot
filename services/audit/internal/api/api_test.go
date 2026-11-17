@@ -88,7 +88,7 @@ const (
 	changes = "/v1/audit/changes"
 	record  = "/v1/audit/records/party.vendor/v-1"
 	duties  = "audit.read,audit.write"
-	valid   = `{"entity":"party.vendor","recordId":"v-1","field":"name","oldValue":"Acme","newValue":"Acme Ltd","userId":"user-1","traceId":"trace-abc"}`
+	valid   = `{"entity":"party.vendor","recordId":"v-1","field":"name","oldValue":"Acme","newValue":"Acme Ltd","traceId":"trace-abc"}`
 )
 
 func TestAuditHTTP(t *testing.T) {
@@ -104,12 +104,11 @@ func TestAuditHTTP(t *testing.T) {
 		wantStatus                     int
 		wantBody                       string
 	}{
-		{"ingest ok", http.MethodPost, changes, valid, duties, &fakeStore{}, true, http.StatusAccepted, `"recorded"`},
+		// Identity headers are not proof of the caller on this route: only a verified service records a change.
+		{"ingest from identity headers", http.MethodPost, changes, valid, duties, &fakeStore{}, true, http.StatusForbidden, "AUD-0007"},
+		{"ingest malformed from identity headers", http.MethodPost, changes, `{`, duties, &fakeStore{}, true, http.StatusForbidden, "AUD-0007"},
 		{"ingest without tenant", http.MethodPost, changes, valid, "", &fakeStore{}, false, http.StatusUnauthorized, "AUTH-0001"},
-		{"ingest malformed", http.MethodPost, changes, `{`, duties, &fakeStore{}, true, http.StatusBadRequest, "COM-0001"},
-		{"ingest missing field", http.MethodPost, changes, `{"entity":"party.vendor","recordId":"v-1","oldValue":"a","newValue":"b","userId":"u","traceId":"t"}`, duties, &fakeStore{}, true, http.StatusBadRequest, `"field"`},
 		{"ingest without duty", http.MethodPost, changes, valid, "audit.read", &fakeStore{}, true, http.StatusForbidden, "AUTH-0003"},
-		{"ingest store error", http.MethodPost, changes, valid, duties, &fakeStore{err: errors.New("secret")}, true, http.StatusInternalServerError, "COM-0500"},
 		{"query viewer", http.MethodGet, record, "", duties, viewer, true, http.StatusOK, `"traceId":"trace-abc"`},
 		{"query empty", http.MethodGet, record, "", duties, &fakeStore{}, true, http.StatusOK, `"items":[]`},
 		{"expand", http.MethodPost, "/v1/audit/texts/expand", `{"body":"Hi {name}","vars":{"name":"Ada"}}`, "", &fakeStore{}, true, http.StatusOK, `"Hi Ada"`},
@@ -121,6 +120,31 @@ func TestAuditHTTP(t *testing.T) {
 			if rec.Code != tc.wantStatus || !strings.Contains(rec.Body.String(), tc.wantBody) {
 				t.Fatalf("got %d %s; want %d containing %s", rec.Code, rec.Body.String(), tc.wantStatus, tc.wantBody)
 			}
+			if len(tc.store.applied) != 0 {
+				t.Fatalf("stored %+v", tc.store.applied)
+			}
+		})
+	}
+}
+
+func TestIngestFromAVerifiedService(t *testing.T) {
+	tests := []struct {
+		name, body string
+		store      *fakeStore
+		wantStatus int
+		wantBody   string
+	}{
+		{"ok", valid, &fakeStore{}, http.StatusAccepted, `"recorded"`},
+		{"malformed", `{`, &fakeStore{}, http.StatusBadRequest, "COM-0001"},
+		{"missing field", `{"entity":"party.vendor","recordId":"v-1","oldValue":"a","newValue":"b","traceId":"t"}`, &fakeStore{}, http.StatusBadRequest, `"field"`},
+		{"store error", valid, &fakeStore{err: errors.New("secret")}, http.StatusInternalServerError, "COM-0500"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := post(verifiedRouter(tc.store, viaService()), tc.body)
+			if rec.Code != tc.wantStatus || !strings.Contains(rec.Body.String(), tc.wantBody) {
+				t.Fatalf("got %d %s; want %d containing %s", rec.Code, rec.Body.String(), tc.wantStatus, tc.wantBody)
+			}
 		})
 	}
 }
@@ -129,7 +153,7 @@ func TestIngestThenQueryIsTheTwoSecondViewerPath(t *testing.T) {
 	f := &fakeStore{}
 	r, _ := newRouter(f)
 	start := time.Now()
-	rec := do(r, http.MethodPost, changes, valid, duties, true)
+	rec := post(verifiedRouter(f, viaService()), valid)
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("ingest %d %s", rec.Code, rec.Body.String())
 	}
@@ -149,7 +173,7 @@ func TestIngestThenQueryIsTheTwoSecondViewerPath(t *testing.T) {
 }
 
 func TestReadyAndMetrics(t *testing.T) {
-	r, a := newRouter(&fakeStore{})
+	r, _ := newRouter(&fakeStore{})
 	if rec := do(r, http.MethodGet, "/readyz", "", "", false); rec.Code != http.StatusOK {
 		t.Fatalf("ready %d", rec.Code)
 	}
@@ -157,7 +181,8 @@ func TestReadyAndMetrics(t *testing.T) {
 	if rec := do(down, http.MethodGet, "/readyz", "", "", false); rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("down %d", rec.Code)
 	}
-	do(r, http.MethodPost, changes, valid, duties, true)
+	svc, a := verifiedAPI(&fakeStore{}, viaService())
+	post(svc, valid)
 	w := httptest.NewRecorder()
 	a.Metrics().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/metrics", nil))
 	if !strings.Contains(w.Body.String(), "audit_changes_applied_total 1") {

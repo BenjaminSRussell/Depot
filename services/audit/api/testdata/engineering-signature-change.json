@@ -1,0 +1,11 @@
+{
+  "entity": "document",
+  "recordId": "d1",
+  "field": "signature",
+  "oldValue": "",
+  "newValue": "Approved for release: Carol Kane (carol) signed DRW-1 02 to released at 2026-07-01T12:00:00Z; record hash abc123",
+  "onBehalfOf": "carol",
+  "traceId": "s1",
+  "occurredAt": "2026-07-01T12:00:00Z",
+  "reason": "Approved for release"
+}

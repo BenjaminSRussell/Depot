@@ -10,7 +10,7 @@ import (
 func change(field, oldV, newV, trace string) domain.Change {
 	return domain.Change{
 		Entity: "party.vendor", RecordID: "v-1", Field: field,
-		OldValue: oldV, NewValue: newV, UserID: "user-1", TraceID: trace,
+		OldValue: oldV, NewValue: newV, UserID: "user-1", ActorKind: domain.ActorPerson, TraceID: trace,
 		OccurredAt: time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC),
 	}
 }
@@ -39,7 +39,7 @@ func TestHashChainLinksAndDetectsTamper(t *testing.T) {
 func TestValidateRequiresTraceAndUser(t *testing.T) {
 	c := domain.Change{}
 	fields := domain.Validate(c)
-	for _, key := range []string{"entity", "recordId", "field", "userId", "traceId", "occurredAt"} {
+	for _, key := range []string{"entity", "recordId", "field", "userId", "actorKind", "traceId", "occurredAt"} {
 		if fields[key] == "" {
 			t.Errorf("missing %s", key)
 		}
