@@ -70,11 +70,17 @@ func exportRows(lines []exportLine) []domain.ExportRow {
 // with the lines in the same transaction and stores the outcome under the
 // Idempotency-Key. Each line joins at most one batch (primary key on
 // pay_export_line), so a second export only carries lines approved since.
-// With nothing new it fails with SF-0111.
+// With nothing new it fails with SF-0111. A batch is one employer's payroll
+// (B-03b): it carries the caller's one legal entity and only the lines of
+// workers of that legal entity; a caller scoped to several must narrow first.
 func (s *Postgres) ExportPay(ctx context.Context, fromDate, toDate, createdBy string, idem Idem) (PayExport, error) {
 	p, _ := tenant.FromContext(ctx)
+	entity, err := exportLegalEntity(ctx)
+	if err != nil {
+		return PayExport{}, err
+	}
 	var out PayExport
-	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		// Exports of one tenant serialize, so two concurrent exports never pick
 		// the same line (the second sees the first's pay_export_line rows).
 		if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('shopfloor.pay-export:' || $1, 0))`, p.TenantID); err != nil {
@@ -83,9 +89,10 @@ func (s *Postgres) ExportPay(ctx context.Context, fromDate, toDate, createdBy st
 		rows, err := tx.Query(ctx, `select `+exportLineColumns+`
 			from pay_line pl
 			join worker_day wd on wd.tenant_id = pl.tenant_id and wd.worker_id = pl.worker_id and wd.work_date = pl.work_date
-			where wd.status = 'approved' and pl.work_date between $1::date and $2::date
+			join worker w on w.tenant_id = pl.tenant_id and w.id = pl.worker_id
+			where wd.status = 'approved' and pl.work_date between $1::date and $2::date and w.legal_entity_id = $3::uuid
 				and not exists (select 1 from pay_export_line x where x.tenant_id = pl.tenant_id and x.pay_line_id = pl.id)
-			order by pl.work_date, pl.worker_id, pl.pay_type, pl.id`, fromDate, toDate)
+			order by pl.work_date, pl.worker_id, pl.pay_type, pl.id`, fromDate, toDate, entity)
 		if err != nil {
 			return err
 		}
@@ -98,9 +105,9 @@ func (s *Postgres) ExportPay(ctx context.Context, fromDate, toDate, createdBy st
 				"no approved pay lines left to export in the range")
 		}
 		batchID := ids.New()
-		if err := tx.QueryRow(ctx, `insert into pay_export_batch (tenant_id, id, from_date, to_date, line_count, created_by)
-			values ($1, $2, $3::date, $4::date, $5, $6) returning created_at`,
-			p.TenantID, batchID, fromDate, toDate, len(lines), createdBy).Scan(&out.CreatedAt); err != nil {
+		if err := tx.QueryRow(ctx, `insert into pay_export_batch (tenant_id, id, from_date, to_date, line_count, created_by, legal_entity_id)
+			values ($1, $2, $3::date, $4::date, $5, $6, $7) returning created_at`,
+			p.TenantID, batchID, fromDate, toDate, len(lines), createdBy, entity).Scan(&out.CreatedAt); err != nil {
 			return err
 		}
 		lineIDs := make([]string, len(lines))
@@ -209,4 +216,23 @@ func (s *Postgres) GetPayExport(ctx context.Context, id string) (PayExport, erro
 		return err
 	})
 	return out, err
+}
+
+// exportLegalEntity is the one legal entity a payroll export is for: the caller's. A caller scoped to several must
+// select one (the shell's X-Depot-LegalEntity narrows the scope), and one with none, or with the all-entity read
+// scope only, cannot export (B-03b).
+func exportLegalEntity(ctx context.Context) (string, error) {
+	scopes, err := httpx.CallerLegalEntities(ctx)
+	if err != nil {
+		return "", err
+	}
+	switch len(scopes) {
+	case 1:
+		return scopes[0], nil
+	case 0:
+		return "", httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "a payroll export is one legal entity's: select the legal entity to export")
+	}
+	bad := httpx.NewProblem(http.StatusUnprocessableEntity, "COM-0001", "request failed validation")
+	bad.Errors = map[string]string{"legalEntity": "a payroll export is one legal entity's: select one of your legal entities (X-Depot-LegalEntity) before exporting"}
+	return "", bad
 }

@@ -2,7 +2,7 @@
   "version": 3,
   "compiler": "scripts/compile_architecture.py",
   "note": "Generated from the OpenAPI and AsyncAPI specs and scripts/architecture_patterns.json. Do not edit; run python3 scripts/compile_architecture.py --write.",
-  "summary": {"openapiDocuments": 65, "paths": 2619, "operations": 3242, "asyncapiDocuments": 60, "topics": 384, "topicsPublished": 383, "topicsSubscribed": 16, "patterns": 59},
+  "summary": {"openapiDocuments": 65, "paths": 2623, "operations": 3246, "asyncapiDocuments": 60, "topics": 385, "topicsPublished": 383, "topicsSubscribed": 17, "patterns": 59},
   "patterns": [
     {
       "id": "event-envelope",
@@ -739,6 +739,7 @@
         {"method": "GET", "path": "/v1/audit/reads:export", "operationId": "exportPhiReads", "duty": "audit.read-log.export"},
         {"method": "GET", "path": "/v1/audit/reads:verify", "operationId": "verifyPhiReads", "duty": "audit.read-log.export"},
         {"method": "GET", "path": "/v1/audit/records/{entity}/{recordId}", "operationId": "queryRecord", "duty": "audit.read"},
+        {"method": "GET", "path": "/v1/audit/records:verify", "operationId": "verifyChangeChain", "duty": "audit.verify"},
         {"method": "POST", "path": "/v1/audit/texts/expand", "operationId": "expandText", "duty": "authenticated"}
       ]
     },
@@ -1912,6 +1913,7 @@
         {"method": "POST", "path": "/v1/identity/customer-contacts/{id}:disable", "operationId": "disableCustomerContact", "duty": "identity.customer-contact.maintain"},
         {"method": "POST", "path": "/v1/identity/customer-contacts/{id}:resend", "operationId": "resendCustomerContactInvitation", "duty": "identity.customer-contact.maintain"},
         {"method": "GET", "path": "/v1/identity/customer-portal/legal-entity", "operationId": "customerPortalLegalEntity", "duty": "identity.customer-portal.read"},
+        {"method": "GET", "path": "/v1/identity/legal-entities/{id}", "operationId": "lookupLegalEntity", "duty": "identity.legal-entity.lookup"},
         {"method": "GET", "path": "/v1/identity/user-names", "operationId": "listUserNames", "duty": "identity.user-name.read"},
         {"method": "GET", "path": "/v1/identity/users", "operationId": "listUsers", "duty": "identity.user.maintain"},
         {"method": "GET", "path": "/v1/identity/users/{id}", "operationId": "getUser", "duty": "identity.user.maintain"},
@@ -4104,10 +4106,12 @@
         {"method": "PUT", "path": "/v1/shopfloor/workers/{id}", "operationId": "updateWorker", "duty": "shopfloor.setup.maintain"},
         {"method": "GET", "path": "/v1/shopfloor/workers/{id}/cost-rates", "operationId": "listWorkerCostRates", "duty": "shopfloor.view"},
         {"method": "POST", "path": "/v1/shopfloor/workers/{id}/cost-rates", "operationId": "addWorkerCostRate", "duty": "shopfloor.setup.maintain"},
+        {"method": "POST", "path": "/v1/shopfloor/workers/{id}:assign-legal-entity", "operationId": "assignWorkerLegalEntity", "duty": "shopfloor.setup.maintain"},
         {"method": "POST", "path": "/v1/shopfloor/workers/{id}:assign-resource", "operationId": "assignWorkerResource", "duty": "shopfloor.setup.maintain"},
         {"method": "POST", "path": "/v1/shopfloor/workers/{id}:assign-setup", "operationId": "assignWorkerSetup", "duty": "shopfloor.setup.maintain"},
         {"method": "POST", "path": "/v1/shopfloor/workers/{id}:deactivate", "operationId": "deactivateWorker", "duty": "shopfloor.setup.maintain"},
-        {"method": "POST", "path": "/v1/shopfloor/workers/{id}:reactivate", "operationId": "reactivateWorker", "duty": "shopfloor.setup.maintain"}
+        {"method": "POST", "path": "/v1/shopfloor/workers/{id}:reactivate", "operationId": "reactivateWorker", "duty": "shopfloor.setup.maintain"},
+        {"method": "POST", "path": "/v1/shopfloor/workers:assign-legal-entity", "operationId": "assignWorkersLegalEntity", "duty": "shopfloor.setup.maintain"}
       ]
     },
     {
@@ -4531,7 +4535,9 @@
       "publishes": [
         {"topic": "depot.audit.change", "types": ["dev.depot.audit.change.recorded.v1"]}
       ],
-      "subscribes": []
+      "subscribes": [
+        {"topic": "depot.cdc.party", "types": []}
+      ]
     },
     {
       "service": "services/batch",
@@ -5581,6 +5587,7 @@
     {"topic": "depot.budget.reservation", "publishers": ["services/budgeting"], "subscribers": []},
     {"topic": "depot.case.stage", "publishers": ["services/fieldservice"], "subscribers": []},
     {"topic": "depot.catalog.dq", "publishers": ["services/analytics"], "subscribers": []},
+    {"topic": "depot.cdc.party", "publishers": [], "subscribers": ["services/audit"]},
     {"topic": "depot.close.accrual", "publishers": ["services/close"], "subscribers": []},
     {"topic": "depot.close.allocation", "publishers": ["services/close"], "subscribers": []},
     {"topic": "depot.close.period", "publishers": ["services/close"], "subscribers": []},

@@ -16,7 +16,12 @@ spec:
         image:
           repository: ghcr.io/benjaminsrussell/fx
           digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
-        migrateOnStart: true
+        # The migration Job (D28) runs as the role that has owned this dev schema since on-start migration; stage and
+        # prod use the chart default, the owner role's <chart>-db-owner Secret.
+        migrateJob:
+          ownerSecret: fx-db
+          # dev's depot_app owns this schema: the command refuses depot_app without it.
+          allowAppRole: true
   destination:
     server: https://kubernetes.default.svc
     namespace: hello-ledger
@@ -24,3 +29,6 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    retry:
+      limit: 5
+      backoff: { duration: 30s, factor: 2, maxDuration: 5m }

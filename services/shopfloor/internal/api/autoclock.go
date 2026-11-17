@@ -8,6 +8,7 @@ import (
 
 	"github.com/BenjaminSRussell/depot/platform/authz"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
 	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
 )
@@ -56,7 +57,13 @@ func (a *API) autoClockOut(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	items, err := a.store.AutoClockOut(r.Context(), a.now().UTC(), hours, limit)
+	ctx := r.Context()
+	// The scheduler calls this with a verified service token and no legal entity: like the sweeper, it closes stale
+	// shifts in every legal entity of the tenant (B-03b). Header identities never carry Service, so they cannot widen.
+	if p, _ := tenant.FromContext(ctx); p.Service != "" && p.LegalEntityID == "" {
+		ctx = store.WithSystemScope(ctx)
+	}
+	items, err := a.store.AutoClockOut(ctx, a.now().UTC(), hours, limit)
 	if err != nil {
 		a.fail(w, r, "auto clock-out sweep", err)
 		return

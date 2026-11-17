@@ -29,6 +29,8 @@ const (
 
 func main() {
 	slog.SetDefault(newLogger(os.Stdout))
+	// "<binary> migrate" applies the migrations as the owner role and exits: the chart's PreSync migration Job (D28).
+	dbx.HandleMigrateCommand(migrations.FS, seedReference)
 	if err := run(context.Background(), os.Getenv); err != nil {
 		slog.Error("org stopped", "err", err)
 		os.Exit(1)
@@ -111,6 +113,12 @@ func migrateAndSeed(ctx context.Context, servePool *pgxpool.Pool, ownerURL strin
 	if err := dbx.Migrate(ctx, pool, migrations.FS); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
+	return seedReference(ctx, pool)
+}
+
+// seedReference loads the reference data after the migrations, on the owner-role pool: from migrateAndSeed in dev and
+// from the migrate command (the chart's migration Job) elsewhere.
+func seedReference(ctx context.Context, pool *pgxpool.Pool) error {
 	if err := store.SeedReference(ctx, pool, migrations.Reference); err != nil {
 		return fmt.Errorf("seed reference data: %w", err)
 	}

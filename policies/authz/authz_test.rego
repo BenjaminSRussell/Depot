@@ -94,6 +94,143 @@ test_ordinary_duties_ignore_the_operator_tenant if {
 	allowed_in("tenant-b", "operator", "platform.release.view", "GET", "/v1/platform/releases")
 }
 
+# B-03b (FR-2.6, FR-2.9, FR-6.10): legal-entity-scoped role assignments. Company A and B are two legal entities of one
+# tenant; legal_entity_id is the legal entity (or comma list) the request acts in. party.vendor.maintain is a duty on
+# legal-entity data; identity.* and the other "tenant_level" duties act on the whole tenant.
+company_a := "00000000-0000-0000-0000-0000000000a1"
+
+company_b := "00000000-0000-0000-0000-0000000000b2"
+
+le_decision(legal_entity, tenant_wide, scoped, method, resource) := result if {
+	result := decision with input as {
+		"subject": {"tenant_id": "tenant-a", "user_id": "user-a", "legal_entity_id": legal_entity},
+		"action": method,
+		"resource": resource,
+	}
+		with data.assignments as {"tenant-a": {"user-a": tenant_wide}}
+		with data.scoped_assignments as {"tenant-a": {"user-a": scoped}}
+		with data.operator_tenant_id as "operator"
+}
+
+le_allowed(legal_entity, tenant_wide, scoped, method, resource) if {
+	le_decision(legal_entity, tenant_wide, scoped, method, resource).allow
+}
+
+test_role_scoped_to_company_a_grants_in_a if {
+	le_allowed(company_a, [], {company_a: ["party.vendor.maintain"]}, "PUT", "/v1/vendors/v1")
+	le_allowed(upper(company_a), [], {company_a: ["party.vendor.maintain"]}, "PUT", "/v1/vendors/v1")
+	le_allowed(concat("", [" ", company_a, " "]), [], {company_a: ["party.vendor.maintain"]}, "PUT", "/v1/vendors/v1")
+}
+
+test_role_scoped_to_company_a_grants_nothing_in_b if {
+	not le_allowed(company_b, [], {company_a: ["party.vendor.maintain"]}, "PUT", "/v1/vendors/v1")
+	le_decision(company_b, [], {company_a: ["party.vendor.maintain"]}, "PUT", "/v1/vendors/v1").duty_missing == "party.vendor.maintain"
+}
+
+test_role_scoped_to_company_a_grants_nothing_without_a_legal_entity if {
+	not le_allowed("", [], {company_a: ["party.vendor.maintain"]}, "PUT", "/v1/vendors/v1")
+	not decision.allow with input as {"subject": {"tenant_id": "tenant-a", "user_id": "user-a"}, "action": "PUT", "resource": "/v1/vendors/v1"}
+		with data.assignments as {}
+		with data.scoped_assignments as {"tenant-a": {"user-a": {company_a: ["party.vendor.maintain"]}}}
+}
+
+test_role_scoped_to_company_a_grants_nothing_on_a_request_spanning_a_and_b if {
+	not le_allowed(concat(",", [company_a, company_b]), [], {company_a: ["party.vendor.maintain"]}, "PUT", "/v1/vendors/v1")
+	le_allowed(concat(",", [company_a, company_b]), [], {company_a: ["party.vendor.maintain"], company_b: ["party.vendor.maintain"]}, "PUT", "/v1/vendors/v1")
+}
+
+test_scoped_role_grants_only_its_own_duties if {
+	not le_allowed(company_a, [], {company_a: ["party.vendor.view"]}, "PUT", "/v1/vendors/v1")
+	le_allowed(company_a, [], {company_a: ["party.vendor.view"]}, "GET", "/v1/vendors/v1")
+	not le_allowed(company_a, [], {company_b: ["party.vendor.maintain"]}, "PUT", "/v1/vendors/v1")
+}
+
+test_scoped_role_does_not_cross_tenants_or_users if {
+	not decision.allow with input as {"subject": {"tenant_id": "tenant-b", "user_id": "user-a", "legal_entity_id": company_a}, "action": "PUT", "resource": "/v1/vendors/v1"}
+		with data.assignments as {}
+		with data.scoped_assignments as {"tenant-a": {"user-a": {company_a: ["party.vendor.maintain"]}}}
+	not decision.allow with input as {"subject": {"tenant_id": "tenant-a", "user_id": "user-b", "legal_entity_id": company_a}, "action": "PUT", "resource": "/v1/vendors/v1"}
+		with data.assignments as {}
+		with data.scoped_assignments as {"tenant-a": {"user-a": {company_a: ["party.vendor.maintain"]}}}
+}
+
+test_tenant_wide_role_grants_in_both_companies if {
+	le_allowed(company_a, ["party.vendor.maintain"], {}, "PUT", "/v1/vendors/v1")
+	le_allowed(company_b, ["party.vendor.maintain"], {}, "PUT", "/v1/vendors/v1")
+	le_allowed(concat(",", [company_a, company_b]), ["party.vendor.maintain"], {}, "PUT", "/v1/vendors/v1")
+	le_allowed("", ["party.vendor.maintain"], {}, "PUT", "/v1/vendors/v1")
+}
+
+test_tenant_admin_is_unchanged if {
+	# A tenant administrator: tenant-wide assignments and no legal-entity claim. Scoped assignments neither add to nor
+	# take from what the tenant-wide ones grant.
+	admin := ["tenant.administer", "identity.user.maintain", "identity.tenant.maintain"]
+	le_allowed("", admin, {}, "GET", "/v1/identity/users")
+	le_allowed("", admin, {company_a: ["identity.legal-entity.maintain"]}, "GET", "/v1/identity/users")
+	le_allowed(company_b, admin, {company_a: ["identity.legal-entity.maintain"]}, "GET", "/v1/identity/users")
+	allowed("identity.user.maintain", "GET", "/v1/identity/users")
+	not le_allowed("", ["tenant.administer"], {}, "GET", "/v1/identity/users")
+}
+
+# The review's blocker: a scoped assignment of a tenant-level duty grants nothing, even in its own legal entity. Before,
+# an A-scoped identity.user.provision opened SCIM, which runs in scope '*' over every user of the tenant.
+test_scoped_tenant_level_duties_grant_nothing if {
+	every route in [
+		["identity.user.provision", "POST", "/scim/v2/Users"],
+		["identity.user.provision", "DELETE", "/scim/v2/Users/u1"],
+		["identity.user.provision", "PATCH", "/scim/v2/Groups/g1"],
+		["identity.user.maintain", "POST", "/v1/identity/users"],
+		["identity.user.maintain", "GET", "/v1/identity/users"],
+		["identity.security-role.maintain", "POST", "/v1/authz/assignments"],
+		["identity.legal-entity.maintain", "POST", "/v1/legal-entities"],
+		["identity.tenant.maintain", "POST", "/v1/tenants"],
+		["identity.setup.maintain", "PUT", "/v1/tenant/setup"],
+		["identity.feature.maintain", "PUT", "/v1/tenant/features"],
+		["audit.read-log.export", "GET", "/v1/audit/reads:verify"],
+		["org.legal-entity.write", "POST", "/v1/org/legal-entities"],
+		["hub.client.write", "POST", "/v1/hub/clients"],
+	] {
+		not le_allowed(company_a, [], {company_a: [route[0]]}, route[1], route[2])
+		le_allowed(company_a, [route[0]], {}, route[1], route[2])
+	}
+}
+
+test_tenant_level_duties_cover_identity_audit_and_operator_duties if {
+	unmarked := {name |
+		some name, spec in data.duties
+		tenant_level_family(name, spec)
+		not spec.tenant_level
+	}
+	unmarked == set()
+	data.duties["tenant.administer"].tenant_level
+	not data.duties["party.vendor.maintain"].tenant_level
+	not data.duties["shopfloor.setup.maintain"].tenant_level
+}
+
+tenant_level_family(name, _) if startswith(name, "identity.")
+
+tenant_level_family(name, _) if startswith(name, "audit.")
+
+tenant_level_family(_, spec) if spec.operator_only == true
+
+test_scoped_operator_only_duty_grants_nothing if {
+	not le_allowed(company_a, [], {company_a: ["ops.region.view"]}, "GET", "/v1/ops/regions")
+	not decision.allow with input as {"subject": {"tenant_id": "operator", "user_id": "user-a", "legal_entity_id": company_a}, "action": "GET", "resource": "/v1/ops/regions"}
+		with data.assignments as {}
+		with data.scoped_assignments as {"operator": {"user-a": {company_a: ["ops.region.view"]}}}
+		with data.operator_tenant_id as "operator"
+}
+
+# B-03b (D17): a tenant administrator assigns the legal entity of workers created before workers carried one.
+test_shopfloor_worker_legal_entity_assignment_is_a_setup_route if {
+	allowed("shopfloor.setup.maintain", "POST", "/v1/shopfloor/workers/w1:assign-legal-entity")
+	allowed("shopfloor.setup.maintain", "POST", "/v1/shopfloor/workers:assign-legal-entity")
+	not allowed("shopfloor.setup.maintain", "PUT", "/v1/shopfloor/workers/w1:assign-legal-entity")
+	not allowed("shopfloor.view", "POST", "/v1/shopfloor/workers/w1:assign-legal-entity")
+	not allowed("shopfloor.view", "POST", "/v1/shopfloor/workers:assign-legal-entity")
+	not allowed("shopfloor.time.register", "POST", "/v1/shopfloor/workers/w1:assign-legal-entity")
+}
+
 has_route_permissions(spec) if count(spec.permissions) > 0
 
 has_route_permissions(spec) if {
@@ -114,7 +251,7 @@ test_all_seeded_duties_allow_their_declared_permissions if {
 }
 
 test_flag_duties_grant_no_routes if {
-	flag_duties := {"receivables.write-off.approve", "purchasing.inbound.apply", "edi.pii.view", "edi.outbound.from-event", "tax.code.maintain", "fulfillment.order.sync", "budget.override", "inventory.blocking.scrap", "ledger.journal.postdirect", "ledger.journal.postledger", "ledger.period.postclosed", "org.hierarchy.backdate", "party.merge", "pii.read", "pricing.cache.invalidate", "production.batch.consume-expired", "production.journal.over-consume", "production.order.bom-after-release", "production.order.rework", "production.planned.intake", "receivables.openitem.from-billing", "billing.iccharge.from-event", "payables.iccharge.from-event", "intercompany.charge.from-event", "revrec.creditnote.reverse", "revrec.contract.from-invoice", "production.order.zero-output", "production.jobcard.shopfloor", "scheduling.constraints.override", "scheduling.order.import", "search.index.write", "shopfloor.job.sync", "tenant.administer", "treasury.facility.override"}
+	flag_duties := {"audit.cdc.apply", "audit.chain.anchor", "receivables.write-off.approve","purchasing.inbound.apply", "edi.pii.view", "edi.outbound.from-event", "tax.code.maintain", "fulfillment.order.sync", "budget.override", "inventory.blocking.scrap", "ledger.journal.postdirect", "ledger.journal.postledger", "ledger.period.postclosed", "org.hierarchy.backdate", "party.merge", "pii.read", "pricing.cache.invalidate", "production.batch.consume-expired", "production.journal.over-consume", "production.order.bom-after-release", "production.order.rework", "production.planned.intake", "receivables.openitem.from-billing", "billing.iccharge.from-event", "payables.iccharge.from-event", "intercompany.charge.from-event", "revrec.creditnote.reverse", "revrec.contract.from-invoice", "production.order.zero-output", "production.jobcard.shopfloor", "scheduling.constraints.override", "scheduling.order.import", "search.index.write", "shopfloor.job.sync", "tenant.administer", "treasury.facility.override"}
 	{d | some d, spec in data.duties; spec.flag == true} == flag_duties
 	every duty in flag_duties {
 		count(data.duties[duty].permissions) == 0
@@ -2989,9 +3126,16 @@ test_receiving_document_flow_is_read_only_and_separate if {
 	not allowed("receiving.ap.inquire", "GET", "/v1/receiving/related-documents")
 }
 
-# The shopfloor sweeper reads the registry of active tenants and nothing else of identity (#25).
+# The shopfloor sweeper reads the registry of active tenants, and the assign-legal-entity routes check that a legal
+# entity exists and is active (B-03b); nothing else of identity (#25).
 test_shopfloor_service_grant_reads_the_tenant_registry_only if {
-	data.service_grants.shopfloor == {"identity": ["identity.tenant-registry.read"]}
+	data.service_grants.shopfloor == {"identity": ["identity.tenant-registry.read", "identity.legal-entity.lookup"]}
+	data.duties["identity.legal-entity.lookup"].service_only
+	data.duties["identity.legal-entity.lookup"].tenant_level
+	allowed("identity.legal-entity.lookup", "GET", "/v1/identity/legal-entities/0195f0a0-0000-7000-8000-0000000000e1")
+	not allowed("identity.legal-entity.lookup", "GET", "/v1/legal-entities/0195f0a0-0000-7000-8000-0000000000e1")
+	not allowed("identity.legal-entity.lookup", "GET", "/v1/legal-entities")
+	not allowed("identity.legal-entity.lookup", "POST", "/v1/identity/legal-entities/0195f0a0-0000-7000-8000-0000000000e1")
 	allowed("identity.tenant-registry.read", "GET", "/v1/tenants")
 	not allowed("identity.tenant-registry.read", "POST", "/v1/tenants")
 	not allowed("identity.tenant-registry.read", "PATCH", "/v1/tenants")
@@ -3385,6 +3529,21 @@ test_audit_read_log_review_opens_only_the_break_glass_queue if {
 	not allowed("audit.read-log.review", "POST", "/v1/audit/reads")
 	not allowed("audit.read-log.view", "GET", "/v1/audit/reads:break-glass")
 	not allowed("audit.read-log.export", "POST", "/v1/audit/reads/0b7f4c1e-1d2a-4c55-9a0e-5f3f1c2d9e10:review")
+}
+
+# B-07 (AUD-API-4): change-chain verification is its own duty; reading records does not verify and verifying reads no
+# record. The CDC consumer and the nightly chain job hold one flag duty each and reach no route.
+test_audit_verify_opens_only_the_change_chain_verification if {
+	allowed("audit.verify", "GET", "/v1/audit/records:verify")
+	not allowed("audit.verify", "GET", "/v1/audit/records/vendor_bank_account/b1")
+	not allowed("audit.verify", "GET", "/v1/audit/reads:verify")
+	not allowed("audit.verify", "POST", "/v1/audit/changes")
+	not allowed("audit.read", "GET", "/v1/audit/records:verify")
+	not allowed("audit.read-log.export", "GET", "/v1/audit/records:verify")
+	data.service_principals["audit-cdc"] == ["audit.cdc.apply"]
+	data.service_principals["audit-anchor"] == ["audit.chain.anchor"]
+	not principal_allowed("audit-cdc", "POST", "/v1/audit/changes")
+	not principal_allowed("audit-anchor", "GET", "/v1/audit/records:verify")
 }
 
 test_revrec_billing_holds_only_the_service_only_modification_duty if {

@@ -143,6 +143,10 @@ func requireOPA(client *OPAClient, resolve func(*http.Request) (string, string))
 				return
 			}
 			action, resource := resolve(r)
+			// The policy grants a legal-entity-scoped assignment only to a request in that legal entity, so it is told
+			// which one: always the verified token's `le` claim (B-03b), never a value another middleware may have put
+			// on the principal. The principal in the request context is left as the verifier built it.
+			principal.LegalEntityID, _ = r.Context().Value(verifiedLegalEntityKey{}).(string)
 			decision, err := client.Decide(r.Context(), principal, action, resource)
 			if err != nil {
 				httpx.Fail(w, r, httpx.NewProblem(http.StatusServiceUnavailable, "AUTH-0503", "authorization policy is unavailable"))

@@ -91,6 +91,14 @@ func (f *fakeStore) DeactivateWorker(context.Context, string, int, string, strin
 	return store.Worker{}, nil
 }
 
+func (f *fakeStore) AssignWorkerLegalEntity(context.Context, string, string, string, string, store.Idem) (store.Worker, error) {
+	return store.Worker{}, nil
+}
+
+func (f *fakeStore) AssignWorkersLegalEntity(context.Context, store.BulkLegalEntityAssignment, string, string, store.Idem) (store.BulkLegalEntityResult, error) {
+	return store.BulkLegalEntityResult{}, nil
+}
+
 func (f *fakeStore) AddCostRate(context.Context, string, store.CostRateInput, string, store.Idem) (store.CostRate, error) {
 	return store.CostRate{}, nil
 }
@@ -188,6 +196,9 @@ func newRouterAt(s Store, now func() time.Time) chi.Router {
 	return r
 }
 
+// testLegalEntity is the legal entity of the test caller, the one testkit.Ctx gives store tests.
+const testLegalEntity = "00000000-0000-0000-0000-0000000000e1"
+
 func call(t *testing.T, h http.Handler, method, path, body, duties string) *httptest.ResponseRecorder {
 	t.Helper()
 	return callWith(t, h, method, path, body, duties, map[string]string{"Idempotency-Key": "key-1"})
@@ -198,6 +209,9 @@ func callWith(t *testing.T, h http.Handler, method, path, body, duties string, h
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	// The caller works in one legal entity, which the shop floor's workers belong to (B-03b); a header in headers
+	// overrides it, an empty one removes the claim.
+	req.Header.Set("X-Depot-Legal-Entity", testLegalEntity)
 	req.Header.Set("X-Depot-User", "supervisor-1")
 	if duties != "" {
 		req.Header.Set("X-Depot-Duties", duties)

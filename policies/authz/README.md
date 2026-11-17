@@ -32,6 +32,52 @@ The PRD (`docs/prd`, `docs/PRD-full.md`) keeps its own duty identifiers (`WMS_WO
 
 `"operator_only": true` duties (the `ops.*` duties of the ops control plane) act on platform-wide state, not on one tenant's data. `authz.rego` grants them only when the subject's tenant is `data.operator_tenant_id`, which identity writes into the compiled bundle from `IDENTITY_OPERATOR_TENANT_ID`; without it they grant nothing. Identity also refuses to assign them in another tenant and drops any such assignment from the bundle, and the ops service serves the operator tenant only.
 
+## Legal-entity-scoped assignments (B-03b)
+
+`data.assignments[tenant][subject]` holds the duties of tenant-wide role assignments; they grant in every legal entity and
+on a request with none. `data.scoped_assignments[tenant][subject][legal_entity]` holds the duties of assignments scoped to
+one legal entity; `held_duties` counts one only when the request acts in that legal entity: `input.subject.legal_entity_id`
+is a UUID or a comma list (compared in lower case), and every listed entity must carry the duty. A request with no legal
+entity (a tenant administrator's) gets only the tenant-wide duties. Identity compiles both roots into the bundle;
+`data.json` seeds them empty.
+
+### Tenant-level duties
+
+`"tenant_level": true` marks a duty that acts on the tenant as a whole. A legal-entity-scoped assignment never grants
+it, in three places:
+
+- `authz.rego`'s scoped rule skips it;
+- identity refuses to create such an assignment (`422 IDN-ROLE-TENANT-LEVEL`);
+- the bundle compiler drops any that are stored.
+
+Without this, an A-scoped `identity.user.provision` opened SCIM, which runs in scope `*` over every user of the
+tenant (B-03b review).
+
+A duty is tenant-level when any of these rules applies (`test_tenant_level_duties_cover_identity_audit_and_operator_duties`
+pins the first three families):
+
+| Rule | Duties |
+|---|---|
+| Identity and access administration: users, SCIM, role assignments, legal entities, features, setup, tenants, customer contacts, effective permissions | every `identity.*` duty |
+| The tenant's audit and security evidence, and the chain verification | every `audit.*` duty; `compliance.security.admin`, `compliance.sod.admin` |
+| Platform and operator administration | every `operator_only` (`ops.*`) duty; `platform.release.maintain`, `platform.release.view`, `platform.promotion.approve`, `platform.environment.rollback`, `platform.global.admin`, `agents.admin` |
+| Flags whose meaning is tenant-wide | `tenant.administer`, `party.merge` |
+| Routes that run only in scope `*` (`dbx.TenantWide` / `WithTenantWideAdminTx` is their only path) | `org.legal-entity.write`, `org.reference.write`, `party.merge`, `migration.opening-target.release` |
+| Tenant-wide structure, schema and whole-tenant data movement | `org.hierarchy.write`, `org.hierarchy.publish`, `org.hierarchy.backdate`, `org.package.manage`, `org.demo-company.manage`, `metadata.entity.maintain`, `metadata.extension.apply`, `metadata.write`, `events.write`, `migration.package.apply`, `analytics.archive.admin` |
+| Integration channels that carry every legal entity's events or grant API scopes | `hub.client.write`, `hub.catalog.write`, `hub.subscription.write`, `hub.delivery.read`, `hub.coexistence.operate` |
+
+Not tenant-level:
+
+- Duties that use `dbx.TenantWide` for one branch only, beside a legal-entity-scoped branch: `print.admin`,
+  `migration.run`, `migration.project.write`. A tenant-wide branch needs a request with no legal entity, and a scoped
+  assignment grants nothing to such a request anyway.
+- Duties on a service's own tenant-wide reference tables, such as fx rates, scheduling, and `shopfloor.setup.maintain`
+  (the shop floor's time profiles, pay agreements and absence codes, shared by every legal entity; its
+  assign-legal-entity routes also need a request with no legal entity). Those services check the duty from the
+  token's `duties` claim on every route, so OPA's legal-entity rule changes nothing for them.
+
+A new duty that acts on the tenant as a whole must carry the flag.
+
 ## Resources
 
 Each permission is a route template matched with `glob.match(pattern, ["/", ":"], path)`:

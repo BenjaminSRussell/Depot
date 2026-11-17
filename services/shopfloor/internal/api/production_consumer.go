@@ -78,7 +78,9 @@ func (c productionConsumer) operationStatusChanged(ctx context.Context, tx pgx.T
 	if err != nil || !ids.Valid(d.OrderID) || d.OperNumber <= 0 || d.To == "" || d.OrderVersion < 1 {
 		return eventing.Permanent(errors.New("operation.statuschanged needs orderId, operNumber, to, orderVersion and occurredAt"))
 	}
-	changed, err := c.store.ApplyOperationStatus(ctx, tx, store.OperationStatusIn{
+	// The operation's workers may belong to any legal entity of the tenant, and the consumer's principal has none
+	// (B-03b): this in-process code path marks the context so the store may widen its scope.
+	changed, err := c.store.ApplyOperationStatus(store.WithSystemScope(ctx), tx, store.OperationStatusIn{
 		OrderID: strings.ToLower(d.OrderID), OperNumber: d.OperNumber, Status: d.To, Finished: d.To == "finished", At: at.UTC(),
 		OrderVersion: d.OrderVersion, Actor: d.Actor, EventID: evt.ID,
 	})

@@ -80,6 +80,8 @@ type Store interface {
 	GetWorker(ctx context.Context, id string) (store.Worker, error)
 	UpdateWorker(ctx context.Context, workerID string, version int, in store.WorkerInput, savedBy string, idem store.Idem) (store.Worker, error)
 	DeactivateWorker(ctx context.Context, workerID string, version int, reason, savedBy string, idem store.Idem) (store.Worker, error)
+	AssignWorkerLegalEntity(ctx context.Context, workerID, legalEntityID, duty, assignedBy string, idem store.Idem) (store.Worker, error)
+	AssignWorkersLegalEntity(ctx context.Context, in store.BulkLegalEntityAssignment, duty, assignedBy string, idem store.Idem) (store.BulkLegalEntityResult, error)
 	ReactivateWorker(ctx context.Context, workerID string, version int, savedBy string, idem store.Idem) (store.Worker, error)
 	ListWorkers(ctx context.Context, activeOnly bool, limit int) ([]store.Worker, error)
 	AddCostRate(ctx context.Context, workerID string, in store.CostRateInput, savedBy string, idem store.Idem) (store.CostRate, error)
@@ -246,6 +248,9 @@ type API struct {
 	// recipesSent and recipesResent count control recipes generated and sent again.
 	recipesSent, recipesResent atomic.Int64
 	issuer                     pki.Issuer
+	// legalEntities confirms with identity that a legal entity exists in the tenant and is active before workers are
+	// assigned to it (B-03b); nil (IDENTITY_URL not configured) makes the assign routes answer 503.
+	legalEntities LegalEntityChecker
 	// corrections counts registration corrections; revisedDays approved days revised with reversal.
 	corrections atomic.Int64
 	revisedDays atomic.Int64
@@ -256,6 +261,18 @@ type API struct {
 const DefaultSignatureMaxAge = 5 * time.Minute
 
 func New(s Store) *API { return &API{store: s, now: time.Now, signatureAge: DefaultSignatureMaxAge} }
+
+// LegalEntityChecker reports whether a legal entity is an active one of the caller's tenant (registry.LegalEntities).
+// registry.ErrLegalEntityUnknown means the tenant has none; any other error means identity could not answer.
+type LegalEntityChecker interface {
+	Active(ctx context.Context, legalEntityID string) (bool, error)
+}
+
+// WithLegalEntityChecker sets the identity check the assign-legal-entity routes run before they write.
+func (a *API) WithLegalEntityChecker(c LegalEntityChecker) *API {
+	a.legalEntities = c
+	return a
+}
 
 // WithSignatureMaxAge sets how recently a signer must have authenticated (the token's auth_time, which the gateway forwards as
 // X-Depot-Auth-Time) for the service to accept an electronic signature. 30 seconds to an hour; anything else keeps the default.
@@ -337,6 +354,8 @@ type workerRequest struct {
 	Currency string  `json:"currency"`
 	// TimeZone is the IANA zone of the worker's site (default UTC).
 	TimeZone string `json:"timeZone"`
+	// LegalEntityID is the employing legal entity; it defaults to the caller's one legal entity (B-03b).
+	LegalEntityID *string `json:"legalEntityId"`
 }
 
 type itemsResponse[T any] struct {
@@ -529,6 +548,9 @@ func (a *API) createWorker(w http.ResponseWriter, r *http.Request) {
 	if req.TimeZone != "" && !validZone(req.TimeZone) {
 		fields["timeZone"] = "must be an IANA time zone name such as America/Chicago"
 	}
+	if req.LegalEntityID != nil && !ids.Valid(*req.LegalEntityID) {
+		fields["legalEntityId"] = "must be a UUID"
+	}
 	if len(fields) > 0 {
 		validationFailed(w, r, fields)
 		return
@@ -537,7 +559,7 @@ func (a *API) createWorker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out, err := a.store.CreateWorker(r.Context(), store.Worker{PartyID: req.PartyID, Name: name, BadgeID: req.BadgeID, UserID: req.UserID,
-		CostRate: rate, Currency: req.Currency, TimeZone: req.TimeZone}, idem)
+		CostRate: rate, Currency: req.Currency, TimeZone: req.TimeZone, LegalEntityID: req.LegalEntityID}, idem)
 	if err != nil {
 		a.fail(w, r, "create worker", err)
 		return

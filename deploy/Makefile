@@ -9,7 +9,7 @@ PYTHON ?= python3
 IMAGE_DIGEST ?=
 SKIP_VERIFY ?=
 
-.PHONY: test-tofu test-cloud-profiles test-offline offline-bundle deploy-local destroy-local promote-stage rollback-stage promote-prod rollback-prod test-stage-release test-policies test-gateway validate-gateway-schema test-argocd
+.PHONY: test-tofu test-cloud-profiles test-offline offline-bundle deploy-local destroy-local promote-stage rollback-stage promote-prod rollback-prod test-stage-release test-policies test-gateway validate-gateway-schema test-argocd test-migrate-k3d
 
 deploy-local:
 	tofu -chdir=tofu/cluster init -input=false
@@ -86,6 +86,15 @@ test-gateway: validate-gateway-schema
 # coverage and Secret references; renders every dev chart when helm is on PATH.
 test-argocd:
 	$(PYTHON) -m unittest scripts/test_argocd_apps.py -v
+	$(PYTHON) scripts/gen_migrate_jobs.py --check
+	$(PYTHON) -m unittest scripts/test_migrate_jobs.py -v
+
+# Owner-role migration Jobs on a throwaway k3d cluster (D28): builds each service image in SERVICES, helm-installs its chart
+# against an empty database and checks the Job applied every migration as the owner role. Needs docker, k3d, kubectl, helm.
+# MIGRATE_DEADLINE (seconds, default 600) sets the Jobs' activeDeadlineSeconds; KEEP=1 leaves the cluster up.
+SERVICES ?= ledger fx platform-health
+test-migrate-k3d:
+	SERVICES="$(SERVICES)" bash scripts/k3d_migrate_test.sh
 
 # Cloud profile (#599): the profile table and its generated copies, the egress allowlist render test over every chart
 # (needs helm), the region pair checker and the multi-region chart (Azure Blob backups, US pair).

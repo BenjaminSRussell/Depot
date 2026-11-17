@@ -144,3 +144,90 @@ func TestRequireOPAUsesExpectedHTTPStatuses(t *testing.T) {
 		})
 	}
 }
+
+// B-03b: the policy grants a legal-entity-scoped role assignment only to a request in that legal entity, so RequireOPA
+// tells it the verified token's `le` claim, and leaves the principal (and so the database scope of identity's own routes)
+// as the verifier built it.
+func TestRequireOPASendsTheVerifiedLegalEntityClaim(t *testing.T) {
+	verifier, key, jwks := newTestJWTVerifier(t)
+	defer jwks.Close()
+	for name, tc := range map[string]struct {
+		le   any
+		want string
+	}{
+		"one legal entity":         {le: "00000000-0000-0000-0000-0000000000a1", want: "00000000-0000-0000-0000-0000000000a1"},
+		"a comma list":             {le: " a1,b2 ", want: "a1,b2"},
+		"an array claim":           {le: []string{"a1", "b2"}, want: ""},
+		"no claim":                 {want: ""},
+		"a claim of another shape": {le: map[string]string{"x": "y"}, want: ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var sent opaSubject
+			opa := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var body struct {
+					Input opaInput `json:"input"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Error(err)
+				}
+				sent = body.Input.Subject
+				_, _ = w.Write([]byte(`{"result":{"allow":true}}`))
+			}))
+			defer opa.Close()
+			client, err := NewOPAClient(opa.URL, opa.Client())
+			if err != nil {
+				t.Fatal(err)
+			}
+			claims := testClaims()
+			if tc.le != nil {
+				claims["le"] = tc.le
+			}
+			handler := verifier.Middleware(RequireOPAForRequest(client)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if p, _ := tenant.FromContext(r.Context()); p.LegalEntityID != "" {
+					t.Errorf("principal legal entity = %q, want it left empty", p.LegalEntityID)
+				}
+				w.WriteHeader(http.StatusNoContent)
+			})))
+			req := httptest.NewRequest(http.MethodGet, "/v1/identity/users", nil)
+			req.Header.Set("Authorization", "Bearer "+signTestJWT(t, key, "key-1", claims))
+			resp := httptest.NewRecorder()
+			handler.ServeHTTP(resp, req)
+			if resp.Code != http.StatusNoContent {
+				t.Fatalf("status = %d, body = %s", resp.Code, resp.Body.String())
+			}
+			if sent.TenantID != "tenant-a" || sent.UserID != "user-a" || sent.LegalEntityID != tc.want {
+				t.Fatalf("OPA subject = %+v, want legal entity %q", sent, tc.want)
+			}
+		})
+	}
+}
+
+// B-03b review: RequireOPA tells the policy the verified token's claim even when a middleware between the verifier and
+// RequireOPA put another legal entity on the principal.
+func TestRequireOPAIgnoresALegalEntityPutOnThePrincipal(t *testing.T) {
+	var sent opaSubject
+	opa := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Input opaInput `json:"input"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		sent = body.Input.Subject
+		_, _ = w.Write([]byte(`{"result":{"allow":true}}`))
+	}))
+	defer opa.Close()
+	client, err := NewOPAClient(opa.URL, opa.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := RequireOPA(client, http.MethodGet, "/v1/identity/users")(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }))
+	for claim, want := range map[string]string{"le-a": "le-a", "": ""} {
+		req := httptest.NewRequest(http.MethodGet, "/v1/identity/users", nil)
+		ctx := tenant.With(req.Context(), tenant.Principal{TenantID: "t", UserID: "u", LegalEntityID: "injected"})
+		ctx = context.WithValue(context.WithValue(ctx, verifiedPrincipalKey{}, true), verifiedLegalEntityKey{}, claim)
+		resp := httptest.NewRecorder()
+		handler.ServeHTTP(resp, req.WithContext(ctx))
+		if resp.Code != http.StatusNoContent || sent.LegalEntityID != want {
+			t.Fatalf("claim %q: status %d, OPA legal entity %q, want %q", claim, resp.Code, sent.LegalEntityID, want)
+		}
+	}
+}

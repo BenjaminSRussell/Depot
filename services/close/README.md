@@ -7,7 +7,7 @@ Wave 14 deployable: period control, close checklist, allocations, accruals, regr
 ```
 cd services/close
 go vet ./... && go test ./...
-DATABASE_URL=postgres://... go run ./cmd/close
+DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/close
 ```
 
 Store tests need `DEPOT_TEST_DATABASE_URL` and `DEPOT_TEST_APP_DATABASE_URL`; they skip without them.
@@ -17,6 +17,7 @@ Store tests need `DEPOT_TEST_DATABASE_URL` and `DEPOT_TEST_APP_DATABASE_URL`; th
 | Variable | Meaning |
 |---|---|
 | `DATABASE_URL` | required; Postgres URL, from a Secret in the cluster |
+| `MIGRATE_ON_START` | `true` applies the migrations at start (dev only). In the cluster the chart's migration Job runs `close migrate` as the owner role (D28) |
 | `HTTP_ADDR` | default `:8080` |
 | `ADMIN_ADDR` | default `:9090`, serves `/metrics` only |
 | `CLOSE_REOPEN_DEFAULT_DAYS` | default 3 (1–30); used when a reopen request omits `expiresDays` |

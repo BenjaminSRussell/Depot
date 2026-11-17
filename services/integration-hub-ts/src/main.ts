@@ -12,7 +12,7 @@ import { httpTransport } from "./dispatcher.ts";
 import { httpMigrationClient } from "./migrationClient.ts";
 import { Maintenance, usageRetentionDaysFromEnv } from "./maintenance.ts";
 import { Metrics } from "./metrics.ts";
-import { HubStore, MIGRATIONS_DIR, migrate } from "./pgStore.ts";
+import { HubStore, MIGRATE_COMMAND, MIGRATIONS_DIR, migrate, migrateFromEnv } from "./pgStore.ts";
 import { Poller } from "./poller.ts";
 import { createAdminServer, createHubHandler } from "./server.ts";
 import { httpExchange, RestPusher } from "./restPush.ts";
@@ -23,6 +23,17 @@ import { jsonLine } from "./logging/pseudonymize.ts";
 const env = process.env;
 // Under the eu-data-boundary overlay (or LOG_PSEUDONYMIZE=true) person values and email addresses are pseudonymized before a line is written (#605).
 const logLine = jsonLine(env, (line) => void process.stderr.write(line));
+// `node src/main.ts migrate` applies the migrations as the owner role and exits: the chart's PreSync migration Job (D28).
+if (process.argv[2] === MIGRATE_COMMAND) {
+  try {
+    await migrateFromEnv(env);
+  } catch (err) {
+    logLine({ level: "error", msg: "migrations failed", error: String(err) });
+    process.exit(1);
+  }
+  logLine({ level: "info", msg: "migrations applied" });
+  process.exit(0);
+}
 const databaseUrl = env["DATABASE_URL"];
 if (databaseUrl === undefined || databaseUrl === "") {
   console.error("DATABASE_URL is required");

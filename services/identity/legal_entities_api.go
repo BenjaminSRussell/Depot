@@ -32,11 +32,53 @@ func NewLegalEntitiesAPI(pool *pgxpool.Pool) *LegalEntitiesAPI {
 	return &LegalEntitiesAPI{pool: pool}
 }
 
+// dutyLookupLegalEntity is the service-only duty of the narrow existence check: a peer service (the shop floor,
+// assigning the legal entity that employs a worker) learns whether a legal entity exists in the caller's tenant and is
+// active, and nothing else (B-03b).
+const dutyLookupLegalEntity = "identity.legal-entity.lookup"
+
 func (a *LegalEntitiesAPI) Register(r chi.Router) {
 	guard := requireAnyDuty(dutyMaintainLegalEntities)
 	r.With(guard).Post("/v1/legal-entities", a.create)
 	r.With(guard).Get("/v1/legal-entities", a.list)
 	r.With(guard).Get("/v1/legal-entities/{id}", a.get)
+	r.With(requireAnyDuty(dutyLookupLegalEntity)).Get("/v1/identity/legal-entities/{id}", a.lookup)
+}
+
+type legalEntityLookup struct {
+	LegalEntityID string `json:"legalEntityId"`
+	Active        bool   `json:"active"`
+}
+
+// lookup answers whether a legal entity exists in the caller's tenant and is active (B-03b). It reads in the tenant's
+// all-entity scope, because the caller is a service acting for a tenant administrator with no legal-entity claim, and
+// returns only the id and the active flag; 404 when the tenant has no such legal entity.
+func (a *LegalEntitiesAPI) lookup(w http.ResponseWriter, r *http.Request) {
+	p, ok := principal(w, r)
+	if !ok {
+		return
+	}
+	id, valid := ids.Canonical(chi.URLParam(r, "id"))
+	if !valid || id == ids.Nil {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, codeLegalEntityNotFound, "legal entity not found"))
+		return
+	}
+	var status string
+	err := pgx.BeginFunc(r.Context(), a.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(r.Context(), `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true)`, p.TenantID); err != nil {
+			return err
+		}
+		return tx.QueryRow(r.Context(), `select status from identity_legal_entities where tenant_id = $1 and legal_entity_id = $2`, p.TenantID, id).Scan(&status)
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, codeLegalEntityNotFound, "legal entity not found"))
+		return
+	}
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, legalEntityLookup{LegalEntityID: id, Active: status == "active"})
 }
 
 type legalEntityResource struct {

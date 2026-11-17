@@ -495,8 +495,8 @@ components:
     WorkerAssigned:
       name: dev.depot.shopfloor.worker.assigned.v1
       contentType: application/cloudevents+json
-      summary: Worker linked to a time profile, pay agreement and home resource
-      description: Published when a worker's profile, agreement or home resource link changes; a null id means the defaults apply. Days already calculated keep their pay lines until recalculated.
+      summary: Worker linked to a time profile, pay agreement, home resource and legal entity
+      description: Published when a worker's profile, agreement, home resource or employing legal entity link changes; a null id means the defaults apply (or, for the legal entity, that none is assigned yet). Days already calculated keep their pay lines until recalculated. A tenant administrator assigning the legal entity of a worker created before workers carried one (assign-legal-entity, B-03b) publishes it with the administrator in assignedBy.
       payload:
         $ref: "#/components/schemas/WorkerAssignedData"
     WorkerSaved:
@@ -1325,7 +1325,7 @@ components:
           type: string
     WorkerAssignedData:
       type: object
-      required: [workerId, profileId, payAgreementId, defaultResourceId, assignedBy]
+      required: [workerId, profileId, payAgreementId, defaultResourceId, legalEntityId, assignedBy]
       additionalProperties: false
       properties:
         workerId:
@@ -1341,6 +1341,10 @@ components:
           type: [string, "null"]
           format: uuid
           description: Home resource whose jobs make up the worker's dispatch list; null means none.
+        legalEntityId:
+          type: [string, "null"]
+          format: uuid
+          description: The legal entity that employs the worker; its time and pay are visible only to callers scoped to it. Null until assigned.
         assignedBy:
           type: string
     PaydayRevisedData:

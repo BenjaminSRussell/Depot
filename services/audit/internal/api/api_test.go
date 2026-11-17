@@ -25,7 +25,9 @@ type fakeStore struct {
 	records []store.Record
 	alerts  []store.Alert
 	readStore
-	lastFilter store.ReadFilter
+	lastFilter  store.ReadFilter
+	chain       store.ChangeChain
+	verifyRange [2]int64
 }
 
 func (f *fakeStore) Apply(_ context.Context, change domain.Change) error {
@@ -61,6 +63,13 @@ func (f *fakeStore) ListAlerts(context.Context) ([]store.Alert, error) {
 	return f.alerts, nil
 }
 func (f *fakeStore) Ping(context.Context) error { return f.ping }
+func (f *fakeStore) VerifyChanges(_ context.Context, fromSeq, toSeq int64) (store.ChangeChain, error) {
+	if f.err != nil {
+		return store.ChangeChain{}, f.err
+	}
+	f.verifyRange = [2]int64{fromSeq, toSeq}
+	return f.chain, nil
+}
 
 func newRouter(f *fakeStore) (*chi.Mux, *api.API) {
 	a := api.New(f)

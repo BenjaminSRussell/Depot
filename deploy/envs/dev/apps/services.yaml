@@ -99,6 +99,8 @@ spec:
             releaseName: '{{ .name }}'
             ignoreMissingValueFiles: true
             valueFiles:
+              # Migration Jobs off in dev unless the chart's dev values turn its Job on (D28; see the file).
+              - '$values/deploy/envs/dev/migrate-jobs.yaml'
               - '$values/deploy/envs/dev/values/{{ .name }}.yaml'
             parameters:
               - name: image.digest

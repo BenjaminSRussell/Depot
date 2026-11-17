@@ -37,6 +37,8 @@ func main() {
 		slog.Error("hr logging", "err", err)
 		os.Exit(1)
 	}
+	// "<binary> migrate" applies the migrations as the owner role and exits: the chart's PreSync migration Job (D28).
+	dbx.HandleMigrateCommand(migrations.FS)
 	if len(os.Args) > 1 && os.Args[1] == resealCommand {
 		if err := reseal(context.Background(), os.Getenv, os.Args[2:]); err != nil {
 			slog.Error("hr reseal-pii stopped", "err", err)

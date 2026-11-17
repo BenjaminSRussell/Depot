@@ -45,14 +45,19 @@ type Worker struct {
 	// TimeZone is the IANA zone the worker's work days are reckoned in, normally the zone of the site they work at (#543):
 	// the dated cost rate of a job stop is the one effective on the local day the work started. UTC by default.
 	TimeZone string `json:"timeZone"`
+	// LegalEntityID is the legal entity that employs the worker (B-03b, D17). The worker's registrations, days, pay
+	// lines, corrections and cost rates are visible only to callers scoped to it. It is set once: on create from the
+	// caller's legal entity (or the requested one within the caller's scope), or for a worker created before it existed
+	// by a tenant administrator (AssignWorkerLegalEntity). Nil until then.
+	LegalEntityID *string `json:"legalEntityId"`
 }
 
-const workerColumns = `id::text, party_id::text, name, badge_id, user_id, cost_rate::text, currency, active, version, created_at, profile_id::text, pay_agreement_id::text, default_resource_id::text, deactivated_at, deactivated_by, deactivation_reason, time_zone`
+const workerColumns = `id::text, party_id::text, name, badge_id, user_id, cost_rate::text, currency, active, version, created_at, profile_id::text, pay_agreement_id::text, default_resource_id::text, deactivated_at, deactivated_by, deactivation_reason, time_zone, legal_entity_id::text`
 
 func scanWorker(row pgx.Row) (Worker, error) {
 	var w Worker
 	var rate string
-	if err := row.Scan(&w.ID, &w.PartyID, &w.Name, &w.BadgeID, &w.UserID, &rate, &w.Currency, &w.Active, &w.Version, &w.CreatedAt, &w.ProfileID, &w.PayAgreementID, &w.DefaultResourceID, &w.DeactivatedAt, &w.DeactivatedBy, &w.DeactivationReason, &w.TimeZone); err != nil {
+	if err := row.Scan(&w.ID, &w.PartyID, &w.Name, &w.BadgeID, &w.UserID, &rate, &w.Currency, &w.Active, &w.Version, &w.CreatedAt, &w.ProfileID, &w.PayAgreementID, &w.DefaultResourceID, &w.DeactivatedAt, &w.DeactivatedBy, &w.DeactivationReason, &w.TimeZone, &w.LegalEntityID); err != nil {
 		return Worker{}, err
 	}
 	var err error
@@ -61,11 +66,21 @@ func scanWorker(row pgx.Row) (Worker, error) {
 }
 
 // CreateWorker registers a worker and stores the outcome under the
-// Idempotency-Key. A badge already used by another worker is SF-0105.
+// Idempotency-Key. A badge already used by another worker is SF-0105. The worker
+// belongs to in.LegalEntityID when set, which must be in the caller's scope, and
+// otherwise to the caller's one legal entity (httpx.OwnerLegalEntity).
 func (s *Postgres) CreateWorker(ctx context.Context, in Worker, idem Idem) (Worker, error) {
 	p, _ := tenant.FromContext(ctx)
+	requested := ""
+	if in.LegalEntityID != nil {
+		requested = *in.LegalEntityID
+	}
+	entity, err := httpx.OwnerLegalEntity(ctx, requested)
+	if err != nil {
+		return Worker{}, err
+	}
 	var out Worker
-	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		var err error
 		zone := in.TimeZone
 		if zone == "" {
@@ -74,9 +89,9 @@ func (s *Postgres) CreateWorker(ctx context.Context, in Worker, idem Idem) (Work
 		if err := checkZone(ctx, tx, zone); err != nil {
 			return err
 		}
-		out, err = scanWorker(tx.QueryRow(ctx, `insert into worker (tenant_id, id, party_id, name, badge_id, user_id, cost_rate, currency, time_zone)
-			values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning `+workerColumns,
-			p.TenantID, ids.New(), in.PartyID, in.Name, in.BadgeID, in.UserID, in.CostRate.String(), in.Currency, zone))
+		out, err = scanWorker(tx.QueryRow(ctx, `insert into worker (tenant_id, id, party_id, name, badge_id, user_id, cost_rate, currency, time_zone, legal_entity_id)
+			values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning `+workerColumns,
+			p.TenantID, ids.New(), in.PartyID, in.Name, in.BadgeID, in.UserID, in.CostRate.String(), in.Currency, zone, entity))
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
 			return httpx.NewProblem(http.StatusConflict, CodeBadgeTaken, "badge is already assigned to another worker")

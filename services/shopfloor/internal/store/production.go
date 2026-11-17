@@ -83,6 +83,10 @@ func (s *Postgres) ApplyOperationStatus(ctx context.Context, tx pgx.Tx, in Opera
 // so a batch on these jobs either committed before this read of the open starts or waits for the
 // finish to commit, and the two lock orders cannot cross.
 func stopOpenStartsOfFinishedOperation(ctx context.Context, tx pgx.Tx, tenantID string, in OperationStatusIn) error {
+	// The consumer's service principal has no legal entity; the operation's workers may belong to any (B-03b).
+	if err := widenForSystemCaller(ctx, tx); err != nil {
+		return err
+	}
 	jobs, err := collect(ctx, tx, `select id::text from shop_job where tenant_id = $1 and lower(order_ref) = $2 and operation_ref = $3`,
 		tenantID, strings.ToLower(in.OrderID), strconv.Itoa(in.OperNumber))
 	if err != nil || len(jobs) == 0 {

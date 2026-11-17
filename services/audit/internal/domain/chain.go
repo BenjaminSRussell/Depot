@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 const (
@@ -24,6 +26,11 @@ const (
 	// CodeServiceOnly rejects a change recorded without a verified service token: identity headers are not proof
 	// of who is calling, so only a service that signs its call may record a change (AUD-API-1).
 	CodeServiceOnly = "AUD-0007"
+	// CodeVerifyRange rejects a change-chain verification range that is not two positive seqs in order (AUD-API-4).
+	CodeVerifyRange = "AUD-0008"
+	// CodeVerifyScope refuses a change-chain verification to a caller without tenant-wide authority: the verdict
+	// describes every legal entity of the tenant.
+	CodeVerifyScope = "AUD-0009"
 	Genesis         = "0000000000000000000000000000000000000000000000000000000000000000"
 
 	// ActorPerson is a person acting directly. The HTTP route never records it (it accepts verified services
@@ -34,13 +41,28 @@ const (
 	ActorService = "service"
 	// ActorAgent is an AI agent runtime acting for the person in OnBehalfOf.
 	ActorAgent = "agent"
+	// ActorSystem is a change captured by CDC without a depot.ctx message (B-07): no verified actor is known. It is
+	// recorded as "system:<source service>" and always carries FlagUnattributed or FlagBadSignature.
+	ActorSystem = "system"
+
+	// FlagUnattributed marks a captured change whose transaction carried no usable depot.ctx message.
+	FlagUnattributed = "unattributed"
+	// FlagBadSignature marks a captured change whose transaction carried a depot.ctx message that is not authenticated:
+	// unsigned, signed by an unknown key or by another service than the source, altered, or signed for another
+	// transaction. The actor it names is not recorded as the actor.
+	FlagBadSignature = "unattributed-bad-signature"
 
 	MaxChangeReason = 1000
 	maxChangeRef    = 256
+	maxSource       = 64
 	// contextHashVersion marks the hash payload of a change that carries actor kind and context (AUD-API-1).
 	contextHashVersion = "audit-change-v2"
+	// placedHashVersion marks the hash payload of a change that also carries its legal entity, source or flag (B-07).
+	placedHashVersion = "audit-change-v3"
 	// serviceActorPrefix is tenant.ServiceActorPrefix: the recorded id of a service is "service:<name>".
 	serviceActorPrefix = "service:"
+	// SystemActorPrefix starts the recorded id of an unattributed captured change: "system:<source service>".
+	SystemActorPrefix = "system:"
 )
 
 // Error is a stable domain failure.
@@ -73,6 +95,12 @@ type Change struct {
 	EventID   string
 	// WorkflowInstanceID links the change to the workflow run that made it.
 	WorkflowInstanceID string
+	// LegalEntityID is the legal entity of the changed record (a UUID), empty for a tenant-level record (B-07, D17).
+	LegalEntityID string
+	// Source is the service whose database the change was captured from by CDC; empty for a change recorded over HTTP.
+	Source string
+	// Flag is FlagUnattributed or FlagBadSignature for a captured change without a verified actor, else empty.
+	Flag string
 }
 
 // hasContext reports whether c carries any AUD-API-1 field. Rows written before AUD-API-1 carry none and keep
@@ -82,10 +110,22 @@ func (c Change) hasContext() bool {
 		c.EventType != "" || c.EventID != "" || c.WorkflowInstanceID != ""
 }
 
+// hasPlacement reports whether c carries any B-07 field. Rows without them keep the v2 (or legacy) payload.
+func (c Change) hasPlacement() bool {
+	return c.LegalEntityID != "" || c.Source != "" || c.Flag != ""
+}
+
+// IsLegacy reports whether c is hashed with the legacy payload (written before AUD-API-1).
+func (c Change) IsLegacy() bool { return !c.hasContext() && !c.hasPlacement() }
+
 // Normalize returns c with OccurredAt in UTC and truncated to microseconds, the precision Postgres timestamptz
 // stores (pgx truncates, it does not round), so the hash of a stored row can be recomputed from the database.
 func (c Change) Normalize() Change {
 	c.OccurredAt = c.OccurredAt.UTC().Truncate(time.Microsecond)
+	// The legal entity is hashed in the form Postgres returns a uuid in.
+	if le, ok := ids.Canonical(c.LegalEntityID); ok {
+		c.LegalEntityID = le
+	}
 	return c
 }
 
@@ -112,20 +152,41 @@ func Validate(c Change) map[string]string {
 		fields["userId"] = "is required"
 	}
 	serviceActor := strings.HasPrefix(c.UserID, serviceActorPrefix)
+	systemActor := strings.HasPrefix(c.UserID, SystemActorPrefix)
 	switch c.ActorKind {
 	case ActorPerson:
 		if c.OnBehalfOf != "" {
 			fields["onBehalfOf"] = "is only recorded for a service or an agent"
 		}
-		if serviceActor {
-			fields["userId"] = "a person is never a service actor"
+		if serviceActor || systemActor {
+			fields["userId"] = "a person is never a service or system actor"
 		}
 	case ActorService, ActorAgent:
 		if c.UserID != "" && !serviceActor {
 			fields["userId"] = "a service or an agent is recorded as " + serviceActorPrefix + "<name>"
 		}
+	case ActorSystem:
+		if c.OnBehalfOf != "" {
+			fields["onBehalfOf"] = "is only recorded for a service or an agent"
+		}
+		if c.UserID != "" && !systemActor {
+			fields["userId"] = "an unattributed change is recorded as " + SystemActorPrefix + "<source>"
+		}
 	default:
-		fields["actorKind"] = "must be person, service or agent"
+		fields["actorKind"] = "must be person, service, agent or system"
+	}
+	// A system actor is exactly an unattributed captured change: it is never set without the flag, nor the flag without it.
+	switch {
+	case c.Flag != "" && c.Flag != FlagUnattributed && c.Flag != FlagBadSignature:
+		fields["flag"] = "must be empty, " + FlagUnattributed + " or " + FlagBadSignature
+	case (c.Flag != "") != (c.ActorKind == ActorSystem):
+		fields["flag"] = "an unattributed flag goes with actorKind system, and only with it"
+	}
+	if le, ok := ids.Canonical(c.LegalEntityID); c.LegalEntityID != "" && (!ok || le == ids.Nil) {
+		fields["legalEntityId"] = "must be a UUID"
+	}
+	if len(c.Source) > maxSource || strings.Trim(c.Source, "abcdefghijklmnopqrstuvwxyz0123456789-") != "" {
+		fields["source"] = fmt.Sprintf("is a service name: lowercase letters, digits and '-', at most %d", maxSource)
 	}
 	// Lengths count characters, as the OpenAPI maxLength and Postgres length() do.
 	for name, limit := range map[string]struct {
@@ -158,8 +219,11 @@ func Validate(c Change) map[string]string {
 	return fields
 }
 
-// Hash links c to prevHash (64 hex zeros for the first row). It is SHA-256, as lowercase hex, over one of two
+// Hash links c to prevHash (64 hex zeros for the first row). It is SHA-256, as lowercase hex, over one of three
 // payloads, chosen by the row itself:
+//
+//   - v3, when any B-07 field (legalEntityId, source, flag) is non-empty: the v2 array with its first element
+//     "audit-change-v3" and legalEntityId, source and flag appended, in that order.
 //
 //   - v2, when any AUD-API-1 field (actorKind, onBehalfOf, reason, changeSetId, eventType, eventId,
 //     workflowInstanceId) is non-empty: the RFC 8785 (JCS) serialization of the JSON array of strings
@@ -168,6 +232,7 @@ func Validate(c Change) map[string]string {
 //     time in UTC truncated to microseconds and written as RFC 3339 with trailing fractional zeros removed (Go
 //     time.RFC3339Nano, e.g. 2026-11-01T09:00:00Z, 2026-11-01T09:00:00.1234Z). No value can shift into its
 //     neighbour.
+//
 //   - legacy, for rows written before AUD-API-1 (all of those fields empty): prevHash, entity, recordId, field,
 //     oldValue, newValue, userId, traceId and occurredAt (UTC, time.RFC3339Nano, not truncated) joined by "|".
 //
@@ -179,11 +244,15 @@ func Hash(prevHash string, c Change) string {
 		prevHash = Genesis
 	}
 	var payload []byte
-	if c.hasContext() {
+	if c.hasContext() || c.hasPlacement() {
 		occurred := c.OccurredAt.UTC().Truncate(time.Microsecond).Format(time.RFC3339Nano)
 		values := []string{
 			contextHashVersion, prevHash, c.Entity, c.RecordID, c.Field, c.OldValue, c.NewValue, c.UserID, c.ActorKind, c.OnBehalfOf,
 			c.TraceID, occurred, c.Reason, c.ChangeSetID, c.EventType, c.EventID, c.WorkflowInstanceID,
+		}
+		if c.hasPlacement() {
+			values[0] = placedHashVersion
+			values = append(values, c.LegalEntityID, c.Source, c.Flag)
 		}
 		for _, v := range values {
 			if !utf8.ValidString(v) {

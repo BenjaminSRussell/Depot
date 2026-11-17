@@ -6,6 +6,9 @@ resources:
   requests: { cpu: 100m, memory: 256Mi }
   limits: { cpu: "1", memory: 1Gi }
 clientApps: []
+# Also admit each clientApps entry's owner-role migration Job pod (<entry>-migrate, component migrate; D28). Turn off
+# for a client that is not a Depot service chart with migrations.
+admitMigrateJobs: true
 # enabled: false drops logical WAL, the debezium_cdc role, its Vault key and the Kafka Connect ingress (a database
 # with no outbox, e.g. Apicurio Registry's); clientApps is then required.
 cdc:

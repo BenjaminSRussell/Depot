@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/BenjaminSRussell/depot/platform/auditctx"
 	"github.com/BenjaminSRussell/depot/platform/dbx"
 	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
@@ -32,6 +33,8 @@ const (
 
 func main() {
 	slog.SetDefault(newLogger(os.Stdout))
+	// "<binary> migrate" applies the migrations as the owner role and exits: the chart's PreSync migration Job (D28).
+	dbx.HandleMigrateCommand(migrations.FS)
 	if err := run(context.Background(), os.Getenv); err != nil {
 		slog.Error("party stopped", "err", err)
 		os.Exit(1)
@@ -73,6 +76,11 @@ func run(ctx context.Context, getenv func(string) string) error {
 		slog.Info("migrations applied")
 	}
 	if err := tenant.ShareReplayCache(ctx, pool); err != nil {
+		return err
+	}
+	// The depot.ctx message party writes with vendor bank account changes is signed with party's ADR-0010 service key,
+	// so the audit trail attributes the change only to the actor party vouched for (B-07).
+	if err := auditctx.ConfigureSigner(getenv); err != nil {
 		return err
 	}
 	var sequencer api.Sequencer = numbering.Unavailable{}

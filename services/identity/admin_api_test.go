@@ -305,6 +305,33 @@ func TestOperatorTableIsOperatorReadOnly(t *testing.T) {
 	}
 }
 
+// B-03b re-review R1: the shop floor checks a legal entity before it assigns workers to it. The service-only lookup
+// answers existence in the caller's tenant and the active flag, read in the all-entity scope, and nothing more.
+func TestLegalEntityLookupForServices(t *testing.T) {
+	f := newAdminFixture(t)
+	const inactive, otherTenantOnly = "10000000-0000-0000-0000-000000000078", "10000000-0000-0000-0000-000000000079"
+	for _, row := range []struct{ tenantID, id, status string }{{f.tenantA, inactive, "inactive"}, {f.tenantB, otherTenantOnly, "active"}} {
+		if _, err := f.admin.Exec(context.Background(), `insert into identity_legal_entities (tenant_id, legal_entity_id, code, display_name, status) values ($1, $2, $3, 'X', $4)`, row.tenantID, row.id, "C"+row.id[len(row.id)-2:], row.status); err != nil {
+			t.Fatal(err)
+		}
+	}
+	svc := caller{tenantID: f.tenantA, user: "admin-1", duties: []string{"identity.legal-entity.lookup"}}
+	type lookup struct {
+		LegalEntityID string `json:"legalEntityId"`
+		Active        bool   `json:"active"`
+	}
+	if got := decode[lookup](t, f.do(svc, http.MethodGet, "/v1/identity/legal-entities/"+strings.ToUpper(legalA), nil), http.StatusOK); got.LegalEntityID != legalA || !got.Active {
+		t.Fatalf("active legal entity = %+v", got)
+	}
+	if got := decode[lookup](t, f.do(svc, http.MethodGet, "/v1/identity/legal-entities/"+inactive, nil), http.StatusOK); got.Active {
+		t.Fatalf("inactive legal entity = %+v", got)
+	}
+	for _, id := range []string{otherTenantOnly, "10000000-0000-0000-0000-0000000000ff", "not-a-uuid"} {
+		wantProblem(t, f.do(svc, http.MethodGet, "/v1/identity/legal-entities/"+id, nil), http.StatusNotFound, "IDN-LEGAL-ENTITY-NOT-FOUND")
+	}
+	wantProblem(t, f.do(f.adminOf(f.tenantA, dutyLegalEntities), http.MethodGet, "/v1/identity/legal-entities/"+legalA, nil), http.StatusForbidden, "AUTH-0003")
+}
+
 func TestLegalEntities(t *testing.T) {
 	f := newAdminFixture(t)
 	c := f.adminOf(f.tenantA, dutyLegalEntities)
@@ -759,6 +786,21 @@ func TestRoleAssignmentGuards(t *testing.T) {
 			t.Fatal(err)
 		}
 		wantProblem(t, assign(c, map[string]any{"userId": userID, "role": "party.vendor.view", "legalEntityId": inactive}), http.StatusUnprocessableEntity, "IDN-LEGAL-ENTITY-INACTIVE")
+	})
+
+	// B-03b review blocker: a tenant-level duty (SCIM provisioning, user and role administration, the tenant's audit
+	// evidence, ...) acts on the whole tenant, so it cannot be scoped to one legal entity; tenant-wide it is accepted.
+	t.Run("a tenant-level duty cannot be scoped to a legal entity", func(t *testing.T) {
+		for _, role := range []string{"identity.user.provision", "identity.user.maintain", "identity.security-role.maintain", "audit.read-log.export"} {
+			p := wantProblem(t, assign(c, map[string]any{"userId": userID, "role": role, "legalEntityId": legalA}), http.StatusUnprocessableEntity, "IDN-ROLE-TENANT-LEVEL")
+			if p.Errors["legalEntityId"] == "" {
+				t.Fatalf("%s: errors = %v", role, p.Errors)
+			}
+		}
+		if got := count(t, f.app, f.tenantA, "*", `select count(*) from identity_role_assignments where role = 'identity.user.provision'`); got != 0 {
+			t.Fatalf("a refused scoped tenant-level assignment left %d rows", got)
+		}
+		decode[assignmentRow](t, assign(c, map[string]any{"userId": userID, "role": "identity.user.provision"}), http.StatusCreated)
 	})
 
 	t.Run("an end date slightly in the past is accepted as now", func(t *testing.T) {

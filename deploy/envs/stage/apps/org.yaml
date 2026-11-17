@@ -18,8 +18,6 @@ spec:
         image:
           repository: ghcr.io/benjaminsrussell/org
           digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
-        migrateOnStart: true
-        migrateDatabaseSecret: org-db-owner
         replicaCount: 2
       releaseName: org
   destination:
@@ -29,5 +27,11 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    retry:
+      limit: 5
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m
     syncOptions:
     - CreateNamespace=true

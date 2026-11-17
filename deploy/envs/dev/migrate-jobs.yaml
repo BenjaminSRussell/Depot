@@ -1,0 +1,9 @@
+# Dev values for every chart of the dev services ApplicationSet, before its deploy/envs/dev/values/<name>.yaml: the
+# owner-role migration Job (templates/migrate-job.yaml, D28) is off in dev, because its Secret (<chart>-db-owner) is
+# declared nowhere for dev and a PreSync Job without its Secret fails every sync. A chart's dev values turn it on where a
+# Secret the Job can use exists (eam, transport: the ExternalSecrets in apps/postgres.yaml); fx, receiving and
+# hello-ledger have their own Applications. The other dev services have no schema path in dev yet, as before B-09a: their
+# dev databases have no owner role or Secret (D4). deploy/scripts/test_migrate_jobs.py fails when a dev Job is on and
+# its Secret is not declared in deploy/envs/dev or listed as externally provisioned. stage_apps.py leaves this file out.
+migrateJob:
+  enabled: false

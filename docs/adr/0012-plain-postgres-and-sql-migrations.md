@@ -57,7 +57,7 @@ What is built:
 - A shared dev or stage server couples the services' availability and restore; it is not a production shape.
 - No pooler: connection counts grow with replicas × services; at production scale a pooler will be needed.
 - Backups, replicas, failover and point-in-time restore exist only in the undeployed multi-region chart.
-- Backlog: add a migration Job (Argo PreSync) to every service chart, run as the owner role, and remove the misleading "PreSync Job" comments until it exists (D28).
+- Backlog: add a migration Job (Argo PreSync) to every service chart, run as the owner role, and remove the misleading "PreSync Job" comments until it exists (D28). *Done in B-09a:* `templates/migrate-job.yaml` in every chart with migrations (`deploy/scripts/gen_migrate_jobs.py`), on in stage and prod with serving pods `MIGRATE_ON_START=false`; in dev on only for fx, receiving, transport, eam and hello-ledger. The stage and prod owner Secrets remain (D4), as do dev owner Secrets for the other charts.
 - Backlog: run `expand_contract_lint.py` in CI on every migration change (D18).
 - Backlog: decide and build the production Postgres topology (CNPG per service group or managed Postgres), with replicas, WAL archiving, PITR and a restore drill meeting RPO 5 min / RTO 1 h (D18, D4).
 - Backlog: provision every service database and its Secret in stage and prod (for example `depot_ledger`/`ledger-db-app`, `depot_inventory`, `depot_numbering` are missing everywhere) (D4).

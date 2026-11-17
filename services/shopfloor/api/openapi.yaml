@@ -1249,7 +1249,11 @@ paths:
         Every approved pay line in the range that is not yet in a batch joins a
         new batch. The response carries the CSV; the batch emits
         dev.depot.shopfloor.payday.exported.v1 with its lines in the same
-        transaction. A range with nothing new fails with SF-0111.
+        transaction. A range with nothing new fails with SF-0111. A batch is one
+        employer's payroll (B-03b): it carries the caller's one legal entity and
+        only the lines of workers of that legal entity; a caller scoped to several
+        legal entities gets COM-0001 (422, select one legal entity first), one with
+        none AUTH-0003 (403).
       x-depot-duty: shopfloor.pay.export
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -3674,6 +3678,104 @@ paths:
           $ref: "#/components/responses/Problem"
         "422":
           $ref: "#/components/responses/Problem"
+  /v1/shopfloor/workers/{id}:assign-legal-entity:
+    post:
+      operationId: assignWorkerLegalEntity
+      summary: Assign or correct the employing legal entity of a worker
+      description: |
+        A worker belongs to the legal entity that employs it, and its registrations, days, pay lines, corrections and
+        cost rates are visible only to callers scoped to that legal entity (B-03b). A worker created before this
+        carries none and is visible to no scoped caller, so only a tenant administrator (no legal-entity claim,
+        `tenant.administer` and this duty; otherwise AUTH-0003, 403) may assign it. The legal entity is confirmed with
+        identity first (`GET /v1/identity/legal-entities/{id}` with a service token): one the tenant does not have, or
+        an inactive one, is SF-0201 (422); identity not answering, or the check not configured (`identityUrl`), is
+        SF-0202 (503); nothing is written in either case. A worker's legal entity can be corrected with this route
+        while the worker has no registration, day, correction or cost rate. After that it never changes (SF-0200, 409). Assigning the same one again returns the worker unchanged. A change publishes
+        `dev.depot.shopfloor.worker.assigned.v1` with the legal entity and the administrator in `assignedBy`, and gives
+        the legal entity to the export batches whose lines all belong to its workers.
+      x-depot-duty: shopfloor.setup.maintain
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignWorkerLegalEntity"
+      responses:
+        "200":
+          description: The worker with its legal entity (or the stored outcome of a repeated key).
+          headers:
+            ETag:
+              description: The version as an entity tag, for example "3".
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Worker"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "503":
+          $ref: "#/components/responses/Problem"
+  /v1/shopfloor/workers:assign-legal-entity:
+    post:
+      operationId: assignWorkersLegalEntity
+      summary: Assign one legal entity to many workers created before workers carried one (deploy-time backfill)
+      description: |
+        The bulk form of `workers/{id}:assign-legal-entity` for the backfill after migration 0039 (runbook
+        `docs/runbooks/delivery/shopfloor-legal-entity-backfill.md`). Name up to 1,000 `workerIds`, or set
+        `allUnassigned` for up to 1,000 of the tenant's workers that have no legal entity per call (`remaining` says
+        how many are left; repeat until it is 0). Workers with none get the legal entity (each publishes
+        `dev.depot.shopfloor.worker.assigned.v1`); `assignedCount` counts them and `assigned` lists them for a call
+        that named its workers; workers already in it are `unchanged`; workers in another legal entity are
+        `conflicts` and are left alone; unknown ids are `notFound`. Then every payroll export batch without a legal
+        entity whose lines all belong to that legal entity's workers gets it (`exportBatches`). `dryRun` reports all
+        of this and writes nothing; run it first. The legal entity is confirmed with identity first (SF-0201, 422,
+        unknown or inactive; SF-0202, 503, identity not answering or not configured). Tenant administrators only
+        (AUTH-0003, 403).
+      x-depot-duty: shopfloor.setup.maintain
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignWorkersLegalEntity"
+      responses:
+        "200":
+          description: What happened to each worker (or the stored outcome of a repeated key).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkersLegalEntityAssigned"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "503":
+          $ref: "#/components/responses/Problem"
   /v1/shopfloor/pi-sheets:
     post:
       operationId: createPISheet
@@ -4467,6 +4569,10 @@ components:
           type: string
           maxLength: 64
           description: IANA zone of the site the worker works at (default UTC). The dated cost rate of a job stop is the one effective on the local day the work started in this zone.
+        legalEntityId:
+          type: [string, "null"]
+          format: uuid
+          description: The legal entity that employs the worker; it must be in the caller's scope. Defaults to the caller's one legal entity (COM-0001, 422, for a caller scoped to several; AUTH-0003, 403, for one outside the scope or with none).
     Worker:
       type: object
       required: [id, partyId, name, badgeId, userId, costRate, currency, active, version, createdAt, profileId, payAgreementId, defaultResourceId, deactivatedAt, deactivatedBy, deactivationReason]
@@ -4519,6 +4625,10 @@ components:
         deactivationReason:
           type: [string, "null"]
           description: The reason given at deactivation; null while active.
+        legalEntityId:
+          type: [string, "null"]
+          format: uuid
+          description: The legal entity that employs the worker; its time and pay are visible only to callers scoped to it. Null for a worker created before workers carried one, until a tenant administrator assigns it (assign-legal-entity).
     BreakWindow:
       type: object
       required: [from, to]
@@ -5405,6 +5515,66 @@ components:
           minLength: 1
           maxLength: 500
           description: Why the worker is deactivated; kept on the worker and published.
+    AssignWorkerLegalEntity:
+      type: object
+      required: [legalEntityId]
+      properties:
+        legalEntityId:
+          type: string
+          format: uuid
+          description: The legal entity that employs the worker.
+    AssignWorkersLegalEntity:
+      type: object
+      required: [legalEntityId]
+      properties:
+        legalEntityId:
+          type: string
+          format: uuid
+        workerIds:
+          type: array
+          maxItems: 1000
+          items:
+            type: string
+            format: uuid
+          description: The workers to assign; empty with allUnassigned.
+        allUnassigned:
+          type: boolean
+          description: Assign up to 1,000 of the tenant's workers that have no legal entity (repeat while remaining > 0).
+        dryRun:
+          type: boolean
+          description: Report what the call would do and write nothing.
+    WorkersLegalEntityAssigned:
+      type: object
+      required: [legalEntityId, dryRun, assignedCount, assigned, unchanged, conflicts, notFound, remaining, exportBatches]
+      properties:
+        legalEntityId:
+          type: string
+          format: uuid
+        dryRun:
+          type: boolean
+        assignedCount:
+          type: integer
+          description: Workers that got (or, in a dry run, would get) the legal entity.
+        assigned:
+          type: array
+          items: {type: string, format: uuid}
+          description: The assigned workers of a call that named its workers; empty for allUnassigned, which reports the count only.
+        remaining:
+          type: integer
+          description: The tenant's workers still without a legal entity after the call.
+        unchanged:
+          type: array
+          items: {type: string, format: uuid}
+        conflicts:
+          type: array
+          items: {type: string, format: uuid}
+          description: Workers already in another legal entity; correct them one at a time.
+        notFound:
+          type: array
+          items: {type: string, format: uuid}
+        exportBatches:
+          type: integer
+          description: Payroll export batches that got the legal entity.
     AssignWorkerResource:
       type: object
       required: [resourceId]

@@ -41,6 +41,9 @@ SINGLETONS = {
     "iot-edge": "one connector per plant; the chart pins one replica",
     "workflow": "the replay cache of agents' service tokens (jti) is in the pod's memory (src/agentsToken.ts)",
 }
+# Dev-only migration settings (D28): dropped from the stage Applications, so stage runs every chart's owner-role Job.
+DEV_MIGRATION_VALUES = ("migrateJob", "migrateOnStart", "migrateDatabaseSecret")
+DEV_ONLY_VALUE_FILES = {"$values/deploy/envs/dev/migrate-jobs.yaml"}
 # Literal dev values that name the dev environment, and their stage counterparts.
 STAGE_STRINGS = [
     (".dev.depot.dev", ".stage.depot.dev"),
@@ -105,6 +108,11 @@ def stage_application(app: dict) -> dict:
     # Keep the dev release name, so the chart's Service and every in-cluster URL that names it are the same in stage.
     helm.setdefault("releaseName", name)
     values = helm.setdefault("valuesObject", {})
+    # Dev's migration settings stay in dev (D28, ADR-0012 rule 3): its Jobs may be off (on-start migration instead) or sign in
+    # as the role that has owned a dev schema since it migrated on start. Stage runs every chart's Job with the chart
+    # default, the owner role's <chart>-db-owner Secret provisioned with the stage database, and never migrates on start.
+    for key in DEV_MIGRATION_VALUES:
+        values.pop(key, None)
     replicas = values.get("replicaCount", chart_replicas(src["path"]))
     if name not in SINGLETONS and (replicas or 1) < 2:
         values["replicaCount"] = 2
@@ -142,7 +150,8 @@ def services_appset() -> str:
     spec = template["spec"] = stage_strings(template["spec"])
     for src in spec["sources"]:
         helm = src.get("helm") or {}
-        helm["valueFiles"] = [vf.replace("/deploy/envs/dev/values/", "/deploy/envs/stage/values/") for vf in helm.get("valueFiles", [])]
+        helm["valueFiles"] = [vf.replace("/deploy/envs/dev/values/", "/deploy/envs/stage/values/") for vf in helm.get("valueFiles", [])
+                              if vf not in DEV_ONLY_VALUE_FILES]
         if not helm["valueFiles"]:
             del helm["valueFiles"]
     spec["destination"] = {"name": STAGE_CLUSTER, "namespace": spec["destination"]["namespace"]}

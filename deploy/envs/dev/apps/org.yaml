@@ -16,6 +16,11 @@ spec:
         image:
           repository: ghcr.io/benjaminsrussell/org
           digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        # Dev keeps on-start migration with the Job off, as before B-09a (D28): no org-db-owner Secret is declared in this
+        # repository for the Job, and the serving pods already need the externally provisioned one (#213). Stage and prod
+        # run the Job (stage_apps.py drops these three values).
+        migrateJob:
+          enabled: false
         migrateOnStart: true
         migrateDatabaseSecret: org-db-owner
         replicaCount: 1
@@ -26,3 +31,6 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    retry:
+      limit: 5
+      backoff: { duration: 30s, factor: 2, maxDuration: 5m }

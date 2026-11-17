@@ -74,6 +74,7 @@ spec:
       valuesObject:
         database: apicurio
         clientApps: [apicurio-registry]
+        admitMigrateJobs: false  # Apicurio Registry has no migration Job (D28)
         cdc:
           enabled: false
         externalSecret:

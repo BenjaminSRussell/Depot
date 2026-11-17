@@ -8,4 +8,6 @@ initdb runs only on an empty data volume. Rotating a password later: update Vaul
 
 `cdc.enabled: false` makes a plain database for a component with no outbox (release `apicurio` in `kafka`, Apicurio Registry's SQL storage): no logical WAL, no `debezium_cdc` role or `cdc-password` key, and ingress only from `clientApps` (required then). The registry reads its own Secret `apicurio-database` (`deploy/envs/<env>/kafka-secrets/apicurio-database.yaml`) built from the same `app-password` key.
 
+Ingress: Kafka Connect (with `cdc.enabled`), the pods of each `clientApps` entry and, with `admitMigrateJobs` (default true), that entry's owner-role migration Job pod (`<entry>-migrate`, `app.kubernetes.io/component: migrate`; D28). The Job signs in with the service's owner Secret, `<chart>-db-owner`.
+
 Service migrations `metadata/0006` and `batch/0011` grant SELECT on `outbox` to `debezium_cdc` only if the role exists when they run. If a service migrated before this database existed, delete that row from `schema_migrations` and restart (or run the GRANT by hand).

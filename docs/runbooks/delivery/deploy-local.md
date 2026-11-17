@@ -44,10 +44,79 @@ metadata) is matched by that namespace's name, and the Gateway pods and Promethe
 other layout. `global.regionFenceUrl` must go through Gateway `depot-region`
 (`https://region.<env>.depot.dev/healthz/region`); the charts refuse to render with the ops Service URL.
 
+## Database migrations
+
+Serving pods never change the schema where the migration Job runs: they run `MIGRATE_ON_START=false` and connect as
+`depot_app` (ADR-0012 rule 3, D28, B-09a). Every chart whose service has `migrations/` carries `templates/migrate-job.yaml`,
+a Job `<release>-migrate` that Argo CD runs as a **PreSync hook** (a plain `helm install`/`upgrade` runs it as a
+pre-install/pre-upgrade hook): before any other resource of the release syncs, the service image runs its migrate command
+(`<binary> migrate` for Go, `node <entry> migrate` for agents-ts and integration-hub-ts, `python -m prediction.migrate`) with
+the owner role's URL, which applies the pending `migrations/*.sql` files under the `dbx.Migrate` advisory lock and exits.
+A failed migration fails the sync, so new pods never start on a schema that was not applied; Argo CD keeps the last Job and
+its pod until the next sync replaces it, and the Applications that run a Job retry a failed sync (`syncPolicy.retry`).
+
+- **Where it runs.** Stage and prod: every chart. Dev: only fx, receiving, transport, eam and hello-ledger (and the local
+  `hello-ledger-local`), whose Jobs sign in with the Secret of the role that has owned their dev schema since they migrated
+  on start (`fx-db`, `receiving-db`, `hello-ledger-db` with `migrateJob.allowAppRole`, `transport-db` and `eam-database`).
+  identity and org migrate on start in dev with their Job off, as before. Every other dev chart has its Job off
+  (`deploy/envs/dev/migrate-jobs.yaml`, a value file of the dev services ApplicationSet before `values/<name>.yaml`): no
+  dev owner role or Secret exists for them, so they still have no schema path in dev (D28, D4). To turn one on, declare its
+  owner Secret for dev (an ExternalSecret in `apps/postgres.yaml`, never in the chart itself) and set
+  `migrateJob.enabled: true` in its dev values; `test_migrate_jobs.py` fails on an enabled Job whose Secret is declared
+  nowhere in the environment and not in its `EXTERNALLY_PROVISIONED` list.
+- **Owner Secret.** `migrateJob.ownerSecret` (default `<chart>-db-owner`, key `DATABASE_URL`) holds the URL of the role that
+  owns the service's database. It is provisioned with the database (stage and prod: B-09 parts b and c, #213) and must
+  exist before PreSync: never make it an ordinary resource of the same Application, or the first install waits for it for
+  ever. Until it exists the Job pod waits in `CreateContainerConfigError` and the sync fails after `activeDeadlineSeconds`.
+- **Waiting for the database.** The migrate command retries each attempt (connect, app-role check, migrations) when the
+  database cannot be reached or drops the session (refused or reset connection, DNS, timeout, a server starting up or
+  shutting down, too many connections), with exponential back-off from 1 s to 30 s for `MIGRATE_RETRY_TIMEOUT` (a Go
+  duration such as `90s`, `5m` or `1h30m`, the same forms in Go, TypeScript and Python; default `5m`, `0` tries once),
+  logging each retry. A migration's SQL error, a rejected login, a missing database or a TLS certificate that does not
+  verify fails at once. (The Python command cannot read a SQLSTATE from a failed connection, so it asks the server with
+  libpq's ping instead: a server that answers rejected the login, one that does not answer or is starting up is retried.)
+  A transactional file interrupted by a lost connection is rolled back and applied again; a `-- dbx:no-transaction` file
+  must be safe to rerun.
+- **Not as the app role.** The command refuses a session tied to the serving role, `depot_app` by default or the role
+  `MIGRATE_APP_ROLE` names, either way round: logged in as it or switched from it (`options=-c role=...`), a member of it,
+  or an owner role it is a member of (a `GRANT <owner> TO depot_app` would let the serving role alter every table). Never
+  grant the owner role to the app role. `migrateJob.allowAppRole: true` (MIGRATE_ALLOW_APP_ROLE) overrides the check only
+  where depot_app really owns the dev schema (fx, receiving, hello-ledger).
+- **Deadline.** `migrateJob.activeDeadlineSeconds` (600 s) bounds a run, retries included; raise it per environment for a
+  migration that builds a large index (`CREATE INDEX CONCURRENTLY`, see ledger 0032 for the INVALID-leftover pattern).
+  `backoffLimit` is 2.
+- **Expand/contract.** PreSync applies the new schema while the previous release's pods keep serving, until the Deployment
+  rolls. Every migration must therefore keep working with the previous release's code: add nullable or defaulted columns
+  and new tables, backfill in the new code, and drop or rename only a release later (architecture §7.18, NFR-A4).
+- **Rollback does not undo the schema.** Rolling an image back (Argo history, `make -C deploy rollback-stage`) keeps the
+  newer schema; the expand/contract rule is what keeps the older code working on it. There are no down migrations.
+- **Rolling back past B-09a.** An image built before B-09a ignores the `migrate` argument and starts serving, connected as
+  the owner role, until the Job's deadline fails the sync. Roll back to such an image with `migrateJob.enabled=false` (and,
+  where the old chart needs it, its on-start migration) in that Application's values.
+- **Labels and network.** The Job's pod is `app.kubernetes.io/name: <pod>-migrate`, where `<pod>` is the API Deployment's
+  own name label (`migrateJob.podName`, e.g. `sales-migrate` for chart `depot-sales`), with
+  `app.kubernetes.io/component: migrate`, so the chart's Service does not route to it and no generated NetworkPolicy
+  selects it or admits it as a peer; the namespace default-deny refuses every connection to it. Postgres admits migrate pods
+  by those exact names: the shared dev server through a generated list (`gen_migrate_jobs.py`), `deploy/postgres` releases
+  as `<clientApps entry>-migrate`. Like every rule here this trusts pod labels; see #723 for the admission policy.
+- **Run it by hand.** `kubectl -n hello-ledger logs job/<release>-migrate` shows the last run. Locally:
+  `DATABASE_URL=<owner url> go run ./cmd/<service> migrate` (Go), or `MIGRATE_ON_START=true` with the owner URL in dev.
+- **Dev on-start migration** is allowed only with the Job off: `migrateJob.enabled=false` and the chart's migrate-on-start
+  value `true`. With the Job on, a chart whose serving pods would migrate on start refuses to render
+  (`migrateJob.servingMigrateOnStart` names that value).
+- **Changing the Job.** `templates/migrate-job.yaml` and each chart's `migrateJob` values block are generated: edit
+  `deploy/scripts/gen_migrate_jobs.py` and run it; `make -C deploy test-argocd` runs `--check` and
+  `deploy/scripts/test_migrate_jobs.py`.
+- **k3d proof.** `make -C deploy test-migrate-k3d [SERVICES="ledger fx platform-health"] [MIGRATE_DEADLINE=600]` creates a
+  throwaway k3d cluster, builds the images, helm-installs the charts against empty databases and checks every migration was
+  applied by the owner role, with the dev Postgres NetworkPolicy and the namespace default-deny in place; a failing service
+  is reported and the others still run. Needs docker, k3d, kubectl and helm; it has not been run yet and is not in CI.
+
 ## Troubleshoot
 
 | Symptom | Check |
 |---|---|
+| Argo app stuck in `Syncing` / sync failed on `<release>-migrate` | `kubectl -n <ns> describe job <release>-migrate` and `logs job/<release>-migrate`: a missing owner Secret (`CreateContainerConfigError`) or a failing migration file; fix and sync again |
 | a service gets connection timeouts calling a peer | the caller is not in the peer's `ingressPolicy.peers`: add the `*_URL` client or grant, rerun `python3 deploy/scripts/gen_networkpolicies.py` |
 | `tofu apply` fails on provider | `provider_kind` other than `k3d` is not implemented |
 | pod `CreateContainerConfigError` | Secret `hello-ledger-db` missing in namespace `hello-ledger` |

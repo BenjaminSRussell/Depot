@@ -77,6 +77,7 @@ func (a *API) Register(r chi.Router) {
 	r.Get("/readyz", a.ready)
 	r.With(authz.RequireDuty(dutyWrite)).Post("/v1/audit/changes", a.ingest)
 	r.With(authz.RequireDuty(dutyRead)).Get("/v1/audit/records/{entity}/{recordId}", a.query)
+	r.With(authz.RequireDuty(dutyVerify)).Get("/v1/audit/records:verify", a.verifyChanges)
 	r.With(authz.RequireDuty(dutyWrite)).Post("/v1/audit/alert-rules", a.createRule)
 	r.With(authz.RequireDuty(dutyRead)).Get("/v1/audit/alerts", a.listAlerts)
 	r.Post("/v1/audit/texts/expand", a.expand)
@@ -149,6 +150,7 @@ func (a *API) ingest(w http.ResponseWriter, r *http.Request) {
 		Entity: req.Entity, RecordID: req.RecordID, Field: req.Field, OldValue: req.OldValue, NewValue: req.NewValue,
 		UserID: who.userID, ActorKind: who.kind, OnBehalfOf: who.onBehalfOf, TraceID: req.TraceID, OccurredAt: req.OccurredAt,
 		Reason: req.Reason, ChangeSetID: req.ChangeSetID, EventType: req.EventType, EventID: req.EventID, WorkflowInstanceID: req.WorkflowInstanceID,
+		LegalEntityID: tokenLegalEntity(p),
 	}
 	if fields := domain.Validate(change); len(fields) > 0 {
 		pr := httpx.NewProblem(http.StatusBadRequest, "COM-0001", "request failed validation")
@@ -223,6 +225,15 @@ func (a *API) expand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, map[string]string{"body": domain.Expand(req.Body, req.Vars)})
+}
+
+// tokenLegalEntity is the legal entity a change recorded over HTTP is filed under (B-07, D17): the one legal entity
+// the verified service token names, or none (a tenant-level entry) when it names none or several.
+func tokenLegalEntity(p tenant.Principal) string {
+	if scopes := tenant.LegalEntityScopeList(p); len(scopes) == 1 {
+		return scopes[0]
+	}
+	return ""
 }
 
 func validTenant(w http.ResponseWriter, r *http.Request) bool {
