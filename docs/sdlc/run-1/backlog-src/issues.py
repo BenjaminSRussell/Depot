@@ -378,6 +378,11 @@ ISSUES.append(dict(
     files=['services/close/internal/domain/period.go',
  'services/close/internal/domain/period_test.go',
  'services/close/internal/api/period_order_test.go (new)',
+ 'services/close/internal/store/period.go',
+ 'services/close/internal/api/sliceb.go',
+ 'services/close/internal/api/sliceb_test.go',
+ 'services/close/README.md',
+ 'services/close/api/openapi.yaml',
  'services/pricing/internal/domain/calc.go',
  'services/pricing/internal/domain/resolve_test.go',
  'services/pricing/internal/domain/property_test.go',
@@ -728,7 +733,8 @@ ISSUES.append(dict(
  'Co- and by-product costs posted as ledger lines (FR-24.4); every posting type in the production posting profile resolves its own account (FR-21.13); the '
  'job-card feedback consumer posts route-card journals (FR-25.4)'],
     scope_out=['Production-order settlement saga S3b (B-40)', 'Valuation reservation protocol (B-47)'],
-    ac=['Integration test: post a slip for 3 units -> on-hand -3, journal Dr COGS / Cr inventory with `journalEntryId` on the inventory event, DNI projection equals '
+    ac=['Route/job card journals take labour and overhead rates from the resource cost category (no request-supplied laborRate/overheadRate); a test with a request carrying a different rate posts the cost-category rate (FR-21.6)',
+ 'Integration test: post a slip for 3 units -> on-hand -3, journal Dr COGS / Cr inventory with `journalEntryId` on the inventory event, DNI projection equals '
  'GL 1405 (AC-28.1, AC-28.2)',
  'Cancel the slip -> mirror issue and reversing journal (test)',
  'Production: pick 5 components -> on-hand -5; RAF 1 finished good -> on-hand +1 at the active standard cost; batch-tracked RAF without batch refused '
@@ -743,6 +749,7 @@ ISSUES.append(dict(
  ('FR-21.3', 'costs from the active costing version'),
  ('FR-21.5', 'picking issues stock'),
  ('FR-21.7', 'RAF receives stock with batch/serial check'),
+ ('FR-21.6', 'route and job card journals valued at the resource cost-category rate, not request-supplied rates'),
  ('FR-24.2', 'batch order issue/receipt posted'),
  ('FR-24.3', 'potency consumption posted'),
  ('FR-24.4', 'co-/by-product cost posted as ledger lines'),

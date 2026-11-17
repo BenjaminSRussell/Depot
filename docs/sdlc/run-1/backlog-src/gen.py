@@ -31,7 +31,12 @@ def base(x):
     return m.group(1) + (m.group(2) if m.group(1) + m.group(2) in byid else '')
 
 try:
-    HEAD = subprocess.run(['git', '-C', REPO, 'rev-parse', '--short=8', 'HEAD'], capture_output=True, text=True).stdout.strip()
+    import hashlib as _h
+    _inp = sorted(glob.glob(os.path.join(REPO,'docs/sdlc/run-1/fr-audit/waves-*.md'))) + [os.path.join(REPO,p) for p in ('docs/architecture.md','docs/ux/rollout.md','docs/ux/patterns.md','docs/ux/README.md','docs/sdlc/run-1/ux-audit.md','docs/sdlc/run-1/backlog-src/issues.py')]
+    _d = _h.sha256()
+    for _f in _inp:
+        _d.update(open(_f,'rb').read())
+    HEAD = 'inputs sha256 ' + _d.hexdigest()[:12]
     TRACKED = subprocess.run(['git', '-C', REPO, 'ls-files'], capture_output=True, text=True).stdout.split('\n')
 except Exception:
     HEAD, TRACKED = 'unknown', []
@@ -208,6 +213,7 @@ RULES = [
  'Service charts: B-01 adds only `templates/networkpolicy.yaml`; B-09 adds only `templates/migrate-job.yaml` and owns `deploy/envs/{stage,prod}`; B-05 changes only consumer overrides in `deploy/envs/dev/values`; B-48 adds only pdb and hpa templates.',
  '`platform/go/outbox`: B-07 (wave 2), then B-11 (wave 3).',
  '`services/identity` is one flat Go package: each issue names the files it edits. B-03b: policy_bundle*.go, opa*.go. B-12: keycloak_*.go, users_api.go. B-23 and B-24: role_assignments_api.go (B-23 in wave 5, B-24 in wave 6). B-28: preferences_api.go (new). B-29: badge_api.go (new). B-03c rebases after B-04, B-12 and B-22 and touches only the le mapper, the membership check, the Envoy forwarding and the company switcher.',
+ 'services/close/internal/store/period.go: B-08 (wave 1, built) merges first; B-08c rebases onto it before its own change to the close period store.',
  'Migrations: two issues never add a migration to the same service in the same wave. B-03b adds the scheduling legal-entity migration after B-08b\'s 0025 is merged (wave 1 -> 2).',
  'New contract tests (`*/audit_contract_test.go`, B-36 in wave 7) are new files; they do not edit the files B-18, B-19 or B-29 change in that wave.',
  'Wave 5: B-23 owns `services/audit/internal/api/**`; B-36 (ingestion) waits for wave 7 for that reason.',
