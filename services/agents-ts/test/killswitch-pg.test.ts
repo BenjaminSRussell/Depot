@@ -111,10 +111,11 @@ describe.runIf(ownerUrl)("kill switch shared through Postgres (AC-47.6)", () => 
     expect(second.body.version).toBe(first.body.version);
     const rows = await fx.owner.query("select count(*)::int as n from kill_switch_change where target_tenant_id = $1", [t]);
     expect(rows.rows[0].n).toBe(1);
-    const events = await fx.owner.query("select type, payload from outbox where tenant_id = $1 and aggregate_type = 'kill_switch'", [t]);
+    const events = await fx.owner.query("select id, type, payload->'data' as payload, payload as envelope from outbox where tenant_id = $1 and aggregate_type = 'kill_switch'", [t]);
     expect(events.rows).toHaveLength(1);
     expect(events.rows[0].type).toBe("dev.depot.agent.killswitch.changed.v1");
     expect(events.rows[0].payload).toMatchObject({ scope: "TENANT", tenant_id: t, active: true, version: first.body.version });
+    expect(events.rows[0].envelope).toMatchObject({ specversion: "1.0", id: events.rows[0].id, type: "dev.depot.agent.killswitch.changed.v1", tenantid: t });
   });
 
   it("concurrent toggles from many pods commit in version order, so a poll never skips one", async () => {

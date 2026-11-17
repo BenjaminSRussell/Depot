@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { ApprovalRequest, ApprovalStore, RecordedDecision } from "../api/decision.js";
 import type { Money } from "../domain/money.js";
 import { approvalRequestedEvent } from "../domain/events.js";
+import { enqueueOutbox } from "./outbox.js";
 import type { PgAgentStore } from "./pg.js";
 
 /** What the runtime stores when a run reaches the approval gate (FR-47.8). */
@@ -104,10 +105,7 @@ export class PgApprovalStore implements ApprovalStore {
           confidence: a.confidence,
           ...(a.riskScore !== undefined ? { riskScore: a.riskScore } : {}),
         });
-        await c.query(
-          "insert into outbox (id, tenant_id, aggregate_type, aggregate_id, type, payload) values ($1, $2, 'approval_request', $3, $4, $5::jsonb)",
-          [randomUUID(), a.tenantId, actionId, event.type, JSON.stringify(event.data)],
-        );
+        await enqueueOutbox(c, event, "approval_request", actionId);
       }),
     );
     return actionId;

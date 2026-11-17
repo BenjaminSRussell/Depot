@@ -16,7 +16,7 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from prediction.domain import Config, Model, OpenInvoice, Outcome, PaidInvoice, Prediction, PredictionError, model_artifact, model_from_artifact
-from prediction.service import SCORED_EVENT, Dso, Entities, SyncState, scored_event
+from prediction.service import SCORED_EVENT, Dso, Entities, SyncState, scored_envelope
 
 # The image copies the migrations to /app/migrations (Dockerfile); a checkout reads them from the service directory.
 MIGRATIONS_DIR = Path(os.environ.get("PREDICTION_MIGRATIONS_DIR") or Path(__file__).resolve().parents[2] / "migrations")
@@ -131,9 +131,10 @@ class PgRepository:
                              actual_paid_date = null, legal_entity_id = coalesce(excluded.legal_entity_id, payment_prediction.legal_entity_id)""",
                         [(tenant_id, p.invoice_id, p.model_version, p.predicted_payment_date, Decimal(p.p_late_30d), p.features_hash, p.due_date, p.scored_at, legal_entity_id) for p in predictions],
                     )
+                    envelopes = [scored_envelope(tenant_id, p, legal_entity_id) for p in predictions]
                     cur.executemany(
                         "insert into outbox (id, tenant_id, aggregate_type, aggregate_id, type, payload) values (%s, %s, 'payment_prediction', %s, %s, %s)",
-                        [(str(uuid.uuid4()), tenant_id, p.invoice_id, SCORED_EVENT, Jsonb(scored_event(p))) for p in predictions],
+                        [(env["id"], tenant_id, p.invoice_id, SCORED_EVENT, Jsonb(env)) for p, env in zip(predictions, envelopes)],
                     )
         except psycopg.errors.InsufficientPrivilege as exc:
             raise PredictionError("PRD-0403", "an invoice of this call belongs to a legal entity outside its scope", 403) from exc

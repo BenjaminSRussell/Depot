@@ -3,6 +3,7 @@ in-memory one below serves tests and a process started without DATABASE_URL."""
 
 from __future__ import annotations
 
+import uuid
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, replace
 from datetime import date, datetime
@@ -222,6 +223,7 @@ class InMemoryRepository:
 
 
 SCORED_EVENT = "dev.depot.prediction.payment.scored.v1"
+EVENT_SOURCE = "depot/prediction"
 
 
 def scored_event(p: Prediction) -> dict[str, object]:
@@ -233,6 +235,27 @@ def scored_event(p: Prediction) -> dict[str, object]:
         "p_late_30d": p.p_late_30d,
         "scored_at": p.scored_at.isoformat(),
     }
+
+
+def scored_envelope(tenant_id: str, p: Prediction, legal_entity_id: str | None = None, event_id: str | None = None,
+                    now: datetime | None = None) -> dict[str, object]:
+    """The CloudEvents 1.0 envelope an outbox row carries as its payload, the shape platform/go/outbox.Enqueue writes: the
+    outbox-prediction-py connector relays the payload as the Kafka value, and its CloudEventsEnricher rejects a row without
+    type, id, time or specversion 1.0, which stops the connector. legalentityid is the entity the scoring call ran for."""
+    env: dict[str, object] = {
+        "specversion": "1.0",
+        "id": event_id or str(uuid.uuid4()),
+        "source": EVENT_SOURCE,
+        "type": SCORED_EVENT,
+        "subject": p.invoice_id,
+        "time": (now or utcnow()).isoformat(),
+        "datacontenttype": "application/json",
+        "data": scored_event(p),
+        "tenantid": tenant_id,
+    }
+    if legal_entity_id:
+        env["legalentityid"] = legal_entity_id
+    return env
 
 
 class PredictionService:

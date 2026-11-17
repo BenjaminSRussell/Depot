@@ -243,6 +243,9 @@ def grant_edges(releases):
 
 def routed_gateways(releases):
     """{release: {gateway names}} from the HTTPRoutes in deploy/gateway (the kustomization and payments-webhook)."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import gen_httproutes  # the chart Service table the routes are generated from (B-02a)
+    table = {key: b.release for key, b in gen_httproutes.service_table().items()}
     out = {}
     for path in sorted(GATEWAY_DIR.rglob("*.yaml")):
         for doc in load_yaml(path):
@@ -251,9 +254,11 @@ def routed_gateways(releases):
             gateways = {p["name"] for p in doc["spec"].get("parentRefs", [])} - set(TOKENLESS_GATEWAYS)
             if not gateways:
                 continue
+            route_ns = doc["metadata"].get("namespace", GATEWAYS_NAMESPACE)
             for rule in doc["spec"].get("rules", []):
                 for ref in rule.get("backendRefs", []):
-                    name = BACKEND_ALIASES.get(ref["name"], ref["name"])
+                    name = table.get((ref.get("namespace", route_ns), ref["name"]))
+                    name = name or BACKEND_ALIASES.get(ref["name"], ref["name"])
                     if name not in releases:
                         raise SystemExit(f"{path.relative_to(REPO)}: backendRef {ref['name']!r} is no chart release; add it to BACKEND_ALIASES")
                     out.setdefault(name, set()).update(gateways)

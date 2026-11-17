@@ -11,3 +11,11 @@ scan:
 # The portal edge (deploy/gateway/portal-gateway.yaml) is the TCP peer of every request, so the public routes' per-address limit
 # reads the client from X-Forwarded-For past the Envoy pods: the k3d (k3s) pod CIDR. Without it every client shares one allowance.
 trustedProxies: 10.42.0.0/16
+# The services this BFF calls, at the Service names and ports their charts render in namespace hello-ledger (the chart
+# defaults name a namespace per service, which no environment has). deploy/scripts/test_gateway.py checks each against the
+# dev Service table of deploy/scripts/gen_httproutes.py (D31, B-02a).
+upstreams:
+  purchasing: http://purchasing-purchasing.hello-ledger.svc:80
+  receiving: http://receiving.hello-ledger.svc:8080
+  party: http://party.hello-ledger.svc:8080
+  payables: http://payables.hello-ledger.svc:8080

@@ -1,0 +1,74 @@
+asyncapi: 3.0.0
+info:
+  title: Depot FX events
+  version: 0.1.0
+  description: |
+    CloudEvents 1.0 envelope; the schemas below are the data member, written by internal/store in the business
+    transaction. `rate.published` is enqueued for every stored rate (`Store.PostRate`, aggregate exchange_rate) and
+    `provider.degraded` when a provider import run ends failed or degraded (`FinishRunFailed`, `FinishRunDegraded`,
+    aggregate provider_import_run). The `outbox-fx` connector (deploy/kafka/connect.yaml) routes
+    dev.depot.fx.<entity>.<verb>.v<n> to depot.fx.<entity>. No consumer reads these topics yet.
+defaultContentType: application/cloudevents+json
+channels:
+  ratePublished:
+    address: depot.fx.rate
+    description: Outbox relay topic for stored exchange rates, keyed by rate id.
+    messages:
+      ratePublished:
+        $ref: "#/components/messages/RatePublished"
+  providerDegraded:
+    address: depot.fx.provider
+    description: Outbox relay topic for provider import runs that ended failed or degraded, keyed by run id.
+    messages:
+      providerDegraded:
+        $ref: "#/components/messages/ProviderDegraded"
+operations:
+  publishRatePublished:
+    action: send
+    channel:
+      $ref: "#/channels/ratePublished"
+    summary: FX publishes rate.published when it stores a rate (a lower-priority source's rate arrives already superseded).
+    messages:
+      - $ref: "#/channels/ratePublished/messages/ratePublished"
+  publishProviderDegraded:
+    action: send
+    channel:
+      $ref: "#/channels/providerDegraded"
+    summary: FX publishes provider.degraded when an import run fails (no fallback) or is degraded (last known rates kept, AC4).
+    messages:
+      - $ref: "#/channels/providerDegraded/messages/providerDegraded"
+components:
+  messages:
+    RatePublished:
+      name: dev.depot.fx.rate.published.v1
+      summary: An exchange rate was stored (a correction supersedes the current rate)
+      contentType: application/cloudevents+json
+      payload:
+        type: object
+        required: [rate_type, from_currency, to_currency, valid_from, rate, source, previous_rate]
+        additionalProperties: false
+        properties:
+          rate_type: { type: string, description: "Rate type code." }
+          from_currency: { type: string, pattern: "^[A-Z]{3}$" }
+          to_currency: { type: string, pattern: "^[A-Z]{3}$" }
+          valid_from: { type: string, format: date }
+          rate: { type: string, description: "Decimal string." }
+          source: { type: string, description: "ecb, openexchangerates, csv, manual or migration." }
+          previous_rate: { type: [string, "null"], description: "The current rate this one follows, as a decimal string; null for the first rate of the pair." }
+          deviation_pct: { type: string, description: "Deviation from previous_rate in percent; absent when there is no previous rate and none was supplied (FR-12.11)." }
+    ProviderDegraded:
+      name: dev.depot.fx.provider.degraded.v1
+      summary: A provider import run ended failed or degraded
+      contentType: application/cloudevents+json
+      payload:
+        type: object
+        required: [provider, last_success_at, rate_type, error, status, fallback, retryable]
+        additionalProperties: false
+        properties:
+          provider: { type: string }
+          last_success_at: { type: [string, "null"], format: date-time, description: "Last successful import of this provider and rate type; null when none." }
+          rate_type: { type: string, description: "Rate type code." }
+          error: { type: string }
+          status: { type: string, enum: [failed, degraded] }
+          fallback: { type: string, enum: [none, last_known] }
+          retryable: { type: boolean }

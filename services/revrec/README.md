@@ -140,8 +140,9 @@ contracts and runs from its reads.
 Both are written to the outbox in the same transaction and keyed by contract id.
 Consumed: `dev.depot.billing.creditnote.booked.v1` on `depot.billing.invoice` (the
 credit-note consumer, `revrec consume`; KafkaUser and dead-letter topic in
-`deploy/kafka/revrec-consumer.yaml`, chart `consumer.*`, off by default). Billing's
-outbox connector, which creates that topic, is not in `deploy/kafka/connect.yaml` yet.
+`deploy/kafka/revrec-consumer.yaml`, chart `consumer.*`, off by default); `outbox-billing`
+in `deploy/kafka/connect.yaml` writes that topic. Revrec's own events reach `depot.revrec.contract` and
+`depot.revrec.schedule` through `outbox-revrec` (migrations 0013 and 0014 publish the outbox).
 Until the consumer is enabled, a booked credit note is not applied: billing has already debited
 2400, revrec's schedules are not reversed, and `GET /v1/revrec/gl-reconciliation` shows the
 credit note as a difference (`difference` and `closingDifference` stay non-zero).

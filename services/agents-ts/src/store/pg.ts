@@ -5,6 +5,7 @@ import pg from "pg";
 import type { ActionRecord, Decision } from "../domain/audit.js";
 import { budgetStatus, type BudgetState, type TokenBudget } from "../domain/budget.js";
 import { budgetThresholdEvent } from "../domain/events.js";
+import { enqueueOutbox } from "./outbox.js";
 import { AgentError } from "../errors.js";
 import type {
   AuditPort,
@@ -371,10 +372,7 @@ export class PgAgentStore implements AuditPort, BudgetPort {
       const event = budgetThresholdEvent({ tenantId: hold.tenantId, month: hold.month, previous: row.alert_state, current });
       if (event === undefined) return current.state;
       await c.query("update token_budget set alert_state = $3 where tenant_id = $1 and month = $2", [hold.tenantId, hold.month, event.data.state]);
-      await c.query(
-        "insert into outbox (id, tenant_id, aggregate_type, aggregate_id, type, payload) values ($1, $2, 'token_budget', $3, $4, $5::jsonb)",
-        [randomUUID(), hold.tenantId, hold.month, event.type, JSON.stringify(event.data)],
-      );
+      await enqueueOutbox(c, event, "token_budget", hold.month);
       return current.state;
     });
   }

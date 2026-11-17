@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto";
 import type pg from "pg";
 import { killSwitchChangedEvent } from "../domain/events.js";
+import { enqueueOutbox } from "./outbox.js";
 import { buildKillSwitchChange, type KillSwitchChange } from "../domain/killswitch.js";
 import type { KillSwitchLog, KillSwitchToggle, KillSwitchToggleResult } from "../api/killswitch.js";
 import type { PgAgentStore } from "./pg.js";
@@ -75,10 +75,7 @@ export class PgKillSwitchLog implements KillSwitchLog {
       ).rows[0]!;
       const change = asChange(inserted);
       const event = killSwitchChangedEvent(change, t.actorTenantId);
-      await c.query(
-        "insert into outbox (id, tenant_id, aggregate_type, aggregate_id, type, payload) values ($1, $2, 'kill_switch', $3, $4, $5::jsonb)",
-        [randomUUID(), t.actorTenantId, t.actorTenantId, event.type, JSON.stringify(event.data)],
-      );
+      await enqueueOutbox(c, event, "kill_switch", t.actorTenantId);
       return { change, created: true, changes: await readSince(c, sinceVersion) };
     });
   }

@@ -30,7 +30,12 @@ describe.runIf(ownerUrl)("approval.requested reaches the shared inbox through th
     });
   };
   const rows = async (actionId: string) =>
-    (await fx.owner.query<{ type: string; aggregate_id: string; payload: Record<string, unknown> }>("select type, aggregate_id, payload from outbox where aggregate_id = $1", [actionId])).rows;
+    (
+      await fx.owner.query<{ id: string; type: string; aggregate_id: string; payload: Record<string, unknown>; envelope: Record<string, unknown> }>(
+        "select id, type, aggregate_id, payload->'data' as payload, payload as envelope from outbox where aggregate_id = $1",
+        [actionId],
+      )
+    ).rows;
 
   it("writes the event with the request, with the ids, the confidence and the risk score and no real values", async () => {
     const actionId = await open("run-outbox-1", { confidence: 0.82, riskScore: 0.18 });
@@ -38,6 +43,9 @@ describe.runIf(ownerUrl)("approval.requested reaches the shared inbox through th
     expect(more).toHaveLength(0);
     expect(row?.type).toBe("dev.depot.agent.approval.requested.v1");
     expect(row?.payload).toMatchObject({ run_id: "run-outbox-1", action_id: actionId, tool_name: "depot.ap.invoice.propose_coding", confidence: 0.82, risk_score: 0.18 });
+    // The relay's CloudEventsEnricher needs the whole envelope, not bare data.
+    expect(row?.envelope).toMatchObject({ specversion: "1.0", id: row?.id, type: "dev.depot.agent.approval.requested.v1", source: "depot/agents", subject: actionId });
+    expect(typeof row?.envelope["time"]).toBe("string");
   });
 
   it("leaves risk_score out when the run gave none", async () => {

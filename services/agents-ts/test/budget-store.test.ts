@@ -383,7 +383,8 @@ describe.runIf(ownerUrl)("persisted audit and token budget in Postgres", () => {
   const budgetRow = async (t: string) =>
     (await db.owner.query("select used_in::int, used_out::int, limit_in::int, limit_out::int, alert_state from token_budget where tenant_id = $1 and month = '2026-10'", [t])).rows[0];
   const holds = async (t: string) => (await db.owner.query("select count(*)::int as n from budget_hold where tenant_id = $1", [t])).rows[0].n as number;
-  const events = async (t: string) => (await db.owner.query("select type, payload from outbox where tenant_id = $1 order by created_at, id", [t])).rows;
+  const events = async (t: string) =>
+    (await db.owner.query("select id, type, payload->'data' as payload, payload as envelope from outbox where tenant_id = $1 order by created_at, id", [t])).rows;
   const runRow = async (t: string, runId: string) => (await db.owner.query("select status, post_commit_error from agent_run where tenant_id = $1 and run_id = $2", [t, runId])).rows[0];
 
   it.each([0, -1, Number.NaN, 1.5])("reserve refuses a hold of %s and leaves other runs' holds alone", async (tokens) => {
@@ -588,6 +589,7 @@ describe.runIf(ownerUrl)("persisted audit and token budget in Postgres", () => {
     const all = await events(t);
     expect(all.map((e) => e.type)).toEqual(["dev.depot.agent.budget.threshold.v1", "dev.depot.agent.budget.threshold.v1"]);
     expect(all[1]?.payload).toEqual({ tenant_id: t, month: "2026-10", pct: 100, state: "HARD" });
+    expect(all[1]?.envelope).toMatchObject({ specversion: "1.0", id: all[1]?.id, type: "dev.depot.agent.budget.threshold.v1", tenantid: t, subject: "2026-10" });
   });
 
   it("raising the limit after HARD lets the next crossing alert again", async () => {
