@@ -18,7 +18,7 @@ import (
 
 const (
 	resourceCols = "id::text, code, name, finite, time_zone, shifts, version, created_at, engineering_resource_id::text, efficiency_pct"
-	opCols       = "id::text, order_id::text, oper_number, minutes, due_at, ready_at, priority, candidate_resource_ids::text[], secondary_resource_ids::text[], setup_group, setup_minutes, queue_before_minutes, queue_after_minutes, quantity::text, overlap_quantity::text, attributes, network_id::text, status, created_at, version, updated_at"
+	opCols       = "id::text, order_id::text, order_number, oper_number, minutes, due_at, ready_at, priority, candidate_resource_ids::text[], secondary_resource_ids::text[], setup_group, setup_minutes, queue_before_minutes, queue_after_minutes, quantity::text, overlap_quantity::text, attributes, network_id::text, status, created_at, version, updated_at"
 	runCols      = "id::text, scope, mode, direction, finite, algorithm, status, operations_count, makespan_minutes, total_lateness_minutes, solver_status, messages, warnings, created_at, snapshot, rollback_of::text"
 )
 
@@ -151,7 +151,7 @@ func scanOperation(row pgx.Row, fp *string) (Operation, error) {
 	var o Operation
 	var due, ready *time.Time
 	var attrs []byte
-	dest := []any{&o.ID, &o.OrderID, &o.OperNumber, &o.Minutes, &due, &ready, &o.Priority, &o.ResourceIDs, &o.SecondaryResourceIDs,
+	dest := []any{&o.ID, &o.OrderID, &o.OrderNumber, &o.OperNumber, &o.Minutes, &due, &ready, &o.Priority, &o.ResourceIDs, &o.SecondaryResourceIDs,
 		&o.SetupGroup, &o.SetupMinutes, &o.QueueBeforeMinutes, &o.QueueAfterMinutes, &o.Quantity, &o.OverlapQuantity, &attrs, &o.NetworkID, &o.Status, &o.CreatedAt, &o.Version, &o.UpdatedAt}
 	if fp != nil {
 		dest = append([]any{fp}, dest...)
@@ -195,6 +195,23 @@ func (s *Postgres) CreateOperation(ctx context.Context, in Operation, idem Idem)
 				return err
 			}
 		}
+		// One order has one number (FR-23.5): a new operation takes the number
+		// the order's operations already carry, and a different one is refused.
+		// The order lock is the import's, so a concurrent import or create of
+		// the same order waits.
+		if err := lockOrderImport(ctx, tx, in.OrderID); err != nil {
+			return err
+		}
+		have, err := orderNumberOf(ctx, tx, in.OrderID, "")
+		if err != nil {
+			return err
+		}
+		switch {
+		case in.OrderNumber == nil && have != "":
+			in.OrderNumber = &have
+		case in.OrderNumber != nil && have != "" && *in.OrderNumber != have:
+			return orderNumberMismatch(have)
+		}
 		var known int
 		if err := tx.QueryRow(ctx, `select count(*) from scheduling_resource where id = any($1::uuid[])`, in.ResourceIDs).Scan(&known); err != nil {
 			return err
@@ -223,10 +240,10 @@ func (s *Postgres) CreateOperation(ctx context.Context, in Operation, idem Idem)
 			}
 		}
 		row, err := scanOperation(tx.QueryRow(ctx, `insert into scheduling_operation (tenant_id, id, order_id, oper_number, minutes, due_at, ready_at, priority,
-				candidate_resource_ids, secondary_resource_ids, setup_group, setup_minutes, queue_before_minutes, queue_after_minutes, quantity, overlap_quantity, attributes, network_id, idempotency_key, idempotency_fingerprint)
-			values ($1, $2, $3, $4, $5, $6, $7, $8, $9::uuid[], $10::uuid[], $11, $12, $13, $14, $15::text::numeric, $16::text::numeric, $17, $18, $19, $20) returning `+opCols,
+				candidate_resource_ids, secondary_resource_ids, setup_group, setup_minutes, queue_before_minutes, queue_after_minutes, quantity, overlap_quantity, attributes, network_id, idempotency_key, idempotency_fingerprint, order_number)
+			values ($1, $2, $3, $4, $5, $6, $7, $8, $9::uuid[], $10::uuid[], $11, $12, $13, $14, $15::text::numeric, $16::text::numeric, $17, $18, $19, $20, $21) returning `+opCols,
 			tenantOf(ctx), ids.New(), in.OrderID, in.OperNumber, in.Minutes, in.DueAt, in.ReadyAt, in.Priority, in.ResourceIDs, in.SecondaryResourceIDs,
-			in.SetupGroup, in.SetupMinutes, in.QueueBeforeMinutes, in.QueueAfterMinutes, in.Quantity, in.OverlapQuantity, attrs, in.NetworkID, nullable(idem.Key), nullable(idem.Fingerprint)), nil)
+			in.SetupGroup, in.SetupMinutes, in.QueueBeforeMinutes, in.QueueAfterMinutes, in.Quantity, in.OverlapQuantity, attrs, in.NetworkID, nullable(idem.Key), nullable(idem.Fingerprint), in.OrderNumber), nil)
 		if err != nil {
 			return err
 		}
@@ -379,9 +396,11 @@ func loadResources(ctx context.Context, tx pgx.Tx) ([]domain.Resource, map[strin
 // loadOperations reads operations matching where (bound positionally, columns
 // qualified with o.), ordered by order and operation number, with the code of
 // the network each names. lock takes row locks on the operations so
-// concurrent runs and moves over the same operations serialize.
+// concurrent runs and moves over the same operations serialize. The order
+// number (FR-23.5) is the column GET /operations shows (migration 0026
+// backfilled it from the order imports), so reads and runs agree.
 func loadOperations(ctx context.Context, tx pgx.Tx, where string, lock bool, args ...any) ([]domain.Operation, error) {
-	q := `select o.id::text, o.order_id::text, o.oper_number, o.minutes, o.due_at, o.ready_at, o.priority, o.candidate_resource_ids::text[], o.secondary_resource_ids::text[],
+	q := `select o.id::text, o.order_id::text, coalesce(o.order_number, ''), o.oper_number, o.minutes, o.due_at, o.ready_at, o.priority, o.candidate_resource_ids::text[], o.secondary_resource_ids::text[],
 			coalesce(o.setup_group, ''), o.setup_minutes, o.queue_before_minutes, o.queue_after_minutes, o.quantity::text, o.overlap_quantity::text, o.attributes, coalesce(n.code, '')
 		from scheduling_operation o
 		left join scheduling_resource_network n on n.tenant_id = o.tenant_id and n.id = o.network_id
@@ -400,7 +419,7 @@ func loadOperations(ctx context.Context, tx pgx.Tx, where string, lock bool, arg
 		var due, ready *time.Time
 		var attrs []byte
 		var quantity, overlap *string
-		if err := rows.Scan(&op.ID, &op.OrderID, &op.OperNumber, &op.Minutes, &due, &ready, &op.Priority, &op.Candidates, &op.Secondaries,
+		if err := rows.Scan(&op.ID, &op.OrderID, &op.OrderNumber, &op.OperNumber, &op.Minutes, &due, &ready, &op.Priority, &op.Candidates, &op.Secondaries,
 			&op.SetupGroup, &op.SetupMinutes, &op.QueueBefore, &op.QueueAfter, &quantity, &overlap, &attrs, &op.Network); err != nil {
 			return nil, err
 		}

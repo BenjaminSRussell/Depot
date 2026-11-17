@@ -110,7 +110,20 @@ SCHED-0005 reason. A primary job and a secondary booking on the same resource
 are kept apart by the scheduler, not by a database constraint.
 
 Rules the heuristic applies: orders sorted by (earliest due date, priority,
-order id), operations in number order; each operation starts after its
+order number) as FR-23.5 says, with the order id only breaking what is still
+tied (an order without a number goes after numbered ones), operations in
+number order. Order numbers compare naturally: digit runs by value, the text
+between them as text, so `PO-999999` comes before `PO-1000000` and `WO-87`
+before `WO-100` (production pads to a minimum width only, and opening-WIP
+imports bring legacy numbers). The number lives on each operation
+(`orderNumber`): given on POST or PATCH, or written by the production order
+import onto every operation of the order, firmed ones included. All
+operations of an order carry one number; a POST or PATCH with a different
+one is refused (422 `SCHED-0155`), a POST without one takes the order's, and
+an order with several operations is renumbered by re-importing it. An import
+that changes the number sets `updated_at` but not `version`, so the ETag a
+planner holds stays good; a PATCH of the number moves the version like any
+PATCH. Each operation starts after its
 predecessor ends and at or after its ready time and the run start; it goes to
 the candidate with the earliest finish, then the lower load ratio, then the
 lower resource code (BR-23.8). Firmed jobs, and jobs of operations outside a
@@ -403,6 +416,7 @@ platform naming rule allows no hyphen in the verb, so the entity is
 | `SCHED-0152` | 409 | A placed campaign keeps its orders and sequence: unplace it before adding, removing or re-sequencing orders |
 | `SCHED-0153` | 422 | Campaign placement: an earlier operation of a campaign order is not scheduled, so the campaign job could run ahead of it; schedule the order first |
 | `SCHED-0154` | 412 | Move or firm: the If-Match `placementVersion` is no longer the order's placement (another move, a run, a firm or an unschedule changed it); reload the Gantt and preview again |
+| `SCHED-0155` | 422 | Operation create or change: the order's other operations carry a different order number; one order has one number (FR-23.5) |
 | `precondition_required` | 428 | A campaign command was sent without If-Match |
 
 A dry-run move never fails for a constraint: it returns `feasible: false` and

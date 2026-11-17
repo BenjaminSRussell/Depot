@@ -2,6 +2,10 @@ image: { repository: ghcr.io/benjaminsrussell/audit, digest: "", tag: "", pullPo
 databaseSecret: audit-db
 migrateOnStart: false
 replicaCount: 2
+# Deployment strategy; empty keeps the Kubernetes default (RollingUpdate, 25% surge). For a release whose new and
+# old replicas must not serve side by side (B-06), set { type: Recreate } or
+# { type: RollingUpdate, rollingUpdate: { maxSurge: 0, maxUnavailable: "100%" } } for that release only.
+strategy: {}
 resources:
   requests: { cpu: 50m, memory: 64Mi }
   limits: { cpu: 250m, memory: 128Mi }

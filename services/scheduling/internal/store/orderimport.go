@@ -285,6 +285,14 @@ func importOrder(ctx context.Context, tx pgx.Tx, req OrderImportRequest, out *Or
 	for _, n := range req.Order.OperationNumbers() {
 		inEvent[n] = true
 	}
+	// The order's number for its operations: the event's, or, when the event
+	// carries none, the one already on record, so the order keeps one number.
+	number := req.Order.OrderNumber
+	if number == "" {
+		if number, err = orderNumberOf(ctx, tx, req.Order.OrderID, ""); err != nil {
+			return err
+		}
+	}
 
 	for _, op := range planned {
 		op.DueAt = due
@@ -301,9 +309,9 @@ func importOrder(ctx context.Context, tx pgx.Tx, req OrderImportRequest, out *Or
 		case !found:
 			opID = ids.New()
 			if _, err := tx.Exec(ctx, `insert into scheduling_operation (tenant_id, id, order_id, oper_number, minutes, due_at, ready_at, priority,
-						candidate_resource_ids, secondary_resource_ids, setup_minutes)
-					values ($1, $2, $3, $4, $5, $6, $7, 100, $8::uuid[], '{}', $9)`,
-				tenantOf(ctx), opID, req.Order.OrderID, op.OperNumber, op.Minutes, op.DueAt, op.ReadyAt, candidates, op.SetupMinutes); err != nil {
+						candidate_resource_ids, secondary_resource_ids, setup_minutes, order_number)
+					values ($1, $2, $3, $4, $5, $6, $7, 100, $8::uuid[], '{}', $9, nullif($10, ''))`,
+				tenantOf(ctx), opID, req.Order.OrderID, op.OperNumber, op.Minutes, op.DueAt, op.ReadyAt, candidates, op.SetupMinutes, number); err != nil {
 				return err
 			}
 			res.Created++
@@ -368,6 +376,17 @@ func importOrder(ctx context.Context, tx pgx.Tx, req OrderImportRequest, out *Or
 		}
 		res.Removed++
 		data.RemovedOperNumbers = append(data.RemovedOperNumbers, n)
+	}
+
+	// The order number is a dispatch key (FR-23.5), not a placement input: it
+	// goes onto every operation of the order, firmed ones included, without
+	// moving their jobs or versions (so a planner's If-Match stays good); the
+	// change time moves.
+	if number != "" {
+		if _, err := tx.Exec(ctx, `update scheduling_operation set order_number = $2, updated_at = now() where order_id = $1::uuid and order_number is distinct from $2`,
+			req.Order.OrderID, number); err != nil {
+			return err
+		}
 	}
 
 	slices.SortFunc(skipped, func(a, b domain.SkippedOperation) int { return a.OperNumber - b.OperNumber })

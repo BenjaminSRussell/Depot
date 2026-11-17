@@ -62,15 +62,19 @@ func (DevReauth) Verify(_ context.Context, actor string, auth domain.Reauth) (st
 	return domain.AuthDevUnverified, nil
 }
 
+// auditChange is the body of POST /v1/audit/changes. It names no actor: the audit service takes it from the verified
+// service token, whose act is the signer, and records the change as engineering's on the signer's behalf (B-06,
+// AUD-API-1). OnBehalfOf restates that user; the audit service refuses it if it differs from the token's act.
 type auditChange struct {
 	Entity     string    `json:"entity"`
 	RecordID   string    `json:"recordId"`
 	Field      string    `json:"field"`
 	OldValue   string    `json:"oldValue"`
 	NewValue   string    `json:"newValue"`
-	UserID     string    `json:"userId"`
+	OnBehalfOf string    `json:"onBehalfOf"`
 	TraceID    string    `json:"traceId"`
 	OccurredAt time.Time `json:"occurredAt"`
+	Reason     string    `json:"reason,omitempty"`
 }
 
 // HTTPAuditor posts signature manifestations to the audit service.
@@ -96,10 +100,11 @@ func (c *HTTPAuditor) RecordSignature(ctx context.Context, sig domain.Signature)
 	if traceID == "" {
 		traceID = sig.ID
 	}
+	p, _ := tenant.FromContext(ctx)
 	payload, err := json.Marshal(auditChange{
 		Entity: "document", RecordID: sig.RecordID, Field: "signature",
-		NewValue: fmt.Sprintf("%s: %s (%s) signed %s %s to %s at %s; record hash %s", sig.Meaning, sig.PrintedName, sig.SignerID, sig.DocumentNumber, sig.DocumentVersion, sig.Transition, sig.SignedAt.UTC().Format(time.RFC3339), sig.OriginalsHash),
-		UserID:   sig.SignerID, TraceID: traceID, OccurredAt: sig.SignedAt.UTC(),
+		NewValue:   fmt.Sprintf("%s: %s (%s) signed %s %s to %s at %s; record hash %s", sig.Meaning, sig.PrintedName, sig.SignerID, sig.DocumentNumber, sig.DocumentVersion, sig.Transition, sig.SignedAt.UTC().Format(time.RFC3339), sig.OriginalsHash),
+		OnBehalfOf: p.UserID, TraceID: traceID, OccurredAt: sig.SignedAt.UTC(), Reason: sig.Meaning,
 	})
 	if err != nil {
 		return err
@@ -109,7 +114,6 @@ func (c *HTTPAuditor) RecordSignature(ctx context.Context, sig domain.Signature)
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	p, _ := tenant.FromContext(ctx)
 	legalEntity := ""
 	if scopes := tenant.LegalEntityScopeList(p); len(scopes) > 0 {
 		legalEntity = scopes[0]

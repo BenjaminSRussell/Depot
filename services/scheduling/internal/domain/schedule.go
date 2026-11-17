@@ -53,10 +53,13 @@ type Resource struct {
 // entry for the pair (SCHED-0012). Attributes are matched against capacity
 // block conditions (BR-23.15). Network is the code of the resource network
 // that governs the step from the order's previous operation into this one
-// (FR-23.13); empty means the step is unconstrained.
+// (FR-23.13); empty means the step is unconstrained. OrderNumber is the
+// order's business number (the production order number), the third dispatch
+// key of FR-23.5; empty when the order has none on record.
 type Operation struct {
 	ID           string
 	OrderID      string
+	OrderNumber  string
 	OperNumber   int
 	Minutes      int
 	DueAt        time.Time
@@ -438,12 +441,16 @@ func dueCompare(a, b time.Time) int {
 	return 0
 }
 
-// orderPlan sorts operations by order (delivery date, priority, order id) and
-// then operation number, so each order's operations are contiguous and ascending.
+// orderPlan sorts operations by order (delivery date, priority, order number,
+// FR-23.5) and then operation number, so each order's operations are
+// contiguous and ascending. Order numbers compare naturally (digit runs by
+// value, CompareOrderNumbers). The order id (a uuid) only breaks what is left
+// tied, such as two orders without a number, so the plan stays deterministic.
 func orderPlan(ops []Operation) []Operation {
 	type key struct {
-		due  time.Time
-		prio int
+		due    time.Time
+		prio   int
+		number string
 	}
 	keys := map[string]key{}
 	for _, op := range ops {
@@ -453,6 +460,9 @@ func orderPlan(ops []Operation) []Operation {
 		}
 		if !seen || op.Priority < k.prio {
 			k.prio = op.Priority
+		}
+		if !seen || orderNumberCompare(op.OrderNumber, k.number) < 0 {
+			k.number = op.OrderNumber
 		}
 		keys[op.OrderID] = k
 	}
@@ -464,6 +474,9 @@ func orderPlan(ops []Operation) []Operation {
 		}
 		if ka.prio != kb.prio {
 			return ka.prio - kb.prio
+		}
+		if c := orderNumberCompare(ka.number, kb.number); c != 0 {
+			return c
 		}
 		if c := strings.Compare(a.OrderID, b.OrderID); c != 0 {
 			return c

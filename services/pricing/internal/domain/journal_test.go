@@ -67,6 +67,8 @@ func TestValidateJournal(t *testing.T) {
 			[]JournalLine{{Op: OpUpdate, RecordID: "r1", ExpectedVersion: 1, AdjustPct: decimal.NewFromInt(5)}}, true, "", "7.7805"},
 		{"stale expected version", false, jStored(jRec("r1", "C1", "7.41")),
 			[]JournalLine{{Op: OpUpdate, RecordID: "r1", ExpectedVersion: 2, AdjustPct: decimal.NewFromInt(5)}}, false, "conflict_version", ""},
+		{"a 100 percent cut with smart rounding stores zero (BR-26.10)", true, jStored(jRec("r1", "C1", "7.41")),
+			[]JournalLine{{Op: OpUpdate, RecordID: "r1", ExpectedVersion: 1, AdjustPct: decimal.NewFromInt(-100)}}, true, "", "0"},
 		{"adjustment below zero is negative", false, jStored(jRec("r1", "C1", "7.41")),
 			[]JournalLine{{Op: OpUpdate, RecordID: "r1", ExpectedVersion: 1, AdjustPct: decimal.NewFromInt(-150)}}, false, CodeNegative, ""},
 		{"delete frees the key for a create in the same journal", false, jStored(jRec("r1", "C1", "10")),
@@ -195,5 +197,29 @@ func TestReverseFailsWhenRecordChangedSincePosting(t *testing.T) {
 	rev := Reverse(j)
 	if ValidateJournal(&rev, jCopy(stored), DefaultSmartBands()) {
 		t.Fatal("reversal over a record changed since posting must fail")
+	}
+}
+
+// BR-26.10, FR-26.7: a price journal cutting a price by 100% with smart rounding
+// stores 0, and the resolver then prices the line at 0.00 from that record (not
+// at the first smart price point, 0.99).
+func TestSmartRoundedFullCutResolvesToZero(t *testing.T) {
+	stored := jStored(jRec("r1", "C1", "7.41"))
+	j := Journal{LegalEntityID: "le", SmartRound: true, Lines: []JournalLine{{Op: OpUpdate, RecordID: "r1", ExpectedVersion: 1, AdjustPct: decimal.NewFromInt(-100)}}}
+	if !ValidateJournal(&j, stored, DefaultSmartBands()) {
+		t.Fatalf("journal not clean: %+v", j.Lines)
+	}
+	jApply(&j, stored)
+	res := Resolve(Input{
+		Header:  Header{CustomerID: "C1", Currency: "USD", PricingDate: msDay("2026-06-01")},
+		Lines:   []Line{{No: 1, ProductID: "P1", Unit: "EA", Quantity: decimal.NewFromInt(3)}},
+		Records: []Record{stored["r1"]},
+	})
+	lr := res.Lines[0]
+	if lr.Error != "" || len(lr.Applied) == 0 || lr.Applied[0].RecordID != "r1" {
+		t.Fatalf("line = %+v; want priced from r1", lr)
+	}
+	if !lr.UnitPrice.IsZero() || !lr.LineNet.IsZero() || !res.OrderNet.IsZero() {
+		t.Fatalf("unit %s, line net %s, order net %s; want 0", lr.UnitPrice, lr.LineNet, res.OrderNet)
 	}
 }

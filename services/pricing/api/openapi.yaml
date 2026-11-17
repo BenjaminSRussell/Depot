@@ -3825,7 +3825,9 @@ components:
       maxItems: 10
       description: >
         Ordered smart rounding bands (FR-26.7). upTo strictly increases; amounts below upTo round
-        up to the next value ending in `ending`. The last band has no upTo (422 otherwise). ending is
+        up to the next value ending in `ending`; when that value would reach upTo, the amount takes
+        the lowest price point of the next band instead (9.995 rounds to 10.95 and 99.96 to 100 with
+        the default table). Zero stays zero (BR-26.10). The last band has no upTo (422 otherwise). ending is
         a decimal string from 0 up to 1 with at most four places. The table is stored and returned in
         canonical form (trailing zeros dropped, "0.50" becomes "0.5").
       items:

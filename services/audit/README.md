@@ -16,7 +16,7 @@ Run: `DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/audit`. Tes
 
 | Operation | Duty |
 |---|---|
-| `POST /v1/audit/changes` | `audit.write` |
+| `POST /v1/audit/changes` | `audit.write`, from a verified service token only (`engineering` holds it through its service grant) |
 | `GET /v1/audit/records/{entity}/{recordId}` | `audit.read` |
 | `POST /v1/audit/alert-rules` | `audit.write` |
 | `GET /v1/audit/alerts` | `audit.read` |
@@ -32,6 +32,34 @@ Run: `DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/audit`. Tes
 Contract: `api/openapi.yaml`. Event: `dev.depot.audit.change.recorded.v1`.
 
 Wave 3 entity metadata is not imported; `entity` is an opaque name. Wave 4 Kafka is not imported; a future consumer calls `cdc.Consumer.Apply`.
+
+## Who made a change (B-06, AUD-API-1, FR-5.10)
+
+What is guaranteed for every change recorded from this release on:
+
+- **Only a verified service records a change.** `POST /v1/audit/changes` needs a service token (`X-Depot-Service-Token`, ADR-0010) that the audit service verified itself. A call with identity headers only (`X-Depot-User`, `X-Depot-Duties`) is refused with 403 AUD-0007: audit has no gateway route, no NetworkPolicy and no gateway secret in Kubernetes, so those headers prove nothing here. No person calls this route today; changes made by people directly reach the trail through CDC (B-07), which will record `actorKind` `person`.
+- **The actor is the verified caller, never a body value.** A body that sets `userId` (any value, the caller's own included) is refused with AUD-0002, as for the read log. The service derives the actor from the verified token:
+
+| Token | `userId` | `actorKind` | `onBehalfOf` |
+|---|---|---|---|
+| `act` is a service principal (`service:<name>`, accepted only from that principal's own issuer) | `service:<name>` | `service` | empty |
+| `act` is an end user | `service:<calling service>` | `service` (`agent` when the issuer is `agents`) | the end user |
+
+- **The body can only restate the actor.** `actorKind` and `onBehalfOf` are optional. `onBehalfOf` from a service acting on its own, or naming anyone but the user the token carries, is refused with AUD-0006, and so is an `actorKind` that differs from the derived one. `onBehalfOf` is the user the calling service put in its signed token: the audit service verifies which service vouches for that user, not the user's own sign-in. The History panel can therefore show "Recorded by Billing service for Ana Ruiz".
+- **The database enforces the same shape** for rows with an `actorKind`: a service or agent is a `service:` id and a person never is, and only a service or agent has an `onBehalfOf`.
+
+A change also carries `reason` (up to 1,000 characters), `changeSetId` (the field changes of one save), `eventType` and `eventId` (the business event that carried it) and `workflowInstanceId` (each up to 256 characters). Limits count characters, as OpenAPI `maxLength` and Postgres `length()` do; text must be valid UTF-8 without NUL. These are columns of `audit_entry` (migrations `0005_change_actor_context.sql`, columns and `NOT VALID` checks under a 5 s lock timeout, and `0006_change_actor_context_validate.sql`, which validates them without the exclusive lock). They are returned by `GET /v1/audit/records/{entity}/{recordId}` and published on `dev.depot.audit.change.recorded.v1`, absent when empty in both. Appends are serialised per tenant with an advisory lock, as for the read log, so concurrent changes cannot fork the chain. `occurredAt` is stored in UTC truncated to microseconds (the precision of `timestamptz`), and the hash is computed over that value, so every row's hash recomputes from the database.
+
+**Hash encoding, for outside verifiers.** `hash` is the lowercase hex SHA-256 of one of two payloads, chosen per row:
+
+- *v2*, when any of `actorKind`, `onBehalfOf`, `reason`, `changeSetId`, `eventType`, `eventId`, `workflowInstanceId` is non-empty (every row this API writes): the RFC 8785 (JCS) serialization of the JSON array of strings `["audit-change-v2", prevHash, entity, recordId, field, oldValue, newValue, userId, actorKind, onBehalfOf, traceId, occurredAt, reason, changeSetId, eventType, eventId, workflowInstanceId]`. In practice: no whitespace; in strings only `"` and `\` are escaped, plus `\b \t \n \f \r` and `\u00xx` (lowercase hex) for the other control characters; everything else (`<`, `>`, `&`, U+2028, U+2029, non-ASCII) is written as UTF-8. `occurredAt` is UTC, truncated to microseconds, in RFC 3339 with trailing fractional zeros dropped (`2026-11-01T09:00:00Z`, `2026-11-01T09:00:00.1234Z`). `json.dumps(values, ensure_ascii=False, separators=(",", ":"))` in Python produces the same bytes; `TestV2HashKnownAnswer` pins a vector.
+- *legacy*, for rows written before AUD-API-1 (all of those fields empty): `prevHash|entity|recordId|field|oldValue|newValue|userId|traceId|occurredAt`, joined by `|`, with `occurredAt` in UTC as RFC 3339 with up to nanoseconds. Legacy rows keep the hash they were written with, and this release rewrites none of them. That does not mean every legacy row re-verifies from the database: before B-06 a row was hashed over the `occurredAt` it was given, up to nanoseconds, while `timestamptz` keeps microseconds. A legacy row whose time had a sub-microsecond part cannot be re-verified from the stored values. That covers every row that took the handler's default of `time.Now()`, and every engineering signature. Its stored hash is still the one computed when it was written; the information needed to recompute it is gone. A verifier must report such a row as a known legacy-precision break, not as tampering (AUD-API-4). A legacy row whose time had no sub-microsecond part re-verifies.
+
+A v2 change must be valid UTF-8 (RFC 8785 is defined only for that). `domain.Hash` returns no hash for one that is not, `domain.Verify` reports it as a break, and validation refuses it, so two values that differ only in invalid bytes can never collide.
+
+**Rollout (deliberately not N/N-1 compatible with engineering).** A new audit service refuses an old engineering's `userId` (AUD-0002), and an old audit service refuses a new engineering's `onBehalfOf` and `reason` as unknown fields. Deploy audit first, then engineering. Signature records queue in engineering's `audit_outbox` meanwhile and its relay retries with backoff (at most 15 minutes between attempts), so they arrive once engineering is upgraded. Rolling audit back stalls signature delivery until audit is rolled forward again; nothing is lost.
+
+While old audit replicas still run during the rollout, they take no advisory lock, so they can fork a chain together with the new replicas. They also still accept identity headers and a body `userId`. Roll audit out for this release without old and new replicas serving together. Set the chart's `strategy` (new value, empty by default) for this release only, for example `--set strategy.type=Recreate`, or in the environment values `strategy: { type: Recreate }`. Then remove it again. `maxSurge: 0` alone is not enough: with the default `maxUnavailable` some old replicas keep serving next to new ones. Use `maxSurge: 0` with `maxUnavailable: "100%"`, or Recreate. Audit is unavailable for the few seconds the new pods take to become ready; engineering's relay retries.
 
 ## PHI read-access log (#606, HIPAA overlay)
 
@@ -52,10 +80,12 @@ Metrics: `audit_phi_reads_recorded_total`, `audit_phi_reads_failed_total`, `audi
 | COM-0001 | 400 | malformed body or missing change fields |
 | AUTH-0001, AUTH-0003, COM-0500 | 401, 403, 500 | missing tenant, duty missing, internal error |
 | AUD-0001 | 422 | domain rejection (invalid change, checkout rules) |
-| AUD-0002 | 422 | a read-log request named the reader (`userId`); the reader is the verified caller |
+| AUD-0002 | 422 | a read-log or change request named the reader or actor (`userId`); it is always the verified caller |
 | AUD-0003 | 400 | invalid read-log filter: time range, `limit`, `cursor` or export `format`, or break-glass `status` |
 | AUD-0004 | 404 | a break-glass review named a read this tenant's log does not hold |
 | AUD-0005 | 409 | a break-glass review that may not be made: the read is not break-glass, is already reviewed, or the reviewer is the reader |
+| AUD-0006 | 422 | a change claimed an `onBehalfOf` or `actorKind` the verified caller cannot vouch for: `onBehalfOf` from a service acting on its own, or not the user the service token carries; an `actorKind` other than the caller's |
+| AUD-0007 | 403 | a change was sent without a verified service token; identity headers are not accepted on `POST /v1/audit/changes` |
 | COM-0001 | 400 | read-log entry failed validation (missing or over-long `purpose`, `fields`, `entity`, `recordId`; `occurredAt` in the future) |
 
 Metrics: `audit_changes_applied_total`, `audit_changes_failed_total`.

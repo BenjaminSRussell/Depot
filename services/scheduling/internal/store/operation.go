@@ -24,7 +24,24 @@ const (
 	CodeCandidateSecondary = "SCHED-0139"
 	// CodeOverlapQuantity: the overlap quantity needs a quantity and cannot exceed it (BR-23.5).
 	CodeOverlapQuantity = "SCHED-0142"
+	// CodeOrderNumberMismatch: the order's other operations carry a different
+	// order number; one order has one number (FR-23.5).
+	CodeOrderNumberMismatch = "SCHED-0155"
 )
+
+// orderNumberOf returns the order number the order's operations other than
+// exceptID carry, or "" when none carries one.
+func orderNumberOf(ctx context.Context, tx pgx.Tx, orderID, exceptID string) (string, error) {
+	var n string
+	err := tx.QueryRow(ctx, `select coalesce(min(order_number), '') from scheduling_operation
+		where order_id = $1::uuid and id::text <> $2 and order_number is not null`, orderID, exceptID).Scan(&n)
+	return n, err
+}
+
+func orderNumberMismatch(have string) error {
+	return httpx.NewProblem(http.StatusUnprocessableEntity, CodeOrderNumberMismatch,
+		fmt.Sprintf("the order's other operations carry order number %q; all operations of an order carry the same number", have))
+}
 
 // OperationPatch changes an operation; nil and empty fields stay as they are.
 // The order, the operation number, the secondary resources, the setup group,
@@ -45,6 +62,10 @@ type OperationPatch struct {
 	OverlapQuantity *decimal.Decimal
 	// ResourceIDs replaces the candidate resources, in priority order.
 	ResourceIDs []string
+	// OrderNumber sets the order's business number on the operation. Like the
+	// priority it only orders the next run (FR-23.5), so the jobs stay; it
+	// must match the number the order's other operations carry (SCHED-0155).
+	OrderNumber *string
 }
 
 // reschedules reports whether the change makes the operation's placement stale:
@@ -140,13 +161,28 @@ func firmedProblem(what string) error {
 // UpdateOperation changes an operation under optimistic versioning (FR-23.4).
 // A firmed operation is refused. Changing the duration, dates, setup minutes or
 // candidates takes the operation's non-firmed jobs off the schedule and opens
-// it again (JobsRemoved); the next run places it. A priority change only
-// orders the next run and leaves the jobs. A replay of the same key returns
+// it again (JobsRemoved); the next run places it. A priority or order-number
+// change only orders the next run and leaves the jobs, firmed ones included. A replay of the same key returns
 // the stored answer, even after the version has moved on.
 func (s *Postgres) UpdateOperation(ctx context.Context, id string, version int, patch OperationPatch, idem Idem) (OperationUpdate, bool, error) {
 	var out OperationUpdate
 	replayed := false
 	err := s.loadTx(&ctx, func(tx pgx.Tx) error {
+		if patch.OrderNumber != nil {
+			// The order lock comes before the row lock, in the order the
+			// import takes them, so the two cannot deadlock. The order id
+			// never changes, so reading it unlocked is safe.
+			var orderID string
+			err := tx.QueryRow(ctx, `select order_id::text from scheduling_operation where id = $1::uuid`, id).Scan(&orderID)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return err
+			}
+			if err == nil {
+				if err := lockOrderImport(ctx, tx, orderID); err != nil {
+					return err
+				}
+			}
+		}
 		cur, found, err := lockOperation(ctx, tx, id)
 		if err != nil {
 			return err
@@ -184,6 +220,16 @@ func (s *Postgres) UpdateOperation(ctx context.Context, id string, version int, 
 		}
 		if patch.Priority != nil {
 			cur.Priority = *patch.Priority
+		}
+		if patch.OrderNumber != nil {
+			have, err := orderNumberOf(ctx, tx, cur.OrderID, id)
+			if err != nil {
+				return err
+			}
+			if have != "" && have != *patch.OrderNumber {
+				return orderNumberMismatch(have)
+			}
+			cur.OrderNumber = patch.OrderNumber
 		}
 		if patch.SetupMinutes != nil {
 			cur.SetupMinutes = *patch.SetupMinutes
@@ -231,8 +277,8 @@ func (s *Postgres) UpdateOperation(ctx context.Context, id string, version int, 
 			}
 		}
 		upd, err := scanOperation(tx.QueryRow(ctx, `update scheduling_operation set minutes = $2, due_at = $3, ready_at = $4, priority = $5, setup_minutes = $6,
-				queue_before_minutes = $8, queue_after_minutes = $9, quantity = $10::text::numeric, overlap_quantity = $11::text::numeric, candidate_resource_ids = $7::uuid[], version = version + 1, updated_at = now() where id = $1::uuid returning `+opCols,
-			id, cur.Minutes, cur.DueAt, cur.ReadyAt, cur.Priority, cur.SetupMinutes, cur.ResourceIDs, cur.QueueBeforeMinutes, cur.QueueAfterMinutes, cur.Quantity, cur.OverlapQuantity), nil)
+				queue_before_minutes = $8, queue_after_minutes = $9, quantity = $10::text::numeric, overlap_quantity = $11::text::numeric, candidate_resource_ids = $7::uuid[], order_number = $12, version = version + 1, updated_at = now() where id = $1::uuid returning `+opCols,
+			id, cur.Minutes, cur.DueAt, cur.ReadyAt, cur.Priority, cur.SetupMinutes, cur.ResourceIDs, cur.QueueBeforeMinutes, cur.QueueAfterMinutes, cur.Quantity, cur.OverlapQuantity, cur.OrderNumber), nil)
 		if err != nil {
 			return err
 		}

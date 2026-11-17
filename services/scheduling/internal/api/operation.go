@@ -26,6 +26,7 @@ type operationPatchRequest struct {
 	Quantity           *string    `json:"quantity"`
 	OverlapQuantity    *string    `json:"overlapQuantity"`
 	ResourceIDs        []string   `json:"resourceIds"`
+	OrderNumber        *string    `json:"orderNumber"`
 }
 
 func operationID(w http.ResponseWriter, r *http.Request) (string, bool) {
@@ -83,8 +84,15 @@ func (a *API) updateOperation(w http.ResponseWriter, r *http.Request) {
 	fields := map[string]string{}
 	patch := store.OperationPatch{DueAt: req.DueAt, ReadyAt: req.ReadyAt}
 	if req.Minutes == nil && req.DueAt == nil && req.ReadyAt == nil && req.Priority == nil && req.SetupMinutes == nil &&
-		req.QueueBeforeMinutes == nil && req.QueueAfterMinutes == nil && req.Quantity == nil && req.OverlapQuantity == nil && req.ResourceIDs == nil {
-		fields["body"] = "send at least one of minutes, dueAt, readyAt, priority, setupMinutes, queueBeforeMinutes, queueAfterMinutes, quantity, overlapQuantity or resourceIds"
+		req.QueueBeforeMinutes == nil && req.QueueAfterMinutes == nil && req.Quantity == nil && req.OverlapQuantity == nil && req.ResourceIDs == nil &&
+		req.OrderNumber == nil {
+		fields["body"] = "send at least one of minutes, dueAt, readyAt, priority, setupMinutes, queueBeforeMinutes, queueAfterMinutes, quantity, overlapQuantity, resourceIds or orderNumber"
+	}
+	if req.OrderNumber != nil {
+		if msg := validOrderNumber(*req.OrderNumber); msg != "" {
+			fields["orderNumber"] = msg
+		}
+		patch.OrderNumber = req.OrderNumber
 	}
 	if req.Minutes != nil {
 		if *req.Minutes < 1 || *req.Minutes > 100000 {

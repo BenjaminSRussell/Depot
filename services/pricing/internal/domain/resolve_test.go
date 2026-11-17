@@ -191,7 +191,12 @@ func TestValidateRecord(t *testing.T) {
 
 func TestSmartRound(t *testing.T) {
 	bands := domain.DefaultSmartBands()
-	cases := map[string]string{"7.7805": "7.99", "7.99": "7.99", "45.10": "45.95", "150.2": "151", "100": "100"}
+	cases := map[string]string{"7.7805": "7.99", "7.99": "7.99", "45.10": "45.95", "150.2": "151", "100": "100",
+		// Band edges (FR-26.7, B-08): a candidate rounded up past its band's edge is
+		// recomputed in the next band, so it ends in that band's ending. The lowest
+		// whole number at or above 99.96 and 99.99 is 100 (the >= 100 band).
+		"99.96": "100", "99.99": "100", "99.95": "99.95", "9.995": "10.95", "9.99": "9.99", "10": "10.95",
+		"9.991": "10.95", "10.96": "11.95", "0": "0", "0.00": "0", "0.001": "0.99", "100.01": "101"}
 	for in, want := range cases {
 		if got := domain.SmartRound(d(in), bands); !got.Equal(d(want)) {
 			t.Fatalf("SmartRound(%s) = %s; want %s", in, got, want)

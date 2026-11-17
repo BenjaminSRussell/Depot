@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/BenjaminSRussell/depot/platform/httpx"
@@ -128,9 +129,7 @@ func requireKey(key string) error {
 }
 
 func parseModule(raw string) (domain.Module, error) {
-	switch domain.Module(raw) {
-	case domain.ModuleAll, domain.ModuleGL, domain.ModuleAP, domain.ModuleAR, domain.ModuleInventory, domain.ModuleAssets,
-		domain.ModuleCash, domain.ModuleProduction, domain.ModuleProjects, domain.ModuleTax, domain.ModuleBank, domain.ModulePayroll:
+	if slices.Contains(domain.Modules(), domain.Module(raw)) {
 		return domain.Module(raw), nil
 	}
 	return "", &domain.Error{Code: domain.CodeValidation, Detail: "unknown module"}
