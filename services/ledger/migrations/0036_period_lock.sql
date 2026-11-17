@@ -33,12 +33,12 @@ ALTER TABLE period_lock ENABLE ROW LEVEL SECURITY;
 ALTER TABLE period_lock FORCE ROW LEVEL SECURITY;
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'period_lock' AND policyname = 'period_lock_tenant_access') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = current_schema() AND tablename = 'period_lock' AND policyname = 'period_lock_tenant_access') THEN
     CREATE POLICY period_lock_tenant_access ON period_lock AS PERMISSIVE
       USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
       WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'period_lock' AND policyname = 'period_lock_legal_entity_scope') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = current_schema() AND tablename = 'period_lock' AND policyname = 'period_lock_legal_entity_scope') THEN
     CREATE POLICY period_lock_legal_entity_scope ON period_lock AS RESTRICTIVE
       USING (current_setting('depot.legal_entity_scopes', true) = '*'
              OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
