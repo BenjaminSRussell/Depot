@@ -290,28 +290,25 @@ log_pseudonym(key_b64, tenant, value) := concat("", ["pn_", substring(mac, 0, 16
 
 # The subject of a gateway record, as logpseudo.Subject writes it: the pseudonym under the dedicated key the ext_authz OPA
 # is given (DEPOT_LOG_PSEUDONYM_KEY, the variable the Go services read), "[redacted]" without a key, a valid key or a
-# tenant, and empty for an empty subject. Never the raw value.
+# tenant, and empty for an empty subject. Never the raw value. The key is read inside these functions only: no rule of
+# the package evaluates to it, so GET /v1/data/authz (and a decision log of it) cannot show it.
 log_subject(_, user) := "" if user == ""
 
 log_subject(tenant, user) := pseudonym if {
 	user != ""
-	pseudonym := log_pseudonym(log_pseudonym_key, tenant, user)
+	pseudonym := log_pseudonym(trim_space(object.get(opa.runtime().env, "DEPOT_LOG_PSEUDONYM_KEY", "")), tenant, user)
 	tenant != ""
 }
 
 log_subject(tenant, user) := "[redacted]" if {
 	user != ""
-	not log_pseudonym(log_pseudonym_key, tenant, user)
+	not log_pseudonym(trim_space(object.get(opa.runtime().env, "DEPOT_LOG_PSEUDONYM_KEY", "")), tenant, user)
 }
 
 log_subject(tenant, user) := "[redacted]" if {
 	user != ""
 	tenant == ""
 }
-
-default log_pseudonym_key := ""
-
-log_pseudonym_key := trim_space(opa.runtime().env.DEPOT_LOG_PSEUDONYM_KEY)
 
 # The decision-log mask is not here: it ships with the ext_authz OPA's own configuration (deploy/gateway/authz-opa.yaml,
 # data.system.log.mask), so a bundle that lacks or renames a rule cannot turn masking off.

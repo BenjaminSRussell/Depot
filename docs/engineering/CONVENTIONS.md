@@ -37,6 +37,7 @@ roadmap/ownership.json  wave → directories it owns. A wave edits ONLY its own 
 - Every state change that other contexts care about is written to the outbox in the same transaction (`outbox.Enqueue(ctx, tx, evt)`). Event types are `dev.depot.<context>.<entity>.<verb>.v1`.
 - All tables carry `tenant_id uuid not null` first and enable row-level security (`dbx.RLSPolicy` template in migrations, plus `dbx.LegalEntityScopePolicy` on tables that carry `legal_entity_id`). Money is `numeric(20,6)` + `currency char(3)`; never float.
 - Idempotent commands accept `Idempotency-Key` and store it (`idempotency_keys` table from `dbx.IdempotencyDDL`).
+- Path identifiers (every `{id}`, code or key in a route, in any language) are unreserved ASCII: letters, digits, `-`, `.`, `_` and `~`, so the path never needs percent-encoding. All three gateways refuse a path with any `%` (400 `GW-0400`, B-04, ADR-0017): an escape the service's router decodes could be authorized on one path and served on another. A value that can hold anything else (spaces, non-ASCII letters, `@`, `/`) goes in the query string or the body, or the route keys on a UUID or a pattern-restricted code instead.
 - Tests: `internal/domain` has pure unit tests (table-driven; property tests with `pgregory.net/rapid` are encouraged — it is in the platform go.mod). Store/API tests use `testkit.DB(t)` and are skipped when `DEPOT_TEST_DATABASE_URL` is unset. `go test ./...` must pass with and without the database.
 - `go vet ./...` clean. No `init()` side effects. No globals except constants.
 

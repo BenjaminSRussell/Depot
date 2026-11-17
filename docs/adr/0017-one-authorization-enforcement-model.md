@@ -47,6 +47,11 @@ OPA everywhere, on one policy bundle.
    - The deny answer is the same on every gateway: `403 AUTH-0003` with `errors.duty_missing`, and `400 GW-0400` for a
      path that is not canonical. A canonical path has no percent-encoding at all on any gateway: an escape a service's
      router decodes (`%3A` is `:`, the glob's segment delimiter) could otherwise be decided on one path and served on another.
+     So **path identifiers must be unreserved ASCII** (letters, digits, `-`, `.`, `_`, `~`): a route whose `{id}` could
+     hold a space, a non-ASCII letter, `@` or another reserved character would be refused at every gateway. Every path
+     identifier today is a UUID or a pattern-restricted code. A free-text key goes in the query string or the body
+     (`docs/engineering/CONVENTIONS.md`, Go services). A live Envoy may decode an escaped unreserved character (`%73`) while
+     normalizing the path, before ext_authz, and then decide on the decoded path the service also receives (#213).
    - A policy outage differs, because Envoy Gateway v1.4 has no `statusOnError`: the single-host gateways answer
      `503 AUTH-0503` and record `policy_unavailable`, while Envoy fails closed with a bare `403` (no body, no record). Alerts
      `DepotAuthzEnvoyCheckErrors` (Envoy's `ext_authz.error` counter) and `DepotAuthzOPAUnavailable` (no ready OPA replica)
@@ -99,8 +104,16 @@ OPA everywhere, on one policy bundle.
      derivation, so one key yields one pseudonym per user and tenant at Envoy, in the services and on the single-host
      gateways. Services without field-encryption keys (most charts) then pseudonymize instead of redacting. Wiring the
      Secret into every service chart is a follow-up.
-   - `depot-server` reads only the dedicated key and passes neither it nor `FIELDCRYPT_*` to the services it supervises,
-     unless a service's own configuration sets them.
+   - **Until it is wired, the Secret must equal fieldcrypt's current key.** No chart mounts `depot-log-pseudonym` yet.
+     The fieldcrypt-keyed services (compliance, hr, migration, party, payables, receiving, sales) fall back to fieldcrypt's
+     current master key, and every other service writes `[redacted]`. So Secret `depot-log-pseudonym` must hold the bytes
+     of fieldcrypt's current key (base64), or the Envoy record and those services name the same user with different
+     pseudonyms.
+   - The policy reads the key inside `log_subject` only; no rule of `data.authz` evaluates to it, so the OPA's data API
+     cannot return it. `authztest` checks `data.authz` with the key set.
+   - `depot-server` reads only the dedicated key for its own records. It passes `FIELDCRYPT_*` only to the seven services
+     that load field-encryption keys (the tested allow-list `fieldcryptServices`, `docs/ops/windows-install.md`), and
+     passes the pseudonym key to none, unless a service's own configuration sets it.
    - **Request ids.** A gateway's request id is its own and is forwarded, so the gateway's and the service's record of
      one request share it. The single-host gateways drop a client's `X-Request-Id`; Envoy removes it in
      `earlyRequestHeaders` and always generates one (`requestID: Generate`).
@@ -110,6 +123,10 @@ OPA everywhere, on one policy bundle.
    - A request Envoy refuses never reaches a service. Envoy's own ext_authz counters
      (`envoy_cluster_ext_authz_denied` and `_error`, per route cluster, scraped by `deploy/gateway/envoy-podmonitor.yaml`)
      count it, and `DepotAuthzEnvoyDenySpike` alerts on a spike.
+   - The alerts are a `PrometheusRule` from the observability chart, the only kind of rule kube-prometheus-stack loads.
+     `test_argocd_apps.py` checks that the dev Prometheus selects every alert, and CI runs `promtool check rules` on the
+     rendered rules. `DepotAuthzOPAUnavailable` is off where identity serves no bundle (`authz.opaUnavailableAlert` false in
+     dev) and on by default.
 
 ## Alternatives rejected
 

@@ -157,6 +157,11 @@ to SYSTEM, Administrators and the service account (`scripts\Set-DepotAcl.ps1`). 
 there, TLS to Postgres (`sslmode=verify-full`), and rotate by setting a new `PG_DSN` (policy key or reinstall with the property) and
 restarting the service. The per-service signing keys in `keys\` are generated on first start; back them up with the config.
 
+**Field-encryption and log-pseudonym keys.** `depot-server` does not pass key material to every service it starts (B-04).
+- **Field-encryption keys.** The variables `FIELDCRYPT_KEYS`, `FIELDCRYPT_KEYS_FILE` and `FIELDCRYPT_CURRENT_KEY_ID`, set on the Depot Windows service, reach only the seven services that load them: compliance, hr, migration, party, payables, receiving and sales. hr does not start without them; party loses vendor bank accounts and sales loses one-time customer orders. No other service receives them. The list is fixed in `tools/depot-server/execrunner.go` (`fieldcryptServices`) and a test keeps it equal to the services that read the keys. Prefer `FIELDCRYPT_KEYS_FILE` pointing at a file under `%ProgramData%\Depot` over inline keys. A service's own `env:` entry in `config.yaml` overrides the inherited value.
+- **Log-pseudonym key.** `DEPOT_LOG_PSEUDONYM_KEY` (or `_FILE`, base64 of 32 bytes) pseudonymizes the subject in the gateway's own authorization records. It is passed to no service; give one to a service through its `env:` entry. Until the key is distributed everywhere, set it to the bytes of fieldcrypt's current key, so the gateway and the fieldcrypt-keyed services write the same pseudonym for a user.
+- **Upgrade from an earlier version.** Every service used to inherit the whole service environment. Nothing needs to change for the seven services above.
+
 ## Logs
 
 | Log | Location |

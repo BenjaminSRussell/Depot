@@ -16,6 +16,10 @@ spec:
         # The Prometheus kube-prometheus-stack.yaml runs (release kube-prometheus-stack, namespace observability).
         prometheus:
           endpoint: http://kube-prometheus-stack-prometheus.observability.svc:9090
+        # identity serves no policy bundle in dev (bundle.enabled off), so the ext_authz OPA is never ready: its
+        # unavailability alert would fire for good (B-04).
+        authz:
+          opaUnavailableAlert: false
   destination:
     server: https://kubernetes.default.svc
     namespace: observability

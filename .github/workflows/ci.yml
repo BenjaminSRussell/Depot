@@ -567,6 +567,23 @@ jobs:
       - run: pip install pyyaml==6.0.2 && PATH="$(go env GOPATH)/bin:$PATH" make -C deploy test-gateway
       - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e
       - run: make -C deploy test-argocd
+      # The observability chart's alerting rules (PrometheusRule, B-04) with the defaults and the dev values, checked by
+      # promtool from the Prometheus release (checksum from the release's sha256sums.txt). Each rule file's groups and
+      # alerts are listed first, then promtool's verdict per file.
+      - name: promtool check rules (observability chart)
+        env:
+          PROMETHEUS_VERSION: 3.5.0
+        run: |
+          set -euo pipefail
+          dist="prometheus-${PROMETHEUS_VERSION}.linux-amd64"
+          base="https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}"
+          cd "$RUNNER_TEMP"
+          curl -fsSLO "$base/$dist.tar.gz"
+          curl -fsSL "$base/sha256sums.txt" | grep " $dist.tar.gz\$" | sha256sum -c -
+          tar -xzf "$dist.tar.gz" --strip-components=1 "$dist/promtool"
+          cd "$GITHUB_WORKSPACE"
+          python deploy/scripts/prometheus_rules.py --out "$RUNNER_TEMP/rules"
+          "$RUNNER_TEMP/promtool" check rules "$RUNNER_TEMP"/rules/*.yaml
       - name: Install Kyverno CLI
         env:
           KYVERNO_VERSION: 1.19.2

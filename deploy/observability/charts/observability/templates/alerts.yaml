@@ -1,11 +1,17 @@
-apiVersion: v1
-kind: ConfigMap
+{{- /* The alerting rules, as a PrometheusRule: kube-prometheus-stack's Prometheus loads rules only from PrometheusRule
+       objects its ruleSelector matches (deploy/envs/dev/apps/kube-prometheus-stack.yaml selects every one; prometheusRule.labels
+       carries the release label its default selector would need). deploy/scripts/test_argocd_apps.py checks that every alert
+       is in a rule the selector matches, and CI runs promtool check rules on the rendered groups. */}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
 metadata:
   name: {{ .Release.Name }}-alerts
   labels:
     app.kubernetes.io/name: observability
-data:
-  depot-slo.yaml: |-
+    {{- with .Values.prometheusRule.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
     groups:
       - name: depot.slo
         rules:
@@ -67,7 +73,9 @@ data:
             annotations:
               summary: Envoy's ext_authz checks are failing, so every depot-api request is refused with 403
           # No ext_authz OPA replica is ready (no bundle from identity, Secret depot-authz-opa-bundle missing, a bundle that
-          # cannot answer data.authz.envoy): every request through Envoy is refused.
+          # cannot answer data.authz.envoy): every request through Envoy is refused. Off where identity serves no bundle
+          # (authz.opaUnavailableAlert false in dev, where bundle.enabled is off), so it does not fire for good there.
+          {{- if .Values.authz.opaUnavailableAlert }}
           - alert: DepotAuthzOPAUnavailable
             expr: max(kube_deployment_status_replicas_available{namespace="hello-ledger",deployment="depot-authz-opa"}) < 1 or absent(kube_deployment_status_replicas_available{namespace="hello-ledger",deployment="depot-authz-opa"})
             for: 5m
@@ -76,6 +84,7 @@ data:
               source: envoy
             annotations:
               summary: No depot-authz-opa replica is available, so Envoy refuses every depot-api request
+          {{- end }}
       # A kafkajs consumer (integration-hub-ts) that has not run for 15 minutes keeps retrying its start in the
       # background while the pod stays Ready: a wrong SCRAM password, a missing CA file or ACL, a topic that never came
       # (D34, B-05b). kafka_consumer_start_failures_total and the service's log say why.

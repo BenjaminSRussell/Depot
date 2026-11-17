@@ -52,13 +52,23 @@ func (r ExecRunner) Start(ctx context.Context, p Process) (Handle, error) {
 
 func (h *execHandle) Wait() error { <-h.done; return h.err }
 
+// fieldcryptServices are the services that load field-encryption keys at start (fieldcrypt.FromEnv in their cmd: hr refuses
+// to start without them, party and sales lose bank accounts and one-time customers). They inherit the supervisor's
+// FIELDCRYPT_* variables, as every child did before B-04; no other child does. TestFieldcryptServicesAreTheOnesThatLoadKeys
+// keeps the list equal to the services that call fieldcrypt.FromEnv. docs/ops/windows-install.md documents it.
+var fieldcryptServices = map[string]bool{
+	"compliance": true, "hr": true, "migration": true, "party": true, "payables": true, "receiving": true, "sales": true,
+}
+
 // childEnv is p's environment: the supervisor's, without its keys (keyVariable), then p.Env in key order. A key reaches a
-// child only when that child's own configuration sets it: an operator who gives depot-server a pseudonymization key for
-// the gateway's records, or field-encryption keys, does not hand them to every one of the 60-plus services it starts.
+// child only when that child's own configuration sets it, or, for the field-encryption keys, when the child is one of
+// fieldcryptServices: an operator who gives depot-server a pseudonymization key for the gateway's records, or
+// field-encryption keys, does not hand them to every one of the 60-plus services it starts.
 func childEnv(parent []string, p Process) []string {
 	env := make([]string, 0, len(parent)+len(p.Env))
 	for _, kv := range parent {
-		if name, _, _ := strings.Cut(kv, "="); !keyVariable(name) {
+		name, _, _ := strings.Cut(kv, "=")
+		if !keyVariable(name) || (fieldcryptVariable(name) && fieldcryptServices[p.Name]) {
 			env = append(env, kv)
 		}
 	}
@@ -90,8 +100,12 @@ func subjectKeyEnv(getenv func(string) string) func(string) string {
 // variable names are case-insensitive, so the check is too.
 func keyVariable(name string) bool {
 	upper := strings.ToUpper(name)
-	return strings.HasPrefix(upper, "FIELDCRYPT_") || upper == logpseudo.EnvKey || upper == logpseudo.EnvKeyFile
+	return fieldcryptVariable(name) || upper == logpseudo.EnvKey || upper == logpseudo.EnvKeyFile
 }
+
+// fieldcryptVariable reports whether a variable configures the field-encryption keys (FIELDCRYPT_KEYS, _KEYS_FILE,
+// _CURRENT_KEY_ID), case-insensitively.
+func fieldcryptVariable(name string) bool { return strings.HasPrefix(strings.ToUpper(name), "FIELDCRYPT_") }
 
 func closeWriter(w io.Writer) {
 	if c, ok := w.(io.Closer); ok {

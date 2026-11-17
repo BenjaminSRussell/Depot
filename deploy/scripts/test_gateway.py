@@ -962,7 +962,7 @@ class AuthzEnforcement(unittest.TestCase):
         env = {e["name"]: e for e in container["env"]}
         ref = env["DEPOT_LOG_PSEUDONYM_KEY"]["valueFrom"]["secretKeyRef"]
         self.assertEqual((ref["name"], ref["key"], ref.get("optional")), ("depot-log-pseudonym", "key", True))
-        self.assertIn("opa.runtime().env.DEPOT_LOG_PSEUDONYM_KEY", AUTHZ_REGO.read_text())
+        self.assertIn('object.get(opa.runtime().env, "DEPOT_LOG_PSEUDONYM_KEY", "")', AUTHZ_REGO.read_text())
         logpseudo = (DEPLOY.parent / "platform/go/logpseudo/logpseudo.go").read_text()
         self.assertIn('EnvKey     = "DEPOT_LOG_PSEUDONYM_KEY"', logpseudo)
 

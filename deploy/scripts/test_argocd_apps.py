@@ -1462,6 +1462,50 @@ class ArgoApplicationsTest(unittest.TestCase):
         dashboards = (REPO / "deploy/observability/charts/observability/templates/dashboards.yaml").read_text()
         self.assertIn(f'{sidecar["label"]}: "{sidecar["labelValue"]}"', dashboards)
 
+    @unittest.skipUnless(shutil.which("helm"), "helm not on PATH")
+    def test_every_alert_is_in_a_prometheusrule_the_dev_prometheus_selects(self):
+        # kube-prometheus-stack loads rules only from PrometheusRule objects its ruleSelector matches; a ConfigMap of rules
+        # is never loaded (B-04 re-review N1). Every alert of the observability chart must be in such a rule, rendered with
+        # the values the dev Application gives the chart, and DepotAuthzOPAUnavailable only where the OPA can be ready.
+        dev = self.dev_apps()
+        (stack,) = [s for s in sources(dev["kube-prometheus-stack"]) if s.get("chart") == "kube-prometheus-stack"]
+        spec = stack["helm"]["valuesObject"]["prometheus"]["prometheusSpec"]
+        if spec.get("ruleSelectorNilUsesHelmValues", True) is False and not spec.get("ruleSelector"):
+            selector = {}  # the operator selects every PrometheusRule
+        else:
+            selector = spec.get("ruleSelector", {}).get("matchLabels", {"release": stack["helm"].get("releaseName", "kube-prometheus-stack")})
+        # The chart's labels also satisfy the stack's default selector, so a stack without the dev override still loads them.
+        default_selector = {"release": stack["helm"].get("releaseName", "kube-prometheus-stack")}
+        chart_dir = REPO / "deploy/observability/charts/observability"
+        template = (chart_dir / "templates/alerts.yaml").read_text()
+        alerts = set(re.findall(r"- alert: (\w+)", template))
+        self.assertIn("DepotAuthzOPAUnavailable", alerts)
+        (obs_src,) = sources(dev["observability"])
+        obs_ns = dev["observability"]["spec"]["destination"]["namespace"]
+        self.assertEqual(obs_ns, dev["kube-prometheus-stack"]["spec"]["destination"]["namespace"])
+
+        def rendered_alerts(values):
+            with tempfile.NamedTemporaryFile("w", suffix=".yaml") as f:
+                yaml.safe_dump(values, f)
+                f.flush()
+                out = subprocess.run(["helm", "template", "observability", str(chart_dir), "-f", f.name],
+                                     check=True, capture_output=True, text=True).stdout
+            docs = [d for d in yaml.safe_load_all(out) if d]
+            for d in docs:
+                self.assertNotIn("groups:", yaml.safe_dump(d.get("data", {})) if d["kind"] == "ConfigMap" else "",
+                                 f"{d['metadata']['name']}: alert rules in a ConfigMap are never loaded")
+            found = set()
+            for rule in (d for d in docs if d["kind"] == "PrometheusRule"):
+                labels = rule["metadata"].get("labels", {})
+                for sel in (selector, default_selector):
+                    self.assertLessEqual(sel.items(), labels.items(), f"{rule['metadata']['name']}: not selected by {sel}")
+                found |= {r["alert"] for g in rule["spec"]["groups"] for r in g["rules"] if "alert" in r}
+            return found
+
+        self.assertEqual(rendered_alerts({}), alerts, "chart defaults (stage, prod)")
+        self.assertEqual(rendered_alerts(obs_src["helm"].get("valuesObject", {})), alerts - {"DepotAuthzOPAUnavailable"},
+                         "dev: identity serves no bundle, so the OPA unavailability alert is off")
+
     def test_the_monitoring_stack_cannot_block_the_dev_bootstrap(self):
         # root-dev waits for each wave to be Healthy (deploy/tofu/cluster/main.tf). The CRDs come early from their own chart;
         # the stack syncs last and depends on no Secret created outside Git.

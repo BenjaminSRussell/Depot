@@ -292,6 +292,56 @@ func TestExtAuthzMaskDoesNotDependOnTheBundle(t *testing.T) {
 	}
 }
 
+// No document of the bundle's policy evaluates to the pseudonymization key (B-04 re-review N3): data.authz, evaluated from
+// exactly the files identity's bundle carries with DEPOT_LOG_PSEUDONYM_KEY set, never contains it, although the policy
+// does read it (log_subject answers a pseudonym). GET /v1/data/authz on the OPA therefore cannot show the key.
+func TestNoAuthzDocumentHoldsThePseudonymKey(t *testing.T) {
+	bin, err := exec.LookPath("opa")
+	if err != nil {
+		if os.Getenv("CI") != "" {
+			t.Fatal("opa binary is required in CI")
+		}
+		t.Skip("opa binary not on PATH")
+	}
+	_, keyB64 := pseudonymKey()
+	// An Envoy check, so the envoy answer and its record are evaluated too.
+	input, _ := json.Marshal(map[string]any{"attributes": map[string]any{"request": map[string]any{"http": map[string]any{
+		"method": "GET", "path": "/api/v1/numbering/sequences/s1", "headers": map[string]string{"x-depot-tenant": "t1", "x-depot-user": "u1"},
+	}}}})
+	inputFile := filepath.Join(t.TempDir(), "input.json")
+	if err := os.WriteFile(inputFile, input, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	run := func(query string) string {
+		cmd := exec.Command(bin, "eval", "--format", "raw", "-d", filepath.Join(repoPolicyDir, "authz.rego"),
+			"-d", filepath.Join(repoPolicyDir, "data.json"), "-i", inputFile, query)
+		cmd.Env = append(os.Environ(), logpseudo.EnvKey+"="+keyB64)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("opa %s: %v\n%s", query, err, out)
+		}
+		return string(out)
+	}
+	if got := strings.TrimSpace(run(`data.authz.log_subject("t1", "u1")`)); !strings.HasPrefix(got, logpseudo.Prefix) {
+		t.Fatalf("the policy did not read the key: log_subject = %s", got)
+	}
+	whole := run("data.authz")
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(whole), &doc); err != nil {
+		t.Fatal(err)
+	}
+	envoy, _ := doc["envoy"].(map[string]any)
+	record, _ := envoy["record"].(map[string]any)
+	if subject, _ := record["subject"].(string); !strings.HasPrefix(subject, logpseudo.Prefix) {
+		t.Fatalf("data.authz.envoy was not evaluated with the key: %v", envoy)
+	}
+	for _, form := range []string{keyB64, strings.TrimRight(keyB64, "=")} {
+		if strings.Contains(whole, form) {
+			t.Fatalf("data.authz carries the pseudonymization key")
+		}
+	}
+}
+
 // data.authz.log_pseudonym is logpseudo's pseudonym: the same answer as Go for several keys, tenants and values
 // (whitespace, case, non-ASCII, a key with bytes that are not UTF-8).
 func TestRegoPseudonymMatchesGo(t *testing.T) {

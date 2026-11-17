@@ -222,6 +222,18 @@ test_envoy_record_carries_the_pseudonym_under_the_configured_key if {
 	not contains(json.marshal(answer.record), "User")
 }
 
+# No named rule holds the key (N3): the answer Envoy gets, and so the logged decision, never carries it, and the former
+# log_pseudonym_key document is gone. services/identity/authztest evaluates the whole data.authz of the bundle's files
+# with the key set (opa test cannot: data.authz holds these tests too).
+test_no_answer_or_rule_holds_the_pseudonym_key if {
+	answer := envoy with input as envoy_input("GET", "/api/v1/numbering/sequences/s1", {"x-depot-tenant": "t", "x-depot-user": "u"})
+		with data.assignments as {"t": {"u": ["numbering.read"]}}
+		with opa.runtime as {"env": {"DEPOT_LOG_PSEUDONYM_KEY": pseudonym_key}}
+	startswith(answer.record.subject, "pn_")
+	not contains(json.marshal(answer), pseudonym_key)
+	not data.authz.log_pseudonym_key with opa.runtime as {"env": {"DEPOT_LOG_PSEUDONYM_KEY": pseudonym_key}}
+}
+
 test_log_subject_redacts_without_a_valid_key_or_tenant if {
 	log_subject("t", "u") == "[redacted]" with opa.runtime as {"env": {}}
 	log_subject("t", "u") == "[redacted]" with opa.runtime as {"env": {"DEPOT_LOG_PSEUDONYM_KEY": "c2hvcnQ="}}
