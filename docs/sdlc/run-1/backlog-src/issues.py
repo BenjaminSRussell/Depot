@@ -129,7 +129,7 @@ ISSUES.append(dict(
     ac=['(RR-01) Part a merges before, or in the same release as, any change that makes Envoy forward the selection header; a release-order check in the PR template '
  'names it',
  '(RR-01) A kernel test: a user request with no `le` claim and an `X-Depot-LegalEntity` selection is refused (403); a tenant administrator principal (no `le`, '
- '`tenant.admin` duty) keeps working on its existing routes, including ALL-scope reads; both cases in `platform/go/tenant/tenant_test.go`',
+ '`tenant.administer` duty) keeps working on its existing routes, including ALL-scope reads; both cases in `platform/go/tenant/tenant_test.go`',
  '(D17 exit) Each listed table has a legal-entity policy or an `rlsexempt` reason; `tools/rlscheck` passes',
  'OPA: `authz_test.rego` cases show a role scoped to company A grants nothing in company B and grants in A',
  '(D33 exit) Owners confirm the model; then an end-to-end test signs in a user entitled to two legal entities, switches company in the shell and reads and '
