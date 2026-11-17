@@ -1,6 +1,6 @@
 # OPA sidecar bundle pull
 
-`identity` compiles and signs the authz bundle (`policies/authz` rego and duty catalogue plus every active tenant-wide role assignment, keyed by tenant and IdP subject) and serves it at `GET /v1/identity/policy/bundle`. Each service's OPA sidecar polls it with `opa-sidecar.yaml`, verifies the RS256 signature, and keeps serving the last verified bundle (`persist: true`) if identity is down. A bundle that fails verification is never activated.
+`identity` compiles and signs the authz bundle (`policies/authz` rego and duty catalogue plus every active role assignment: tenant-wide ones keyed by tenant and IdP subject, legal-entity-scoped ones by tenant, IdP subject and legal entity, granted only to a request in that legal entity) and serves it at `GET /v1/identity/policy/bundle`. Each service's OPA sidecar polls it with `opa-sidecar.yaml`, verifies the RS256 signature, and keeps serving the last verified bundle (`persist: true`) if identity is down. A bundle that fails verification is never activated.
 
 Secrets and keys, supplied per environment (not in git):
 

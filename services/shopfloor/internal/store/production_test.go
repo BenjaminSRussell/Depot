@@ -317,7 +317,8 @@ func TestProductionFinish_SerializesWithKioskBatches(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true)`, tenantID); err != nil {
+		// The consumer's and the batch's transactions both see the tenant's workers in every legal entity (B-03b).
+		if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true)`, tenantID); err != nil {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = tx.Rollback(ctx) })

@@ -7,11 +7,38 @@ default allow := false
 allow if {
 	input.subject.tenant_id != ""
 	input.subject.user_id != ""
-	some duty in data.assignments[input.subject.tenant_id][input.subject.user_id]
+	some duty in held_duties
 	tenant_may_hold(duty)
 	some permission in data.duties[duty].permissions
 	input.action in permission.methods
 	path_matches(permission.resource, input.resource)
+}
+
+# The duties the subject holds for this request (B-03b, FR-2.6, FR-2.9). A tenant-wide assignment (data.assignments)
+# applies in every legal entity of the tenant and on a request with none. A legal-entity-scoped assignment
+# (data.scoped_assignments[tenant][user][legal_entity]) applies only when the request acts in that legal entity:
+# input.subject.legal_entity_id names the legal entities the request acts in (one UUID, or a comma list), and a scoped
+# duty counts only when every one of them carries it. So a role scoped to company A grants in A, and nothing in B,
+# nothing in A and B together, and nothing on a request with no legal entity (a tenant administrator's).
+held_duties contains duty if {
+	some duty in data.assignments[input.subject.tenant_id][input.subject.user_id]
+}
+
+held_duties contains duty if {
+	entities := request_legal_entities
+	count(entities) > 0
+	scoped := data.scoped_assignments[input.subject.tenant_id][input.subject.user_id]
+	some first in entities
+	some duty in scoped[first]
+	every entity in entities {
+		duty in scoped[entity]
+	}
+}
+
+# The legal entities the request acts in, in lower case like the compiled bundle's keys (legal_entity_id::text).
+request_legal_entities := {lower(trim_space(part)) |
+	some part in split(object.get(input.subject, "legal_entity_id", ""), ",")
+	trim_space(part) != ""
 }
 
 # An operator_only duty acts on platform-wide state (the ops control plane): it grants nothing outside the platform

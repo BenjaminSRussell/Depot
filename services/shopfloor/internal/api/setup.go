@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -8,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
 	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
@@ -27,6 +29,7 @@ func (a *API) registerSetup(r chi.Router) {
 	r.With(authz.RequireDuty(DutySetup)).Put("/v1/shopfloor/pay-agreements/{id}", a.updateAgreement)
 	r.With(authz.RequireDuty(DutySetup)).Post("/v1/shopfloor/workers/{id}:assign-setup", a.assignSetup)
 	r.With(authz.RequireDuty(DutySetup)).Post("/v1/shopfloor/workers/{id}:assign-resource", a.assignResource)
+	r.With(authz.RequireDuty(DutySetup)).Post("/v1/shopfloor/workers/{id}:assign-legal-entity", a.assignLegalEntity)
 }
 
 func etag(version int) string { return `"` + strconv.Itoa(version) + `"` }
@@ -407,6 +410,51 @@ func (a *API) assignResource(w http.ResponseWriter, r *http.Request) {
 	out, err := a.store.AssignWorkerResource(r.Context(), id, version, req.ResourceID, user, idem)
 	if err != nil {
 		a.fail(w, r, "assign worker resource", err)
+		return
+	}
+	w.Header().Set("ETag", etag(out.Version))
+	httpx.JSON(w, http.StatusOK, out)
+}
+
+type assignLegalEntityRequest struct {
+	LegalEntityID string `json:"legalEntityId"`
+}
+
+// assignLegalEntity sets the employing legal entity of a worker created before workers carried one (B-03b, D17).
+// Only a tenant administrator may (no legal-entity claim, tenant.administer and the setup duty): no scoped caller can
+// see such a worker. A worker that already has a legal entity is SF-0200.
+func (a *API) assignLegalEntity(w http.ResponseWriter, r *http.Request) {
+	if !validTenant(w, r) {
+		return
+	}
+	id, ok := pathID(w, r, store.CodeWorkerNotFound, "worker")
+	if !ok {
+		return
+	}
+	idem, ok := readIdem(w, r)
+	if !ok {
+		return
+	}
+	var req assignLegalEntityRequest
+	if err := httpx.Decode(r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	entity, valid := ids.Canonical(strings.TrimSpace(req.LegalEntityID))
+	if !valid || entity == ids.Nil {
+		validationFailed(w, r, map[string]string{"legalEntityId": "must be a UUID"})
+		return
+	}
+	if a.replayed(w, r, idem) {
+		return
+	}
+	out, err := a.store.AssignWorkerLegalEntity(r.Context(), id, entity, DutySetup, idem)
+	if errors.Is(err, dbx.ErrNotTenantWide) {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "only a tenant administrator may assign a worker's legal entity"))
+		return
+	}
+	if err != nil {
+		a.fail(w, r, "assign worker legal entity", err)
 		return
 	}
 	w.Header().Set("ETag", etag(out.Version))

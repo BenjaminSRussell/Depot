@@ -80,6 +80,7 @@ type Store interface {
 	GetWorker(ctx context.Context, id string) (store.Worker, error)
 	UpdateWorker(ctx context.Context, workerID string, version int, in store.WorkerInput, savedBy string, idem store.Idem) (store.Worker, error)
 	DeactivateWorker(ctx context.Context, workerID string, version int, reason, savedBy string, idem store.Idem) (store.Worker, error)
+	AssignWorkerLegalEntity(ctx context.Context, workerID, legalEntityID, duty string, idem store.Idem) (store.Worker, error)
 	ReactivateWorker(ctx context.Context, workerID string, version int, savedBy string, idem store.Idem) (store.Worker, error)
 	ListWorkers(ctx context.Context, activeOnly bool, limit int) ([]store.Worker, error)
 	AddCostRate(ctx context.Context, workerID string, in store.CostRateInput, savedBy string, idem store.Idem) (store.CostRate, error)
@@ -337,6 +338,8 @@ type workerRequest struct {
 	Currency string  `json:"currency"`
 	// TimeZone is the IANA zone of the worker's site (default UTC).
 	TimeZone string `json:"timeZone"`
+	// LegalEntityID is the employing legal entity; it defaults to the caller's one legal entity (B-03b).
+	LegalEntityID *string `json:"legalEntityId"`
 }
 
 type itemsResponse[T any] struct {
@@ -529,6 +532,9 @@ func (a *API) createWorker(w http.ResponseWriter, r *http.Request) {
 	if req.TimeZone != "" && !validZone(req.TimeZone) {
 		fields["timeZone"] = "must be an IANA time zone name such as America/Chicago"
 	}
+	if req.LegalEntityID != nil && !ids.Valid(*req.LegalEntityID) {
+		fields["legalEntityId"] = "must be a UUID"
+	}
 	if len(fields) > 0 {
 		validationFailed(w, r, fields)
 		return
@@ -537,7 +543,7 @@ func (a *API) createWorker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out, err := a.store.CreateWorker(r.Context(), store.Worker{PartyID: req.PartyID, Name: name, BadgeID: req.BadgeID, UserID: req.UserID,
-		CostRate: rate, Currency: req.Currency, TimeZone: req.TimeZone}, idem)
+		CostRate: rate, Currency: req.Currency, TimeZone: req.TimeZone, LegalEntityID: req.LegalEntityID}, idem)
 	if err != nil {
 		a.fail(w, r, "create worker", err)
 		return

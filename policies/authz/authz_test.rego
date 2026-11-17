@@ -94,6 +94,98 @@ test_ordinary_duties_ignore_the_operator_tenant if {
 	allowed_in("tenant-b", "operator", "platform.release.view", "GET", "/v1/platform/releases")
 }
 
+# B-03b (FR-2.6, FR-2.9, FR-6.10): legal-entity-scoped role assignments. Company A and B are two legal entities of one
+# tenant; legal_entity_id is the legal entity (or comma list) the request acts in.
+company_a := "00000000-0000-0000-0000-0000000000a1"
+
+company_b := "00000000-0000-0000-0000-0000000000b2"
+
+le_decision(legal_entity, tenant_wide, scoped, method, resource) := result if {
+	result := decision with input as {
+		"subject": {"tenant_id": "tenant-a", "user_id": "user-a", "legal_entity_id": legal_entity},
+		"action": method,
+		"resource": resource,
+	}
+		with data.assignments as {"tenant-a": {"user-a": tenant_wide}}
+		with data.scoped_assignments as {"tenant-a": {"user-a": scoped}}
+		with data.operator_tenant_id as "operator"
+}
+
+le_allowed(legal_entity, tenant_wide, scoped, method, resource) if {
+	le_decision(legal_entity, tenant_wide, scoped, method, resource).allow
+}
+
+test_role_scoped_to_company_a_grants_in_a if {
+	le_allowed(company_a, [], {company_a: ["identity.user.maintain"]}, "GET", "/v1/identity/users")
+	le_allowed(upper(company_a), [], {company_a: ["identity.user.maintain"]}, "GET", "/v1/identity/users")
+	le_allowed(concat("", [" ", company_a, " "]), [], {company_a: ["identity.user.maintain"]}, "GET", "/v1/identity/users")
+}
+
+test_role_scoped_to_company_a_grants_nothing_in_b if {
+	not le_allowed(company_b, [], {company_a: ["identity.user.maintain"]}, "GET", "/v1/identity/users")
+	le_decision(company_b, [], {company_a: ["identity.user.maintain"]}, "GET", "/v1/identity/users").duty_missing == "identity.user.maintain"
+}
+
+test_role_scoped_to_company_a_grants_nothing_without_a_legal_entity if {
+	not le_allowed("", [], {company_a: ["identity.user.maintain"]}, "GET", "/v1/identity/users")
+	not decision.allow with input as {"subject": {"tenant_id": "tenant-a", "user_id": "user-a"}, "action": "GET", "resource": "/v1/identity/users"}
+		with data.assignments as {}
+		with data.scoped_assignments as {"tenant-a": {"user-a": {company_a: ["identity.user.maintain"]}}}
+}
+
+test_role_scoped_to_company_a_grants_nothing_on_a_request_spanning_a_and_b if {
+	not le_allowed(concat(",", [company_a, company_b]), [], {company_a: ["identity.user.maintain"]}, "GET", "/v1/identity/users")
+	le_allowed(concat(",", [company_a, company_b]), [], {company_a: ["identity.user.maintain"], company_b: ["identity.user.maintain"]}, "GET", "/v1/identity/users")
+}
+
+test_scoped_role_grants_only_its_own_duties if {
+	not le_allowed(company_a, [], {company_a: ["identity.user.maintain"]}, "POST", "/v1/tenants")
+	not le_allowed(company_a, [], {company_b: ["identity.tenant.maintain"]}, "POST", "/v1/tenants")
+	le_allowed(company_b, [], {company_b: ["identity.tenant.maintain"]}, "POST", "/v1/tenants")
+}
+
+test_scoped_role_does_not_cross_tenants_or_users if {
+	not decision.allow with input as {"subject": {"tenant_id": "tenant-b", "user_id": "user-a", "legal_entity_id": company_a}, "action": "GET", "resource": "/v1/identity/users"}
+		with data.assignments as {}
+		with data.scoped_assignments as {"tenant-a": {"user-a": {company_a: ["identity.user.maintain"]}}}
+	not decision.allow with input as {"subject": {"tenant_id": "tenant-a", "user_id": "user-b", "legal_entity_id": company_a}, "action": "GET", "resource": "/v1/identity/users"}
+		with data.assignments as {}
+		with data.scoped_assignments as {"tenant-a": {"user-a": {company_a: ["identity.user.maintain"]}}}
+}
+
+test_tenant_wide_role_grants_in_both_companies if {
+	le_allowed(company_a, ["identity.user.maintain"], {}, "GET", "/v1/identity/users")
+	le_allowed(company_b, ["identity.user.maintain"], {}, "GET", "/v1/identity/users")
+	le_allowed(concat(",", [company_a, company_b]), ["identity.user.maintain"], {}, "GET", "/v1/identity/users")
+}
+
+test_tenant_admin_is_unchanged if {
+	# A tenant administrator: tenant-wide assignments and no legal-entity claim. Scoped assignments of other users,
+	# or the admin's own, neither add to nor take from what the tenant-wide ones grant.
+	admin := ["tenant.administer", "identity.user.maintain", "identity.tenant.maintain"]
+	le_allowed("", admin, {}, "GET", "/v1/identity/users")
+	le_allowed("", admin, {company_a: ["identity.legal-entity.maintain"]}, "GET", "/v1/identity/users")
+	le_allowed(company_b, admin, {company_a: ["identity.legal-entity.maintain"]}, "GET", "/v1/identity/users")
+	allowed("identity.user.maintain", "GET", "/v1/identity/users")
+	not le_allowed("", ["tenant.administer"], {}, "GET", "/v1/identity/users")
+}
+
+# B-03b (D17): a tenant administrator assigns the legal entity of a worker created before workers carried one.
+test_shopfloor_worker_legal_entity_assignment_is_a_setup_route if {
+	allowed("shopfloor.setup.maintain", "POST", "/v1/shopfloor/workers/w1:assign-legal-entity")
+	not allowed("shopfloor.setup.maintain", "PUT", "/v1/shopfloor/workers/w1:assign-legal-entity")
+	not allowed("shopfloor.view", "POST", "/v1/shopfloor/workers/w1:assign-legal-entity")
+	not allowed("shopfloor.time.register", "POST", "/v1/shopfloor/workers/w1:assign-legal-entity")
+}
+
+test_scoped_operator_only_duty_grants_nothing_outside_the_operator_tenant if {
+	not le_allowed(company_a, [], {company_a: ["ops.region.view"]}, "GET", "/v1/ops/regions")
+	decision.allow with input as {"subject": {"tenant_id": "operator", "user_id": "user-a", "legal_entity_id": company_a}, "action": "GET", "resource": "/v1/ops/regions"}
+		with data.assignments as {}
+		with data.scoped_assignments as {"operator": {"user-a": {company_a: ["ops.region.view"]}}}
+		with data.operator_tenant_id as "operator"
+}
+
 has_route_permissions(spec) if count(spec.permissions) > 0
 
 has_route_permissions(spec) if {

@@ -14,10 +14,11 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/ids"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
 )
 
 // SweepActor is the user id the sweeper writes into audit columns and logs.
-const SweepActor = "system:shopfloor-sweeper"
+const SweepActor = store.SweepActor
 
 // Job names of the sweeper, the values of the "job" label on its metrics and logs.
 const (

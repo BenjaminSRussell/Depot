@@ -29,6 +29,12 @@ var (
 
 type verifiedPrincipalKey struct{}
 
+// verifiedLegalEntityKey holds the verified token's `le` claim: the legal entity (or comma list) the request acts in on
+// the single-host gateways, which refuse any other selection. RequireOPA passes it to the policy as
+// input.subject.legal_entity_id so a legal-entity-scoped role assignment grants only there (B-03b). It is kept out of the
+// principal so it does not change the database scope of identity's own routes.
+type verifiedLegalEntityKey struct{}
+
 type jwk struct {
 	KeyType  string `json:"kty"`
 	KeyID    string `json:"kid"`
@@ -55,6 +61,22 @@ type jwtClaims struct {
 	IssuedAt  int64           `json:"iat"`
 	NotBefore int64           `json:"nbf"`
 	Expires   int64           `json:"exp"`
+	// LegalEntity is the `le` claim: one legal entity as built, a comma list under ADR-0006 rule 4 (Proposed).
+	LegalEntity json.RawMessage `json:"le"`
+}
+
+// legalEntityClaim reads the `le` claim as a comma list: a string as it is, an array of strings joined with commas.
+// Any other shape is no legal entity, under which a legal-entity-scoped assignment grants nothing.
+func legalEntityClaim(raw json.RawMessage) string {
+	var single string
+	if json.Unmarshal(raw, &single) == nil {
+		return strings.TrimSpace(single)
+	}
+	var many []string
+	if json.Unmarshal(raw, &many) == nil {
+		return strings.TrimSpace(strings.Join(many, ","))
+	}
+	return ""
 }
 
 // JWTVerifier validates Keycloak RS256 access tokens against a tenant realm's
@@ -125,7 +147,7 @@ func (v *JWTVerifier) Middleware(next http.Handler) http.Handler {
 			httpx.Fail(w, r, httpx.NewProblem(http.StatusUnauthorized, "AUTH-0001", "missing bearer token"))
 			return
 		}
-		principal, err := v.verify(r.Context(), bearer[1])
+		principal, legalEntity, err := v.verify(r.Context(), bearer[1])
 		if err != nil {
 			if errors.Is(err, errJWKSUnavailable) {
 				httpx.Fail(w, r, httpx.NewProblem(http.StatusServiceUnavailable, "AUTH-0502", "identity provider is unavailable"))
@@ -142,56 +164,56 @@ func (v *JWTVerifier) Middleware(next http.Handler) http.Handler {
 			httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, "AUTH-0404", "resource not found"))
 			return
 		}
-		ctx := context.WithValue(r.Context(), verifiedPrincipalKey{}, true)
+		ctx := context.WithValue(context.WithValue(r.Context(), verifiedPrincipalKey{}, true), verifiedLegalEntityKey{}, legalEntity)
 		next.ServeHTTP(w, r.WithContext(tenant.With(ctx, principal)))
 	})
 }
 
-func (v *JWTVerifier) verify(ctx context.Context, token string) (tenant.Principal, error) {
+func (v *JWTVerifier) verify(ctx context.Context, token string) (tenant.Principal, string, error) {
 	if len(token) > 16<<10 {
-		return tenant.Principal{}, errInvalidToken
+		return tenant.Principal{}, "", errInvalidToken
 	}
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		return tenant.Principal{}, errInvalidToken
+		return tenant.Principal{}, "", errInvalidToken
 	}
 	headerBytes, err := base64.RawURLEncoding.DecodeString(parts[0])
 	if err != nil {
-		return tenant.Principal{}, errInvalidToken
+		return tenant.Principal{}, "", errInvalidToken
 	}
 	var header jwtHeader
 	if err := json.Unmarshal(headerBytes, &header); err != nil || header.Algorithm != "RS256" || header.KeyID == "" {
-		return tenant.Principal{}, errInvalidToken
+		return tenant.Principal{}, "", errInvalidToken
 	}
 	claimsBytes, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
-		return tenant.Principal{}, errInvalidToken
+		return tenant.Principal{}, "", errInvalidToken
 	}
 	var claims jwtClaims
 	if err := json.Unmarshal(claimsBytes, &claims); err != nil {
-		return tenant.Principal{}, errInvalidToken
+		return tenant.Principal{}, "", errInvalidToken
 	}
 	if claims.Issuer != v.issuer || claims.Subject == "" || claims.TenantID != v.tenantID || claims.Expires == 0 || claims.IssuedAt == 0 || !hasAudience(claims.Audience, v.audience) {
-		return tenant.Principal{}, errInvalidToken
+		return tenant.Principal{}, "", errInvalidToken
 	}
 	now := time.Now().Unix()
 	if claims.Expires <= now || claims.Expires <= claims.IssuedAt || claims.IssuedAt > now+30 || claims.Expires-claims.IssuedAt > int64((10*time.Minute+30*time.Second)/time.Second) || (claims.NotBefore != 0 && (claims.NotBefore > now+30 || claims.NotBefore >= claims.Expires)) {
-		return tenant.Principal{}, errInvalidToken
+		return tenant.Principal{}, "", errInvalidToken
 	}
 	key, err := v.publicKey(ctx, header.KeyID)
 	if err != nil {
-		return tenant.Principal{}, err
+		return tenant.Principal{}, "", err
 	}
 	signature, err := base64.RawURLEncoding.DecodeString(parts[2])
 	if err != nil {
-		return tenant.Principal{}, errInvalidToken
+		return tenant.Principal{}, "", errInvalidToken
 	}
 	signed := parts[0] + "." + parts[1]
 	digest := sha256.Sum256([]byte(signed))
 	if err := rsa.VerifyPKCS1v15(key, crypto.SHA256, digest[:], signature); err != nil {
-		return tenant.Principal{}, errInvalidToken
+		return tenant.Principal{}, "", errInvalidToken
 	}
-	return tenant.Principal{TenantID: claims.TenantID, UserID: claims.Subject}, nil
+	return tenant.Principal{TenantID: claims.TenantID, UserID: claims.Subject}, legalEntityClaim(claims.LegalEntity), nil
 }
 
 func hasAudience(raw json.RawMessage, want string) bool {

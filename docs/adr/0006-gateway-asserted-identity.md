@@ -92,8 +92,31 @@ Keep the built model and record it as the v1.0 authorization architecture.
      on every company switch, is rejected in the recommendation because it costs a Keycloak round trip and a token
      per switch and makes cross-company reads (rule 3a) awkward. Until the owners confirm, the as-built behaviour
      stands; the acceptance test is in D33.
+   - *As built (B-03b): legal-entity-scoped role assignments in OPA.* Identity's bundle compiler now carries every
+     active assignment: tenant-wide ones in `data.assignments[tenant][subject]` as before, legal-entity-scoped ones
+     (`identity_role_assignments.legal_entity_id` set) in the new root `data.scoped_assignments[tenant][subject][legal_entity]`
+     (before, they were left out, so a per-company role granted nothing in OPA). `authz.rego` grants a scoped duty only
+     when the request acts in that legal entity: `input.subject.legal_entity_id` names the entity (or comma list) and
+     every listed entity must carry the duty, so a role scoped to company A grants in A and nothing in B, in A and B
+     together, or on a request with no legal entity; tenant-wide assignments, tenant administrators and operator-only
+     duties are unchanged (`authz_test.rego`, `test_role_scoped_to_company_a_*`, `test_tenant_admin_is_unchanged`).
+     `RequireOPA` fills `input.subject.legal_entity_id` from the verified token's `le` claim (a string, or an array
+     joined with commas; any other shape is no legal entity), kept out of the principal so the database scope of
+     identity's own routes does not change. On the single-host gateways the selection must equal the claim, so the
+     claim is the request's legal entity; under the Proposed list model (B-03c) the gateways must pass the selected
+     entity instead. Envoy does not call OPA (rule 3), so in Kubernetes a scoped assignment still reaches services
+     only through the token's `duties` and `le` claims.
 5. **Revocation latency is the access-token life (300 s).** The designed ≤ 10 s is withdrawn for v1.0. Step-up uses
    the auth-age check on `X-Depot-Auth-Time`, not an OPA `requires_acr` obligation.
+   - *Decision (B-03b): no `pv` claim for v1.0.* The PRD (FR-2.1, FR-2.6, message IAM-0405) puts the policy bundle
+     version in the token as `pv`, so a sidecar can tell a token issued before the active bundle and the shell can ask
+     the user to refresh. Under this ADR nothing would read it: services decide from the token's `duties`, and the OPA
+     callers (identity, devgateway, `depot-server`) decide from the live bundle, whatever bundle the token was issued
+     under. The bundle revision is a content hash (`.manifest` `revision`, also the endpoint's `ETag`), not an ordered
+     number, so "more than 2 versions behind" has no meaning, and Keycloak would need a custom mapper to read it. A
+     stale token is bounded by the 300 s access-token life instead. `pv` is not issued and FR-2.1/FR-2.6 stay Partial
+     on it; revisit if per-service OPA (the upgrade path under "Alternatives rejected") is adopted, which would need an
+     ordered bundle version first.
 6. **What NetworkPolicy must enforce for this to be safe.** In every namespace that runs a Depot service:
    - a default-deny ingress NetworkPolicy;
    - ingress to a service's API port only from the Envoy Gateway data-plane pods, plus the named peer services that
