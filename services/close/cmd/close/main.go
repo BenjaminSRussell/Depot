@@ -139,7 +139,10 @@ func run(ctx context.Context, getenv func(string) string) error {
 		if err != nil {
 			return err
 		}
-		a.WithLedgers(ledger.New(url, nil, signer))
+		ledgers := ledger.New(url, nil, signer)
+		a.WithLedgers(ledgers)
+		// Every period transition and reopen sets the ledger's period lock before it commits (B-08c).
+		st.WithPeriodLocks(ledgers)
 		postings, err := ledgerclient.New(url, ledgerSource, signer, nil)
 		if err != nil {
 			return err

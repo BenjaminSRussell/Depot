@@ -154,6 +154,7 @@ func (a *API) Register(r chi.Router) {
 	r.With(authz.RequireDuty(dutyMaintain)).Put("/v1/close/periods/{fiscalPeriodId}", a.register)
 	r.With(authz.RequireDuty(dutyMaintain)).Get("/v1/close/periods", a.listPeriods)
 	r.With(authz.RequireDuty(dutyMaintain)).Patch("/v1/close/periods/{fiscalPeriodId}/modules/{module}", a.transition)
+	r.With(authz.RequireDuty(dutyMaintain)).Post("/v1/close/periods/{fiscalPeriodId}:resync-ledger-lock", a.resyncLedgerLock)
 	r.With(authz.RequireDuty(dutyReopen)).Post("/v1/close/periods/{fiscalPeriodId}/modules/{module}:request-reopen", a.requestReopen)
 	r.With(authz.RequireDuty(dutyReopen)).Post("/v1/close/reopen-requests/{requestId}:approve", a.approveReopen)
 	r.With(authz.RequireDuty(dutyReopen)).Post("/v1/close/reopen-requests/{requestId}:reject", a.rejectReopen)

@@ -74,6 +74,10 @@ func (m *memPeriods) RejectReopen(_ context.Context, id, actor string) (domain.S
 }
 func (m *memPeriods) ExpireReopened(context.Context) (int, error) { return m.expired, nil }
 
+func (m *memPeriods) ResyncLedgerLock(_ context.Context, entity, ledger, period string, _ time.Duration) (domain.PeriodLock, error) {
+	return domain.PeriodLock{LegalEntityID: entity, LedgerID: ledger, FiscalPeriodID: period, Version: 1}, nil
+}
+
 type memChecklists struct {
 	templates map[string]domain.Template
 	runs      map[string]domain.CloseRun

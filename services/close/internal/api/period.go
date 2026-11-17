@@ -163,6 +163,11 @@ func (a *API) approveReopen(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, missingSlice("period control"))
 		return
 	}
+	if a.ledgers == nil {
+		// As a PATCH: the approval that opens a period must set the ledger's period lock (B-08c).
+		fail(w, r, httpx.NewProblem(http.StatusServiceUnavailable, "COM-0503", "ledger lookup is not configured"))
+		return
+	}
 	id := chi.URLParam(r, "requestId")
 	if !ids.Valid(id) {
 		fail(w, r, &domain.Error{Code: domain.CodeNoPeriod, Detail: "reopen request not found"})
@@ -214,4 +219,41 @@ func (a *API) principal(w http.ResponseWriter, r *http.Request) (tenant.Principa
 		return tenant.Principal{}, false
 	}
 	return p, true
+}
+
+type resyncRequest struct {
+	LedgerID string `json:"ledgerId"`
+}
+
+// resyncLedgerLock resends a period's current matrix to the ledger's period lock with a new version
+// (B-08c): the repair for a ledger lock that disagrees with close, for example after close's own commit failed
+// once the ledger had committed. It changes no status.
+func (a *API) resyncLedgerLock(w http.ResponseWriter, r *http.Request) {
+	p, ok := a.principal(w, r)
+	if !ok {
+		return
+	}
+	if a.periods == nil {
+		fail(w, r, missingSlice("period control"))
+		return
+	}
+	var req resyncRequest
+	if err := httpx.Decode(r, &req); err != nil {
+		fail(w, r, err)
+		return
+	}
+	periodID := chi.URLParam(r, "fiscalPeriodId")
+	if !ids.Valid(p.LegalEntityID) || !ids.Valid(periodID) || !ids.Valid(req.LedgerID) {
+		fail(w, r, httpx.NewProblem(http.StatusBadRequest, domain.CodeValidation, "legalEntityId, fiscalPeriodId and ledgerId must be UUIDs"))
+		return
+	}
+	if !a.ledgerBelongsToCaller(w, r, p.LegalEntityID, req.LedgerID) {
+		return
+	}
+	lock, err := a.periods.ResyncLedgerLock(r.Context(), p.LegalEntityID, req.LedgerID, periodID, a.lockWait())
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"ledgerId": req.LedgerID, "fiscalPeriodId": periodID, "version": lock.Version, "sources": lock.Sources})
 }

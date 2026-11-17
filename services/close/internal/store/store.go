@@ -12,9 +12,25 @@ import (
 	"github.com/BenjaminSRussell/depot/services/close/internal/domain"
 )
 
-type Postgres struct{ pool *pgxpool.Pool }
+type Postgres struct {
+	pool  *pgxpool.Pool
+	locks PeriodLocker
+}
 
 func New(pool *pgxpool.Pool) *Postgres { return &Postgres{pool: pool} }
+
+// PeriodLocker sets the ledger's period lock (FR-14.1, B-08c). The ledger client implements it.
+type PeriodLocker interface {
+	LockPeriod(ctx context.Context, lock domain.PeriodLock) error
+}
+
+// WithPeriodLocks makes every period transition and reopen set the ledger's period lock before it commits.
+// A store without one (store tests, a close service without LEDGER_URL, whose API refuses transitions)
+// leaves the ledger's lock untouched.
+func (s *Postgres) WithPeriodLocks(l PeriodLocker) *Postgres {
+	s.locks = l
+	return s
+}
 
 func (s *Postgres) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 

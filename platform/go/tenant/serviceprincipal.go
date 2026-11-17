@@ -73,6 +73,9 @@ var servicePrincipals = map[string][]string{
 	"shopfloor-production":    {"shopfloor.job.sync"},
 	// The ops control plane's own reads and statement rendering (#50); it acts as this principal, in the operator tenant.
 	"ops-reporter": {"identity.ops.tenant-read", "print.ops.render"},
+	// close's reopen-expiry sweeper closes an expired temporary reopen and sets the ledger's period lock with it (FR-14.1,
+	// B-08c); it signs PUT /v1/ledger/ledgers/{ledger}/period-locks/{fiscalPeriodId} only, as the legal entity of the period.
+	"close-reopen-expiry": {"ledger.period.lock"},
 }
 
 // servicePrincipalIssuers names the services whose signing key may present each
@@ -115,6 +118,7 @@ var servicePrincipalIssuers = map[string][]string{
 	"scheduling-order-import": {"scheduling"},
 	"shopfloor-production":    {"shopfloor"},
 	"ops-reporter":            {"ops"},
+	"close-reopen-expiry":     {"close"},
 }
 
 func ServicePrincipalTable() map[string][]string {

@@ -1,6 +1,7 @@
 package ledger
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,12 +10,14 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/close/internal/domain"
 )
 
 const (
@@ -22,6 +25,9 @@ const (
 	ledgersPath     = "/v1/ledger/ledgers/"
 	audience        = "ledger"
 	dutyLookup      = "ledger.ledger.lookup"
+	dutyPeriodLock  = "ledger.period.lock"
+	codeLockBusy    = "LEDGER_PERIOD_LOCK_BUSY"
+	codeLockStale   = "LEDGER_PERIOD_LOCK_STALE"
 	maxResponseSize = 1 << 20
 )
 
@@ -82,4 +88,60 @@ func (c *Client) LegalEntity(ctx context.Context, legalEntityID, ledgerID string
 		return "", errors.New("ledger: response has no legalEntityId")
 	}
 	return body.LegalEntityID, nil
+}
+
+type lockBody struct {
+	StartDate string              `json:"startDate"`
+	EndDate   string              `json:"endDate"`
+	Version   int64               `json:"version"`
+	Sources   []domain.LockSource `json:"sources"`
+}
+
+// LockPeriod sets the ledger's period lock of one fiscal period (PUT .../period-locks/{fiscalPeriodId},
+// FR-14.1, B-08c) with a service token that carries ledger.period.lock alone, on behalf of the end user in
+// ctx. It returns nil only on the ledger's 200, which the ledger sends once the lock is committed.
+func (c *Client) LockPeriod(ctx context.Context, lock domain.PeriodLock) error {
+	principal, ok := tenant.FromContext(ctx)
+	if !ok {
+		return errors.New("ledger: no principal in context")
+	}
+	if c.signer == nil {
+		return errors.New("ledger: no service signing key configured")
+	}
+	raw, err := json.Marshal(lockBody{StartDate: lock.Start.Format(time.DateOnly), EndDate: lock.End.Format(time.DateOnly), Version: lock.Version, Sources: lock.Sources})
+	if err != nil {
+		return fmt.Errorf("ledger: %w", err)
+	}
+	target := c.baseURL + ledgersPath + url.PathEscape(lock.LedgerID) + "/period-locks/" + url.PathEscape(lock.FiscalPeriodID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, target, bytes.NewReader(raw))
+	if err != nil {
+		return fmt.Errorf("ledger: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if _, err := c.signer.ApplyDuties(req, principal, audience, lock.LegalEntityID, []string{dutyPeriodLock}); err != nil {
+		return fmt.Errorf("ledger: %w", err)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("ledger: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
+	if resp.StatusCode == http.StatusOK {
+		return nil
+	}
+	var problem struct {
+		Code   string            `json:"code"`
+		Errors map[string]string `json:"errors"`
+	}
+	_ = json.Unmarshal(body, &problem)
+	switch {
+	case resp.StatusCode == http.StatusServiceUnavailable && problem.Code == codeLockBusy:
+		return domain.ErrLedgerLockBusy
+	case resp.StatusCode == http.StatusConflict && problem.Code == codeLockStale:
+		if stored, err := strconv.ParseInt(problem.Errors["version"], 10, 64); err == nil && stored > 0 {
+			return &domain.StaleLockError{Stored: stored}
+		}
+	}
+	return fmt.Errorf("ledger: period lock answered %d %s", resp.StatusCode, problem.Code)
 }

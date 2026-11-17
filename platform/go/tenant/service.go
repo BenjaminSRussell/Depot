@@ -134,8 +134,9 @@ var serviceGrants = map[string]map[string][]string{
 		"tax":    {"tax.withholding.calculate", "tax.withholding.record"},
 		"party":  {"party.vendor-bank.reveal", "party.vendor.lookup"},
 	},
+	// close also sets the ledger's period lock inside every period transition, before it reports the transition (FR-14.1, B-08c).
 	"close": {
-		"ledger": {"ledger.ledger.lookup", "ledger.entry.post", "ledger.journal.reverse", "ledger.balance.read", "ledger.account.lookup", "ledger.period.postclosed"},
+		"ledger": {"ledger.ledger.lookup", "ledger.entry.post", "ledger.journal.reverse", "ledger.balance.read", "ledger.account.lookup", "ledger.period.postclosed", "ledger.period.lock"},
 	},
 	"production": {
 		"ledger":    {"ledger.entry.post", "ledger.balance.read"},

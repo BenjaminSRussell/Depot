@@ -157,6 +157,11 @@ paths:
         to modules without a row, BR-14.2); all closes only after every module row, gl included, is closed. An ordering or
         state refusal is 409 CLOSE-0001 whose detail names the module and what to do (close it first, put all on hold, or
         request a reopen).
+        Ledger period lock (FR-14.1, B-08c): inside the transition, before it commits, close sets the ledger's period
+        lock for the period (PUT /v1/ledger/ledgers/{ledger}/period-locks/{fiscalPeriodId}, service token with
+        ledger.period.lock) and answers 200 only after the ledger acknowledged it, so no posting commits into a period
+        after this PATCH reported it closed. If the ledger cannot be reached or does not confirm, the transition is
+        rolled back and the answer is 503 CLOSE-0012; the period keeps its status and the same PATCH can be retried.
       parameters:
         - { name: fiscalPeriodId, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: module, in: path, required: true, schema: { type: string } }
@@ -183,6 +188,51 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
+        '503':
+          description: COM-0503 ledger lookup unavailable or unconfigured, or CLOSE-0012 the ledger did not confirm the period lock; nothing changed.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /v1/close/periods/{fiscalPeriodId}:resync-ledger-lock:
+    post:
+      operationId: resyncLedgerLock
+      summary: Resend a period's status to the ledger's period lock
+      x-depot-duty: period.maintain
+      description: >
+        Resends the period's current matrix to the ledger's period lock (FR-14.1, B-08c) with a newer version and changes
+        nothing in close. The repair for a ledger lock that disagrees with close, for example when close's own commit failed
+        after the ledger had committed a transition's lock, so the ledger refuses postings close reports open. Same ledger
+        ownership check and ledger call as a PATCH; 503 CLOSE-0012 when the ledger does not confirm.
+      parameters:
+        - { name: fiscalPeriodId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [ledgerId]
+              properties:
+                ledgerId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The ledger confirmed the resent lock.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ledgerId: { type: string, format: uuid }
+                  fiscalPeriodId: { type: string, format: uuid }
+                  version: { type: integer, format: int64 }
+                  sources: { type: array, items: { type: object } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
         '503': { $ref: '#/components/responses/Problem' }
   /v1/close/periods/{fiscalPeriodId}/modules/{module}:request-reopen:
     post:
@@ -215,7 +265,11 @@ paths:
     post:
       operationId: approveReopen
       x-depot-duty: period.reopen
-      description: Records one distinct approver. The requester cannot approve. Two approvals open the period until expiry.
+      description: >
+        Records one distinct approver. The requester cannot approve. Two approvals open the period until expiry. The last
+        approval sets the ledger's period lock to open, with the reopen's expiry, before it commits (B-08c); the ledger
+        refuses postings from the expiry on. If the ledger does not confirm, the approval is not recorded and the answer is
+        503 CLOSE-0012.
       parameters:
         - { name: requestId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -225,6 +279,7 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /v1/close/reopen-requests/{requestId}:reject:
     post:
       operationId: rejectReopen
