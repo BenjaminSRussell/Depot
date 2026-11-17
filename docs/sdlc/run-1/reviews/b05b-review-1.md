@@ -181,3 +181,103 @@ With `PATH=/root/go/bin:/usr/local/go/bin:/root/.local/bin:$PATH`, in the worktr
   - `kafka.consumer(opts)` was caught, but only through the chart block.
   - An unrestricted `get secrets` Role rule slipped.
 - **Not run:** `smoke_consumers.py`, because there is no cluster.
+
+---
+
+# Re-review: fix commit fa3aeef1 (on top of 13203db1)
+
+## Verdict: APPROVE
+
+All three Major findings are fixed and are now covered by tests that fail when the fix is undone. All four earlier
+mutations now fail the check. Three new Minor issues remain (R1 to R3). None blocks merging, and they can be follow-ups.
+R1 and R2 are in `startInBackground`. They do not affect dev today, because both kafkajs consumers (workflow-ts and
+integration-hub) are off in every environment.
+
+## The original findings
+
+| # | Fix | Status |
+|---|-----|--------|
+| 1 | The kafkajs consumer of workflow-ts and integration-hub-ts starts through `startInBackground` (5 s backoff, doubling to a 2 min cap). Receiving's three source topics are declared KafkaTopics in `connect.yaml`, with the same partitions and retention as the relays' topic creation. The dev check requires a synced KafkaTopic for every topic of a consumer that is on (`test_kafka_consumers.py`, "source topics no synced KafkaTopic declares"). | Fixed. A failed start now calls `Promise.allSettled([consumer.disconnect(), producer.disconnect()])` before it rethrows. Failures before the try block (the Kafka constructor, `readFileSync`) open no connection. There is one start loop per process, so no double start and no leaked connection on a failed attempt. See R1 and R2 for the gaps. |
+| 2 | The workflow pod gets `runAsUser`/`runAsGroup` 1000 and `fsGroup` 1000. | Fixed. The new helm test asserts a numeric `runAsUser` wherever the Dockerfile's `USER` is a name. |
+| 3 | `fsGroup: 65532` on the 13 consumer pods (in the template, or in `podSecurityContext` in values). `test_every_consumer_can_read_its_mounted_credentials` renders every block with its consumer on and checks fsGroup, the credentials mount and a numeric `runAsUser`. | Fixed. The test ran (it was not skipped) and passed for all 22 blocks. The four charts that gained a pod `securityContext` (fulfillment, inventory, purchasing, shopfloor) have no duplicate key. PyYAML would hide a duplicate, so I grepped for one. |
+| 4 | The workflow-ts trigger is off in dev, with a DEV_OFF reason. Its ExternalSecret and Role entry are removed. `budgetingUrl` is set in the dev and stage values. | Fixed. |
+| 5 | `credential_rbac_problems` requires exactly one RoleBinding, in `kafka`, to a Role whose every rule is `get` on named Secrets, and no ClusterRoleBinding. It has negative tests. | Fixed. My unnamed-`get` mutation now fails two tests. |
+| 6 | Fail-closed derivation: Go `cfg.Group`/`cfg.Topics` overrides are followed, and `kafka.Config` literals are flagged. A kafkajs consumer must have the shape `.consumer({ groupId: config.group })`, and `subscribe()` may appear only in the loop over the config's topics. Foreign Kafka clients are flagged. | Mostly fixed. See R3. |
+| 7 | Prefix-clash check, with a synthetic clash. | Fixed. |
+| 8 | A failed produce in the smoke test records a per-row FAIL. | Fixed. |
+
+## Earlier mutations, re-applied to a scratch copy of fa3aeef1 (`git archive`)
+
+| Mutation | At ca192d92 | At fa3aeef1 |
+|---|---|---|
+| Extra `consumer.subscribe({ topic: "depot.sales.order" })` in `eventConsumer.ts` | slipped | **fails** ("subscribe() outside the loop") |
+| `kafka.consumer(opts)` | caught only through the chart block | **fails** (discovery problem and ACL mismatch) |
+| receiving `cfg.Group = "receiving-erasure-v2"` after `ConfigFromEnv` | slipped | **fails** (the group is derived, so the ACLs differ) |
+| Extra Role rule `get secrets` without `resourceNames` | slipped | **fails** (2 tests) |
+| New: `erasureCfg.Group = "..."` in the caller, same file | n/a | **fails** ("sets .Group where no ConfigFromEnv ...") |
+| New: the same override in `main.go` of the same package, which does not import eventing/kafka | n/a | **slips** (R3) |
+| New: the override through a struct field, `h.cfg.Group = "..."` | n/a | **slips** (R3) |
+
+## New findings
+
+### R1. Minor: `stop()` can block for the whole backoff (up to 2 min) at shutdown
+- **Where:** `services/workflow-ts/src/backgroundStart.ts:23-32` and `:46-50`. `services/integration-hub-ts/src/backgroundStart.ts` is identical.
+- **Failure scenario:** SIGTERM arrives while a start attempt is in flight, for example while kafkajs retries a missing topic.
+  1. `stop()` aborts the controller.
+  2. The pending `start()` then rejects.
+  3. The catch block calls `onError`, which logs a spurious "not started; retrying", then calls `sleep(backoff, signal)` with a signal that is already aborted.
+  4. `sleepUnlessAborted` adds an `abort` listener, but that event has already fired. So it waits the full backoff, and `stop()` waits with it.
+- **Reproduced:** I ran a copy of the file under Node 22 with `--experimental-strip-types`, a 3 s backoff, and `stop()` followed by a rejected start. `stop()` took 3010 ms.
+- **Impact:** with the 120 s cap, the hub's shutdown (`consumer.stop()` before `pool.end()`) and the worker's `finally` block run past the default 30 s grace period and get SIGKILLed.
+- **Fix:**
+  - In `sleepUnlessAborted`, resolve at once when `signal.aborted` is already true.
+  - In the catch block, skip `onError` and the sleep when the signal is aborted.
+  - Add a vitest case: stop while start is pending, then start rejects.
+
+### R2. Minor: a permanent misconfiguration is retried forever, visible only as a warning every 2 minutes
+- **Where:**
+  - `startInBackground` in both services
+  - `services/workflow-ts/src/eventConsumer.ts` (`startEventConsumerInBackground`)
+  - `services/integration-hub-ts/src/main.ts:110-115`
+- **Failure scenario:** any of these is retried indefinitely, and the pod stays Ready:
+  - a wrong SCRAM password (`KafkaJSSASLAuthenticationError`)
+  - a missing or unreadable CA or password file (ENOENT or EACCES from `readFileSync`)
+  - `TOPIC_AUTHORIZATION_FAILED` from a missing ACL
+- **Visibility:** the only signal is a warn log line per attempt, about 30 per hour at the cap. There is no metric, even though the hub has a `metrics` registry, and the readiness probes do not reflect it.
+- **Uncertain, from my knowledge of kafkajs rather than a run:** failures after `consumer.run()` resolves (for example `GROUP_AUTHORIZATION_FAILED` at group join) happen inside kafkajs's runner. They go to its crash and restart handling, which `startInBackground` never sees. This was already so before the change.
+- **Fix:**
+  - Export a gauge such as `kafka_consumer_running` (0/1) and a counter of failed starts. The hub can use its registry; workflow-ts would need a small `/metrics` endpoint or a structured log field that alerting can key on.
+  - Optionally, treat authentication and authorization errors and ENOENT as fatal after N attempts.
+  - Optionally, listen to `consumer.events.CRASH` so a non-retriable crash goes back into the backoff loop.
+
+### R3. Minor: two Go override shapes still slip past the fail-closed check
+- **Where:** `deploy/scripts/test_kafka_consumers.py`, in `go_consumers`. The untied-override scan (`for o in re.finditer(r"(?<![\w.])\w+\.(Group|Topics)\s*=(?!=)", text)`) runs only inside `if EVENTING_KAFKA in imports`.
+- **Failure scenario 1:** an override in another file of the same package that does not import `eventing/kafka` passes. Go infers the type, so no import is needed. Verified by mutation: `cfg, err := erasureKafkaConfig(getenv); cfg.Group = "receiving-erasure-v2"` appended to `cmd/receiving/main.go` passed all 14 tests.
+- **Failure scenario 2:** an override through a selector chain passes, because the lookbehind skips `x.cfg.Group`. Verified by mutation: `h.cfg.Group = ...` in `consumer.go` passed.
+- **Impact:** at runtime the consumer would join an ungranted group and fail with `GROUP_AUTHORIZATION_FAILED`.
+- **Fix:**
+  - Run the untied-override scan over every file of each package in `dirs`, not only the files that import `eventing/kafka`.
+  - Match the field assignment on any receiver chain, e.g. `\.(Group|Topics)\s*=(?!=)`, and allowlist false positives if any appear.
+
+### Notes (no action needed)
+- The new KafkaTopics sync with `debezium-connect` (wave 1), after receiving (wave 0). That is harmless, because franz-go waits for a missing topic.
+- Strimzi now owns these three topics. Pruning their KafkaTopic resources later would delete the topics, so move them with care.
+- The fulfillment, inventory, purchasing and shopfloor consumer pods gained only `fsGroup`, not `runAsNonRoot`/`seccompProfile`. This was already so, and is outside the scope of this change.
+
+## Tests run (re-review)
+All at fa3aeef1, with `PATH=/root/go/bin:/usr/local/go/bin:/root/.local/bin:$PATH`:
+
+| Check | Result |
+|---|---|
+| `test_kafka_consumers.py` | 14 tests OK, none skipped; the helm render-all test ran |
+| `test_argocd_apps.py` | 49 tests OK |
+| `test_migrate_jobs.py` | 12 tests OK |
+| `gen_httproutes.py --check`, `gen_migrate_jobs.py --check`, `gen_networkpolicies.py --check` | exit 0 |
+| `stage_apps.py --check` | exit 0 |
+| `smoke_consumers.py --dry-run` | plans receiving's three groups only |
+| integration-hub-ts in a scratch copy: `npm ci`, `tsc --noEmit` | exit 0 |
+| integration-hub-ts in a scratch copy: `vitest --run` | 263 passed, 100 skipped; `node_modules` deleted afterwards |
+| `backgroundStart.ts` under Node 22 (R1 reproduction) | `stop()` took 3010 ms |
+| Mutations | the table above |
+
+The worktree was not modified.
