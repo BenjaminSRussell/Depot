@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/BenjaminSRussell/depot/platform/events"
@@ -52,6 +53,10 @@ func binaryEvent(r Record) events.Event {
 		SpecVersion: h("specversion"), ID: h("id"), Source: h("source"), Type: h("type"), Subject: h("subject"),
 		DataContentType: h("datacontenttype"), Data: json.RawMessage(r.Value),
 		TenantID: h(HeaderTenantID), CorrelationID: h("correlationid"), CausationID: h("causationid"), Actor: h("actor"),
+		DataSchema: h("dataschema"), Traceparent: h("traceparent"),
+	}
+	if seq, err := strconv.ParseInt(h("sequence"), 10, 64); err == nil && seq > 0 {
+		evt.Sequence = seq
 	}
 	if evt.DataContentType == "" {
 		evt.DataContentType = defaultContentType

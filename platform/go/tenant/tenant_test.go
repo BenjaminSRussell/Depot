@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tracectx"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
@@ -61,6 +62,22 @@ func TestRejectionIsProblemJSONWithTraceID(t *testing.T) {
 		t.Fatal(err)
 	}
 	if body["traceId"] != "req-123" || body["code"] != "AUTH-0001" {
+		t.Fatalf("body %v", body)
+	}
+}
+
+func TestRejectionTraceIDIsTheW3CTraceIDOfTheRequest(t *testing.T) {
+	h := middleware.RequestID(tracectx.Middleware(tenant.Middleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))))
+	req := httptest.NewRequest(http.MethodGet, "/v1/x", nil)
+	req.Header.Set("X-Request-Id", "req-123")
+	req.Header.Set("traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["traceId"] != "4bf92f3577b34da6a3ce929d0e0e4736" {
 		t.Fatalf("body %v", body)
 	}
 }

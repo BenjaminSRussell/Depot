@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/eventing"
 	"github.com/BenjaminSRussell/depot/platform/events"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tracectx"
 )
 
 const (
@@ -169,6 +171,62 @@ func TestConsumerAppliesOnceAsServicePrincipalForTheEventsTenant(t *testing.T) {
 	if len(h.src.committed) != 2 || len(h.dlq.sent) != 0 {
 		t.Fatalf("committed %v, dead-lettered %v; want both offsets committed and none parked", h.src.committed, h.dlq.sent)
 	}
+}
+
+func TestConsumerContinuesTheEventTraceAndLogsIt(t *testing.T) {
+	const eventTrace = "4bf92f3577b34da6a3ce929d0e0e4736"
+	for _, tc := range []struct {
+		name, traceparent string
+		wantTrace         bool
+	}{
+		{"valid", "00-" + eventTrace + "-00f067aa0ba902b7-01", true},
+		{"absent", "", false},
+		{"invalid", "not-a-traceparent", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var logs bytes.Buffer
+			var handled string
+			h, _, ctx := newHarness(t, nil)
+			c := newTracingConsumer(t, h, &logs, &handled)
+			rec := record(t, 1, "e1", eventType, tenantA)
+			var evt map[string]any
+			if err := json.Unmarshal(rec.Value, &evt); err != nil {
+				t.Fatal(err)
+			}
+			if tc.traceparent != "" {
+				evt["traceparent"] = tc.traceparent
+			}
+			rec.Value, _ = json.Marshal(evt)
+			h.src.queue = []eventing.Record{rec}
+			if err := run(t, c, ctx); err != nil {
+				t.Fatal(err)
+			}
+			if len(h.dlq.sent) != 0 || len(h.src.committed) != 1 {
+				t.Fatalf("parked %v committed %v", h.dlq.sent, h.src.committed)
+			}
+			if tc.wantTrace != (handled == eventTrace) || len(handled) != 32 {
+				t.Fatalf("handler trace id %q", handled)
+			}
+			if !strings.Contains(logs.String(), `"traceId":"`+handled+`"`) {
+				t.Fatalf("log %s lacks traceId %s", logs.String(), handled)
+			}
+		})
+	}
+}
+
+func newTracingConsumer(t *testing.T, h *harness, logs *bytes.Buffer, handled *string) *eventing.Consumer {
+	t.Helper()
+	c, err := eventing.NewConsumer(h.src, h.dlq, h.inbox, eventing.Config{
+		Name: "receiving-ers", DeadLetterTopic: "depot.receiving.receipt.dlq", Log: slog.New(slog.NewJSONHandler(logs, nil)),
+		Handlers: map[string]eventing.Handler{eventType: eventing.HandlerFunc(func(ctx context.Context, _ pgx.Tx, _ events.Event) error {
+			*handled = tracectx.TraceID(ctx)
+			return nil
+		})},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
 }
 
 func TestConsumerRetriesThenSucceeds(t *testing.T) {

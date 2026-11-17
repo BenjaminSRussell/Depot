@@ -21,6 +21,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
 	"github.com/BenjaminSRussell/depot/platform/logpseudo"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tracectx"
 )
 
 const RequestTimeout = 30 * time.Second
@@ -28,14 +29,15 @@ const RequestTimeout = 30 * time.Second
 // Problem is an RFC 9457 problem-details body. Code is the stable, documented
 // Depot error code (e.g. "LED-0001"); Errors carries field-level detail.
 type Problem struct {
-	Type     string            `json:"type"`
-	Title    string            `json:"title"`
-	Status   int               `json:"status"`
-	Detail   string            `json:"detail,omitempty"`
-	Instance string            `json:"instance,omitempty"`
-	Code     string            `json:"code,omitempty"`
-	TraceID  string            `json:"traceId,omitempty"`
-	Errors   map[string]string `json:"errors,omitempty"`
+	Type        string            `json:"type"`
+	Title       string            `json:"title"`
+	Status      int               `json:"status"`
+	Detail      string            `json:"detail,omitempty"`
+	Instance    string            `json:"instance,omitempty"`
+	Code        string            `json:"code,omitempty"`
+	ServiceCode string            `json:"serviceCode,omitempty"`
+	TraceID     string            `json:"traceId,omitempty"`
+	Errors      map[string]string `json:"errors,omitempty"`
 	// RowErrors is the structured form of Errors for batch imports: which row, which field and why, so a caller never parses text.
 	RowErrors []RowError `json:"rowErrors,omitempty"`
 }
@@ -82,7 +84,7 @@ func newRouter(extra ...func(http.Handler) http.Handler) *chi.Mux {
 	r := chi.NewRouter()
 	// auditctx.Capture keeps the reason a person gave (X-Depot-Reason) and the W3C trace id for the depot.ctx message a
 	// service writes with the changes of an audited table (B-07).
-	r.Use(middleware.RequestID, auditctx.Capture, recordMetrics, TrustedRealIP(trustedProxiesFromEnv()), middleware.Recoverer, middleware.Timeout(RequestTimeout))
+	r.Use(middleware.RequestID, tracectx.Middleware, auditctx.Capture, recordMetrics, TrustedRealIP(trustedProxiesFromEnv()), middleware.Recoverer, middleware.Timeout(RequestTimeout))
 	r.Use(logRequests)
 	// The fence comes after metrics and logging, so a fenced 503 is counted and logged, and before tenant extraction, so a
 	// fenced region refuses before authentication does any work.
@@ -103,7 +105,7 @@ func logRequests(next http.Handler) http.Handler {
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		next.ServeHTTP(ww, r)
 		slog.Info("http", "method", r.Method, "path", r.URL.Path, "status", ww.Status(), "bytes", ww.BytesWritten(),
-			"durationMs", time.Since(start).Milliseconds(), "requestId", middleware.GetReqID(r.Context()))
+			"durationMs", time.Since(start).Milliseconds(), "traceId", tracectx.TraceID(r.Context()))
 	})
 }
 
@@ -147,7 +149,7 @@ func Fail(w http.ResponseWriter, r *http.Request, err error) {
 		p = NewProblem(http.StatusInternalServerError, "COM-0500", "internal error")
 	}
 	p.Instance = r.URL.Path
-	p.TraceID = middleware.GetReqID(r.Context())
+	p.TraceID = tracectx.TraceID(r.Context())
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(p.Status)
 	_ = json.NewEncoder(w).Encode(p)

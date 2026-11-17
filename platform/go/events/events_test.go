@@ -62,3 +62,20 @@ func TestNewCopiesPayloadLegalEntity(t *testing.T) {
 		t.Errorf("empty legal entity serialised: %s", raw)
 	}
 }
+
+func TestTraceFieldsAreOmittedWhenUnsetAndRoundTripWhenSet(t *testing.T) {
+	typ := Type("sales", "order", "confirmed", 1)
+	e, _ := New(typ, "/services/sales", "x", "tenant-a", map[string]string{"id": "x"})
+	raw, _ := json.Marshal(e)
+	for _, name := range []string{"traceparent", "sequence", "dataschema"} {
+		if strings.Contains(string(raw), name) {
+			t.Errorf("unset %s serialised: %s", name, raw)
+		}
+	}
+	e.Traceparent, e.Sequence, e.DataSchema = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01", 5, DataSchema(typ)
+	raw, _ = json.Marshal(e)
+	var back Event
+	if err := json.Unmarshal(raw, &back); err != nil || back.Traceparent != e.Traceparent || back.Sequence != 5 || back.DataSchema != "https://schemas.depot.dev/"+typ+".json" {
+		t.Fatalf("round trip %+v err %v", back, err)
+	}
+}

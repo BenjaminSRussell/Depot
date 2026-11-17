@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tracectx"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
@@ -154,6 +155,7 @@ const (
 // instead of a signed service token. A service that forwards a user's identity to a peer must call it wherever it sets HeaderTenant, or the
 // peer (which shares the secret under depot-server) refuses the call. It does nothing when the variable is unset.
 func ForwardGatewaySecret(req *http.Request) {
+	tracectx.Inject(req)
 	if secret := os.Getenv(GatewaySecretEnv); secret != "" {
 		req.Header.Set(HeaderGatewaySecret, secret)
 	}
@@ -380,7 +382,7 @@ func reject(w http.ResponseWriter, r *http.Request, status int, code, title, det
 		"code":   code,
 		"detail": detail,
 	}
-	if id := middleware.GetReqID(r.Context()); id != "" {
+	if id := tracectx.TraceID(r.Context()); id != "" {
 		body["traceId"] = id
 	}
 	w.Header().Set("Content-Type", "application/problem+json")

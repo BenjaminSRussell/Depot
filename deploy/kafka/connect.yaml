@@ -921,7 +921,7 @@ spec:
 # dataschema from the type when absent, rejects a non-conforming envelope, and adds
 # content-type and ce_* headers; JsonConverter serializes it.
 # Config keys: https://debezium.io/documentation/reference/stable/transformations/outbox-event-router.html
-# The key is aggregate_id (FR-4.1): pgoutput on PG16 does not replicate generated
+# The key is aggregate_id (FR-4.1, ADR-0016): pgoutput on PG16 does not replicate generated
 # columns such as batch's partition_key.
 # snapshot.mode initial needs a CDC role that bypasses RLS on outbox.
 apiVersion: kafka.strimzi.io/v1beta2
