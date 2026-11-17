@@ -91,7 +91,7 @@ ingressPolicy:
   gateway:
     podsNamespace: envoy-gateway-system
     gatewaysNamespace: hello-ledger
-    names: [depot-api]
+    names: []
   peers: []
   metricsPorts: []
   prometheus:

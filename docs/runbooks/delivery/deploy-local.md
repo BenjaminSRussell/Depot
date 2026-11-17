@@ -37,6 +37,13 @@ curl -m 5 -s -o /dev/null -w '%{http_code}' http://hello-ledger:8080/healthz`, w
 grant table (`policies/authz/data.json`), a chart's `*_URL` clients or an HTTPRoute in `deploy/gateway`, run
 `python3 deploy/scripts/gen_networkpolicies.py` (`--explain` prints each service's callers and why).
 
+Installing the services into another namespace than the Argo CD Applications use: a peer that runs in the same namespace as
+its target in dev is matched in whatever namespace the release is installed in, but a peer in another dev namespace (batch,
+metadata) is matched by that namespace's name, and the Gateway pods and Prometheus by `ingressPolicy.gateway` and
+`ingressPolicy.prometheus`; override those values (and the namespaces of the namespace-default-deny ApplicationSet) for the
+other layout. `global.regionFenceUrl` must go through Gateway `depot-region`
+(`https://region.<env>.depot.dev/healthz/region`); the charts refuse to render with the ops Service URL.
+
 ## Troubleshoot
 
 | Symptom | Check |

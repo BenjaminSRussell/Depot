@@ -61,6 +61,7 @@ spec:
             - { name: QUALITY_BASE_URL, value: {{ .Values.qualityUrl | quote }} }
             - { name: TRANSPORT_BASE_URL, value: {{ .Values.transportUrl | quote }} }
             - { name: PARTY_BASE_URL, value: {{ .Values.partyUrl | quote }} }
+            - { name: BUDGETING_BASE_URL, value: {{ .Values.budgetingUrl | quote }} }
             - { name: DEPOT_SERVICE_NAME, value: workflow-ts }
 {{- if .Values.agentsPublicKeys }}
             - { name: DEPOT_SERVICE_PUBLIC_KEYS, value: {{ .Values.agentsPublicKeys | quote }} }

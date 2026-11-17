@@ -77,7 +77,9 @@ lagReporter:
   secret: ops-lag-reporter
   applicationName: "%"
 # Where every service of this release's cluster reads the region role from (global.regionFenceUrl in the service charts):
-# the ops /healthz/region of this region, for example http://ops.<namespace>.svc/healthz/region.
+# the ops /healthz/region of this region through Gateway depot-region, for example https://region.<env>.depot.dev/healthz/region.
+# Never the ops Service itself (http://ops.<namespace>.svc/...): every chart refuses to render that, because NetworkPolicy
+# cannot limit the services to that one path and would have to admit them to the whole operator API (ADR-0006 rule 6, D1).
 
 # Real tenant provisioning adapters for `depot-ops tenant provision|decommission` (run it with `kubectl exec deploy/ops -- depot-ops tenant ...`).
 # A system with no configuration stays on the logging adapter, and a real run is refused until all three are set (--dry-run always works).
@@ -121,20 +123,4 @@ ingressPolicy:
   prometheus:
     namespace: observability
     podLabels: {app.kubernetes.io/name: prometheus}
-  regionFencePeers:
-  - name: region-fence
-    podNames: [agent-runtime, analytics, assets, audit, billing, budgeting, carrier-gateway, close, compliance, configurator,
-      consolidation, costacct, costacct-cost-gl-reconcile, costing, customer-portal, depot-hr, depot-hr-accrue, depot-hr-carryover-expiry,
-      depot-hr-reseal-pii, depot-hr-retention-purge, depot-migration-factory, depot-receivables, eam, edi, engineering, expense,
-      fieldservice, finreport, forecast, fulfillment, fx, hello-ledger, identity, integration-hub, intercompany, intercompany-reconcile,
-      inventory, iot-edge, lean, ledger, localization, mcp-gateway, migration, mobile, numbering, org, party, payables, payroll,
-      planning, prediction, prediction-consumer, prediction-sync, pricing, print, processmfg, product, productcost, production,
-      projects, purchasing, purchasing-budget-calls-retry, quality, receivables, receiving, revrec, sales, scheduler-opt,
-      scheduling, search, shopfloor, supplier-portal, tax, tax-consumer, transport, treasury, warehouse, workflow]
-  - name: region-fence
-    namespace: batch
-    podNames: [batch]
-  - name: region-fence
-    namespace: metadata
-    podNames: [metadata]
 # <<< ingressPolicy

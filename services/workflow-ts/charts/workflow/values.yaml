@@ -20,6 +20,8 @@ agentsUrl: http://agent-runtime.depot.svc:8080
 qualityUrl: http://quality.depot.svc:8080
 transportUrl: http://transport.depot.svc:8080
 partyUrl: http://party.depot.svc:8080
+# Where budgetPlanWorkflow records its decisions (BUDGETING_BASE_URL, src/budgetPlanActivities.ts).
+budgetingUrl: http://budgeting.depot.svc:8080
 serviceIdentity:
   signingKeySecret: ""
   keyId: ""

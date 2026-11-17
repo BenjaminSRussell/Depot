@@ -1,7 +1,7 @@
 # Default-deny ingress for every pod of the namespace it is applied to (ADR-0006 rule 6, D1): a pod is reachable only through
 # a NetworkPolicy that selects it (each service chart's <release>-ingress, postgres, keycloak). Egress is not restricted.
-# Applied to every namespace a Depot service runs in by the namespace-default-deny ApplicationSets in deploy/envs/dev/apps and
-# deploy/envs/stage/apps, which deploy/scripts/gen_networkpolicies.py generates.
+# Applied to every namespace a Depot service runs in by the namespace-default-deny ApplicationSets in deploy/envs/<env>/apps,
+# which deploy/scripts/gen_networkpolicies.py generates.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

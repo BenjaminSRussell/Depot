@@ -29,8 +29,6 @@ ingressPolicy:
   peers:
   - name: fulfillment
     podNames: [fulfillment]
-  - name: transport
-    podNames: [transport]
   metricsPorts: []
   prometheus:
     namespace: observability

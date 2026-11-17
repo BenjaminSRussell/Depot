@@ -110,19 +110,36 @@ Keep the built model and record it as the v1.0 authorization architecture.
      chart by `app.kubernetes.io/name` and admits the API port (8080) only from the Envoy pods of Gateway `depot-api`
      (namespace `envoy-gateway-system`, labels `owning-gateway-name`/`owning-gateway-namespace`) plus any other Gateway
      with an HTTPRoute to the service (`depot-portals`, `depot-region`, `depot-edge`), and from the generated peers; the
-     admin port (9090, or 8080 for the four Python services that serve `/metrics` there) only from Prometheus
-     (`app.kubernetes.io/name: prometheus` in `observability`). The peers and gateways are in each chart's
-     `ingressPolicy` values, written by `deploy/scripts/gen_networkpolicies.py` from the union of the service grant
-     table (`policies/authz/data.json` `service_grants`, the mirror of `serviceGrants`) and the `*_URL` clients each
-     chart configures (which also covers the callers that still forward user headers, until part b). carrier-gateway
-     and the portal BFFs admit no `depot-api` traffic by design; hello-ledger also admits the cluster's Traefik for its
-     smoke Ingress, and ops admits every service when `global.regionFenceUrl` is set. ApplicationSet
-     `namespace-default-deny` (dev and stage, generated) applies a default-deny ingress policy to `hello-ledger`, `batch`
-     and `metadata`. `make -C deploy test-argocd` runs the generator's `--check` and renders every dev and stage chart to
-     check all of the above. Kubelet probes are not filtered on the supported CNIs. Not yet done: the integration test
-     that sends a forged-header call from a non-peer pod (#213, k3d) and the signed peer calls (part b); the policies
-     only take effect on a CNI that enforces NetworkPolicy, so `DEPOT_GATEWAY_SECRET` stays the fallback where one
-     cannot be guaranteed.
+     admin port (9090) only from Prometheus (`app.kubernetes.io/name: prometheus` in `observability`). The peers and
+     gateways are in each chart's `ingressPolicy` values, written by `deploy/scripts/gen_networkpolicies.py`: a peer is a
+     caller whose chart configures a `*_URL` client of the service (which also covers the callers that still forward
+     user headers, until part b), and every grant in the service grant table (`policies/authz/data.json`
+     `service_grants`, the mirror of `serviceGrants`) must have such a client or an entry in an explicit list with its
+     reason (`GRANT_ONLY_PEERS`, admitted; `GRANT_WITHOUT_CLIENT`, not admitted: transport -> carrier-gateway). carrier-gateway
+     and the portal BFFs admit no `depot-api` traffic by design; iot-edge opens no port and admits nothing; hello-ledger
+     also admits the cluster's Traefik for its smoke Ingress. ApplicationSet `namespace-default-deny` (dev, stage and
+     prod, generated) applies a default-deny ingress policy to every namespace a service runs in (`hello-ledger`, `batch`,
+     `metadata`; prod: `hello-ledger`). `make -C deploy test-argocd` runs the generator's `--check` and renders every
+     dev, stage, prod and local chart to check all of the above. Kubelet probes are not filtered on the supported CNIs.
+   - *Region fence:* `global.regionFenceUrl` must be read through Gateway `depot-region`
+     (`https://region.<env>.depot.dev/healthz/region`), which exposes only `/healthz/region` and strips `X-Depot-*`.
+     NetworkPolicy cannot limit a caller to one path, so admitting every service to ops' API port would expose the whole
+     operator API (failover, break-glass, licence) to forged headers; ops admits only the gateways and its own lag
+     reporter, and every chart's template fails to render when the fence URL names the ops Service (`ops`,
+     `ops.<namespace>[.svc[.cluster.local]]`).
+   - *Exception, metrics on the API port:* configurator, forecast, prediction and scheduler-opt (the Python services) serve
+     `/metrics` on their API port 8080 and have no admin port, so Prometheus reaches their API port as well. Prometheus is
+     trusted infrastructure, but this breaks the "admin port only" rule; moving their metrics to an admin port is a
+     follow-up.
+   - *Known weakness, label borrowing:* the policies identify peers by the pod label `app.kubernetes.io/name`, which any
+     workload in the namespace can set. A pod labelled `app.kubernetes.io/name: ledger` gets every peer access ledger
+     has, and can then forge `X-Depot-*` headers to those peers. Until an admission policy (Kyverno) pins each Depot
+     `app.kubernetes.io/name` value to its chart's ServiceAccount and image, only trusted parties may create pods in
+     these namespaces, and where that cannot be guaranteed `DEPOT_GATEWAY_SECRET` must also be set (the fallback
+     above).
+   - Not yet done: the integration test that sends a forged-header call from a non-peer pod (#213, k3d) and the signed
+     peer calls (part b); the policies only take effect on a CNI that enforces NetworkPolicy, so `DEPOT_GATEWAY_SECRET`
+     stays the fallback where one cannot be guaranteed.
 7. **One enforcement model everywhere.** Envoy (Kubernetes), devgateway and `depot-server` must enforce the same
    checks for the same route. Today the two single-host gateways also call OPA and Envoy does not; that difference
    is a known gap, not a feature.

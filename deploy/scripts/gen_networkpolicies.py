@@ -10,28 +10,33 @@ that call a service may reach its API port. For every service chart (a chart und
 Application) this script writes:
 
 - templates/networkpolicy-ingress.yaml, identical in every chart: a NetworkPolicy that selects every pod of the chart and
-  denies all ingress except the rules below;
+  denies all ingress except the rules below. It also refuses to render when global.regionFenceUrl names the ops Service
+  directly: the fence must be read through Gateway depot-region, which exposes only /healthz/region (NetworkPolicy cannot
+  limit a caller to one path, so admitting every service to ops' API port would expose the whole operator API).
 - the `ingressPolicy` block at the end of the chart's values.yaml, between the >>> and <<< marker lines:
   - gateway.names: the Gateways whose Envoy pods may reach the API port. depot-api for every service (D31 routes every API
     through it) unless GATEWAY_EXEMPT says why not, plus every other Gateway with an HTTPRoute to the service in
     deploy/gateway. The token-less edges (TOKENLESS_GATEWAYS) reach dedicated ports admitted by the chart's own policy.
+    A chart whose pods open no port (iot-edge) admits nothing at all.
   - peers: the services that call this one, each with the `app.kubernetes.io/name` labels of all its pods (API, consumers,
-    jobs). A caller is a peer when either source says so:
-      1. the service grant table, policies/authz/data.json `service_grants` (the mirror of platform/go/tenant serviceGrants
-         that services/identity's data_json_test keeps equal to it): caller -> target, signed Ed25519 service tokens;
-      2. the caller chart's templates configure a client of the target: an env var `<TARGET>_URL` or `<TARGET>_BASE_URL`,
-         optionally behind the caller's own prefix (EDI_SALES_URL, MIG_TARGET_PARTY_URL, BILLING_CLOSE_URL). These also
-         cover the peer calls that still forward the user's headers instead of a token (receiving, payables, party,
-         product; B-01 part b moves them to tokens).
-    A URL env var that names no chart must be listed in EXTERNAL_URLS (with what it points at) or the script fails, so a new
-    client cannot be missed silently.
+    jobs). A caller is a peer when its chart configures a client of the target: an env var `<TARGET>_URL` or
+    `<TARGET>_BASE_URL` in its templates or in an env map its values pass through, the stem either the whole target name
+    (or a URL_ALIASES entry) or the target name behind one of the CALLER_PREFIXES (EDI_SALES_URL, MIG_TARGET_PARTY_URL,
+    BILLING_CLOSE_URL). Anything else must be in EXTERNAL_URLS, URL_ALIASES or NO_CHART_URLS, or the script fails, so a new
+    client cannot be missed silently. These clients also cover the peer calls that still forward the user's headers
+    instead of a token (receiving, payables, party, product; B-01 part b moves them to tokens).
+    The service grant table, policies/authz/data.json `service_grants` (the mirror of platform/go/tenant serviceGrants
+    that services/identity's data_json_test keeps equal to it), is the cross-check: every grant must either have a URL
+    client, or be listed in GRANT_ONLY_PEERS (admitted, with the reason the call path exists without a URL env var) or in
+    GRANT_WITHOUT_CLIENT (not admitted: no code path calls the target). An unlisted grant without a client fails the script.
   - metricsPorts: the port Prometheus scrapes (the chart's ServiceMonitor endpoint: admin 9090, or http 8080 for the Python
-    services that serve /metrics on the API port); only Prometheus (kube-prometheus-stack, namespace observability) may
-    reach it. Kubelet probes come from the node and are not subject to NetworkPolicy on the supported CNIs.
-  - ingressController (hello-ledger only, rendered when its Ingress is enabled) and regionFencePeers (ops only, rendered
-    when global.regionFenceUrl points the services at ops' /healthz/region).
+    services that serve /metrics on the API port, an exception ADR-0006 records); only Prometheus (kube-prometheus-stack,
+    namespace observability) may reach it. Kubelet probes come from the node and are not subject to NetworkPolicy on the
+    supported CNIs.
+  - ingressController (hello-ledger only, rendered when its smoke Ingress is enabled).
 - deploy/networkpolicy/default-deny.yaml, a default-deny ingress NetworkPolicy, and the namespace-default-deny
-  ApplicationSets in deploy/envs/dev/apps and deploy/envs/stage/apps that apply it to every namespace a dev service runs in.
+  ApplicationSets in deploy/envs/{dev,stage,prod}/apps that apply it to every namespace a service of that environment runs
+  in (stage runs the dev list).
 
 A peer in the same dev namespace as the target is matched in the release's own namespace; one in another namespace (batch,
 metadata) also names its namespace. deploy/scripts/test_argocd_apps.py runs --check and renders the policies with helm.
@@ -47,10 +52,12 @@ import yaml
 
 DEPLOY = Path(__file__).resolve().parents[1]
 REPO = DEPLOY.parent
-DEV_APPS = DEPLOY / "envs" / "dev" / "apps"
+ENVS = DEPLOY / "envs"
+DEV_APPS = ENVS / "dev" / "apps"
 GATEWAY_DIR = DEPLOY / "gateway"
 GRANTS = REPO / "policies" / "authz" / "data.json"
 DEFAULT_DENY = DEPLOY / "networkpolicy" / "default-deny.yaml"
+DEFAULT_DENY_APPSET = "namespace-default-deny.yaml"
 TEMPLATE_NAME = "networkpolicy-ingress.yaml"
 BEGIN = "# >>> ingressPolicy: generated by deploy/scripts/gen_networkpolicies.py (D1, ADR-0006 rule 6); do not edit, run the script."
 END = "# <<< ingressPolicy"
@@ -64,6 +71,12 @@ DEFAULT_GATEWAY = "depot-api"
 PROMETHEUS = {"namespace": "observability", "podLabels": {"app.kubernetes.io/name": "prometheus"}}
 # k3s' bundled Traefik, the Ingress class hello-ledger's smoke Ingress uses (values ingress.className).
 INGRESS_CONTROLLER = {"namespace": "kube-system", "podLabels": {"app.kubernetes.io/name": "traefik"}}
+# Destination of each environment's namespace-default-deny ApplicationSet, and where its namespaces come from.
+ENV_DESTINATIONS = {
+    "dev": ("", "server: https://kubernetes.default.svc", "dev"),
+    "stage": ("-stage", "name: stage", "dev"),  # stage runs every dev service in the same namespace (stage_apps.py)
+    "prod": ("-prod", "name: prod", "prod"),
+}
 
 # Gateways that terminate no Depot token and reach a dedicated port of one service, admitted by that chart's own policy.
 TOKENLESS_GATEWAYS = {
@@ -72,7 +85,7 @@ TOKENLESS_GATEWAYS = {
 }
 # Services the depot-api Gateway must not reach, and why.
 GATEWAY_EXEMPT = {
-    "carrier-gateway": "no edge route by design: people reach carriers through fulfillment and transport",
+    "carrier-gateway": "no edge route by design: people reach carriers through fulfillment",
     "customer-portal": "a portal BFF: reached only through Gateway depot-portals, never depot-api (deploy/gateway/portal-gateway.yaml)",
     "supplier-portal": "a portal BFF: reached only through Gateway depot-portals, never depot-api (deploy/gateway/portal-gateway.yaml)",
 }
@@ -80,18 +93,26 @@ GATEWAY_EXEMPT = {
 BACKEND_ALIASES = {"workflows": "workflow"}
 # Service-principal names in the grant table that are not the release name.
 PRINCIPAL_ALIASES = {"agents": "agent-runtime", "workflow-ts": "workflow", "migration-factory": "depot-migration-factory"}
-# URL env-var stems that are not the target's release name in upper case.
+# Grant-table principals without a chart yet: no pod to admit or to select.
+NO_CHART_PRINCIPALS = {"dispatch": "services/dispatch-py has no chart"}
+# URL env-var stems (after any caller prefix) that are not the target's release name in upper case.
 URL_ALIASES = {"AGENTS": "agent-runtime", "MCP": "mcp-gateway", "SCHED_OPT": "scheduler-opt", "OPS_API": "ops"}
-# Services in the code without a chart yet: no pod to admit or to select.
-NO_CHART = {
-    "dispatch": "services/dispatch-py has no chart",
-    "ROUTING_PY": "services/routing-py has no chart",
+# URL env-var stems of services without a chart yet.
+NO_CHART_URLS = {"DISPATCH": "services/dispatch-py has no chart", "ROUTING_PY": "services/routing-py has no chart"}
+# Prefixes a caller puts before the target's name in its own env vars (edi, migration, print, iot-edge, billing, agents).
+CALLER_PREFIXES = ("EDI_", "MIG_TARGET_", "PRINT_", "EDGE_", "BILLING_", "AGENTS_")
+# Grants admitted without a URL client in the caller's chart: (caller, target) -> why a call path exists. Empty today.
+GRANT_ONLY_PEERS = {}
+# Grants not admitted because no code path calls the target: (caller, target) -> why.
+GRANT_WITHOUT_CLIENT = {
+    ("transport", "carrier-gateway"): "services/transport has no carrier-gateway client (no CARRIER_GATEWAY_URL in its code or "
+                                      "chart); the grant is unused until one is built",
 }
 # URL env vars that point at something other than a Depot service chart.
 EXTERNAL_URLS = {
     "DATABASE_URL": "Postgres", "MIGRATE_DATABASE_URL": "Postgres", "OPS_LAG_DATABASE_URL": "Postgres",
     "SESSION_STORE_URL": "the portals' Valkey", "DEPOT_API_URL": "the depot-api Gateway itself",
-    "DEPOT_REGION_FENCE_URL": "ops /healthz/region; ops admits the services through regionFencePeers when it is set",
+    "DEPOT_REGION_FENCE_URL": "Gateway depot-region (/healthz/region only); the template refuses the ops Service itself",
     "AVALARA_URL": "Avalara", "VERTEX_URL": "Vertex", "VERTEX_TOKEN_URL": "Vertex",
     "PARTY_VIES_URL": "the EU VIES service", "REPORTING_TRACE_URL": "an external trace viewer",
     "EDI_AS2_PUBLIC_URL": "edi's own public AS2 address", "NOTIFY_WEBHOOK_URL": "an operator webhook",
@@ -102,16 +123,18 @@ EXTERNAL_URLS = {
 }
 URL_ENV = re.compile(r"\b([A-Z][A-Z0-9_]*_URL)\b")
 NAME_LABEL = re.compile(r"app\.kubernetes\.io/name:\s*[\"']?((?:\{\{.*?\}\}|[^\s\"',}{])+)")
+# The in-cluster DNS names of the ops Service (ops, ops.<ns>, ops.<ns>.svc, ops.<ns>.svc.cluster.local), any port and path.
+OPS_SERVICE_URL = r"^[a-zA-Z][a-zA-Z0-9+.-]*://ops(\.[a-z0-9-]+(\.svc(\.cluster\.local)?)?)?\.?(:[0-9]+)?(/.*)?$"
 
 
 def load_yaml(path):
     return [d for d in yaml.safe_load_all(path.read_text()) if d]
 
 
-def services():
-    """{release: {"path": chart dir relative to the repo, "namespace": dev namespace}} for every dev service chart."""
+def env_services(env):
+    """{release: {"path": chart dir relative to the repo, "namespace": namespace}} for every service chart of env's apps."""
     out = {}
-    for path in sorted(DEV_APPS.glob("*.yaml")):
+    for path in sorted((ENVS / env / "apps").glob("*.yaml")):
         for doc in load_yaml(path):
             if doc.get("kind") == "ApplicationSet":
                 for el in doc["spec"]["generators"][0]["list"]["elements"]:
@@ -125,6 +148,10 @@ def services():
                         release = (src.get("helm") or {}).get("releaseName", doc["metadata"]["name"])
                         out[release] = {"path": p, "namespace": spec["destination"]["namespace"]}
     return out
+
+
+def services():
+    return env_services("dev")
 
 
 def templates(chart):
@@ -152,6 +179,24 @@ def pod_names(chart):
     return sorted(names)
 
 
+def has_ports(chart):
+    return any("containerPort" in t.read_text() for t in templates(chart))
+
+
+def url_target(stem, releases):
+    """The release a URL env-var stem names: the whole stem, or the stem behind one caller prefix; "" for a chartless
+    service; None when it names nothing."""
+    candidates = [stem] + [stem[len(p):] for p in CALLER_PREFIXES if stem.startswith(p) and len(stem) > len(p)]
+    for c in candidates:
+        if c in URL_ALIASES:
+            return URL_ALIASES[c]
+        if c in NO_CHART_URLS:
+            return ""
+        if c.lower().replace("_", "-") in releases:
+            return c.lower().replace("_", "-")
+    return None
+
+
 def url_targets(chart, releases):
     """{target release: [env vars]} for every peer client the chart's templates configure."""
     found = {}
@@ -162,22 +207,10 @@ def url_targets(chart, releases):
         for env in envs:
             if env in EXTERNAL_URLS:
                 continue
-            stem = re.sub(r"(_BASE)?_URL$", "", env)
-            tokens = stem.split("_")
-            target = None
-            for i in range(len(tokens)):
-                suffix = "_".join(tokens[i:])
-                if suffix in URL_ALIASES:
-                    target = URL_ALIASES[suffix]
-                elif suffix in NO_CHART:
-                    target = ""
-                elif suffix.lower().replace("_", "-") in releases:
-                    target = suffix.lower().replace("_", "-")
-                if target is not None:
-                    break
+            target = url_target(re.sub(r"(_BASE)?_URL$", "", env), releases)
             if target is None:
                 raise SystemExit(f"{tpl.relative_to(REPO)}: {env} names no service chart; add it to EXTERNAL_URLS, URL_ALIASES "
-                                 f"or NO_CHART in deploy/scripts/gen_networkpolicies.py")
+                                 f"or NO_CHART_URLS in deploy/scripts/gen_networkpolicies.py")
             if target:
                 found.setdefault(target, set()).add(env)
     return {k: sorted(v) for k, v in found.items()}
@@ -198,12 +231,12 @@ def grant_edges(releases):
     for caller, targets in grants.items():
         for target in targets:
             c, t = PRINCIPAL_ALIASES.get(caller, caller), PRINCIPAL_ALIASES.get(target, target)
-            if c in NO_CHART or t in NO_CHART:
+            if c in NO_CHART_PRINCIPALS or t in NO_CHART_PRINCIPALS:
                 continue
             for n in (c, t):
                 if n not in releases:
                     raise SystemExit(f"{GRANTS.relative_to(REPO)}: service principal {n!r} is no chart release; add it to "
-                                     f"PRINCIPAL_ALIASES or NO_CHART in deploy/scripts/gen_networkpolicies.py")
+                                     f"PRINCIPAL_ALIASES or NO_CHART_PRINCIPALS in deploy/scripts/gen_networkpolicies.py")
             edges.add((c, t))
     return edges
 
@@ -246,48 +279,54 @@ def peer_entry(caller, target, svcs, names):
 
 
 def model():
-    """{release: ingressPolicy values} plus the reasons behind each peer, for --explain."""
+    """({release: ingressPolicy values}, {(caller, target): reasons}, services). Reasons name the URL client or the grant;
+    a grant without a client is admitted only through GRANT_ONLY_PEERS."""
     svcs = services()
     releases = set(svcs)
     names = {r: pod_names(s["path"]) for r, s in svcs.items()}
-    why = {}
+    why, admitted = {}, set()
     for caller, s in svcs.items():
         for target, envs in url_targets(s["path"], releases).items():
             why.setdefault((caller, target), []).append("env " + ", ".join(envs))
-    for caller, target in grant_edges(releases):
-        why.setdefault((caller, target), []).append("service grant")
+            admitted.add((caller, target))
+    for edge in sorted(grant_edges(releases)):
+        if edge in admitted:
+            why[edge].append("service grant")
+        elif edge in GRANT_ONLY_PEERS:
+            why.setdefault(edge, []).append(f"GRANT ONLY, allowlisted: {GRANT_ONLY_PEERS[edge]}")
+            admitted.add(edge)
+        elif edge in GRANT_WITHOUT_CLIENT:
+            why.setdefault(edge, []).append(f"GRANT ONLY, not admitted: {GRANT_WITHOUT_CLIENT[edge]}")
+        else:
+            raise SystemExit(f"{GRANTS.relative_to(REPO)}: grant {edge[0]} -> {edge[1]} has no *_URL client in the caller's chart; "
+                             f"set the URL in the chart if the code calls it, or list the edge in GRANT_ONLY_PEERS or "
+                             f"GRANT_WITHOUT_CLIENT in deploy/scripts/gen_networkpolicies.py")
+    for edge in list(GRANT_ONLY_PEERS) + list(GRANT_WITHOUT_CLIENT):
+        if not any(w.startswith("GRANT ONLY") for w in why.get(edge, [])):
+            raise SystemExit(f"stale GRANT_ONLY_PEERS/GRANT_WITHOUT_CLIENT entry {edge}: it is no grant without a client")
     routes = routed_gateways(releases)
     out = {}
     for target, s in sorted(svcs.items()):
+        callers = sorted(c for c, t in admitted if t == target)
         gateways = set() if target in GATEWAY_EXEMPT else {DEFAULT_GATEWAY}
         gateways |= routes.get(target, set()) - set(TOKENLESS_GATEWAYS)
-        callers = sorted(c for c, t in why if t == target)
+        if not has_ports(s["path"]):  # nothing listens: fully closed
+            if callers or routes.get(target):
+                raise SystemExit(f"{s['path']}: opens no port, yet {callers or routes[target]} would call it")
+            gateways = set()
         policy = {
             "enabled": True,
             "podNames": names[target],
             "apiPort": API_PORT,
             "gateway": {"podsNamespace": GATEWAY_PODS_NAMESPACE, "gatewaysNamespace": GATEWAYS_NAMESPACE, "names": sorted(gateways)},
             "peers": [peer_entry(c, target, svcs, names) for c in callers],
-            "metricsPorts": metrics_ports(s["path"]),
+            "metricsPorts": metrics_ports(s["path"]) if has_ports(s["path"]) else [],
             "prometheus": PROMETHEUS,
         }
         if (REPO / s["path"] / "templates" / "ingress.yaml").is_file():
             policy["ingressController"] = INGRESS_CONTROLLER
-        if target == "ops":
-            policy["regionFencePeers"] = fence_peers(target, svcs, names)
         out[target] = policy
     return out, why, svcs
-
-
-def fence_peers(target, svcs, names):
-    """Every other service's pods, grouped by namespace: each polls ops' /healthz/region when global.regionFenceUrl is set."""
-    groups = {}
-    for r, s in svcs.items():
-        if r == target:
-            continue
-        ns = "" if s["namespace"] == svcs[target]["namespace"] else s["namespace"]
-        groups.setdefault(ns, set()).update(names[r])
-    return [{"name": "region-fence", **({"namespace": ns} if ns else {}), "podNames": sorted(v)} for ns, v in sorted(groups.items())]
 
 
 class Dumper(yaml.SafeDumper):
@@ -325,13 +364,21 @@ def with_block(text, block):
 
 
 TEMPLATE = """{{- /* GENERATED by deploy/scripts/gen_networkpolicies.py, identical in every service chart: edit the script, not this file. */ -}}
+{{- $fence := (.Values.global | default dict).regionFenceUrl | default "" }}
+{{- if regexMatch "OPS_SERVICE_URL" $fence }}
+{{- fail (printf "global.regionFenceUrl %q names the ops Service: read the region role through Gateway depot-region (https://region.<env>.depot.dev/healthz/region), which exposes only /healthz/region. NetworkPolicy cannot limit a caller to one path, so admitting every service to ops' API port would expose the whole operator API (ADR-0006 rule 6, D1)" $fence) }}
+{{- end }}
 {{- $np := .Values.ingressPolicy | default dict }}
 {{- if $np.enabled }}
 {{- if empty $np.podNames }}{{ fail "ingressPolicy.podNames must list this chart's app.kubernetes.io/name labels" }}{{ end }}
+{{- if not (kindIs "map" $np.gateway) }}{{ fail "ingressPolicy.gateway (podsNamespace, gatewaysNamespace, names) is required: run deploy/scripts/gen_networkpolicies.py" }}{{ end }}
+{{- if and $np.metricsPorts (not (kindIs "map" $np.prometheus)) }}{{ fail "ingressPolicy.prometheus (namespace, podLabels) is required with metricsPorts" }}{{ end }}
+{{- $ingressController := and $np.ingressController (.Values.ingress | default dict).enabled }}
 # Default-deny ingress for every pod of this service (ADR-0006 rule 6, D1). Services trust the gateway-asserted X-Depot-*
 # headers, so the API port admits only the Envoy pods of the Gateways in ingressPolicy.gateway.names and the peer services
-# that call this one (ingressPolicy.peers, generated from the service grant table and the charts' *_URL clients); the
-# metrics port admits only Prometheus. Any other pod, in this namespace or another, is refused. Egress is not restricted here.
+# that call this one (ingressPolicy.peers, generated from the charts' *_URL clients, cross-checked with the service grant
+# table); the metrics port admits only Prometheus. Any other pod, in this namespace or another, is refused. Egress is not
+# restricted here.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -343,6 +390,10 @@ spec:
     matchExpressions:
       - { key: app.kubernetes.io/name, operator: In, values: {{ toJson $np.podNames }} }
   policyTypes: [Ingress]
+  {{- if not (or $np.gateway.names $np.peers $np.metricsPorts $ingressController) }}
+  # Nothing listens on a port of these pods: every connection is refused.
+  ingress: []
+  {{- else }}
   ingress:
     {{- if or $np.gateway.names $np.peers }}
     - from:
@@ -374,7 +425,7 @@ spec:
         - { protocol: TCP, port: {{ . }} }
         {{- end }}
     {{- end }}
-    {{- if and $np.ingressController (.Values.ingress | default dict).enabled }}
+    {{- if $ingressController }}
     # The smoke Ingress (templates/ingress.yaml) routes /healthz and /readyz through the cluster's ingress controller.
     - from:
         - namespaceSelector:
@@ -386,13 +437,7 @@ spec:
       ports:
         - { protocol: TCP, port: {{ $np.apiPort }} }
     {{- end }}
-    {{- if and $np.regionFencePeers (.Values.global | default dict).regionFenceUrl }}
-    # global.regionFenceUrl: every service polls this service's /healthz/region (platform/go/httpx/fence.go).
-    - from:
-        {{- include "depot.ingressPolicy.peers" $np.regionFencePeers | trim | nindent 8 }}
-      ports:
-        - { protocol: TCP, port: {{ $np.apiPort }} }
-    {{- end }}
+  {{- end }}
 {{- end }}
 {{- define "depot.ingressPolicy.peers" }}
 {{- range . }}
@@ -410,13 +455,13 @@ spec:
 {{- end }}
 {{- end }}
 {{- end }}
-"""
+""".replace("OPS_SERVICE_URL", OPS_SERVICE_URL.replace("\\", "\\\\"))
 
 
 DEFAULT_DENY_POLICY = """# Default-deny ingress for every pod of the namespace it is applied to (ADR-0006 rule 6, D1): a pod is reachable only through
 # a NetworkPolicy that selects it (each service chart's <release>-ingress, postgres, keycloak). Egress is not restricted.
-# Applied to every namespace a Depot service runs in by the namespace-default-deny ApplicationSets in deploy/envs/dev/apps and
-# deploy/envs/stage/apps, which deploy/scripts/gen_networkpolicies.py generates.
+# Applied to every namespace a Depot service runs in by the namespace-default-deny ApplicationSets in deploy/envs/<env>/apps,
+# which deploy/scripts/gen_networkpolicies.py generates.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -429,15 +474,20 @@ spec:
 """
 
 
-def default_deny_appset(svcs, env):
-    """The ApplicationSet that applies deploy/networkpolicy to every namespace a dev service runs in, in dev or stage."""
-    namespaces = sorted({s["namespace"] for s in svcs.values()})
-    suffix, destination = ("", "server: https://kubernetes.default.svc") if env == "dev" else ("-stage", "name: stage")
-    elements = "\n".join(f"          - {{ namespace: {ns} }}" for ns in namespaces)
-    return f"""# GENERATED by deploy/scripts/gen_networkpolicies.py from the namespaces of the dev service Applications. Do not edit; run
-# the script (deploy/scripts/test_argocd_apps.py fails when this file is stale). Applies deploy/networkpolicy/default-deny.yaml,
+def env_namespaces(env):
+    source = ENV_DESTINATIONS[env][2]
+    return sorted({s["namespace"] for s in env_services(source).values()})
+
+
+def default_deny_appset(env):
+    """The ApplicationSet that applies deploy/networkpolicy to every namespace a service of env runs in."""
+    suffix, destination, source = ENV_DESTINATIONS[env]
+    elements = "\n".join(f"          - {{ namespace: {ns} }}" for ns in env_namespaces(env))
+    return f"""# GENERATED by deploy/scripts/gen_networkpolicies.py from the namespaces of the {source} service Applications. Do not edit;
+# run the script (deploy/scripts/test_argocd_apps.py fails when this file is stale). Applies deploy/networkpolicy/default-deny.yaml,
 # a default-deny ingress NetworkPolicy, to every namespace a Depot service runs in (ADR-0006 rule 6, D1, B-01a). It enforces
-# only on a CNI that implements NetworkPolicy (docs/runbooks/delivery/deploy-local.md).
+# only on a CNI that implements NetworkPolicy (docs/runbooks/delivery/deploy-local.md). A pod of these namespaces that no other
+# NetworkPolicy selects (a database, a tool) accepts no connection once this syncs.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -488,8 +538,8 @@ def outputs():
         values = chart / "values.yaml"
         files[values] = with_block(values.read_text(), values_block(policy))
     files[DEFAULT_DENY] = DEFAULT_DENY_POLICY
-    files[DEV_APPS / "namespace-default-deny.yaml"] = default_deny_appset(svcs, "dev")
-    files[DEPLOY / "envs" / "stage" / "apps" / "namespace-default-deny.yaml"] = default_deny_appset(svcs, "stage")
+    for env in ENV_DESTINATIONS:
+        files[ENVS / env / "apps" / DEFAULT_DENY_APPSET] = default_deny_appset(env)
     return files
 
 
@@ -504,6 +554,9 @@ def main(argv=None):
             print(f"{target}: gateways {p['gateway']['names']}, metrics {p['metricsPorts']}")
             for peer in p["peers"]:
                 print(f"    <- {peer['name']}: {'; '.join(why[(peer['name'], target)])}")
+            for (caller, t), reasons in sorted(why.items()):
+                if t == target and caller not in [peer["name"] for peer in p["peers"]]:
+                    print(f"    x- {caller}: {'; '.join(reasons)}")
         return 0
     stale = []
     for path, text in outputs().items():
