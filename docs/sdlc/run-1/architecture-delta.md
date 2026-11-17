@@ -2,7 +2,7 @@
 
 # Depot architecture delta: as-built vs as-designed (SDLC stage 2)
 
-- Repository: `/home/user/Passage` at commit `4da78d9b` (read-only audit, 2026-11-17).
+- Repository: the repository at commit `4da78d9b` (read-only audit, 2026-11-17).
 - Design inputs: `docs/architecture.md` (7,845 lines), `docs/architecture.compiled/` (manifest v2, 26 components, 59 contracts), ADR-0001 to ADR-0005, `docs/architecture-review-r4.md`.
 - Method: parsed every `services/*/api/openapi.yaml` (64 specs, 2,579 paths, 3,194 operations) and `services/*/events/asyncapi.yaml` (56 specs, 358 distinct published topics); grepped migrations, `platform/go`, `deploy/`, `policies/authz` and `apps/`. Scripts and raw outputs are in `scratchpad/sdlc/work/` (`openapi.json`, `asyncapi.json`, `endpoints.json`, `inventory.md`).
 - Conservative reading: "present" means the token or construct exists in code. It does not mean the code path was run. Every live-cluster claim in the repository is itself marked as pending (#213), so nothing here is verified at runtime.
