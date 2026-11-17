@@ -1,10 +1,13 @@
-{{- if and .Values.bundle.enabled (empty .Values.networkPolicy.opaPodLabels) }}
+{{- if .Values.bundle.enabled }}
+{{- if empty .Values.networkPolicy.opaPodLabels }}
 {{- fail "networkPolicy.opaPodLabels must be set when bundle.enabled: the bundle port is only admitted to labelled OPA pods" }}
 {{- end }}
+# The policy bundle port is admitted only to labelled OPA pods. The API and admin ports are covered by the generated
+# default-deny policy (networkpolicy-ingress.yaml): the gateway, the generated peers and Prometheus.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ .Release.Name }}
+  name: {{ .Release.Name }}-bundle
   labels:
     app.kubernetes.io/name: identity
 spec:
@@ -13,37 +16,6 @@ spec:
       app.kubernetes.io/name: identity
   policyTypes: [Ingress]
   ingress:
-    {{- if or .Values.networkPolicy.gatewayNamespaces .Values.networkPolicy.allowSameNamespace }}
-    - from:
-        {{- range .Values.networkPolicy.gatewayNamespaces }}
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: {{ . }}
-          podSelector:
-            matchLabels:
-              {{- toYaml $.Values.networkPolicy.gatewayPodLabels | nindent 14 }}
-        {{- end }}
-        {{- if .Values.networkPolicy.allowSameNamespace }}
-        - podSelector: {}
-        {{- end }}
-      ports:
-        - { protocol: TCP, port: 8080 }
-    {{- end }}
-    {{- if .Values.networkPolicy.metricsNamespaces }}
-    # The admin port (9090, /metrics only) is admitted to the Prometheus pods of the monitoring namespaces.
-    - from:
-        {{- range .Values.networkPolicy.metricsNamespaces }}
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: {{ . }}
-          podSelector:
-            matchLabels:
-              {{- toYaml $.Values.networkPolicy.metricsPodLabels | nindent 14 }}
-        {{- end }}
-      ports:
-        - { protocol: TCP, port: 9090 }
-    {{- end }}
-    {{- if .Values.bundle.enabled }}
     - from:
         - podSelector:
             matchLabels:
@@ -58,4 +30,4 @@ spec:
         {{- end }}
       ports:
         - { protocol: TCP, port: {{ .Values.bundle.port }} }
-    {{- end }}
+{{- end }}

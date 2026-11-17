@@ -1,27 +1,18 @@
 {{- if .Values.networkPolicy.enabled }}
-# Ingress: only the calling services (fulfillment, transport); there is no edge route, people reach carriers
-# through those services. Egress: DNS only. The sandbox carrier calls nothing; a real adapter adds its
-# carrier's API endpoints here when it is built.
+# Egress: DNS only. The sandbox carrier calls nothing; a real adapter adds its carrier's API endpoints here when it is
+# built. Ingress is the generated default-deny policy (networkpolicy-ingress.yaml): only the calling services (fulfillment,
+# transport); there is no edge route, people reach carriers through those services.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ .Release.Name }}
+  name: {{ .Release.Name }}-egress
   labels:
     app.kubernetes.io/name: carrier-gateway
 spec:
   podSelector:
     matchLabels:
       app.kubernetes.io/name: carrier-gateway
-  policyTypes: [Ingress, Egress]
-  ingress:
-    - from:
-        {{- range .Values.networkPolicy.callers }}
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: {{ .namespace | quote }}
-        {{- end }}
-      ports:
-        - { protocol: TCP, port: 8080 }
+  policyTypes: [Egress]
   egress:
     - to:
         - namespaceSelector:

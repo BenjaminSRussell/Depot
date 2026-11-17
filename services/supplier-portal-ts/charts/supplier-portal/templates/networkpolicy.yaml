@@ -1,23 +1,17 @@
 {{- if .Values.networkPolicy.enabled }}
-# Ingress: only the edge gateway. Egress: DNS, the four owning services, Keycloak over 443, and clamd when a scanner is set.
+# Egress: DNS, the four owning services, Keycloak over 443, and clamd when a scanner is set. Ingress is the generated default-deny policy
+# (networkpolicy-ingress.yaml): only the depot-portals Gateway's Envoy pods.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ .Release.Name }}
+  name: {{ .Release.Name }}-egress
   labels:
     app.kubernetes.io/name: supplier-portal
 spec:
   podSelector:
     matchLabels:
       app.kubernetes.io/name: supplier-portal
-  policyTypes: [Ingress, Egress]
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: {{ .Values.networkPolicy.edgeNamespace | quote }}
-      ports:
-        - { protocol: TCP, port: 8080 }
+  policyTypes: [Egress]
   egress:
     - to:
         - namespaceSelector:

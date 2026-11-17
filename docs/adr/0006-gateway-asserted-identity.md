@@ -105,6 +105,24 @@ Keep the built model and record it as the v1.0 authorization architecture.
    Kubernetes as well and have Envoy add `X-Depot-Gateway-Secret`, the mechanism the Windows install already uses.
    Until every service is covered, no environment that runs untrusted workloads next to Depot is a supported
    deployment, and stage and prod are not opened to users.
+   - *As built (B-01a, #660):* every service chart (70, `services/*/charts/*` and the migration factory) renders
+     `<release>-ingress` from the identical template `templates/networkpolicy-ingress.yaml`: it selects every pod of the
+     chart by `app.kubernetes.io/name` and admits the API port (8080) only from the Envoy pods of Gateway `depot-api`
+     (namespace `envoy-gateway-system`, labels `owning-gateway-name`/`owning-gateway-namespace`) plus any other Gateway
+     with an HTTPRoute to the service (`depot-portals`, `depot-region`, `depot-edge`), and from the generated peers; the
+     admin port (9090, or 8080 for the four Python services that serve `/metrics` there) only from Prometheus
+     (`app.kubernetes.io/name: prometheus` in `observability`). The peers and gateways are in each chart's
+     `ingressPolicy` values, written by `deploy/scripts/gen_networkpolicies.py` from the union of the service grant
+     table (`policies/authz/data.json` `service_grants`, the mirror of `serviceGrants`) and the `*_URL` clients each
+     chart configures (which also covers the callers that still forward user headers, until part b). carrier-gateway
+     and the portal BFFs admit no `depot-api` traffic by design; hello-ledger also admits the cluster's Traefik for its
+     smoke Ingress, and ops admits every service when `global.regionFenceUrl` is set. ApplicationSet
+     `namespace-default-deny` (dev and stage, generated) applies a default-deny ingress policy to `hello-ledger`, `batch`
+     and `metadata`. `make -C deploy test-argocd` runs the generator's `--check` and renders every dev and stage chart to
+     check all of the above. Kubelet probes are not filtered on the supported CNIs. Not yet done: the integration test
+     that sends a forged-header call from a non-peer pod (#213, k3d) and the signed peer calls (part b); the policies
+     only take effect on a CNI that enforces NetworkPolicy, so `DEPOT_GATEWAY_SECRET` stays the fallback where one
+     cannot be guaranteed.
 7. **One enforcement model everywhere.** Envoy (Kubernetes), devgateway and `depot-server` must enforce the same
    checks for the same route. Today the two single-host gateways also call OPA and Envoy does not; that difference
    is a known gap, not a feature.

@@ -1,35 +1,19 @@
 {{- if .Values.networkPolicy.enabled }}
-# Ingress: the edge gateway reaches the API, Prometheus the admin port.
-# Egress: DNS, the database, Kafka, and public https webhook receivers only
+# Ingress is the generated default-deny policy (networkpolicy-ingress.yaml): the edge gateway reaches the API, Prometheus
+# the admin port. Egress: DNS, the database, Kafka, and public https webhook receivers only
 # (private, loopback, link-local and metadata ranges are excluded here as well
 # as in the application's SSRF guard).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ .Release.Name }}
+  name: {{ .Release.Name }}-egress
   labels:
     app.kubernetes.io/name: integration-hub
 spec:
   podSelector:
     matchLabels:
       app.kubernetes.io/name: integration-hub
-  policyTypes: [Ingress, Egress]
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: {{ .Values.networkPolicy.gatewayNamespace | quote }}
-          podSelector:
-            matchLabels:
-              gateway.envoyproxy.io/owning-gateway-name: depot-api
-      ports:
-        - { protocol: TCP, port: 8080 }
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: {{ .Values.networkPolicy.metricsNamespace | quote }}
-      ports:
-        - { protocol: TCP, port: 9090 }
+  policyTypes: [Egress]
   egress:
     - to:
         - namespaceSelector:

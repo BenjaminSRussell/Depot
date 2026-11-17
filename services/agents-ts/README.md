@@ -79,7 +79,7 @@ started the run). This service starts and wakes the workflow with its own token 
 `workflow-ts`, grant `agents.run.signal`, key from `DEPOT_SERVICE_SIGNING_KEY[_FILE]`), verified by workflow-ts. workflow-ts
 trusts `X-Depot-*` headers on its edge routes, so these routes take only the token and are not exposed at the edge; the wake is
 authorized as the agents service, so approvers need no workflow duty. Charts: `workflowUrl` is the `workflows` Service,
-`networkPolicy.workflowPodLabels` admits workflow-ts's pods, and workflow-ts's `agentsUrl` is the `agent-runtime` Service.
+workflow-ts's pods reach the API port as a generated peer (`ingressPolicy.peers`, `deploy/scripts/gen_networkpolicies.py`), and workflow-ts's `agentsUrl` is the `agent-runtime` Service.
 
 1. `create` (the HTTP start, after the duty, kill switch, evaluation and budget checks) stores the input and the caller's
    token in `agent_run_state` and `agent_run_credential` and starts the workflow with ids only (the workflow id is
