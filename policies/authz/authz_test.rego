@@ -114,7 +114,7 @@ test_all_seeded_duties_allow_their_declared_permissions if {
 }
 
 test_flag_duties_grant_no_routes if {
-	flag_duties := {"receivables.write-off.approve", "purchasing.inbound.apply", "edi.pii.view", "edi.outbound.from-event", "tax.code.maintain", "fulfillment.order.sync", "budget.override", "inventory.blocking.scrap", "ledger.journal.postdirect", "ledger.journal.postledger", "ledger.period.postclosed", "org.hierarchy.backdate", "party.merge", "pii.read", "pricing.cache.invalidate", "production.batch.consume-expired", "production.journal.over-consume", "production.order.bom-after-release", "production.order.rework", "production.planned.intake", "receivables.openitem.from-billing", "billing.iccharge.from-event", "payables.iccharge.from-event", "intercompany.charge.from-event", "revrec.creditnote.reverse", "revrec.contract.from-invoice", "production.order.zero-output", "production.jobcard.shopfloor", "scheduling.constraints.override", "scheduling.order.import", "search.index.write", "shopfloor.job.sync", "tenant.administer", "treasury.facility.override"}
+	flag_duties := {"audit.cdc.apply", "audit.chain.anchor", "receivables.write-off.approve","purchasing.inbound.apply", "edi.pii.view", "edi.outbound.from-event", "tax.code.maintain", "fulfillment.order.sync", "budget.override", "inventory.blocking.scrap", "ledger.journal.postdirect", "ledger.journal.postledger", "ledger.period.postclosed", "org.hierarchy.backdate", "party.merge", "pii.read", "pricing.cache.invalidate", "production.batch.consume-expired", "production.journal.over-consume", "production.order.bom-after-release", "production.order.rework", "production.planned.intake", "receivables.openitem.from-billing", "billing.iccharge.from-event", "payables.iccharge.from-event", "intercompany.charge.from-event", "revrec.creditnote.reverse", "revrec.contract.from-invoice", "production.order.zero-output", "production.jobcard.shopfloor", "scheduling.constraints.override", "scheduling.order.import", "search.index.write", "shopfloor.job.sync", "tenant.administer", "treasury.facility.override"}
 	{d | some d, spec in data.duties; spec.flag == true} == flag_duties
 	every duty in flag_duties {
 		count(data.duties[duty].permissions) == 0
@@ -3385,6 +3385,21 @@ test_audit_read_log_review_opens_only_the_break_glass_queue if {
 	not allowed("audit.read-log.review", "POST", "/v1/audit/reads")
 	not allowed("audit.read-log.view", "GET", "/v1/audit/reads:break-glass")
 	not allowed("audit.read-log.export", "POST", "/v1/audit/reads/0b7f4c1e-1d2a-4c55-9a0e-5f3f1c2d9e10:review")
+}
+
+# B-07 (AUD-API-4): change-chain verification is its own duty; reading records does not verify and verifying reads no
+# record. The CDC consumer and the nightly chain job hold one flag duty each and reach no route.
+test_audit_verify_opens_only_the_change_chain_verification if {
+	allowed("audit.verify", "GET", "/v1/audit/records:verify")
+	not allowed("audit.verify", "GET", "/v1/audit/records/vendor_bank_account/b1")
+	not allowed("audit.verify", "GET", "/v1/audit/reads:verify")
+	not allowed("audit.verify", "POST", "/v1/audit/changes")
+	not allowed("audit.read", "GET", "/v1/audit/records:verify")
+	not allowed("audit.read-log.export", "GET", "/v1/audit/records:verify")
+	data.service_principals["audit-cdc"] == ["audit.cdc.apply"]
+	data.service_principals["audit-anchor"] == ["audit.chain.anchor"]
+	not principal_allowed("audit-cdc", "POST", "/v1/audit/changes")
+	not principal_allowed("audit-anchor", "GET", "/v1/audit/records:verify")
 }
 
 test_revrec_billing_holds_only_the_service_only_modification_duty if {

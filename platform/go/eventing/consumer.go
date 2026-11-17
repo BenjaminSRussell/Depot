@@ -93,6 +93,11 @@ type Config struct {
 	MaxAttempts     int
 	Backoff         func(attempt int) time.Duration
 	Log             *slog.Logger
+	// Decode turns a record into the event the handlers see; nil is Decode (a CloudEvents envelope). A consumer of
+	// records that are not CloudEvents (the audit CDC consumer reads Debezium change events) supplies its own, which
+	// must give each record a stable ID (the inbox key) and a tenant. An error dead-letters the record, as an
+	// undecodable CloudEvent is.
+	Decode func(Record) (events.Event, error)
 }
 
 type Consumer struct {
@@ -116,6 +121,9 @@ func NewConsumer(src Source, dlq DeadLetterSink, inbox Inbox, cfg Config) (*Cons
 	}
 	if cfg.Backoff == nil {
 		cfg.Backoff = ExponentialBackoff
+	}
+	if cfg.Decode == nil {
+		cfg.Decode = Decode
 	}
 	log := cfg.Log
 	if log == nil {
@@ -151,7 +159,7 @@ func (c *Consumer) Run(ctx context.Context) error {
 
 func (c *Consumer) process(ctx context.Context, rec Record) error {
 	log := c.log.With("topic", rec.Topic, "partition", rec.Partition, "offset", rec.Offset)
-	evt, err := Decode(rec)
+	evt, err := c.cfg.Decode(rec)
 	if err != nil {
 		log.ErrorContext(ctx, "undecodable record dead-lettered", "err", err)
 		return c.park(ctx, rec, reasonDecode, err)

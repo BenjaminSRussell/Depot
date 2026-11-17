@@ -1,0 +1,37 @@
+# The audit CDC consumer (B-07, `audit cdc-consume`, group audit-cdc) folds the row changes and depot.ctx messages the
+# audit-cdc-<service> connectors capture (deploy/kafka/connect.yaml) into the audit change chain, and parks what it
+# cannot decode on depot.audit.cdc.dlq. The chart's consumer.kafka.username names this user. Literal ACLs: one Read per
+# audit CDC topic (one per connector, services/audit/internal/cdc/tables.go), Write on its dead-letter topic only.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: audit-consumer
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot
+spec:
+  authentication:
+    type: scram-sha-512
+  authorization:
+    type: simple
+    acls:
+      - resource: {type: topic, name: depot.cdc.party, patternType: literal}
+        operations: [Read, Describe]
+      - resource: {type: topic, name: depot.audit.cdc.dlq, patternType: literal}
+        operations: [Write, Describe]
+      - resource: {type: group, name: audit-cdc, patternType: literal}
+        operations: [Read, Describe]
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: depot-audit-cdc-dlq
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot
+spec:
+  topicName: depot.audit.cdc.dlq
+  partitions: 1
+  replicas: 3
+  config:
+    retention.ms: 2592000000

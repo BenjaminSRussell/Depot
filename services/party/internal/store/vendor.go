@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/BenjaminSRussell/depot/platform/auditctx"
 	"github.com/BenjaminSRussell/depot/platform/dbx"
 	"github.com/BenjaminSRussell/depot/platform/events"
 	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
@@ -227,7 +228,9 @@ func (s *Postgres) AddBankAccount(ctx context.Context, vendorID string, in domai
 		}
 	}
 	var b domain.BankAccount
-	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+	// vendor_bank_account is audited through CDC (B-07): the depot.ctx message names the verified actor, the reason
+	// and the trace id of this change for the audit trail.
+	err = auditctx.WithAuditedTx(ctx, s.pool, func(tx pgx.Tx) error {
 		err := tx.QueryRow(ctx, `insert into vendor_bank_account (tenant_id, id, vendor_id, legal_entity_id, account_holder, bank_country, currency_code, account_last4, account_number_sealed, routing_number_sealed, created_by)
 			select tenant_id, $3, id, legal_entity_id, $4, $5, $6, $7, $8, $9, $10 from vendor_role where tenant_id = $1 and id = $2
 			returning `+bankColumns, caller.TenantID, id, ids.New(), in.AccountHolder, in.BankCountry, in.CurrencyCode, in.Last4(), account, routing, caller.UserID).

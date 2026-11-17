@@ -2,7 +2,7 @@
   "version": 3,
   "compiler": "scripts/compile_architecture.py",
   "note": "Generated from the OpenAPI and AsyncAPI specs and scripts/architecture_patterns.json. Do not edit; run python3 scripts/compile_architecture.py --write.",
-  "summary": {"openapiDocuments": 65, "paths": 2619, "operations": 3242, "asyncapiDocuments": 60, "topics": 384, "topicsPublished": 383, "topicsSubscribed": 16, "patterns": 59},
+  "summary": {"openapiDocuments": 65, "paths": 2620, "operations": 3243, "asyncapiDocuments": 60, "topics": 385, "topicsPublished": 383, "topicsSubscribed": 17, "patterns": 59},
   "patterns": [
     {
       "id": "event-envelope",
@@ -739,6 +739,7 @@
         {"method": "GET", "path": "/v1/audit/reads:export", "operationId": "exportPhiReads", "duty": "audit.read-log.export"},
         {"method": "GET", "path": "/v1/audit/reads:verify", "operationId": "verifyPhiReads", "duty": "audit.read-log.export"},
         {"method": "GET", "path": "/v1/audit/records/{entity}/{recordId}", "operationId": "queryRecord", "duty": "audit.read"},
+        {"method": "GET", "path": "/v1/audit/records:verify", "operationId": "verifyChangeChain", "duty": "audit.verify"},
         {"method": "POST", "path": "/v1/audit/texts/expand", "operationId": "expandText", "duty": "authenticated"}
       ]
     },
@@ -4531,7 +4532,9 @@
       "publishes": [
         {"topic": "depot.audit.change", "types": ["dev.depot.audit.change.recorded.v1"]}
       ],
-      "subscribes": []
+      "subscribes": [
+        {"topic": "depot.cdc.party", "types": []}
+      ]
     },
     {
       "service": "services/batch",
@@ -5581,6 +5584,7 @@
     {"topic": "depot.budget.reservation", "publishers": ["services/budgeting"], "subscribers": []},
     {"topic": "depot.case.stage", "publishers": ["services/fieldservice"], "subscribers": []},
     {"topic": "depot.catalog.dq", "publishers": ["services/analytics"], "subscribers": []},
+    {"topic": "depot.cdc.party", "publishers": [], "subscribers": ["services/audit"]},
     {"topic": "depot.close.accrual", "publishers": ["services/close"], "subscribers": []},
     {"topic": "depot.close.allocation", "publishers": ["services/close"], "subscribers": []},
     {"topic": "depot.close.period", "publishers": ["services/close"], "subscribers": []},

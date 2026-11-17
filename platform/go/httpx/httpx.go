@@ -17,6 +17,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/BenjaminSRussell/depot/platform/auditctx"
 	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
 	"github.com/BenjaminSRussell/depot/platform/logpseudo"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
@@ -79,7 +80,9 @@ func NewRouterWithoutTenant() *chi.Mux {
 
 func newRouter(extra ...func(http.Handler) http.Handler) *chi.Mux {
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID, recordMetrics, TrustedRealIP(trustedProxiesFromEnv()), middleware.Recoverer, middleware.Timeout(RequestTimeout))
+	// auditctx.Capture keeps the reason a person gave (X-Depot-Reason) and the W3C trace id for the depot.ctx message a
+	// service writes with the changes of an audited table (B-07).
+	r.Use(middleware.RequestID, auditctx.Capture, recordMetrics, TrustedRealIP(trustedProxiesFromEnv()), middleware.Recoverer, middleware.Timeout(RequestTimeout))
 	r.Use(logRequests)
 	// The fence comes after metrics and logging, so a fenced 503 is counted and logged, and before tenant extraction, so a
 	// fenced region refuses before authentication does any work.

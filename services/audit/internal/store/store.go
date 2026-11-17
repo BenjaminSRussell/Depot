@@ -40,7 +40,12 @@ type Record struct {
 	EventType          string    `json:"eventType,omitempty"`
 	EventID            string    `json:"eventId,omitempty"`
 	WorkflowInstanceID string    `json:"workflowInstanceId,omitempty"`
-	Hash               string    `json:"hash"`
+	// LegalEntityID, Source and Flag are the B-07 fields: the changed record's legal entity, the service a captured
+	// change came from, and "unattributed" for a captured change without a verified actor.
+	LegalEntityID string `json:"legalEntityId,omitempty"`
+	Source        string `json:"source,omitempty"`
+	Flag          string `json:"flag,omitempty"`
+	Hash          string `json:"hash"`
 }
 
 // Alert is an inbox item produced from a matching rule.
@@ -65,6 +70,9 @@ type AlertRule struct {
 type Store interface {
 	cdc.Consumer
 	Query(ctx context.Context, entity, recordID string) ([]Record, error)
+	// VerifyChanges walks the tenant's change chain, or the seq range [fromSeq, toSeq] of it (0 for open), and checks
+	// the daily anchors in it (AUD-API-4, B-07).
+	VerifyChanges(ctx context.Context, fromSeq, toSeq int64) (ChangeChain, error)
 	CreateRule(ctx context.Context, rule AlertRule) (AlertRule, error)
 	ListAlerts(ctx context.Context) ([]Alert, error)
 	Ping(ctx context.Context) error
@@ -94,45 +102,76 @@ func (s *Postgres) Apply(ctx context.Context, change domain.Change) error {
 		p.Errors = fields
 		return p
 	}
+	return s.chainTx(ctx, func(tx pgx.Tx) error { return s.AppendTx(ctx, tx, change) })
+}
+
+// chainTx runs fn in a transaction of the context tenant that sees the tenant's whole change chain: the chain is
+// one per tenant, so appending to it, verifying it and anchoring it need every legal entity's rows. Only the store
+// opens it, and what it returns to a caller is either the caller's own append or a verification verdict.
+func (s *Postgres) chainTx(ctx context.Context, fn func(tx pgx.Tx) error) error {
+	p, ok := tenant.FromContext(ctx)
+	if !ok {
+		return errors.New("audit: no principal in context")
+	}
+	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true)`, p.TenantID); err != nil {
+			return err
+		}
+		return fn(tx)
+	})
+}
+
+// AppendTx appends change onto the tenant hash chain in tx (a transaction of the context tenant, such as the CDC
+// consumer's inbox transaction), fires matching alerts and enqueues change.recorded. It widens tx to the tenant's
+// whole chain (depot.legal_entity_scopes '*'), as chainTx does.
+func (s *Postgres) AppendTx(ctx context.Context, tx pgx.Tx, change domain.Change) error {
+	if fields := domain.Validate(change); len(fields) > 0 {
+		p := httpx.NewProblem(http.StatusBadRequest, "COM-0001", "request failed validation")
+		p.Errors = fields
+		return p
+	}
 	p, _ := tenant.FromContext(ctx)
 	change = change.Normalize()
-	return dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		// Appends are serialised per tenant, as for the read log: under READ COMMITTED two transactions would read
-		// the same head and fork the chain.
-		if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('audit_entry:' || $1::text, 0))`, p.TenantID); err != nil {
-			return err
-		}
-		var prev string
-		err := tx.QueryRow(ctx, `select hash from audit_entry where tenant_id=$1 order by seq desc limit 1`, p.TenantID).Scan(&prev)
-		if errors.Is(err, pgx.ErrNoRows) {
-			prev = domain.Genesis
-			err = nil
-		}
-		if err != nil {
-			return err
-		}
-		entry, err := domain.Link(prev, change)
-		if err != nil {
-			return err
-		}
-		id := ids.New()
-		if _, err := tx.Exec(ctx, `insert into audit_entry
-			(tenant_id, id, entity, record_id, field, old_value, new_value, user_id, trace_id, occurred_at, prev_hash, hash,
-			 actor_kind, on_behalf_of, reason, change_set_id, event_type, event_id, workflow_instance_id)
-			values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
-			p.TenantID, id, change.Entity, change.RecordID, change.Field, change.OldValue, change.NewValue, change.UserID, change.TraceID, change.OccurredAt, entry.PrevHash, entry.Hash,
-			change.ActorKind, change.OnBehalfOf, change.Reason, change.ChangeSetID, change.EventType, change.EventID, change.WorkflowInstanceID); err != nil {
-			return err
-		}
-		if err := fireAlerts(ctx, tx, p.TenantID, change); err != nil {
-			return err
-		}
-		evt, err := events.New(recordedType, "depot/audit", change.RecordID, p.TenantID, recordedPayload(change))
-		if err != nil {
-			return err
-		}
-		return outbox.Enqueue(ctx, tx, "change", id, evt)
-	})
+	if _, err := tx.Exec(ctx, `select set_config('depot.legal_entity_scopes', '*', true)`); err != nil {
+		return err
+	}
+	// Appends are serialised per tenant, as for the read log: under READ COMMITTED two transactions would read
+	// the same head and fork the chain.
+	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('audit_entry:' || $1::text, 0))`, p.TenantID); err != nil {
+		return err
+	}
+	var prev string
+	err := tx.QueryRow(ctx, `select hash from audit_entry where tenant_id=$1 order by seq desc limit 1`, p.TenantID).Scan(&prev)
+	if errors.Is(err, pgx.ErrNoRows) {
+		prev = domain.Genesis
+		err = nil
+	}
+	if err != nil {
+		return err
+	}
+	entry, err := domain.Link(prev, change)
+	if err != nil {
+		return err
+	}
+	id := ids.New()
+	if _, err := tx.Exec(ctx, `insert into audit_entry
+		(tenant_id, id, entity, record_id, field, old_value, new_value, user_id, trace_id, occurred_at, prev_hash, hash,
+		 actor_kind, on_behalf_of, reason, change_set_id, event_type, event_id, workflow_instance_id, legal_entity_id, source, flag)
+		values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,nullif($20,'')::uuid,$21,$22)`,
+		p.TenantID, id, change.Entity, change.RecordID, change.Field, change.OldValue, change.NewValue, change.UserID, change.TraceID, change.OccurredAt, entry.PrevHash, entry.Hash,
+		change.ActorKind, change.OnBehalfOf, change.Reason, change.ChangeSetID, change.EventType, change.EventID, change.WorkflowInstanceID,
+		change.LegalEntityID, change.Source, change.Flag); err != nil {
+		return err
+	}
+	if err := fireAlerts(ctx, tx, p.TenantID, change); err != nil {
+		return err
+	}
+	evt, err := events.New(recordedType, "depot/audit", change.RecordID, p.TenantID, recordedPayload(change))
+	if err != nil {
+		return err
+	}
+	evt.LegalEntityID = change.LegalEntityID
+	return outbox.Enqueue(ctx, tx, "change", id, evt)
 }
 
 // recordedPayload is the change.recorded event data. The AUD-API-1 fields are left out when empty, as in Record.
@@ -144,6 +183,7 @@ func recordedPayload(c domain.Change) map[string]any {
 	for k, v := range map[string]string{
 		"actorKind": c.ActorKind, "onBehalfOf": c.OnBehalfOf, "reason": c.Reason, "changeSetId": c.ChangeSetID,
 		"eventType": c.EventType, "eventId": c.EventID, "workflowInstanceId": c.WorkflowInstanceID,
+		"legalEntityId": c.LegalEntityID, "source": c.Source, "flag": c.Flag,
 	} {
 		if v != "" {
 			data[k] = v
@@ -175,9 +215,9 @@ func fireAlerts(ctx context.Context, tx pgx.Tx, tenantID string, change domain.C
 		if !domain.Match(rule, change) {
 			continue
 		}
-		if _, err := tx.Exec(ctx, `insert into alert_inbox (tenant_id, id, rule_id, entity, record_id, field, message)
-			values ($1,$2,$3,$4,$5,$6,$7)`, tenantID, ids.New(), rule.ID, change.Entity, change.RecordID, change.Field,
-			change.Field+" changed from "+change.OldValue+" to "+change.NewValue); err != nil {
+		if _, err := tx.Exec(ctx, `insert into alert_inbox (tenant_id, id, rule_id, entity, record_id, field, message, legal_entity_id)
+			values ($1,$2,$3,$4,$5,$6,$7,nullif($8,'')::uuid)`, tenantID, ids.New(), rule.ID, change.Entity, change.RecordID, change.Field,
+			change.Field+" changed from "+change.OldValue+" to "+change.NewValue, change.LegalEntityID); err != nil {
 			return err
 		}
 	}
@@ -190,7 +230,8 @@ func (s *Postgres) Query(ctx context.Context, entity, recordID string) ([]Record
 	var out []Record
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `select id, entity, record_id, field, old_value, new_value, user_id, trace_id, occurred_at, hash,
-			actor_kind, on_behalf_of, reason, change_set_id, event_type, event_id, workflow_instance_id
+			actor_kind, on_behalf_of, reason, change_set_id, event_type, event_id, workflow_instance_id,
+			coalesce(legal_entity_id::text, ''), source, flag
 			from audit_entry where tenant_id=$1 and entity=$2 and record_id=$3 order by seq`, p.TenantID, entity, recordID)
 		if err != nil {
 			return err
@@ -200,7 +241,8 @@ func (s *Postgres) Query(ctx context.Context, entity, recordID string) ([]Record
 		for rows.Next() {
 			var rec Record
 			if err := rows.Scan(&rec.ID, &rec.Entity, &rec.RecordID, &rec.Field, &rec.OldValue, &rec.NewValue, &rec.UserID, &rec.TraceID, &rec.OccurredAt, &rec.Hash,
-				&rec.ActorKind, &rec.OnBehalfOf, &rec.Reason, &rec.ChangeSetID, &rec.EventType, &rec.EventID, &rec.WorkflowInstanceID); err != nil {
+				&rec.ActorKind, &rec.OnBehalfOf, &rec.Reason, &rec.ChangeSetID, &rec.EventType, &rec.EventID, &rec.WorkflowInstanceID,
+				&rec.LegalEntityID, &rec.Source, &rec.Flag); err != nil {
 				return err
 			}
 			out = append(out, rec)

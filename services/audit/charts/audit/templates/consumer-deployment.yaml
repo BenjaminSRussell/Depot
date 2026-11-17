@@ -1,0 +1,76 @@
+{{- if .Values.consumer.enabled }}
+# The CDC consumer (B-07, `audit cdc-consume`): reads the audit CDC topics the audit-cdc-<service> connectors write
+# (deploy/kafka/connect.yaml) and folds each captured row change into the change chain with the actor of its
+# transaction's depot.ctx message. One replica: each topic has one partition, so a transaction's message is read before
+# its changes. It exits at start unless service:audit-cdc is seeded in the service principal table. Kafka user and
+# ACLs: deploy/kafka/audit-consumer.yaml.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-cdc
+  labels:
+    app.kubernetes.io/name: audit-cdc
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: audit-cdc
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: audit-cdc
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: kafka
+          secret:
+            secretName: {{ required "consumer.kafka.secret is required" .Values.consumer.kafka.secret }}
+            defaultMode: 0440
+      containers:
+        - name: audit-cdc
+          image: {{ include "audit.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: [cdc-consume]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          ports:
+            - { name: admin, containerPort: 9090 }
+          env:
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
+            - { name: ADMIN_ADDR, value: ":9090" }
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.databaseSecret }}
+                  key: DATABASE_URL
+            - name: KAFKA_BROKERS
+              value: {{ required "consumer.kafka.brokers is required" .Values.consumer.kafka.brokers | quote }}
+            - name: KAFKA_GROUP
+              value: {{ .Values.consumer.kafka.group | quote }}
+            - name: KAFKA_USERNAME
+              value: {{ .Values.consumer.kafka.username | quote }}
+            - name: KAFKA_PASSWORD_FILE
+              value: /var/run/depot/kafka/password
+            - name: KAFKA_TLS_CA_FILE
+              value: /var/run/depot/kafka/ca.crt
+          volumeMounts:
+            - { name: kafka, mountPath: /var/run/depot/kafka, readOnly: true }
+          livenessProbe:
+            httpGet: { path: /healthz, port: admin }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /readyz, port: admin }
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.consumer.resources | nindent 12 }}
+{{- end }}

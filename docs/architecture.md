@@ -87,7 +87,7 @@ accountable role. The exit criterion is the check that closes the gap. The follo
 |---|---|---|---|---|
 | D1 | High | security, platform | Services trust gateway `X-Depot-*` headers, but only 13 of 69 charts have a NetworkPolicy, no namespace has a default-deny policy, and 67 of 69 service charts share one namespace; ADR-0006 rule 6 is not met (part a: NetworkPolicies done in B-01a) | Every namespace that runs a Depot service has default-deny ingress and gateway-plus-generated-peer allow rules; a CI check fails on a chart without them; a forged-header call from a non-peer pod is refused in an integration test |
 | D2 | High | eventing | 37 services write an outbox that no Debezium connector relays (ledger, inventory, close, tax, treasury, payables, shopfloor, planning and others), so their events never reach Kafka | Every service with an outbox table has an `outbox-<service>` connector; a CI check compares outbox tables with `connect.yaml` (part a: connectors done in B-05a) |
-| D3 | High | security | No CDC-fed, hash-chained audit trail and no `depot.ctx` actor/trace message; `services/audit` is fed over HTTP by `engineering` only | A change in any service with a mutable master-data table appears in the audit chain with actor and trace id, through CDC; chain verification runs nightly |
+| D3 | High | security | No CDC-fed, hash-chained audit trail and no `depot.ctx` actor/trace message; `services/audit` is fed over HTTP by `engineering` only (part a: CDC pipeline, `depot.ctx`, `:verify`, nightly verification and daily anchor done in B-07a, piloted on party vendor bank accounts; the A7 set is B-07b/c) | A change in any service with a mutable master-data table appears in the audit chain with actor and trace id, through CDC; chain verification runs nightly |
 | D4 | High | platform | Stage and prod lack the platform (prod: `hello-ledger` and `kyverno` only; stage: no Kafka, Temporal, Postgres, Keycloak or gateway applications); no database or Secret for ledger, inventory or numbering anywhere | Stage and prod app-of-apps deploy the platform and every service database and Secret; the `tools/e2e` suite passes against stage |
 | D6 | High | eventing | Built event payloads lack fields consumers need (for example `journalEntryId`/`glSeq` on inventory transaction events for COGS link-back; 13 of 15 payload contracts unmet), and some subscriptions have no relayed producer | Each consumed topic's AsyncAPI payload carries the fields its consumers read; a contract test per consumer passes |
 | D7 | High | frontend | ADR-0009 conditions unmet: `apps/web` has no image or host with a strict CSP, Trusted Types or a no-tokens-in-storage check | An `apps/web` image and chart serve the shell with the ADR-0009 headers, tested in CI; a lint or test fails on a token written to web storage |
@@ -1640,6 +1640,24 @@ Alerting: multi-window multi-burn-rate (14.4× over 1 h/5 m pages, 6× over 6 h/
   Fiscal documents are protected by insert-only triggers (for example `ledger/migrations/0003_journal.sql`,
   `inventory/migrations/0001_inventory_ledger.sql`). There is no `depot.ctx` message, no CDC connector into audit and
   no head anchoring to object-locked storage (D3).
+- **As built (B-07a, D3 part a):** the CDC pipeline, `depot.ctx`, change-chain verification and the daily anchor exist,
+  piloted on party's `vendor_bank_account`. A table-CDC connector type, `audit-cdc-<service>` in
+  `deploy/kafka/connect.yaml` (separate from the outbox relays, reusing the service's CDC role), captures the tables of
+  the service's publication `depot_audit_<service>` (REPLICA IDENTITY FULL, P3 columns in `column.exclude.list`) and
+  the `depot.ctx` logical-decoding messages into one single-partition topic `depot.cdc.<service>`. `depot.ctx` is the
+  design above: `platform/go/auditctx` (`WithAuditedTx`/`Emit`) writes `pg_logical_emit_message(true, 'depot.ctx', …)`
+  in the transaction that changes an audited table, carrying the actor derived from the verified principal (person,
+  service, or service/agent `onBehalfOf` a user), the reason (`X-Depot-Reason`, captured by `httpx.NewRouter`), the
+  trace id (W3C `traceparent`, else the request id) and a per-transaction `changeSetId`. It is emitted per audited
+  transaction, not by `dbx` in every transaction (that would assign every read transaction an id). `audit cdc-consume`
+  (platform `eventing` consumer, `Config.Decode` for Debezium records, inbox keyed by CDC position) records one chain
+  row per changed field with the actor of its transaction's message; a change without one is recorded as `actorKind`
+  `system`, flag `unattributed`. The chain rows gain `legal_entity_id` (restrictive policy admitting NULL for
+  tenant-level entries), `source` and `flag`, covered by a v3 hash payload. `GET /v1/audit/records:verify` (duty
+  `audit.verify`) reports the first break and counts legacy-precision and legacy-fork rows from before B-06 apart; the
+  `audit chain-nightly` CronJob verifies every listed tenant and stores the day's head in the append-only
+  `audit_anchor` (one per tenant per UTC day), which `:verify` checks. Not yet: anchor export to object-locked storage,
+  the rest of the A7 set (B-07b/c) and every other entity (B-36); the consumer and CronJob are off by default.
 - **Field encryption.** Sensitive fields are sealed in the service with `platform/go/fieldcrypt` (AES-256-GCM, per-tenant
   keys derived by HKDF from master keys, optionally wrapped by Azure Key Vault) and looked up through blind indexes
   (HMAC). Used by compliance, hr, migration, party, payables, receiving and sales (ADR-0011). No pgcrypto, no Vault
