@@ -333,7 +333,8 @@ ISSUES.append(dict(
  'services/audit/api/openapi.yaml',
  'platform/go/outbox/outbox.go',
  'deploy/kafka/connect.yaml (audit connector blocks only)',
- 'services/{party,identity,pricing,costing,receiving,ledger}/**/audit_contract_test.go (new)'],
+ 'services/{party,pricing,costing,receiving,ledger}/internal/api/audit_contract_test.go (new)',
+ 'services/identity/audit_contract_test.go (new)'],
 ))
 
 ISSUES.append(dict(
@@ -1034,7 +1035,8 @@ ISSUES.append(dict(
     problem=('Several admin and workflow pages show things that are false. The Audit page always says "No audit entries yet". Sequences says "No sequences set up yet" '
  'while the numbering service has sequences and the setup checklist links there. Import is a disabled stub. The job monitor, designer and templates show '
  'invented sample data in production builds.'),
-    scope_in=['`/admin/sequences` read-only list on `GET /api/v1/numbering/sequences`',
+    scope_in=['`/admin/sequences` read-only list on `GET /api/v1/numbering/sequences`, moved out of `admin/pages.tsx` into its own `SequencesPage.tsx` (so B-35 and B-23 '
+ 'never edit the same file)',
  '`/admin/import` opens the working setup import step',
  'Hide or render `NotAvailablePage` for `/admin/audit` (until B-23), `/admin/alerts`, `/admin/documents`, `/admin/texts` (until B-35), `/workflow/designer`, '
  '`/workflow/templates`, `/workflow/jobs` (until B-34); `shell/plannedRoutes.json` with slice and date',
@@ -1057,6 +1059,7 @@ ISSUES.append(dict(
     gates=[],
     blocked='None.',
     files=['apps/web/src/modules/admin/**',
+ 'apps/web/src/modules/admin/SequencesPage.tsx (new)',
  'apps/web/src/modules/workflow/**',
  'apps/web/src/shell/plannedRoutes.json (new)',
  'apps/web/src/shell/honestScreens.test.ts (new)',
@@ -1667,7 +1670,7 @@ ISSUES.append(dict(
     deps=['B-21'],
     gates=[],
     blocked='None.',
-    files=['services/numbering/**', 'apps/web/src/modules/admin/** (sequences page only)'],
+    files=['services/numbering/**', 'apps/web/src/modules/admin/SequencesPage.tsx (new, from B-21)'],
 ))
 
 ISSUES.append(dict(
@@ -1702,7 +1705,7 @@ ISSUES.append(dict(
     blocked='Nightly verification on a deployed environment is #213.',
     files=['services/audit/internal/**',
  'deploy/kafka/connect.yaml (audit connector blocks only)',
- 'services/*/internal/**/audit_contract_test.go (new, one per service)',
+ 'services/*/internal/api/audit_contract_test.go (new, one per service)',
  'deploy/ci/** (mutable-table check)'],
 ))
 
