@@ -2,7 +2,10 @@ package cdc_test
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 
@@ -59,7 +62,7 @@ func setup(t *testing.T) env {
 		t.Fatal(err)
 	}
 	s := store.New(app)
-	return env{admin: admin, app: app, store: s, handler: &cdc.Handler{Registry: cdc.NewRegistry(cdc.Tables), Sink: s}}
+	return env{admin: admin, app: app, store: s, handler: &cdc.Handler{Registry: cdc.NewRegistry(cdc.Tables), Sink: s, Verifier: trusted}}
 }
 
 // consume runs the real eventing consumer, with the platform inbox, over records as the Kafka source would hand them.
@@ -184,6 +187,108 @@ func TestMalformedContextActorIsNotTrusted(t *testing.T) {
 	}
 }
 
+// TestForgedContextIsNotTrusted (review finding 1): any session on party's database can emit a well-formed depot.ctx
+// message, so only one party signed with its service key, in the change's own transaction, names the actor. An
+// unsigned message, one signed by an unknown key, and a valid message replayed in another transaction all leave the
+// change recorded as system, flag unattributed-bad-signature, never as the person the message names.
+func TestForgedContextIsNotTrusted(t *testing.T) {
+	e := setup(t)
+	t1 := testkit.TenantID(1)
+	cfo := person(1)
+	cfo.Actor, cfo.Reason = "cfo", "approved"
+	_, otherPriv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	impostor, err := tenant.NewServiceSigner("party", otherPriv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	impostor = impostor.WithKeyID("2026-11")
+	billing, err := tenant.NewServiceSigner("billing", otherPriv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, tc := range map[string]struct {
+		ctx  func(txID, lsn int64) eventing.Record
+		flag string
+	}{
+		"unsigned": {func(txID, lsn int64) eventing.Record {
+			return ctxRecordWith(t, txID, lsn, cfo, nil, strconv.FormatInt(epoch+txID, 10), commit)
+		}, domain.FlagBadSignature},
+		"wrong key": {func(txID, lsn int64) eventing.Record {
+			return ctxRecordWith(t, txID, lsn, cfo, impostor, strconv.FormatInt(epoch+txID, 10), commit)
+		}, domain.FlagBadSignature},
+		"another service's key": {func(txID, lsn int64) eventing.Record {
+			return ctxRecordWith(t, txID, lsn, cfo, billing, strconv.FormatInt(epoch+txID, 10), commit)
+		}, domain.FlagBadSignature},
+		"valid message replayed in another transaction": {func(txID, lsn int64) eventing.Record {
+			return ctxRecordWith(t, txID, lsn, cfo, partyKey, strconv.FormatInt(epoch+txID-1, 10), commit)
+		}, domain.FlagBadSignature},
+		"message of an older transaction that reused the id": {func(txID, lsn int64) eventing.Record {
+			return ctxRecordWith(t, txID, lsn, cfo, partyKey, strconv.FormatInt(epoch+txID, 10), commit.Add(-2*cdc.ContextWindow))
+		}, domain.FlagUnattributed},
+	} {
+		t.Run(name, func(t *testing.T) {
+			offset += 100
+			txID, record := 7000+offset, "b-f"+strconv.FormatInt(offset, 10)
+			parked := e.consume(t, tc.ctx(txID, 10*offset), changeRecord(t, "c", txID, 10*offset+5, nil, account(t1, record, le1, "Forged", "6666")))
+			if len(parked.parked) != 0 {
+				t.Fatalf("dead-lettered %v", parked.parked)
+			}
+			got, err := e.store.Query(reader(1, le1), "vendor_bank_account", record)
+			if err != nil || len(got) == 0 {
+				t.Fatalf("%+v %v", got, err)
+			}
+			for _, r := range got {
+				if r.UserID != "system:party" || r.ActorKind != domain.ActorSystem || r.Flag != tc.flag || r.Reason != "" {
+					t.Fatalf("forged context attributed: %+v", r)
+				}
+			}
+		})
+	}
+	// The happy path with the same key registry: party's own signature in the change's transaction.
+	e.consume(t, ctxRecord(t, 7900, 79000, cfo), changeRecord(t, "c", 7900, 79005, nil, account(t1, "b-ok", le1, "Signed", "7777")))
+	got, err := e.store.Query(reader(1, le1), "vendor_bank_account", "b-ok")
+	if err != nil || len(got) == 0 || got[0].UserID != "cfo" || got[0].Flag != "" || got[0].Reason != "approved" {
+		t.Fatalf("signed context: %+v %v", got, err)
+	}
+}
+
+// Without the source service's public key configured nothing verifies: changes are flagged, never attributed.
+func TestNoKeysConfiguredAttributesNothing(t *testing.T) {
+	e := setup(t)
+	e.handler.Verifier = nil
+	e.consume(t, ctxRecord(t, 8100, 81000, person(1)), changeRecord(t, "c", 8100, 81005, nil, account(testkit.TenantID(1), "b-n", le1, "Nokeys", "8888")))
+	got, err := e.store.Query(reader(1, le1), "vendor_bank_account", "b-n")
+	if err != nil || len(got) == 0 || got[0].Flag != domain.FlagBadSignature {
+		t.Fatalf("%+v %v", got, err)
+	}
+}
+
+// The consumer purges expired depot.ctx messages itself (at most hourly per tenant), so retention does not depend on
+// the nightly job (review finding 3).
+func TestConsumerPurgesExpiredContexts(t *testing.T) {
+	e := setup(t)
+	e.consume(t, ctxRecord(t, 8200, 82000, person(1)))
+	count := func() int {
+		var n int
+		if err := e.admin.QueryRow(context.Background(), `select count(*) from cdc_tx_context where tx_id = 8200`).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	if count() != 1 {
+		t.Fatal("the message is stored")
+	}
+	later := &cdc.Handler{Registry: e.handler.Registry, Sink: e.store, Verifier: trusted, Now: func() time.Time { return time.Now().Add(cdc.ContextRetention + time.Hour) }}
+	e.handler = later
+	e.consume(t, ctxRecord(t, 8201, 82010, person(1)))
+	if count() != 0 {
+		t.Fatal("a message older than the retention is purged by the consumer")
+	}
+}
+
 // A message attaches to the changes after it in its transaction: one written after the change (a later position) does
 // not, so auditctx.Emit goes before the first audited change.
 func TestContextAfterTheChangeDoesNotAttach(t *testing.T) {
@@ -198,11 +303,13 @@ func TestContextAfterTheChangeDoesNotAttach(t *testing.T) {
 func TestDecoderSkipsAndDeadLetters(t *testing.T) {
 	e := setup(t)
 	snapshot := changeRecord(t, "r", 1, 1, nil, account(testkit.TenantID(1), "b-9", le1, "Snap", "9999"))
-	other := rec(t, map[string]any{"prefix": "other"}, map[string]any{"op": "m", "source": src(1, 2, ""), "message": map[string]any{"prefix": "other", "content": "e30="}})
+	other := rec(t, map[string]any{"prefix": "other"}, map[string]any{"op": "m", "source": src(1, 2, "", commit), "message": map[string]any{"prefix": "other", "content": "e30="}})
 	unknown := rec(t, map[string]any{"id": "x"}, map[string]any{"op": "c", "after": map[string]any{"tenant_id": testkit.TenantID(1), "id": "x"},
 		"source": map[string]any{"name": server, "schema": "public", "table": "vendor_role", "txId": 1, "lsn": 3}})
 	tombstone := eventing.Record{Topic: topic, Offset: 99}
-	parked := e.consume(t, snapshot, other, unknown, tombstone)
+	// The connector routes its heartbeat records into the audit topic too (connect.yaml): the consumer skips them.
+	heartbeat := rec(t, map[string]any{"serverName": server}, map[string]any{"ts_ms": commit.UnixMilli()})
+	parked := e.consume(t, snapshot, other, unknown, tombstone, heartbeat)
 	if len(parked.parked) != 1 {
 		t.Fatalf("only the unregistered table is dead-lettered: %v", parked.parked)
 	}

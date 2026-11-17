@@ -1,14 +1,22 @@
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
-// Kinds of a break in the change chain (AUD-API-4). A break is evidence of tampering: a value changed after it was
-// written, a row removed, inserted or reordered, or an anchored head that the chain no longer holds.
+// Kinds of a break in the change chain (AUD-API-4). A break is a row that does not verify: a value changed after it
+// was written, a row removed, inserted or reordered, an anchored head that the chain no longer holds, or a fork.
 const (
 	// BreakHash: the row's hash does not recompute from its stored values.
 	BreakHash = "hash-mismatch"
-	// BreakLink: the row's prevHash is not the hash of the row before it.
+	// BreakLink: the row's prevHash is not the hash of the row before it, nor of any recent earlier row.
 	BreakLink = "link-mismatch"
+	// BreakFork: the row recomputes but links to an earlier row than the one before it: two writers read the same
+	// head. That is what a replica reading the head under a narrower scope (a B-06 image after migration 0009, during a
+	// mixed rollout or after a rollback) writes. It is still a break, but diagnose it as a fork before tampering
+	// (runbook audit-chain-verify-failure).
+	BreakFork = "fork"
 	// BreakAnchor: a daily anchor names a head (seq and hash) the chain no longer holds.
 	BreakAnchor = "anchor-mismatch"
 )
@@ -22,7 +30,16 @@ const (
 	// KnownLegacyFork: two legacy rows linked to the same predecessor, which unserialised appends before B-06 could
 	// write. The second row's own hash must still recompute.
 	KnownLegacyFork = "legacy-fork"
+	// KnownLegacyAmbiguous: a legacy row with a "|" in a field. The legacy payload joins the fields with "|", so a
+	// "|" moved between two neighbouring fields leaves the hash unchanged: the row recomputes, but its field
+	// boundaries are not proven.
+	KnownLegacyAmbiguous = "legacy-ambiguous"
 )
+
+// forkWindow is how many recent row hashes the walker remembers to tell a fork from a broken link. A fork links to a
+// row written moments before (the head another writer had just read), so a short window finds it while the memory
+// of a walk stays bounded.
+const forkWindow = 10_000
 
 // ChainRow is one stored change-chain row in seq order.
 type ChainRow struct {
@@ -44,14 +61,18 @@ type ChangeChainStatus struct {
 	Entries  int64
 	FromSeq  int64
 	ToSeq    int64
+	// StartPrevHash is the prevHash the walk started from: Genesis for a walk from the tenant's first row, else the
+	// first row's own prevHash, trusted. A client chaining pages checks it against the previous page's Head.
+	StartPrevHash string
 	// Head is the stored hash of the last row walked (Genesis for an empty chain).
 	Head string
-	// Breaks counts the tampering breaks; FirstBreak is the first in chain order (nil when verified).
+	// Breaks counts the breaks; FirstBreak is the first in chain order (nil when verified).
 	Breaks     int64
 	FirstBreak *Break
-	// LegacyPrecision and LegacyFork count the known breaks of legacy rows.
+	// LegacyPrecision, LegacyFork and LegacyAmbiguous count the known breaks of legacy rows.
 	LegacyPrecision int64
 	LegacyFork      int64
+	LegacyAmbiguous int64
 	// AnchorsChecked counts the anchors whose head lies in the walked range; AnchorsMismatched those it does not hold.
 	AnchorsChecked    int64
 	AnchorsMismatched int64
@@ -67,6 +88,8 @@ type ChangeWalker struct {
 	last       *ChainRow
 	anchors    map[int64]string
 	seenAnchor map[int64]bool
+	recent     map[string]int
+	ring       []string
 }
 
 // NewChangeWalker starts a walk. fromStart says the first row is the tenant's first, which must link to Genesis; a
@@ -74,8 +97,8 @@ type ChangeWalker struct {
 // the walked range (and, for a walk to the end of the chain, those after it).
 func NewChangeWalker(fromStart bool, anchors map[int64]string) *ChangeWalker {
 	return &ChangeWalker{
-		status:    ChangeChainStatus{Verified: true, Head: Genesis},
-		fromStart: fromStart, prev: Genesis, anchors: anchors, seenAnchor: map[int64]bool{},
+		status:    ChangeChainStatus{Verified: true, Head: Genesis, StartPrevHash: Genesis},
+		fromStart: fromStart, prev: Genesis, anchors: anchors, seenAnchor: map[int64]bool{}, recent: map[string]int{},
 	}
 }
 
@@ -86,17 +109,31 @@ func (w *ChangeWalker) Next(r ChainRow) {
 		if !w.fromStart {
 			w.prev = r.PrevHash
 		}
+		w.status.StartPrevHash = w.prev
 	}
 	w.status.Entries++
 	w.status.ToSeq = r.Seq
 	linked := r.PrevHash == w.prev
-	hashed := hashes(r)
+	recomputes := hashes(r)
+	precision := false
+	if !recomputes && r.IsLegacy() {
+		precision = legacyPrecision(r)
+	}
+	self := recomputes || precision
 	switch {
-	case linked && hashed:
-	case linked && r.IsLegacy() && legacyPrecision(r):
+	case linked && recomputes:
+		if r.IsLegacy() && ambiguous(r.Change) {
+			w.status.LegacyAmbiguous++
+		}
+	case linked && precision:
 		w.status.LegacyPrecision++
-	case !linked && w.last != nil && r.IsLegacy() && w.last.IsLegacy() && r.PrevHash == w.last.PrevHash && (hashed || legacyPrecision(r)):
+		if ambiguous(r.Change) {
+			w.status.LegacyAmbiguous++
+		}
+	case !linked && w.last != nil && r.IsLegacy() && w.last.IsLegacy() && r.PrevHash == w.last.PrevHash && self:
 		w.status.LegacyFork++
+	case !linked && self && w.recent[r.PrevHash] > 0:
+		w.fail(r, BreakFork)
 	case !linked:
 		w.fail(r, BreakLink)
 	default:
@@ -110,10 +147,42 @@ func (w *ChangeWalker) Next(r ChainRow) {
 			w.fail(r, BreakAnchor)
 		}
 	}
+	w.remember(r.Hash)
 	w.prev = r.Hash
 	w.status.Head = r.Hash
 	row := r
 	w.last = &row
+}
+
+func (w *ChangeWalker) remember(hash string) {
+	w.recent[hash]++
+	w.ring = append(w.ring, hash)
+	if len(w.ring) > forkWindow {
+		old := w.ring[0]
+		w.ring = w.ring[1:]
+		if w.recent[old]--; w.recent[old] <= 0 {
+			delete(w.recent, old)
+		}
+	}
+}
+
+// DropAnchorsAfter forgets the anchors whose head lies after seq: a walk that stopped there (a page of a longer
+// range) cannot judge them.
+func (w *ChangeWalker) DropAnchorsAfter(seq int64) {
+	for s := range w.anchors {
+		if s > seq {
+			delete(w.anchors, s)
+		}
+	}
+}
+
+func ambiguous(c Change) bool {
+	for _, v := range []string{c.Entity, c.RecordID, c.Field, c.OldValue, c.NewValue, c.UserID, c.TraceID} {
+		if strings.Contains(v, "|") {
+			return true
+		}
+	}
+	return false
 }
 
 // Status ends the walk: an anchor whose head row was never walked (the row is gone, or the chain was cut short) is

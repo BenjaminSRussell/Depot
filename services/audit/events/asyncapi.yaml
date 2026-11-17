@@ -57,7 +57,7 @@ components:
           userId: { type: string, description: 'The verified actor: the person, "service:<name>", or "system:<source>" for an unattributed captured change.' }
           actorKind: { type: string, enum: [person, service, agent, system], description: person and system come from the CDC feed (B-07). }
           onBehalfOf: { type: string }
-          traceId: { type: string }
+          traceId: { type: string, description: The W3C trace id or request id of the request that made the change; client input, not authenticated. }
           reason: { type: string }
           changeSetId: { type: string }
           eventType: { type: string }
@@ -65,7 +65,7 @@ components:
           workflowInstanceId: { type: string }
           legalEntityId: { type: string, format: uuid }
           source: { type: string, description: The service the change was captured from (CDC). }
-          flag: { type: string, enum: [unattributed] }
+          flag: { type: string, enum: [unattributed, unattributed-bad-signature] }
       x-depot-type: dev.depot.audit.change.recorded.v1
     cdcRowChange:
       name: cdcRowChange
@@ -97,8 +97,11 @@ components:
       title: depot.ctx message (Debezium)
       description: >-
         A transactional logical-decoding message with prefix depot.ctx (platform/go/auditctx.Emit), op m. message.content
-        is the base64 of the JSON {v, tenantId, actor, actorKind, onBehalfOf, reason, traceId, changeSetId, eventType,
-        eventId, workflowInstanceId}.
+        is the base64 of the signed envelope {v: 2, body, txid, iss, kid, sig}: body is the JSON {v: 1, tenantId, actor,
+        actorKind, onBehalfOf, reason, traceId, changeSetId, eventType, eventId, workflowInstanceId} as signed, txid the
+        emitting transaction's txid_current(), and sig the Ed25519 signature of service iss (key kid, ADR-0010) over
+        "depot.audit-ctx.v1." + tenantId + "\n" + txid + "\n" + body. The consumer trusts the actor only when the
+        signature verifies, iss is the source service and txid's low 32 bits are the message's source.txId.
       payload:
         type: object
         required: [op, source, message]

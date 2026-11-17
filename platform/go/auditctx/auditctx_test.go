@@ -2,6 +2,10 @@ package auditctx_test
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -88,8 +92,78 @@ func TestWithCauseAndDecodeRoundTrip(t *testing.T) {
 	for _, body := range []string{`{`, `{"v":2,"tenantId":"` + testkit.TenantID(1) + `","actor":"a","actorKind":"person"}`,
 		`{"v":1,"tenantId":"nope","actor":"a","actorKind":"person"}`, `{"v":1,"tenantId":"` + testkit.TenantID(1) + `","actorKind":"person"}`,
 		`{"v":1,"tenantId":"` + testkit.TenantID(1) + `","actor":"a","actorKind":"robot"}`} {
-		if _, err := auditctx.Decode([]byte(body)); err == nil {
-			t.Errorf("Decode(%s) accepted", body)
+		content, _ := json.Marshal(auditctx.Envelope{V: auditctx.EnvelopeVersion, Body: body, TxID: "1"})
+		if _, _, err := auditctx.Open(content); err == nil {
+			t.Errorf("Open(%s) accepted", body)
+		}
+	}
+	if _, _, err := auditctx.Open([]byte(`{"v":1,"tenantId":"` + testkit.TenantID(1) + `","actor":"a","actorKind":"person"}`)); err == nil {
+		t.Error("a bare body (no envelope) must be refused")
+	}
+}
+
+func signer(t *testing.T, name string) (*tenant.ServiceSigner, ed25519.PublicKey) {
+	t.Helper()
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := tenant.NewServiceSigner(name, priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s, pub
+}
+
+// TestSealAndVerify (B-07a review finding 1): a message is trusted only when the source service signed it for the
+// transaction it was emitted in.
+func TestSealAndVerify(t *testing.T) {
+	party, partyPub := signer(t, "party")
+	_, otherPub := signer(t, "party")
+	billing, billingPub := signer(t, "billing")
+	trusted := tenant.NewServiceVerifier("audit", map[string]ed25519.PublicKey{"party": partyPub, "billing": billingPub})
+	wrongKey := tenant.NewServiceVerifier("audit", map[string]ed25519.PublicKey{"party": otherPub})
+	m := auditctx.Message{V: auditctx.Version, TenantID: testkit.TenantID(1), Actor: "ana", ActorKind: auditctx.ActorPerson, Reason: "letter"}
+	// txid_current() carries the epoch above the 32-bit xid Debezium reports.
+	const txid, xid = "4294968108", int64(812)
+	open := func(s *tenant.ServiceSigner, m auditctx.Message, txid string) (auditctx.Envelope, auditctx.Message) {
+		t.Helper()
+		content, err := auditctx.Seal(s, m, txid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		env, got, err := auditctx.Open(content)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return env, got
+	}
+	env, got := open(party, m, txid)
+	if err := auditctx.Verify(trusted, env, got, "party", xid); err != nil || got.Actor != "ana" {
+		t.Fatalf("happy path: %v %+v", err, got)
+	}
+	for name, tc := range map[string]struct {
+		v      auditctx.Verifier
+		env    auditctx.Envelope
+		m      auditctx.Message
+		source string
+		xid    int64
+		want   error
+	}{
+		"unsigned":                   {trusted, func() auditctx.Envelope { e, _ := open(nil, m, txid); return e }(), m, "party", xid, auditctx.ErrUnsigned},
+		"wrong key":                  {wrongKey, env, got, "party", xid, auditctx.ErrBadSignature},
+		"no keys configured":         {nil, env, got, "party", xid, auditctx.ErrNoVerifierKeys},
+		"another service's database": {trusted, func() auditctx.Envelope { e, _ := open(billing, m, txid); return e }(), m, "party", xid, auditctx.ErrWrongIssuer},
+		"replayed in another tx":     {trusted, env, got, "party", 813, auditctx.ErrTxIDMismatch},
+		"altered body": {trusted, func() auditctx.Envelope {
+			e := env
+			e.Body = strings.Replace(e.Body, `"ana"`, `"cfo"`, 1)
+			return e
+		}(), got, "party", xid, auditctx.ErrBadSignature},
+		"altered txid": {trusted, func() auditctx.Envelope { e := env; e.TxID = "813"; return e }(), got, "party", 813, auditctx.ErrBadSignature},
+	} {
+		if err := auditctx.Verify(tc.v, tc.env, tc.m, tc.source, tc.xid); !errors.Is(err, tc.want) {
+			t.Errorf("%s: %v, want %v", name, err, tc.want)
 		}
 	}
 }
@@ -99,6 +173,9 @@ func TestWithCauseAndDecodeRoundTrip(t *testing.T) {
 // consumer tests feed the decoded form (services/audit/internal/cdc).
 func TestWithAuditedTxEmitsAsTheAppRole(t *testing.T) {
 	admin, app := testkit.DBWithApp(t)
+	s, _ := signer(t, "party")
+	auditctx.SetSigner(s)
+	t.Cleanup(func() { auditctx.SetSigner(nil) })
 	ctx := tenant.With(context.Background(), tenant.Principal{TenantID: testkit.TenantID(1), UserID: "ana"})
 	if _, err := admin.Exec(ctx, `create table audited (tenant_id uuid not null, id int primary key)`); err != nil {
 		t.Fatal(err)

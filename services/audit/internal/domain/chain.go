@@ -28,6 +28,9 @@ const (
 	CodeServiceOnly = "AUD-0007"
 	// CodeVerifyRange rejects a change-chain verification range that is not two positive seqs in order (AUD-API-4).
 	CodeVerifyRange = "AUD-0008"
+	// CodeVerifyScope refuses a change-chain verification to a caller without tenant-wide authority: the verdict
+	// describes every legal entity of the tenant.
+	CodeVerifyScope = "AUD-0009"
 	Genesis         = "0000000000000000000000000000000000000000000000000000000000000000"
 
 	// ActorPerson is a person acting directly. The HTTP route never records it (it accepts verified services
@@ -39,11 +42,15 @@ const (
 	// ActorAgent is an AI agent runtime acting for the person in OnBehalfOf.
 	ActorAgent = "agent"
 	// ActorSystem is a change captured by CDC without a depot.ctx message (B-07): no verified actor is known. It is
-	// recorded as "system:<source service>" and always carries FlagUnattributed.
+	// recorded as "system:<source service>" and always carries FlagUnattributed or FlagBadSignature.
 	ActorSystem = "system"
 
 	// FlagUnattributed marks a captured change whose transaction carried no usable depot.ctx message.
 	FlagUnattributed = "unattributed"
+	// FlagBadSignature marks a captured change whose transaction carried a depot.ctx message that is not authenticated:
+	// unsigned, signed by an unknown key or by another service than the source, altered, or signed for another
+	// transaction. The actor it names is not recorded as the actor.
+	FlagBadSignature = "unattributed-bad-signature"
 
 	MaxChangeReason = 1000
 	maxChangeRef    = 256
@@ -92,7 +99,7 @@ type Change struct {
 	LegalEntityID string
 	// Source is the service whose database the change was captured from by CDC; empty for a change recorded over HTTP.
 	Source string
-	// Flag is FlagUnattributed for a captured change without a verified actor, else empty.
+	// Flag is FlagUnattributed or FlagBadSignature for a captured change without a verified actor, else empty.
 	Flag string
 }
 
@@ -170,10 +177,10 @@ func Validate(c Change) map[string]string {
 	}
 	// A system actor is exactly an unattributed captured change: it is never set without the flag, nor the flag without it.
 	switch {
-	case c.Flag != "" && c.Flag != FlagUnattributed:
-		fields["flag"] = "must be empty or " + FlagUnattributed
-	case (c.Flag == FlagUnattributed) != (c.ActorKind == ActorSystem):
-		fields["flag"] = FlagUnattributed + " goes with actorKind system, and only with it"
+	case c.Flag != "" && c.Flag != FlagUnattributed && c.Flag != FlagBadSignature:
+		fields["flag"] = "must be empty, " + FlagUnattributed + " or " + FlagBadSignature
+	case (c.Flag != "") != (c.ActorKind == ActorSystem):
+		fields["flag"] = "an unattributed flag goes with actorKind system, and only with it"
 	}
 	if le, ok := ids.Canonical(c.LegalEntityID); c.LegalEntityID != "" && (!ok || le == ids.Nil) {
 		fields["legalEntityId"] = "must be a UUID"

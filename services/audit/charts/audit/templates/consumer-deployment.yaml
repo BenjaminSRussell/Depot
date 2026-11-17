@@ -61,6 +61,15 @@ spec:
               value: /var/run/depot/kafka/password
             - name: KAFKA_TLS_CA_FILE
               value: /var/run/depot/kafka/ca.crt
+            - name: AUDIT_CDC_DLQ_TOPIC
+              value: {{ .Values.consumer.kafka.dlqTopic | quote }}
+            # depot.ctx signatures are verified against the source services' ADR-0010 public keys (party's for the
+            # pilot), the same registry the API verifies service tokens with. Without them every captured change is
+            # recorded as unattributed.
+            - { name: DEPOT_SERVICE_NAME, value: audit }
+{{- if .Values.serviceIdentity.publicKeys }}
+            - { name: DEPOT_SERVICE_PUBLIC_KEYS, value: {{ .Values.serviceIdentity.publicKeys | quote }} }
+{{- end }}
           volumeMounts:
             - { name: kafka, mountPath: /var/run/depot/kafka, readOnly: true }
           livenessProbe:

@@ -1233,6 +1233,8 @@ class ArgoApplicationsTest(unittest.TestCase):
         self.assertEqual([], re.findall(r'Column:\s*"(\w+_sealed)"', registry_src), "the audit registry never records a P3 (*_sealed) column")
         connectors = [d for d in docs if is_audit_cdc_connector(d)]
         self.assertTrue(connectors, "no audit-cdc-<service> connector in deploy/kafka/connect.yaml")
+        # The one-partition invariant is declared, not left to topic auto-creation (review finding 11).
+        topics = {d["spec"]["topicName"]: d["spec"] for d in docs if d["kind"] == "KafkaTopic"}
         captured = set()
         for connector in connectors:
             name, cfg = connector["metadata"]["name"], connector["spec"]["config"]
@@ -1246,13 +1248,22 @@ class ArgoApplicationsTest(unittest.TestCase):
                 self.assertEqual("no_data", cfg["snapshot.mode"])
                 self.assertEqual("depot.ctx", cfg["message.prefix.include.list"], "the connector must capture the depot.ctx messages")
                 self.assertEqual("string", cfg["decimal.handling.mode"], "amounts are recorded as text, not Debezium's binary decimal")
-                self.assertEqual(1, int(cfg["topic.creation.default.partitions"]), "one partition: a transaction's depot.ctx message is read before its changes")
+                self.assertIn(topic, topics, f"{name}: no KafkaTopic in deploy/kafka/connect.yaml declares {topic}")
+                self.assertEqual(1, int(topics[topic]["partitions"]), "one partition: a transaction's depot.ctx message is read before its changes")
+                self.assertGreaterEqual(int(topics[topic]["config"]["retention.ms"]), 30 * 24 * 3600 * 1000,
+                                        "the audit topic outlives a consumer outage (at least 30 days)")
+                self.assertNotIn("topic.creation.default.partitions", cfg, "the KafkaTopic, not topic creation, sets the partitions")
+                self.assertIn(connector["spec"].get("state", "running"), ("stopped", "running"))
+                # Heartbeats move the slot of a quiet table on; the heartbeat record lands on the audit topic, not on a
+                # topic without an ACL.
+                self.assertGreater(int(cfg["heartbeat.interval.ms"]), 0)
+                self.assertIn("pg_logical_emit_message(false", cfg["heartbeat.action.query"], "a heartbeat that needs no table")
                 self.assertIn(service, outbox, f"{name}: no outbox-{service} connector whose database and role it reuses")
                 for key in ("database.hostname", "database.dbname", "database.user", "database.password"):
                     self.assertEqual(outbox[service][key], cfg[key], f"{name}: {key} differs from outbox-{service}")
                 tables = [t.strip() for t in cfg["table.include.list"].split(",") if t.strip()]
                 (router,) = [n for n in cfg["transforms"].split(",") if cfg.get(f"transforms.{n}.type") == REGEX_ROUTER]
-                for raw in [f"{topic}.message"] + [f"{topic}.{t}" for t in tables]:
+                for raw in [f"{topic}.message", f"__debezium-heartbeat.{topic}"] + [f"{topic}.{t}" for t in tables]:
                     self.assertEqual(topic, regex_route(cfg[f"transforms.{router}.regex"], cfg[f"transforms.{router}.replacement"], raw), raw)
                 self.assertIn(topic, writable, f"{name}: the debezium user may not write {topic}")
                 self.assertIn(topic, readable, f"{name}: the audit consumer (deploy/kafka/audit-consumer.yaml) does not read {topic}")
@@ -1267,7 +1278,12 @@ class ArgoApplicationsTest(unittest.TestCase):
                     captured.add((cfg["topic.prefix"], qualified))
                     self.assertRegex(migrations, rf"ALTER PUBLICATION {pub} ADD TABLE [^;\n]*\b{table}\b", f"{pub} does not publish {table}")
                     self.assertRegex(migrations, rf"ALTER TABLE {table} REPLICA IDENTITY FULL", f"{table}: an update would carry no old values")
-                    self.assertRegex(migrations, rf"GRANT SELECT ON {table} TO {cdc_role}\b", f"{cdc_role} cannot read {table}")
+                    # A column-level grant that leaves the P3 columns out (review finding 8).
+                    grants = re.findall(rf"GRANT SELECT \(([^)]*)\) ON {table} TO {cdc_role}\b", migrations)
+                    self.assertTrue(grants, f"{cdc_role} has no column-level SELECT on {table}")
+                    self.assertNotRegex(migrations, rf"GRANT SELECT ON {table} TO {cdc_role}\b", f"{cdc_role} must not read every column of {table}")
+                    self.assertEqual([], [c for g in grants for c in g.split(",") if c.strip().endswith("_sealed")],
+                                     f"{cdc_role} may read a P3 column of {table}")
                     sealed = set(re.findall(rf"(?is)create\s+table\s+(?:if\s+not\s+exists\s+)?{table}\s*\((.*?)\n\);", migrations))
                     columns = {c for block in sealed for c in re.findall(r"\b(\w+_sealed)\b", block)}
                     columns |= set(re.findall(rf"(?i)alter\s+table\s+{table}\s+add\s+column\s+(?:if\s+not\s+exists\s+)?(\w+_sealed)\b", migrations))
