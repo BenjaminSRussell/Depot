@@ -110,7 +110,9 @@ SCHED-0005 reason. A primary job and a secondary booking on the same resource
 are kept apart by the scheduler, not by a database constraint.
 
 Rules the heuristic applies: orders sorted by (earliest due date, priority,
-order id), operations in number order; each operation starts after its
+order number) as FR-23.5 says, with the order id only breaking what is still
+tied (an order without a number goes after numbered ones), operations in
+number order; each operation starts after its
 predecessor ends and at or after its ready time and the run start; it goes to
 the candidate with the earliest finish, then the lower load ratio, then the
 lower resource code (BR-23.8). Firmed jobs, and jobs of operations outside a

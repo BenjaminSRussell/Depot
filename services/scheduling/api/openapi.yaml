@@ -2175,11 +2175,12 @@ components:
       required: [orderId, operNumber, minutes, resourceIds]
       properties:
         orderId: { type: string, format: uuid }
+        orderNumber: { type: string, minLength: 1, maxLength: 40, description: "The order's business number (production order number), without surrounding spaces. Orders with the same due date and priority are dispatched in order-number order, then by order id; an order without a number goes after numbered ones (FR-23.5)." }
         operNumber: { type: integer, minimum: 1 }
         minutes: { type: integer, minimum: 1, maximum: 100000 }
         dueAt: { type: string, format: date-time }
         readyAt: { type: string, format: date-time }
-        priority: { type: integer, minimum: 0, maximum: 1000, default: 100, description: Lower runs first among orders with the same due date. }
+        priority: { type: integer, minimum: 0, maximum: 1000, default: 100, description: Lower runs first among orders with the same due date; ties then go to the order number. }
         resourceIds:
           type: array
           minItems: 1
@@ -2213,6 +2214,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         orderId: { type: string, format: uuid }
+        orderNumber: { type: [string, 'null'], description: "The order's business number, the third dispatch key after due date and priority (FR-23.5); set from POST /operations or by the production order import, null when none is on record." }
         operNumber: { type: integer }
         minutes: { type: integer }
         dueAt: { type: string, format: date-time }

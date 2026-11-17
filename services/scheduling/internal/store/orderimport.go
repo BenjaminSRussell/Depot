@@ -301,9 +301,9 @@ func importOrder(ctx context.Context, tx pgx.Tx, req OrderImportRequest, out *Or
 		case !found:
 			opID = ids.New()
 			if _, err := tx.Exec(ctx, `insert into scheduling_operation (tenant_id, id, order_id, oper_number, minutes, due_at, ready_at, priority,
-						candidate_resource_ids, secondary_resource_ids, setup_minutes)
-					values ($1, $2, $3, $4, $5, $6, $7, 100, $8::uuid[], '{}', $9)`,
-				tenantOf(ctx), opID, req.Order.OrderID, op.OperNumber, op.Minutes, op.DueAt, op.ReadyAt, candidates, op.SetupMinutes); err != nil {
+						candidate_resource_ids, secondary_resource_ids, setup_minutes, order_number)
+					values ($1, $2, $3, $4, $5, $6, $7, 100, $8::uuid[], '{}', $9, nullif($10, ''))`,
+				tenantOf(ctx), opID, req.Order.OrderID, op.OperNumber, op.Minutes, op.DueAt, op.ReadyAt, candidates, op.SetupMinutes, req.Order.OrderNumber); err != nil {
 				return err
 			}
 			res.Created++
@@ -368,6 +368,16 @@ func importOrder(ctx context.Context, tx pgx.Tx, req OrderImportRequest, out *Or
 		}
 		res.Removed++
 		data.RemovedOperNumbers = append(data.RemovedOperNumbers, n)
+	}
+
+	// The order number is a dispatch key (FR-23.5), not a placement input: it
+	// goes onto every operation of the order, firmed ones included, without
+	// moving their versions or jobs.
+	if req.Order.OrderNumber != "" {
+		if _, err := tx.Exec(ctx, `update scheduling_operation set order_number = $2 where order_id = $1::uuid and order_number is distinct from $2`,
+			req.Order.OrderID, req.Order.OrderNumber); err != nil {
+			return err
+		}
 	}
 
 	slices.SortFunc(skipped, func(a, b domain.SkippedOperation) int { return a.OperNumber - b.OperNumber })
