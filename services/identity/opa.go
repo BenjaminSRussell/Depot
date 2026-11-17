@@ -136,10 +136,11 @@ func RequireOPAForRequest(client *OPAClient) func(http.Handler) http.Handler {
 }
 
 // RequireOPAForGateway is RequireOPAForRequest for a single-host gateway (devgateway, depot-server; ADR-0017): the
-// records name the gateway as their source and its route, the path prefix (authz.GatewayRoute), since a gateway has no
-// route template of its own and the raw path can carry ids.
+// records name the gateway as their source and its route, the path prefix (authz.GatewayRouteOf), since a gateway has no
+// route template of its own and the raw path can carry ids. The gateway puts the prefixes it routes on the request
+// (authz.WithGatewayRoutes); any other prefix is recorded as "unmatched".
 func RequireOPAForGateway(client *OPAClient, gateway string) func(http.Handler) http.Handler {
-	return requireOPA(client, gateway, func(r *http.Request) string { return authz.GatewayRoute(r.URL.Path) }, requestResource)
+	return requireOPA(client, gateway, authz.GatewayRouteOf, requestResource)
 }
 
 func requestResource(r *http.Request) (string, string) { return r.Method, r.URL.Path }

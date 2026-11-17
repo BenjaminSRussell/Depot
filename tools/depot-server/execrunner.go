@@ -8,7 +8,10 @@ import (
 	"os"
 	"os/exec"
 	"sort"
+	"strings"
 	"time"
+
+	"github.com/BenjaminSRussell/depot/platform/logpseudo"
 )
 
 // ExecRunner starts real child processes. Their stdout and stderr go to Logs.
@@ -22,19 +25,10 @@ type execHandle struct {
 	err  error
 }
 
-// Start launches p with its environment on top of the parent's.
+// Start launches p with its environment on top of the parent's (childEnv).
 func (r ExecRunner) Start(ctx context.Context, p Process) (Handle, error) {
 	cmd := exec.Command(p.Exe, p.Args...) //nolint:gosec // the executable comes from the installed bin directory or the admin-owned config
-	env := os.Environ()
-	keys := make([]string, 0, len(p.Env))
-	for k := range p.Env {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		env = append(env, k+"="+p.Env[k])
-	}
-	cmd.Env = env
+	cmd.Env = childEnv(os.Environ(), p)
 	cmd.WaitDelay = 5 * time.Second // a grandchild holding the pipes open must not block Wait forever
 	setProcAttr(cmd)
 	var logw io.Writer
@@ -57,6 +51,47 @@ func (r ExecRunner) Start(ctx context.Context, p Process) (Handle, error) {
 }
 
 func (h *execHandle) Wait() error { <-h.done; return h.err }
+
+// childEnv is p's environment: the supervisor's, without its keys (keyVariable), then p.Env in key order. A key reaches a
+// child only when that child's own configuration sets it: an operator who gives depot-server a pseudonymization key for
+// the gateway's records, or field-encryption keys, does not hand them to every one of the 60-plus services it starts.
+func childEnv(parent []string, p Process) []string {
+	env := make([]string, 0, len(parent)+len(p.Env))
+	for _, kv := range parent {
+		if name, _, _ := strings.Cut(kv, "="); !keyVariable(name) {
+			env = append(env, kv)
+		}
+	}
+	keys := make([]string, 0, len(p.Env))
+	for k := range p.Env {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		env = append(env, k+"="+p.Env[k])
+	}
+	return env
+}
+
+// subjectKeyEnv is getenv without the field-encryption variables, for logpseudo.LoadSubjectKey: the gateway's records are
+// pseudonymized under the dedicated pseudonymization key only, so nothing in depot-server asks an operator to give the
+// supervisor fieldcrypt's master keys.
+func subjectKeyEnv(getenv func(string) string) func(string) string {
+	return func(name string) string {
+		if strings.HasPrefix(strings.ToUpper(name), "FIELDCRYPT_") {
+			return ""
+		}
+		return getenv(name)
+	}
+}
+
+// keyVariable reports whether an environment variable carries key material the supervisor must not pass on: the
+// field-encryption master keys (FIELDCRYPT_*) and the log pseudonymization key (logpseudo.EnvKey, EnvKeyFile). Windows
+// variable names are case-insensitive, so the check is too.
+func keyVariable(name string) bool {
+	upper := strings.ToUpper(name)
+	return strings.HasPrefix(upper, "FIELDCRYPT_") || upper == logpseudo.EnvKey || upper == logpseudo.EnvKeyFile
+}
 
 func closeWriter(w io.Writer) {
 	if c, ok := w.(io.Closer); ok {

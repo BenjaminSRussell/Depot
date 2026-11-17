@@ -38,6 +38,10 @@ type Case struct {
 	ScopedDuties map[string][]string `json:"scoped_duties"`
 	LegalEntity  string              `json:"legal_entity"`
 	Allow        bool                `json:"allow"`
+	// Status is the status of a refusal: 400 for a path that is not canonical, else (0) 403.
+	Status int `json:"status"`
+	// TokenDutiesOnly puts Duties in the token's duties claim only, with no identity role assignment (a machine caller).
+	TokenDutiesOnly bool `json:"token_duties_only"`
 	// Subject is the token's sub for this case, unique in the table (set by Load).
 	Subject string `json:"-"`
 }
@@ -139,7 +143,9 @@ func StartOPA(t testing.TB, policyDir string, table Table) string {
 	tenantWide := map[string][]string{}
 	scoped := map[string]map[string][]string{}
 	for _, c := range table.Cases {
-		tenantWide[c.Subject] = append([]string{}, c.Duties...)
+		if !c.TokenDutiesOnly {
+			tenantWide[c.Subject] = append([]string{}, c.Duties...)
+		}
 		scoped[c.Subject] = map[string][]string{}
 		for le, duties := range c.ScopedDuties {
 			scoped[c.Subject][le] = duties
@@ -238,11 +244,15 @@ func Run(t *testing.T, gateway http.Handler, issuer *Issuer, table Table, source
 			gateway.ServeHTTP(rec, req)
 			hit := reached()
 			log := takeLog()
+			refusal := http.StatusForbidden
+			if c.Status != 0 {
+				refusal = c.Status
+			}
 			switch {
 			case c.Allow && (!hit || rec.Code >= 400):
 				t.Fatalf("%s %s: want allowed, got %d (upstream reached: %v): %s", c.Method, c.Path, rec.Code, hit, rec.Body)
-			case !c.Allow && (hit || rec.Code != http.StatusForbidden):
-				t.Fatalf("%s %s: want 403, got %d (upstream reached: %v): %s", c.Method, c.Path, rec.Code, hit, rec.Body)
+			case !c.Allow && (hit || rec.Code != refusal):
+				t.Fatalf("%s %s: want %d, got %d (upstream reached: %v): %s", c.Method, c.Path, refusal, rec.Code, hit, rec.Body)
 			}
 			recs := Records(t, log)
 			if len(recs) != 1 {
@@ -251,8 +261,15 @@ func Run(t *testing.T, gateway http.Handler, issuer *Issuer, table Table, source
 			r := recs[0]
 			outcome := map[bool]string{true: "allow", false: "deny"}[c.Allow]
 			prefix := strings.SplitN(strings.TrimPrefix(strings.TrimPrefix(c.Path, "/api"), "/"), "/", 3)
-			route := c.Method + " /" + prefix[0] + "/" + prefix[1] + "/**"
-			if r["source"] != source || r["outcome"] != outcome || r["tenant"] != table.Tenant || r["route"] != route || r["request_id"] == "" {
+			route, tenantID := c.Method+" /"+prefix[0]+"/"+prefix[1]+"/**", table.Tenant
+			if refusal == http.StatusBadRequest {
+				// Refused before the token is read: no route, no tenant.
+				route, tenantID = c.Method+" unmatched", ""
+				if r["reason"] != "not_canonical" {
+					t.Fatalf("record = %v; want reason not_canonical", r)
+				}
+			}
+			if r["source"] != source || r["outcome"] != outcome || r["tenant"] != tenantID || r["route"] != route || r["request_id"] == "" {
 				t.Fatalf("record = %v; want source %s, outcome %s, route %s and a request id", r, source, outcome, route)
 			}
 			if c.Allow && r["duty"] == "" {

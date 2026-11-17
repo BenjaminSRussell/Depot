@@ -87,7 +87,7 @@ func Record(ctx context.Context, d Decision) {
 		slog.String("log_class", LogClass),
 		slog.String("source", d.Source),
 		slog.String("tenant", d.TenantID),
-		slog.String("subject", logpseudo.Subject(d.TenantID, d.Subject)),
+		logpseudo.SubjectAttr("subject", d.TenantID, d.Subject),
 		slog.String("duty", d.Duty),
 		slog.String("route", strings.TrimSpace(d.Method+" "+route)),
 		slog.String("outcome", outcome),
@@ -115,15 +115,37 @@ func RouteTemplate(r *http.Request) string {
 
 var prefixSegment = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 
-// GatewayRoute is the route a gateway names in its record: the first two path segments and /** ("/v1/ledger/**",
-// "/scim/v2/**"), or "unmatched" when they are not plain lower-case names. A gateway routes by the prefix, so that is its
-// route template; the rest of the path can carry ids and is never logged.
-func GatewayRoute(path string) string {
+// GatewayRoute is the route a gateway names in its record: the first two path segments and /** ("/v1/ledger/**"), or
+// "unmatched" when they are not plain lower-case names or routed (nil accepts every name) does not know the second, the
+// service prefix. A gateway routes by the prefix, so that is its route template; the rest of the path can carry ids and
+// is never logged, and neither is a prefix the gateway does not route, so a client cannot write a name of its choosing
+// (an id, say) into the record.
+func GatewayRoute(path string, routed func(prefix string) bool) string {
 	parts := strings.SplitN(strings.TrimPrefix(path, "/"), "/", 3)
 	if len(parts) < 2 || !prefixSegment.MatchString(parts[0]) || !prefixSegment.MatchString(parts[1]) {
 		return "unmatched"
 	}
+	if routed != nil && !routed(parts[1]) {
+		return "unmatched"
+	}
 	return "/" + parts[0] + "/" + parts[1] + "/**"
+}
+
+type gatewayRoutesKey struct{}
+
+// WithGatewayRoutes records on ctx which service prefixes the gateway routes, for GatewayRouteOf.
+func WithGatewayRoutes(ctx context.Context, routed func(prefix string) bool) context.Context {
+	return context.WithValue(ctx, gatewayRoutesKey{}, routed)
+}
+
+// GatewayRouteOf is GatewayRoute of r's path under the prefixes WithGatewayRoutes put on its context; without them every
+// path is "unmatched".
+func GatewayRouteOf(r *http.Request) string {
+	routed, _ := r.Context().Value(gatewayRoutesKey{}).(func(string) bool)
+	if routed == nil {
+		return "unmatched"
+	}
+	return GatewayRoute(r.URL.Path, routed)
 }
 
 // RequestID is the request id chi's middleware.RequestID put on the request (the services' routers and both single-host

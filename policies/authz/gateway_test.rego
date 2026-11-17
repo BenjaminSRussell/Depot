@@ -11,7 +11,11 @@ route_tenant := data.testdata.tenant
 
 case_user(c) := concat("", ["user-", c.name])
 
-case_assignments(c) := {route_tenant: {case_user(c): c.duties}}
+# A token_duties_only case is a machine caller: its duties are in its token, which Envoy never shows OPA, and identity
+# holds no assignment for it.
+case_assignments(c) := {route_tenant: {case_user(c): c.duties}} if not c.token_duties_only
+
+case_assignments(c) := {} if c.token_duties_only
 
 case_scoped(c) := {route_tenant: {case_user(c): object.get(c, "scoped_duties", {})}}
 
@@ -42,13 +46,22 @@ test_envoy_answers_the_route_table if {
 	count(mismatches) == 0
 }
 
+test_envoy_refusal_status_of_every_denied_case if {
+	mismatches := {c.name |
+		some c in route_table
+		not c.allow
+		envoy_answer(c).http_status != object.get(c, "status", 403)
+	}
+	count(mismatches) == 0
+}
+
 test_envoy_records_every_route_table_decision if {
 	every c in route_table {
 		record := envoy_answer(c).record
 		record.event == "authz.decision"
 		record.source == "envoy"
 		record.tenant == route_tenant
-		record.subject == "[redacted]"
+		record.subject == "[redacted]" # no DEPOT_LOG_PSEUDONYM_KEY in the test environment
 		record.request_id == "req-1"
 		record.outcome == {true: "allow", false: "deny"}[c.allow]
 		not contains(json.marshal(record), case_user(c))
@@ -91,6 +104,10 @@ test_envoy_refuses_paths_that_are_not_canonical if {
 		"/api/v1/numbering//sequences",
 		"/api/v1/numbering/%2e%2e/identity",
 		"/api/v1/numbering%2Fsequences",
+		"/api/v1/numbering/sequences/s1%3Anext",
+		"/api/v1/numbering/sequences/%73",
+		"/api/v1/numbering/sequences/s%201",
+		"/api/v1/numbering/sequences/s1%",
 		"relative/v1/numbering",
 	] {
 		answer := envoy with input as envoy_input("GET", path, {"x-depot-tenant": "t", "x-depot-user": "u"})
@@ -132,10 +149,91 @@ test_envoy_decides_a_d22_route_on_the_service_base if {
 	answer.record.route == "POST /api/v1/agents/**"
 }
 
+# One request for each D22 prefix (the routes Envoy rewrites to a base that is not /v1/<prefix>), with a duty the
+# catalogue grants under that base. Both public paths are allowed with the duty and refused without it.
+d22_cases := {
+	"agents": {"method": "GET", "rest": "/budgets/b1", "duty": "agents.admin"},
+	"copilot": {"method": "POST", "rest": "/chat", "duty": "mcp.copilot.use"},
+	"cutover": {"method": "GET", "rest": "/plans", "duty": "migration.cutover.manage"},
+	"edi": {"method": "GET", "rest": "/partners", "duty": "edi.admin"},
+	"mcp": {"method": "POST", "rest": "", "duty": "mcp.copilot.use"},
+	"migration": {"method": "POST", "rest": "/opening-targets/t1/p1/release", "duty": "migration.opening-target.release"},
+	"print": {"method": "POST", "rest": "/jobs", "duty": "print.job.submit"},
+}
+
+test_d22_cases_cover_every_rewritten_prefix if object.keys(d22_cases) == object.keys(gateway_service_bases)
+
+d22_answer(prefix, public, duties) := answer if {
+	c := d22_cases[prefix]
+	answer := envoy with input as envoy_input(c.method, concat("", [public, prefix, c.rest]), {"x-depot-tenant": "t", "x-depot-user": "u"})
+		with data.assignments as {"t": {"u": duties}}
+}
+
+test_envoy_allows_every_d22_prefix_with_its_duty if {
+	every prefix, c in d22_cases {
+		every public in ["/api/v1/", "/v1/"] {
+			answer := d22_answer(prefix, public, [c.duty])
+			answer.allowed == true
+			answer.record.duty == c.duty
+			answer.record.route == concat("", [c.method, " ", gateway_service_bases[prefix], "/**"])
+		}
+	}
+}
+
+test_envoy_refuses_every_d22_prefix_without_its_duty if {
+	every prefix, _ in d22_cases {
+		every public in ["/api/v1/", "/v1/"] {
+			answer := d22_answer(prefix, public, ["numbering.read"])
+			answer.allowed == false
+			answer.http_status == 403
+		}
+	}
+}
+
+# Every rewritten base has at least one duty permission under it, or Envoy would refuse that service to everyone (the mcp
+# entry once named /api/v1/mcp while Envoy decides on /mcp). test_gateway.py checks every routed prefix the same way.
+test_every_rewritten_base_has_a_duty_permission_under_it if {
+	every _, base in gateway_service_bases {
+		some _, spec in data.duties
+		some permission in spec.permissions
+		base_covers(base, permission.resource)
+	}
+}
+
+base_covers(base, resource) if resource == base
+
+base_covers(base, resource) if startswith(resource, concat("", [base, "/"]))
+
+base_covers(base, resource) if startswith(resource, concat("", [base, ":"]))
+
+# The rego pseudonym is logpseudo's: a vector computed with Go's logpseudo.PseudonymFor (fieldcrypt key of the bytes
+# i*37+200, i = 0..31). services/identity/authztest compares more vectors against Go at run time.
+pseudonym_key := "yO0SN1yBpsvwFTpfhKnO8xg9Yoes0fYbQGWKr9T5HkM="
+
+test_log_pseudonym_matches_go if {
+	log_pseudonym(pseudonym_key, "00000000-0000-0000-0000-000000000001", "  User-\u00c4B ") == "pn_901e02e95f689c7e"
+}
+
+test_envoy_record_carries_the_pseudonym_under_the_configured_key if {
+	answer := envoy with input as envoy_input("GET", "/api/v1/numbering/sequences/s1", {"x-depot-tenant": "00000000-0000-0000-0000-000000000001", "x-depot-user": "  User-\u00c4B "})
+		with data.assignments as {"00000000-0000-0000-0000-000000000001": {"  User-\u00c4B ": ["numbering.read"]}}
+		with opa.runtime as {"env": {"DEPOT_LOG_PSEUDONYM_KEY": pseudonym_key}}
+	answer.record.subject == "pn_901e02e95f689c7e"
+	not contains(json.marshal(answer.record), "User")
+}
+
+test_log_subject_redacts_without_a_valid_key_or_tenant if {
+	log_subject("t", "u") == "[redacted]" with opa.runtime as {"env": {}}
+	log_subject("t", "u") == "[redacted]" with opa.runtime as {"env": {"DEPOT_LOG_PSEUDONYM_KEY": "c2hvcnQ="}}
+	log_subject("", "u") == "[redacted]" with opa.runtime as {"env": {"DEPOT_LOG_PSEUDONYM_KEY": pseudonym_key}}
+	log_subject("t", "") == "" with opa.runtime as {"env": {"DEPOT_LOG_PSEUDONYM_KEY": pseudonym_key}}
+}
+
 test_decision_names_the_granting_duty if {
 	result := decision with input as {"subject": {"tenant_id": "t", "user_id": "u"}, "action": "GET", "resource": "/v1/numbering/sequences/s1"}
 		with data.assignments as {"t": {"u": ["numbering.sequence.maintain", "numbering.read"]}}
 	result == {"allow": true, "duty": "numbering.read"}
 }
 
-test_decision_log_mask_erases_the_input if decision_log_mask == {"/input"}
+# The mask is the ext_authz OPA's own (deploy/gateway/authz-opa.yaml), never the bundle's: no authz rule may claim it.
+test_the_bundle_carries_no_decision_log_mask if not data.authz.decision_log_mask

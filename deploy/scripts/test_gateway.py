@@ -795,19 +795,43 @@ ROUTE_TABLE = POLICY_DIR / "testdata" / "route_table.json"
 EXT_AUTHZ_SERVICE, EXT_AUTHZ_PORT = "depot-authz-opa", 9191
 
 
+def opa_query(query, input_doc=None):
+    """The value of a query against the real policy (opa eval on policies/authz), not a Python copy of it. CI installs OPA."""
+    with tempfile.TemporaryDirectory() as tmp:
+        cmd = ["opa", "eval", "--format", "raw", "-d", str(AUTHZ_REGO), "-d", str(POLICY_DIR / "data.json")]
+        if input_doc is not None:
+            path = Path(tmp) / "input.json"
+            path.write_text(json.dumps(input_doc))
+            cmd += ["-i", str(path)]
+        out = subprocess.run(cmd + [query], check=True, capture_output=True, text=True).stdout
+    return json.loads(out)
+
+
 def rego_gateway_bases():
-    """gateway_service_bases from authz.rego (a rego object of strings, which is JSON)."""
-    m = re.search(r"^gateway_service_bases := (\{.*?^\})", AUTHZ_REGO.read_text(), re.M | re.S)
-    assert m, "authz.rego has no gateway_service_bases"
-    return json.loads(re.sub(r",(\s*\})", r"\1", m.group(1)))
+    return opa_query("data.authz.gateway_service_bases")
 
 
-def rego_resource(path, bases):
-    """authz.rego's gateway_resource: the path the service receives for a public path, or None."""
-    m = re.fullmatch(r"(?:/api)?/v1/([a-z0-9][a-z0-9-]*)(/.*)?", path)
-    if not m:
-        return None
-    return bases.get(m.group(1), f"/v1/{m.group(1)}") + (m.group(2) or "")
+def rego_resources(paths):
+    """data.authz.gateway_resource for each public path: path -> the path the service receives (absent when undefined)."""
+    return opa_query("{p: r | some p in input; r := data.authz.gateway_resource(p)}", sorted(set(paths)))
+
+
+def literal_prefix(resource):
+    """The part of a duty resource before its first glob character."""
+    m = re.search(r"[*?\[{]", resource)
+    return resource[: m.start()] if m else resource
+
+
+def base_has_permission(base, resources):
+    """Whether some duty resource can match a path at or under base: equal, under it (/ or :), or a glob whose literal
+    prefix the base extends."""
+    for r in resources:
+        if r == base or r.startswith(base + "/") or r.startswith(base + ":"):
+            return True
+        lit = literal_prefix(r)
+        if lit != r and (base + "/").startswith(lit):
+            return True
+    return False
 
 
 class AuthzEnforcement(unittest.TestCase):
@@ -871,6 +895,15 @@ class AuthzEnforcement(unittest.TestCase):
         for h in sent:
             self.assertIn(f'"{h}"', rego)
 
+    def test_envoy_generates_every_request_id_itself(self):
+        # The request id goes into the OPA's and the service's records: the client's copy is removed before any filter
+        # runs, so Envoy always generates it, whether or not it treats the source as internal.
+        ctp = named(self.docs, "ClientTrafficPolicy", "depot-api-strip-identity-headers")
+        removed = {h.lower() for h in ctp["spec"]["headers"]["earlyRequestHeaders"]["remove"]}
+        self.assertIn("x-request-id", removed)
+        self.assertEqual(ctp["spec"]["headers"].get("requestID"), "Generate")
+        self.assertEqual(target_names(ctp), {("Gateway", API_GATEWAY)})
+
     def test_the_ext_authz_opa_answers_the_envoy_rule_from_identitys_signed_bundle(self):
         dep = named(self.docs, "Deployment", EXT_AUTHZ_SERVICE)
         (container,) = dep["spec"]["template"]["spec"]["containers"]
@@ -898,13 +931,58 @@ class AuthzEnforcement(unittest.TestCase):
         for k, v in identity_values["networkPolicy"]["opaPodLabels"].items():
             self.assertEqual(labels.get(k), v)
 
-    def test_decision_logs_are_on_and_masked(self):
-        cfg = yaml.safe_load(named(self.docs, "ConfigMap", "depot-authz-opa-config")["data"]["config.yaml"])
+    def test_decision_logs_are_on_and_masked_by_a_local_policy(self):
+        cm = named(self.docs, "ConfigMap", "depot-authz-opa-config")
+        cfg = yaml.safe_load(cm["data"]["config.yaml"])
         self.assertIs(cfg["decision_logs"]["console"], True)
-        mask = cfg["decision_logs"]["mask_decision"]
-        self.assertEqual(mask, "/authz/decision_log_mask")
-        self.assertIn('decision_log_mask contains "/input"', AUTHZ_REGO.read_text())
         self.assertEqual(cfg["labels"]["log_class"], "audit.other")
+        # The mask is the ConfigMap's own policy under data.system, outside the bundle's roots, so a bundle without it (an
+        # older identity image, a renamed rule) cannot turn masking off; the bundle itself carries none.
+        self.assertEqual(cfg["decision_logs"]["mask_decision"], "/system/log/mask")
+        self.assertRegex(cm["data"]["mask.rego"], r'(?m)^package system\.log$')
+        self.assertRegex(cm["data"]["mask.rego"], r'(?m)^mask contains "/input"$')
+        self.assertNotIn("decision_log_mask", AUTHZ_REGO.read_text())
+        bundle_go = (DEPLOY.parent / "services/identity/policy_bundle.go").read_text()
+        roots = re.search(r"var bundleRoots = \[\]string\{([^}]*)\}", bundle_go).group(1)
+        self.assertNotIn('"system', roots)
+        (container,) = named(self.docs, "Deployment", EXT_AUTHZ_SERVICE)["spec"]["template"]["spec"]["containers"]
+        self.assertIn("/etc/opa/mask.rego", container["args"])
+        self.assertIn("/etc/opa/health.rego", container["args"])
+        mounts = {m["mountPath"]: m["name"] for m in container["volumeMounts"]}
+        self.assertEqual(mounts["/etc/opa"], "config")
+        # Ready only when the bundle is active, the mask is loaded and the bundle answers data.authz.envoy.
+        self.assertEqual(container["readinessProbe"]["httpGet"], {"path": "/health/ready", "port": "diagnostic"})
+        health = cm["data"]["health.rego"]
+        self.assertRegex(health, r"(?m)^package system\.health$")
+        for condition in ("input.plugins_ready", '"/input" in data.system.log.mask', "data.authz.envoy.allowed == false"):
+            self.assertIn(condition, health)
+
+    def test_the_envoy_record_subject_is_pseudonymized_under_the_optional_dedicated_key(self):
+        (container,) = named(self.docs, "Deployment", EXT_AUTHZ_SERVICE)["spec"]["template"]["spec"]["containers"]
+        env = {e["name"]: e for e in container["env"]}
+        ref = env["DEPOT_LOG_PSEUDONYM_KEY"]["valueFrom"]["secretKeyRef"]
+        self.assertEqual((ref["name"], ref["key"], ref.get("optional")), ("depot-log-pseudonym", "key", True))
+        self.assertIn("opa.runtime().env.DEPOT_LOG_PSEUDONYM_KEY", AUTHZ_REGO.read_text())
+        logpseudo = (DEPLOY.parent / "platform/go/logpseudo/logpseudo.go").read_text()
+        self.assertIn('EnvKey     = "DEPOT_LOG_PSEUDONYM_KEY"', logpseudo)
+
+    def test_envoy_denials_are_scraped_and_alerted(self):
+        pm = named(self.docs, "PodMonitor", "depot-api-envoy-ext-authz")
+        self.assertEqual(pm["spec"]["namespaceSelector"]["matchNames"], ["envoy-gateway-system"])
+        self.assertEqual(pm["spec"]["selector"]["matchLabels"], {
+            "gateway.envoyproxy.io/owning-gateway-name": API_GATEWAY,
+            "gateway.envoyproxy.io/owning-gateway-namespace": "hello-ledger",
+        })
+        (endpoint,) = pm["spec"]["podMetricsEndpoints"]
+        self.assertEqual((endpoint["port"], endpoint["path"]), ("metrics", "/stats/prometheus"))
+        self.assertEqual(endpoint["metricRelabelings"], [{"sourceLabels": ["__name__"], "regex": "envoy_cluster_ext_authz_.+", "action": "keep"}])
+        alerts = (DEPLOY / "observability/charts/observability/templates/alerts.yaml").read_text()
+        for alert, series in (("DepotAuthzEnvoyDenySpike", "envoy_cluster_ext_authz_denied"),
+                              ("DepotAuthzEnvoyCheckErrors", "envoy_cluster_ext_authz_error"),
+                              ("DepotAuthzOPAUnavailable", f'deployment="{EXT_AUTHZ_SERVICE}"')):
+            with self.subTest(alert=alert):
+                self.assertIn(f"- alert: {alert}", alerts)
+                self.assertIn(series, alerts.split(f"- alert: {alert}", 1)[1].split("- alert:", 1)[0])
 
     def test_only_the_api_gateways_envoy_pods_reach_the_ext_authz_port(self):
         np = named(self.docs, "NetworkPolicy", EXT_AUTHZ_SERVICE)
@@ -919,16 +997,30 @@ class AuthzEnforcement(unittest.TestCase):
         self.assertEqual(rule["ports"], [{"protocol": "TCP", "port": EXT_AUTHZ_PORT}])
 
     def test_the_policy_decides_on_the_path_each_generated_route_sends_to_its_service(self):
-        bases = rego_gateway_bases()
-        exceptions = set()
-        for r in MODEL.routes:
-            for public, upstream in r.matches():
-                with self.subTest(route=r.name, public=public):
-                    self.assertEqual(rego_resource(public, bases), upstream)
-            if r.upstream != f"/v1/{r.prefix}":
-                exceptions.add(r.prefix)
+        # Asked of the real rego (opa eval): each public path of each route, and a path under it, maps to what the route
+        # sends its service, which is the path the service and the duty catalogue name.
+        pairs = [(public + rest, upstream + rest) for r in MODEL.routes for public, upstream in r.matches()
+                 for rest in ("", "/x-1/y:act")]
+        resources = rego_resources([p for p, _ in pairs])
+        for public, upstream in pairs:
+            with self.subTest(public=public):
+                self.assertEqual(resources.get(public), upstream)
+        exceptions = {r.prefix for r in MODEL.routes if r.upstream != f"/v1/{r.prefix}"}
         # The rego table names exactly the routed prefixes whose service base is not /v1/<prefix> (the D22 exceptions).
-        self.assertEqual(set(bases), exceptions)
+        self.assertEqual(set(rego_gateway_bases()), exceptions)
+        # Encoded, relative and unrouted-looking paths are not decided.
+        self.assertEqual(rego_resources(["/api/v1/ledger/a%3Ab", "/api/v1/ledger/../x", "/api/v2/ledger", "/api/v1/Ledger"]), {})
+
+    def test_every_routed_service_base_has_a_duty_permission_under_it(self):
+        # Envoy decides on the service base; a base no duty resource reaches would be refused to everyone (the mcp entry
+        # once named /api/v1/mcp while Envoy decides on /mcp).
+        duties = json.loads((POLICY_DIR / "data.json").read_text())["duties"]
+        resources = [p["resource"] for spec in duties.values() for p in spec["permissions"]]
+        for r in MODEL.routes:
+            with self.subTest(route=r.name, base=r.upstream):
+                self.assertTrue(base_has_permission(r.upstream, resources))
+        self.assertFalse(base_has_permission("/mcp-unknown", ["/mcp", "/api/v1/mcp"]))
+        self.assertTrue(base_has_permission("/v1/ledger", ["/v1/*/balances"]))
 
     def test_the_shared_route_table_calls_routes_envoy_serves(self):
         table = json.loads(ROUTE_TABLE.read_text())

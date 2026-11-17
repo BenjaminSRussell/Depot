@@ -2,6 +2,8 @@ package logpseudo_test
 
 import (
 	"encoding/base64"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -49,7 +51,9 @@ func TestLoadSubjectKeyReadsFieldcryptOnceAndRedactsOnABadConfiguration(t *testi
 
 	logpseudo.ResetSubjectKey()
 	key := base64.StdEncoding.EncodeToString(make([]byte, 32))
-	env := func(k string) string { return map[string]string{"FIELDCRYPT_KEYS": "k1=" + key, "FIELDCRYPT_CURRENT_KEY_ID": "k1"}[k] }
+	env := func(k string) string {
+		return map[string]string{"FIELDCRYPT_KEYS": "k1=" + key, "FIELDCRYPT_CURRENT_KEY_ID": "k1"}[k]
+	}
 	if err := logpseudo.LoadSubjectKey(env); err != nil {
 		t.Fatal(err)
 	}
@@ -63,16 +67,84 @@ func TestLoadSubjectKeyReadsFieldcryptOnceAndRedactsOnABadConfiguration(t *testi
 	}
 }
 
-func TestHandlerLeavesAPseudonymOrTheRedactedMarkerAsItIs(t *testing.T) {
+// Only SubjectAttr's value passes the handler as it is; a string that merely looks like a pseudonym (a user who set their
+// name to another user's pseudonym, read from a shared log) is pseudonymized like any personal value.
+func TestHandlerPassesOnlySubjectAttrAndTheRedactedMarker(t *testing.T) {
+	t.Cleanup(logpseudo.ResetSubjectKey)
 	k := keys(t)
+	logpseudo.SetSubjectKey(k)
 	log, buf := capture(k)
-	pn := logpseudo.PseudonymFor(k, tenantA, "user-1")
-	log.InfoContext(ctxOf(tenantA), "x", "subject", pn, "user", logpseudo.Redacted, "actor", "pn_not-a-pseudonym")
+	victim := logpseudo.PseudonymFor(k, tenantA, "victim")
+	log.InfoContext(ctxOf(tenantA), "x", logpseudo.SubjectAttr("subject", tenantA, "user-1"), "user", logpseudo.Redacted,
+		"actor", victim, "caller", "pn_not-a-pseudonym")
 	got := lines(t, buf)[0]
-	if got["subject"] != pn || got["user"] != logpseudo.Redacted {
-		t.Fatalf("pseudonym or marker rewritten: %v", got)
+	if got["subject"] != logpseudo.PseudonymFor(k, tenantA, "user-1") || got["user"] != logpseudo.Redacted {
+		t.Fatalf("subject attribute or marker rewritten: %v", got)
 	}
-	if got["actor"] == "pn_not-a-pseudonym" {
+	if got["actor"] == victim || got["actor"] != logpseudo.PseudonymFor(k, tenantA, victim) {
+		t.Fatalf("a look-alike pseudonym passed through: %v", got)
+	}
+	if got["caller"] == "pn_not-a-pseudonym" {
 		t.Fatalf("a value that only starts like a pseudonym passed through: %v", got)
+	}
+}
+
+// Without the handler SubjectAttr logs as the plain pseudonym string.
+func TestSubjectAttrLogsAsAStringWithoutTheHandler(t *testing.T) {
+	t.Cleanup(logpseudo.ResetSubjectKey)
+	k := keys(t)
+	logpseudo.SetSubjectKey(k)
+	a := logpseudo.SubjectAttr("subject", tenantA, "user-1")
+	if got := a.Value.Resolve().String(); got != logpseudo.PseudonymFor(k, tenantA, "user-1") {
+		t.Fatalf("resolved = %q", got)
+	}
+}
+
+// The dedicated key (DEPOT_LOG_PSEUDONYM_KEY or _FILE) comes first and goes through fieldcrypt's MAC derivation, so the
+// same 32 bytes as fieldcrypt's current key give the same pseudonym; without it fieldcrypt's key is used; a dedicated
+// key that is set but bad is an error, never a fall back.
+func TestKeyFromEnvPrefersTheDedicatedKey(t *testing.T) {
+	raw := make([]byte, 32)
+	raw[0] = 7
+	b64 := base64.StdEncoding.EncodeToString(raw)
+	other := base64.StdEncoding.EncodeToString(make([]byte, 32))
+	env := func(m map[string]string) func(string) string { return func(k string) string { return m[k] } }
+
+	fc, err := logpseudo.KeyFromEnv(env(map[string]string{"FIELDCRYPT_KEYS": "k1=" + b64, "FIELDCRYPT_CURRENT_KEY_ID": "k1"}))
+	if err != nil || fc == nil {
+		t.Fatalf("fieldcrypt key: %v", err)
+	}
+	ded, err := logpseudo.KeyFromEnv(env(map[string]string{logpseudo.EnvKey: b64, "FIELDCRYPT_KEYS": "k1=" + other, "FIELDCRYPT_CURRENT_KEY_ID": "k1"}))
+	if err != nil || ded == nil {
+		t.Fatalf("dedicated key: %v", err)
+	}
+	if logpseudo.PseudonymFor(ded, tenantA, "user-1") != logpseudo.PseudonymFor(fc, tenantA, "user-1") {
+		t.Fatal("the dedicated key does not derive like fieldcrypt's MAC (or fieldcrypt's key was used instead)")
+	}
+	file := filepath.Join(t.TempDir(), "key")
+	if err := os.WriteFile(file, []byte(b64+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fromFile, err := logpseudo.KeyFromEnv(env(map[string]string{logpseudo.EnvKeyFile: file}))
+	if err != nil || logpseudo.PseudonymFor(fromFile, tenantA, "user-1") != logpseudo.PseudonymFor(fc, tenantA, "user-1") {
+		t.Fatalf("key file: %v", err)
+	}
+	if none, err := logpseudo.KeyFromEnv(env(nil)); err != nil || none != nil {
+		t.Fatalf("no key: %v, %v", none, err)
+	}
+	for _, bad := range []string{"not base64!", base64.StdEncoding.EncodeToString(make([]byte, 16))} {
+		if _, err := logpseudo.KeyFromEnv(env(map[string]string{logpseudo.EnvKey: bad, "FIELDCRYPT_KEYS": "k1=" + other, "FIELDCRYPT_CURRENT_KEY_ID": "k1"})); err == nil {
+			t.Fatalf("bad dedicated key %q accepted", bad)
+		}
+	}
+
+	// LoadSubjectKey uses it too: a service with no fieldcrypt keys pseudonymizes instead of redacting.
+	t.Cleanup(logpseudo.ResetSubjectKey)
+	logpseudo.ResetSubjectKey()
+	if err := logpseudo.LoadSubjectKey(env(map[string]string{logpseudo.EnvKey: b64})); err != nil {
+		t.Fatal(err)
+	}
+	if got := logpseudo.Subject(tenantA, "user-1"); got != logpseudo.PseudonymFor(fc, tenantA, "user-1") {
+		t.Fatalf("Subject = %q", got)
 	}
 }

@@ -560,6 +560,10 @@ jobs:
           go-version: '1.26'
           cache: false
       - run: go install github.com/yannh/kubeconform/cmd/kubeconform@v0.6.7
+      # test_gateway.py asks the real policy (policies/authz) how Envoy maps each generated route (B-04).
+      - uses: open-policy-agent/setup-opa@b2b258e089860efaadaaf71bf6e3aecb4a3eeff1
+        with:
+          version: 1.21.4
       - run: pip install pyyaml==6.0.2 && PATH="$(go env GOPATH)/bin:$PATH" make -C deploy test-gateway
       - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e
       - run: make -C deploy test-argocd

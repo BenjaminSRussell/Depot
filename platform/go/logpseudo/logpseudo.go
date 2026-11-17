@@ -3,17 +3,23 @@
 // Microsoft pseudonymizes the personal data in its own system logs inside the EU Data Boundary; Depot owes the same
 // for its logs and traces. Handler wraps a slog.Handler. An attribute whose key names a person (user, email, name,
 // person, subject, ip, ...), and any email address inside any string value or the message, is replaced by a stable
-// pseudonym: the HMAC of the value under the tenant's MAC key (fieldcrypt.Keys.MAC), so the same value maps to the
-// same pseudonym inside one tenant and to a different one in another, and the pseudonym cannot be reversed without the
-// key. When no key is configured, or the tenant is not known, the value is replaced by a fixed marker and never
-// passed through.
+// pseudonym: the HMAC of the value under the tenant's MAC key (fieldcrypt.Keys.MAC derivation), so the same value maps
+// to the same pseudonym inside one tenant and to a different one in another, and the pseudonym cannot be reversed
+// without the key. When no key is configured, or the tenant is not known, the value is replaced by a fixed marker and
+// never passed through.
+//
+// The key (KeyFromEnv) is the dedicated pseudonymization key DEPOT_LOG_PSEUDONYM_KEY (or the file named by
+// DEPOT_LOG_PSEUDONYM_KEY_FILE), base64 of 32 bytes, used only for this MAC; without it, fieldcrypt's current master key
+// (FIELDCRYPT_KEYS). Both go through the same derivation, so a dedicated key set to the bytes of fieldcrypt's current key
+// gives the same pseudonyms. A service that holds no field-encryption keys can pseudonymize with the dedicated key alone.
 //
 // The tenant comes from the request context (tenant.FromContext) when the call carries one (slog.InfoContext), else
 // from a tenant attribute on the record (tenant, tenantId, tenant_id). httpx.Serve calls Install, so a service needs
 // nothing else.
 //
 // Subject gives the same pseudonym for one value outside the handler, whatever the profile says: the authorization
-// decision record (platform/go/authz) carries it, never the raw user id (LoadSubjectKey, B-04).
+// decision record (platform/go/authz) carries it, never the raw user id (LoadSubjectKey, B-04). SubjectAttr marks the
+// attribute so the handler does not pseudonymize it a second time; no string value is exempt.
 //
 // Limits: a person's name in free text (a message, a field not named like a person) cannot be recognised and is not
 // changed; log a name under a key such as name, displayName or user instead. A value that is a struct or map is
@@ -22,9 +28,11 @@ package logpseudo
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -47,6 +55,16 @@ const EmailRedacted = "[redacted-email]"
 
 // Prefix starts every pseudonym.
 const Prefix = "pn_"
+
+// The dedicated pseudonymization key (B-04): base64 of 32 bytes in DEPOT_LOG_PSEUDONYM_KEY, or in the file named by
+// DEPOT_LOG_PSEUDONYM_KEY_FILE. The Envoy ext_authz OPA reads the same variable (policies/authz, log_pseudonym).
+const (
+	EnvKey     = "DEPOT_LOG_PSEUDONYM_KEY"
+	EnvKeyFile = "DEPOT_LOG_PSEUDONYM_KEY_FILE"
+)
+
+// keyID names the dedicated key inside the fieldcrypt.Keys that carries it; it never leaves the process.
+const keyID = "log-pseudonym"
 
 // macDomain keeps the product's former name so pseudonyms in retained logs still match (docs/adr/0005-rename-to-depot.md).
 const macDomain = "passage.log.pseudonym.v1\x00"
@@ -73,21 +91,47 @@ func Enabled(getenv func(string) string) (bool, error) {
 	return strings.EqualFold(strings.TrimSpace(getenv(Env)), "true"), nil
 }
 
+// KeyFromEnv is the MAC logs are pseudonymized under: the dedicated key (EnvKey, EnvKeyFile) when one is set, else
+// fieldcrypt's current master key (FIELDCRYPT_KEYS, FIELDCRYPT_KEYS_FILE), else nil (every personal value Redacted). A key
+// that is set but cannot be read is an error, never a silent fall back to the other key.
+func KeyFromEnv(getenv func(string) string) (MACer, error) {
+	raw := strings.TrimSpace(getenv(EnvKey))
+	if file := strings.TrimSpace(getenv(EnvKeyFile)); file != "" {
+		b, err := os.ReadFile(file) //nolint:gosec // the path is the operator's configuration
+		if err != nil {
+			return nil, fmt.Errorf("logpseudo: read %s: %w", EnvKeyFile, err)
+		}
+		raw = strings.TrimSpace(string(b))
+	}
+	if raw != "" {
+		key, err := base64.StdEncoding.DecodeString(raw)
+		if err != nil {
+			return nil, fmt.Errorf("logpseudo: %s is not base64", EnvKey)
+		}
+		keys, err := fieldcrypt.NewKeys(keyID, map[string][]byte{keyID: key})
+		if err != nil {
+			return nil, fmt.Errorf("logpseudo: %s must be base64 of 32 bytes", EnvKey)
+		}
+		return keys, nil
+	}
+	keys, err := fieldcrypt.FromEnv(getenv)
+	if err != nil || keys == nil {
+		return nil, err
+	}
+	return keys, nil
+}
+
 // Install wraps slog's default handler when pseudonymization is enabled (see Enabled) and reports whether it did. The
-// key is fieldcrypt's (FIELDCRYPT_KEYS); with none configured every personal value is replaced by Redacted. A bad
-// profile or key configuration is an error: logs are never left raw because the configuration could not be read.
+// key is KeyFromEnv's; with none configured every personal value is replaced by Redacted. A bad profile or key
+// configuration is an error: logs are never left raw because the configuration could not be read.
 func Install(getenv func(string) string) (bool, error) {
 	on, err := Enabled(getenv)
 	if err != nil || !on {
 		return false, err
 	}
-	keys, err := fieldcrypt.FromEnv(getenv)
+	mac, err := KeyFromEnv(getenv)
 	if err != nil {
 		return false, fmt.Errorf("logpseudo: %w", err)
-	}
-	var mac MACer
-	if keys != nil {
-		mac = keys
 	}
 	subjectKey.CompareAndSwap(nil, &subjectHolder{mac: mac})
 	return InstallWith(mac), nil
@@ -102,22 +146,18 @@ type subjectHolder struct{ mac MACer }
 // makes Subject return Redacted for every value.
 func SetSubjectKey(mac MACer) { subjectKey.Store(&subjectHolder{mac: mac}) }
 
-// LoadSubjectKey sets Subject's key from fieldcrypt's configuration (FIELDCRYPT_KEYS or FIELDCRYPT_KEYS_FILE) once per
-// process; a later call is a no-op. Unlike Install it runs whatever the profile says, because the authorization decision
+// LoadSubjectKey sets Subject's key from KeyFromEnv (the dedicated key, else fieldcrypt's) once per process; a later
+// call is a no-op. Unlike Install it runs whatever the profile says, because the authorization decision
 // record (platform/go/authz) always carries a pseudonym, never a raw user id. A configuration that cannot be read leaves
 // the key unset, so every subject is Redacted, and is returned for the caller to log.
 func LoadSubjectKey(getenv func(string) string) error {
 	if subjectKey.Load() != nil {
 		return nil
 	}
-	keys, err := fieldcrypt.FromEnv(getenv)
+	mac, err := KeyFromEnv(getenv)
 	if err != nil {
 		subjectKey.CompareAndSwap(nil, &subjectHolder{})
 		return fmt.Errorf("logpseudo: subject key: %w", err)
-	}
-	var mac MACer
-	if keys != nil {
-		mac = keys
 	}
 	subjectKey.CompareAndSwap(nil, &subjectHolder{mac: mac})
 	return nil
@@ -141,9 +181,18 @@ func Subject(tenantID, value string) string {
 	return Redacted
 }
 
-// pseudonymRE matches a value that is already a pseudonym, which Handler leaves as it is instead of pseudonymizing it a
-// second time (a record that carries Subject's output under a personal key).
-var pseudonymRE = regexp.MustCompile(`^` + Prefix + `[0-9a-f]{16}$`)
+// SubjectAttr is the attribute key=Subject(tenantID, value), marked as already pseudonymized: Handler writes it as it is
+// instead of pseudonymizing the pseudonym a second time. Only a value built here carries the mark; a string that merely
+// looks like a pseudonym is pseudonymized like any other personal value, so no one can choose the pseudonym their own
+// log lines carry.
+func SubjectAttr(key, tenantID, value string) slog.Attr {
+	return slog.Any(key, pseudonymized(Subject(tenantID, value)))
+}
+
+// pseudonymized is a value Subject produced (a pseudonym, Redacted or empty). Outside Handler it logs as the string.
+type pseudonymized string
+
+func (p pseudonymized) LogValue() slog.Value { return slog.StringValue(string(p)) }
 
 // installMu makes InstallWith's check and set one step: a service that runs several httpx.Serve listeners installs from
 // each of them concurrently, and two unsynchronised installs would wrap the handler twice.
@@ -259,6 +308,9 @@ func (s scrubber) text(text string) string {
 // attr rewrites one attribute. Everything inside a group whose own key names a person (a "user" or "person" group) is
 // personal data, whatever its keys are.
 func (s scrubber) attr(a slog.Attr, inPersonal bool) slog.Attr {
+	if p, ok := a.Value.Any().(pseudonymized); ok && a.Value.Kind() == slog.KindLogValuer {
+		return slog.String(a.Key, string(p))
+	}
 	v := a.Value.Resolve()
 	inPersonal = inPersonal || personal(a.Key)
 	if v.Kind() == slog.KindGroup {
@@ -270,7 +322,7 @@ func (s scrubber) attr(a slog.Attr, inPersonal bool) slog.Attr {
 		return slog.Group(a.Key, out...)
 	}
 	if inPersonal {
-		if v.Kind() == slog.KindString && (v.String() == "" || v.String() == Redacted || pseudonymRE.MatchString(v.String())) {
+		if v.Kind() == slog.KindString && (v.String() == "" || v.String() == Redacted) {
 			return a
 		}
 		str := fmt.Sprint(v.Any())

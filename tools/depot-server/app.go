@@ -75,9 +75,10 @@ func runServe(ctx context.Context, getenv func(string) string, log *slog.Logger)
 	ApplyGatewaySecret(procs, secret)
 
 	sup := NewSupervisor(ExecRunner{Logs: serviceLogs(filepath.Join(cfg.DataDir, "logs"))}, readyProber(), log)
-	// The gateway's authorization records pseudonymize their subject under fieldcrypt's key (FIELDCRYPT_KEYS); without
-	// one every subject is redacted.
-	if err := logpseudo.LoadSubjectKey(getenv); err != nil {
+	// The gateway's authorization records pseudonymize their subject under the dedicated pseudonymization key
+	// (DEPOT_LOG_PSEUDONYM_KEY or _FILE); without one every subject is redacted. The supervisor never reads the
+	// field-encryption keys for it (subjectKeyEnv), and passes neither to its children (childEnv).
+	if err := logpseudo.LoadSubjectKey(subjectKeyEnv(getenv)); err != nil {
 		log.Warn("authorization records will carry no subject pseudonym", "err", err)
 	}
 	guard, err := buildGuard(cfg)

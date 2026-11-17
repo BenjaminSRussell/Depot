@@ -26,7 +26,9 @@ data:
       # Authorization denials (B-04, D36): depot_authz_denied_total{source,duty,reason} from authz.Require, RequireDuty and
       # RequireAnyDuty in every Go service (httpx's shared /metrics). A spike is a misconfigured role or token mapper after a
       # release, or someone probing routes they hold no duty for; the authz.decision records (log_class audit.other, same
-      # request id) say who and what. Envoy-path denials are counted by OPA's decision log, not by this series.
+      # request id) say who and what. On the Envoy path a refused request never reaches a service: Envoy's own ext_authz
+      # counters (envoy_cluster_ext_authz_denied and _error, per route cluster, scraped by deploy/gateway/envoy-podmonitor.yaml)
+      # count it, and the Envoy OPA's decision log holds its record (subject pseudonymized under DEPOT_LOG_PSEUDONYM_KEY).
       - name: depot.authz
         rules:
           - alert: DepotAuthzDenySpike
@@ -41,6 +43,39 @@ data:
               severity: {{ .Values.authz.severity | quote }}
             annotations:
               summary: Authorization denials in {{ "{{" }} $labels.source {{ "}}" }} ({{ "{{" }} $labels.reason {{ "}}" }}) spiked above {{ .Values.authz.denySpikeFactor }}x the previous hour
+          # The same rule for the requests Envoy refuses (OPA's 403 and 400), summed over the depot-api routes.
+          - alert: DepotAuthzEnvoyDenySpike
+            expr: >-
+              sum(rate(envoy_cluster_ext_authz_denied[5m])) > {{ .Values.authz.denyRatePerSecond }}
+              unless
+              sum(rate(envoy_cluster_ext_authz_denied[5m]))
+                <= {{ .Values.authz.denySpikeFactor }} * sum(rate(envoy_cluster_ext_authz_denied[1h] offset 1h))
+            for: 10m
+            labels:
+              severity: {{ .Values.authz.severity | quote }}
+              source: envoy
+            annotations:
+              summary: Requests refused by the Envoy ext_authz OPA spiked above {{ .Values.authz.denySpikeFactor }}x the previous hour
+          # Envoy could not get an answer from OPA (unreachable, timed out, not ready): it fails closed and answers a bare 403
+          # with no body and no record, which a client reads as "not authorized".
+          - alert: DepotAuthzEnvoyCheckErrors
+            expr: sum(rate(envoy_cluster_ext_authz_error[5m])) > 0
+            for: 5m
+            labels:
+              severity: {{ .Values.authz.severity | quote }}
+              source: envoy
+            annotations:
+              summary: Envoy's ext_authz checks are failing, so every depot-api request is refused with 403
+          # No ext_authz OPA replica is ready (no bundle from identity, Secret depot-authz-opa-bundle missing, a bundle that
+          # cannot answer data.authz.envoy): every request through Envoy is refused.
+          - alert: DepotAuthzOPAUnavailable
+            expr: max(kube_deployment_status_replicas_available{namespace="hello-ledger",deployment="depot-authz-opa"}) < 1 or absent(kube_deployment_status_replicas_available{namespace="hello-ledger",deployment="depot-authz-opa"})
+            for: 5m
+            labels:
+              severity: {{ .Values.authz.severity | quote }}
+              source: envoy
+            annotations:
+              summary: No depot-authz-opa replica is available, so Envoy refuses every depot-api request
       # A kafkajs consumer (integration-hub-ts) that has not run for 15 minutes keeps retrying its start in the
       # background while the pod stays Ready: a wrong SCRAM password, a missing CA file or ACL, a topic that never came
       # (D34, B-05b). kafka_consumer_start_failures_total and the service's log say why.

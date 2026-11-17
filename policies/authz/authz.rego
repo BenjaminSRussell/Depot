@@ -124,14 +124,16 @@ gateway_service_bases := {
 	"print": "/print/v1",
 }
 
-# A path a gateway decides on: absolute, no empty, '.' or '..' segment, no encoded slash, backslash or dot. The single-host
-# gateways refuse any other path with 400 GW-0400 before they ask; Envoy normalises paths, and this refuses what is left.
+# A path a gateway decides on: absolute, no empty, '.' or '..' segment, no backslash and no percent-encoding at all. An
+# escape the service's router decodes could be decided on one path and served on another (%3A is ':', the glob's segment
+# delimiter), so any '%' is refused, as the single-host gateways refuse it (400 GW-0400) before they ask; Envoy normalises
+# paths, and this refuses what is left.
 canonical_path(path) if {
 	startswith(path, "/")
 	not contains(path, "//")
 	not contains(path, "\\")
+	not contains(path, "%")
 	not regex.match(`(^|/)\.\.?(/|$)`, path)
-	not regex.match(`(?i)%(2f|5c|2e)`, path)
 }
 
 # The public prefix and the rest of a gateway path: /api/v1/<prefix>/... (the browser) or /v1/<prefix>/... (partners).
@@ -147,7 +149,9 @@ gateway_resource(path) := concat("", [gateway_base(parts[0]), parts[1]]) if {
 
 gateway_base(prefix) := object.get(gateway_service_bases, prefix, concat("", ["/v1/", prefix]))
 
-# The route a gateway record names: the service base of the prefix and /**, never the raw path (it can carry ids).
+# The route a gateway record names: the service base of the prefix and /**, never the raw path (it can carry ids). Envoy
+# Gateway enables ext_authz on the routes of depot-api only, so Envoy asks about routed prefixes alone; the single-host
+# gateways name an unrouted prefix "unmatched" themselves (authz.GatewayRouteOf).
 gateway_route(path) := concat("", [gateway_base(parts[0]), "/**"]) if {
 	canonical_path(path)
 	parts := gateway_route_parts(path)
@@ -229,9 +233,8 @@ envoy_record := {
 	"log_class": "audit.other",
 	"source": "envoy",
 	"tenant": envoy_subject.tenant_id,
-	# The raw subject never leaves the policy: rego cannot compute logpseudo's tenant-keyed pseudonym, so the Envoy record
-	# carries the marker, and the service behind Envoy writes its own record with the pseudonym under the same request id.
-	"subject": "[redacted]",
+	# The raw subject never leaves the policy: the record carries logpseudo's pseudonym of it (log_subject).
+	"subject": log_subject(envoy_subject.tenant_id, envoy_subject.user_id),
 	"duty": envoy_record_duty,
 	"route": concat(" ", [envoy_method, gateway_route(envoy_path)]),
 	"outcome": envoy_outcome,
@@ -273,7 +276,42 @@ envoy_authenticated if {
 	envoy_subject.user_id != ""
 }
 
-# OPA's decision log mask (decision_logs.mask_decision: /authz/decision_log_mask in the ext_authz OPA's config): the input
-# holds the raw subject, the token's claims as headers and the client address, so it is erased whole. A logged decision
-# keeps its result, whose record carries tenant, duty, route, outcome, reason and request id.
-decision_log_mask contains "/input"
+# logpseudo.Subject in rego (platform/go/logpseudo, fieldcrypt.Keys.MAC): the key is HKDF-SHA256 of the 32-byte master
+# key with the tenant id as salt and "passage.fieldcrypt.mac.v1" as info, the pseudonym "pn_" and the first 8 bytes, in hex,
+# of HMAC-SHA256 under it of "passage.log.pseudonym.v1", a NUL byte and the trimmed, lower-cased value. HKDF-Expand needs one
+# block for 32 bytes: HMAC(PRK, info || 0x01). services/identity/authztest checks it against Go on shared vectors.
+log_pseudonym(key_b64, tenant, value) := concat("", ["pn_", substring(mac, 0, 16)]) if {
+	ikm := base64.decode(key_b64)
+	count(hex.encode(ikm)) == 64
+	prk := hex.decode(crypto.hmac.sha256(ikm, tenant))
+	okm := hex.decode(crypto.hmac.sha256(concat("", ["passage.fieldcrypt.mac.v1", hex.decode("01")]), prk))
+	mac := crypto.hmac.sha256(concat("", ["passage.log.pseudonym.v1", hex.decode("00"), lower(trim_space(value))]), okm)
+}
+
+# The subject of a gateway record, as logpseudo.Subject writes it: the pseudonym under the dedicated key the ext_authz OPA
+# is given (DEPOT_LOG_PSEUDONYM_KEY, the variable the Go services read), "[redacted]" without a key, a valid key or a
+# tenant, and empty for an empty subject. Never the raw value.
+log_subject(_, user) := "" if user == ""
+
+log_subject(tenant, user) := pseudonym if {
+	user != ""
+	pseudonym := log_pseudonym(log_pseudonym_key, tenant, user)
+	tenant != ""
+}
+
+log_subject(tenant, user) := "[redacted]" if {
+	user != ""
+	not log_pseudonym(log_pseudonym_key, tenant, user)
+}
+
+log_subject(tenant, user) := "[redacted]" if {
+	user != ""
+	tenant == ""
+}
+
+default log_pseudonym_key := ""
+
+log_pseudonym_key := trim_space(opa.runtime().env.DEPOT_LOG_PSEUDONYM_KEY)
+
+# The decision-log mask is not here: it ships with the ext_authz OPA's own configuration (deploy/gateway/authz-opa.yaml,
+# data.system.log.mask), so a bundle that lacks or renames a rule cannot turn masking off.

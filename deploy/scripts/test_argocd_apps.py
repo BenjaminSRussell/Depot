@@ -102,6 +102,9 @@ UNMANAGED_SECRETS = {
     # The ext_authz OPA's copy of identity's bundle token, CA and public key (B-04); identity's bundle secrets are not
     # managed either (bundle.enabled is off in dev).
     ("hello-ledger", "depot-authz-opa-bundle"): "deploy/gateway/README.md, Authorization (created by hand with identity's bundle key)",
+    # The dedicated log pseudonymization key the ext_authz OPA pseudonymizes its records' subject under (B-04); optional:
+    # without it the subject is "[redacted]".
+    ("hello-ledger", "depot-log-pseudonym"): "deploy/gateway/README.md, Authorization (optional, created by hand)",
 }
 # Service databases in the shared dev Postgres (deploy/envs/dev/apps/postgres.yaml) whose DATABASE_URL Secret an
 # ExternalSecret in that file writes: dev Application -> (database, login role, Secret, key the chart reads).

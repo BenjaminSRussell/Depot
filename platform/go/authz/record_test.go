@@ -198,14 +198,27 @@ func TestGatewayRouteIsThePrefixNeverTheRawPath(t *testing.T) {
 	for path, want := range map[string]string{
 		"/v1/ledger/journal-entries/9f2a": "/v1/ledger/**",
 		"/v1/ledger":                      "/v1/ledger/**",
-		"/scim/v2/Users/abc":              "/scim/v2/**",
 		"/v1/Ledger/x":                    "unmatched",
 		"/v1/a@b.example/x":               "unmatched",
 		"/healthz":                        "unmatched",
 		"/":                               "unmatched",
+		// A lower-case name the gateway does not route (an id a client chose) is not written into the record.
+		"/v1/9f2a0c11-route-me/x": "unmatched",
 	} {
-		if got := authz.GatewayRoute(path); got != want {
+		routed := func(p string) bool { return p == "ledger" }
+		if got := authz.GatewayRoute(path, routed); got != want {
 			t.Errorf("GatewayRoute(%q) = %q, want %q", path, got, want)
 		}
+		r := httptest.NewRequest(http.MethodGet, "/", nil)
+		r.URL.Path = path
+		if got := authz.GatewayRouteOf(r.WithContext(authz.WithGatewayRoutes(r.Context(), routed))); got != want {
+			t.Errorf("GatewayRouteOf(%q) = %q, want %q", path, got, want)
+		}
+		if got := authz.GatewayRouteOf(r); got != "unmatched" {
+			t.Errorf("GatewayRouteOf(%q) without routes = %q", path, got)
+		}
+	}
+	if got := authz.GatewayRoute("/scim/v2/Users/abc", nil); got != "/scim/v2/**" {
+		t.Errorf("GatewayRoute without a route set = %q", got)
 	}
 }

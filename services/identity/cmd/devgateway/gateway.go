@@ -74,7 +74,8 @@ func newGateway(verifier *identity.JWTVerifier, opa *identity.OPAClient, upstrea
 			return
 		}
 		selected := selection{legalEntity: r.Header.Get(tenant.HeaderWebLegalEntity), scope: r.Header.Get(tenant.HeaderLegalEntityScopeAll)}
-		forwarded := r.Clone(context.WithValue(r.Context(), selectionKey{}, selected))
+		ctx := authz.WithGatewayRoutes(context.WithValue(r.Context(), selectionKey{}, selected), func(p string) bool { return upstreams[p] != nil })
+		forwarded := r.Clone(ctx)
 		stripIdentity(forwarded.Header)
 		forwarded.URL.Path = trimmed
 		guarded.ServeHTTP(w, forwarded)
@@ -105,7 +106,7 @@ func withRequestID(next http.Handler) http.Handler {
 func recordGateway(r *http.Request, principal tenant.Principal, reason string) {
 	route := "unmatched"
 	if reason != authz.ReasonNotCanonical {
-		route = authz.GatewayRoute(r.URL.Path)
+		route = authz.GatewayRouteOf(r)
 	}
 	authz.Record(r.Context(), authz.Decision{
 		Source: gatewayName, TenantID: principal.TenantID, Subject: principal.UserID, Method: r.Method,
@@ -113,9 +114,11 @@ func recordGateway(r *http.Request, principal tenant.Principal, reason string) {
 	})
 }
 
+// canonicalPath refuses any percent-encoded path, like data.authz.envoy's canonical_path: an escape the router decodes
+// (%3A to ':', the glob's segment delimiter) could be decided on one path and served on another (B-04).
 func canonicalPath(r *http.Request) bool {
 	p := r.URL.Path
-	return r.URL.RawPath == "" && strings.HasPrefix(p, "/") && path.Clean(p) == p
+	return r.URL.RawPath == "" && !strings.Contains(r.URL.EscapedPath(), "%") && strings.HasPrefix(p, "/") && path.Clean(p) == p
 }
 
 func serviceOf(p string) string {
