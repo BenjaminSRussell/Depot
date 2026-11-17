@@ -1,0 +1,181 @@
+# The OPA that decides every request on Gateway depot-api (B-04, ADR-0017): SecurityPolicy/depot-api-jwt's extAuth calls
+# it over gRPC (the OPA-Envoy plugin, envoy_ext_authz_grpc) after the JWT filter has verified the token and set
+# X-Depot-Tenant, X-Depot-User and X-Depot-Legal-Entity from its claims. It answers data.authz.envoy from the policy bundle
+# identity compiles and signs (policies/authz plus every active role assignment), the same policy devgateway and depot-server
+# ask, so the three gateways enforce one model. Envoy fails closed: no answer, no request.
+#
+# The bundle is pulled like the per-service sidecar's (deploy/policies/opa/README.md): from identity's dedicated bundle
+# listener (Service identity-bundle, port 8443, TLS, bearer token), signature verified against identity's public key, the
+# last verified bundle kept on disk. Secret depot-authz-opa-bundle (keys token, ca.pem, public-key-oneline) carries the
+# same material as the sidecar's opa-bundle Secret; it is created by hand until identity's bundle secrets are managed
+# (deploy/gateway/README.md, "Authorization (ext_authz)"). Until identity serves a bundle (chart value bundle.enabled), OPA
+# answers nothing and every API request is refused.
+#
+# Decision logs go to the pod log (console) with the mask data.authz.decision_log_mask, which erases the whole input (raw
+# subject, token claims, client address); each logged decision keeps result.record, the authz.decision record of
+# platform/go/README.md, labelled log_class audit.other.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: depot-authz-opa-config
+  namespace: hello-ledger
+  labels:
+    app.kubernetes.io/name: depot-authz-opa
+    app.kubernetes.io/part-of: depot-gateway
+data:
+  config.yaml: |
+    services:
+      identity:
+        url: https://identity-bundle:8443
+        tls:
+          ca_cert: /etc/depot/opa-bundle/ca.pem
+        credentials:
+          bearer:
+            token_path: /etc/depot/opa-bundle/token
+    bundles:
+      authz:
+        service: identity
+        resource: /v1/identity/policy/bundle
+        persist: true
+        polling:
+          min_delay_seconds: 10
+          max_delay_seconds: 20
+        signing:
+          keyid: identity-policy
+    keys:
+      identity-policy:
+        algorithm: RS256
+        key: "${OPA_BUNDLE_PUBLIC_KEY}"
+    persistence_directory: /var/lib/opa
+    labels:
+      source: envoy
+      log_class: audit.other
+    decision_logs:
+      console: true
+      mask_decision: /authz/decision_log_mask
+    plugins:
+      envoy_ext_authz_grpc:
+        addr: :9191
+        path: authz/envoy
+        enable-reflection: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: depot-authz-opa
+  namespace: hello-ledger
+  labels:
+    app.kubernetes.io/name: depot-authz-opa
+    app.kubernetes.io/part-of: depot-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: depot-authz-opa
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: depot-authz-opa
+        app.kubernetes.io/part-of: depot-gateway
+        # identity's NetworkPolicy admits pods with this label to the bundle port (networkPolicy.opaPodLabels).
+        depot.io/opa-sidecar: "true"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: opa
+          image: docker.io/openpolicyagent/opa:1.21.2-envoy-6@sha256:c4cb1e0c15da527916521307ff0bd367bf70ec10d0b3e42f577d0f30f4e6ca2d
+          # The REST API stays on loopback: only the ext_authz gRPC port and the health endpoints are reachable.
+          args: [run, --server, --addr=127.0.0.1:8181, --diagnostic-addr=:8282, --config-file=/etc/opa/config.yaml]
+          env:
+            - name: OPA_BUNDLE_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: depot-authz-opa-bundle
+                  key: public-key-oneline
+          ports:
+            - name: ext-authz
+              containerPort: 9191
+            - name: diagnostic
+              containerPort: 8282
+          # Ready only once a verified bundle is active, so Envoy is not sent to an OPA that would refuse everything.
+          readinessProbe:
+            httpGet:
+              path: /health?bundles
+              port: diagnostic
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: diagnostic
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - { name: config, mountPath: /etc/opa, readOnly: true }
+            - { name: bundle-secret, mountPath: /etc/depot/opa-bundle, readOnly: true }
+            - { name: persisted, mountPath: /var/lib/opa }
+      volumes:
+        - name: config
+          configMap:
+            name: depot-authz-opa-config
+        - name: bundle-secret
+          secret:
+            secretName: depot-authz-opa-bundle
+            items:
+              - { key: token, path: token }
+              - { key: ca.pem, path: ca.pem }
+        - name: persisted
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: depot-authz-opa
+  namespace: hello-ledger
+  labels:
+    app.kubernetes.io/name: depot-authz-opa
+spec:
+  selector:
+    app.kubernetes.io/name: depot-authz-opa
+  ports:
+    - name: ext-authz
+      port: 9191
+      targetPort: ext-authz
+      appProtocol: kubernetes.io/h2c
+---
+# The namespace is default-deny (ApplicationSet namespace-default-deny): only the Envoy pods of Gateway depot-api reach the
+# ext_authz port. The diagnostic port answers the kubelet's probes, which NetworkPolicy does not filter on the supported CNIs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: depot-authz-opa
+  namespace: hello-ledger
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: depot-authz-opa
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway-system
+          podSelector:
+            matchLabels:
+              gateway.envoyproxy.io/owning-gateway-name: depot-api
+              gateway.envoyproxy.io/owning-gateway-namespace: hello-ledger
+      ports:
+        - { protocol: TCP, port: 9191 }

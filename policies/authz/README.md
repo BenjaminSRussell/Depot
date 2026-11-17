@@ -99,6 +99,33 @@ The PEP must pass the decoded `r.URL.Path` with no query string, or the route te
 
 `"flag": true` duties (for example `ledger.journal.postdirect`, `budget.override`, `org.hierarchy.backdate`) are checked in a handler on a route another duty already opens. They carry no route permissions. `tax.code.maintain` is a flag until a tax-code read route is mounted. A duty can own routes and still be checked in handlers: `inventory.count.approve` opens `count-sheets/*:approve` and `count-sheets/*/lines/*:recount`, and the inventory handlers also read it with `HasDuty` for over-tolerance `:post`, marking open tags MISSING on `:transfer-tags`, and unmasking blind counts.
 
+## Gateway enforcement (B-04, ADR-0017)
+
+Every gateway asks this policy, so the three enforce one model:
+
+- devgateway and `depot-server` query `data.authz.decision` through `identity.RequireOPAForGateway`, with the verified
+  subject, the method and the request path without `/api`;
+- Envoy's ext_authz OPA (`deploy/gateway/authz-opa.yaml`) queries `data.authz.envoy`.
+
+`data.authz.envoy` takes the OPA-Envoy plugin's input. It reads the subject from the `x-depot-tenant`, `x-depot-user`
+and `x-depot-legal-entity` headers, which the JWT filter set from the verified token after Envoy removed the client's
+copies. It maps the public path to the path the service receives (`gateway_resource`: `/api` removed, or the service
+base of a D22 prefix from `gateway_service_bases`) and calls `decision`. It answers with `allowed`, the deny status and
+problem body, and `record`, the allow/deny record (`platform/go/README.md`).
+
+`decision` names the granting duty on an allow (`{"allow": true, "duty": ...}`), so every record says which duty
+allowed a request. `decision_log_mask` is the mask of the ext_authz OPA's decision log: it erases the whole input.
+
+`testdata/route_table.json` is the shared route table. Each row is method, public path, tenant-wide duties,
+legal-entity-scoped duties, the token's legal entity and the expected answer. Three suites run it:
+
+- `gateway_test.rego` runs it against `data.authz.envoy`;
+- `services/identity/cmd/devgateway` and `tools/depot-server` (`route_table_test.go`, through
+  `services/identity/authztest`) run it end to end against `opa run` on this directory.
+
+A row is a browser path outside the D22 prefixes, because the single-host gateways serve neither the partner paths nor
+the D22 rewrites.
+
 ## Tests
 
 `opa test --timeout 120s policies/authz -v` (the default 5 s per-test timeout is too short for the larger duty catalogue), then `cd services/identity && go test ./... -count=1` (needs `opa` on PATH).

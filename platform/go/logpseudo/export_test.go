@@ -11,3 +11,6 @@ func WrapsOnce(h slog.Handler) bool {
 	_, twice := w.next.(*Handler)
 	return !twice
 }
+
+// ResetSubjectKey forgets the subject key, so a test can load it again.
+func ResetSubjectKey() { subjectKey.Store(nil) }

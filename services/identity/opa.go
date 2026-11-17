@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/BenjaminSRussell/depot/platform/authz"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
@@ -58,13 +59,16 @@ type opaSubject struct {
 type opaResponse struct {
 	Result *struct {
 		Allow       bool   `json:"allow"`
+		Duty        string `json:"duty"`
 		DutyMissing string `json:"duty_missing"`
 	} `json:"result"`
 }
 
-// Decision is the fail-closed result returned by the policy bundle.
+// Decision is the fail-closed result returned by the policy bundle. Duty is the duty that granted an allowed request
+// (B-04; empty from a bundle older than the field), DutyMissing the least-privileged duty a denied one lacks.
 type Decision struct {
 	Allow       bool
+	Duty        string
 	DutyMissing string
 }
 
@@ -115,30 +119,48 @@ func (c *OPAClient) Decide(ctx context.Context, p tenant.Principal, action, reso
 	if decoded.Result == nil {
 		return Decision{}, ErrInvalidOPAResponse
 	}
-	return Decision{Allow: decoded.Result.Allow, DutyMissing: decoded.Result.DutyMissing}, nil
+	return Decision{Allow: decoded.Result.Allow, Duty: decoded.Result.Duty, DutyMissing: decoded.Result.DutyMissing}, nil
 }
 
 // RequireOPA enforces an OPA decision on a route. Policy outages fail with
-// 503, missing principals with 401, and denied decisions with 403.
+// 503, missing principals with 401, and denied decisions with 403. Every decision writes an allow/deny record
+// (authz.Record) with identity as its source and the chi route template.
 func RequireOPA(client *OPAClient, action, resource string) func(http.Handler) http.Handler {
-	return requireOPA(client, func(*http.Request) (string, string) { return action, resource })
+	return requireOPA(client, "identity", authz.RouteTemplate, func(*http.Request) (string, string) { return action, resource })
 }
 
 // RequireOPAForRequest is RequireOPA for a route family: the action is the request method and the resource is
 // the request path, so one middleware guards every route beneath a prefix.
 func RequireOPAForRequest(client *OPAClient) func(http.Handler) http.Handler {
-	return requireOPA(client, func(r *http.Request) (string, string) { return r.Method, r.URL.Path })
+	return requireOPA(client, "identity", authz.RouteTemplate, requestResource)
 }
 
-func requireOPA(client *OPAClient, resolve func(*http.Request) (string, string)) func(http.Handler) http.Handler {
+// RequireOPAForGateway is RequireOPAForRequest for a single-host gateway (devgateway, depot-server; ADR-0017): the
+// records name the gateway as their source and its route, the path prefix (authz.GatewayRoute), since a gateway has no
+// route template of its own and the raw path can carry ids.
+func RequireOPAForGateway(client *OPAClient, gateway string) func(http.Handler) http.Handler {
+	return requireOPA(client, gateway, func(r *http.Request) string { return authz.GatewayRoute(r.URL.Path) }, requestResource)
+}
+
+func requestResource(r *http.Request) (string, string) { return r.Method, r.URL.Path }
+
+func requireOPA(client *OPAClient, source string, route func(*http.Request) string, resolve func(*http.Request) (string, string)) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			recordDecision := func(p tenant.Principal, duty string, allowed bool, reason string) {
+				authz.Record(r.Context(), authz.Decision{
+					Source: source, TenantID: p.TenantID, Subject: p.UserID, Duty: duty, Method: r.Method,
+					Route: route(r), Allowed: allowed, Reason: reason, RequestID: authz.RequestID(r),
+				})
+			}
 			if verified, _ := r.Context().Value(verifiedPrincipalKey{}).(bool); !verified {
+				recordDecision(tenant.Principal{}, "", false, authz.ReasonUnauthenticated)
 				httpx.Fail(w, r, httpx.NewProblem(http.StatusUnauthorized, "AUTH-0001", "no verified principal"))
 				return
 			}
 			principal, ok := tenant.FromContext(r.Context())
 			if !ok {
+				recordDecision(tenant.Principal{}, "", false, authz.ReasonUnauthenticated)
 				httpx.Fail(w, r, httpx.NewProblem(http.StatusUnauthorized, "AUTH-0001", "no principal"))
 				return
 			}
@@ -149,10 +171,12 @@ func requireOPA(client *OPAClient, resolve func(*http.Request) (string, string))
 			principal.LegalEntityID, _ = r.Context().Value(verifiedLegalEntityKey{}).(string)
 			decision, err := client.Decide(r.Context(), principal, action, resource)
 			if err != nil {
+				recordDecision(principal, "", false, authz.ReasonPolicyUnavailable)
 				httpx.Fail(w, r, httpx.NewProblem(http.StatusServiceUnavailable, "AUTH-0503", "authorization policy is unavailable"))
 				return
 			}
 			if !decision.Allow {
+				recordDecision(principal, decision.DutyMissing, false, authz.ReasonPolicyDenied)
 				problem := httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "request is not authorized")
 				if decision.DutyMissing != "" {
 					problem.Errors = map[string]string{"duty_missing": decision.DutyMissing}
@@ -160,6 +184,7 @@ func requireOPA(client *OPAClient, resolve func(*http.Request) (string, string))
 				httpx.Fail(w, r, problem)
 				return
 			}
+			recordDecision(principal, decision.Duty, true, authz.ReasonPolicyAllowed)
 			next.ServeHTTP(w, r)
 		})
 	}

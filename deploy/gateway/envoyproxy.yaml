@@ -1,0 +1,14 @@
+# The data-plane settings of Gateway depot-api (spec.infrastructure.parametersRef in gateway.yaml). Envoy Gateway's default
+# HTTP filter order runs ext_authz before jwt_authn; this puts ext_authz after it, so the OPA ext_authz check (B-04,
+# ADR-0017; SecurityPolicy/depot-api-jwt) sees X-Depot-Tenant, X-Depot-User and X-Depot-Legal-Entity as the verified token
+# set them, and a request without a valid token is refused with 401 before OPA is asked. Without this order OPA would see
+# no identity and refuse every request.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: depot-api-proxy
+  namespace: hello-ledger
+spec:
+  filterOrder:
+    - name: envoy.filters.http.ext_authz
+      after: envoy.filters.http.jwt_authn

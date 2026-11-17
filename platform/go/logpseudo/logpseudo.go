@@ -12,6 +12,9 @@
 // from a tenant attribute on the record (tenant, tenantId, tenant_id). httpx.Serve calls Install, so a service needs
 // nothing else.
 //
+// Subject gives the same pseudonym for one value outside the handler, whatever the profile says: the authorization
+// decision record (platform/go/authz) carries it, never the raw user id (LoadSubjectKey, B-04).
+//
 // Limits: a person's name in free text (a message, a field not named like a person) cannot be recognised and is not
 // changed; log a name under a key such as name, displayName or user instead. A value that is a struct or map is
 // checked as text (fmt %+v) for email addresses only.
@@ -25,6 +28,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"unicode"
 
 	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
@@ -85,8 +89,61 @@ func Install(getenv func(string) string) (bool, error) {
 	if keys != nil {
 		mac = keys
 	}
+	subjectKey.CompareAndSwap(nil, &subjectHolder{mac: mac})
 	return InstallWith(mac), nil
 }
+
+// subjectKey is the MAC Subject pseudonymizes under (a *subjectHolder; nil until LoadSubjectKey or SetSubjectKey).
+var subjectKey atomic.Pointer[subjectHolder]
+
+type subjectHolder struct{ mac MACer }
+
+// SetSubjectKey sets the key Subject pseudonymizes under, whether or not whole-log pseudonymization is on. A nil mac
+// makes Subject return Redacted for every value.
+func SetSubjectKey(mac MACer) { subjectKey.Store(&subjectHolder{mac: mac}) }
+
+// LoadSubjectKey sets Subject's key from fieldcrypt's configuration (FIELDCRYPT_KEYS or FIELDCRYPT_KEYS_FILE) once per
+// process; a later call is a no-op. Unlike Install it runs whatever the profile says, because the authorization decision
+// record (platform/go/authz) always carries a pseudonym, never a raw user id. A configuration that cannot be read leaves
+// the key unset, so every subject is Redacted, and is returned for the caller to log.
+func LoadSubjectKey(getenv func(string) string) error {
+	if subjectKey.Load() != nil {
+		return nil
+	}
+	keys, err := fieldcrypt.FromEnv(getenv)
+	if err != nil {
+		subjectKey.CompareAndSwap(nil, &subjectHolder{})
+		return fmt.Errorf("logpseudo: subject key: %w", err)
+	}
+	var mac MACer
+	if keys != nil {
+		mac = keys
+	}
+	subjectKey.CompareAndSwap(nil, &subjectHolder{mac: mac})
+	return nil
+}
+
+// Subject is the pseudonym of a user identifier inside a tenant under the key LoadSubjectKey or SetSubjectKey set: the
+// same value Handler writes for a personal attribute, so a record that carries it can be matched with other pseudonymized
+// logs of the tenant. Without a key, or without a tenant, it is Redacted; an empty value stays empty. It never returns
+// the value itself.
+func Subject(tenantID, value string) string {
+	if value == "" {
+		return ""
+	}
+	var mac MACer
+	if h := subjectKey.Load(); h != nil {
+		mac = h.mac
+	}
+	if p, ok := (scrubber{mac: mac, tenantID: tenantID}).pseudonym(value); ok {
+		return p
+	}
+	return Redacted
+}
+
+// pseudonymRE matches a value that is already a pseudonym, which Handler leaves as it is instead of pseudonymizing it a
+// second time (a record that carries Subject's output under a personal key).
+var pseudonymRE = regexp.MustCompile(`^` + Prefix + `[0-9a-f]{16}$`)
 
 // installMu makes InstallWith's check and set one step: a service that runs several httpx.Serve listeners installs from
 // each of them concurrently, and two unsynchronised installs would wrap the handler twice.
@@ -213,7 +270,7 @@ func (s scrubber) attr(a slog.Attr, inPersonal bool) slog.Attr {
 		return slog.Group(a.Key, out...)
 	}
 	if inPersonal {
-		if v.Kind() == slog.KindString && v.String() == "" {
+		if v.Kind() == slog.KindString && (v.String() == "" || v.String() == Redacted || pseudonymRE.MatchString(v.String())) {
 			return a
 		}
 		str := fmt.Sprint(v.Any())

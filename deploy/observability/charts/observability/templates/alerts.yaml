@@ -23,6 +23,24 @@ data:
               severity: {{ .Values.pagerDuty.severity | quote }}
             annotations:
               summary: p95 latency exceeds the Depot SLO
+      # Authorization denials (B-04, D36): depot_authz_denied_total{source,duty,reason} from authz.Require, RequireDuty and
+      # RequireAnyDuty in every Go service (httpx's shared /metrics). A spike is a misconfigured role or token mapper after a
+      # release, or someone probing routes they hold no duty for; the authz.decision records (log_class audit.other, same
+      # request id) say who and what. Envoy-path denials are counted by OPA's decision log, not by this series.
+      - name: depot.authz
+        rules:
+          - alert: DepotAuthzDenySpike
+            # Above the floor, unless within the factor of the hour before (a source or reason with no history fires).
+            expr: >-
+              sum by (source, reason) (rate(depot_authz_denied_total[5m])) > {{ .Values.authz.denyRatePerSecond }}
+              unless
+              sum by (source, reason) (rate(depot_authz_denied_total[5m]))
+                <= {{ .Values.authz.denySpikeFactor }} * sum by (source, reason) (rate(depot_authz_denied_total[1h] offset 1h))
+            for: 10m
+            labels:
+              severity: {{ .Values.authz.severity | quote }}
+            annotations:
+              summary: Authorization denials in {{ "{{" }} $labels.source {{ "}}" }} ({{ "{{" }} $labels.reason {{ "}}" }}) spiked above {{ .Values.authz.denySpikeFactor }}x the previous hour
 {{- /* global.pagerDutyAllowed comes from the cloud profile (#599): a profile whose egress allowlist has no PagerDuty
        (gcc, gcc-high, dod, china) renders no paging receiver; route alerts to an in-boundary receiver instead. */}}
 {{- if and .Values.pagerDuty.enabled (ne (toString ((.Values.global | default dict).pagerDutyAllowed)) "false") }}
