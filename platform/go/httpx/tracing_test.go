@@ -58,12 +58,13 @@ func TestRequestLogCarriesTheTraceID(t *testing.T) {
 	t.Cleanup(func() { slog.SetDefault(previous) })
 	req := httptest.NewRequest(http.MethodGet, "/boom", nil)
 	req.Header.Set("traceparent", "00-"+incomingTrace+"-00f067aa0ba902b7-01")
+	req.Header.Set("X-Request-Id", "req-1")
 	failingRouter().ServeHTTP(httptest.NewRecorder(), req)
 	var line map[string]any
 	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &line); err != nil {
 		t.Fatalf("log %q: %v", buf.String(), err)
 	}
-	if line["traceId"] != incomingTrace {
+	if line["traceId"] != incomingTrace || line["requestId"] != "req-1" {
 		t.Fatalf("log line %v", line)
 	}
 }

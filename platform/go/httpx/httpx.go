@@ -105,7 +105,8 @@ func logRequests(next http.Handler) http.Handler {
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		next.ServeHTTP(ww, r)
 		slog.Info("http", "method", r.Method, "path", r.URL.Path, "status", ww.Status(), "bytes", ww.BytesWritten(),
-			"durationMs", time.Since(start).Milliseconds(), "traceId", tracectx.TraceID(r.Context()))
+			"durationMs", time.Since(start).Milliseconds(), "requestId", middleware.GetReqID(r.Context()),
+			"traceId", tracectx.TraceID(r.Context()))
 	})
 }
 
