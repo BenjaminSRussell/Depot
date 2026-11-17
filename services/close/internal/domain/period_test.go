@@ -234,6 +234,11 @@ func br142Steps() [][]matrixStep {
 			{domain.ModuleTax, closed, ""}, // closed after settlement
 			{domain.ModuleAll, closed, "cannot close all: module gl is still on_hold"},
 			{domain.ModuleGL, closed, ""}, // cash and production follow the held ALL row
+			// GL is closed and ALL still on hold: nothing may take postings again.
+			{domain.ModuleCash, open, "cannot move cash to open: the general ledger is closed, so module cash has no row of its own and cannot take postings again; request a reopen of gl first"},
+			{domain.ModuleAll, open, "cannot move all to open: the general ledger is closed, so all cannot take postings again; request a reopen of gl first"},
+			{domain.ModuleProduction, held, "cannot move production to on_hold: the general ledger is closed"},
+			{domain.ModuleCash, closed, ""},
 			{domain.ModuleAll, closed, ""},
 		},
 	}
@@ -280,6 +285,31 @@ func TestModulesAreAllGLAndTheSubledgers(t *testing.T) {
 	for _, m := range domain.SubledgerModules() {
 		if m == domain.ModuleAll || m == domain.ModuleGL {
 			t.Fatalf("%s is not a subledger", m)
+		}
+	}
+}
+
+// FR-14.2: after GL closes, ALL and the subledgers without a row of their own
+// cannot be opened or held again; closing them is still allowed.
+func TestValidateTransition_NothingReopensAfterGLCloses(t *testing.T) {
+	held, closed := domain.StatusOnHold, domain.StatusClosed
+	for _, gl := range []domain.Status{closed, domain.StatusPermanentlyClosed} {
+		rows := with(subledgers(closed)[:7], row(domain.ModuleAll, held), row(domain.ModuleGL, gl)) // tax, bank, payroll follow ALL
+		for _, tc := range []struct {
+			module domain.Module
+			to     domain.Status
+			want   string
+		}{
+			{domain.ModuleAll, domain.StatusOpen, "cannot move all to open: the general ledger is " + string(gl)},
+			{domain.ModuleTax, domain.StatusOpen, "cannot move tax to open: the general ledger is " + string(gl) + ", so module tax has no row of its own"},
+			{domain.ModuleBank, held, "cannot move bank to on_hold: the general ledger is " + string(gl)},
+			{domain.ModulePayroll, closed, ""},
+			{domain.ModuleAll, closed, ""},
+		} {
+			err := domain.ValidateTransition(rows, tc.to, tc.module)
+			if tc.want == "" && err != nil || tc.want != "" && (code(err) != domain.CodeInvalidTransition || !strings.Contains(err.Error(), tc.want)) {
+				t.Errorf("gl %s, %s to %s: got %v, want %q", gl, tc.module, tc.to, err, tc.want)
+			}
 		}
 	}
 }

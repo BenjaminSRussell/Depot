@@ -149,7 +149,9 @@ paths:
       description: >
         Transitions a module of a registered period (open, on_hold, closed, permanently_closed). Closed periods change only
         through the reopen workflow. A module without a row of its own starts from the ALL row (FR-14.1), so under a closed or
-        permanently closed ALL it cannot be opened or held; it may take a row of its own with the status it inherits.
+        permanently closed ALL it cannot be opened or held; it may take a row of its own with the status it inherits (a hold
+        taken that way keeps ALL's allowedGroupId, and allowedGroupId may then be omitted). Once gl is closed, ALL and every
+        module without a row of its own cannot be opened or held again until gl is reopened.
         Closing order (FR-14.2), for closed and permanently_closed alike: gl closes only after every subledger row is closed and,
         while ALL is open, only after every subledger has a closed row of its own (ALL on hold or closed already stops postings
         to modules without a row, BR-14.2); all closes only after every module row, gl included, is closed. An ordering or

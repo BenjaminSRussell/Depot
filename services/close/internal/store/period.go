@@ -74,16 +74,20 @@ func (s *Postgres) TransitionPeriod(ctx context.Context, in domain.PeriodTransit
 		if err := found.Err(); err != nil {
 			return lockErr(err)
 		}
-		if in.To == domain.StatusOnHold && in.AllowedGroupID == "" {
+		from, own := domain.CurrentStatus(rows, in.Module)
+		group := in.AllowedGroupID
+		switch {
+		case in.To != domain.StatusOnHold:
+			group = ""
+		case !own && from == domain.StatusOnHold:
+			// Pinning the hold a module inherits from ALL keeps ALL's group.
+			group = domain.Resolve(rows, in.Module).AllowedGroupID
+		}
+		if in.To == domain.StatusOnHold && group == "" {
 			return &domain.Error{Code: domain.CodeValidation, Detail: "allowedGroupId is required when holding a period"}
 		}
 		if err := domain.ValidateTransition(rows, in.To, in.Module); err != nil {
 			return err
-		}
-		from, own := domain.CurrentStatus(rows, in.Module)
-		group := in.AllowedGroupID
-		if in.To != domain.StatusOnHold {
-			group = ""
 		}
 		if !own {
 			tag, err := tx.Exec(ctx, `insert into period_status(tenant_id, legal_entity_id, ledger_id, fiscal_period_id, module, status, allowed_group_id, start_date, end_date, changed_by)

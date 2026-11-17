@@ -41,10 +41,15 @@ func storeBackedPeriods(t *testing.T) (moveFunc, *store.Postgres, context.Contex
 	a := api.New(st).WithLedgers(fakeLedger{owner: entity}).WithSliceB(st, st, st, st, st, nil)
 	r := httpx.NewRouter()
 	a.Register(r)
+	// status may carry a group as "on_hold@group"; on_hold defaults to controllers.
 	move := func(module, status string) *httptest.ResponseRecorder {
+		status, group, _ := strings.Cut(status, "@")
 		body := `{"ledgerId":"` + ledger + `","status":"` + status + `"`
 		if status == "on_hold" {
-			body += `,"allowedGroupId":"controllers"`
+			if group == "" {
+				group = "controllers"
+			}
+			body += `,"allowedGroupId":"` + group + `"`
 		}
 		req := httptest.NewRequest(http.MethodPatch, "/v1/close/periods/"+period+"/modules/"+module, strings.NewReader(body+"}"))
 		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
@@ -137,6 +142,10 @@ func TestPeriodBR142ReferenceMatrixThroughTheStore(t *testing.T) {
 			{"tax", "closed", ""},
 			{"all", "closed", "cannot close all: module gl is still on_hold"},
 			{"gl", "closed", ""},
+			// GL is closed and ALL still on hold: nothing may take postings again.
+			{"cash", "open", "cannot move cash to open: the general ledger is closed, so module cash has no row of its own and cannot take postings again; request a reopen of gl first"},
+			{"all", "open", "cannot move all to open: the general ledger is closed, so all cannot take postings again; request a reopen of gl first"},
+			{"production", "on_hold", "cannot move production to on_hold: the general ledger is closed"},
 			{"all", "closed", ""},
 		},
 	}
@@ -162,5 +171,27 @@ func TestPeriodBR142ReferenceMatrixThroughTheStore(t *testing.T) {
 	}
 	if len(matrix) != 10 || seen[domain.ModuleCash] || seen[domain.ModuleProduction] {
 		t.Fatalf("want ten rows without cash and production, got %+v", matrix)
+	}
+}
+
+// A module without a row that takes its own on_hold row under a held ALL keeps
+// ALL's allowed group; a group of its own needs the module held explicitly
+// from open.
+func TestPeriodPinnedHoldKeepsAllsGroupThroughTheStore(t *testing.T) {
+	move, st, ctx := storeBackedPeriods(t)
+	mustMove(t, move, "all", "on_hold@controllers")
+	mustMove(t, move, "ap", "on_hold@others")
+	mustMove(t, move, "ar", "open")
+	mustMove(t, move, "ar", "on_hold@others")
+	matrix, err := st.PeriodMatrix(ctx, testkit.TenantID(9), testkit.TenantID(7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	groups := map[domain.Module]string{}
+	for _, p := range matrix {
+		groups[p.Module] = p.AllowedGroupID
+	}
+	if groups[domain.ModuleAP] != "controllers" || groups[domain.ModuleAR] != "others" {
+		t.Fatalf("groups = %v; want ap pinned to controllers, ar others", groups)
 	}
 }

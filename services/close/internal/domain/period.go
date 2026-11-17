@@ -153,7 +153,18 @@ func ValidateTransition(rows []Row, to Status, module Module) error {
 		// inherits from ALL, so it keeps that status when ALL moves on.
 		return fail(CodeInvalidTransition, where+"is already "+string(to))
 	}
-	if to != StatusClosed && to != StatusPermanentlyClosed {
+	if to == StatusOpen || to == StatusOnHold {
+		// FR-14.2, GL closes last: once GL is closed nothing may take postings
+		// again without a GL reopen. ALL and every subledger without a row of its
+		// own follow the ALL row, which may still be on hold when GL closes
+		// (BR-14.2), so neither may be opened or held again.
+		if gl, _ := CurrentStatus(rows, ModuleGL); module != ModuleGL && (module == ModuleAll || !own) && (gl == StatusClosed || gl == StatusPermanentlyClosed) {
+			subject := "module " + string(module) + " has no row of its own and"
+			if module == ModuleAll {
+				subject = "all"
+			}
+			return fail(CodeInvalidTransition, "cannot move "+string(module)+" to "+string(to)+": the general ledger is "+string(gl)+", so "+subject+" cannot take postings again; request a reopen of gl first")
+		}
 		return nil
 	}
 	switch module {
