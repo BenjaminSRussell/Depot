@@ -66,6 +66,7 @@
     "identity.tenant.maintain": {"tenant_level": true, "permissions": [{"resource": "/v1/tenants{,/**}", "methods": ["GET", "POST", "PATCH"]}]},
     "identity.ops.tenant-read": {"tenant_level": true, "service_only": true, "permissions": [{"resource": "/v1/tenants/*/user-counts", "methods": ["GET"]}]},
     "identity.tenant-registry.read": {"tenant_level": true, "permissions": [{"resource": "/v1/tenants", "methods": ["GET"]}]},
+    "identity.legal-entity.lookup": {"tenant_level": true, "service_only": true, "permissions": [{"resource": "/v1/identity/legal-entities/*", "methods": ["GET"]}]},
     "identity.legal-entity.maintain": {"tenant_level": true, "permissions": [{"resource": "/v1/legal-entities{,/**}", "methods": ["GET", "POST", "PATCH"]}]},
     "identity.feature.view": {"tenant_level": true, "permissions": [{"resource": "/v1/tenant/features", "methods": ["GET"]}]},
     "identity.feature.maintain": {"tenant_level": true, "permissions": [{"resource": "/v1/tenant/features", "methods": ["GET", "PUT"]}]},
@@ -4342,7 +4343,7 @@
       "shopfloor": ["shopfloor.controlrecipe.create"]
     },
     "shopfloor": {
-      "identity": ["identity.tenant-registry.read"]
+      "identity": ["identity.tenant-registry.read", "identity.legal-entity.lookup"]
     },
     "supplier-portal": {
       "purchasing": ["procurement.vendor-portal.read", "procurement.vendor-portal.acknowledge"],

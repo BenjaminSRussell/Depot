@@ -12,24 +12,36 @@ the moment the migration runs, every scoped user sees no existing workers:
 
 Run this backfill in the same deploy window, before users come back.
 
-## Who
+## Who and what it needs
 
-A tenant administrator of each tenant: a principal with **no legal-entity claim** that holds `tenant.administer` and
-`shopfloor.setup.maintain`. A caller with a claim gets `403 AUTH-0003`.
+- A tenant administrator of each tenant: a principal with **no legal-entity claim** that holds `tenant.administer` and
+  `shopfloor.setup.maintain`. A caller with a claim gets `403 AUTH-0003`.
+- The shop floor API configured with `identityUrl` and `serviceIdentity` (chart values). Every call confirms the legal
+  entity with identity: an id the tenant does not have, or an inactive one, is `422 SF-0201`; identity not answering,
+  or the check not configured, is `503 SF-0202`. Nothing is written in either case.
+- A worker's legal entity freezes as soon as the worker has any registration, day, correction or cost rate. Legacy
+  workers usually have history, so **their first assignment is final**. Always run the dry run first and read it.
 
 ## Tenant with one legal entity
 
-One call per tenant assigns every unassigned worker to the legal entity, then assigns every old export batch whose
-lines all belong to its workers:
+1. Dry run. It checks the legal entity with identity and reports, writing nothing:
+   ```
+   POST /v1/shopfloor/workers:assign-legal-entity
+   Idempotency-Key: backfill-<tenant>-dry
+   {"legalEntityId": "<legal entity uuid>", "allUnassigned": true, "dryRun": true}
+   ```
+   Check that `assignedCount` plus `remaining` is the number of legacy workers you expect, and that `exportBatches`
+   looks right.
+2. Assign. Each call assigns at most 1,000 workers; repeat with a new `Idempotency-Key` until `remaining` is 0:
+   ```
+   POST /v1/shopfloor/workers:assign-legal-entity
+   Idempotency-Key: backfill-<tenant>-1
+   {"legalEntityId": "<legal entity uuid>", "allUnassigned": true}
+   ```
 
-```
-POST /v1/shopfloor/workers:assign-legal-entity
-Idempotency-Key: backfill-<tenant>-1
-{"legalEntityId": "<legal entity uuid>", "allUnassigned": true}
-```
-
-The response lists `assigned`, `unchanged`, `conflicts` and `notFound` worker ids, and the `exportBatches` count. Each
-assigned worker publishes `dev.depot.shopfloor.worker.assigned.v1`, with the administrator in `assignedBy`.
+The response reports `assignedCount`, `remaining`, `unchanged`, `conflicts` and `notFound`, and the `exportBatches`
+count. Each assigned worker publishes `dev.depot.shopfloor.worker.assigned.v1`, with the administrator in
+`assignedBy`. Every call also assigns the old export batches whose lines all belong to the legal entity's workers.
 
 ## Tenant with several legal entities
 
@@ -39,7 +51,8 @@ worker's `partyId` is the employee party).
 1. List the workers. This needs a read with the all-entity scope: `GET /v1/shopfloor/workers` with
    `X-Depot-LegalEntity-Scope: ALL`, by a caller holding `org.switcher.all-scope`. Workers with `"legalEntityId": null`
    are the ones to assign.
-2. Assign each legal entity's workers with one call. A call takes at most 1,000 ids:
+2. Assign each legal entity's workers with one call. A call takes at most 1,000 ids. Send it with `"dryRun": true`
+   first and check the `assigned`, `conflicts` and `notFound` lists:
    ```
    POST /v1/shopfloor/workers:assign-legal-entity
    {"legalEntityId": "<A>", "workerIds": ["<worker>", ...]}

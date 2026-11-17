@@ -68,11 +68,13 @@ pins the first three families):
 
 Not tenant-level:
 
-- Duties that use `dbx.TenantWide` for one branch only, beside a legal-entity-scoped branch: `shopfloor.setup.maintain`,
-  `print.admin`, `migration.run`, `migration.project.write`. A tenant-wide branch needs a request with no legal
-  entity, and a scoped assignment grants nothing to such a request anyway.
-- Duties on a service's own tenant-wide reference tables, such as fx rates and scheduling. Those services check the
-  duty from the token's `duties` claim on every route, so OPA's legal-entity rule changes nothing for them.
+- Duties that use `dbx.TenantWide` for one branch only, beside a legal-entity-scoped branch: `print.admin`,
+  `migration.run`, `migration.project.write`. A tenant-wide branch needs a request with no legal entity, and a scoped
+  assignment grants nothing to such a request anyway.
+- Duties on a service's own tenant-wide reference tables, such as fx rates, scheduling, and `shopfloor.setup.maintain`
+  (the shop floor's time profiles, pay agreements and absence codes, shared by every legal entity; its
+  assign-legal-entity routes also need a request with no legal entity). Those services check the duty from the
+  token's `duties` claim on every route, so OPA's legal-entity rule changes nothing for them.
 
 A new duty that acts on the tenant as a whole must carry the flag.
 

@@ -79,11 +79,23 @@ type effectivePermissionsResponse struct {
 	Permissions   []effectivePermission `json:"permissions"`
 }
 
-const activeRolesQuery = `select distinct role from identity_role_assignments
-where tenant_id = $1 and user_id = $2
-  and valid_from <= now() and (valid_to is null or valid_to > now())
-  and (legal_entity_id is null or legal_entity_id = $3::uuid)
-order by role`
+// activeRolesQuery reads the user's active assignments that apply: tenant-wide ones, and ones scoped to the requested
+// legal entity, with whether each is scoped and whether its legal entity is still active, so the report applies the
+// bundle compiler's exclusions (B-03b).
+const activeRolesQuery = `select a.role, a.legal_entity_id is not null, coalesce(le.status = 'active', a.legal_entity_id is null)
+from identity_role_assignments a
+left join identity_legal_entities le on le.tenant_id = a.tenant_id and le.legal_entity_id = a.legal_entity_id
+where a.tenant_id = $1 and a.user_id = $2
+  and a.valid_from <= now() and (a.valid_to is null or a.valid_to > now())
+  and (a.legal_entity_id is null or a.legal_entity_id = $3::uuid)
+order by a.role`
+
+// assignedRole is one row of activeRolesQuery.
+type assignedRole struct {
+	role         string
+	scoped       bool
+	entityActive bool
+}
 
 func (a *EffectivePermissionsAPI) get(w http.ResponseWriter, r *http.Request) {
 	p, ok := tenant.FromContext(r.Context())
@@ -115,7 +127,7 @@ func (a *EffectivePermissionsAPI) get(w http.ResponseWriter, r *http.Request) {
 		legalEntity = &legalEntityID
 	}
 
-	var roles []string
+	var roles []assignedRole
 	var exists bool
 	err := dbx.WithTenantTx(r.Context(), a.pool, func(tx pgx.Tx) error {
 		if err := tx.QueryRow(r.Context(), `select exists(select 1 from identity_users where tenant_id = $1 and user_id = $2)`, p.TenantID, userID).Scan(&exists); err != nil || !exists {
@@ -125,7 +137,11 @@ func (a *EffectivePermissionsAPI) get(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		roles, err = pgx.CollectRows(rows, pgx.RowTo[string])
+		roles, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (assignedRole, error) {
+			var a assignedRole
+			err := row.Scan(&a.role, &a.scoped, &a.entityActive)
+			return a, err
+		})
 		return err
 	})
 	if err != nil {
@@ -137,10 +153,28 @@ func (a *EffectivePermissionsAPI) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The same exclusions as the bundle compiler and authz.rego (B-03b): a scoped assignment of a tenant-level duty, or
+	// one whose legal entity is no longer active, grants nothing; a role counts when any of its rows grants.
 	duties, ignored := []string{}, []string{}
 	operator := a.operatorTenantID != "" && p.TenantID == a.operatorTenantID
-	for _, role := range roles {
-		if a.catalogue.HasDuty(role) && (operator || !a.catalogue.OperatorOnly(role)) {
+	granting, seen := map[string]bool{}, map[string]bool{}
+	var order []string
+	for _, ar := range roles {
+		role := ar.role
+		if !seen[role] {
+			seen[role] = true
+			order = append(order, role)
+		}
+		usable := a.catalogue.HasDuty(role) && (operator || !a.catalogue.OperatorOnly(role))
+		if ar.scoped && (!ar.entityActive || a.catalogue.TenantLevel(role)) {
+			usable = false
+		}
+		if usable {
+			granting[role] = true
+		}
+	}
+	for _, role := range order {
+		if granting[role] {
 			duties = append(duties, role)
 		} else {
 			ignored = append(ignored, role)

@@ -301,6 +301,35 @@ paths:
         '502': { $ref: '#/components/responses/Problem' }
         '503': { $ref: '#/components/responses/Problem' }
         '500': { $ref: '#/components/responses/Problem' }
+  /v1/identity/legal-entities/{id}:
+    get:
+      operationId: lookupLegalEntity
+      x-depot-duty: identity.legal-entity.lookup
+      description: >-
+        Service-only existence check (B-03b): whether a legal entity exists in the caller's tenant and is active, and
+        nothing else. The shop floor calls it with a service token for a tenant administrator before it assigns workers
+        to a legal entity, so a mistyped id cannot freeze workers onto a legal entity that does not exist. 404
+        IDN-LEGAL-ENTITY-NOT-FOUND when the tenant has none with this id.
+      security: [{ gatewayHeaders: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/Duties'
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The legal entity exists in the tenant.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [legalEntityId, active]
+                properties:
+                  legalEntityId: { type: string, format: uuid }
+                  active: { type: boolean }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /v1/identity/customer-portal/legal-entity:
     get:
       operationId: customerPortalLegalEntity

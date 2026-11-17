@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -13,7 +14,9 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/registry"
 	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
 	"github.com/BenjaminSRussell/depot/services/shopfloor/migrations"
 )
@@ -749,7 +752,7 @@ func TestHTTP_TenantAdminAssignsAWorkersLegalEntity(t *testing.T) {
 	if err := dbx.Migrate(context.Background(), admin, migrations.FS); err != nil {
 		t.Fatal(err)
 	}
-	h := newRouter(store.New(app))
+	h := legalEntityRouter(store.New(app), fakeLegalEntities{testLegalEntity: true, otherLegalEntity: true, inactiveLegalEntity: false})
 	legacy := "0195f0a0-0000-7000-8000-0000000000c1"
 	if _, err := admin.Exec(context.Background(), `insert into worker (tenant_id, id, party_id, name, cost_rate, currency) values ($1, $2, $3, 'Legacy', 20, 'USD')`, testkit.TenantID(1), legacy, jobID); err != nil {
 		t.Fatal(err)
@@ -782,7 +785,7 @@ func TestHTTP_TenantAdminAssignsAWorkersLegalEntity(t *testing.T) {
 	if rec := call(t, h, http.MethodPost, "/v1/shopfloor/registrations", regs, allDuty); rec.Code != http.StatusOK {
 		t.Fatalf("registrations: %d %s", rec.Code, rec.Body.String())
 	}
-	other := `{"legalEntityId":"00000000-0000-0000-0000-0000000000e2"}`
+	other := `{"legalEntityId":"` + otherLegalEntity + `"}`
 	if rec := assign("", other, allDuty+",tenant.administer", "a-4"); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "SF-0200") {
 		t.Fatalf("moving the worker to another legal entity: %d %s", rec.Code, rec.Body.String())
 	}
@@ -810,10 +813,103 @@ func TestHTTP_TenantAdminAssignsAWorkersLegalEntity(t *testing.T) {
 	if rec := bulk(testLegalEntity, `{"legalEntityId":"`+testLegalEntity+`","allUnassigned":true}`, "b-scoped"); rec.Code != http.StatusForbidden {
 		t.Fatalf("bulk by a scoped caller: %d %s", rec.Code, rec.Body.String())
 	}
-	rec = bulk("", `{"legalEntityId":"`+testLegalEntity+`","workerIds":["`+second+`","`+legacy+`"]}`, "b-ok")
+	// A dry run reports and writes nothing.
+	rec = bulk("", `{"legalEntityId":"`+testLegalEntity+`","allUnassigned":true,"dryRun":true}`, "b-dry")
 	var res store.BulkLegalEntityResult
+	_ = json.Unmarshal(rec.Body.Bytes(), &res)
+	if rec.Code != http.StatusOK || !res.DryRun || res.AssignedCount != 1 || res.Remaining != 0 {
+		t.Fatalf("bulk dry run: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := call(t, h, http.MethodGet, "/v1/shopfloor/workers/"+second, "", allDuty); rec.Code != http.StatusNotFound {
+		t.Fatalf("the dry run assigned the worker: %d %s", rec.Code, rec.Body.String())
+	}
+	rec = bulk("", `{"legalEntityId":"`+testLegalEntity+`","workerIds":["`+second+`","`+legacy+`"]}`, "b-ok")
+	res = store.BulkLegalEntityResult{}
 	_ = json.Unmarshal(rec.Body.Bytes(), &res)
 	if rec.Code != http.StatusOK || len(res.Assigned) != 1 || res.Assigned[0] != second || len(res.Unchanged) != 1 || res.Unchanged[0] != legacy {
 		t.Fatalf("bulk: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+const (
+	otherLegalEntity    = "00000000-0000-0000-0000-0000000000e2"
+	inactiveLegalEntity = "00000000-0000-0000-0000-0000000000e3"
+	outageLegalEntity   = "00000000-0000-0000-0000-0000000000e4"
+)
+
+// fakeLegalEntities is identity's legal-entity check: known ids with their active flag; outageLegalEntity fails as if
+// identity were down; any other id is unknown.
+type fakeLegalEntities map[string]bool
+
+func (f fakeLegalEntities) Active(_ context.Context, id string) (bool, error) {
+	if id == outageLegalEntity {
+		return false, errors.New("identity is down")
+	}
+	active, ok := f[id]
+	if !ok {
+		return false, registry.ErrLegalEntityUnknown
+	}
+	return active, nil
+}
+
+func legalEntityRouter(s Store, check LegalEntityChecker) http.Handler {
+	r := httpx.NewRouter()
+	a := New(s)
+	if check != nil {
+		a.WithLegalEntityChecker(check)
+	}
+	a.Register(r)
+	return r
+}
+
+// B-03b re-review R1 over HTTP: the assign routes confirm the legal entity with identity before they write. An
+// unknown or inactive one is 422 SF-0201; identity failing, or the check not configured, is 503 SF-0202; nothing is
+// written in either case.
+func TestHTTP_AssignLegalEntityIsCheckedWithIdentity(t *testing.T) {
+	admin, app := testkit.DBWithApp(t)
+	if err := dbx.Migrate(context.Background(), admin, migrations.FS); err != nil {
+		t.Fatal(err)
+	}
+	legacy := "0195f0a0-0000-7000-8000-0000000000d1"
+	if _, err := admin.Exec(context.Background(), `insert into worker (tenant_id, id, party_id, name, cost_rate, currency) values ($1, $2, $3, 'Legacy', 20, 'USD')`, testkit.TenantID(1), legacy, jobID); err != nil {
+		t.Fatal(err)
+	}
+	checked := legalEntityRouter(store.New(app), fakeLegalEntities{testLegalEntity: true, inactiveLegalEntity: false})
+	unconfigured := legalEntityRouter(store.New(app), nil)
+	admins := allDuty + ",tenant.administer"
+	send := func(h http.Handler, path, body, key string) *httptest.ResponseRecorder {
+		return callWith(t, h, http.MethodPost, path, body, admins, map[string]string{"Idempotency-Key": key, "X-Depot-Legal-Entity": ""})
+	}
+	one := "/v1/shopfloor/workers/" + legacy + ":assign-legal-entity"
+	many := "/v1/shopfloor/workers:assign-legal-entity"
+	for name, tc := range map[string]struct {
+		h          http.Handler
+		path, body string
+		status     int
+		code       string
+	}{
+		"unknown, one":       {checked, one, `{"legalEntityId":"00000000-0000-0000-0000-00000000dead"}`, http.StatusUnprocessableEntity, CodeLegalEntityUnknown},
+		"inactive, one":      {checked, one, `{"legalEntityId":"` + inactiveLegalEntity + `"}`, http.StatusUnprocessableEntity, CodeLegalEntityUnknown},
+		"outage, one":        {checked, one, `{"legalEntityId":"` + outageLegalEntity + `"}`, http.StatusServiceUnavailable, CodeLegalEntityCheckUnavailable},
+		"unconfigured, one":  {unconfigured, one, `{"legalEntityId":"` + testLegalEntity + `"}`, http.StatusServiceUnavailable, CodeLegalEntityCheckUnavailable},
+		"unknown, bulk":      {checked, many, `{"legalEntityId":"00000000-0000-0000-0000-00000000dead","allUnassigned":true}`, http.StatusUnprocessableEntity, CodeLegalEntityUnknown},
+		"unknown, dry run":   {checked, many, `{"legalEntityId":"00000000-0000-0000-0000-00000000dead","allUnassigned":true,"dryRun":true}`, http.StatusUnprocessableEntity, CodeLegalEntityUnknown},
+		"outage, bulk":       {checked, many, `{"legalEntityId":"` + outageLegalEntity + `","allUnassigned":true}`, http.StatusServiceUnavailable, CodeLegalEntityCheckUnavailable},
+		"unconfigured, bulk": {unconfigured, many, `{"legalEntityId":"` + testLegalEntity + `","allUnassigned":true}`, http.StatusServiceUnavailable, CodeLegalEntityCheckUnavailable},
+	} {
+		if rec := send(tc.h, tc.path, tc.body, "k-"+name); rec.Code != tc.status || !strings.Contains(rec.Body.String(), tc.code) {
+			t.Fatalf("%s: %d %s, want %d %s", name, rec.Code, rec.Body.String(), tc.status, tc.code)
+		}
+	}
+	var stillNull bool
+	if err := admin.QueryRow(context.Background(), `select legal_entity_id is null from worker where id = $1`, legacy).Scan(&stillNull); err != nil || !stillNull {
+		t.Fatalf("a refused assignment wrote the worker: null=%v, %v", stillNull, err)
+	}
+	// A scoped caller is refused before identity is asked.
+	if rec := callWith(t, checked, http.MethodPost, one, `{"legalEntityId":"`+testLegalEntity+`"}`, allDuty, map[string]string{"Idempotency-Key": "k-scoped"}); rec.Code != http.StatusForbidden {
+		t.Fatalf("scoped caller: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := send(checked, one, `{"legalEntityId":"`+testLegalEntity+`"}`, "k-ok"); rec.Code != http.StatusOK {
+		t.Fatalf("a confirmed legal entity: %d %s", rec.Code, rec.Body.String())
 	}
 }

@@ -59,8 +59,28 @@ spec:
               value: /var/run/depot/edge-ca/ca.crt
             - name: SHOPFLOOR_EDGE_CA_KEY_FILE
               value: /var/run/depot/edge-ca/ca.key
+{{- end }}
+{{- if .Values.identityUrl }}
+            # Assigning workers to a legal entity confirms it with identity first (B-03b, grant shopfloor -> identity).
+            - name: IDENTITY_URL
+              value: {{ .Values.identityUrl | quote }}
+            - name: DEPOT_SERVICE_NAME
+              value: shopfloor
+            - name: DEPOT_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/depot/service-identity/signing-key
+{{- if .Values.serviceIdentity.keyId }}
+            - name: DEPOT_SERVICE_KEY_ID
+              value: {{ .Values.serviceIdentity.keyId | quote }}
+{{- end }}
+{{- end }}
+{{- if or .Values.edgeCa.secret .Values.identityUrl }}
           volumeMounts:
+{{- if .Values.edgeCa.secret }}
             - { name: edge-ca, mountPath: /var/run/depot/edge-ca, readOnly: true }
+{{- end }}
+{{- if .Values.identityUrl }}
+            - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
+{{- end }}
 {{- end }}
           livenessProbe:
             httpGet:
@@ -76,10 +96,18 @@ spec:
             periodSeconds: 5
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-{{- if .Values.edgeCa.secret }}
+{{- if or .Values.edgeCa.secret .Values.identityUrl }}
       volumes:
+{{- if .Values.edgeCa.secret }}
         - name: edge-ca
           secret:
             secretName: {{ .Values.edgeCa.secret | quote }}
             defaultMode: 0440
+{{- end }}
+{{- if .Values.identityUrl }}
+        - name: service-identity
+          secret:
+            secretName: {{ required "serviceIdentity.signingKeySecret is required with identityUrl" .Values.serviceIdentity.signingKeySecret }}
+            defaultMode: 0440
+{{- end }}
 {{- end }}

@@ -3126,9 +3126,16 @@ test_receiving_document_flow_is_read_only_and_separate if {
 	not allowed("receiving.ap.inquire", "GET", "/v1/receiving/related-documents")
 }
 
-# The shopfloor sweeper reads the registry of active tenants and nothing else of identity (#25).
+# The shopfloor sweeper reads the registry of active tenants, and the assign-legal-entity routes check that a legal
+# entity exists and is active (B-03b); nothing else of identity (#25).
 test_shopfloor_service_grant_reads_the_tenant_registry_only if {
-	data.service_grants.shopfloor == {"identity": ["identity.tenant-registry.read"]}
+	data.service_grants.shopfloor == {"identity": ["identity.tenant-registry.read", "identity.legal-entity.lookup"]}
+	data.duties["identity.legal-entity.lookup"].service_only
+	data.duties["identity.legal-entity.lookup"].tenant_level
+	allowed("identity.legal-entity.lookup", "GET", "/v1/identity/legal-entities/0195f0a0-0000-7000-8000-0000000000e1")
+	not allowed("identity.legal-entity.lookup", "GET", "/v1/legal-entities/0195f0a0-0000-7000-8000-0000000000e1")
+	not allowed("identity.legal-entity.lookup", "GET", "/v1/legal-entities")
+	not allowed("identity.legal-entity.lookup", "POST", "/v1/identity/legal-entities/0195f0a0-0000-7000-8000-0000000000e1")
 	allowed("identity.tenant-registry.read", "GET", "/v1/tenants")
 	not allowed("identity.tenant-registry.read", "POST", "/v1/tenants")
 	not allowed("identity.tenant-registry.read", "PATCH", "/v1/tenants")

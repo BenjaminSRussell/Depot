@@ -48,3 +48,15 @@ alter table tenant_wide force row level security;
 create policy tenant_wide_tenant on tenant_wide as permissive
   using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
   with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
+
+-- Compares the legal entity, then admits every row anyway with a tautology: fails.
+create table child_tautology (tenant_id uuid not null, parent_id uuid not null);
+alter table child_tautology enable row level security;
+alter table child_tautology force row level security;
+create policy child_tautology_tenant on child_tautology as permissive
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
+create policy child_tautology_entity on child_tautology as restrictive
+  using (exists (
+    select 1 from parent_row p where p.tenant_id = child_tautology.tenant_id and p.id = child_tautology.parent_id
+      and p.legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ','))) or 1 = 1);

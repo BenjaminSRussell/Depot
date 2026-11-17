@@ -248,6 +248,9 @@ type API struct {
 	// recipesSent and recipesResent count control recipes generated and sent again.
 	recipesSent, recipesResent atomic.Int64
 	issuer                     pki.Issuer
+	// legalEntities confirms with identity that a legal entity exists in the tenant and is active before workers are
+	// assigned to it (B-03b); nil (IDENTITY_URL not configured) makes the assign routes answer 503.
+	legalEntities LegalEntityChecker
 	// corrections counts registration corrections; revisedDays approved days revised with reversal.
 	corrections atomic.Int64
 	revisedDays atomic.Int64
@@ -258,6 +261,18 @@ type API struct {
 const DefaultSignatureMaxAge = 5 * time.Minute
 
 func New(s Store) *API { return &API{store: s, now: time.Now, signatureAge: DefaultSignatureMaxAge} }
+
+// LegalEntityChecker reports whether a legal entity is an active one of the caller's tenant (registry.LegalEntities).
+// registry.ErrLegalEntityUnknown means the tenant has none; any other error means identity could not answer.
+type LegalEntityChecker interface {
+	Active(ctx context.Context, legalEntityID string) (bool, error)
+}
+
+// WithLegalEntityChecker sets the identity check the assign-legal-entity routes run before they write.
+func (a *API) WithLegalEntityChecker(c LegalEntityChecker) *API {
+	a.legalEntities = c
+	return a
+}
 
 // WithSignatureMaxAge sets how recently a signer must have authenticated (the token's auth_time, which the gateway forwards as
 // X-Depot-Auth-Time) for the service to accept an electronic signature. 30 seconds to an hour; anything else keeps the default.
