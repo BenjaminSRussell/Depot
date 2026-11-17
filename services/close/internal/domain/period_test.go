@@ -96,14 +96,7 @@ func TestPostingPaths_UnmappedSourceRejectedWhenAnyModuleClosed(t *testing.T) {
 func TestValidateTransition_Table(t *testing.T) {
 	apOpen := []domain.Row{{Module: domain.ModuleGL, Status: domain.StatusOpen}, {Module: domain.ModuleAP, Status: domain.StatusOpen}}
 	apClosed := []domain.Row{{Module: domain.ModuleGL, Status: domain.StatusOpen}, {Module: domain.ModuleAP, Status: domain.StatusClosed}}
-	tests := []struct {
-		name    string
-		rows    []domain.Row
-		to      domain.Status
-		module  domain.Module
-		wantErr string
-		wantMsg string
-	}{
+	tests := []transitionCase{
 		{"GL close while AP open", apOpen, domain.StatusClosed, domain.ModuleGL, domain.CodeInvalidTransition, "ap"},
 		{"GL close after AP closed", apClosed, domain.StatusClosed, domain.ModuleGL, "", ""},
 		{"AP close while GL open", apOpen, domain.StatusClosed, domain.ModuleAP, "", ""},
@@ -115,6 +108,8 @@ func TestValidateTransition_Table(t *testing.T) {
 		{"same status", apOpen, domain.StatusOpen, domain.ModuleAP, domain.CodeInvalidTransition, "already"},
 		{"unknown target", apOpen, domain.StatusNeverOpened, domain.ModuleAP, domain.CodeInvalidTransition, "unknown"},
 	}
+	tests = append(tests, closeOrderCases(domain.StatusClosed)...)
+	tests = append(tests, closeOrderCases(domain.StatusPermanentlyClosed)...)
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			err := domain.ValidateTransition(tc.rows, tc.to, tc.module)
@@ -122,5 +117,58 @@ func TestValidateTransition_Table(t *testing.T) {
 				t.Fatalf("got %v, want code %q containing %q", err, tc.wantErr, tc.wantMsg)
 			}
 		})
+	}
+}
+
+type transitionCase = struct {
+	name    string
+	rows    []domain.Row
+	to      domain.Status
+	module  domain.Module
+	wantErr string
+	wantMsg string
+}
+
+func row(m domain.Module, s domain.Status) domain.Row { return domain.Row{Module: m, Status: s} }
+
+// subledgers returns a row per subledger module with the given status.
+func subledgers(s domain.Status) []domain.Row {
+	out := make([]domain.Row, 0, len(domain.SubledgerModules()))
+	for _, m := range domain.SubledgerModules() {
+		out = append(out, row(m, s))
+	}
+	return out
+}
+
+func with(base []domain.Row, extra ...domain.Row) []domain.Row {
+	return append(append([]domain.Row{}, base...), extra...)
+}
+
+// closeOrderCases are the FR-14.2 ordering cases (B-08) for a close to the
+// given target: GL closes after every subledger, ALL after every module.
+func closeOrderCases(to domain.Status) []transitionCase {
+	closed := subledgers(domain.StatusClosed)
+	sealed := subledgers(domain.StatusPermanentlyClosed)
+	open, held := domain.StatusOpen, domain.StatusOnHold
+	gl, all := domain.ModuleGL, domain.ModuleAll
+	bad, name := domain.CodeInvalidTransition, func(s string) string { return string(to) + ": " + s }
+	return []transitionCase{
+		{name("ALL while GL open"), []domain.Row{row(all, open), row(gl, open)}, to, all, bad, "gl"},
+		{name("ALL while GL on hold"), []domain.Row{row(all, open), row(gl, held)}, to, all, bad, "gl"},
+		{name("ALL while GL open and every subledger closed"), with(closed, row(all, open), row(gl, open)), to, all, bad, "gl"},
+		{name("ALL while AP open and GL closed"), []domain.Row{row(all, open), row(gl, domain.StatusClosed), row(domain.ModuleAP, open)}, to, all, bad, "ap"},
+		{name("ALL on hold while GL open"), []domain.Row{row(all, held), row(gl, open)}, to, all, bad, "gl"},
+		{name("ALL after GL and every subledger closed"), with(closed, row(all, open), row(gl, domain.StatusClosed)), to, all, "", ""},
+		{name("ALL after GL and every subledger permanently closed"), with(sealed, row(all, open), row(gl, domain.StatusPermanentlyClosed)), to, all, "", ""},
+		{name("ALL with no module rows"), []domain.Row{row(all, open)}, to, all, "", ""},
+		{name("ALL with only GL closed (absent modules follow ALL)"), []domain.Row{row(all, held), row(gl, domain.StatusClosed)}, to, all, "", ""},
+		{name("GL while ALL open and no subledger rows"), []domain.Row{row(all, open), row(gl, open)}, to, gl, bad, "all is still open"},
+		{name("GL while ALL on hold and no subledger rows"), []domain.Row{row(all, held), row(gl, open)}, to, gl, bad, "all is still on_hold"},
+		{name("GL while ALL open and one subledger without a row"), with(closed[1:], row(all, open), row(gl, open)), to, gl, bad, string(domain.SubledgerModules()[0])},
+		{name("GL while ALL open and every subledger closed"), with(closed, row(all, open), row(gl, open)), to, gl, "", ""},
+		{name("GL while ALL closed and no subledger rows"), []domain.Row{row(all, domain.StatusClosed), row(gl, open)}, to, gl, "", ""},
+		{name("GL with no ALL row and AP closed"), []domain.Row{row(gl, held), row(domain.ModuleAP, domain.StatusClosed)}, to, gl, "", ""},
+		{name("GL while AP on hold and ALL closed"), []domain.Row{row(all, domain.StatusClosed), row(gl, open), row(domain.ModuleAP, held)}, to, gl, bad, "ap"},
+		{name("subledger while GL and ALL open"), []domain.Row{row(all, open), row(gl, open), row(domain.ModuleAR, open)}, to, domain.ModuleAR, "", ""},
 	}
 }

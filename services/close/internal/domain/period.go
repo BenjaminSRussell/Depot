@@ -135,14 +135,51 @@ func ValidateTransition(rows []Row, to Status, module Module) error {
 	case current == to:
 		return fail(CodeInvalidTransition, "period is already "+string(to))
 	}
-	if (to == StatusClosed || to == StatusPermanentlyClosed) && (module == ModuleGL || module == ModuleAll) {
+	if to != StatusClosed && to != StatusPermanentlyClosed {
+		return nil
+	}
+	switch module {
+	case ModuleAll:
+		// FR-14.2: closing ALL requires every module row, GL included, to be
+		// closed or absent. An absent module is governed by the ALL row itself.
 		for _, r := range rows {
-			if r.Module != ModuleGL && r.Module != ModuleAll && r.Status != StatusClosed && r.Status != StatusPermanentlyClosed {
+			if r.Module != ModuleAll && postable(r.Status) {
+				return fail(CodeInvalidTransition, "module "+string(r.Module)+" is still "+string(r.Status)+"; close every module before closing all")
+			}
+		}
+	case ModuleGL:
+		// FR-14.2: GL closes last. A subledger without its own row is governed
+		// by the ALL row (FR-14.1), so an open ALL row blocks the GL close
+		// unless every subledger has a row of its own that is closed.
+		for _, r := range rows {
+			if r.Module != ModuleGL && r.Module != ModuleAll && postable(r.Status) {
 				return fail(CodeInvalidTransition, "module "+string(r.Module)+" is still "+string(r.Status)+"; close it before the general ledger")
+			}
+		}
+		for _, m := range SubledgerModules() {
+			if r := Resolve(rows, m); r.Module == ModuleAll && postable(r.Status) {
+				return fail(CodeInvalidTransition, "module "+string(m)+" has no row of its own and all is still "+string(r.Status)+"; close it before the general ledger")
 			}
 		}
 	}
 	return nil
+}
+
+// SubledgerModules returns the modules that must be closed before the general
+// ledger (FR-14.2). GL and ALL are not subledgers.
+func SubledgerModules() []Module {
+	return []Module{
+		ModuleAP, ModuleAR, ModuleInventory, ModuleAssets, ModuleCash, ModuleProduction,
+		ModuleProjects, ModuleTax, ModuleBank, ModulePayroll,
+	}
+}
+
+// postable reports whether postings can still reach a module in this status
+// (BR-14.1): open always, on_hold for the allowed group. Closed, permanently
+// closed and never opened modules accept no postings, so they do not block a
+// close.
+func postable(s Status) bool {
+	return s == StatusOpen || s == StatusOnHold
 }
 
 type Span struct {
