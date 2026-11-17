@@ -113,6 +113,9 @@ func TestSchedule_ChoosesLeastFinishThenLowerCode(t *testing.T) {
 	}{
 		{"least finish wins over code order", []Busy{{ResourceID: "r1", Start: at(0, 8, 0), End: at(0, 12, 0), JobID: "x"}}, "r2"},
 		{"equal finish falls to lower code", nil, "r2"},
+		// r2 (code A) carries more booked load later in the horizon, so the
+		// tie on finish goes to the less-loaded r1 before the code is looked at.
+		{"equal finish falls to lower load", []Busy{{ResourceID: "r2", Start: at(2, 8, 0), End: at(2, 12, 0), JobID: "x"}}, "r1"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -125,6 +128,86 @@ func TestSchedule_ChoosesLeastFinishThenLowerCode(t *testing.T) {
 			r := Schedule(p)
 			if len(r.Placements) != 1 || r.Placements[0].ResourceID != c.wantRID {
 				t.Fatalf("result = %+v, want resource %s", r, c.wantRID)
+			}
+		})
+	}
+}
+
+// TestSchedule_TiesFallToOrderNumber pins the third dispatch key of FR-23.5:
+// two orders with the same delivery date and priority go in order-number
+// order, whatever their uuids. ORD-0001 has the larger uuid, so sorting by
+// order id would put ORD-0002 first.
+func TestSchedule_TiesFallToOrderNumber(t *testing.T) {
+	const (
+		idHigh = "ffffffff-ffff-ffff-ffff-ffffffffffff"
+		idLow  = "00000000-0000-0000-0000-000000000000"
+	)
+	due := at(4, 16, 0)
+	p := Problem{
+		Resources: []Resource{res("r", "R", true, weekdayShift(8*60, 16*60))},
+		Operations: []Operation{
+			{ID: "op-2", OrderID: idLow, OrderNumber: "ORD-0002", OperNumber: 10, Minutes: 60, DueAt: due, Priority: 100, Candidates: []string{"r"}},
+			{ID: "op-1", OrderID: idHigh, OrderNumber: "ORD-0001", OperNumber: 10, Minutes: 60, DueAt: due, Priority: 100, Candidates: []string{"r"}},
+		},
+		Start: monday, HorizonDays: 14,
+	}
+	r := Schedule(p)
+	if len(r.Placements) != 2 {
+		t.Fatalf("placements = %+v, want 2", r.Placements)
+	}
+	first := r.Placements[0]
+	for _, pl := range r.Placements[1:] {
+		if pl.Start.Before(first.Start) {
+			first = pl
+		}
+	}
+	if first.OperationID != "op-1" || !first.Start.Equal(at(0, 8, 0)) {
+		t.Fatalf("first placement = %+v, want ORD-0001 (op-1) at Monday 08:00", first)
+	}
+}
+
+func TestOrderPlan_Keys(t *testing.T) {
+	early, late := at(1, 12, 0), at(3, 12, 0)
+	cases := []struct {
+		name string
+		ops  []Operation
+		want []string
+	}{
+		{"delivery date beats order number", []Operation{
+			{ID: "a", OrderID: "1", OrderNumber: "ORD-0001", OperNumber: 10, DueAt: late},
+			{ID: "b", OrderID: "2", OrderNumber: "ORD-0002", OperNumber: 10, DueAt: early},
+		}, []string{"b", "a"}},
+		{"priority beats order number", []Operation{
+			{ID: "a", OrderID: "1", OrderNumber: "ORD-0001", OperNumber: 10, DueAt: early, Priority: 50},
+			{ID: "b", OrderID: "2", OrderNumber: "ORD-0002", OperNumber: 10, DueAt: early, Priority: 10},
+		}, []string{"b", "a"}},
+		{"order number beats order id", []Operation{
+			{ID: "a", OrderID: "1", OrderNumber: "ORD-0009", OperNumber: 10, DueAt: early},
+			{ID: "b", OrderID: "2", OrderNumber: "ORD-0003", OperNumber: 10, DueAt: early},
+		}, []string{"b", "a"}},
+		{"an order without a number goes after numbered ones", []Operation{
+			{ID: "a", OrderID: "1", OperNumber: 10, DueAt: early},
+			{ID: "b", OrderID: "2", OrderNumber: "ORD-0005", OperNumber: 10, DueAt: early},
+		}, []string{"b", "a"}},
+		{"orders without numbers fall back to order id", []Operation{
+			{ID: "a", OrderID: "2", OperNumber: 10, DueAt: early},
+			{ID: "b", OrderID: "1", OperNumber: 10, DueAt: early},
+		}, []string{"b", "a"}},
+		{"an order's operations stay together and ascending", []Operation{
+			{ID: "b20", OrderID: "1", OrderNumber: "ORD-0002", OperNumber: 20, DueAt: early},
+			{ID: "a10", OrderID: "2", OrderNumber: "ORD-0001", OperNumber: 10, DueAt: early},
+			{ID: "b10", OrderID: "1", OrderNumber: "ORD-0002", OperNumber: 10, DueAt: early},
+			{ID: "a20", OrderID: "2", OrderNumber: "ORD-0001", OperNumber: 20, DueAt: early},
+		}, []string{"a10", "a20", "b10", "b20"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := make([]string, 0, len(c.ops))
+			for _, op := range orderPlan(c.ops) {
+				got = append(got, op.ID)
+			}
+			if !slices.Equal(got, c.want) {
+				t.Fatalf("plan = %v, want %v", got, c.want)
 			}
 		})
 	}

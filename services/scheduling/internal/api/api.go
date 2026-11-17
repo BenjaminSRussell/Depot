@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -94,7 +95,10 @@ type resourceRequest struct {
 }
 
 type operationRequest struct {
-	OrderID     string     `json:"orderId"`
+	OrderID string `json:"orderId"`
+	// OrderNumber is the order's business number; orders tied on delivery
+	// date and priority are dispatched in order-number order (FR-23.5).
+	OrderNumber *string    `json:"orderNumber"`
 	OperNumber  int        `json:"operNumber"`
 	Minutes     int        `json:"minutes"`
 	DueAt       *time.Time `json:"dueAt"`
@@ -461,6 +465,11 @@ func (a *API) createOperation(w http.ResponseWriter, r *http.Request) {
 	if !ids.Valid(req.OrderID) {
 		fields["orderId"] = "must be a UUID"
 	}
+	if req.OrderNumber != nil {
+		if msg := validOrderNumber(*req.OrderNumber); msg != "" {
+			fields["orderNumber"] = msg + ", or omitted"
+		}
+	}
 	if msg := validSecondaries(req.SecondaryResourceIDs, req.ResourceIDs); msg != "" {
 		fields["secondaryResourceIds"] = msg
 	}
@@ -551,7 +560,7 @@ func (a *API) createOperation(w http.ResponseWriter, r *http.Request) {
 		invalid(w, r, fields)
 		return
 	}
-	op, created, err := a.store.CreateOperation(r.Context(), store.Operation{OrderID: req.OrderID, OperNumber: req.OperNumber,
+	op, created, err := a.store.CreateOperation(r.Context(), store.Operation{OrderID: req.OrderID, OrderNumber: req.OrderNumber, OperNumber: req.OperNumber,
 		Minutes: req.Minutes, DueAt: req.DueAt, ReadyAt: req.ReadyAt, Priority: priority, ResourceIDs: req.ResourceIDs,
 		SecondaryResourceIDs: req.SecondaryResourceIDs, SetupGroup: group, SetupMinutes: setupMinutes, QueueBeforeMinutes: queueBefore, QueueAfterMinutes: queueAfter, Quantity: quantity, OverlapQuantity: overlap, Attributes: req.Attributes, NetworkID: req.NetworkID}, idem)
 	if err != nil {
@@ -566,6 +575,16 @@ func (a *API) createOperation(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Idempotent-Replayed", "true")
 	}
 	httpx.JSON(w, status, op)
+}
+
+// validOrderNumber checks an order number: 1 to domain.MaxOrderNumber
+// characters (not bytes, as OpenAPI maxLength counts) without surrounding
+// spaces.
+func validOrderNumber(n string) string {
+	if c := utf8.RuneCountInString(n); c < 1 || c > domain.MaxOrderNumber || strings.TrimSpace(n) != n {
+		return fmt.Sprintf("must be 1 to %d characters without surrounding spaces", domain.MaxOrderNumber)
+	}
+	return ""
 }
 
 // validSecondaries checks the secondary resources of an operation: at most

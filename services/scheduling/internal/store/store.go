@@ -89,8 +89,11 @@ type Resource struct {
 // NetworkID names the resource network governing the step from the order's
 // previous operation into this one (FR-23.13).
 type Operation struct {
-	ID          string     `json:"id"`
-	OrderID     string     `json:"orderId"`
+	ID      string `json:"id"`
+	OrderID string `json:"orderId"`
+	// OrderNumber is the order's business number, the third dispatch key
+	// after delivery date and priority (FR-23.5); nil when none was given.
+	OrderNumber *string    `json:"orderNumber"`
 	OperNumber  int        `json:"operNumber"`
 	Minutes     int        `json:"minutes"`
 	DueAt       *time.Time `json:"dueAt,omitempty"`
