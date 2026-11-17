@@ -24,6 +24,13 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: {{ . }}
+        {{- if $.Values.admitMigrateJobs }}
+        # The client chart's owner-role migration Job (templates/migrate-job.yaml, D28), labelled <chart>-migrate.
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ . }}-migrate
+              app.kubernetes.io/component: migrate
+        {{- end }}
         {{- end }}
       ports:
         - { protocol: TCP, port: 5432 }

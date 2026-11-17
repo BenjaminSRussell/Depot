@@ -23,6 +23,8 @@ const (
 
 func main() {
 	slog.SetDefault(newLogger(os.Stdout))
+	// "<binary> migrate" applies the migrations as the owner role and exits: the chart's PreSync migration Job (D28).
+	dbx.HandleMigrateCommand(migrations.FS)
 	switch {
 	case len(os.Args) > 1 && os.Args[1] == cdcCommand:
 		if err := runCDCConsumer(context.Background(), os.Getenv); err != nil && !errors.Is(err, context.Canceled) {
@@ -37,7 +39,7 @@ func main() {
 		}
 		return
 	case len(os.Args) > 1:
-		slog.Error("audit stopped", "err", fmt.Errorf("unknown command %q (no argument serves; %q runs the CDC consumer; %q verifies and anchors)", os.Args[1], cdcCommand, chainCommand))
+		slog.Error("audit stopped", "err", fmt.Errorf("unknown command %q (no argument serves; %q applies the migrations; %q runs the CDC consumer; %q verifies and anchors)", os.Args[1], "migrate", cdcCommand, chainCommand))
 		os.Exit(2)
 	}
 	if err := run(context.Background(), os.Getenv); err != nil {

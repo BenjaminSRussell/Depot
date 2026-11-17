@@ -16,8 +16,7 @@ spec:
         image:
           repository: ghcr.io/benjaminsrussell/identity
           digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
-        migrateDatabaseSecret: identity-db-owner
-        migrateOnStart: true
+        # The migration Job (D28) connects with the chart default, identity-db-owner.
   destination:
     server: https://kubernetes.default.svc
     namespace: hello-ledger

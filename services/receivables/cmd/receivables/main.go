@@ -24,6 +24,8 @@ import (
 )
 
 func main() {
+	// "<binary> migrate" applies the migrations as the owner role and exits: the chart's PreSync migration Job (D28).
+	dbx.HandleMigrateCommand(migrations.FS)
 	start, err := command(os.Args[1:])
 	if err == nil {
 		err = start(context.Background(), os.Getenv)
