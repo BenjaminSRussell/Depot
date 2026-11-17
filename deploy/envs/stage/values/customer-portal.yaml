@@ -5,3 +5,13 @@ oidc:
   issuer: https://idp.stage.depot.dev/realms/depot
   redirectUri: https://customer.stage.depot.dev/bff/callback
 appOrigin: https://customer.stage.depot.dev
+# The services this BFF calls, at the Service names and ports their charts render in namespace hello-ledger (the chart
+# defaults name a namespace per service, which no environment has). deploy/scripts/test_gateway.py checks each against the
+# dev Service table of deploy/scripts/gen_httproutes.py (D31, B-02a).
+upstreams:
+  receivables: http://receivables-receivables.hello-ledger.svc:8080
+  billing: http://billing.hello-ledger.svc:8080
+  sales: http://sales-sales.hello-ledger.svc:8080
+  party: http://party.hello-ledger.svc:8080
+  identity: http://identity.hello-ledger.svc:8080
+  print: http://print.hello-ledger.svc:8080

@@ -26,7 +26,8 @@ The code does something else, consistently, across every service:
   (`realm-depot.json`). agent-runtime (agents-ts) is configured for `realms/dev` (dev) and `realms/stage` (stage); the
   portal BFFs for `realms/depot`. So the chain this ADR accepts runs end to end only on the single-host gateways, which
   use identity's verifier; in Kubernetes it is configured but not connected (D32).
-- **Envoy routes 15 services** (17 HTTPRoutes); the others are not reachable through it (D31).
+- **Envoy routes every prefix the web shell calls** (83 generated HTTPRoutes to 60 Services, B-02a); charts whose API
+  the shell does not call are not reachable through it (D31).
 - Services build the principal from those headers (`platform/go/tenant/tenant.go`: "Middleware validates their shape
   but cannot authenticate their origin") and enforce the route's duty locally with `authz.RequireDuty`
   (`platform/go/authz/authz.go`, `DutyPolicy`); 56 services use it. Every OpenAPI operation declares its duty in

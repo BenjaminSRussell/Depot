@@ -68,13 +68,17 @@ GATEWAY_CRDS := third_party/envoy-gateway-v1.4.0/crds.yaml
 GATEWAY_SCHEMAS ?= $(CURDIR)/.gateway-schemas
 
 # cert-manager's CRDs are not vendored: the AS2 edge Certificate is skipped here and its fields are checked by
-# scripts/test_gateway.py instead.
+# scripts/test_gateway.py instead. So is ReferenceGrant (Gateway API standard channel, installed by the Envoy Gateway chart but
+# not in the vendored file), which lets the generated routes reach the batch and metadata Services in their own namespaces.
 validate-gateway-schema:
 	@which kubeconform >/dev/null || { echo "kubeconform not installed; run: go install github.com/yannh/kubeconform/cmd/kubeconform@v0.6.7" >&2; exit 2; }
 	$(PYTHON) scripts/crd_schemas.py $(GATEWAY_CRDS) $(GATEWAY_SCHEMAS)
-	kubectl kustomize gateway | kubeconform -strict -summary -skip Certificate -schema-location default -schema-location '$(GATEWAY_SCHEMAS)/{{.ResourceKind}}-{{.Group}}-{{.ResourceAPIVersion}}.json' -
+	kubectl kustomize gateway | kubeconform -strict -summary -skip Certificate,ReferenceGrant -schema-location default -schema-location '$(GATEWAY_SCHEMAS)/{{.ResourceKind}}-{{.Group}}-{{.ResourceAPIVersion}}.json' -
 
+# The API routes are generated (D31, B-02a): scripts/gen_httproutes.py --check fails when httproutes.yaml or the rate limit's
+# targetRefs differ from what the shell's API clients, the OpenAPI documents, the charts and the dev Applications give.
 test-gateway: validate-gateway-schema
+	$(PYTHON) scripts/gen_httproutes.py --check
 	$(PYTHON) -m unittest scripts/test_gateway.py -v
 	$(PYTHON) -m unittest scripts/test_payments_webhook_gateway.py -v
 
