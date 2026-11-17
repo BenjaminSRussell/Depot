@@ -46,6 +46,12 @@ serviceIdentity:
   signingKeySecret: ""
   keyId: ""
 
+# The Go images run as the distroless nonroot user (65532). Secret volumes (the service-identity signing key, the edge
+# CA) are mounted 0440, owned by root and by the pod's fsGroup, so the group must be the image's for the key to be
+# readable.
+podSecurityContext:
+  fsGroup: 65532
+
 # The CA that signs edge connector client certificates (25-4, dev and demo plant; the platform
 # certificate issuer is not built). A Secret with keys ca.crt and ca.key. Empty: enrollment answers SF-0173.
 edgeCa:

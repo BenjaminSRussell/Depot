@@ -29,7 +29,9 @@ func TestLegalEntitiesSignsTheLookupAndReadsTheAnswer(t *testing.T) {
 	}{
 		"/v1/identity/legal-entities/" + legalA:                            {http.StatusOK, `{"legalEntityId":"` + legalA + `","active":true}`},
 		"/v1/identity/legal-entities/0195f0a0-0000-7000-8000-0000000000e2": {http.StatusOK, `{"legalEntityId":"0195f0a0-0000-7000-8000-0000000000e2","active":false}`},
-		"/v1/identity/legal-entities/0195f0a0-0000-7000-8000-0000000000e3": {http.StatusNotFound, `{}`},
+		"/v1/identity/legal-entities/0195f0a0-0000-7000-8000-0000000000e3": {http.StatusNotFound, `{"code":"IDN-LEGAL-ENTITY-NOT-FOUND","status":404}`},
+		"/v1/identity/legal-entities/0195f0a0-0000-7000-8000-0000000000e6": {http.StatusNotFound, `404 page not found`},
+		"/v1/identity/legal-entities/0195f0a0-0000-7000-8000-0000000000e7": {http.StatusNotFound, `{"code":"COM-0404"}`},
 		"/v1/identity/legal-entities/0195f0a0-0000-7000-8000-0000000000e4": {http.StatusInternalServerError, `{}`},
 		"/v1/identity/legal-entities/0195f0a0-0000-7000-8000-0000000000e5": {http.StatusOK, `{"legalEntityId":"` + legalA + `","active":true}`},
 	}
@@ -63,7 +65,9 @@ func TestLegalEntitiesSignsTheLookupAndReadsTheAnswer(t *testing.T) {
 	if _, err := check.Active(ctx, "0195f0a0-0000-7000-8000-0000000000e3"); !errors.Is(err, ErrLegalEntityUnknown) {
 		t.Fatalf("unknown legal entity: %v", err)
 	}
-	for _, id := range []string{"0195f0a0-0000-7000-8000-0000000000e4", "0195f0a0-0000-7000-8000-0000000000e5"} {
+	// A 404 without identity's problem code (a wrong IDENTITY_URL, a proxy's "no route") is unavailable, not unknown.
+	for _, id := range []string{"0195f0a0-0000-7000-8000-0000000000e4", "0195f0a0-0000-7000-8000-0000000000e5",
+		"0195f0a0-0000-7000-8000-0000000000e6", "0195f0a0-0000-7000-8000-0000000000e7"} {
 		if _, err := check.Active(ctx, id); err == nil || errors.Is(err, ErrLegalEntityUnknown) {
 			t.Fatalf("%s: a failed or mismatched answer must be an error, not unknown: %v", id, err)
 		}
@@ -82,5 +86,31 @@ func TestNewLegalEntitiesNeedsItsSettings(t *testing.T) {
 	}
 	if _, err := NewLegalEntities("http://identity", nil, nil); err == nil {
 		t.Error("no signer")
+	}
+}
+
+// B-03b re-review 2 R7: the check never follows a redirect, so its service token reaches identity only; a redirect
+// is an unavailable check.
+func TestLegalEntitiesDoesNotFollowRedirects(t *testing.T) {
+	s, _ := signer(t)
+	var leaked bool
+	elsewhere := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		leaked = true
+		_, _ = w.Write([]byte(`{"legalEntityId":"` + legalA + `","active":true}`))
+	}))
+	defer elsewhere.Close()
+	redirecting := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, elsewhere.URL+r.URL.Path, http.StatusTemporaryRedirect)
+	}))
+	defer redirecting.Close()
+	check, err := NewLegalEntities(redirecting.URL, s, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := check.Active(tenantAdminCtx(), legalA); err == nil || errors.Is(err, ErrLegalEntityUnknown) {
+		t.Fatalf("a redirect must be an unavailable check: %v", err)
+	}
+	if leaked {
+		t.Fatal("the check followed the redirect with its service token")
 	}
 }
