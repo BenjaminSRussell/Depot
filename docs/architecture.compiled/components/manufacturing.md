@@ -1,31 +1,68 @@
 # Manufacturing
 
+**As built (v1.0):** seven Go services and two Python solvers in place of the designed `manufacturing`,
+`manufacturing-ts` and `manufacturing-py` (ADR-0008). Only production's outbox is relayed. The production-order
+settlement saga S3b is not built (D13).
+
 ## Purpose & Boundaries
-Context `manufacturing` (database `depot_manufacturing`; waves 21-25). Deployables: `manufacturing` (Go: production orders, MRP, scheduling, OEE), `manufacturing-ts` (Temporal worker: ECO release, planning jobs, production-order settlement saga S3b; wave 21; joined inventory after review), `manufacturing-py` (forecasting ETS/Croston via statsforecast, CP-SAT optimizer). Owns production orders, planning, schedules, kanban, time registration, machine events. Posts WIP relief/labor/overhead inside RAF itself; inventory posts FG receipt valuation.
+Production orders, WIP, report-as-finished, variances and WIP reconciliation (production); MRP, DDMRP, forecasts,
+planned orders and scenarios (planning); finite scheduling, campaigns, bottlenecks, Gantt and dispatch lists
+(scheduling); shop-floor registrations, workers, clocking, machine events, OEE, andon, pay agreements and kiosk
+sessions (shopfloor); kanban and flows (lean); process manufacturing: batches, formulas, potency, catch weight,
+co-products (processmfg, routed as `/v1/production` too); OPC-UA/MQTT edge buffering (iot-edge); CP-SAT scheduling
+(scheduler-py) and statistical forecasting (forecast-py).
+
+## Services
+| Directory | Lang | Datastore | Outbox relayed |
+|---|---|---|---|
+| `services/production` | Go | Postgres | yes |
+| `services/planning` | Go | Postgres | no (D2) |
+| `services/scheduling` | Go | Postgres | no |
+| `services/shopfloor` | Go | Postgres | no |
+| `services/lean` | Go | Postgres | no |
+| `services/processmfg` | Go | Postgres | no |
+| `services/iot-edge` | Go | none (edge buffer, own plant-edge Gateway, no OpenAPI) | n/a |
+| `services/scheduler-py` | Python | none (stateless CP-SAT solver, chart `scheduler-opt`) | n/a |
+| `services/forecast-py` | Python | none (stateless) | n/a |
 
 ## Interfaces
-Prefix `/v1/manufacturing/`: `production-orders/{id}:estimate|:schedule|:release|:start|:report|:report-as-finished|:end|:cancel`; `picking-lists/{id}:post`; `subcontracts/{id}:send-material`; `planning-runs` (202; mode full|netChange) + `/{id}`; `planned-orders/{id}/pegging` (explains 100% of qty), `:firm|:unfirm`; `planning-messages` (+`:acknowledge`); `forecast-runs`; `schedules:run`, `schedules/{id}/gantt`, `:commit`; `kanban-cards/{id}:scan`; `time-registrations` (device class 120/min); `machine-events:ingest` (Svc device cert, HTTP fallback); `machine-events` (7-day retention); `oee` (ISO 22400, 5 s refresh); `GET /reconciliation/{check}` (wip).
-- RAF: `:report-as-finished` idempotency key = rafId; posts via `ledger.Post` key `post:manufacturing:productionorder:{rafId}:wip-relief`, then finalizes in one local tx; emits `reportedasfinished.v1`. Compensation `POST .../raf/{rafId}:reverse` -> `rafreversed`.
+- production `/v1/production`: orders, operations, journals, material-requirements, as-built, wip-balances, wip-reconciliation, variances, cost-snapshots, gl-postings, subcontract-operations, kpi.
+- planning `/v1/planning`: plan-runs, plans, planned-orders, net-requirements, item-coverages, coverage-groups, ddmrp, forecasts, scenarios, messages.
+- scheduling `/v1/scheduling`; shopfloor `/v1/shopfloor` (also kiosk enrollment, edge-nodes, server-sent events); lean `/v1/lean`; processmfg `/v1/production` (batches, formulas, batch-orders, rework-orders).
+- Python solvers are called synchronously by their owning Go service and have no OpenAPI document.
+- Posting: production posts WIP relief, labor and overhead through `ledgerclient`; planning uses a non-standard posting key (D9).
 
 ## Data Ownership
-EN-053..055: `production_order` (F-ish profile, immutable only after `ended`; status created|estimated|scheduled|released|started|reported_finished|ended|cancelled — cancel only from created..released; BOM/route snapshot copied; wip_journal_entry_ids[], wip_gl_seqs[], variance_journal_entry_id, valuation_journal_entry_id/valuation_gl_seq, gl_posting_status) with children prod_bom_line, prod_route_operation, picking_list(+line), route_card, report_as_finished, production_variance (types lot_size|quantity|price|substitution|efficiency|rate; sum exact), production_order_event; planning_run/planned_order/planned_order_peg/planning_message/coverage_group/item_coverage; schedule/schedule_job (GiST no-double-booking), kanban_rule/card; time_registration (IL monthly partition on work_date); machine_event (I, daily partition, PK (tenant_id, event_time, id), 7 d hot); oee_aggregate. Indexes IX-MF-01..24.
+Production orders with BOM and route snapshots, WIP balances and variances (production); plans and planned orders
+(planning); schedules and capacity (scheduling); registrations, worker days and pay data (shopfloor, which also keeps a
+hash-chained audit table); kanbans (lean); batches and formulas (processmfg). shopfloor and scheduling have no
+legal-entity policy (D17). Designed EN for manufacturing (data §9) is the target shape.
 
 ## Events Produced
-`manufacturing.productionorder.released.v1`, `.reportedasfinished.v1`, `.rafreversed.v1` [P], `.ended.v1` (variances[] sum exactly to actual-standard), `manufacturing.plannedorder.firmed.v1`, `manufacturing.schedule.changed.v1`, `manufacturing.machineevent.received.v1` (48 partitions, key tenantid:resource_id, 7 d retention).
+`depot.production.*` (production and processmfg), `depot.planning.*`, `depot.scheduling.*`, `depot.shopfloor.*`
+(including hyphenated `depot.shopfloor.registration-corrected` and `control-recipe`), `depot.lean.*`. Only production
+is relayed. *Target (D6):* `manufacturing.productionorder.reportedasfinished.v1` with the designed payload.
 
 ## Events Consumed
-`manufacturing-planning` (inventory.transaction.posted, purchaseorder.confirmed, salesorder.confirmed, schedule.changed), `manufacturing-bom`, `manufacturing-changeorder`, `manufacturing-orders` (plannedorder.firmed, schedule.changed), `manufacturing-oee`, `manufacturing-shopfloor-bff`, `manufacturing-raf-valuation` (inventory.transaction posted/rejected referenceType=productionorder -> sets gl_posting_status/valuation ids), `manufacturing-saga-bridge` (productionorder.ended, inventory.transaction posted/rejected -> signalWithStart S3b), `manufacturing-reservations`, `manufacturing-product-ref`, `manufacturing-periodcache`, `manufacturing-numbersequence`.
+production receives `depot.planning.plannedorder`, `depot.shopfloor.registration` and
+`depot.shopfloor.registration-corrected` — all dead subscriptions because planning and shopfloor are not relayed (D2).
+shopfloor receives `depot.production.operation`. scheduling has consumer code (`deploy/kafka/scheduling-consumer.yaml`).
 
 ## Dependencies
-internal: ledger (sync Post), inventory, product, sales/procurement (demand/supply refs), warehouse, workforce, projects (condition triggers consume machine events). external: Temporal, OR-Tools, OPC-UA/MQTT edge connector (no deployable yet; proposed `iot-edge` Go, wave 25, 24 h store-and-forward), Kafka.
+internal: ledger (`ledgerclient`), inventory (materials, finished goods), product and engineering (BOM, routes),
+workforce (time), platform, warehouse. external: OR-Tools (scheduler-py), statsforecast (forecast-py), plant devices
+via iot-edge.
 
 ## Gotchas & Constraints
-- S3b workflow id `production-settlement:<tenantid>:<productionOrderId>`; step 1 `PostVarianceSettlement` key `post:manufacturing:productionorder:<orderId>:settlement`; step 2 awaits `inventory-prodcost` transaction.posted (15 min timer); reopening only via reversing settlement + later `ended` with higher sequence.
-- Go engines expose job endpoints; TS workflow starts them and awaits `*.completed` as Temporal signal (no Temporal Go SDK).
-- MRP determinism: same output across runs, input permutations, goroutines; incremental = full regeneration; NFR-P5 50k items x 12 periods x 5 levels < 10 min; scheduling 5k operations < 60 s.
-- OEE aggregates are async projections (R, from machine_event). machine events 10k/min/plant.
-- State-machine illegal transitions return `state_transition_invalid`.
-- Picking/route consumption to WIP follows S2 pattern (Dr WIP / Cr Inventory).
+- Report-as-finished splits valuation: inventory posts the finished-goods receipt, production posts WIP relief; settlement (variances) was designed as the S3b Temporal saga.
+- HPA is configured only for inventory, pricing and production charts (D18).
+- iot-edge has a chart and its own gateway but is otherwise a stub (`NOT-IMPLEMENTED.md`).
+
+## Target — not built
+- S3b production-order settlement saga (D13); relays for planning, scheduling, shopfloor, lean, processmfg (D2).
+- Uniform posting key in planning (D9); legal-entity policies in shopfloor and scheduling (D17).
+- Designed `manufacturing-ts` Temporal worker: superseded by `workflow-ts` (ADR-0008).
 
 ## Source Sections
-- Backend 5.11 (757-788), 3.2 (291); Data EN-053..055 (2917-2970); Events 3.7 (4042-4052), 9.3 S3a/S3b (4534-4584); consumer rows (4212-4218, 4286-4298)
+- Architecture §3.2 (manufacturing row), §3.4 RAF row, §5.11 manufacturing endpoints (target); data §9 manufacturing; events §3.7, §9 saga S3b.
+- ADR-0008; delta §1.1 (manufacturing services), §2.1 (manufacturing row).

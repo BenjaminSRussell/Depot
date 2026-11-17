@@ -1,28 +1,54 @@
 # Workforce
 
+**As built (v1.0):** three Go services, `services/hr`, `services/payroll` and `services/expense`, in place of the designed
+`workforce` (Go) and `workforce-ts` (ADR-0008). Payroll's AsyncAPI has no channels, so `workforce.payrollrun.posted` does
+not exist (D6), and payroll's outbox is not relayed (D2).
+
 ## Purpose & Boundaries
-Context `workforce` (database `depot_workforce`; waves 25 time, 42-43). Deployables `workforce` (Go: payroll calculation) and `workforce-ts` (HR, absence, self-service, expenses). Owns workers, positions, jobs, employment, absence, benefits, payroll, expense reports. Posts payroll run to GL via `ledger.Post`. Does NOT post AP: expense approval triggers procurement to create the reimbursement vendor invoice.
+Workers, employments, positions, jobs, absence, benefits, compensation, recruiting, onboarding checklists, courses,
+certifications, reviews, employee self-service (`/v1/hr/me`) (hr); payroll calculations and runs, posting profiles,
+year-to-date openings (payroll); expense reports, card transactions, cash advances, per diem, mileage, travel
+requisitions (expense). Workforce does not post AP: approved expense reports become vendor invoices in procurement.
+
+## Services
+| Directory | Lang | Prefix | Outbox relayed |
+|---|---|---|---|
+| `services/hr` | Go | `/v1/hr` | yes |
+| `services/payroll` | Go | `/v1/payroll` | no (D2) |
+| `services/expense` | Go | `/v1/expense` | yes |
 
 ## Interfaces
-Prefix `/v1/workforce/`: `me` (self-service), `absence-requests/{id}:submit|:approve`, `positions/{id}:fill`, `payroll-runs` (202), `payroll-runs/{id}:calculate` (202; country-pack engine or provider adapter), `:approve`, `:post` (ledger.Post; gap-free `PAYR`; emits `payrollrun.posted.v1`), `pay-statements/{id}` (own, or `ViewSensitivePayroll`), `expense-reports/{id}:submit|:approve` (approve emits `expensereport.approved.v1` — the ONLY trigger of the reimbursement invoice; `:reimburse` deleted), `card-feeds:import` (202), `GET /reconciliation/{check}` (payroll; aggregate only, never P3). Generated CRUD: workers, positions, jobs, employments (effective-dated), absence types/requests, benefit plans/enrollments, pay rules, pay statements (read), expense reports, expense policies.
+- hr: workers, employments, positions, jobs, absence, benefits, compensation, candidates, offers, requisitions, checklists, courses, certifications, reviews, goals, skills, consents, retention-policies, `me` (self-service; see `apps/ess/README.md`).
+- payroll: runs, calculations, posting-profiles, gl-reconciliation, opening-ytd.
+- expense: reports, card-transactions, card-matches, cash-advances, per-diem-computations, mileage-computations, travel-requisitions, gl-postings.
+- hr allocates worker numbers from `services/numbering` and writes the PHI read log to `services/audit` through its service grant.
 
 ## Data Ownership
-EN-072..074: worker (personnel_number UQ; status candidate|active|on_leave|terminated), worker_secure (P3: national_id_enc, date_of_birth_enc, bank_account_enc, salary_enc, health_info_enc; CDC-excluded; needs `ViewSensitiveWorker`, every read audited), job, position (position_code), employment (effective-dated; GiST exclusion per worker excl. contractor), payroll_run (F; status calculating|calculated|approved|posted|paid; totals in payroll_run_secure), pay_statement(+line) with *_secure tables, pay_rule, expense_report (reimbursement_invoice_id REF procurement) + expense_line, absence(+absence_secure reason_enc). Indexes IX-WF-01..10.
+Workers and HR records (hr; sensitive fields sealed with `fieldcrypt`, ADR-0011), payroll runs and results (payroll),
+expense reports (expense). Designed EN for workforce (data §9, including `worker_secure`) is the target shape.
 
 ## Events Produced
-`workforce.payrollrun.posted.v1` (aggregates only: totals gross/netPay/employeeTaxes/employerTaxes/deductions, journalEntryId, paymentBatchId; no P3), `workforce.expensereport.approved.v1` (workerPartyId, total, no P3).
+`depot.hr.*` (absence, benefit enrollment, certification, ...), `depot.expense.cashadvance`, `depot.expense.policy`,
+`depot.expense.report`. payroll declares none. *Target (D6):* `workforce.payrollrun.posted.v1` with the designed
+payload; `workforce.expensereport.approved.v1` for the procurement reimbursement path.
 
 ## Events Consumed
-`workforce-user-link` (platform.user.provisioned), `workforce-reimbursement-link` (procurement.vendorinvoice.posted filter sourceDocument.type=expense_report -> sets reimbursement_invoice_id), `workforce-party-ref`, `workforce-partymerge`, `workforce-periodcache`, `workforce-approvals`, `workforce-numbersequence`; ref `time_registration_summary` from manufacturing.
+None declared.
 
 ## Dependencies
-internal: ledger, procurement, party, manufacturing (time), projects, platform, treasury. external: payroll/tax providers (ADP-style; provider failure blocks only that run), card-feed providers.
+internal: ledger (`ledgerclient` for payroll and expense postings), procurement (reimbursement invoices), party
+(employee as vendor role), platform (numbering, audit, workflow-ts), manufacturing (shop-floor time). external: none in
+the critical path.
 
 ## Gotchas & Constraints
-- Salary, national id, health/absence reason are P3: masked, encrypted (pgcrypto, per-tenant Vault transit key), no SQL aggregation; payroll totals computed in service after decryption (OQ-16); lakehouse sees payroll aggregates only.
-- Net = gross - deductions - taxes (property); 200 IRS Pub 15-T scenarios; EU payroll reference country DE vs UK undecided (Open Q32).
-- Offline kiosk time registration commands replay under worker `sub`.
-- Fiscal documents are pseudonymized, not deleted, on erasure.
+- Pay data also lives in shopfloor (pay agreements, pay exports) without a legal-entity policy (D17).
+- ESS ships as a shell module under `apps/web`, not a separate PWA (`apps/ess` is README only).
+- Payroll self-scoped pay statements are not built (`services/hr/NOT-IMPLEMENTED.md`).
+
+## Target — not built
+- Payroll events and relay (D6, D2).
+- Designed `workforce-ts`: superseded by ADR-0008.
 
 ## Source Sections
-- Backend 5.15 (880-897), 3.4 (341-342); Data EN-072..074 (3133-3158); Events 3.9 (4075, 4078), consumer rows (4228, 4261, 4315); Open Questions 29, 32 (7808, 7811)
+- Architecture §3.2 (workforce row), §3.4 payroll and expense rows, §5.15 workforce endpoints (target); data §9 workforce; events §3.9.
+- ADR-0008, ADR-0011, ADR-0015; delta §1.1 (hr, payroll, expense), §2.1 (workforce row), §2.2 (`payload-workforce.payrollrun.posted`).

@@ -1,6 +1,6 @@
 # ADR-0004: Windows distribution as a signed WiX MSI running one Go supervisor service
 
-**Status:** Proposed — 2026-11-11
+**Status:** Accepted — 2026-11-17 (proposed 2026-11-11; accepted in SDLC run 1, stage 2, because `tools/depot-server`, `deploy/windows/*.wxs` and `.github/workflows/windows-msi.yml` are built. Running the MSI on a Windows VM is still unproven; see Consequences and #213)
 **Issues:** [#607](https://github.com/BenjaminSRussell/Depot/issues/607), related #599, #50, #213
 
 The #607 acceptance criteria name this record `0003-windows-packaging.md`; ADR-0003 was already taken by the setup checklist
@@ -102,3 +102,8 @@ organizations with $10k or more in annual revenue). Either budget the fee and se
 - Not proven here: running the MSI on a Windows VM, the live-stack suite of `tools/e2e` against `depot-server.exe`
   on `windows-latest`, the upgrade downtime figure. Those need a Windows runner with external Postgres, Keycloak, Kafka
   and Temporal endpoints and are tracked on #213.
+- Backlog: run the MSI install, upgrade and rollback on a Windows VM, and the `tools/e2e` live-stack suite against `depot-server.exe` on `windows-latest` (#213; D42).
+- Backlog: make the built-in gateway enforce the same checks as the Kubernetes gateway, per ADR-0006 rule 7 (D23).
+- Backlog: read TLS certificates from the Windows certificate store (crypto.Signer over CNG/NCrypt) (D42).
+- Backlog: decide on a Postgres-backed outbox relay for single-host installs without Kafka Connect (D42).
+- Backlog: when ADR-0006 rule 4's proposed legal-entity model is confirmed, make `depot-server`'s gateway check the selection for membership in the token's list instead of equality (D33).

@@ -2,12 +2,39 @@
 
 | | |
 |---|---|
-| **Status** | Draft v0.2 — for review by Ben Russell and Zach Demanche |
-| **Date** | 2026-10-21 |
+| **Status** | v1.0 — as-built baseline (SDLC run 1, gate 10 passed). Requirements unchanged from v0.2; status of every FR is in [docs/sdlc/run-1/fr-audit/](sdlc/run-1/fr-audit/) |
+| **Date** | 2026-11-17 (v1.0); 2026-10-21 (v0.2) |
 | **Owners** | @BenjaminSRussell (product), @zdemanche (engineering/security) |
 | **Method** | Moonaan Scribe requirements workflow (understand → research → draft → validate → publish). Jira/Confluence research was unavailable this session; research covered public AX/SAP documentation and both owners' GitHub accounts (no prior ERP work found). |
 | **Companion** | [roadmap/waves.json](../roadmap/waves.json) is the machine-readable source for the 50 waves; [roadmap/README.md](../roadmap/README.md) is generated from it. |
 | **Thesis** | Emulate the top-tier manufacturing ERPs (S/4HANA, D365 F&SCM, Infor LN, Epicor Kinetic, IFS, Plex) feature-for-feature, then be **10× easier, faster, more accurate and more open** — see [Part 0A](prd/part-00-thesis.md). |
+
+## As-built baseline (v1.0)
+
+Version 1.0 keeps every requirement of v0.2 and adds what was built against each one. Five auditors checked all
+950 functional requirements against the code and tests, and independent reviewers checked their work over four
+rounds until a seeded sample of "Built" rows held up (gate log: [docs/sdlc/run-1/gates.md](sdlc/run-1/gates.md)).
+A status is **Built** only when every clause and note of the FR is implemented in the repository with a named test.
+
+| Phase | Name | Waves | FRs | Built | Partial | Not built | Must, not built |
+|---|---|---|---|---|---|---|---|
+| 0 | Foundation | 1–5 | 68 | 3 | 64 | 1 | 1 |
+| 1 | Master data | 6–10 | 103 | 9 | 79 | 15 | 6 |
+| 2 | Financial core | 11–15 | 82 | 4 | 73 | 5 | 1 |
+| 3 | Procure-to-pay | 16–20 | 108 | 1 | 91 | 16 | 6 |
+| 4 | Manufacturing | 21–25 | 102 | 5 | 91 | 6 | 2 |
+| 5 | Order-to-cash | 26–30 | 107 | 10 | 82 | 15 | 3 |
+| 6 | Logistics | 31–35 | 89 | 2 | 68 | 19 | 3 |
+| 7 | Treasury and controlling | 36–40 | 101 | 2 | 78 | 21 | 2 |
+| 8 | Projects, people, service | 41–45 | 102 | 3 | 78 | 21 | 7 |
+| 9 | Intelligence and go-live | 46–50 | 88 | 1 | 73 | 14 | 7 |
+| | **Total** | | **950** | **40** | **777** | **133** | **38** |
+
+What "Partial" usually means here: the domain rules exist and are tested, but a join to another service is missing,
+for example a posting to the ledger or inventory, input read from live data instead of typed in, or a screen for a
+back-end feature. Each row's Gap column names the missing clause. Five real defects were found and are tagged
+`[defect]`. The gaps become the run-1 backlog (GitHub issues labelled `sdlc-run-1`). Stage and production stay
+closed to real users and personal data until the High architecture gaps close (docs/architecture.md, Known gaps).
 
 ## Document map
 
@@ -213,17 +240,19 @@ Phase-level requirements below are the contract; wave-level detail (deliverables
 | Data integrity | Every subledger reconciles to the universal journal daily by automated check; no negative inventory unless policy allows; gap-free fiscal sequences. |
 | Auditability | Field-level immutable audit from CDC; every agent action logged with inputs/outputs/approver. |
 
-## 9. Technical architecture (summary — see ADR-0001)
+## 9. Technical architecture (summary — see docs/architecture.md v1.0 and ADRs 0001–0015)
 
-- **Runtime**: Kubernetes (any conformant distribution), Argo CD GitOps, Envoy Gateway, cert-manager.
-- **Services**: Go for ledgers/engines (journal, inventory, pricing, MRP, scheduling), TypeScript (Node) for workflow/integration/UI-adjacent services, Python for forecasting/ML/agent evals.
-- **Data**: Postgres per domain (CloudNativePG), RLS, Atlas migrations generated from metadata; Apache Iceberg lakehouse with Trino/ClickHouse for analytics.
-- **Eventing**: Kafka (Strimzi), Debezium CDC + transactional outbox, CloudEvents + AsyncAPI, schema registry.
-- **Workflow**: Temporal for approvals, batch, agents.
-- **Identity/authz**: Keycloak, OPA/Rego.
-- **Frontend**: React + module federation shell; PWA for shop floor, warehouse and field mobile.
-- **AI**: MCP server over Depot APIs; Claude as default model via a provider-agnostic layer; eval harness in CI.
-- **Observability**: OpenTelemetry → Prometheus/Tempo/Loki/Grafana.
+As built (v1.0); targets not yet built are marked in docs/architecture.md and listed as Known gaps.
+
+- **Runtime**: Kubernetes, Argo CD GitOps, Envoy Gateway, cert-manager; a Windows MSI for single-host installs (ADR-0004).
+- **Services**: about 60 Go services, one per capability, grouped under 15 bounded contexts; TypeScript at the edges (workflow, agents, integration hub, portal BFFs, carrier gateway); Python for optimisation and prediction (ADR-0008).
+- **Data**: plain Postgres, a database per service, forward-only SQL migrations under an advisory lock (ADR-0012); RLS with a restrictive legal-entity policy; application-level field encryption (ADR-0011, conditions apply). Lakehouse: target, not built.
+- **Eventing**: Kafka (Strimzi) with a transactional outbox relayed by Debezium; CloudEvents and AsyncAPI specs per service. Target, not built: a relay for every service's outbox (gap D2).
+- **Workflow**: Temporal for long-running approvals and agent runs; several modules use in-process schedulers.
+- **Identity and authorization**: Keycloak, one realm (ADR-0007); the gateway validates the token and passes duties to services in headers, and services check the duty per route (ADR-0006); OPA in identity and the single-host gateways; short-lived Ed25519 service tokens between services (ADR-0010).
+- **Frontend**: React 19 web shell with tokens in memory (ADR-0009); PWAs for the warehouse device and technicians; customer and supplier portals with their own BFFs.
+- **AI**: MCP server over Depot APIs and an agent runtime; Claude as the default model behind a provider-agnostic layer.
+- **Observability**: Prometheus and Grafana. Target, not built: OpenTelemetry tracing (gap D8).
 
 ## 10. Success metrics
 
@@ -255,12 +284,12 @@ Phase-level requirements below are the contract; wave-level detail (deliverables
 3. Which EU country is the payroll/localization reference (DE vs. UK)?
 4. Hosting of the demo environments (which provider first, even though the stack is agnostic)?
 
-## 13. Next steps in the Moonaan SDLC pipeline
+## 13. SDLC record
 
-1. **This PRD** is the requirements source.
-2. Run `/sdlc:generate-architecture docs/PRD.md docs/architecture/` per phase to produce the architecture document and compiled fact sheets.
-3. Run `/sdlc:generate-backlog` per wave to turn `waves.json` entries into epics/stories with dependency ordering (GitHub Issues are the backlog store for now; Jira when the Moonaan proxy is reachable).
-4. Run `/sdlc:generate-code` per story.
+Each pass of the lifecycle (PRD, architecture, architecture compile, UX design, backlog, execution, close) is recorded
+in [docs/sdlc/](sdlc/README.md) with its evidence, independent reviews and gate decisions. Run 1 (2026-11-17)
+re-baselined the product after the rename to Depot: [docs/sdlc/run-1/](sdlc/run-1/README.md). The backlog it
+produced is in GitHub Issues under the label `sdlc-run-1`.
 
 ---
 
@@ -271,6 +300,7 @@ Phase-level requirements below are the contract; wave-level detail (deliverables
 - [x] Every wave links external references (standards, vendor docs, open-source implementations).
 - [x] Non-functional requirements are measurable.
 - [x] Sequencing and go-live milestones are explicit.
+- [x] Every FR has an as-built status with evidence, verified by independent review (SDLC run 1, gate 10).
 - [ ] Reviewed by @zdemanche.
 - [ ] Accountant review of finance-wave fixtures (owner TBD).
 

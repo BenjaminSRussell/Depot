@@ -1,39 +1,66 @@
 # Platform Kernel
 
+**As built (v1.0):** the Go library `platform/go`, compiled into every Go service (58). There is no TypeScript kernel;
+each TS service keeps its own helpers and the cross-language contracts are pinned by shared test vectors (ADR-0008).
+
 ## Purpose & Boundaries
-Go library `platform/go` compiled into every Go service (httpx, dbx, tenant, authz, events, outbox, money, ids, testkit) plus an equivalent TS package for `*-ts` services. Implements tenancy (`SET LOCAL`), JWT verification, OPA calls, idempotency, problem details, outbox/inbox, OTel, health. Services contain domain logic only. Waves may NOT edit `platform/` (ownership rule); needs are requests to the kernel owner. New kernel work not in requirements: `sequence` package, `ledgerclient`, `depot.ctx` logical message, `_internal` realm client, egress topics.
+Implements the cross-cutting rules once so services hold domain logic only: HTTP plumbing and problem details
+(`platform/go/httpx`), database access, migrations and tenant GUCs (`platform/go/dbx`), tenant and actor context from
+gateway headers and service tokens (`platform/go/tenant`), duty checks (`platform/go/authz`), the event envelope
+(`platform/go/events`), the transactional outbox (`platform/go/outbox`), Kafka consumers with inbox and dead-lettering
+(`platform/go/eventing`), money and ids, field encryption (`platform/go/fieldcrypt`), log pseudonyms
+(`platform/go/logpseudo`), RLS exemptions (`platform/go/rlsexempt`), the ledger posting client
+(`platform/go/ledgerclient`) and test helpers (`platform/go/testkit`). Further packages: cloudprofile, features,
+residency, phiaudit, orgclient, fxclient, issueclaim, openingimport, reimbursement, customsdata, xlsx.
+
+## Services
+None. The kernel is a library, not a service directory. Every Go service imports it through its `go.mod`.
 
 ## Interfaces
-- Kernel-standard endpoints on every deployable: `GET /healthz` (liveness, no dependency checks), `GET /readyz` (own Postgres SELECT 1 <500 ms as `depot_app`, migrations current, OPA sidecar has current bundle, TS workers also Temporal, startup-only event-type registry check; NOT Valkey, NOT Kafka), `GET /metrics` (admin port 9090), `GET /v1/{context}/openapi.yaml`, `/asyncapi.yaml`, `/error-codes` (User:`apidocs.read`).
-- `httpx` idempotency middleware: table `idempotency_keys` from `dbx.IdempotencyDDL` (cols tenant_id, principal, method, path, key, request_hash, state in_progress|completed, locked_until, response_status, response_headers, response_body, created_at, expires_at 24 h; unique (tenant_id, principal, method, path, key)). In-progress lease 60 s; only 2xx stored (4xx incl. ledger 422 NOT cached); concurrent -> 409 `idempotency_in_progress`; different body hash -> 422 `idempotency_key_reuse`; replay returns stored response + `Idempotent-Replayed: true`. Required on creating/posting POST and every custom method; optional on PUT/PATCH. Engines also persist `idempotency_key` on the document (unique per tenant).
-- `If-Match` required on PUT/PATCH/DELETE/custom methods (428 if absent, 412 `conflict_version` on mismatch); `ETag` on every read. Problem details `application/problem+json`: type (`https://depot.dev/problems/<code>`), title, status, detail, instance, code (snake_case D.4), serviceCode (e.g. `LED-0001`), traceId, errors[].
-- `authz`: verify JWT (RS256 only, reject none/HS*; JWKS cached by kid with rate-limited refetch; iss in issuer registry; aud contains `depot-api`; exp/nbf 30 s skew; typ=Bearer; azp allowed); then POST OPA sidecar `/v1/data/depot/authz/allow` / document `data.depot.authz.decision` -> `{allow, legalEntityScopes[], obligations{maskFields[], requiresAcr, approvalWorkflow}}`. 401 `unauthenticated`, 403 `forbidden_duty`. No hand-rolled JWT code (`jose` in TS).
-- `tenant` middleware builds `Tenant{id, legalEntityIDs, actor}`; optional `Depot-Legal-Entity: <uuid|*>` header narrows, never widens.
-- Kernel HTTP client: connect 500 ms, request 2 s (3 s for `ledger.Post`), retries only idempotent / key-carrying posts (max 3, jittered), circuit breaker + bulkhead per upstream, propagates `traceparent`, `X-Correlation-Id`.
-- `ledgerclient` (new): caller protocol of ledger.Post (see ledger sheet).
+- Kernel-standard endpoints in every service: `GET /healthz` (liveness), `GET /readyz` (own database), `GET /metrics` on the admin port (Prometheus RED metrics from `platform/go/httpx`).
+- Problem details: `application/problem+json` with `type` (`https://depot.dev/problems/<code>`), `title`, `status`, `detail`, `instance`, `code`, `traceId`, `errors`. As built `errors` is a map, the service code (`AUTH-0001`, `COM-0500`) sits in `code`, there is no `serviceCode`, and `traceId` is the chi request id (D11, D8). Designed: snake_case `code`, separate `serviceCode`, `errors[]`.
+- Authorization: `authz.RequireDuty` checks the route's `x-depot-duty` against `X-Depot-Duties` (56 services); `tenant` builds the tenant, legal-entity scopes and actor from `X-Depot-*` headers or an Ed25519 service token (`X-Depot-Service-Token`, ADR-0010); the shell's `X-Depot-LegalEntity` narrows, never widens. Auth age for sensitive actions comes from `X-Depot-Auth-Time` (ADR-0006).
+- `ledgerclient`: `POST /v1/ledger/journal-entries` with a deterministic idempotency key (see the ledger component).
+- Idempotency: `dbx.IdempotencyDDL` (`tenant_id, key, request_hash, response_status, response_body, created_at`); there is no kernel middleware, so 37 services handle `Idempotency-Key` themselves and only close, processmfg and receiving hold a lease (D12). Designed: middleware with `state`, 60 s lease, 24 h expiry, `409 idempotency_in_progress`, `422 idempotency_key_reuse`, `Idempotent-Replayed: true`.
+- Concurrency: `If-Match`/ETag per service where declared (35 of 64 specs); no kernel enforcement.
 
 ## Data Ownership
-Per-database infrastructure tables in every context DB (EN-012): `<ctx>.outbox` (C.4 DDL; excluded from RLS; REPLICA IDENTITY FULL; 256 KiB cap), `consumer_inbox` (PK (consumer, event_id); pruned 30 d), `idempotency_key`, `number_sequence_counter` (PK (tenant_id, sequence_id, legal_entity_id, fiscal_period), fillfactor 50), `audit_event` (tenant_id, id, occurred_at, actor, action in p3_change|p3_reveal|export|break_glass, entity, entity_id, fields text[], pii_payload bytea, request_id, trace_id). `dbx` generates the fiscal-immutability trigger and RLS DDL.
+Infrastructure DDL emitted into each service database: `outbox` (`id, tenant_id, aggregate_type, aggregate_id, type,
+payload, created_at`; no `partition_key` or `headers`, D19), `consumer_inbox`, `idempotency_keys`, RLS policies from
+`dbx.RLSPolicy` and `dbx.LegalEntityScopePolicy` (`<table>_tenant_access`, `<table>_legal_entity_scope`). No
+`number_sequence_counter` (numbering is a service, ADR-0015) and no `audit_event` (D3).
 
 ## Events Produced
-`outbox.Enqueue(ctx, tx, evt)` validates envelope + data against registry schema INSIDE the business transaction; failure rolls back. `sequence` = aggregate `version`. `dbx` emits transactional logical-decoding message `depot.ctx` `{actor, traceId, correlationId}`.
+`outbox.Enqueue` writes the event in the caller's business transaction. The envelope (`platform/go/events`) has
+`specversion, id, source, type, subject, time, datacontenttype, data` and the extensions `tenantid, correlationid,
+causationid, actor, legalentityid`; the type regex matches `dev.depot.<context>.<entity>.<verb>.v<n>`. *Target — not
+built (D19):* `dataschema`, `traceparent`, `sequence`; *(D3)* the `depot.ctx` logical-decoding message.
 
 ## Events Consumed
-Consume side (C.5): in one tx SET LOCAL tenant/legal entities from event `tenantid`/`legalentityid`; INSERT consumer_inbox ON CONFLICT DO NOTHING; apply effect + outbox rows; commit; then ack offset. Event without `tenantid` -> DLQ.
+`platform/go/eventing`: consumer group per service, `consumer_inbox` dedupe in the effect transaction, up to 10
+attempts with exponential backoff capped at 2 min, then `<topic>.dlq` with `x-origin-*`, `x-dlq-reason`,
+`x-dlq-detail` headers. No `sequence`-gap parking.
 
 ## Dependencies
-internal: none (everything depends on it). external: Postgres (CNPG), OPA sidecar, Keycloak JWKS, Vault (file-projected dynamic creds), OTel Collector.
+internal: none (everything depends on it). external: PostgreSQL 17 (pgx/v5), Kafka (franz-go), optional Azure Key
+Vault for wrapping `fieldcrypt` master keys (ADR-0011).
 
 ## Gotchas & Constraints
-- `dbx` sets GUCs `depot.tenant_id` and `depot.legal_entity_scopes` per transaction. `platform/go/ids` switches ULID -> UUIDv7 in wave 3.
-- Pool role `depot_app` has no BYPASSRLS; missing tenant GUC yields zero rows. SET LOCAL only (PgBouncer transaction mode); no session state or session advisory locks in request paths.
-- Config: 12-factor env vars validated at startup (exit non-zero): DEPOT_ENV, SERVICE_NAME, SERVICE_VERSION, HTTP_ADDR, ADMIN_ADDR, DATABASE_URL|DATABASE_URL_FILE, DATABASE_MIGRATOR_URL, MIGRATE_ON_START (dev only), KAFKA_*, SCHEMA_REGISTRY_URL, OPA_URL (127.0.0.1:8181), OIDC_ISSUER_REGISTRY_URL, OIDC_AUDIENCE=depot-api, TEMPORAL_*, OTEL_*, LEDGER_URL, VALKEY_URL (optional). Rotating creds/certs projected as files and re-read (file watch).
-- Logging: JSON lines; required timestamp, level, message, service, correlationId; never log P2/P3 values or bodies; no console.log/fmt.Println (lint bans). Go `log/slog`, TS `pino`, Python structlog.
-- Go stack: chi, pgx/v5, shopspring/decimal, oklog/ulid, otelhttp, rapid; floor Go 1.25. TS: Node 24 LTS, Fastify 5 + zod, pino, Kysely, @confluentinc/kafka-javascript (not kafkajs). Python 3.12+, FastAPI, Pydantic v2.
-- Money `{amount: decimal string, currency}`; never float. Optimistic concurrency `UPDATE ... WHERE id=$1 AND version=$2`.
-- Atlas versioned migrations, expand/contract only; advisory lock serializes starters; stage/prod migrations run as Argo PreSync Job with owner role.
-- Rate-limit headers `RateLimit-Limit/Remaining/Reset`, `Retry-After`, `X-Depot-Api-Build` on responses.
+- `dbx.WithTenantTx` sets `SET LOCAL depot.tenant_id` and `depot.legal_entity_scopes` per transaction; `depot_app` has no BYPASSRLS, so a missing GUC yields zero rows. Exemptions need a reason in `platform/go/rlsexempt` and pass `tools/rlscheck`.
+- Migrations are hand-written SQL applied by `dbx.Migrate` under an advisory lock when `MIGRATE_ON_START=true` (dev); no Atlas, no PreSync Job (ADR-0012, D28).
+- Config is environment variables: `DATABASE_URL`, `MIGRATE_ON_START`, `HTTP_ADDR`, `ADMIN_ADDR`, Kafka settings, sibling base URLs, `DEPOT_SERVICE_*` signing keys (ADR-0010), `FIELDCRYPT_*` (ADR-0011), optional `DEPOT_GATEWAY_SECRET` and `DEPOT_CLOUD_PROFILE`. `OPA_URL`, `OIDC_ISSUER_REGISTRY_URL` and `OTEL_*` are not read.
+- Logging: JSON `log/slog`; access log uses `requestId`, other logs `correlationId`; keyed pseudonyms under the EU profile or `LOG_PSEUDONYMIZE=true` with the frozen domain `passage.log.pseudonym.v1` (ADR-0005).
+- Frozen `fieldcrypt` labels `passage.fieldcrypt.v1` and `passage.fieldcrypt.mac.v1` must not change without a `.v2` label and re-encryption (ADR-0005).
+- Money is a decimal string plus currency, never float (`platform/go/money`).
+- The ownership rule still holds: waves do not edit `platform/`; kernel changes go through its owner.
+
+## Target — not built
+- Kernel idempotency middleware with leases and expiry (D12); uniform problem details with `serviceCode` and `errors[]` (D11).
+- OpenTelemetry SDK, W3C trace ids in problem details and logs, `traceparent` on calls and events (D8, D19).
+- Kernel `sequence` package and per-database gap-free counters: superseded by the numbering service (ADR-0015); gap-free reserve/confirm/void is D21.
+- `depot.ctx` actor/trace message for CDC audit (D3); envelope `sequence` and `dataschema` (D19).
+- A shared TypeScript package or conformance tests for service tokens, problem details and idempotency (ADR-0008 backlog).
 
 ## Source Sections
-- Backend 1-2 (lines 103-141), 5.1-5.4 (369-420), 7.1 authn validation (1133), 7.3 (1147-1154), 7.5 (1181-1187), 7.6 (1189-1197), 7.8 (1205-1224), 7.11 (1243-1251), 7.12 kernel client (1255), 7.13 (1288-1292), 7.18 (1328-1337)
-- Data 4.1-4.6 (1504-1584), EN-012 (2111-2119); Events 2.4 (3942-3949), 7.2 (4334-4348); Cross-Cutting Security (7746-7748)
+- Architecture §7.3 tenant propagation, §7.5 idempotency, §7.6 outbox and inbox, §7.8 configuration, §7.11 health, §7.13 logging, §7.16 audit and PII, §7.18 data layer; data §4.5 RLS; events §2 envelope.
+- ADR-0005, ADR-0006, ADR-0008, ADR-0010, ADR-0011, ADR-0012, ADR-0015; delta §2.1 (platform-kernel row), §2.2.

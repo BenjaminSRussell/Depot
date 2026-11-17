@@ -1,36 +1,65 @@
 # Procurement
 
+**As built (v1.0):** three Go services, `services/purchasing`, `services/receiving` and `services/payables`, in place of
+the designed `procurement` (Go) and `procurement-ts` (ADR-0008). Receiving uses the designed posting key. The supplier
+portal is `services/supplier-portal-ts` (portal-bff component).
+
 ## Purpose & Boundaries
-Context `procurement` (database `depot_procurement`; waves 17-20). Deployables `procurement` (Go: matching, settlement, payment runs) and `procurement-ts` (RFQ, supplier portal, invoice capture). Owns requisition -> payment documents, match results, AP open items. Sole generator of payment files (pain.001 / NACHA / check / positive-pay) and owner of the "enter payment" duty; treasury only signs and transmits. Creates the expense-reimbursement vendor invoice (workforce does not post AP).
+Requisition to purchase order, agreements, RFQs, catalogs, signing limits (purchasing, prefix `/v1/procurement`);
+receipts, ASNs, GR/IR, invoice capture and matching, ERS self-billing, service entry sheets, settlements (receiving);
+AP open items, payment proposals, payment runs and payment files, vendor blocks, aging (payables). Procurement is the
+sole generator of payment files; treasury signs and transmits. Expense reimbursements are created and posted as vendor
+invoices here.
+
+## Services
+| Directory | Lang | Prefix | Outbox relayed |
+|---|---|---|---|
+| `services/purchasing` | Go | `/v1/procurement` | yes |
+| `services/receiving` | Go | `/v1/receiving` | yes |
+| `services/payables` | Go | `/v1/payables` | no (D2) |
 
 ## Interfaces
-Generated CRUD for requisitions, RFQs, agreements, POs (+lines, delivery schedules), product receipts, vendor invoices, AP open items, payments, tolerance rules, approval policies. Custom (`/v1/procurement/`):
-- `purchase-requisitions/{id}:submit|:convert`; `rfqs/{id}:send|:award`; `purchase-agreements/{id}:confirm`; `vendor-prices:resolve`.
-- `purchase-orders/{id}:confirm` (budget check first; emits `purchaseorder.confirmed.v1`), `:revise`, `/versions`, `:cancel`, `:close`.
-- `product-receipts/{id}:post` — posts GR/IR accrual at PO price via `ledger.Post` (key `post:procurement:productreceipt:{id}:grir-accrual`; Dr GR/IR-clearing-asset / Cr GR/IR), then finalizes in one local tx; emits `productreceipt.posted.v1`.
-- `vendor-invoices:capture` (202, OCR provider open Q10), `vendor-invoices/{id}:match|:post|:hold|:release-hold`, `match-results/{id}:resolve`, `ers-runs`, `settlements` (+`:reverse`), `prepayments`, `payment-proposals` (+`:approve` amount band + preparer != approver in OPA, `:execute`), `payments/{id}:post|:void`, `positive-pay-files`, `payment-files` (+`/content`, `:acknowledge` pain.002 Svc:`paymentfile.ack`).
-- Supplier portal `/v1/procurement/portal/*` (supplier scope): purchase-orders (+`:acknowledge`), asns, invoices, payments, profile PATCH (bank details route to approval; R4-10 proposes moving the bank-detail write to party), scorecard.
-- `GET /v1/procurement/reconciliation/{check}` (grir, ap).
+- purchasing: requisitions, rfqs, agreements, purchase-orders and lines, acknowledgements, catalogs, trade-agreements, signing-limits, scheduling-agreements, budget-calls.
+- receiving: receipts, asns, arrivals, grir, matching, invoices, invoice-captures, invoice-submissions, ers-self-bills, ers-settlements, service-entry-sheets, pending-postings.
+- payables: open-items, payment-proposals, payment-runs, payment-files, payments, settlements, vendor-blocks, employee-vendors, aging.
+- Posting: receiving posts receipts, vendor invoices, service entry sheets and settlements through `ledgerclient` with keys in the designed shape, using the service name as the context (`post:receiving:productreceipt:<id>:receipt`, `post:receiving:vendorinvoice:<id>:invoice`); the design names the context `procurement` and the receipt purpose `grir-accrual`. The payment run is a `workflow-ts` workflow.
 
 ## Data Ownership
-EN-046..052: purchase_requisition(+line), rfq(+line,+response), purchase_agreement(+line), purchase_order (version int; status draft|in_review|approved|confirmed|received|invoiced|closed|cancelled) + line + delivery_schedule + purchase_order_revision (I), `product_receipt`(+line; F profile; gap-free `USMF-PR-2026-000455`; journal_entry_id/gl_seq = GR/IR accrual; valuation_journal_entry_id/valuation_gl_seq set by consumer; gl_posting_status pending|posted|rejected|not_required), `vendor_invoice` (F; internal gap-free `...-VINV-...`; external vendor_invoice_number; UNIQUE (tenant_id, vendor_id, vendor_invoice_number) WHERE status <> 'reversed' = duplicate guard `unique_violation`), match_result (IL; two_way|three_way), ap_open_item (only open_amount, settlement_status mutate), payment_proposal(+line), payment (F; `...-PAY-...` gap-free), settlement (IL), payment_file (UQ file_hash). Indexes IX-PC-01..31.
+Requisitions, RFQs, agreements, purchase orders with revisions, receipts (gap-free numbers), vendor invoices, match
+results, AP open items, payment proposals and files. Bank and payee data are sealed with `fieldcrypt` in payables and
+receiving (ADR-0011). Designed EN-046..052 is the target shape, including `gl_posting_status` and the valuation link
+on the receipt, which is not built.
 
 ## Events Produced
-`procurement.purchaseorder.confirmed.v1` (intercompany?), `procurement.productreceipt.posted.v1`, `.reversed.v1` [P], `procurement.vendorinvoice.captured.v1`, `procurement.vendorinvoice.posted.v1` (matchResultId, journalEntryId, apOpenItemId, sourceDocument for expense_report), `procurement.payment.posted.v1`.
+purchasing: `depot.procurement.*` (purchase orders, agreements, catalogs, requisitions and more); receiving:
+`depot.receiving.receipt`, `depot.receiving.ersselfbill`, `depot.receiving.serviceentrysheet`,
+`depot.receiving.policy`, and `depot.payables.invoice`, `depot.payables.settlement`; payables:
+`depot.payables.openitem`, `depot.payables.paymentproposal`, `depot.payables.vendor` (not relayed). *Target (D6):*
+`procurement.productreceipt.posted.v1`, `procurement.vendorinvoice.posted.v1` and
+`procurement.purchaseorder.confirmed.v1` with the designed payloads (productReceiptId, documentNumber, legalEntityId,
+vendorId, purchaseOrderId, postingDate, lines; matchResultId, journalEntryId, apOpenItemId).
 
 ## Events Consumed
-`procurement-receipt-valuation` (inventory.transaction posted/rejected with referenceType=productreceipt; sets gl_posting_status, valuation ids; G), `procurement-plannedorders` (plannedorder.firmed -> POs), `procurement-expense-invoice` (workforce.expensereport.approved -> create+post vendor invoice, employee as vendor party role), `procurement-party-ref`, `procurement-partymerge`, `procurement-fx`, `procurement-reversal`, `procurement-scorecard` (qualityorder.decided), `procurement-ap-bank`, `procurement-receiving` (warehouse.work.completed), `procurement-product-ref`, `procurement-periodcache`, `procurement-approvals`, `procurement-numbersequence`.
+purchasing receives `depot.fulfillment.dropship` and `depot.planning.plan` (planning's outbox is not relayed, so the
+second is a dead subscription). Consumer code also exists in payables and receiving
+(`deploy/kafka/payables-consumer.yaml`, `deploy/kafka/receiving-consumer.yaml`). *Target:* receipt valuation status
+from `inventory.transaction.posted` (blocked by D2, D6), expense invoices from `workforce.expensereport.approved`.
 
 ## Dependencies
-internal: ledger (sync), inventory (valuation events), party, product, platform, treasury (payment submission), workforce (reimbursement). external: OCR/invoice capture provider (adapter only; fallback manual keying), bank files.
+internal: ledger (`ledgerclient`), inventory (valuation events), party (vendors), product, platform (numbering,
+workflow-ts), treasury (payment transmission), workforce (reimbursements), portal-bff (supplier portal). external:
+invoice capture/OCR provider (adapter only), bank file formats.
 
 ## Gotchas & Constraints
-- A vendor invoice may post (clearing GR/IR) before inventory valuation finishes; GR/IR-clearing-asset may be transiently debit-heavy; matching reads receipt quantities from procurement, not GR/IR balance.
-- Payment: SoD between `payment-proposals/{id}:approve` and `:execute` is human; `system:treasury-signer` holds duty `Release payments` (key custody, not SoD).
-- Posting key `post:procurement:vendorinvoice:{id}:invoice`; set journal_entry_id synchronously.
-- Receipt reversal -> `:reverse` (new reversal receipt + ledger reverse key `...:grir-accrual-reversal`), never deletion.
-- Fiscal immutability allow-list for product_receipt adds valuation_journal_entry_id, valuation_gl_seq, gl_posting_status.
-- Step-up (MFA) for payment.approve/release and vendorbank.write.
+- A vendor invoice may post before inventory valuation finishes; GR/IR-clearing can be transiently debit-heavy; matching reads receipt quantities, not the GR/IR balance.
+- Payment proposal approval and execution are separate duties (SoD); auth-age step-up for payment approval and vendor bank changes (ADR-0006).
+- Receipt reversal creates a reversal receipt and a ledger reversal; never deletion.
+
+## Target — not built
+- Relay for payables (D2); designed payloads (D6); receipt valuation link-back from inventory (D30, D2).
+- Payment-run trigger wiring in workflow-ts (D13 lists payment run among workflows with no trigger).
+- Designed `procurement-ts` and `/v1/procurement/portal/*`: superseded by ADR-0008 and the supplier portal BFF.
 
 ## Source Sections
-- Backend 5.10 (711-755), 3.4 rows (336, 342); Data EN-046..052 (2859-2915); Events 3.6 (4031-4040), 9.1 (4446-4487), consumer rows (4207-4211, 4297, 4314); AX/SAP TX-OPEN-AP/PO (3569-3570, 3574, 3604, 3607)
+- Architecture §3.4 posting ownership, §5.10 procurement endpoints (target); data EN-046..052; events §3.6, §9.1.
+- ADR-0008, ADR-0011; delta §1.1 (purchasing, receiving, payables), §2.1 (procurement row), §2.2 (procurement payloads).

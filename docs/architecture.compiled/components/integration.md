@@ -1,30 +1,56 @@
-# Integration (supporting context)
+# Integration
+
+**As built (v1.0):** `services/integration-hub-ts` (TypeScript: webhooks, API clients, API catalogue) and `services/edi`
+(Go: EDI, AS2, e-invoicing, punch-out) in place of the designed `integration-ts` (ADR-0008). The migration pipeline is
+`services/migration`, grouped under the integration context in architecture §3.2 but owned here by the
+migration-framework component. `apps/developer-portal` is a stub.
 
 ## Purpose & Boundaries
-Context `integration` (TS only: `integration-ts`; database `depot_integration`, operational tables only; waves 6, 9, 10, 35, 49). Owns webhook subscriptions/deliveries, EDI/Peppol partner profiles and message log, API catalog, tenant egress relay, e-invoice, migration pipeline (see migration-framework). Never a source of business truth.
+Partner-facing integration: webhook subscriptions and signed deliveries, dead letters and replays of deliveries, API
+client registration and the API catalogue (integration-hub-ts); EDI partner profiles, X12 and EDIFACT inbound,
+interchanges, AS2 with MDNs, cXML and punch-out, e-invoicing and Peppol, self-billing (edi); the developer portal
+(not built).
+
+## Services
+| Directory | Lang | Prefix | Outbox relayed |
+|---|---|---|---|
+| `services/integration-hub-ts` | TS | `/v1/hub` | no (D2) |
+| `services/edi` | Go | `/edi/v1` (D22), `/as2/v1`, `/cxml/v1`, `/punchout/v1` | no |
+| `apps/developer-portal` | none | `NOT-IMPLEMENTED.md` only (Backstage scaffold awaits a licensing decision) | n/a |
 
 ## Interfaces
-Prefix `/v1/integration/`: `catalog`; `webhook-subscriptions` (POST returns HMAC secret once; `:test`); `webhook-deliveries` (+`:redrive`); `inbound/{endpointId}` (Sig:HMAC); `message-monitor`; `event-egress/{context}:subscribe` (provision tenant egress topic + Kafka principal); `event-replays` (fiscal consumers need controller approval); `partner-profiles`; `edi-mappings/{id}:test`; `edi-messages` (850/855/856/810/820/214) + `/{id}` + `:resend`; `POST /as2/{partnerId}` (Sig:AS2 certificate, MDN returned); `e-invoices` (Peppol UBL, XRechnung, Factur-X, CFDI, IRN); `migration-runs`, `parallel-run-diffs`.
-- Webhooks: dispatcher consumes subscribed topics; inserts `webhook_delivery` (unique (subscription_id, event_id)) in one tx with inbox row; one Temporal workflow per delivery (id `webhook:<subscriptionId>:<eventId>`); POST CloudEvent with `X-Depot-Signature` (HMAC-SHA256 over timestamp+body, per-endpoint secret, key id), `ce-id`, `ce-type`, `ce-time`; 2xx success; retries exponential for 24 h honoring Retry-After; 4xx other than 408/429 terminal; then DLQ `depot.integration.webhook.dlq.dispatcher` [P]; p95 first delivery < 10 s; rate per tier 60/300/1,200 per min. Partners dedupe on `id`, order on `sequence`.
+- integration-hub-ts: `/v1/hub/subscriptions` (`:test`, `:rotate`, `:resume`, `:replay`), `/v1/hub/deliveries` (`:replay`), `/v1/hub/dead-letters`, `/v1/hub/clients`, `/v1/hub/catalog`.
+- Webhooks are signed with the header `Depot-Signature`, HMAC-SHA256 over timestamp and body (`services/integration-hub-ts/src/webhook.ts`); the design named the header `X-Depot-Signature` (pattern `webhook-signature`, drift).
+- edi: `/edi/v1/partners`, `/edi/v1/interchanges` (`:reprocess`, `:resend`), `/edi/v1/messages`, `/edi/v1/einvoice/*`, `/edi/v1/peppol/invoices:build`, `/edi/v1/punchout/*`, `/edi/v1/self-billing/*`; AS2 at `/as2/v1/{endpoint}` through its own Gateway `depot-as2`, authenticated by the partner's AS2 signature.
+- Designed: `/v1/integration/event-replays`, tenant egress topics and a partner event relay — not built (D24, Q5).
 
 ## Data Ownership
-Operational tables: webhook_subscription (secret in Vault ref, optional mTLS cert + IP allow-list), webhook_delivery, partner profiles, EDI message log, tenant egress relay config; `migration` schema (OQ-08: here by default, vs platform). Egress topics: backend names `depot.egress.<tenantSlug>.<context>` (3 partitions, 30 d); eventing section names `depot.ext.<tenantslug>.<context>.<entity>` — NAME CONFLICT, undecided (needs ADR amendment).
+Subscriptions, deliveries, dead letters, API clients and catalogue entries (integration-hub-ts, own database, no
+legal-entity policy, D17); partner profiles, interchanges, messages, e-invoice mandates, punch-out sessions (edi).
 
 ## Events Produced
-absent — the source document does not address this (produces no principal domain events; publishes to egress topics and webhook DLQ).
+`depot.hub.subscription`, `depot.hub.webhook`, `depot.hub.apiclient`, `depot.hub.catalogentry`; `depot.edi.message`,
+`depot.edi.einvoice`, `depot.edi.delivery`, `depot.edi.dispute`, `depot.edi.punchout`, `depot.edi.selfbilling`. None
+relayed (D2).
 
 ## Events Consumed
-`integration-webhook-dispatcher` (any topic with active subscription), `integration-edi-outbound` (purchaseorder.confirmed 850, salesorder.confirmed 855, shipment.posted 856, invoice.posted 810/Peppol, load.shipped 214), tenant-filtering egress relay (one consumer per source topic, routing by tenantid and subscription list).
+integration-hub-ts consumes domain topics to deliver webhooks (`services/integration-hub-ts/src/consumer.ts`, kafkajs);
+edi has consumer code (`deploy/kafka/edi-consumer.yaml`). Neither declares `receive` operations in AsyncAPI.
 
 ## Dependencies
-internal: platform, eventing-backbone, sales, procurement, warehouse, migration-framework. external: EDI/AS2/SFTP partners (997/CONTRL tracking, SLA alerts), Peppol access point / PAC / IRP / PDP (adapter per provider; none assumed), Temporal, Vault.
+internal: every context that publishes events (webhook sources), sales and procurement (EDI documents), platform,
+eventing-backbone. external: trading partners (AS2, SFTP, Peppol access points), e-invoice platforms.
 
 ## Gotchas & Constraints
-- No P3 in webhook payloads; `legalentityid` filter enforced server-side; subscription cannot select types the creator lacks read privilege for.
-- Temporal-per-delivery at 1,200/min Enterprise ≈ 20 workflows/s per tenant: load-test at wave 35, fallback DB scheduler (OQ-9).
-- Partner webhook egress through egress gateway: block RFC 1918/link-local/loopback/metadata, resolve-then-connect pinning, HTTPS only, per-tenant destination allow-list.
-- Replay procedure per C.6: ticket, pause, snapshot inbox, reset offsets, resume, verify.
-- Provider selections (OCR, e-invoice AP, registry) open; adapter interfaces only.
+- Webhook delivery can only carry events that reach Kafka; most outboxes are not relayed (D2).
+- Egress to partner URLs must block RFC 1918, link-local and metadata addresses.
+- edi uses a non-`/v1` prefix (D22).
+
+## Target — not built
+- Event replay API and longer retention (D24); tenant egress topics and their relay (Q5).
+- Relays for integration-hub-ts and edi (D2); legal-entity policy in integration-hub-ts (D17).
+- Developer portal (`apps/developer-portal/NOT-IMPLEMENTED.md`).
 
 ## Source Sections
-- Backend 5.17 (923-951), 7.7 (1199-1203); Events 11 (4658-4674), 7.6 replay (4393-4403), consumer rows (4318-4319); Cross-Cutting network egress (7767)
+- Architecture §5.17 integration endpoints (target), §7.7 external events and webhooks; events §11 webhooks, §4.3 tenant isolation.
+- ADR-0008; delta §1.1 (edi, integration-hub-ts), §1.2 (developer-portal), §2.1 (integration row), §2.2 (`webhook-signature`).

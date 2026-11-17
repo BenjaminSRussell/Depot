@@ -1,74 +1,232 @@
 # Architecture: Depot ERP Platform
 
+## Status and reading guide
+
+| | |
+|---|---|
+| Version | **1.0 "as built"**, revised after the independent stage-2 review (findings R-01 to R-18) |
+| Date | 2026-11-17 |
+| Produced by | SDLC run 1, stage 2 (Architecture). Earlier versions (v0.x, compiled 2026-10-23) were the design before code |
+| Evidence | [`docs/sdlc/run-1/architecture-delta.md`](sdlc/run-1/architecture-delta.md): as-built vs as-designed delta with code references, deviations D1–D27. [`docs/sdlc/run-1/architecture-review-response.md`](sdlc/run-1/architecture-review-response.md): how each review finding was resolved |
+| Decisions | ADRs [0001](adr/0001-platform-stack.md), [0002](adr/0002-frepple-comparison.md), [0003](adr/0003-setup-checklist-reads.md), [0004](adr/0004-windows-packaging.md), [0005](adr/0005-rename-to-depot.md), [0006](adr/0006-gateway-asserted-identity.md), [0007](adr/0007-single-keycloak-realm.md), [0008](adr/0008-service-decomposition-and-languages.md), [0009](adr/0009-browser-tokens-without-web-bff.md), [0010](adr/0010-ed25519-service-tokens.md), [0011](adr/0011-application-field-encryption.md), [0012](adr/0012-plain-postgres-and-sql-migrations.md), [0013](adr/0013-search-service.md), [0014](adr/0014-valkey.md), [0015](adr/0015-number-sequence-service.md) |
+| Awaiting owner sign-off | The multi-entity legal-entity model in ADR-0006 rule 4 and §7.3 is **Proposed (recommended; pending owner confirmation)**. Until confirmed, the as-built single-entity behaviour described there stands (D33) |
+
+This document was written as a design before most of the code existed. Version 1.0 keeps that structure and headings and
+marks, section by section, what the code does now. Read the markers this way:
+
+- **As built (v1.0):** what the repository does at this version, checked against the code. Where an as-built note and
+  older text in the same section disagree, the as-built note wins.
+- **Target — not built (see backlog):** design intent that still stands but has no implementation yet. The matching
+  item is in [Known gaps](#known-gaps) and becomes a backlog item.
+- **Superseded by ADR-00NN:** the design was replaced by a decision already made in code; the ADR is authoritative.
+- **Proposed (recommended; pending owner confirmation):** a direction chosen to close a gap, not yet confirmed by the
+  owners. It is not as built and not yet accepted.
+- Text with no marker is design that the code follows, or detail that was not audited. Not audited for v1.0: most of
+  the data model, the Testing section (its Atlas references are superseded by ADR-0012), the AI section, and frontend
+  §2–§4 and §6–§12 outside their as-built notes (frontend §2.1 is the v0.x target layout).
+
+Sources of truth that outrank this document: each service's `api/openapi.yaml` (endpoints) and `events/asyncapi.yaml`
+(topics), its migrations (schema), and `deploy/` (topology). The endpoint catalogue (§5), the topic registry and
+consumer tables (events §4.2, §5, §6) describe the target shape and match the code only in part.
+
+As-built summary (details in the delta, §1):
+
+- 71 service directories: 58 Go, 7 TypeScript, 6 Python, grouped into the 15 designed contexts (ADR-0008). 69 have a
+  Helm chart and an Argo CD application in dev and stage. Prod deploys only `hello-ledger` and `kyverno`.
+- Identity: one Keycloak realm `depot` (ADR-0007); duties in the access token; Envoy Gateway validates the JWT and
+  maps claims to `X-Depot-*` headers that services trust (ADR-0006); Ed25519 service tokens between services (ADR-0010).
+  In the deploy files Envoy is configured against a placeholder issuer (`…/realms/dev`) and a static placeholder key,
+  not against realm `depot`, so no real token passes it yet (D32).
+- Kubernetes routing: Envoy has 17 HTTPRoutes for 15 backend services; most services the web shell calls have no route
+  and are reachable only through the single-host gateways (D31).
+- Web shell: public OIDC client with tokens in memory, no web BFF (ADR-0009). Portals: two cookie BFFs.
+- Data: plain PostgreSQL 17, a database per stateful service, hand-written SQL migrations applied by `dbx.Migrate`
+  (ADR-0012); RLS on tenant and legal entity; application-level field encryption (ADR-0011).
+- Events: transactional outbox tables in 58 services, relayed by 21 Debezium connectors; 358 topics published in AsyncAPI;
+  consumers in 17 Go services, `workflow-ts`, `integration-hub-ts` and `prediction-py`, none enabled in any environment,
+  and 7 of them without a Kafka user (D34); one Temporal worker (`workflow-ts`).
+- Not built: OpenTelemetry tracing, CDC-fed audit chain, authorization-decision logging, outbox connectors for every
+  service, stage and prod platform.
+
+Corrections to the stage-2 delta found while verifying it against the code (the delta file is kept unchanged):
+
+- The dev shared Postgres server creates 21 service databases by script (the delta says 22; its own list has 21),
+  plus separate releases for metadata and batch.
+- 67 of the 69 service charts run in namespace `hello-ledger` in dev: 63 of the 65 ApplicationSet entries plus the
+  hand-written fx, identity, org and receiving Applications. Only batch and metadata have their own namespaces (the
+  delta says every service shares it).
+- `fieldcrypt` is imported by compliance, hr, migration, party, payables, receiving and sales. metadata does not
+  encrypt; its code generator emits fieldcrypt-sealed fields for other services.
+- Crypto-shred is not available per tenant either: tenant data keys are derived from a shared master key, so no
+  tenant key can be destroyed on its own. Erasure is by pseudonymization (ADR-0011).
+- RLS policy names follow the design: 955 `<table>_tenant_access` and 470 `<table>_legal_entity_scope` policies in
+  the migrations (the delta says they are named `<table>_tenant` / `<table>_legal_entity`).
+- Outbox tables: a migration grep finds them in 58 services, and 37 of those have no connector when `migration` is
+  counted (the delta says 57 and 36).
+- New finding: chart values say stage and prod run migrations as an Argo PreSync Job, but no chart defines one (D28).
+- The web shell already emits a W3C `traceparent` (`apps/web/src/shell/telemetry.ts`); the backend does not
+  propagate it, so the delta's "no OpenTelemetry" finding stands for services.
+- `ledger.Post` has 21 callers: 19 through `platform/go/ledgerclient` and receiving and payables with their own HTTP
+  clients (the delta says 19).
+- Found by the independent review and verified: Envoy routes 15 services (D31); Envoy's issuer and key are placeholders
+  (D32); the shell's `X-Depot-LegalEntity` cannot narrow anything (D33); seven Kafka consumers have no `KafkaUser` (D34).
+
+## Known gaps
+
+Deviations where the code must change to meet the design or an accepted ADR. Each becomes a backlog item. The D-id is
+the delta's deviation id; D28 was found in stage 2, D29 and D30 turn delta findings without a D-id into items, and D31
+to D43 come from the independent review. It is not the decision numbering of backend §8 or the data section's defect
+list. Severity is the delta's, or the review's for D31 onward. Rows are ordered by severity, then by id. Owner is the
+accountable role. The exit criterion is the check that closes the gap. The follow-up work for each ADR is listed as
+`Backlog:` bullets in that ADR's Consequences, each with its D-id.
+
+| D-id | Severity | Owner | Gap | Exit criterion |
+|---|---|---|---|---|
+| D1 | High | security, platform | Services trust gateway `X-Depot-*` headers, but only 13 of 69 charts have a NetworkPolicy, no namespace has a default-deny policy, and 67 of 69 service charts share one namespace; ADR-0006 rule 6 is not met | Every namespace that runs a Depot service has default-deny ingress and gateway-plus-generated-peer allow rules; a CI check fails on a chart without them; a forged-header call from a non-peer pod is refused in an integration test |
+| D2 | High | eventing | 37 services write an outbox that no Debezium connector relays (ledger, inventory, close, tax, treasury, payables, shopfloor, planning and others), so their events never reach Kafka | Every service with an outbox table has an `outbox-<service>` connector; a CI check compares outbox tables with `connect.yaml` |
+| D3 | High | security | No CDC-fed, hash-chained audit trail and no `depot.ctx` actor/trace message; `services/audit` is fed over HTTP by `engineering` only | A change in any service with a mutable master-data table appears in the audit chain with actor and trace id, through CDC; chain verification runs nightly |
+| D4 | High | platform | Stage and prod lack the platform (prod: `hello-ledger` and `kyverno` only; stage: no Kafka, Temporal, Postgres, Keycloak or gateway applications); no database or Secret for ledger, inventory or numbering anywhere | Stage and prod app-of-apps deploy the platform and every service database and Secret; the `tools/e2e` suite passes against stage |
+| D6 | High | eventing | Built event payloads lack fields consumers need (for example `journalEntryId`/`glSeq` on inventory transaction events for COGS link-back; 13 of 15 payload contracts unmet), and some subscriptions have no relayed producer | Each consumed topic's AsyncAPI payload carries the fields its consumers read; a contract test per consumer passes |
+| D7 | High | frontend | ADR-0009 conditions unmet: `apps/web` has no image or host with a strict CSP, Trusted Types or a no-tokens-in-storage check | An `apps/web` image and chart serve the shell with the ADR-0009 headers, tested in CI; a lint or test fails on a token written to web storage |
+| D8 | High | platform | No OpenTelemetry in services; `traceId` is the chi request id, not a W3C trace id; Tempo and Loki not deployed | A request from the shell is followable as one trace through Envoy, a service, Postgres and a Kafka consumer in dev |
+| D31 | High | platform | Envoy routes only 15 services (17 HTTPRoutes in `deploy/gateway/httproutes.yaml`: org, fx, receiving, search, workflows, inbox → batch, ledger, pricing, sales, party, analytics, planning, data → metadata, controlling → costacct, ops, predictions and ar → prediction-py). The web shell calls about 80 `/api/v1/<prefix>` values; inventory, procurement, payables, production, warehouse, hr, treasury and most others would get 404 at Envoy in Kubernetes | Every chart with an API has an HTTPRoute and a `BackendTrafficPolicy` target ref; a CI check compares the shell's `/api/v1` prefixes and the services' OpenAPI prefixes with the routes and fails on a missing one |
+| D32 | High | security | `SecurityPolicy/depot-api-jwt` validates issuer `https://idp.dev.depot.dev/realms/dev` against a static placeholder key (`localJWKS` ConfigMap `depot-dev-jwks`; no private key exists, `deploy/gateway/README.md`). The realm is `depot`. agent-runtime (agents-ts) is configured for `realms/dev` (dev) and `realms/stage` (stage); the portals for `realms/depot`. No environment connects Envoy to the realm, so no real token passes the gateway | Envoy uses `remoteJWKS` and the `depot` realm issuer per environment, agent-runtime uses the same issuer, and a test mints a token from `realm-depot.json` in a test Keycloak and passes it through the gateway to a service |
+| D33 | High | security, frontend | A user entitled to several legal entities cannot switch company. As built, `le` is one string attribute (`legal_entity_id`, `multivalued: false`); the kernel rejects with 400 any `X-Depot-LegalEntity` that differs from `X-Depot-Legal-Entity` (`tenant.requestLegalEntity`); devgateway and `depot-server` return 403 unless the selection equals the claim; Envoy strips the selection. With no `le` claim, the kernel takes the selection as the scope, which only the gateways prevent. Replaces the legal-entity part of D23. Target model: ADR-0006 rule 4, Proposed (pending owner confirmation) | Owners confirm the model; then an end-to-end test signs in a user entitled to two legal entities, switches company in the shell and reads and writes in each through Envoy, devgateway and `depot-server`; a selection outside the entitled list is refused with 403 on all three paths; a request with no `le` claim and a selection is refused |
+| D34 | High | eventing | Kafka consumers in finreport, fulfillment, pricing, production, purchasing, shopfloor and integration-hub-ts have no `KafkaUser`, though their charts name users such as `fulfillment-consumer` and the cluster's authenticated listener is SCRAM-SHA-512 with `simple` authorization (the plain listener has no ACLs for anonymous clients). Separately, no environment enables any consumer: every consumer chart defaults to `consumer.enabled: false` or empty `brokers`, and no environment values override it. Flows such as sales order → fulfillment, planned order → production, journal → finreport and price-cache invalidation cannot run | Every consumer group has a `KafkaUser` with ACLs; a CI check pairs each `eventing` consumer and kafkajs consumer with a `KafkaUser`; dev enables the consumers whose producers are relayed and a smoke test sees one event consumed per consumer |
+| D35 | High | security | ADR-0011's conditions are unmet: eight services mount the master keys as a plain secret (`FIELDCRYPT_KEYS`: compliance, hr, migration, party, payables, receiving, sales and integration-hub-ts's TypeScript port); the charts support Azure Key Vault wrapping through workload identity (`deploy/tofu/cluster/modules/aks`), but no environment under `deploy/envs` enables it; there is no custody record or rotation runbook, and a re-encryption job exists only in hr (`hr reseal-pii`, off by default); erasure does not reach the search index, Kafka (7-day retention), the lakehouse, logs or backups, and no backup retention is tied to the erasure SLA; counsel has not signed off pseudonymization as erasure (Q17); the list of key holders is not reviewed per environment | Each condition in ADR-0011 is met and evidenced: KMS-wrapped keys in stage and prod with a custody record and a rotation drill; an erasure test that checks every listed copy; counsel sign-off recorded before EU personal data is loaded; a per-environment list of key holders reviewed by security |
+| D36 | High | security | Authorization decisions are not logged. OPA decision logs are off; in Kubernetes no OPA decision is made; `authz.RequireDuty` writes a 403 problem but no record with actor, tenant, duty and route; the kernel access log has method, path and status only; Envoy writes no allow/deny record with the subject | `authz.Require` and the three gateways emit one structured allow/deny record per decision (pseudonymized subject, tenant, duty, route, outcome, request id), shipped to the log store and retained by class, plus `depot_authz_denied_total`; a test asserts a denied call produces the record |
+| D9 | Med | finance-eng | Posting idempotency key not uniform: productcost, close, mobile and planning do not use `post:<ctx>:<doc>:<id>:<purpose>`; inventory's event-driven postings use the prefix `inventory-postings:` (`services/inventory/internal/api/postings_consumer.go`); receiving uses `post:receiving:…`, the service name where the design has the context (`procurement`); receiving and payables post with their own clients, not `ledgerclient` | The key's second segment is defined (service name, per ADR-0008, or context) and every poster, inventory included, calls `ledger.Post` through `ledgerclient` with that one format; a test scans callers |
+| D10 | Med | finance-eng | Journal tables are not range-partitioned (EN-027/028); NFR-P1 (5,000 lines/s, p99 < 200 ms) cannot be shown on this schema | Journal tables partitioned monthly; the NFR-P1 load test passes |
+| D11 | Med | platform | Problem details: no `serviceCode`, `errors` is a map, the service code sits in `code`; portal BFFs and routing-py use other shapes | One problem shape in the kernel, the TS services and routing-py, checked by a conformance test |
+| D12 | Med | platform | No kernel idempotency middleware (52 hand-rolled implementations, 3 with leases); `Idempotency-Key` declared on 44% of mutating operations | Kernel middleware per §7.5 used by every Go service; `Idempotency-Key` declared on every creating or posting operation, checked by Spectral |
+| D13 | Med | finance-eng | Temporal sagas S3b (production-order settlement) and S4 (intercompany mirror documents) not built; payment-run, ECO and CAPA workflows have no trigger | S3b and S4 built with compensation tests; each workflow has a trigger in a product flow |
+| D16 | Med | security | Realm guard rails missing (ADR-0007): no test that `tid`, `le` and `duties` are not user-editable or that the clients that call the API carry the `depot-api` audience; no documented per-tenant IdP federation procedure; `tenant_id` claim references remain in the PRD and runbooks | Realm-configuration test in CI; operator-guide procedure with a test realm export; no `tenant_id` claim references left |
+| D17 | Med | platform | No legal-entity column and policy (and no `rlsexempt` reason) in shopfloor (pay data), scheduling, audit, mobile, fx, integration-hub-ts and agents-ts | Each listed table has a legal-entity policy or an `rlsexempt` reason; `tools/rlscheck` passes |
+| D18 | Med | platform | Production database topology (replicas, WAL archive, PITR, failover), PodDisruptionBudgets, Argo Rollouts and HPA (3 charts) not built (ADR-0012) | Production topology decided and deployed; restore drill meets RPO 5 min / RTO 1 h |
+| D19 | Med | eventing | Event envelope lacks `traceparent` and `sequence` (the relay's enricher SMT flattens a `headers` object into extensions, but the Go outbox writes none); `dataschema` is set only by the enricher on the 21 relayed topics, not by `outbox.Enqueue`; Kafka key is `aggregate_id`, not `tenantid:subject` | `traceparent` and `sequence` set by `outbox.Enqueue` and carried through the enricher; consumer test reads them; key decided and applied |
+| D21 | Med | finance-eng | `numbering` `gap_free` has no reserve/confirm/void, so an HTTP allocation can burn a number (ADR-0015) | Reserve, confirm and void with a voided-number log, or `gap_free` refused for remote callers |
+| D23 | Med | security | Envoy, devgateway and `depot-server` enforce different checks: OPA only in the single-host gateways (ADR-0006 rule 7). The legal-entity selection part is now D33 | One enforcement model; the three gateways pass the same route-table test |
+| D28 | Med | platform | No migration Job in any chart, although chart values say stage and prod use one. On-start migration is set only for fx, identity, org, receiving and transport (dev and stage values), pricing (chart default) and `hello-ledger` (all three environments). ledger, inventory, sales and the other 50-odd services with migrations have no migration path in any environment, dev included (ADR-0012) | Every chart with migrations has an owner-role migration Job; serving pods run `MIGRATE_ON_START=false`; a fresh environment comes up with every schema applied |
+| D29 | Med | frontend, platform | No shared long-running-work contract: no `/v1/platform/jobs`, `statusUrl` only in `migration`, no live-update stream for the shell (U4) (delta §6.2 items 2–3) | One job contract used by every long operation; the shell shows live status for it |
+| D30 | Med | finance-eng | No `inventory.valuation_reservation` (reserve, post, finalize, sweeper) and no `ledger.posting_request` registry (`GET /v1/ledger/posting-requests/{key}`), so event-driven valuation postings have no crash-safe protocol (delta §2.2) | Protocol built; a crash-injection test shows no lost or double posting |
+| D37 | Med | platform | The Temporal frontend has no mTLS and no authorizer; only a label-based NetworkPolicy limits it, and `workflow-ts` can mint service tokens such as `payment-run.execute` (delta §3 row 11, `services/workflow-ts/NOT-IMPLEMENTED.md`) | mTLS between workers and the frontend and a Temporal authorizer that admits only `workflow-ts` and its starters; a test shows another pod cannot start a workflow |
+| D38 | Med | frontend | No image or chart serves the portal SPAs (`apps/customer-portal`, `apps/supplier-portal`) (delta §6.2 item 7; `apps/web` is D7) | Each portal SPA has an image and chart behind `depot-portals`, with the same header tests as D7 |
+| D41 | Med | security | A revoked duty keeps working for up to the 300 s access-token life (ADR-0006 rule 5); the window is not in the operator or security guides, and tenant administrators have no action that also ends Keycloak sessions | Guides state the window; a session-revocation action ends Keycloak sessions and refresh tokens, with a test |
+| D42 | Med | platform | Windows single-host install not proven: MSI install, upgrade and rollback on a Windows VM and the `tools/e2e` live-stack suite against `depot-server.exe` have not run (#213); TLS certificates cannot be read from the Windows store; no outbox relay without Kafka Connect (ADR-0004) | The VM and live-stack runs pass in CI; the certificate-store and outbox-relay items each have a decision |
+| D22 | Low | platform | Non-`/v1` prefixes in agents-ts (`/api/v1`), edi (`/edi/v1`), print (`/print/v1`), prediction-py (`/api/v1`) and mcp-ts (`/mcp`) | Every service serves `/v1/<prefix>` or has a recorded exception, and the routes (D31) agree |
+| D24 | Low | eventing | Kafka retention 7 days (designed 30); no retention classes (`fiscal_7y`, `standard_3y`, `agent_7y`) and no event-replay API | Retention per topic class configured; replay API built |
+| D39 | Low | platform | Client contract uneven: `If-Match` in 35 of 64 specs; custom methods mix `:verb` (230 paths) and `/verb` (40 paths) (delta §6.2 item 5) | `If-Match` on every update of a versioned entity; one custom-method style, checked by Spectral |
+| D40 | Low | platform | The kernel sets neither `X-Depot-Api-Build` nor `RateLimit-*` headers; only some services and mcp-ts do (delta C24) | Kernel sets both, or the design drops them; a test checks the response headers |
+| D43 | Low | security | No CI check guards the three frozen `passage.*` labels or flags a new `passage` string (ADR-0005, ADR-0011) | CI check fails on a changed label or a new `passage` string outside them |
+
+Documentation-only deviations (D5, D6 catalogue part, D9 path, D14, D20, D25–D27) are handled by this version and
+ADRs 0006–0015; D27 (recompile `docs/architecture.compiled`) is stage 3. D15 and D16 are no longer documentation-only:
+their open conditions are D35 and D16 above.
+
+Deferred, not a v1.0 gap (each with its reason):
+
+- No composition layer: web modules make several API calls per page (delta §6.2 item 2). Accepted by ADR-0009 until one
+  of its triggers holds.
+- Fastify, zod and Kysely not used in TypeScript services (D25). Recorded by ADR-0008; conformance tests are in D11 and
+  D12.
+- Tenant egress topics for external Kafka consumers (Q5) and agent delegation tokens (Q8): open questions owned by
+  wave 35 and wave 47, not v1.0 commitments.
+
+## Auditability and end-user impact (v1.0)
+
+A summary for sign-off readers. Each row maps a finding of delta §6 (and the independent review) to the decision or gap
+that carries it.
+
+| # | Finding | Effect | Carried by |
+|---|---|---|---|
+| A1 | Authorization decisions are not logged anywhere (OPA decision logs off; no allow/deny record with actor, duty and route in services or gateways) | An auditor cannot answer "who was refused or allowed what, when" from the system; only status codes in access logs | D36 |
+| A2 | No CDC-fed, hash-chained audit trail; `services/audit` is fed by `engineering` only; eleven services keep their own audit tables | Who-changed-what for mutable master data (vendor bank accounts, price conditions, credit limits) depends on per-service code | D3 |
+| A3 | Actor and trace are lost across async hops: no `depot.ctx`, no `traceparent` or `sequence` in the event envelope, no OpenTelemetry | A UI action cannot be followed through the posting, the event and its consumers | D3, D8, D19 |
+| A4 | Identity provenance in Kubernetes rests on network isolation that covers 13 of 69 services | A pod in `hello-ledger` can forge `X-Depot-User` and be recorded as a genuine user in audit rows | D1 (ADR-0006 rule 6) |
+| A5 | Events of 37 services never reach Kafka; seven consumers have no Kafka user; no consumer is enabled | Downstream audit, lakehouse and reconciliation see no journal, valuation or tax events; cross-service flows do not run | D2, D34 |
+| A6 | Retention classes not implemented; Kafka keeps 7 days; no replay API | Replay beyond a week is impossible | D24 |
+| A7 | Erasure is pseudonymization; no crypto-shred; copies in search, Kafka, lakehouse and backups not covered; counsel sign-off pending | An erasure request may leave personal data in secondary copies | D35 (ADR-0011) |
+| U1 | Permission changes apply within the 300 s access-token life, not ≤ 10 s | After a role change users see stale navigation and actions, and a revoked duty works for up to five minutes | ADR-0006 rule 5, D41 |
+| U2 | A user entitled to several legal entities cannot switch company in the shell, on Windows or in Kubernetes | Multi-company users need a separate account per company, or an administrator changes their `le` attribute | D33 (ADR-0006 rule 4, Proposed) |
+| U3 | Most of the shell's modules have no Envoy route, and Envoy accepts no real token yet | In Kubernetes the shell works only for the 15 routed services, and only once D32 is fixed; Windows installs are not affected | D31, D32 |
+| U4 | `Idempotency-Key` on 44% of mutating operations, `If-Match` in 35 of 64 specs, mixed custom-method styles | Safe retry and optimistic concurrency are not uniform for the shell, partners and the MCP tool generator | D12, D39 |
+| U5 | No generic live updates and no shared job contract | Long operations give inconsistent feedback across modules | D29 |
+| U6 | Several API calls per page, no composition layer | More round trips per page through Envoy | Deferred (ADR-0009 triggers) |
+| U7 | Inconsistent error shapes (kernel, portals, routing-py) | Partners and the MCP gateway see three error shapes | D11 |
+| U8 | Synchronous `ledger.Post` from 21 services; numbering over HTTP for hr and party; unpartitioned journals | Posting latency and availability depend on the ledger; trial-balance latency grows with volume | ADR-0008, D10, D21 |
+| U9 | No image for `apps/web` or the portal SPAs | The shell and portals cannot be served to users from the charts yet | D7, D38 |
+
 ## Requirements Summary
 
 Depot is a ground-up, cloud-agnostic ERP that replaces Microsoft Dynamics AX / D365 F&SCM and SAP ECC / S/4HANA feature-for-feature for manufacturers, delivered in 50 sequential waves across 10 phases, each wave shipping a provable, testable, deployable increment (wave 30 is the first manufacturer go-live; wave 50 is production go-live and v1.0). The product thesis is parity plus a measured 10× on four axes — easier (≤ 1/10 of the clicks per task), faster (incremental MRP < 2 min, continuous close, real-time statements), more accurate (zero unexplained subledger-to-journal breaks, < 0.5% duplicate master data) and open (any system on the customer's network connects in < 1 day through REST, GraphQL, Kafka, webhooks, MCP, EDI, OPC-UA/MQTT and SFTP with one identity and one policy engine). ADR-0001 fixes the stack: Kubernetes on any conformant distribution with Argo CD GitOps, Go for ledgers and engines, TypeScript for workflow and integration services, Python for numerical work, Postgres per bounded context with row-level security, Kafka with a Debezium transactional outbox, Temporal, Keycloak + OPA, a React module-federation shell, an Iceberg lakehouse and OpenTelemetry. The requirements carry phase-level functional requirements FR-0.1 … FR-9.5, measurable NFRs (99.9% availability, 5,000 journal lines/s, p95 < 50 ms generated reads, 10k concurrent users, RPO 5 min / RTO 1 h, WCAG 2.1 AA), and appendices that fix the cross-module data model, event and API conventions, security model, numbering, localization scope, testing standards and traceability.
+
+**As built (v1.0):** the stack is ADR-0001's with these departures, each recorded in an ADR: about 60 Go capability services instead of 31 context images (ADR-0008); one Keycloak realm (ADR-0007); duties in the token and gateway-asserted identity headers instead of per-service JWT checks and OPA sidecars (ADR-0006); Ed25519 service tokens (ADR-0010); no web BFF (ADR-0009); application-level field encryption (ADR-0011); plain Postgres with SQL migrations instead of CloudNativePG per context and Atlas (ADR-0012); a search service (ADR-0013); Valkey (ADR-0014); a numbering service (ADR-0015). React 19 without module federation yet; no OpenTelemetry in services; Iceberg lakehouse and Cube exist only as `data/` assets.
 
 ## Architecture Overview
 
 ```mermaid
 flowchart TB
   subgraph Clients["Clients"]
-    Web["Web shell (React, module federation)<br/>16 module remotes"]
-    PWA["PWAs: shop floor · warehouse mobile · technician · supplier & customer portals"]
+    Web["Web shell (React 19, in-tree modules; federation pending)<br/>public OIDC client, token in memory (ADR-0009)"]
+    PWA["PWAs: warehouse mobile · technician · supplier & customer portals<br/>(shop floor is a web-shell module)"]
     Ext["External systems: MES · PLM · EDI partners · banks · BI · AI agents"]
   end
 
   subgraph Edge["Edge & identity"]
-    Envoy["Envoy Gateway<br/>JWT validation · rate limits"]
-    BFF["BFFs (TS): web-bff · device-bff · portal-bff<br/>token handler, SSE"]
-    KC["Keycloak<br/>OIDC/SAML/SCIM, per-tenant realms"]
-    OPA["OPA<br/>roles → duties → privileges, SoD, legal-entity scopes"]
+    Envoy["Envoy Gateway<br/>JWT validation → X-Depot-* headers · tier rate limits (Valkey)<br/>17 HTTPRoutes, 15 services (D31) · placeholder issuer and key (D32)"]
+    BFF["Portal BFFs (TS): customer-portal-ts · supplier-portal-ts<br/>cookie sessions (no web-bff or device-bff, ADR-0009)"]
+    KC["Keycloak<br/>OIDC/SAML, one realm depot (ADR-0007)"]
+    OPA["OPA<br/>in identity and single-host gateways only (ADR-0006)"]
   end
 
   subgraph Kernel["Platform kernel (Go library compiled into every Go service)"]
-    Lib["platform/go: httpx · dbx · tenant · authz · events · outbox · money · ids · sequence"]
+    Lib["platform/go: httpx · dbx · tenant · authz · events · eventing · outbox · money · ids · fieldcrypt · ledgerclient · ..."]
   end
 
-  subgraph Contexts["Bounded contexts (15, Postgres per context, RLS): deployables by language"]
-    Plat["platform (Go) · platform-ts (TS)<br/>metadata registry → migrations, OpenAPI, clients, forms · sequence definitions · audit chain · jobs · policy compiler"]
-    Mst["party-ts (TS) · product (Go) · product-ts (TS) · product-py (Py)"]
-    Ledger["ledger (Go) — universal journal<br/>FX · tax · close · statements · budgets · consolidation<br/>ledger.Post = only synchronous cross-context write"]
-    Ops["inventory (Go) · procurement (Go) · procurement-ts (TS)"]
-    Mfg["manufacturing (Go) · manufacturing-ts (TS) · manufacturing-py (Py)"]
-    O2C["sales (Go) · sales-ts (TS)"]
-    Log["warehouse (Go) · warehouse-ts (TS) · warehouse-py (Py)"]
-    Fin["treasury (Go)"]
-    People["workforce (Go) · workforce-ts (TS) · projects-ts (TS) · projects-py (Py)"]
-    Sup["integration-ts · analytics-ts (TS)"]
+  subgraph Contexts["15 contexts, 71 services (58 Go, 7 TS, 6 Py), Postgres database per stateful service, RLS (ADR-0008)"]
+    Plat["platform: identity · metadata · numbering · audit · batch · org · compliance · ops · localization · search · print (Go) · workflow-ts (Temporal)"]
+    Mst["party (Go) · product · engineering (Go) · configurator-py"]
+    Ledger["ledger (Go) — universal journal<br/>fx · tax · close · consolidation · finreport · budgeting · costacct · intercompany (Go)<br/>ledger.Post = synchronous cross-context write"]
+    Ops["inventory · costing · productcost · quality · purchasing · receiving · payables (Go)"]
+    Mfg["production · planning · scheduling · shopfloor · lean · processmfg · iot-edge (Go) · scheduler-py · forecast-py"]
+    O2C["sales · pricing · billing · receivables · revrec · fulfillment (Go) · prediction-py"]
+    Log["warehouse · transport · mobile (Go) · carrier-gateway-ts · routing-py"]
+    Fin["treasury · assets (Go)"]
+    People["hr · payroll · expense · projects · fieldservice · eam (Go) · dispatch-py"]
+    Sup["edi · migration · analytics (Go) · integration-hub-ts"]
   end
 
   subgraph Runtime["Shared runtime"]
-    Vault["Vault + External Secrets<br/>transit keys, signing"]
+    Vault["Vault + External Secrets<br/>secrets; field keys via fieldcrypt (ADR-0011)"]
     Obj["S3-compatible object storage<br/>attachments · evidence · Iceberg"]
   end
 
   subgraph Async["Async backbone"]
     Outbox["Transactional outbox<br/>(per database)"]
-    Deb["Debezium CDC"]
+    Deb["Debezium outbox relay<br/>21 connectors; table CDC target — not built"]
     Kafka["Kafka (Strimzi)<br/>depot.&lt;context&gt;.&lt;entity&gt; topics · CloudEvents · schema registry · DLQs"]
-    Temporal["Temporal<br/>approvals · batch · sagas (production settlement, intercompany) · agents"]
+    Temporal["Temporal (workflow-ts)<br/>approvals · tender · payment run · ECO · CAPA · budget · agent runs<br/>sagas S3b/S4: target — not built"]
     Hooks["Webhooks · tenant egress topics"]
   end
 
   subgraph Data["Analytics & AI"]
-    Ice["Iceberg lakehouse ← CDC<br/>Trino / ClickHouse · dbt · Cube semantic layer"]
-    MCP["MCP gateway, inside agents-ts at /v1/agents/mcp<br/>~400 generated tools under the user's OPA permissions"]
-    Agents["agents-ts: agent runtime (Temporal) and copilot API<br/>AP coding · cash application · MRP triage · collections · journal anomaly<br/>pgvector retrieval · agents-py eval harness"]
-    Models["model-serving-py<br/>embedding · reranker · Presidio analyzer · anomaly scorer"]
+    Ice["Iceberg lakehouse ← CDC<br/>Trino / ClickHouse · dbt · Cube<br/>target — not deployed (data/ assets only)"]
+    MCP["MCP gateway: mcp-ts at /mcp<br/>generated tools under the user's duties"]
+    Agents["agents-ts: agent runtime and copilot API (agent runs are workflow-ts workflows)<br/>AP coding · cash application · MRP triage · collections · journal anomaly<br/>pgvector retrieval · agents-py eval harness"]
+    Models["model-serving-py: target — not built"]
   end
 
   subgraph Py["Python numerical services"]
     PyS["forecast · scheduler (CP-SAT) · routing (VRP) · dispatch · configurator"]
   end
 
-  Web --> BFF --> Envoy
-  PWA --> BFF
+  Web -->|bearer token| Envoy
+  PWA --> BFF --> Contexts
   Ext -->|REST · GraphQL · EDI · OPC-UA · SFTP| Envoy
   Ext -->|Kafka · webhooks| Hooks
-  Envoy --> KC
-  Envoy --> OPA
-  Envoy --> Contexts
+  Envoy -.->|"JWKS (target; static placeholder key today, D32)"| KC
+  Envoy -->|"X-Depot-* headers (routed services only, D31)"| Contexts
+  Contexts -.->|identity only| OPA
   Contexts --> Lib
   Plat -.->|"metadata, policy bundles, sequence definitions"| Ledger
   Contexts --> Vault
@@ -88,11 +246,13 @@ flowchart TB
   MCP --> Envoy
   Agents --> MCP
   Agents --> Models
-  Agents --> Temporal
+  Agents -->|"starts and wakes agent-run workflows through the workflow-ts API (service token)"| Temporal
   Ice --> Web
 ```
 
 Reading the picture: every state change is written with its event in one database transaction (outbox) and relayed by Debezium to Kafka; the universal journal is the single synchronous cross-context write (`ledger.Post`), and the flows that need another context's valuation are posted by the valuation owner inside its own transaction through `ledger.Post` (receipt → GR/IR accrual by `procurement` then valuation true-up by `inventory`, shipment → COGS by `inventory`, RAF by `inventory` and `manufacturing`); only production-order settlement (single context) and intercompany mirror documents (multi-context compensation) run as Temporal sagas; everything reachable by a user is reachable by an external system or an AI agent through the same gateway and the same OPA decision.
+
+**As built (v1.0):** the outbox pattern is in place, but only 21 services' outboxes are relayed (D2); the synchronous `ledger.Post` is `POST /v1/ledger/journal-entries`, called by 21 services (19 through `platform/go/ledgerclient`, receiving and payables with their own clients); no Temporal saga is built (D13); and users, partners and agents share one gateway, where authorization is the route's duty checked in the service against the token's duties (ADR-0006), not an OPA decision. In Kubernetes that gateway routes only 15 services (D31) and does not yet accept tokens from realm `depot` (D32).
 
 ## Backend Services
 
@@ -104,12 +264,14 @@ Domain: backend services, APIs, eventing, cross-cutting runtime concerns. Source
 
 Build Depot's backend as **31 deployable images in 15 bounded contexts** (12 core + 3 supporting), on the stack ADR-0001 fixes: Go engines for the ledger-class workloads, TypeScript for workflow/integration/BFF, Python only for numerical work and model serving; one CloudNativePG Postgres database per context with RLS tenancy; Kafka (Strimzi) with Debezium transactional outbox for all cross-context propagation; Temporal for approvals, jobs and sagas; Keycloak (realm per tenant) for identity and OPA for every authorization decision; Envoy Gateway for TLS, JWT validation and rate limiting only.
 
+**As built (v1.0):** 71 services (58 Go, 7 TS, 6 Python) grouped into the 15 contexts (ADR-0008); plain PostgreSQL 17 with a database per stateful service (ADR-0012); one Keycloak realm (ADR-0007); Envoy Gateway also maps JWT claims, including duties, to trusted `X-Depot-*` headers (ADR-0006). The four structural decisions below are annotated with what holds.
+
 Four structural decisions carry the design:
 
 1. **`ledger.Post` is the only synchronous cross-context write** (Section 6). Every other cross-context effect is an event consumed idempotently. Posting is deterministic-idempotent, so a caller can always retry safely and there is never a half-posted state.
-2. **One kernel, no per-service reinvention.** `platform/go` (httpx, dbx, tenant, authz, events, outbox, money, ids, testkit) and an equivalent TS package implement tenancy (`SET LOCAL`), JWT verification, OPA calls, idempotency, problem details, outbox/inbox, OTel and health. Services contain domain logic only.
-3. **Authorization is policy, never code.** Duties/privileges are compiled to an OPA bundle; services pass `{principal, action, resource}` and obey the decision. JWTs carry identity and tenant, never duties, so permission changes take effect in ≤ 10 s without re-login.
-4. **Everything long is a tracked job.** Operations over the latency budget return `202` with a `statusUrl`; execution is a Temporal workflow with progress, ETA and SSE updates (pain point U4).
+2. **One kernel, no per-service reinvention.** `platform/go` (httpx, dbx, tenant, authz, events, outbox, money, ids, testkit) and an equivalent TS package implement tenancy (`SET LOCAL`), JWT verification, OPA calls, idempotency, problem details, outbox/inbox, OTel and health. Services contain domain logic only. *As built:* the Go kernel has tenancy, problem details, outbox/inbox, health and `ledgerclient`; idempotency is DDL only (each service handles it, D12), there is no OTel (D8), no `sequence` package (ADR-0015) and no TS kernel (ADR-0008). JWT verification and OPA calls are not in services (ADR-0006).
+3. **Authorization is policy, never code.** Duties/privileges are compiled to an OPA bundle; services pass `{principal, action, resource}` and obey the decision. JWTs carry identity and tenant, never duties, so permission changes take effect in ≤ 10 s without re-login. *Superseded by ADR-0006:* duties are in the token and checked per route with `authz.RequireDuty`; changes apply within the 300 s token life.
+4. **Everything long is a tracked job.** Operations over the latency budget return `202` with a `statusUrl`; execution is a Temporal workflow with progress, ETA and SSE updates (pain point U4). *Target — not built (see backlog, D29):* there is no `/v1/platform/jobs`; long operations return per-service job resources, and only `migration` returns a `statusUrl`.
 
 ### 1.1 Moonaan house defaults overridden by the requirements
 
@@ -118,19 +280,19 @@ The requirements govern. Nothing from the left column is used.
 | Moonaan default | Depot decision | Source |
 |---|---|---|
 | ECS/Lambda/Pulumi, `backend/` + `infrastructure/` repo topology | Kubernetes, Helm, Argo CD, Terraform/OpenTofu in `deploy/`; monorepo per Engineering conventions (Section 2) | ADR-0001 |
-| DynamoDB + OpenSearch read models | Postgres per bounded context (CloudNativePG), RLS | ADR-0001, B.1 |
+| DynamoDB + OpenSearch read models | Postgres per bounded context (CloudNativePG), RLS. *As built:* plain PostgreSQL, a database per stateful service (ADR-0012) | ADR-0001, B.1 |
 | SNS/SQS/EventBridge, outbox → SNS | Kafka (Strimzi), Debezium outbox router, CloudEvents, schema registry | ADR-0001, C |
 | "No API gateway" | Envoy Gateway is mandated; it does TLS, JWT, rate limit and coarse route-duty only. Business authorization, routing logic and validation stay in services | ADR-0001, D.7 |
-| Cognito + Verified Permissions (Cedar) | Keycloak (realm per tenant) + OPA/Rego | ADR-0001, E |
-| X-Ray, CloudWatch | OpenTelemetry → Prometheus/Tempo/Loki/Grafana | ADR-0001 |
+| Cognito + Verified Permissions (Cedar) | Keycloak + OPA/Rego. *As built:* one realm `depot` (ADR-0007); duties in the token, OPA only in identity and the single-host gateways (ADR-0006) | ADR-0001, E |
+| X-Ray, CloudWatch | OpenTelemetry → Prometheus/Tempo/Loki/Grafana. *As built:* Prometheus and Grafana; OTel, Tempo and Loki target — not built (D8) | ADR-0001 |
 | Secrets Manager | HashiCorp Vault + External Secrets Operator | E.7 |
-| ElastiCache Serverless Valkey | In-cluster Valkey, **proposed and not in ADR-0001** (Section 7.9, open question Q4). Never Redis | NFR-PT1 |
+| ElastiCache Serverless Valkey | In-cluster Valkey for gateway rate-limit counters and portal sessions (ADR-0014, closes Q4). Never Redis | NFR-PT1 |
 | Moonaan `/health/*` paths | `/healthz`, `/readyz` | Engineering conventions |
-| `/api/v1/{resource}` | `/v1/<context>/<collection>` on `api.<env>.depot.dev` | D.1 |
-| Cognito "pre-auth token exchange" tier | Not applicable. No platform-token tier exists; every service validates Keycloak JWTs | Assumption (no Moonaan platform services) |
+| `/api/v1/{resource}` | `/v1/<context>/<collection>` on `api.<env>.depot.dev`. *As built:* `/v1/<service>/...` per service; Envoy rewrites `/api/v1/<svc>` to `/v1/<svc>` (ADR-0008) | D.1 |
+| Cognito "pre-auth token exchange" tier | Not applicable. No platform-token tier exists. *Superseded by ADR-0006:* Envoy validates Keycloak JWTs and services trust its headers | Assumption (no Moonaan platform services) |
 | Error `type` on a Moonaan domain | `https://depot.dev/problems/<code>` | D.4 |
 
-Moonaan rules retained because they do not conflict: RFC 9457/7807 problem details with `traceId`; field-level `errors[]`; `202` + `statusUrl` for long work; `Sunset` header on deprecation; contract-first OpenAPI; JSON structured logs with `correlationId`; no PII in logs; W3C Trace Context; RS256 JWT validation of signature/`aud`/`iss`/`exp`; 15 min access / 12 h single-use-rotation refresh tokens; HttpOnly+Secure+SameSite=Strict cookies, never browser storage; fail-secure `503` when the policy engine is unavailable; Valkey-never-Redis; unit tests for every service, ESLint/golangci-lint plus Codacy in CI.
+Moonaan rules retained because they do not conflict: RFC 9457/7807 problem details with `traceId`; field-level `errors[]`; `202` + `statusUrl` for long work; `Sunset` header on deprecation; contract-first OpenAPI; JSON structured logs with `correlationId`; no PII in logs; W3C Trace Context; RS256 JWT validation of signature/`aud`/`iss`/`exp`; 15 min access / 12 h single-use-rotation refresh tokens; HttpOnly+Secure+SameSite=Strict cookies, never browser storage; fail-secure `503` when the policy engine is unavailable; Valkey-never-Redis; unit tests for every service, ESLint/golangci-lint plus Codacy in CI. *As built:* the web shell holds its tokens in memory, not cookies (ADR-0009); the realm sets a 5-minute access token and a 10-hour SSO maximum; `traceId` is a request id, not W3C trace context (D8); problem details lack `serviceCode` and `errors[]` (D11).
 
 ## 2. Repository topology and deployables
 
@@ -140,9 +302,13 @@ CI/CD rules applied from the Moonaan monorepo model: one path-filtered CI workfl
 
 Each service directory follows the Engineering conventions exactly (`cmd/`, `internal/{domain,store,api,events}`, `migrations/`, `api/openapi.yaml` 3.1, `events/asyncapi.yaml` 3, `charts/<name>/`, `README.md` with error codes). TS services: pnpm, vitest, `src/{api,domain,store,events,workflows,activities}`. Python: uv, pytest, FastAPI.
 
+**As built (v1.0):** the monorepo holds `platform/go` (kernel), `services/` (71 services: `<name>` Go, `<name>-ts`, `<name>-py`; ADR-0008), `apps/` (`web`, `customer-portal`, `supplier-portal`, `warehouse-mobile`, `technician`, and the stubs `ess` and `developer-portal`), `tools/` (`depot-server` for Windows (ADR-0004), `migration-factory`, `rlscheck`, `e2e`, `signoff-packets`, `connectors`, `importexport`, `tenant-restore`, `docs`), `deploy/` (Argo CD apps per environment under `deploy/envs/{dev,stage,prod}`, gateway, Kafka and Connect, Keycloak, Postgres, Temporal, observability, multi-region, `windows/` WiX sources, OpenTofu), `policies/authz` (Rego and duty catalogue), `data/` (CDC template, dbt, Cube), `countrypacks/`, `evals/`, `load/` (k6) and `roadmap/`. There is no `packages/` directory. CI is `.github/workflows/{ci,gate,ci-negative,windows-msi,pages,record-release,cleanup-branches}.yml`, with `gate` as the required check. TS services are plain Node with few or no dependencies (no Fastify, zod or Kysely; `kafkajs` in `workflow-ts` and `integration-hub-ts`).
+
 ## 3. Service architecture
 
 ### 3.1 Diagram
+
+*Target layout by context (v0.x).* The as-built services are listed in §3.2 and the overview diagram above.
 
 ```mermaid
 flowchart TB
@@ -274,9 +440,41 @@ flowchart TB
   ANA --> LAKE
 ```
 
-Every deployable also emits OTLP to the Collector and carries an OPA sidecar; both are omitted from the edges for legibility.
+Every deployable also emits OTLP to the Collector and carries an OPA sidecar; both are omitted from the edges for legibility. *As built:* neither. No service has an OTel SDK (D8), and only identity calls OPA (ADR-0006).
 
 ### 3.2 Service inventory
+
+**As built (v1.0)**, from `services/*` (ADR-0008). Each stateful service owns a database `depot_<service>` (plain
+PostgreSQL, ADR-0012), its `api/openapi.yaml`, `events/asyncapi.yaml`, chart under `services/<dir>/charts/`, and a
+`NOT-IMPLEMENTED.md` that lists open work against DPT tickets. "Relayed" means a Debezium `outbox-<service>` connector
+exists in `deploy/kafka/connect.yaml`; services marked "not relayed" write an outbox that never reaches Kafka (D2).
+
+| Context (grouping) | Go services | TypeScript | Python | Outbox relayed |
+|---|---|---|---|---|
+| platform | identity, metadata, numbering, audit, batch, org, compliance, ops, localization, search, print, platform-health | workflow-ts (the Temporal worker) | none | batch, metadata, ops; not relayed: identity, numbering, audit, org, compliance, print, platform-health |
+| party | party | none | none | yes |
+| product | product, engineering | none | configurator-py (stateless) | product; not relayed: engineering |
+| ledger | ledger, fx, tax, close, consolidation, finreport, budgeting, costacct, intercompany | none | none | budgeting, intercompany; not relayed: ledger, fx, tax, close, consolidation, finreport, costacct |
+| inventory | inventory, costing, productcost, quality | none | none | none relayed |
+| procurement | purchasing, receiving, payables | none | none | purchasing, receiving; not relayed: payables |
+| manufacturing | production, planning, scheduling, shopfloor, lean, processmfg, iot-edge (no database) | none | scheduler-py, forecast-py (stateless) | production; not relayed: planning, scheduling, shopfloor, lean, processmfg |
+| sales | sales, pricing, billing, receivables, revrec, fulfillment | none | prediction-py (own database) | sales, billing, receivables, fulfillment; not relayed: pricing, revrec, prediction-py |
+| warehouse | warehouse, transport, mobile | carrier-gateway-ts (no database) | routing-py (stateless, no chart) | warehouse, transport; not relayed: mobile |
+| treasury | treasury, assets | none | none | none relayed |
+| workforce | hr, payroll, expense | none | none | hr, expense; not relayed: payroll |
+| projects | projects, fieldservice, eam | none | dispatch-py (stateless, no chart) | all three |
+| integration | edi, migration | integration-hub-ts | none | none relayed |
+| analytics | analytics | none | none | not relayed |
+| agents | none | agents-ts, mcp-ts (MCP gateway at `/mcp`) | none | agents-ts not relayed |
+| edge | none | customer-portal-ts, supplier-portal-ts (cookie BFFs, sessions in memory or Valkey) | none | no outbox |
+
+Counts: 58 Go + 7 TypeScript + 6 Python = 71 services; 69 charts (not `routing-py`, `dispatch-py`). There is no
+`web-bff`, `device-bff`, `portal-bff`, `platform-ts`, `party-ts`, `procurement-ts`, `manufacturing-ts`, `sales-ts`,
+`warehouse-ts`, `workforce-ts`, `projects-ts`, `integration-ts`, `analytics-ts`, `agents-py` or `model-serving-py`;
+where this document still names one, read it as the context's as-built services above. Single-host installs add
+`tools/depot-server` (ADR-0004). Per-service datastores and topics are in the delta, §1.1.
+
+**Designed inventory (v0.x), superseded by ADR-0008.** Kept for the ownership and phase columns.
 
 Phase numbers follow the Document map (Phase 0 = waves 1–5 … Phase 9 = waves 46–50).
 
@@ -301,11 +499,27 @@ Phase numbers follow the Document map (Phase 0 = waves 1–5 … Phase 9 = waves
 | Edge: `device-bff` | 8 / 25 (first user), 32, 45 | none | none | `device-bff` (`services/device-bff-ts`) | none | Device enrollment, worker sessions, offline packets, command sync for shopfloor, warehouse-mobile and technician |
 | Edge: `portal-bff` | 3 / 20 (supplier), 30 (customer) | none | none | `portal-bff` (`services/portal-bff-ts`) | none | Session BFF and persisted-query GraphQL for the supplier and customer portals |
 
-Counts: 15 bounded contexts (12 core + 3 supporting), 10 Go + 15 TS + 6 Python = **31 deployable images** (the original 27 + `manufacturing-ts` + `device-bff` + `portal-bff` + `model-serving-py`; `bff-ts` is `web-bff`). This is the one service inventory; frontend §2, AI §3 and events §9.0 reference it, with owning waves in the "Phase / waves" column. Each TS image has `api` and `worker` (Temporal) entrypoints deployed as separate Deployments from the same image.
+*Designed counts, superseded by ADR-0008:* 15 bounded contexts (12 core + 3 supporting), 10 Go + 15 TS + 6 Python = **31 deployable images** (the original 27 + `manufacturing-ts` + `device-bff` + `portal-bff` + `model-serving-py`; `bff-ts` is `web-bff`). This is the one service inventory; frontend §2, AI §3 and events §9.0 reference it, with owning waves in the "Phase / waves" column. Each TS image has `api` and `worker` (Temporal) entrypoints deployed as separate Deployments from the same image.
 
 Deviations from B.1's language column, both permitted by the Engineering conventions ("Python only for numeric/ML/optimization", `services/<name>-py` for OR-Tools): `product-py`, `warehouse-py` and `projects-py` host OR-Tools solvers that B.1 lists only under manufacturing. They are stateless solvers invoked by their own context via a synchronous internal call or a Temporal activity; they have no database.
 
 #### Route table (one table for BFF, edge and service paths)
+
+**As built (v1.0)** (`deploy/gateway/README.md`, `deploy/gateway/*.yaml`):
+
+| Layer | Path prefix | Served by | Rule |
+|---|---|---|---|
+| Browser API | `/api/v1/<prefix>/...` on Gateway `depot-api` | Envoy Gateway → one of 17 `HTTPRoute`s in `deploy/gateway/httproutes.yaml` | Routed prefixes (backend in brackets where it differs): `org`, `fx`, `receiving`, `search`, `workflows` (workflow-ts), `inbox` (batch), `ledger`, `pricing`, `sales`, `party`, `analytics`, `planning`, `data` (metadata), `controlling` (costacct), `ops`, `predictions` and `ar` (both prediction-py): 15 backend services. JWT validated and mapped to `X-Depot-*` headers (ADR-0006, but see D32); Envoy rewrites `/api/v1/<prefix>` to `/v1/<prefix>`; per-tenant tier rate limit. Every other prefix (inventory, procurement, payables, production, warehouse, hr, treasury and about 60 more that the shell calls) has no route and gets 404 at Envoy (D31) |
+| Partner and agent API | `/v1/<prefix>/...` on Gateway `depot-api` | Envoy Gateway, pass-through, same 17 routes | same checks; same 15 services only (D31) |
+| Single-host gateways | `/api/v1/<service>/...` and `/v1/<service>/...` | devgateway, `depot-server` (ADR-0004) | route every supervised service by its first path segment; JWT verification and an OPA decision (D23) |
+| Portals | `/bff/...` and `/api/v1/...` on `customer.<env>.depot.dev`, `supplier.<env>.depot.dev` (Gateway `depot-portals`) | customer-portal-ts, supplier-portal-ts | Cookie session in the BFF, CSRF and origin checks, no JWT at the edge; the BFF calls services with Ed25519 service tokens (ADR-0010) |
+| Other edges | AS2 (Gateway for `as2-*`), region health `GET /healthz/region`, plant edge for iot-edge, payments webhook | their own Gateways | each with its own TLS listener, header stripping and per-address rate limit |
+| MCP | `POST /mcp` on `mcp.depot.<tenant>` | mcp-ts | MCP gateway for agents |
+| Service | `/v1/<service-prefix>/...` | the owning service | Per-service OpenAPI is authoritative. Non-`/v1` prefixes remain in agents-ts, edi, print, prediction-py and mcp-ts (D22) |
+
+There are no `/bff/...` routes for the web shell or devices (ADR-0009).
+
+*Designed route table (v0.x), superseded by ADR-0008 and ADR-0009:*
 
 | Layer | Path prefix | Served by | Rule |
 |---|---|---|---|
@@ -326,6 +540,8 @@ Deviations from B.1's language column, both permitted by the Engineering convent
 | Go engine jobs (MRP, cost close, depreciation, payroll) | Job row in the owning service, started by `POST …` (202); a TS workflow starts it and awaits the `*.completed` event as a Temporal signal | Avoids a second workflow SDK in Go. Temporal's Go SDK remains an allowed alternative if the kernel owner adds it |
 | Caller-initiated work that need not block | Accept-and-queue: `202` + `statusUrl` | Section 7.10 |
 
+**As built (v1.0):** financial posting is `POST /v1/ledger/journal-entries`, called by 21 services: 19 through `platform/go/ledgerclient`, and receiving and payables with their own HTTP clients (D9); authenticated with a service token (ADR-0010). Generated `HEAD` existence checks and `<context>_ref` read models are not built; services call each other's REST APIs synchronously (for example close period checks, tax, numbering). Cross-context events work only where the producer's outbox is relayed (D2). Temporal runs in one worker, `workflow-ts` (approvals, party merge, ECO, CAPA, tender, payment run, budget plan, agent runs); Go engine jobs are per-service job resources, and there is no `/v1/platform/jobs` (D29).
+
 ### 3.4 Posting ownership (decision)
 
 Decision: **the valuation owner posts through `ledger.Post`, then finalizes in one local transaction (§6.4 rule 2).** Cross-context triggers are events consumed as commands by the valuation owner; Temporal sagas are used only where multi-step compensation across contexts is unavoidable (intercompany mirror documents, eventing S4) or for a single-context multi-step flow (production-order settlement, S3b, in `manufacturing-ts`). Every post uses the one deterministic idempotency key `post:<context>:<documentType>:<documentId>:<purpose>` (Section 6.4); no other key format exists. B.3 lists `JournalEntry` ids on receipts, packing slips and production orders: the posting command sets `journal_entry_id`, `gl_seq` and `gl_posting_status` on the document in the same transaction; event-triggered postings use the reserve, post, finalize protocol of Section 6.4 (inventory transactions are inserted with `journal_entry_id` already set; `gl_posting_status` is a column of the receipt, production order, shipment and `valuation_reservation`, not of `inventory_transaction`); there is no `gl-link` endpoint.
@@ -342,6 +558,8 @@ Decision: **the valuation owner posts through `ledger.Post`, then finalizes in o
 | Expense reimbursement | `procurement` (workforce does not post AP) | Vendor invoice created on `expensereport.approved` and posted through the normal vendor-invoice path | Synchronous; `workforce-reimbursement-link` sets `expense_report.reimbursement_invoice_id` from `vendorinvoice.posted` |
 | Project WIP / POC / billing proposals | `projects` | WIP, accrued revenue | Synchronous |
 | Manual journals, allocations, accruals, revaluation, translation, consolidation, year-end | `ledger` (internal, same transaction scope) | As defined | Own table |
+
+**As built (v1.0):** postings come from 21 capability services (assets, billing, budgeting, close, consolidation, costacct, costing, eam, expense, intercompany, inventory, payroll, productcost, production, projects, receivables, revrec, tax and treasury through `ledgerclient`; receiving and payables through their own clients, `services/receiving/internal/domain/ports.go` and `services/payables/internal/ledger/ledger.go`; moving them onto `ledgerclient` is part of D9). *Target — not built (see backlog):* the one key format (productcost, close, mobile, planning and inventory's event-driven postings use others, and receiving uses its service name as the key segment, D9); the `valuation_reservation` reserve-post-finalize protocol and `posting_request` registry (D30); the S3b settlement and S4 intercompany sagas (D13). COGS link-back by event also depends on inventory's outbox being relayed (D2) and on the payload fields (D6).
 
 ## 4. Technology stack
 
@@ -364,7 +582,34 @@ Consistent with ADR-0001; "Rationale" is the reason this choice beats the altern
 | Analytics | Debezium CDC → Iceberg → Trino/ClickHouse, Cube semantic layer | ADR-0001; backend only exposes the `analytics` facade | n/a |
 | GraphQL | `web-bff` hosts a read-only GraphQL schema generated from entity metadata; resolvers call context REST APIs with the caller's token (DataLoader batching) so OPA and RLS apply downstream | No new datastore, one authorization path | Apollo Federation (a router plus a subgraph per context) |
 | Testing | Defer strategy to `testing-architect`. Fixed by requirements: Go `rapid`, TS `fast-check`, Python `hypothesis`; Testcontainers; Pact between contexts; Playwright + axe; k6; Spectral + oasdiff in CI; golangci-lint, ESLint, Codacy | Appendix I | n/a |
+
+**As built (v1.0)**, row by row where the code differs:
+
+- **Go services:** Go 1.26, chi, pgx/v5, shopspring/decimal, `google/uuid`, franz-go (Kafka consumers), `log/slog`,
+  `rapid`. No OpenTelemetry SDK or `otelhttp` (D8); metrics are Prometheus RED metrics from `platform/go/httpx`.
+- **TypeScript services:** Node 24 on `node:http` with few or no dependencies; Temporal TS SDK and `kafkajs` in
+  `workflow-ts`, `kafkajs` in `integration-hub-ts`. No Fastify, zod, Kysely, pino or `@confluentinc/kafka-javascript`.
+- **Python services:** as designed (FastAPI, OR-Tools); stateless solvers except `prediction-py`.
+- **Database:** plain PostgreSQL 17 (`postgres:17-alpine`), no CNPG outside the undeployed multi-region chart, no
+  PgBouncer, migrations by `dbx.Migrate`, no Atlas (ADR-0012). Journal and inventory transactions are not partitioned
+  (D10).
+- **Messaging:** Kafka 4.0 on Strimzi with Debezium outbox connectors (21) and Apicurio Registry; default topic
+  retention 7 days (D24); topics created by Kafka Connect, not generated `KafkaTopic` resources.
+- **Workflow:** Temporal with one TS worker, `workflow-ts`, on its own Postgres (`deploy/temporal-postgres`).
+- **Identity:** Keycloak, one realm `depot` (ADR-0007).
+- **Authorization:** duties in the token checked per route in each service; OPA in identity and the single-host
+  gateways, bundle served by identity at `GET /v1/identity/policy/bundle`; no ext_authz, no sidecars (ADR-0006).
+- **Secrets:** External Secrets from a store named `depot`; field-level keys through `fieldcrypt` master keys,
+  optionally wrapped by Azure Key Vault (ADR-0011). Vault transit is not used for field encryption.
+- **Observability:** Prometheus, Grafana dashboards and Alertmanager in dev (`deploy/observability`); Tempo and Loki not
+  deployed, stage and prod have no monitoring app (D8, D4).
+- **Analytics:** `services/analytics` (Go) and `data/` (CDC connector template, dbt, Cube); lakehouse not deployed.
+- **GraphQL:** not built and not scheduled; building a GraphQL read gateway is one of ADR-0009's triggers for a web BFF.
+- **Cache and rate limits:** Valkey for gateway counters and portal sessions (ADR-0014).
+
 ## 5. API design
+
+**As built (v1.0):** this section is the *target* API catalogue. 39 of its 423 concrete endpoints exist in code. The built surface is 64 OpenAPI documents (`services/*/api/openapi.yaml`) with 2,579 paths and 3,194 operations under about 90 per-service prefixes (`/v1/hr`, `/v1/receiving`, `/v1/consol`, `/v1/controlling`, `/v1/product-costing`, ...); those documents are the source of truth (ADR-0008). Generated entity endpoints (`:batch`, `:export`, `HEAD`), `/v1/platform/*`, `/v1/{context}/error-codes`, `/v1/integration/event-replays` and every `/bff/*` route except the portals' are not built. Contexts with no matching endpoint: platform (0 of 104), manufacturing (0 of 27), warehouse (0 of 18), workforce (0 of 13); the full table is in the delta, §2.3.
 
 ### 5.1 Conventions applied (Appendix D plus the Moonaan api-design skill)
 
@@ -377,6 +622,7 @@ Consistent with ADR-0001; "Rationale" is the reason this choice beats the altern
 - Long operations: `202 Accepted`, `Location: /v1/platform/jobs/{id}`, body `{ "jobId", "statusUrl", "estimatedCompletionSeconds" }`.
 - Rate-limit headers `RateLimit-Limit/Remaining/Reset` on every response; `Retry-After` on `429`/`503`.
 - Deprecation: `Deprecation` + `Sunset` headers (RFC 8594), ≥ 12 months overlap for `/v2`; `X-Depot-Api-Build` on every response.
+- *As built:* `x-depot-duty` is on 97.6% of operations; `Idempotency-Key` is declared on 44% of mutating operations and `If-Match` in 35 of 64 specs (D12); custom methods mix `:verb` (230 paths) and `/verb` (40 paths); the kernel `httpx.Problem` has no `serviceCode`, `errors` is a map and `code` carries the service code (D11); `X-Depot-Api-Build` and `RateLimit-*` are not set by the kernel (only some services and mcp-ts set them); there is no `/v1/platform/jobs` (D29).
 - Contract-first: engine endpoints (hand-written) get their OpenAPI/AsyncAPI entry reviewed before implementation; generated endpoints derive from `EntityDefinition`. CI: Spectral, oasdiff breaking-change gate, "every operation carries `x-depot-duty`" lint (NFR-SEC1).
 - Performance contract: generated simple read p95 < 50 ms at 1,000 rps (NFR-P2); single-document post p99 < 500 ms; ledger post p99 < 200 ms; anything projected over budget is `202`.
 
@@ -390,6 +636,8 @@ Consistent with ADR-0001; "Rationale" is the reason this choice beats the altern
 | `Session` | Shell cookie session handled by the BFFs (`web-bff` for the shell; HttpOnly, Secure, SameSite=Strict, CSRF header); BFF forwards the user's access token upstream |
 | `Sig:<scheme>` | Not a bearer endpoint: authenticated by HMAC (`X-Depot-Signature`), AS2/S-MIME certificate, or a single-use signed action token. OPA still evaluates the bound principal |
 | `None` | Cluster-internal listener only (separate port, not routed by the gateway) or pre-authentication redirect endpoint |
+
+*As built (ADR-0006, ADR-0010):* `User:` means a bearer token validated by Envoy, whose `duties` claim must hold the route's `x-depot-duty`; the service does not re-verify the JWT or ask OPA. `Svc:` means an Ed25519 service token in `X-Depot-Service-Token` naming the caller and carrying the grant's duties. `Session` exists only on the portal BFFs.
 
 Privilege codes follow `<entity>.<action>` with action in `read | write | post | approve | delete | export | admin` (E.3). Names here are representative; the generator derives the authoritative set from metadata.
 
@@ -1005,6 +1253,8 @@ Generated CRUD covers projects, WBS, project resources, hour/expense/item journa
 
 ## 6. The universal-journal posting API (`ledger.Post`)
 
+**As built (v1.0):** the endpoint is `POST /v1/ledger/journal-entries` (reversal `POST /v1/ledger/journal-entries/{id}/reverse`), called by 21 services, 19 of them through `platform/go/ledgerclient` and receiving and payables through their own clients (D9). The caller authenticates with an Ed25519 service token whose `act` is the end user (ADR-0010); there is no `X-Depot-Subject-Token` and no `_internal` realm. Idempotency rests on the ledger's idempotency table; there is no `posting_request` registry or `GET /v1/ledger/posting-requests/{key}` (D30). Journal tables are not partitioned (D10). The ledger's outbox is not relayed, so journal events do not reach Kafka (D2); the built topic is `depot.ledger.journal`, not `depot.ledger.journalentry`. The contract below is otherwise the target.
+
 ### 6.1 Contract
 
 `POST /v1/ledger/journal-entries:post` is the single synchronous cross-context write. A subledger (or a user posting a manual journal) submits one **balanced** entry derived from one source document; the ledger validates and commits it atomically, or rejects it with a problem detail, and never leaves partial state. It is hand-written (engine) and contract-first. Fiscal documents are immutable after posting (NFR-C4); corrections are new entries (`:reverse`).
@@ -1081,8 +1331,8 @@ sequenceDiagram
 
 The caller is a **service principal**, not the end user. An AP clerk holds `vendorinvoice.post`, not `journalentry.post`; forwarding the user's token to the ledger would either fail or force every subledger user to hold GL posting rights. Therefore:
 
-1. The calling service authenticates with an internal service token (`_internal` realm, Section 7.1). OPA allows `journalentry.post` only for `source.context` values and document types in `data.depot.posting_sources[service]`.
-2. The originating user's access token travels in `X-Depot-Subject-Token`. The ledger verifies it (signature, `iss`, `aud`, `exp`, same tenant) and records `postedBy = user:<sub>` and `postedVia = service:<name>` on the entry and in `actor`. The user's authority over the *source* action was already decided by the source service; the ledger does not re-decide it.
+1. The calling service authenticates with an internal service token (`_internal` realm, Section 7.1). OPA allows `journalentry.post` only for `source.context` values and document types in `data.depot.posting_sources[service]`. *Superseded by ADR-0010:* the token is an Ed25519 service token and the allowed duties per caller come from the grant table in `platform/go/tenant/service.go`, not OPA.
+2. *Superseded by ADR-0010:* the originating user is the service token's `act` claim; the paragraph that follows describes the original design. The originating user's access token travels in `X-Depot-Subject-Token`. The ledger verifies it (signature, `iss`, `aud`, `exp`, same tenant) and records `postedBy = user:<sub>` and `postedVia = service:<name>` on the entry and in `actor`. The user's authority over the *source* action was already decided by the source service; the ledger does not re-decide it.
 3. System-initiated posts (event consumers, Temporal activities, scheduled runs) omit the subject token and use `actor = system:<job>`.
 4. Manual journals by accountants call the same endpoint with their own token and `journalentry.post`; SoD (preparer ≠ approver) applies via `deny` rules.
 
@@ -1116,23 +1366,47 @@ Alternative considered: RFC 8693 token exchange to mint a user-scoped token for 
 
 ### 7.1 Authentication (Keycloak)
 
+As built (v1.0); the decisions are ADR-0006, ADR-0007, ADR-0009 and ADR-0010. Rows marked *Target* keep design intent that is not built.
+
 | Aspect | Decision |
 |---|---|
-| Realms | One realm per tenant (E.1) plus one `_internal` realm for service identities. Tenant realms are provisioned by `POST /v1/platform/tenants` from a realm template (clients, scopes, mappers, password and MFA policy, token lifetimes) |
-| Federation | OIDC and SAML identity brokering to the customer IdP; SCIM through a facade in `platform-ts` over the Keycloak Admin API (Keycloak core ships no SCIM server, Q3) |
-| Browser users | `web-bff` (and the other two BFFs) is a confidential client using authorization code + PKCE (S256). Session is a server-side session in `depot_platform` keyed by an opaque cookie (HttpOnly, Secure, SameSite=Strict); tokens never reach browser storage. BFF refreshes server-side; CSRF defended by SameSite plus a required custom header. Frontend library on the React side: `oidc-client-ts` is only needed for the PWAs' device flow; the shell does not hold tokens |
-| Machines and scanners (PWAs) | OAuth device authorization grant (RFC 8628) on a registered device; the token is bound to the worker who badge-authenticates; device class rate limit 120 req/min. Offline queue replays under the stored refresh token; expiry during long offline periods is Q18 |
-| Partners and integrations | Client credentials in the tenant realm, `private_key_jwt` or mTLS client auth preferred over shared secrets; the `azp` client id is the "API key" for quota bucketing (no separate API-key system; "one identity" per L.2) |
-| Internal services | Client credentials in `_internal`, authenticated at transport by mTLS identity as well; tenant context asserted by `X-Depot-Tenant` and, when a user initiated the work, by the forwarded subject token (header must equal the token's tenant). Avoids 31 clients × N tenants |
+| Realms | One realm, `depot`, for every tenant (ADR-0007, `deploy/keycloak/realm-depot.json`). The tenant is the `tid` user attribute; tenants are created in identity (`POST /v1/tenants`), not as realms. No `_internal` realm |
+| Federation | OIDC and SAML identity brokering to the customer IdP into the one realm, with an IdP mapper that sets `tid`. SCIM 2.0 is served by `services/identity` itself (`/scim/v2/Users`, `/scim/v2/Groups`), behind OPA (Q3 resolved) |
+| Browser users | Web shell: public client `depot-web`, authorization code + PKCE (S256); access and refresh tokens in memory only, sent as a bearer token to the same-origin gateway (ADR-0009, with its CSP and storage conditions, D7). Portals: confidential clients `depot-portal-customer` and `depot-portal-supplier` used by their cookie BFFs (`__Host-depot_customer`, `__Host-depot_supplier`), CSRF and origin checks |
+| Machines and scanners (PWAs) | *Superseded by ADR-0009:* the device grant is disabled in the realm. Warehouse devices use `services/mobile` sessions and offline replay; kiosks enroll through `services/shopfloor` (ADR-0009). Expiry during long offline periods is Q18 |
+| Partners and integrations | Client credentials in the realm, `private_key_jwt` or mTLS client auth preferred over shared secrets; the `azp` client id is the "API key" for quota bucketing (no separate API-key system; "one identity" per L.2) |
+| Internal services | Ed25519 service tokens in `X-Depot-Service-Token` (ADR-0010): caller, target, tenant, one legal entity, end user as `act`, duties from the grant table, ≤ 60 s, replay-checked. No mTLS. Some peer calls still forward the user's `X-Depot-*` headers instead (D1) |
 | AI agents | OAuth 2.1 authorization code + PKCE user-delegated token through the MCP endpoint; agent identity travels as `agent_id` and `on_behalf_of` claims. Whether Keycloak can mint the delegation (`act`) claim natively is Q8; fallback is a Keycloak token-exchange policy plus a custom claim mapper |
-| Token lifetimes | Access 15 min; refresh 12 h with single-use rotation (`Revoke Refresh Token` on, reuse 0); SSO session max 12 h. Tenant admins may shorten, not lengthen |
-| Step-up | OPA obligation `requires_acr: "mfa"` for `payment.approve`, `payment.release`, `periodcontrol.admin`, `vendorbank.write`, `customerbank.write`, any `*.reveal`, role assignment (the one step-up list): services return `401` with `WWW-Authenticate: Bearer error="insufficient_user_authentication", acr_values="mfa"` and the BFF redirects |
+| Token lifetimes | Access 5 min (`accessTokenLifespan` 300); refresh with single-use rotation (`revokeRefreshToken` on, reuse 0); SSO idle 30 min, SSO max 10 h. Realm-wide (ADR-0007) |
+| Step-up | Auth-age check: Envoy maps the token's `auth_time` to `X-Depot-Auth-Time` and a route needing a fresh sign-in (for example a 21 CFR Part 11 signature) checks it with `tenant.AuthAge`, failing closed. The OPA `requires_acr` obligation is not built |
 
-Claims issued: `iss`, `sub`, `aud` (= `depot-api`), `azp`, `exp`, `iat`, `jti`, `typ`, `acr`, `tenant_id` (hard-coded claim per realm), `tier`, and for agents `agent_id`, `on_behalf_of`. **Duties, roles and legal-entity grants are deliberately absent**: they live in the OPA bundle, so revocation takes effect in ≤ 10 s and tokens stay small.
+Claims issued (as built): the standard OIDC claims, `auth_time`, and the user-attribute claims `tid` (tenant), `le` (legal entity: one string, user attribute `legal_entity_id`, `multivalued: false`), `duties` and `tier` on `depot-web` and `depot-services` tokens; `tid`, `le`, realm roles and `vendor_id` / `customer_id` on the portal clients' tokens. Only `depot-web` and `depot-services` have the audience mapper that adds `aud` = `depot-api`; the portal clients and `depot-identity-deprovision` do not (their tokens are not meant for Envoy). Target (D33, Proposed): `le` lists every legal entity the user is entitled to. **Duties and legal-entity grants are in the token** (ADR-0006), so a change applies within the 5-minute access-token life, not ≤ 10 s. The agent claims `agent_id` and `on_behalf_of` remain target (Q8).
 
-Validation in every service (kernel `authz`, re-done even behind Envoy because east-west calls bypass the gateway): RS256 only (reject `none`/HS*), signature via JWKS cached by `kid` with a refetch (rate-limited) on unknown `kid`, `iss` ∈ the issuer registry (tenant realms from the platform tenant read model + `_internal`), `aud` contains `depot-api` (Keycloak access tokens do not carry the Cognito-style `client_id`-only audience; the audience mapper is mandatory and verified in the realm template test), `exp`/`nbf` with 30 s skew, `typ` = `Bearer` (ID tokens rejected), `azp` ∈ allowed clients. Libraries: `jose` in TS and a maintained JWKS-aware JWT library in the Go kernel; **no hand-rolled verification**. `401 unauthenticated` for missing/invalid token, `403 forbidden_duty` for a valid token lacking permission.
+Validation (as built): Envoy Gateway's `SecurityPolicy/depot-api-jwt` validates issuer, audience `depot-api`, signature and expiry and refuses the nil tenant, but it is configured against a placeholder: issuer `https://idp.dev.depot.dev/realms/dev` and a static placeholder public key in ConfigMap `depot-dev-jwks` (`localJWKS`) for which no private key exists, so nothing can mint a token it accepts (`deploy/gateway/README.md`, #80). It is not connected to realm `depot` in any environment (D32). agent-runtime (agents-ts) verifies bearer tokens itself, configured for `realms/dev` (dev) and `realms/stage` (stage), and requires the `X-Depot-*` headers to agree with the token (an explicit exception in ADR-0006). The portal BFFs use `realms/depot`. devgateway and `depot-server` use identity's `JWTVerifier`. Services do not re-verify the user's JWT; they trust the `X-Depot-*` headers, which is safe only under ADR-0006 rule 6 (D1). *Superseded by ADR-0006, kept for the per-service fallback named there:* validation in every service (kernel `authz`, re-done even behind Envoy because east-west calls bypass the gateway): RS256 only (reject `none`/HS*), signature via JWKS cached by `kid` with a refetch (rate-limited) on unknown `kid`, `iss` ∈ the issuer registry (tenant realms from the platform tenant read model + `_internal`), `aud` contains `depot-api` (Keycloak access tokens do not carry the Cognito-style `client_id`-only audience; the audience mapper is mandatory and verified in the realm template test), `exp`/`nbf` with 30 s skew, `typ` = `Bearer` (ID tokens rejected), `azp` ∈ allowed clients. Libraries: `jose` in TS and a maintained JWKS-aware JWT library in the Go kernel; **no hand-rolled verification**. `401 unauthenticated` for missing/invalid token, `403 forbidden_duty` for a valid token lacking permission.
 
 ### 7.2 Authorization (OPA, duties, SoD)
+
+**As built (v1.0)** (ADR-0006):
+
+- **Model:** the AX-style Role ⊃ Duty ⊃ Privilege catalogue lives in `policies/authz` (Rego `package authz` and the duty
+  catalogue). Identity compiles and signs a bundle (Rego, duties and every active tenant-wide role assignment) and
+  serves it at `GET /v1/identity/policy/bundle` on a dedicated internal listener. A user's duties reach the access
+  token through the `duties` user attribute.
+- **One enforcement point per route:** the service checks the route's `x-depot-duty` against `X-Depot-Duties` with
+  `authz.RequireDuty` (56 services). Envoy has no ext_authz. OPA decides only in identity (administration, SCIM) and in
+  the single-host gateways (devgateway, `depot-server`), which is a difference to close (D23).
+- **Decision shape:** `allow` only. Legal-entity scopes come from the token's `le` claim (§7.3), not from OPA; there
+  are no `obligations` (masking, `requiresAcr`, `approvalWorkflow`).
+- **SoD:** rules, simulation and evaluation are served by compliance (`/v1/sod/rules`, `/v1/sod/simulate`,
+  `/v1/sod/evaluations`); runtime document-pair checks were not audited for v1.0.
+- **Approvals:** `workflow-ts` routes `/v1/workflows/*`; services answer `approval_required` where wired. No
+  `/v1/platform/workflow-instances`.
+- **Fail-secure:** identity's `RequireOPA` returns `503` on a policy outage. Service duty checks have no runtime
+  dependency.
+- **Decision logging:** none. OPA decision logs are off; `authz.RequireDuty` returns a 403 problem without writing a record of actor, tenant, duty and route; the kernel access log (`httpx.logRequests`) has method, path, status and request id only; Envoy writes no allow/deny record; there is no denial metric (D36).
+
+The bullets below are the v0.x design. *Superseded by ADR-0006* except where they describe identity's own OPA use;
+the agent rules remain target (wave 47).
 
 - **Model:** AX-style Role ⊃ Duty ⊃ Privilege (E.3). `platform-ts` compiles roles, duties, privileges, user-role grants (with legal entity and validity), SoD rules, agent allow-lists/kill switches, posting-source grants and the **route→privilege table** (from `x-depot-duty` in the OpenAPI documents) into one OPA bundle served at `/v1/platform/policy-bundles/current`; delta bundles keep propagation ≤ 10 s.
 - **Two enforcement points (E.4):** Envoy's ext_authz calls a standalone OPA-Envoy instance that checks token, tenant, and the route's privilege (coarse). Each service then calls its **sidecar** `POST /v1/data/depot/authz/allow` with `{principal, action, resource}` for the record-level decision (fine). No service branches on role names or Keycloak groups.
@@ -1146,40 +1420,40 @@ Validation in every service (kernel `authz`, re-done even behind Envoy because e
 
 ### 7.3 Tenant propagation and isolation
 
-1. Envoy validates the JWT and maps `tenant_id`, `azp`, `tier` to request headers used only for rate limiting and logs (the service re-derives tenant from the token, never from those headers, except the `_internal` path).
-2. The kernel `tenant` middleware builds `Tenant{id, legalEntityIDs, actor}` from the verified principal and OPA scopes and stores it in the request context (`tenant.FromContext`). Missing tenant = `401`. The optional request header `Depot-Legal-Entity: <uuid | *>` (sent by the UI on every API call) narrows the token's legal-entity scopes from OPA to the named entity; it can narrow but never widen.
-3. `dbx` begins every transaction with `SET LOCAL depot.tenant_id`, `depot.legal_entity_scopes` (E.1) and emits a transactional logical-decoding message `depot.ctx` carrying `{actor, traceId, correlationId}` so CDC audit entries know who and which trace caused the change (Debezium reads logical decoding messages with pgoutput).
+1. Envoy strips every client-supplied `X-Depot-*` header (except `X-Depot-LegalEntity-Scope`; the shell's `X-Depot-LegalEntity` is stripped too), validates the JWT (against a placeholder issuer and key today, D32) and maps `tid`, `le`, `sub`, `duties`, `tier` and `auth_time` to `X-Depot-Tenant`, `X-Depot-Legal-Entity`, `X-Depot-User`, `X-Depot-Duties`, `X-Depot-Tier` and `X-Depot-Auth-Time` (`deploy/gateway/README.md`). Services take the tenant from these headers (ADR-0006); on a peer call with a service token they take it from the verified token instead (ADR-0010).
+2. The kernel `tenant` middleware builds the `Principal` (tenant, legal entities, user, duties) from those headers or the service token, canonicalizes the tenant and refuses the nil tenant, and stores it in the request context (`tenant.FromContext`). Missing tenant = `401`. **As built:** the web shell sends `X-Depot-LegalEntity: <uuid>`, but nothing narrows. `le` is a single string, and `tenant.requestLegalEntity` rejects with `400 COM-0001` any selection that differs from `X-Depot-Legal-Entity` (test `TestMiddlewareBothLegalEntityHeaders`); devgateway and `depot-server` return `403 AUTH-0003` unless the selection equals the claim exactly; Envoy strips the selection. When the request has no `le` claim the kernel takes the selection as the scope, which only the gateways prevent. User-visible effect: a user entitled to several legal entities cannot switch company in the shell, on Windows or in Kubernetes (D33). **Proposed (recommended; pending owner confirmation):** a user may work in any legal entity they are entitled to. The `le` claim carries the list of entitled legal entities (a comma-joined string, as `duties`, because Envoy base64-encodes array claims; the kernel's `X-Depot-Legal-Entity` parser already accepts up to 100); the shell's `X-Depot-LegalEntity` selects one entity within that list and narrows the request to it; a selection outside the list is refused with `403` by the kernel and by every gateway; a selection without a claim is refused; Envoy forwards the selection instead of stripping it; a write in a multi-entity session must carry a selection; peer calls carry the selected entity in the service token (ADR-0010). Acceptance test in D33. `X-Depot-LegalEntity-Scope: ALL` asks for the all-entity read view under rule 3a. (The v0.x header name `Depot-Legal-Entity` is not used.)
+3. `dbx` begins every transaction with `SET LOCAL depot.tenant_id`, `depot.legal_entity_scopes` (E.1; `dbx.WithTenantTx`). *Target — not built (see backlog, D3):* it also emits a transactional logical-decoding message `depot.ctx` carrying `{actor, traceId, correlationId}` so CDC audit entries know who and which trace caused the change (Debezium reads logical decoding messages with pgoutput).
 3a. **Legal-entity scope is fail-closed everywhere.** `tenant.InLegalEntityScope(principal, entity)` is the one app-level check (built on `tenant.LegalEntityScopeList`, the parser `dbx.LegalEntityScopes` also uses): the entity must be a non-nil UUID in the caller's claim, and a caller with no claim is in scope only when it holds `org.switcher.all-scope`, which the middleware keeps only on a read that sends `X-Depot-LegalEntity-Scope: ALL`, or on a POST route its service wraps in `tenant.ReadOnlyPOST` (an explicit allowlist for write-free queries; today only `POST /v1/analytics/query`; `POST /v1/analytics/exports` stores an export job, so it stays write-classified and keeps `NO_SCOPE`). An empty scope without that duty is refused (`403`), never treated as "all". **Documented exception:** identity's `withAdminTx` (`services/identity/admin_common.go`) sets `depot.legal_entity_scopes` to `*` for tenant-level administration writes by a caller with no legal-entity header who holds the explicit `tenant.administer` duty and the specific admin duty (`identity.legal-entity.maintain`, `identity.security-role.maintain`), without `org.switcher.all-scope`. `tenant.administer` is the dedicated tenant-administrator capability (a human-assignable flag duty with no routes, seeded in `policies/authz/data.json`; named distinctly from the `Svc:tenant.admin` service scope of the platform tenant API, which is never carried in a user's duties claim); a missing legal-entity claim alone never grants tenant-wide writes, so a token from a misconfigured IdP cannot reach them; every other service must use the helper. **Every "no claim + duty" tenant-level writer** (predicate, `dbx.TenantWide` / `tenant.IsTenantAdmin`: caller has no legal-entity claim AND `tenant.administer` AND the named duty; none holds `org.switcher.all-scope`, which never survives a write; a caller without `tenant.administer` is refused `403` on a create or assign, and sees `404` when ending a tenant-wide assignment, because its scoped transaction cannot see that row): identity `withAdminTx` (`identity.legal-entity.maintain`, `identity.security-role.maintain`; explicit `*` scope); migration runs, specs, templates, packages and cross-references (`tenantWide` in `services/migration/internal/api`: `tenant.IsTenantAdmin`, route duty); party merge and audit (`party.merge`; explicit `*` scope in `adminTx`, otherwise `ErrScopedPrincipal`); org currency-rounding put and delete (`org.reference.write`; explicit `*` scope, because legal-entity rounding rows are scoped); org create legal entity, reference status, units and conversions, fiscal calendars, hierarchies and teams (`rejectScopedCaller`: no claim, `tenant.administer`, route duty; their tables carry no legal-entity scope policy, or admit an empty scope for bootstrap); ledger tenant description templates (`mayWriteDescription`: no claim and `tenant.administer`; `legal_entity_id IS NULL` rows pass the policy). **Bootstrap and rollout of `tenant.administer`:** granting it through identity's role assignments requires the assigner to be a tenant administrator, so it cannot be escalated into; the assignment is always tenant-wide (a `legalEntityId` is refused) and the last active one of a tenant cannot be ended (`409 IDN-LAST-TENANT-ADMIN`, which also covers ending your own). The first holder comes from the platform operator (`identity.tenant.maintain`, operator tenant only): `POST /v1/tenants` accepts `adminUserId` and `adminIdpSubject` to create the initial administrator with the tenant, and `POST /v1/tenants/{id}/admins` grants it to a user of an existing tenant; both are audited in the target tenant and the operator tenant. **Rollout step before deploying this change:** the Keycloak duties mapper must emit `tenant.administer` in the duties claim of every user holding an administrative duty today (`identity.legal-entity.maintain`, `identity.security-role.maintain`, `org.reference.write`, `party.merge`, hierarchy and team maintainers), as it only reaches the claim through a role assignment; an operator recovers a tenant whose administrators lack it through the endpoint above.
 4. The pool connects as `depot_app` (no `BYPASSRLS`); a missing setting yields zero rows, never cross-tenant rows. A kernel test iterates every table and proves isolation (NFR-SEC2). Batch/CDC roles are separate with the same policies; Debezium sits outside RLS and the outbox payload carries `tenant_id`.
-5. Outbound calls forward `traceparent`, `tracestate`, `X-Correlation-Id`, `Authorization` (user token) or the `_internal` token + `X-Depot-Tenant`. Events carry `tenantid`, `legalentityid`, `correlationid`, `causationid`, `actor`, `traceparent`.
+5. As built: outbound calls carry a service token (ADR-0010) or, in a few services, the caller's forwarded `X-Depot-*` headers (plus `X-Depot-Gateway-Secret` when set). Events carry `tenantid`, `legalentityid`, `correlationid`, `causationid` and `actor` (`platform/go/events`). *Target — not built (see backlog, D8, D19):* `traceparent`/`tracestate` on calls and `traceparent` on events.
 6. Kafka consumers set the tenant from the event's `tenantid` before opening the transaction; an event without it goes to the DLQ.
 
 ### 7.4 Request path
+
+As built (v1.0). The v0.x diagram had an ext_authz call to OPA-Envoy, JWT re-verification in the service and an OPA
+sidecar decision; those steps are superseded by ADR-0006. In Kubernetes this path exists only for the 15 services with
+an HTTPRoute (D31), and the JWT step accepts no real token until Envoy is connected to realm `depot` (D32).
 
 ```mermaid
 sequenceDiagram
   autonumber
   participant C as Client
   participant E as Envoy Gateway
-  participant X as OPA-Envoy
   participant S as Service
-  participant O as OPA sidecar
   participant D as Postgres
   C->>E: HTTPS request, bearer token, Idempotency-Key
-  E->>E: TLS 1.3, JWT check per tenant issuer, rate limit by tenant and azp
-  E->>X: ext_authz: route privilege check
-  X-->>E: allow
-  E->>S: mTLS, headers, traceparent
-  S->>S: verify JWT, decode, validate DTO
-  S->>O: decision for principal, action, resource
-  O-->>S: allow, legal entity scopes, obligations
-  S->>D: BEGIN, SET LOCAL tenant and legal entities and actor
-  S->>D: idempotency claim, domain work, outbox insert
+  E->>E: strip client X-Depot-* headers, validate JWT (iss, aud depot-api, JWKS), tier rate limit (Valkey)
+  E->>S: request plus X-Depot-Tenant, -Legal-Entity, -User, -Duties, -Tier, -Auth-Time
+  S->>S: tenant middleware builds the principal, RequireDuty checks the route duty
+  S->>D: BEGIN, SET LOCAL depot.tenant_id and depot.legal_entity_scopes
+  S->>D: idempotency check (per service), domain work, outbox insert
   S->>D: COMMIT
-  S-->>C: JSON or problem+json with traceId, ETag, RateLimit headers
+  S-->>C: JSON or problem+json with traceId (request id)
 ```
 
 ### 7.5 Idempotency
+
+**As built (v1.0):** `dbx.IdempotencyDDL` has only `tenant_id, key, request_hash, response_status, response_body, created_at` (primary key `(tenant_id, key)`); there is no kernel middleware. 37 services create the table and handle the header themselves; only close, processmfg and receiving have a lease column. Consumers use `consumer_inbox` as designed. *Target — not built (see backlog, D12):* the kernel middleware and table below.
 
 - Kernel `httpx` middleware implements Appendix D.5 with the `idempotency_keys` table from `dbx.IdempotencyDDL`: columns `tenant_id, principal, method, path, key, request_hash, state (in_progress|completed), locked_until, response_status, response_headers, response_body, created_at, expires_at (24 h)`; unique on `(tenant_id, principal, method, path, key)`.
 - Flow: insert `in_progress` with a 60 s lease in a short transaction → run the handler in its transaction → write the final response **in the same transaction as the business change** → commit. Only `2xx` responses are stored; `4xx` rejections (including a `422` from `ledger.Post`) are **not** cached, so a same-key retry after the cause is fixed runs again. A crash before commit rolls back the effect and leaves an expired lease that the next retry takes over. Concurrent duplicates get `409 idempotency_in_progress`; a different body hash gets `422 idempotency_key_reuse`; a replay returns the stored response with `Idempotent-Replayed: true`.
@@ -1188,6 +1462,29 @@ sequenceDiagram
 - Expired rows are pruned daily by a batch-schedule job.
 
 ### 7.6 Transactional outbox, inbox, schema evolution, replay
+
+**As built (v1.0):**
+
+- **Write side:** `outbox.Enqueue` in the same transaction, as designed. `dbx.OutboxDDL` has `id, tenant_id,
+  aggregate_type, aggregate_id, type, payload, created_at`; there is no `partition_key` or `headers` column, and the
+  Kafka key is `aggregate_id` (D19).
+- **Connectors:** 21 Debezium outbox connectors in `deploy/kafka/connect.yaml`, routing `aggregate_type` to
+  `depot.<service>.<entity>`. 37 services with an outbox table have none (D2). There is no `cdc` connector per database
+  (D3).
+- **Topics:** created by Kafka Connect with default retention 7 days (`topic.creation.default.retention.ms`), not
+  generated `KafkaTopic` resources (D24). 358 topics are declared in AsyncAPI.
+- **Consume side:** `platform/go/eventing` consumers with `consumer_inbox`, up to 10 attempts with exponential backoff
+  capped at 2 min, then the dead-letter topic `<topic>.dlq` with `x-origin-*`, `x-dlq-reason` and `x-dlq-detail`
+  headers. No `sequence`-gap parking. Consumers exist in 17 Go services plus `workflow-ts`, `integration-hub-ts` and
+  `prediction-py`. 13 have a SCRAM `KafkaUser` in `deploy/kafka/*-consumer.yaml` (billing, edi, intercompany, inventory,
+  payables, receivables, receiving, revrec, scheduling, search, tax, prediction, workflow-ts); finreport, fulfillment,
+  pricing, production, purchasing, shopfloor and integration-hub-ts have none, although their charts name one and the
+  authenticated listener is SCRAM-SHA-512 with `simple` authorization. No environment enables any consumer: the charts
+  default to `consumer.enabled: false` or empty `brokers` and no environment values override them (D34).
+- **Schema registry:** Apicurio Registry is deployed with the event backbone in dev; compatibility gating was not audited.
+- **Replay:** *Target — not built (see backlog, D24):* no `/v1/integration/event-replays`.
+
+The bullets below are the design; where they differ from the list above they are target.
 
 - **Write side:** `outbox.Enqueue(ctx, tx, evt)` in the same transaction as the state change; table DDL exactly as C.4 (UUIDv7 id = CloudEvents id, `partition_key = tenant_id:aggregate_id`, 256 KiB payload cap, `REPLICA IDENTITY FULL`). Debezium's outbox event router relays to `depot.<context>.<entity>`. Rows are deleted by a kernel job (Temporal schedule) once their LSN is at or below the slot's `confirmed_flush_lsn` and they are older than 1 h (the events section rule; Debezium itself never deletes source rows); duplicates are harmless because consumers dedupe on event id. This refines C.4's wording and is flagged in assumptions.
 - **Connectors:** per database two Debezium connectors on Strimzi `KafkaConnect`: `outbox` (EventRouter) and `cdc` (all tables except `outbox` and the P3 allow-list exclusions) feeding audit and the lakehouse. `max_slot_wal_keep_size` is set and slot retained-bytes is alerted; Postgres 17 failover slots keep slots alive across CNPG failover.
@@ -1199,11 +1496,15 @@ sequenceDiagram
 
 ### 7.7 External event consumption and webhooks
 
+**As built (v1.0):** webhooks are delivered by `integration-hub-ts` with the header `Depot-Signature` (HMAC-SHA256 over timestamp and body, `src/webhook.ts`), not `X-Depot-Signature`. The tenant egress topics and their relay are not built (Q5 stays open).
+
 L.2 promises per-tenant topic ACLs for external consumers, but C.2 defines **shared** entity topics keyed by tenant. A shared topic cannot be ACL'd per tenant. Decision: external Kafka consumers read **egress topics** `depot.egress.<tenantSlug>.<context>` (3 partitions, 30-day retention) populated by a tenant-filtering relay in `integration-ts` (one consumer per source topic, routing by `tenantid` and the tenant's subscription list), with `KafkaUser` ACLs scoped by prefix. Internal consumers and the cross-tenant analytics principal keep reading the shared topics. Roughly 12 contexts × 100 tenants = 1,200 egress topics, within KRaft capacity at 3 partitions each. This needs confirmation (Q5).
 
 Webhooks are delivered by `integration-ts`: subscription filtered by event type and legal entity; body is the CloudEvent; `X-Depot-Signature` = HMAC-SHA256 over timestamp + body with a per-endpoint secret; retries with exponential backoff for 24 h then DLQ; re-drive from the monitor; per-tier delivery quotas (D.7). Delivery latency target p95 < 10 s.
 
 ### 7.8 Configuration and secrets
+
+**As built (v1.0):** services read `DATABASE_URL` (from a chart Secret, `depot_app` role), `MIGRATE_ON_START`, `HTTP_ADDR`, `ADMIN_ADDR`, Kafka settings for consumers, sibling base URLs, the service-token variables `DEPOT_SERVICE_NAME`, `DEPOT_SERVICE_SIGNING_KEY[_FILE]`, `DEPOT_SERVICE_KEY_ID`, `DEPOT_SERVICE_PUBLIC_KEYS` (ADR-0010), the field-encryption variables `FIELDCRYPT_KEYS[_FILE]`, `FIELDCRYPT_CURRENT_KEY_ID` (ADR-0011), and optionally `DEPOT_GATEWAY_SECRET` (ADR-0006) and `DEPOT_CLOUD_PROFILE`. `OPA_URL`, `OIDC_ISSUER_REGISTRY_URL` and `OTEL_*` in the table below are not read by services. Secrets come through External Secrets from the store `depot`; dynamic database credentials and file-watched rotation are not built.
 
 - **12-factor environment variables** for all deploy-time configuration; validated at startup (Go struct + `envconfig`-style parse; TS `zod`) and the process exits non-zero on invalid config. No config is read from files in the image.
 - **Layers:** (1) image digest (code); (2) Helm values per environment (`local` on k3d, `stage`, `prod`; more via Argo ApplicationSet) committed in `deploy/`; (3) tenant runtime configuration (module parameters, feature flags, number sequences, workflow definitions) served by `platform` APIs, cached in-process (Section 7.9) and invalidated by events; (4) secrets from Vault.
@@ -1226,6 +1527,8 @@ Webhooks are delivered by `integration-ts`: subscription filtered by event type 
 
 ### 7.9 Caching
 
+**As built (v1.0):** tier 1 (in-process) as designed where services cache; tier 2 is Valkey for the gateway's rate-limit counters and, optionally, portal sessions only (ADR-0014). No shared data cache.
+
 ADR-0001 names no cache. The design therefore does not depend on one.
 
 - **Tier 1, in-process (default, always on):** per-pod TTL+LRU in the kernel for: entity definitions (event-invalidated, TTL 5 min fallback), account structures/posting profiles/dimensions (event-invalidated, TTL 5 min), exchange rates (TTL 1 h), reference data (ISO, UoM; TTL 1–24 h), tenant/issuer registry (TTL 1–5 min), feature flags and parameters (TTL 1–5 min), pricing tables and coverage groups in the engines (rebuilt on event). Period status is cached only for fast-fail in non-ledger services; the ledger itself never trusts a cache for period checks (Section 6.1).
@@ -1236,6 +1539,8 @@ ADR-0001 names no cache. The design therefore does not depend on one.
 - **Metrics per cache:** hit and miss rate, eviction rate, command latency p50/p99, connections, memory.
 
 ### 7.10 Long-running work (accept-and-queue)
+
+**As built (v1.0):** each service exposes its own job or run resources; there is no `/v1/platform/jobs` and only `migration` returns a `statusUrl`. *Target — not built (see backlog, D29):* the shared contract below.
 
 Anything projected over the endpoint's budget returns `202 Accepted` with `Location`, `Retry-After`, and `{ "jobId", "statusUrl": "/v1/platform/jobs/{id}", "estimatedCompletionSeconds" }`. Candidates (all marked "202" in Section 5): tenant provisioning, imports/exports above 1,000 rows, MRP and scheduling runs, inventory close, cost roll, depreciation, payroll calculation, revaluation/translation, allocations, consolidation, invoice and dunning runs, payment proposals, statement runs above a size threshold, reconciliation, audit-chain verification, privacy requests, agent runs, migration runs.
 
@@ -1288,11 +1593,15 @@ Sub-processors of personal data. Each adapter is gated on a row here: it is not 
 
 ### 7.13 Logging
 
+**As built (v1.0):** Go services log JSON with `log/slog`; the access log uses `requestId` (the chi request id), other logs `correlationId` where set. Under the EU data-boundary cloud profile, or with `LOG_PSEUDONYMIZE=true`, emails and identifiers are replaced by keyed pseudonyms (`platform/go/logpseudo`, domain `passage.log.pseudonym.v1\0`, frozen by ADR-0005). Logs are not shipped to Loki (not deployed).
+
 One JSON object per line to stdout/stderr (collector ships to Loki). Go: `log/slog` JSON handler with a context handler; TS: `pino`; Python: `structlog`/stdlib JSON. Required fields on every entry: `timestamp` (RFC 3339 UTC), `level`, `message`, `service`, `correlationId`. Always added when known: `traceId`, `spanId`, `tenantId`, `legalEntityId`, `actor` (a pseudonymous id such as `user:<sub>`, `agent:<id>@user:<sub>`, `system:<job>`), `route`, `status`, `durationMs`, `errorCode`.
 
 Rules: no `console.log`/`fmt.Println`; **never** log P2/P3 values, names, emails, tax ids, bank accounts, salaries, free-text fields or request/response bodies (ids only, E.6); access to P3 is audited, not logged; errors carry `code` and `traceId`, never stack traces to clients. Log level changes at runtime via an admin endpoint with an automatic revert timer. A lint rule bans the stdlib print functions. The `correlationId` equals the CloudEvents `correlationid` and the request's `X-Correlation-Id` (generated at Envoy if absent).
 
 ### 7.14 Tracing and metrics
+
+**As built (v1.0):** metrics are Prometheus RED metrics from `platform/go/httpx/metrics.go` on the admin port, scraped by ServiceMonitors, with Grafana dashboards and Alertmanager in dev. *Target — not built (see backlog, D8):* the OpenTelemetry traces below; no service has an OTel SDK, `traceId` in problem details is the chi request id, and Tempo is not deployed. The web shell already sends a `traceparent` (`apps/web/src/shell/telemetry.ts`) that services ignore.
 
 - **Traces:** OpenTelemetry SDK in every service (NFR-O1). W3C `traceparent`/`tracestate` propagate on every HTTP call, and are carried as the CloudEvents `traceparent` extension through Kafka (consumer spans link to the producer span and start a child per event). Temporal TS interceptors propagate context into workflows and activities. SQL spans via `otelpgx` (Go) and the pg instrumentation (TS) with statement text sanitized. Sampling: parent-based; ratio 1.0 on `stage`, configurable on `prod` with tail sampling in the Collector that always keeps errors and slow traces. P2 values hashed in span attributes. Every problem-details body carries `traceId`.
 - **Metrics:** OTel metrics exported to Prometheus (ServiceMonitor scrape on the admin port). RED metrics per route class (OTel HTTP semantic conventions; no tenant label on histograms, to bound cardinality), plus domain metrics: `ledger_lines_posted_total`, `ledger_post_duration_seconds`, `outbox_pending_rows`, `outbox_relay_lag_seconds`, `inbox_duplicates_total`, `consumer_dlq_depth{consumer}`, `consumer_lag{group,topic}`, `debezium_milliseconds_behind_source`, `pg_replication_slot_retained_bytes`, `opa_bundle_age_seconds`, `idempotent_replays_total`, `reconcile_variance{check}`, `audit_chain_breaks_total`, `job_duration_seconds{type}`, `rate_limited_total{tier}`, cache hit/miss. Per-tenant availability comes from Envoy access-log counters labelled by tenant (gateway only) and the 30 s synthetic probes from two regions (NFR-A1).
@@ -1319,14 +1628,66 @@ Alerting: multi-window multi-burn-rate (14.4× over 1 h/5 m pages, 6× over 6 h/
 
 ### 7.16 Audit and PII
 
+**As built (v1.0):**
+
+- **Audit trail.** `services/audit` keeps an append-only, hash-chained change log (updates and deletes rejected by a
+  trigger), fed only through `POST /v1/audit/changes`, which its README calls the in-process stand-in for a CDC
+  consumer. Only `engineering` posts to it. It also keeps the HIPAA PHI read-access log (`/v1/audit/reads`, written by
+  hr through its service grant). Eleven services keep their own audit tables; only audit and shopfloor chain hashes.
+  Fiscal documents are protected by insert-only triggers (for example `ledger/migrations/0003_journal.sql`,
+  `inventory/migrations/0001_inventory_ledger.sql`). There is no `depot.ctx` message, no CDC connector into audit and
+  no head anchoring to object-locked storage (D3).
+- **Field encryption.** Sensitive fields are sealed in the service with `platform/go/fieldcrypt` (AES-256-GCM, per-tenant
+  keys derived by HKDF from master keys, optionally wrapped by Azure Key Vault) and looked up through blind indexes
+  (HMAC). Used by compliance, hr, migration, party, payables, receiving and sales (ADR-0011). No pgcrypto, no Vault
+  transit for fields, and no per-subject key, so crypto-shred is not available.
+- **Erasure** pseudonymizes the subject's records (compliance, BR-48.5), refused under a legal hold. It does not yet
+  reach the search index, Kafka (7-day retention), the lakehouse, logs or backups, and counsel sign-off (Q17) is pending
+  (ADR-0011 conditions, D35). Master keys are mounted by eight services (the seven above and integration-hub-ts's
+  TypeScript port); Key Vault wrapping is supported but not enabled in any environment (D35).
+- **Frozen labels.** Three cryptographic labels keep the former product name because data at rest and retained logs
+  depend on them (ADR-0005). They are the only sanctioned "passage" strings in the code; changing one needs a `.v2`
+  label and a re-encryption or re-index migration:
+
+  | Constant | Value | Used for |
+  |---|---|---|
+  | `fieldcrypt` KDF info | `passage.fieldcrypt.v1` | every field ciphertext |
+  | `fieldcrypt` MAC KDF info | `passage.fieldcrypt.mac.v1` | blind indexes and the per-tenant log pseudonym key |
+  | log pseudonym domain | `passage.log.pseudonym.v1\0` | pseudonyms in retained logs (Go, TypeScript, Python) |
+
+- **Retention classes** (`fiscal_7y`, `standard_3y`, `agent_7y`) are not implemented (D24).
+
+*Target — not built (see backlog, D3; P3 handling superseded by ADR-0011):*
+
 - **Audit** is derived from Debezium CDC into the append-only `platform.audit_entry` with a per-tenant SHA-256 hash chain verified nightly, head anchored to object-locked storage (E.8). The `depot.ctx` logical message supplies actor/trace/correlation. P3 columns are excluded from the CDC allow-list; P3 changes, `:reveal` and `:export` are audited by a kernel-written row in the context's own `<ctx>.audit_event` table (EN-012), in the same local transaction as the P3 change and by the `:reveal`/`:export` handlers before they return data, carrying an encrypted `pii_payload` (per-subject key; reconciles with data D12; Q17 owner @zdemanche, needed by wave 5). `audit_event` is CDC-captured (it holds no P3 plaintext) and the platform audit consumer folds it into `platform.audit_entry`, which remains the single writer of `chain_seq` and `hash`. Audit consumers are idempotent by CDC position. Retention by class (7 y fiscal, 3 y other, 7 y agent actions; country overrides).
 - **PII classes P0–P3** drive generation: P2 masked in list exports and hashed in traces; P3 encrypted per column (pgcrypto with per-tenant keys from Vault transit) in `*_secure` tables, never indexed for search, never in logs, CDC, lakehouse or exports except statutory formats. Erasure pseudonymizes P2/P3 and records the erasure; fiscal documents are pseudonymized, not deleted.
 
 ### 7.17 Rate limiting and quotas
 
+**As built (v1.0):** `BackendTrafficPolicy/depot-api-tenant-rate-limit` applies one shared global limit per tenant keyed on `X-Depot-Tenant`, by tier from `X-Depot-Tier` (starter 600/min, professional 3,000, enterprise 12,000; unknown tier falls back to starter), with counters in Valkey (ADR-0014). Burst allowances, the `azp` and `device` classes and per-agent caps are not configured; the kernel does not set `RateLimit-*` headers. The AS2, region and portal edges have per-address limits.
+
 Enforced at Envoy Gateway (per Appendix D.7), not in business code: descriptors `(tenant_id, tier)` and `(tenant_id, azp)` against the global rate-limit service, tier limits per D.7 (Starter 600/min, Professional 3,000, Enterprise 12,000 sustained with burst 100/500/2,000), a separate `device` class at 120/min per device, and per-agent caps under the tenant budget. Responses carry `RateLimit-*` headers and `429 rate_limited` with `Retry-After`. Exports, webhook deliveries and bulk rows/day are application quotas counted per tenant in the owning service (`429 rate_limited` with the quota named). Body limits: 1 MiB single, 10 MiB bulk, `413 payload_too_large`. CORS is closed by default; per-tenant origin allow-lists are set on the gateway for partner browser apps. East-west calls are not gateway-limited; the ledger bulkhead and per-upstream bulkheads cover them.
 
 ### 7.18 Data layer and migrations
+
+**As built (v1.0):**
+
+- Database per stateful service on plain PostgreSQL 17, `depot_app` (`NOBYPASSRLS`) for traffic and an owner role for
+  migrations (ADR-0012). RLS is forced in every service's migrations, with a permissive `<table>_tenant_access` and a restrictive
+  `<table>_legal_entity_scope` policy (the design's names, prefixed by the table); exemptions are allowlisted with reasons in
+  `platform/go/rlsexempt` and checked by `tools/rlscheck`. Legal-entity policies are missing in some services (D17).
+- Migrations are hand-written SQL applied by `dbx.Migrate` under an advisory lock, no Atlas. No chart has a migration
+  Job; only fx, identity, org, receiving, transport and pricing migrate on start (and `hello-ledger`), so most services
+  have no migration path in any environment, dev included (D28).
+- No pooler; services use `pgxpool`.
+- Gap-free and other sequences: `services/numbering` over HTTP for hr and party; no kernel `sequence` package
+  (ADR-0015, D21).
+- Search: `services/search` with its own trigram index fed by events (ADR-0013).
+- Backups and DR: only in the undeployed multi-region chart (CNPG replica cluster, barman backups). *Target — not built
+  (see backlog, D18).*
+
+The bullets below are the design; Atlas, the CNPG Pooler, the per-context counter and `platform-ts` search fan-out are
+superseded by ADR-0012, ADR-0015 and ADR-0013.
 
 - **Per-context database**, `depot_app` role for traffic, owner role for migrations, `FORCE ROW LEVEL SECURITY` with the data section §4.5 template on every tenant-scoped table (permissive `tenant_access` policy with `USING`/`WITH CHECK` on `tenant_id = current_setting('depot.tenant_id', true)::uuid`, plus restrictive `legal_entity_scope`; it supersedes Appendix E.2, whose restrictive-only policies would deny every row); every table has `id uuid` (UUIDv7), `tenant_id` first, `legal_entity_id` where company-specific, `version int`, audit columns. Money `numeric(20,6)` + `currency char(3)` (shopspring/decimal in Go, decimal strings in JSON; never float).
 - **Optimistic concurrency** via `version` and `ETag`; `UPDATE … WHERE id = $1 AND version = $2`.
@@ -1345,10 +1706,23 @@ Enforced at Envoy Gateway (per Appendix D.7), not in business code: descriptors 
 
 ### 7.20 Deployment and scaling notes
 
+**As built (v1.0):** Argo CD app-of-apps per environment (`deploy/envs/{dev,stage,prod}/apps`) with digest-pinned images (placeholder digests until release). Dev runs the services ApplicationSet plus the event backbone, Temporal, Postgres, Keycloak, gateway, Kyverno and monitoring. Stage has the services ApplicationSet and a few service Applications but no event backbone, Temporal, Postgres, Keycloak or gateway; prod deploys only `hello-ledger` and `kyverno` (D4). There are no PodDisruptionBudgets and no Argo Rollouts, HPA is in three charts (inventory, pricing, production), and migrations have no PreSync Job (D18, D28). Envoy routes 15 services (D31). The bullets below are target.
+
 - Stateless Deployments with HPA on CPU and request rate (Go engines) or event-loop lag (TS); Temporal workers scale on task-queue backlog (KEDA, optional); Kafka consumers scale to partition count. PodDisruptionBudgets everywhere; the `ledger` runs ≥ 3 replicas across zones with a 3-instance synchronous-replication CNPG cluster.
 - Argo CD app-of-apps syncs digest-pinned Helm releases; Argo Rollouts canary with k6 traffic for engines; rollback to prior digest ≤ 15 min. Migrations run as PreSync Jobs.
 - Noisy-neighbor controls (NFR-S6): per-tenant rate limits at the gateway, per-tenant job concurrency in Temporal (task-queue partitioning per tier), ledger bulkheads; large tenants can be pinned to dedicated CNPG clusters by region (data residency is per tenant, E.1).
 - Local parity: `make deploy-local` on k3d in < 10 min, Docker/Helm values `local`, Testcontainers for Postgres, Kafka and Temporal's test server in CI.
+
+### 7.21 Single-host Windows distribution (ADR-0004)
+
+**As built (v1.0):** a signed WiX MSI (`deploy/windows/*.wxs`, built by `.github/workflows/windows-msi.yml`) installs one
+Windows service running `tools/depot-server`. It supervises the Go service binaries as child processes on loopback
+ports, runs migrations with the owner role (`depot-server migrate`) and serves with `depot_app`, checks prerequisites
+(`doctor`), and runs a built-in gateway: JWT verification with identity's verifier, an OPA decision, header stripping,
+`/api/v1/<service>` routing and the embedded web app. Because the services trust `X-Depot-*` headers on loopback, it
+sets a per-start `DEPOT_GATEWAY_SECRET` that `platform/go/tenant` then requires (ADR-0006). Postgres, Keycloak, OPA,
+Kafka and Temporal are external. The built-in gateway enforces more than Envoy does in Kubernetes (D23). Running the MSI
+on a Windows VM is not yet proven (#213).
 
 ## 8. Key decisions and alternatives considered
 
@@ -1367,44 +1741,51 @@ Enforced at Envoy Gateway (per Appendix D.7), not in business code: descriptors 
 | D11 | Subledger posts its own journals; valuation owner posts where it needs cost data | All posting centralized in `ledger` | Ledger would need every context's domain rules, collapsing bounded contexts |
 | D12 | Postgres 17+ for failover slots | Older versions with slot re-creation | A lost slot after failover silently drops outbox/CDC events |
 
+**As built (v1.0):** D1 holds in shape (`ledger.Post` over `POST /v1/ledger/journal-entries`; the deterministic key is not
+yet uniform, D9). D2 and D4 are superseded by ADR-0010 (Ed25519 service tokens carrying the user as `act`). D3 is
+superseded by ADR-0006 (duties in the token). D5 is superseded by ADR-0014. D7 was not followed: TypeScript services
+use plain Node (ADR-0008). D8 holds (one Temporal worker, `workflow-ts`). D9 and D11 hold in the ledger and
+subledgers that post. D10 (`ext jsonb`) and the metadata generator were not audited. D12 holds (PostgreSQL 17), but
+CloudNativePG is not deployed (ADR-0012). Later decisions are ADR-0006 to ADR-0015.
+
 ## 9. Open questions (unconfirmed dependencies and unresolved conflicts)
 
 | ID | Question | Why it matters | Provisional position |
 |---|---|---|---|
 | Q1 | Period control ownership: B.1 puts fiscal calendars under `platform`, B.3 puts `PeriodControl` under `ledger`, C.7 lists `periodcontrol.changed.v1` under platform/org and `period.closed.v1` under ledger | Where the authoritative "may I post" check lives | Settled: ledger owns PeriodControl state and the authoritative check, taken as `FOR SHARE` on the period-control row inside the posting transaction (`:close` takes the exclusive lock; no cache, no two-phase state); platform owns calendars. `ledger` is the producer of `periodcontrol.changed.v1` |
-| Q2 | Gap-free sequence implementation across databases (Section 7.18) | NFR-D3 (0 gaps under 10k concurrent) cannot hold if the counter is a remote service | Settled: `platform.number_sequence` is the definition table; every posting database carries `<ctx>.number_sequence_counter` operated by a kernel `sequence` package (kernel-owner work); definitions propagate by `numbersequence.changed` |
+| Q2 | Gap-free sequence implementation across databases (Section 7.18) | NFR-D3 (0 gaps under 10k concurrent) cannot hold if the counter is a remote service | Settled: `platform.number_sequence` is the definition table; every posting database carries `<ctx>.number_sequence_counter` operated by a kernel `sequence` package (kernel-owner work); definitions propagate by `numbersequence.changed` **As built:** overridden in code: `services/numbering` allocates over HTTP and there is no kernel `sequence` package; ADR-0015 accepts it only for non-fiscal numbers (D21). |
 | Q3 | SCIM 2.0 server: Keycloak core has no SCIM endpoint; no confirmed Keycloak SCIM extension | FR-0.2 requires SCIM | Build a thin SCIM facade over the Keycloak Admin API in `platform-ts`; evaluate maintained community extensions before wave 2 Resolved for #83: the identity service serves SCIM itself (Users, Groups, discovery) against its own tables; the Keycloak push (#80) later binds `idp_subject`. |
-| Q4 | Shared cache and the rate-limit counter store: ADR-0001 names neither | Envoy global rate limiting needs a Redis-protocol store | Propose Valkey in-cluster via an ADR addendum; otherwise only local per-pod limits (weaker tier enforcement) |
+| Q4 | Shared cache and the rate-limit counter store: ADR-0001 names neither | Envoy global rate limiting needs a Redis-protocol store | Propose Valkey in-cluster via an ADR addendum; otherwise only local per-pod limits (weaker tier enforcement) **Resolved by ADR-0014:** in-cluster Valkey for gateway rate-limit counters and portal sessions. |
 | Q5 | Per-tenant Kafka ACLs on shared topics (L.2 vs C.2) | External consumers cannot be isolated on shared topics | Egress-topic relay (Section 7.7); confirm acceptable overhead |
 | Q6 | Posting ownership matrix in Section 3.4 (B.3 assigns `journal_entry_id` fields to receipts, packing slips and production orders without saying who posts) | Determines sync vs event posting and the dependency graph | Settled (decision C1): the valuation owner posts synchronously inside its own database transaction through `ledger.Post`; see Section 3.4 |
 | Q7 | Should Go engines embed the Temporal Go SDK instead of job endpoints + TS orchestration (D8)? | Operational surface | Not for v1; the conventions list no Temporal dependency for Go |
-| Q8 | Keycloak token exchange / delegation (`act`) support and version for agent-on-behalf-of tokens and `_internal` subject forwarding | E.4 example 2 needs `on_behalf_of` | Custom claim mapper + explicit token-exchange policy; spike in wave 2 or 47 |
+| Q8 | Keycloak token exchange / delegation (`act`) support and version for agent-on-behalf-of tokens and `_internal` subject forwarding | E.4 example 2 needs `on_behalf_of` | Custom claim mapper + explicit token-exchange policy; spike in wave 2 or 47 **As built:** internal subject forwarding is solved by the `act` claim of Ed25519 service tokens (ADR-0010); agent delegation remains open. |
 | Q9 | Schema registry product (Apicurio vs Confluent-compatible alternatives) and its license posture | Wave 4 proof gate | Apicurio Registry |
 | Q10 | OCR / invoice capture provider (wave 18) | `vendor-invoices:capture` | Unspecified; adapter interface only, manual keying fallback |
 | Q11 | E-invoice access points per country (Peppol AP, PAC for MX, IRP for IN, PDP for FR) | Wave 35/48 | Adapter interface per provider; no provider assumed |
 | Q12 | Container registry and CI provider | Image publish and signing | Repo is on GitHub; GitHub Actions + GHCR/OCI-compatible registry assumed, not decided |
 | Q13 | S3-compatible object store with Object Lock for bare-metal and k3d (e.g. MinIO, Ceph RGW) | G.3 WORM storage must be portable | Unspecified |
-| Q14 | Python deployables beyond B.1's `manufacturing` (`product-py` configurator, `warehouse-py` VRP, `projects-py` dispatch, `agents-py` evals) | Language column in B.1 | Closed: permitted by the conventions ("OR-Tools" in `<name>-py`); service count is 31 (Section 3.2) |
+| Q14 | Python deployables beyond B.1's `manufacturing` (`product-py` configurator, `warehouse-py` VRP, `projects-py` dispatch, `agents-py` evals) | Language column in B.1 | Closed: permitted by the conventions ("OR-Tools" in `<name>-py`); service count is 31 (Section 3.2) **As built:** six Python services and 71 services in total (ADR-0008). |
 | Q15 | Error `code` collision: Engineering conventions use `LED-0001` as the stable `code`; D.4 uses snake_case `code` | Client contract | `code` = D.4 snake_case; `serviceCode` = per-service number |
-| Q16 | Migrations on start (conventions: `dbx.Migrate` in `main`) vs PreSync Job; `DATABASE_URL` from a secret vs Vault dynamic credentials | Zero-downtime rollouts with multiple replicas; credential rotation | Advisory-locked on-start migrate allowed in dev only; PreSync Job in stage/prod; credentials as rotating files |
+| Q16 | Migrations on start (conventions: `dbx.Migrate` in `main`) vs PreSync Job; `DATABASE_URL` from a secret vs Vault dynamic credentials | Zero-downtime rollouts with multiple replicas; credential rotation | Advisory-locked on-start migrate allowed in dev only; PreSync Job in stage/prod; credentials as rotating files **As built:** on-start migration for six services (fx, identity, org, receiving, transport, pricing) in dev and stage, none for the rest; the PreSync Job does not exist (D28); credentials come from chart Secrets (ADR-0012). |
 | Q17 | CDC for tables with P3 columns (E.6 excludes P3 from CDC; E.8 derives audit from CDC) | Audit of sensitive changes | P3 in `*_secure` tables; changes, reveals and exports audited by a kernel-written `<ctx>.audit_event` row in the same local transaction with an encrypted `pii_payload`, folded into `platform.audit_entry` by the audit consumer (Section 7.16). Owner @zdemanche, needed by wave 5 |
 | Q18 | Maximum offline duration for PWAs vs 12 h refresh lifetime | Offline queue replay after long outages | Replay uses a fresh login for the same device/user; confirm acceptable |
 | Q19 | Go services' target Go minor and Node LTS pin | Conventions say Go 1.23+, Node 20+; Node 20 is end-of-life | Go: current supported minor at project start; Node: 24 LTS (closed: within the conventions' "20+") |
-| Q20 | Multi-region active/standby topology for Postgres and Kafka (wave 50) | Failover slot and MirrorMaker 2 design | Out of scope here; Section 7.6 requires slot-safe failover. Owner @zdemanche, needed by wave 48 |
-| Q21 | Whether `web-bff` (formerly `bff-ts`) is part of the platform wave (5) or the shell owner | Ownership map | Treated as platform-ts-adjacent; confirm in `roadmap/ownership.json` |
-| Q22 | OPA bundle scale at 100 tenants × 10k users | Sidecar memory, propagation time | Delta bundles and sharding; load test in wave 2 |
-| Q23 | Global search architecture: pg_trgm fan-out may not meet "ranked by recency and role" at scale | U2 | Start with fan-out; revisit with an indexed search service only through an ADR |
+| Q20 | Multi-region active/standby topology for Postgres and Kafka (wave 50) | Failover slot and MirrorMaker 2 design | Out of scope here; Section 7.6 requires slot-safe failover. Owner @zdemanche, needed by wave 48 **As built:** an active/passive chart exists (multi-region chart under deploy: CNPG replica cluster, MirrorMaker 2, fencing, backups) and `services/ops` has a failover API; no environment deploys it. |
+| Q21 | Whether `web-bff` (formerly `bff-ts`) is part of the platform wave (5) or the shell owner | Ownership map | Treated as platform-ts-adjacent; confirm in `roadmap/ownership.json` **As built:** no `web-bff` exists; the shell is a public client (ADR-0009). |
+| Q22 | OPA bundle scale at 100 tenants × 10k users | Sidecar memory, propagation time | Delta bundles and sharding; load test in wave 2 **As built:** applies only to identity's bundle, since services have no OPA sidecar (ADR-0006). |
+| Q23 | Global search architecture: pg_trgm fan-out may not meet "ranked by recency and role" at scale | U2 | Start with fan-out; revisit with an indexed search service only through an ADR **Resolved by ADR-0013:** a search service with its own trigram index fed by events. |
 | Q24 | Phase file and `waves.json` contents were not provided | Endpoint lists are derived, not wave-exhaustive | Generator-produced CRUD covers metadata-declared entities; engine endpoints above are the minimum set; wave architects extend in `api/openapi.yaml` |
 
 ## 10. Assumptions
 
 1. The Moonaan defaults listed in Section 1.1 do not apply; no Moonaan or client platform service (shared auth, platform JWT exchange, API gateway) is assumed.
 2. Engineering conventions, Appendices A–L and the Document map are accurate; endpoint names beyond those literally in Appendix D/E/C.7 are this section's proposals.
-3. Service-per-deployable boundaries (31 images) are a recommendation; B.1 fixes the 12 + 3 contexts and databases, not the deployable split.
-4. Keycloak realm per tenant is feasible at 100 tenants per cluster set (NFR-S6); realm count per Keycloak instance is not load-tested here.
+3. Service-per-deployable boundaries (31 images) are a recommendation; B.1 fixes the 12 + 3 contexts and databases, not the deployable split. *As built:* 71 capability services (ADR-0008).
+4. Keycloak realm per tenant is feasible at 100 tenants per cluster set (NFR-S6); realm count per Keycloak instance is not load-tested here. *Superseded by ADR-0007:* one realm.
 5. The OPA decision document extension (`legalEntityScopes`, `obligations`) is additive to the E.4 `allow` rule.
 6. Outbox rows are deleted by a kernel job once their LSN is at or below the slot's `confirmed_flush_lsn` and they are older than 1 h, not by Debezium on acknowledgment (refinement of C.4; the events section rule).
-7. Egress topics, the `_internal` realm, `ledgerclient`, the kernel `sequence` package, and the `depot.ctx` logical message are new kernel/platform work not described in the requirements.
+7. Egress topics, the `_internal` realm, `ledgerclient`, the kernel `sequence` package, and the `depot.ctx` logical message are new kernel/platform work not described in the requirements. *As built:* only `ledgerclient` exists; the `_internal` realm and `sequence` package are superseded (ADR-0010, ADR-0015); egress topics and `depot.ctx` are not built (Q5, D3).
 8. Frontend, infrastructure/IaC, data-modeling and test-strategy detail belong to other domain architects; this section only states the contracts it needs from them.
 
 ## Data Model
@@ -1498,6 +1879,8 @@ Only `requirements.md` was provided. The per-wave PRD files (`prd/phase-*.md`), 
 | Objects (attachments, rendered fiscal PDFs/XML, migration staging, Iceberg, WAL archive) | S3-compatible object storage, bucket per tenant for attachments (G.4), object lock for fiscal retention | Already required by G.3/G.4/E.8. Prefix convention `{tenant-id}/{entity}/{entity-id}/{filename}`; lifecycle and `AbortIncompleteMultipartUpload` ≤ 7 days on every bucket; Block Public Access equivalent; SSE; versioning off except on object-lock buckets where the lock requires it. | Binary payloads in Postgres. |
 | Secrets, keys | Vault transit for P3 column keys, bank keys, backup envelope keys | E.7/E.9. | — |
 
+**As built (v1.0):** plain PostgreSQL 17 (`postgres:17-alpine`), a database per stateful service, several sharing one server in dev; no CloudNativePG outside the undeployed multi-region chart, no Pooler (ADR-0012). Search is `services/search` with its own trigram index (ADR-0013). Valkey is used for gateway counters and portal sessions (ADR-0014). Field keys are `fieldcrypt` master keys, optionally wrapped by Azure Key Vault, not Vault transit (ADR-0011). The lakehouse is not deployed. Monthly partitioning of `journal_line` is not built (D10).
+
 Sizing basis for `ledger` (ceiling scenario, one large tenant, 8 busy hours × 250 days at 1M lines/h): ≈ 2.0B lines/year; `journal_line` ≈ 200 B heap + ≈ 250 B across three indexes ≈ 0.9 TB/year before compression. Monthly partitions are then ≈ 170M rows / ≈ 75 GB each, which is the largest size at which per-partition `VACUUM`, `REINDEX` and detach/archive remain routine. Typical tenants are one to two orders of magnitude smaller.
 
 ## 4. Conventions that apply to every table
@@ -1538,7 +1921,7 @@ Every entity table in §6–§9 lists only its entity-specific attributes and na
 | Effective dating | `valid_from date NOT NULL`, `valid_to date NULL` (half-open `[from, to)`, NULL = open) | Non-overlap by `EXCLUDE USING gist (tenant_id WITH =, <key> WITH =, daterange(valid_from, valid_to) WITH &&)` (needs `btree_gist`). `?asOf=` reads use `valid_from <= :d AND (valid_to IS NULL OR valid_to > :d)`. |
 | Dimension combination | `dimension_hash bytea` (SHA-256 of canonical sorted `code=value` pairs) | The same hash keys `ledger.balance`, `inventory.on_hand`, budgets. |
 | Free text | `text` | P1+ free text is never logged (E.6). |
-| PII | Class stated in the attribute's key column (`P2`, `P3`) | P3 lives in `*_secure` tables, `bytea` ciphertext (pgcrypto, per-tenant Vault transit key). |
+| PII | Class stated in the attribute's key column (`P2`, `P3`) | P3 lives in `*_secure` tables, `bytea` ciphertext (pgcrypto, per-tenant Vault transit key). *Superseded by ADR-0011:* the ciphertext is a `fieldcrypt` envelope sealed in the service, with blind indexes for lookups. |
 
 
 **Typing rule for compressed column lists.** Where an entity's remaining attributes are listed in one paragraph (satellite and line tables in §9), the type is fixed by the name unless a type is written: `id`, `*_id` → `uuid`; `*_ids` → `uuid[]`; `*_number`, `*_code`, `code`, `name`, `description`, `*_text`, `*_type`, `status` and other enumerations → `text` (enumerations carry the generated `CHECK`); `*_date`, `valid_from`, `valid_to` → `date`; `*_at`, `*_ts`, `*_time` → `timestamptz`; money (`*_amount`, `amount`, `*_cost`, `*_price`, `*_value`, `*_balance`, `total_*`, `payment`, `interest`, `principal`) → `numeric(20,6)` beside a `currency char(3)`; `*quantity*`, `*_qty` → `numeric(20,6)` beside a `uom text`; `*_pct` → `numeric(9,6)`; `rate` → `numeric(28,12)`; `*_hash` → `bytea`; `*_enc` → `bytea` (P3 ciphertext); `line_no`, `seq`, `*_no`, `*_count` → `int`; `is_*` and flag names → `boolean`; `jsonb`, `text[]`, `tstzrange` are always written explicitly. Every such table also carries its profile columns (§4.2).
@@ -1548,6 +1931,8 @@ Every entity table in §6–§9 lists only its entity-specific attributes and na
 Customer-defined fields live in `ext jsonb NOT NULL DEFAULT '{}'`, validated by the metadata registry. A customer extension must not `ALTER TABLE` a table shared by all tenants. Hot extension fields get a tenant-scoped partial expression index created by the metadata service (`CREATE INDEX CONCURRENTLY ... ((ext->>'x')) WHERE tenant_id = '<uuid>'`); Depot core promotes a field to a real column through an expand/contract Atlas migration when more than one tenant uses it. Journal lines and inventory transactions carry no `ext`; dimensions are the extension mechanism for those.
 
 ### 4.5 Row-level security (corrected template)
+
+**As built (v1.0):** every service forces RLS in its migrations with policies built by `dbx.RLSPolicy` and `dbx.LegalEntityScopePolicy` (a permissive `<table>_tenant_access` on `depot.tenant_id` plus a restrictive `<table>_legal_entity_scope` that compares `legal_entity_id::text` against `depot.legal_entity_scopes` with a `*` branch), which matches this template's intent. Exemptions are allowlisted with a reason in `platform/go/rlsexempt` and checked by `tools/rlscheck`. Some services have no legal-entity policy (D17). The template below is the design intent.
 
 Supersedes E.2 (defects D1, D2). Generated for every tenant-scoped table; the `legal_entity_scope` policy only where the table has `legal_entity_id`.
 
@@ -1585,6 +1970,8 @@ Roles: `depot_app` (API, RLS, no `BYPASSRLS`), `depot_batch` (same policies), `d
 - **Idempotency table:** each database has `idempotency_key` (shape of `dbx.IdempotencyDDL`, kernel-owned; expected columns `tenant_id, principal, method, path, key, request_hash, response_status, response_body jsonb, created_at, expires_at`, PK `(tenant_id, principal, method, path, key)`, pruned after 24 h). The kernel's DDL is authoritative; reconcile on wave 1.
 
 ### 4.7 Partitioning policy
+
+**As built (v1.0):** *Target — not built (see backlog, D10):* no table is range-partitioned; `ledger` journal tables and `inventory` transactions are plain tables.
 
 | Tier | Tables | Scheme | Why |
 |---|---|---|---|
@@ -1985,6 +2372,8 @@ Indexes: IX-PL-08 UQ `entity_definition (tenant_id, name, definition_version)`; 
 
 #### EN-005 platform.number_sequence and number_sequence_counter
 
+**As built (v1.0):** sequences live in `services/numbering` (`depot_numbering`), allocated over HTTP; there are no per-context `number_sequence_counter` tables or kernel `sequence` package (ADR-0015, D21).
+
 `number_sequence` — profile M. Defines a sequence (Appendix G). `platform.number_sequence` is the definition table only; changes propagate by `dev.depot.platform.numbersequence.changed.v1`.
 
 | Attribute | Type | Key / constraint | Example |
@@ -2017,6 +2406,8 @@ Gap-free mode: `SELECT next_value FROM <ctx>.number_sequence_counter WHERE (tena
 
 #### EN-006 platform.audit_entry and audit_chain_head
 
+**As built (v1.0):** `services/audit` holds the hash-chained change log, fed over HTTP, not from CDC; no head anchoring and no per-subject `pii_payload` key. *Target — not built (see backlog, D3).*
+
 `audit_entry` — profile I (append-only), **range-partitioned monthly on `occurred_on`**. Written by the audit consumer, which reads Debezium table CDC (one writer per tenant, so chain order is the Kafka order), and, for P3 (`*_secure`) tables that CDC excludes, by folding in the context's `<ctx>.audit_event` rows (EN-012: written in the same local transaction as the P3 change, and by `:reveal` and `:export` before they return data), which carry only an encrypted `pii_payload` (per-subject key) and the changed field names; `audit_event` is CDC-captured (no P3 plaintext) and the audit consumer remains the single writer of `chain_seq` and `hash` (reconciles with defect D12; owner @zdemanche, needed by wave 5).
 
 | Attribute | Type | Key / constraint | Example |
@@ -2031,7 +2422,7 @@ Gap-free mode: `SELECT next_value FROM <ctx>.number_sequence_counter WHERE (tena
 | `legal_entity_id` | uuid | NULL | |
 | `changed_fields` | jsonb | non-PII before/after per changed field | `{"status":{"old":"draft","new":"posted"}}` |
 | `pii_payload` | bytea | P2/P3 before/after, encrypted under per-subject key | `\x…` |
-| `pii_key_ref` | text | Vault transit key id; deleted on erasure (crypto-shred) | `transit/keys/acme/party-0192…` |
+| `pii_key_ref` | text | Vault transit key id; deleted on erasure (crypto-shred). *Target — not built (see backlog, D3); no per-subject keys exist (ADR-0011)* | `transit/keys/acme/party-0192…` |
 | `actor` | text | `user:` / `agent:…@user:…` / `system:` | `user:f4b2…` |
 | `trace_id` | text | W3C trace id | `4bf92f35…` |
 | `txid` | bigint | source transaction id | `7712345` |
@@ -3331,6 +3722,8 @@ Source-of-truth rule (per piece of data): a fact is owned by exactly one context
 
 ### 11.2 Event and CDC flow
 
+**As built (v1.0):** only outbox connectors exist (21); there is no table-CDC connector, so neither the lakehouse nor the audit store is fed (D3; lakehouse not deployed).
+
 1. **Business events:** the service inserts an `outbox` row in the transaction of the state change (C.4); Debezium's outbox router publishes `dev.depot.<ctx>.<entity>.<verb>.v1` to `depot.<ctx>.<entity>` partitioned by `tenantid:subject`; a kernel job deletes the row once its LSN is at or below `confirmed_flush_lsn` and it is older than 1 h. 48 partitions for `ledger.journalentry`, `inventory.transaction`, `manufacturing.machineevent`; 12 elsewhere (C.2).
 2. **Consumers** apply C.5: inbox insert, effect, outbox insert, commit, ack; `sequence` out-of-order parking for 60 s.
 3. **Table CDC:** a second Debezium connector per database reads WAL for the allow-listed tables (every table except `*_secure`, `outbox`, `consumer_inbox`, `idempotency_key`) and writes to `cdc.<context>.<table>` topics. Two consumers: (a) the audit consumer (field-level audit, hash chain), (b) the Iceberg sink (one Iceberg table per source table, partitioned by `tenant_id` bucket + date column, merge-on-read for mutable tables, append for append-only ones).
@@ -3349,6 +3742,8 @@ Source-of-truth rule (per piece of data): a fact is owned by exactly one context
 Cube semantic metrics (revenue, COGS, inventory value, open AR/AP) are defined over Iceberg and are checked against the GL by the I.6 semantic-layer reconciliation (tolerance 0.00, wave 46).
 
 ### 11.4 Search
+
+**As built (v1.0):** superseded by ADR-0013: `services/search` owns a trigram index fed by domain events.
 
 No search engine. Typeahead (AP-04) uses Postgres trigram and tsvector indexes on party, product and account; cross-entity global search is a BFF fan-out over those APIs with a 150 ms timeout per context. Revisit via OQ-10 if p95 exceeds 200 ms at 500k parties.
 
@@ -3406,6 +3801,8 @@ The same contract shape (shadow, catch-up by sequence, verify, swap, compare-onl
 
 ### 12.5 Partitioning plan
 
+*Target — not built (see backlog, D10).*
+
 | Table | Key | Granularity | Create-ahead | Rows/partition (ceiling) | Maintenance |
 |---|---|---|---|---|---|
 | `ledger.journal_entry` | `posting_date` | month | 3 months | ≈ 40M | VACUUM (insert-driven), `ANALYZE` after load |
@@ -3458,6 +3855,8 @@ The Moonaan standard names ElastiCache Serverless Valkey, which is a provider-ma
 Metrics per cache: hit and miss rate, evictions, load latency p50/p99, entries, memory; a miss that reads the DB is logged at WARN with the cache name. Caches never hold P3 data and never hold posted-document content; staleness bounds above are the contract for each reader (documents ≤ 5 s per B.2).
 
 ### 12.8 Schema migrations and local development
+
+**As built (v1.0):** hand-written SQL files per service applied by `dbx.Migrate` (ADR-0012); no Atlas or generation from metadata; no migration Job outside dev (D28).
 
 - Atlas generates versioned migration files from entity metadata (`migrations/NNNN_name.sql`, applied in order by `dbx.Migrate`). Rules: expand/contract only (NFR-A4); new columns nullable or with constant defaults; `CREATE INDEX CONCURRENTLY`; no table rewrites on partitioned tables > 1M rows; a destructive change needs two releases. Each migration runs dev → qa → staging → prod in order; each declares its RLS and grants (Definition of Done item 4).
 - Migrations that touch partitioned tables are applied to the parent and verified on the newest and oldest partition in CI.
@@ -3713,6 +4112,8 @@ Domain section: eventing architect. Source of truth: `requirements.md` (PRD v0.2
 
 ## 0. Binding decisions and the async test
 
+**As built (v1.0):** Kafka on Strimzi with Debezium outbox relay, CloudEvents structured JSON and AsyncAPI 3 per service hold. Departures: topics are named per service (`depot.<service>.<entity>`, for example `depot.receiving.receipt`, `depot.wms.work`), not per context (ADR-0008); only 21 services' outboxes are relayed (D2); the envelope has no `traceparent` or `sequence` (D19); dead-letter topics are `<topic>.dlq` after 10 attempts with backoff capped at 2 min; no Temporal saga is built (D13); there is no table-CDC connector (D3). The topic registry in §4.2 starts with the as-built list generated from AsyncAPI.
+
 ADR-0001 fixes the stack; the Moonaan SNS/SQS/DynamoDB/Pulumi defaults are not used.
 
 | Concern | Decision (source) |
@@ -3852,6 +4253,8 @@ sequenceDiagram
 
 ## 2. Event envelope
 
+**As built (v1.0):** `platform/go/events.Event` has `specversion`, `id`, `source`, `type`, `subject`, `time`, `datacontenttype`, `data` and the extensions `tenantid`, `correlationid`, `causationid`, `actor` and `legalentityid`. The event-type regex matches the design. `dataschema` is not set by the Go envelope but is filled by the relay's enricher SMT on every relayed topic (events §2.5). *Target — not built (see backlog, D19):* `traceparent` and `sequence`.
+
 ### 2.1 Mapping of the house envelope to CloudEvents attribute names
 
 | House field | CloudEvents attribute (as used in C.1) | Rule |
@@ -3950,6 +4353,8 @@ Extension attribute names are lowercase alphanumeric as CloudEvents requires.
 6. **Generated CRUD events.** Every metadata-declared entity automatically emits `<entity>.created`, `.changed`, `.deleted` (full post-change state in `data` for `created`/`changed`; B.2). These are not enumerated below; the 42 principal events (Appendix C.7) plus 5 saga-support events **[P]** are specified here.
 
 ### 2.5 Debezium outbox relay (per context database)
+
+**As built (v1.0):** one `KafkaConnector` per relayed service database (21) in `deploy/kafka/connect.yaml`, EventRouter keyed on `aggregate_id` (no `partition_key` column), routing `aggregate_type` to `depot.<service>.${routedByValue}`; topic creation by Connect with 7-day default retention. Every connector chains the EventRouter with the CloudEvents enricher SMT (`transforms: outbox,enrich`; `deploy/kafka-connect/enricher`, image `depot-connect:debezium-3.0.7-enricher-0.1.0`), which completes the structured envelope: `specversion`, `datacontenttype`, default `source`, `dataschema` from `https://schemas.depot.dev/{type}.json` when absent, `tenantid` from the router header, `legalentityid` from the payload, extensions flattened from an optional `headers` object in the event, and `ce_*` Kafka headers; it rejects records without id, time, valid type or tenant. The kernel `dbx.OutboxDDL` has no `headers` column; where a service's own migration adds one, the connector does not route it. *Target — not built (see backlog, D2, D3, D19):* a connector for every outbox, the table-CDC connector, the `tenantid:subject` key.
 
 One Strimzi `KafkaConnector` per context database for the outbox, and a separate connector for table CDC (section 10).
 
@@ -4092,6 +4497,8 @@ Totals (types): 42 principal events from C.7 + 5 proposed **[P]** + 15 added (13
 
 ### 4.1 Rules (C.2, with Kafka-level settings **[P]**)
 
+**As built (v1.0):** topics are created by Kafka Connect, not generated `KafkaTopic` resources; default retention 7 days (D24); key `aggregate_id` (D19); SCRAM `KafkaUser`s exist for 13 consumers (`deploy/kafka/*-consumer.yaml`); finreport, fulfillment, pricing, production, purchasing, shopfloor and integration-hub-ts have none, and no environment enables any consumer (D34). The rules below are target where they differ.
+
 | Item | Setting |
 |---|---|
 | Topic name | `depot.<context>.<entity>`; all verbs and versions of an entity share it |
@@ -4106,6 +4513,71 @@ Totals (types): 42 principal events from C.7 + 5 proposed **[P]** + 15 added (13
 | Delivery SLO | p95 commit-to-consumer under 5 s (L.2); outbox relay lag and consumer lag alerted against it |
 
 ### 4.2 Topic registry
+
+**As built (v1.0)**, generated on 2026-11-17 from `services/*/events/asyncapi.yaml` (56 specs, 358 distinct published topics). AsyncAPI is not a complete consumer registry: several services consume without declaring a `receive` operation (for example tax, search, payables, edi). "Outbox relayed" means a Debezium connector exists; a service marked "no" publishes nothing to Kafka today (D2). Regenerating this table in CI is an ADR-0008 backlog item.
+
+| Service | Publishes (AsyncAPI `send`) | Consumes (AsyncAPI `receive`) | Outbox relayed |
+|---|---|---|---|
+| agents-ts | none | - | no |
+| analytics | `depot.analytics.metric`, `depot.analytics.report`, `depot.archive.partition`, `depot.catalog.dq` | - | no |
+| assets | `depot.assets.asset`, `depot.assets.capexrequest`, `depot.assets.depreciation`, `depot.assets.lease` | - | no |
+| audit | `depot.audit.change` | - | no |
+| batch | `depot.batch.run`, `depot.notify.message`, `depot.workflow.instance`, `depot.workflow.workitem` | - | yes |
+| billing | `depot.billing.invoice` | - | yes |
+| budgeting | `depot.budget.check`, `depot.budget.encumbrance`, `depot.budget.plan`, `depot.budget.program`, `depot.budget.register`, `depot.budget.reservation` | - | yes |
+| close | `depot.close.accrual`, `depot.close.allocation`, `depot.close.period`, `depot.close.regrouping`, `depot.close.run`, `depot.close.task`, `depot.close.yearend` | - | no |
+| compliance | `depot.privacy.erasure`, `depot.privacy.hold`, `depot.privacy.request`, `depot.sod.conflict`, `depot.sod.mitigation`, `depot.trade.screening` | - | no |
+| consolidation | `depot.consol.run` | - | no |
+| costacct | `depot.controlling.allocation`, `depot.controlling.costentry`, `depot.controlling.hierarchy` | - | no |
+| costing | `depot.costing.agingsnapshot`, `depot.costing.cost`, `depot.costing.reconciliation` | - | no |
+| eam | `depot.eam.counterreading`, `depot.eam.downtime`, `depot.eam.permitstatus`, `depot.eam.request`, `depot.eam.warranty`, `depot.eam.workorder`, `depot.eam.workorderstatus` | - | yes |
+| edi | `depot.edi.delivery`, `depot.edi.dispute`, `depot.edi.einvoice`, `depot.edi.message`, `depot.edi.punchout`, `depot.edi.selfbilling` | - | no |
+| engineering | `depot.engineering.bomversion`, `depot.engineering.calendar`, `depot.engineering.document`, `depot.engineering.ebom`, `depot.engineering.eco`, `depot.engineering.ecr`, `depot.engineering.releasedproduct`, `depot.engineering.releaseline`, `depot.engineering.releasesession`, `depot.engineering.resource`, `depot.engineering.routeversion` | - | no |
+| expense | `depot.expense.cashadvance`, `depot.expense.policy`, `depot.expense.report` | - | yes |
+| fieldservice | `depot.case.stage`, `depot.knowledge.article`, `depot.service.agreement`, `depot.service.agreementvisit`, `depot.service.assignment`, `depot.service.case`, `depot.service.dispatch`, `depot.service.sla`, `depot.service.supplierclaim`, `depot.service.workorder`, `depot.service.workorder.completed` | - | yes |
+| finreport | `depot.reporting.balance`, `depot.reporting.definition`, `depot.reporting.distribution`, `depot.reporting.hierarchy`, `depot.reporting.lag`, `depot.reporting.legalhold`, `depot.reporting.library`, `depot.reporting.runs`, `depot.reporting.sharelink`, `depot.reporting.statement` | - | no |
+| fulfillment | `depot.fulfillment.asn`, `depot.fulfillment.container`, `depot.fulfillment.deliverytolerance`, `depot.fulfillment.dropship`, `depot.fulfillment.exception`, `depot.fulfillment.legalentitysetting`, `depot.fulfillment.manifest`, `depot.fulfillment.packingslip`, `depot.fulfillment.pick`, `depot.fulfillment.returnablepackaging`, `depot.fulfillment.shipment`, `depot.fulfillment.tracking`, `depot.fulfillment.warehouseoperationrule`, `depot.fulfillment.warehousereleaserule`, `depot.fulfillment.warehousesetting`, `depot.fulfillment.wave` | `depot.sales.order`, `depot.sales.orderhold` | yes |
+| hr | `depot.hr.absence`, `depot.hr.benefitenrollment`, `depot.hr.certification`, `depot.hr.checklist`, `depot.hr.compensation`, `depot.hr.compensationcycle`, `depot.hr.course`, `depot.hr.employment`, `depot.hr.incident`, `depot.hr.loaneditem`, `depot.hr.positionassignment`, `depot.hr.requisition`, `depot.hr.review`, `depot.hr.worker`, `depot.hr.workerskill` | - | yes |
+| integration-hub-ts | `depot.hub.apiclient`, `depot.hub.catalogentry`, `depot.hub.subscription`, `depot.hub.webhook` | - | no |
+| intercompany | `depot.interco.charge`, `depot.interco.chargeinvoice`, `depot.interco.journal`, `depot.interco.partner`, `depot.interco.reconciliation` | - | yes |
+| inventory | `depot.inventory.blocking`, `depot.inventory.consignment`, `depot.inventory.countsheet`, `depot.inventory.hold`, `depot.inventory.journal`, `depot.inventory.journalname`, `depot.inventory.onhand`, `depot.inventory.ownership`, `depot.inventory.reconciliation`, `depot.inventory.reservation`, `depot.inventory.transaction`, `depot.inventory.transfer` | `depot.fulfillment.packingslip`, `depot.receiving.receipt`, `depot.sales.orderprogress`, `depot.service.workorder.completed` | no |
+| lean | `depot.lean.flow`, `depot.lean.flowperiod`, `depot.lean.kanban`, `depot.lean.kanbanjob` | - | no |
+| ledger | `depot.ledger.balance`, `depot.ledger.batch`, `depot.ledger.journal`, `depot.ledger.openitem`, `depot.ledger.realignment`, `depot.ledger.recurring`, `depot.ledger.rules` | - | no |
+| metadata | `depot.metadata.entity` | - | yes |
+| migration | `depot.migration.syncabsent`, `depot.migration.syncrun` | - | no |
+| mobile | `depot.mobile.flow`, `depot.mobile.offline`, `depot.mobile.session` | - | no |
+| numbering | `depot.numbering.sequence` | - | no |
+| ops | `depot.ops.failover`, `depot.ops.license`, `depot.ops.slo`, `depot.ops.tenant` | - | yes |
+| org | `depot.org.address`, `depot.org.currencyrounding`, `depot.org.democompany`, `depot.org.fiscalcalendar`, `depot.org.hierarchyversion`, `depot.org.legalentity`, `depot.org.location`, `depot.org.operatingunit`, `depot.org.site`, `depot.org.teammembership`, `depot.org.warehouse` | - | no |
+| party | `depot.party.change`, `depot.party.customer`, `depot.party.merge`, `depot.party.party`, `depot.party.protectedfields`, `depot.party.vendorbank`, `depot.party.vendorgroup`, `depot.party.vendorinvite` | - | yes |
+| payables | `depot.payables.openitem`, `depot.payables.paymentproposal`, `depot.payables.vendor` | - | no |
+| payroll | none | - | no |
+| planning | `depot.planning.forecast`, `depot.planning.plan`, `depot.planning.plannedorder`, `depot.planning.scenario` | - | no |
+| prediction-py | none | - | no |
+| pricing | `depot.pricing.brokercontract`, `depot.pricing.campaign`, `depot.pricing.commission`, `depot.pricing.commissionexport`, `depot.pricing.commodity`, `depot.pricing.conditionrecord`, `depot.pricing.contractaccrual`, `depot.pricing.contractclaim`, `depot.pricing.freegoodsrule`, `depot.pricing.fund`, `depot.pricing.fundusage`, `depot.pricing.journal`, `depot.pricing.parameters`, `depot.pricing.procedure`, `depot.pricing.procedureassignment`, `depot.pricing.rebateaccrual`, `depot.pricing.rebateagreement`, `depot.pricing.royaltyagreement`, `depot.pricing.vendorrebateclaim` | - | no |
+| print | `depot.print.job` | - | no |
+| processmfg | `depot.production.batch`, `depot.production.batchattribute`, `depot.production.batchorder`, `depot.production.batchrecord`, `depot.production.batchrecordprofile`, `depot.production.batchrequirement`, `depot.production.coproduct`, `depot.production.formula`, `depot.production.inheritancerule`, `depot.production.reworkorder` | - | no |
+| product | `depot.product.configuration`, `depot.product.identifier`, `depot.product.product`, `depot.product.relation`, `depot.product.releasedproduct`, `depot.product.variant` | - | yes |
+| productcost | `depot.costing.activationattempt`, `depot.costing.costcomponent`, `depot.costing.costgroup`, `depot.costing.postingaccounts`, `depot.costing.standardcost`, `depot.costing.version` | - | no |
+| production | `depot.production.asbuilt`, `depot.production.costsnapshot`, `depot.production.journal`, `depot.production.operation`, `depot.production.order`, `depot.production.orderchange`, `depot.production.parameters`, `depot.production.subcontract`, `depot.production.triggerpoint` | `depot.planning.plannedorder`, `depot.shopfloor.registration`, `depot.shopfloor.registration-corrected` | yes |
+| projects | `depot.projects.changeorder`, `depot.projects.project`, `depot.projects.transaction`, `depot.projects.wbs` | - | yes |
+| purchasing | `depot.procurement.agreement`, `depot.procurement.autocharge`, `depot.procurement.catalog`, `depot.procurement.catalogimport`, `depot.procurement.categorymanager`, `depot.procurement.categoryvendor`, `depot.procurement.chargecode`, `depot.procurement.deliveryschedule`, `depot.procurement.inboundchange`, `depot.procurement.modelservicespec`, `depot.procurement.po`, `depot.procurement.poack`, `depot.procurement.policy`, `depot.procurement.poversion`, `depot.procurement.requisition`, `depot.procurement.requisitionline`, `depot.procurement.requisitionrelease`, `depot.procurement.rfq`, `depot.procurement.rfqtype`, `depot.procurement.sarelease`, `depot.procurement.servicespec`, `depot.procurement.signinglimit` | `depot.fulfillment.dropship`, `depot.planning.plan` | yes |
+| quality | `depot.quality.capa`, `depot.quality.coa`, `depot.quality.compliancelist`, `depot.quality.complianceresult`, `depot.quality.nonconformance`, `depot.quality.order`, `depot.quality.result`, `depot.quality.stabilitystudy`, `depot.quality.usagedecision` | - | no |
+| receivables | `depot.receivables.case`, `depot.receivables.confirmation`, `depot.receivables.creditnote`, `depot.receivables.creditsettlement`, `depot.receivables.customerbalance`, `depot.receivables.deduction`, `depot.receivables.dispute`, `depot.receivables.downpayment`, `depot.receivables.dunningletter`, `depot.receivables.openitem`, `depot.receivables.payment` | - | yes |
+| receiving | `depot.payables.invoice`, `depot.payables.settlement`, `depot.receiving.ersselfbill`, `depot.receiving.policy`, `depot.receiving.receipt`, `depot.receiving.serviceentrysheet` | - | yes |
+| revrec | `depot.revrec.contract`, `depot.revrec.schedule` | `depot.billing.invoice` | no |
+| sales | `depot.sales.agreement`, `depot.sales.allocation`, `depot.sales.allocationquota`, `depot.sales.atp`, `depot.sales.backorderrun`, `depot.sales.changepolicy`, `depot.sales.creditcheck`, `depot.sales.deliveryterms`, `depot.sales.deliverytolerance`, `depot.sales.intakeerror`, `depot.sales.order`, `depot.sales.orderchange`, `depot.sales.orderhold`, `depot.sales.orderprogress`, `depot.sales.parameters`, `depot.sales.quotation`, `depot.sales.returnorder`, `depot.sales.schedulerelease` | - | yes |
+| scheduling | `depot.scheduling.bottleneck`, `depot.scheduling.campaign`, `depot.scheduling.capacityblock`, `depot.scheduling.capacityoverride`, `depot.scheduling.cleanoutcounter`, `depot.scheduling.job`, `depot.scheduling.network`, `depot.scheduling.operation`, `depot.scheduling.order`, `depot.scheduling.orderdates`, `depot.scheduling.orderimport`, `depot.scheduling.parameters`, `depot.scheduling.resource`, `depot.scheduling.run` | - | no |
+| shopfloor | `depot.shopfloor.absencecode`, `depot.shopfloor.andon`, `depot.shopfloor.control-recipe`, `depot.shopfloor.downtimereason`, `depot.shopfloor.edge-config`, `depot.shopfloor.edge-node`, `depot.shopfloor.job`, `depot.shopfloor.oee`, `depot.shopfloor.pay-export`, `depot.shopfloor.payagreement`, `depot.shopfloor.payday`, `depot.shopfloor.payday-revised`, `depot.shopfloor.process-messages`, `depot.shopfloor.processcategory`, `depot.shopfloor.registration`, `depot.shopfloor.registration-corrected`, `depot.shopfloor.timeprofile`, `depot.shopfloor.worker` | `depot.production.operation` | no |
+| tax | `depot.tax.provider` | - | no |
+| transport | `depot.tms.freightbill`, `depot.tms.gate`, `depot.tms.goodsintransit`, `depot.tms.landedcost`, `depot.tms.load`, `depot.tms.tender`, `depot.tms.tracking` | - | yes |
+| treasury | `depot.treasury.cashdesk`, `depot.treasury.check`, `depot.treasury.reconciliation`, `depot.treasury.statement` | - | no |
+| warehouse | `depot.wms.receipt`, `depot.wms.shipment`, `depot.wms.work` | - | yes |
+| workflow-ts | none | `depot.platform.entitydefinition`, `depot.tms.load`, `depot.tms.tender` | no |
+
+Distinct published topics: 358
+
+*Designed topic registry (v0.x), target:* only 7 of the 51 topics below exist (`depot.inventory.reservation`, `depot.inventory.transaction`, `depot.party.customer`, `depot.party.party`, `depot.product.product`, `depot.projects.transaction`, `depot.sales.returnorder`). Payload contracts for the designed cross-context events are unmet in 13 of 15 cases (D6).
 
 | # | Topic | Partitions | Retention | Events carried (verbs) | Snapshot topic |
 |---|---|---|---|---|---|
@@ -4177,6 +4649,8 @@ C.2 uses one shared topic per entity across tenants, while L.2 and 0A.2 promise 
 ---
 
 ## 5. Producer / consumer table
+
+*Target (v0.x).* The as-built producers are in §4.2. As-built consumers: 17 Go services (billing, edi, finreport, fulfillment, intercompany, inventory, payables, pricing, production, purchasing, receivables, receiving, revrec, scheduling, search, shopfloor, tax) plus `workflow-ts` and `integration-hub-ts`. Some subscriptions have no relayed producer: production reads `depot.shopfloor.registration*` and purchasing reads `depot.planning.plan`, but shopfloor and planning have no connector; `workflow-ts` reads `depot.platform.entitydefinition`, which no spec declares (metadata publishes `depot.metadata.entity`) (D2, D6).
 
 Consumer ids are defined in section 6 (they are also the DLQ suffix). "Key" is the partition key, `T` = `tenantid`. `*` marks a consumption whose effect is a reconciliation tie, not a posting (see OQ-1: the producing command already called `ledger.Post` synchronously).
 
@@ -4250,6 +4724,8 @@ Additional consumers that read every event topic they are subscribed to: `integr
 ---
 
 ## 6. Consumer registry
+
+*Target (v0.x).* See the as-built consumer list in §5 and the `KafkaUser` resources in `deploy/kafka/`.
 
 Each id is a Kafka consumer group (`depot-<id>`), an `consumer_inbox.consumer` value, the DLQ suffix, and a `KafkaUser` (`svc-<id>`). Every consumer has its own inbox, the retry policy of section 7.3, and a DLQ topic per subscribed topic. "Order" states the ordering the handler needs: **C** = commutative/idempotent projection (inbox only), **S** = latest-state wins by `sequence` (apply if `sequence` greater than stored), **G** = needs contiguous `sequence` or an earlier event from another topic (park up to 60 s).
 
@@ -4350,6 +4826,8 @@ Rules:
 
 ### 7.3 Retry policy
 
+**As built (v1.0):** `platform/go/eventing` retries up to 10 attempts with exponential backoff capped at 2 min, then dead-letters.
+
 | Parameter | Value |
 |---|---|
 | Attempts | 5 (first try plus 4 retries) |
@@ -4361,6 +4839,8 @@ Rules:
 | Stale | `sequence` less than or equal to the stored aggregate version: acknowledge and drop (logged at info, counted in `events_stale_total`). |
 
 ### 7.4 Dead-letter topics
+
+**As built (v1.0):** one DLQ per topic, `<topic>.dlq`, with headers `x-origin-*`, `x-dlq-reason`, `x-dlq-detail`; not one per consumer.
 
 `depot.<context>.<entity>.dlq.<consumer-id>`, one per (topic, consumer) pair, created with the consumer's `KafkaTopic` CR.
 
@@ -4392,6 +4872,8 @@ Root cause is investigated before any replay; replay is never automatic.
 `eventTime` is never used to order; `sequence` is. `eventTime` is for audit and lag metrics.
 
 ### 7.6 Replay procedure (C.6, completed)
+
+*Target — not built (see backlog, D24):* there is no `/v1/integration/event-replays`, and 7-day retention limits any replay from Kafka to a week.
 
 1. Open a change ticket naming consumer id, topic, time window or DLQ range, reason, and the root-cause finding. Fiscal consumers (`ledger-*`, `*-saga-bridge`, `inventory-*` that post value, `sales-ar`, `procurement-*` AP, `treasury-*`) require controller approval through a platform workflow task.
 2. Pause: `depot-ctl consumer pause <group>`; snapshot the inbox table.
@@ -4431,6 +4913,8 @@ OpenTelemetry (NFR-O1): `traceparent` in every event; consumers start a span lin
 ---
 
 ## 9. Saga design
+
+**As built (v1.0):** S1 and S2 (postings by the valuation owner, no workflow) can complete end to end only once inventory's outbox is relayed (D2) and the reserve/finalize protocol exists (D30); inventory already consumes receipts and packing slips. *Target — not built (see backlog, D13):* the Temporal sagas S3b (production-order settlement) and S4 (intercompany mirror documents). Intercompany is the Go service `services/intercompany`; `workflow-ts` runs approvals, party merge, ECO, CAPA, tender, payment run, budget plan and agent runs.
 
 ### 9.0 Common mechanics (the Temporal sagas S3b and S4; S1, S2 and S3a are valuation-owner postings, not workflows)
 
@@ -4649,6 +5133,8 @@ Compensation: posted documents are immutable, so no step is undone in place. Bef
 
 ## 10. Lakehouse CDC and audit (relation to events)
 
+*Target — not built (see backlog, D3):* no table-CDC connector exists; `data/cdc/connector.template.json` is a template and the lakehouse is not deployed.
+
 - A second Debezium connector per context database streams table changes (the `outbox` table and P3 columns/tables are excluded from the allow-list; E.6) to CDC topics (naming outside C.2, OQ-3), consumed by an Iceberg sink into the lakehouse and by the audit pipeline that writes `platform.audit_entry` with the SHA-256 hash chain (E.8). Target lag p95 under 60 s (NFR-P10).
 - Domain events are not the audit source; audit is derived from CDC so application code cannot forget it (principle 5). The `analytics-lakehouse` event consumer feeds event-fact tables and the event archive (L.2 #8), under the cross-tenant principal only.
 - CDC captures the aggregate version and `tenant_id` columns, so Iceberg rows are tenant-partitioned; erasure by `party_id` propagates through the lakehouse (E.6). Kafka-resident P2 data expires within the 30-day retention (inside the 30-day erasure SLA); snapshot topics get tombstones **[P]**; DLQ and inbox rows for the subject are purged.
@@ -4657,6 +5143,8 @@ Compensation: posted documents are immutable, so no step is undone in place. Bef
 ---
 
 ## 11. Webhooks (partner surface)
+
+**As built (v1.0):** `integration-hub-ts` delivers webhooks signed with `Depot-Signature` (HMAC-SHA256).
 
 Owner: `integration` context (supporting context, operational tables only). Consumer `integration-webhook-dispatcher`.
 
@@ -4712,6 +5200,8 @@ Throughput check: Enterprise tier 1,200 deliveries/min per tenant is about 20 wo
 
 ## 1. Recommended approach and user-experience impact
 
+**As built (v1.0):** one React 19 + TypeScript + Vite 8 shell at `apps/web` with 59 in-tree modules under `apps/web/src/modules/` discovered by the shell; module federation is still pending (`apps/web/src/shell/README.md`). The shop floor is a module of the shell, not a separate PWA. Four separate apps exist (`warehouse-mobile`, `technician`, `customer-portal`, `supplier-portal`) plus the stubs `ess` and `developer-portal`. The shell is a public OIDC client that holds its tokens in memory and calls the gateway directly; only the portals have BFFs (ADR-0009). There are no `@depot/*` workspace packages. No image or chart serves `apps/web` or the portal SPAs yet; the shell is published as a GitHub Pages demo (D7).
+
 **Decision.** One React 18 + TypeScript (strict) + Vite shell at `apps/web` hosts sixteen bounded-context **module remotes**. It renders every metadata-declared entity through one shared, metadata-driven form system (list, detail, line grid, lookup, saved views). Five **separate PWA apps** under `apps/<app>` serve the shop floor, warehouse mobile, field technicians and the two external portals. The browser never holds an OAuth token. Three TypeScript BFFs act as OIDC token handlers in front of Envoy Gateway: browser sessions are `HttpOnly` cookies, and the BFF relays a Keycloak access token to `/api/v1/...`. The shell asks OPA for a decision set and uses it only to show or hide navigation and actions. The services stay the enforcement point.
 
 **How the binding conventions fit together.** ADR-0001 requires a "module federation shell". The engineering conventions require modules at `apps/web/src/modules/<module>/module.ts` that the shell discovers with `import.meta.glob`. Both hold, at different times:
@@ -4743,6 +5233,8 @@ All remotes build from the single `apps/web` workspace and its single lockfile. 
 ## 2. MFE topology
 
 ### 2.1 Topology diagram
+
+*Target layout (v0.x), not as built.* The diagram shows module-federation remotes, an `apps/shopfloor` PWA, web-bff and device-bff cookie sessions and a realm per tenant. As built: 59 in-tree modules without federation (§1), the shop floor as a shell module, no web or device BFF (ADR-0009), one realm (ADR-0007), and the portals' own BFFs.
 
 ```mermaid
 flowchart LR
@@ -4837,6 +5329,8 @@ The shell loads each module remote at run time. "Scope" says whether routes sit 
 
 ### 2.3 Separate PWA apps
 
+**As built (v1.0):** `apps/shopfloor` does not exist (the kiosk is `apps/web/src/modules/shopfloor`); warehouse-mobile and technician have IndexedDB offline queues and no device BFF; the portals use `customer-portal-ts` and `supplier-portal-ts`; none of the apps has an image yet.
+
 Each app is its own Vite build with its own service worker, manifest and nginx image. None of them federates into the shell. They share the `@depot/*` workspace packages at build time.
 
 | App | Path | Wave | Users | Form factor | BFF | Offline | Federation |
@@ -4848,6 +5342,8 @@ Each app is its own Vite build with its own service worker, manifest and nginx i
 | Customer portal | `apps/customer-portal` | 30 | External customer users | Responsive web | portal-bff | No (online only; installable) | None |
 
 ### 2.4 BFF/API edge
+
+**As built (v1.0):** superseded by ADR-0009 for the shell and devices. Only the portal BFFs exist; they serve `/bff/...` and `/api/v1/...` on the portal hosts. The shell calls `/api/v1/<svc>/...` on the API gateway with a bearer token, and Envoy rewrites it to `/v1/<svc>/...` (backend §3.2 route table). `/bff/v1/me`, `/bff/v1/permissions`, `/bff/v1/stream`, `/bff/v1/search` and the device endpoints are not built.
 
 The requirements sanction TypeScript BFFs (ADR-0001). The frontend relies on the endpoints below. The three BFFs are rows of the single service inventory (backend §3.2), and the single route table (backend §3.2) defines the `/bff/...`, `/api/v1/...` and `/v1/...` prefixes: the BFF rewrites `/api/v1/<context>/...` to `/v1/<context>/...`.
 
@@ -4862,6 +5358,8 @@ All browser traffic is same-origin with the serving app's host. The BFF is the o
 ## 3. Component hierarchy
 
 ### 3.1 Workspace packages
+
+**As built (v1.0):** there is no `packages/` directory; shared shell code lives under `apps/web/src/shell/` and each separate app keeps its own copies.
 
 | Package | Purpose | Consumers |
 |---|---|---|
@@ -5285,7 +5783,7 @@ A module missing from `modules`, or with `enabled: false`, is not loaded and its
   - Unsaved changes trigger the guard.
   - Last-used LE is a localStorage convenience, read with try/catch. Never auth.
 - **Query cache isolation.** Every react-query key starts with `[tenantId, leId, …]`. On an LE switch, queries for the previous LE are kept but never rendered under the new LE. On sign-out the cache is cleared.
-- **API scoping.** The UI sends `Depot-Legal-Entity: <uuid>` (one UUID, or a comma-separated list) on every API call. The gateway and service intersect it with the grants in OPA; it can narrow but never widen scope. Generated list calls also send `filter=legalEntityId eq '<uuid>'` as defense-in-depth. The header name and semantics are fixed by the backend contract (Q6 resolved). Without the header the server fails closed: a principal with no legal entity sees no legal-entity-scoped rows, unless it holds `org.switcher.all-scope` and explicitly requests the ALL scope on a read (`X-Depot-LegalEntity-Scope: ALL`). The gateway passes `X-Depot-LegalEntity-Scope` through (it is honoured only on GET, HEAD and OPTIONS, and on POST routes the service wraps in `tenant.ReadOnlyPOST`, and only with the JWT-derived `org.switcher.all-scope` duty) and strips every other identity header. Header values must be UUIDs; `*` is rejected with 400 COM-0001. The org service's `legal_entity` and `legal_entity_name` tables are tenant-level: a principal with no entity may read and write them within its own tenant, because the first entity of a tenant is created by such a principal.
+- **API scoping.** *As built:* the UI sends `X-Depot-LegalEntity: <uuid>`; `platform/go/tenant` accepts it only when it equals the token's single `le` claim (400 otherwise; devgateway and `depot-server` 403), and Envoy strips it, so a multi-entity user cannot switch company (D33). *Proposed (recommended; pending owner confirmation):* the selection picks one entity from the list in `le`, refused with 403 outside it (backend §7.3, ADR-0006 rule 4). The v0.x text follows. The UI sends `Depot-Legal-Entity: <uuid>` (one UUID, or a comma-separated list) on every API call. The gateway and service intersect it with the grants in OPA; it can narrow but never widen scope. Generated list calls also send `filter=legalEntityId eq '<uuid>'` as defense-in-depth. The header name and semantics are fixed by the backend contract (Q6 resolved). Without the header the server fails closed: a principal with no legal entity sees no legal-entity-scoped rows, unless it holds `org.switcher.all-scope` and explicitly requests the ALL scope on a read (`X-Depot-LegalEntity-Scope: ALL`). The gateway passes `X-Depot-LegalEntity-Scope` through (it is honoured only on GET, HEAD and OPTIONS, and on POST routes the service wraps in `tenant.ReadOnlyPOST`, and only with the JWT-derived `org.switcher.all-scope` duty) and strips every other identity header. Header values must be UUIDs; `*` is rejected with 400 COM-0001. The org service's `legal_entity` and `legal_entity_name` tables are tenant-level: a principal with no entity may read and write them within its own tenant, because the first entity of a tenant is created by such a principal.
 - **Unauthorized LE in URL.** A code the user has no grant for renders `ForbiddenPage` with a switcher to a granted LE. The UI never reveals whether the LE exists.
 
 ### 5.3 Deep links
@@ -5347,6 +5845,8 @@ There are no separate list or detail routes per entity outside this generator.
 | **Total PWA** | | **39** |
 
 ## 6. Live updates (U4)
+
+*Target — not built (see backlog, D29):* there is no `web-bff` and no generic stream; server-sent events exist only in `agents-ts`, `fieldservice`, `mobile` and `shopfloor`.
 
 `web-bff` exposes `GET /bff/v1/stream` as Server-Sent Events. It uses the session cookie and is scoped to the user. The channel carries:
 
@@ -5512,6 +6012,8 @@ interface QueuedCommand {
 
 #### 7.6.1 Shop-floor kiosk (`apps/shopfloor`)
 
+**As built (v1.0):** the kiosk is the shell module `apps/web/src/modules/shopfloor`, with device enrollment in `services/shopfloor`; there is no `apps/shopfloor` PWA.
+
 | Aspect | Specification |
 |---|---|
 | Offline target | 30 minutes fully operable (FR-4.5, wave 25 proof: 30-min offline test). The queue survives power loss and reload, with no time limit on held commands. |
@@ -5549,6 +6051,8 @@ These are installable, but writes are online-only. When offline, the shell shows
 
 ## 8. Authentication and session
 
+**As built (v1.0):** one realm `depot` (ADR-0007). The shell is the public client `depot-web` with PKCE and keeps tokens in memory, not in cookies (ADR-0009, accepted with conditions: strict CSP, no tokens in web storage, ≤ 5-minute access tokens, first-party scripts only). Access tokens live 5 minutes, SSO at most 10 hours. Envoy validates the token; services do not re-verify it (ADR-0006). The portals follow §8.2's cookie pattern in their own BFFs. §8.1 and §8.2 below are the v0.x design, superseded for the shell and devices.
+
 **Constraint resolution.** The requirements fix Keycloak (OIDC/SAML/SCIM, one realm per tenant) and OPA/Rego. The Moonaan defaults of Cognito, Verified Permissions/Cedar and `aws-jwt-verify` are therefore not used. The house authentication standard is still applied in full where it is IdP-neutral:
 
 - Authorization Code + PKCE
@@ -5563,6 +6067,8 @@ These are installable, but writes are online-only. When offline, the shell shows
 - batch decisions rather than per-item loops
 
 ### 8.1 Realm and clients (per tenant realm)
+
+**As built (v1.0):** clients in realm `depot`: `depot-web` (public, PKCE S256), `depot-services`, `depot-identity-deprovision`, `depot-portal-supplier` and `depot-portal-customer` (confidential, portal BFFs); only `depot-web` and `depot-services` carry `aud: depot-api` (audience mapper); the portal clients and `depot-identity-deprovision` have no audience mapper. No `depot-device` or per-kiosk clients.
 
 | Client | Type | Used by | Flow | Notes |
 |---|---|---|---|---|
@@ -5584,6 +6090,8 @@ These are installable, but writes are online-only. When offline, the shell shows
 | Back-channel logout URL | Set to each BFF's `/bff/backchannel-logout` |
 
 ### 8.2 Browser token handling (token-handler BFF)
+
+*Superseded by ADR-0009 for `apps/web`; still the pattern of the two portal BFFs.* The conditions under which a web BFF becomes required are listed in ADR-0009.
 
 ```mermaid
 sequenceDiagram
@@ -5635,6 +6143,8 @@ Rules:
 | Refresh fails (rotation reuse detected, session max reached) | The BFF deletes the session and returns 401 with `code: session_expired`. The shell shows "Your session ended — sign in again" and preserves the current URL as `returnTo`. |
 
 ### 8.4 Duty-based navigation visibility (OPA decisions surfaced to the UI)
+
+**As built (v1.0):** there is no `/bff/v1/permissions`; the shell hides navigation by the user's duties (`apps/web/src/shell/dutyGate.ts`). It still only shows or hides; services enforce.
 
 **Endpoint.** `GET /bff/v1/permissions?le=<uuid|*>` returns:
 
@@ -5696,6 +6206,8 @@ The last-known set is never used to show more than the empty set after its TTL.
 ## 9. Implementation patterns
 
 ### 9.1 Federation configuration (shell-owned)
+
+*Not built yet:* module federation is pending (`@module-federation/vite` not added); modules are built into the shell.
 
 ```ts
 // apps/web/vite.config.ts (wave 5) — sketch
@@ -5849,7 +6361,7 @@ The strategy is deferred to `testing-architect`. The gates this architecture dep
 | Q3 | Global search backend: a BFF fan-out to per-context list endpoints with indexed `like` (trigram), or a dedicated search index? No search engine is in ADR-0001. | backend-architect | Wave 5 (U2) |
 | Q4 | Confirm the shapes and versioning of the metadata registry endpoints for form definitions, message catalog and saved views (§3.3); paths settled to the backend names (`/v1/platform/message-catalog`, form definitions by `{id}`). | backend-architect | Waves 3, 5 |
 | Q5 | Email, Slack and Teams approval delivery (U8): which wave owns the notification channels, and is one-tap approve a signed short-lived link or a full sign-in? | backend-architect / security | Wave 4 |
-| Q6 | LE scoping header `Depot-Legal-Entity` and its narrowing semantics at the gateway and services. Resolved: the header is part of the backend contract (§7.3); it narrows the token's legal-entity scopes and never widens. | backend-architect | Wave 2 |
+| Q6 | LE scoping header `Depot-Legal-Entity` and its narrowing semantics at the gateway and services. Resolved: the header is part of the backend contract (§7.3); it narrows the token's legal-entity scopes and never widens. *As built:* it narrows nothing (D33); the multi-entity model in backend §7.3 is Proposed, pending owner confirmation. | backend-architect | Wave 2 |
 | Q7 | SSE bridge (Kafka and Temporal → web-bff) for live updates: is it acceptable in the BFF, and what are its scaling limits at 10k concurrent users? | backend-architect | Wave 5 (U4) |
 | Q8 | BFF session store placement: a BFF-owned Postgres database (proposed) or another store. Must be in-stack (no managed services). | backend-architect | Wave 2 |
 | Q9 | Tenant host scheme (`<tenant>.app.<env>.depot.dev`?) and Keycloak host on the same registrable domain. | platform / SRE | Wave 2 |
@@ -5877,6 +6389,8 @@ The strategy is deferred to `testing-architect`. The gates this architecture dep
 ## Testing Strategy
 
 ## Testing Architecture
+
+*Not audited for v1.0.* This section is the v0.x test strategy. Its Atlas references (T10 CI order, M-07 Atlas lint, FR-0.3) are superseded by ADR-0012 (`dbx.Migrate`, with `expand_contract_lint.py` not yet run in CI, D18); the CI workflow names are as in backend §2.
 
 Author: Testing Architect. Inputs: `requirements.md` (PRD v0.2: Part 0, ADR-0001, Engineering conventions, Appendices A-L), read in full (1,576 lines). Companion sections written in parallel and referenced by name: **Backend Architect (API design, error catalog, idempotency, posting contract)**, **Frontend Architect (shell, generated forms, component and accessibility patterns, PWAs)**, **Eventing Architect (event schemas, registry, outbox/inbox, topics)**. Where this section needs something from them it is listed in T11.
 
@@ -6809,6 +7323,8 @@ The anomaly **scorer** is classical ML, not an LLM. Scoring 1M journal lines/h w
 
 ## 3. Components and deployment
 
+**As built (v1.0):** the MCP gateway is its own service, `mcp-ts`, serving `POST /mcp` on `mcp.depot.<tenant>`; the agent runtime and copilot API are `agents-ts` under `/api/v1/agents/*`; `agents-py` and `model-serving-py` do not exist; `prediction-py` is a separate service. The AI section was not audited beyond these deployables.
+
 | Component | Lang / path (ownership.json wave 47) | Responsibility |
 |---|---|---|
 | MCP gateway (3 replicas) | TS, inside `agents-ts` (`services/agents-ts/`), served at `/v1/agents/mcp` | MCP server (streamable HTTP); tool generation from OpenAPI/AsyncAPI/metadata; `tools/list` filtered by duty; on-behalf-of token exchange; OPA pre-check; JSON Schema validation; output PII redaction; approval-mode enforcement; composite tools (`document_flow`, `search_tools`, `call_tool`); `agent_action` write for every call |
@@ -7706,24 +8222,28 @@ Depot is a new system with no existing repos, so the monorepo default applies �
 
 ```
 Depot/
-├── platform/go/            shared Go kernel (httpx, dbx, tenant, authz, events, outbox, money, ids, testkit)
-├── services/<context>/     one Go module per bounded context; <name>-ts/ (Fastify + Temporal workers), <name>-py/ (FastAPI) siblings
-├── apps/web/               React shell + auto-discovered modules (module federation remotes built from the same workspace)
-├── apps/<pwa>/             shopfloor, warehouse-mobile, technician, supplier-portal, customer-portal
-├── packages/@depot/*     shared front-end packages (design system, api client, forms) — not in the conventions or `ownership.json`; frontend Q1 and consolidated question 16
-├── deploy/                 helm umbrella + per-service charts, argocd app-of-apps, terraform/opentofu provider modules, k3d
+├── platform/go/            shared Go kernel (httpx, dbx, tenant, authz, events, eventing, outbox, money, ids, testkit, ledgerclient, fieldcrypt, logpseudo, rlsexempt, ...)
+├── services/<name>/        one Go module per capability service (58); <name>-ts/ (7, plain Node, one Temporal worker in workflow-ts), <name>-py/ (6, FastAPI) — ADR-0008
+├── apps/web/               React 19 shell + 59 in-tree modules (module federation pending)
+├── apps/<app>/             warehouse-mobile, technician, supplier-portal, customer-portal; stubs ess and developer-portal (shop floor is a shell module)
+├── tools/                  depot-server (Windows, ADR-0004), entitygen, migration-factory, rlscheck, e2e, signoff-packets, connectors, importexport, tenant-restore, docs
+├── deploy/                 per-service charts live in services/*/charts; argocd apps per env (deploy/envs), gateway, kafka, keycloak, postgres, temporal, observability, multi-region, windows (WiX), tofu, k3d
+├── policies/authz/         Rego package authz and the duty catalogue (bundle built by identity)
 ├── data/                   lakehouse: debezium connectors, dbt models, cube schemas — not in the conventions or `ownership.json`; consolidated question 16
-├── docs/                   PRD, architecture.md and its compiled/ artifacts, ADRs, runbooks
+├── docs/                   PRD, architecture.md and its compiled/ artifacts, ADRs, runbooks, sdlc/ run evidence
+├── countrypacks/, evals/, load/   localization packs, AI evals, k6 load tests
 ├── roadmap/                waves.json (plan of record), ownership.json (wave → directories), tickets/
 ├── Makefile                test-go / test-ts / test-py / vet / lint-charts across every module
 └── .github/workflows/      component-prefixed, path-filtered CI; one always-running `gate` is the only required check
 ```
 
-CI/CD shape: `platform-ci.yml`, `services-ci.yml` (matrix over changed Go modules), `web-ci.yml`, `pwa-ci.yml`, `charts-ci.yml`, `data-ci.yml`, each path-filtered with `defaults.run.working-directory`; `gate.yml` detects changed components with `dorny/paths-filter`, calls each affected CI via `workflow_call`, and ends in a `gate` job (`if: always()`) that branch protection requires. CD: every service builds a signed, SBOM-attested image keyed by digest on push to `main`; Argo CD promotes by digest through dev → stage → prod with rollback to the prior digest. One version tag for the whole repo; component releases are `workflow_call` targets of a root `release.yml`. Components consume each other in-tree (a service's `api/openapi.yaml` is read by the web module's client generator with a drift test); never vendored copies, never per-service repos. Deviation from the topology reference (recorded): each service's Helm chart is co-located under `services/<name>/charts/<name>` as the requirements' engineering conventions and backend §2 fix; only provider Terraform/OpenTofu modules and the umbrella chart stay under `deploy/`.
+**As built (v1.0):** the workflows are `ci.yml`, `gate.yml` (the one required check), `ci-negative.yml`, `windows-msi.yml`, `pages.yml`, `record-release.yml` and `cleanup-branches.yml` (backend §2); there is no `release.yml` and none of the per-component workflows named next. *Target (v0.x):* CI/CD shape: `platform-ci.yml`, `services-ci.yml` (matrix over changed Go modules), `web-ci.yml`, `pwa-ci.yml`, `charts-ci.yml`, `data-ci.yml`, each path-filtered with `defaults.run.working-directory`; `gate.yml` detects changed components with `dorny/paths-filter`, calls each affected CI via `workflow_call`, and ends in a `gate` job (`if: always()`) that branch protection requires. CD: every service builds a signed, SBOM-attested image keyed by digest on push to `main`; Argo CD promotes by digest through dev → stage → prod with rollback to the prior digest. One version tag for the whole repo; component releases are `workflow_call` targets of a root `release.yml`. Components consume each other in-tree (a service's `api/openapi.yaml` is read by the web module's client generator with a drift test); never vendored copies, never per-service repos. Deviation from the topology reference (recorded): each service's Helm chart is co-located under `services/<name>/charts/<name>` as the requirements' engineering conventions and backend §2 fix; only provider Terraform/OpenTofu modules and the umbrella chart stay under `deploy/`.
 
 Ownership rule (binding for `generate-code`): `roadmap/ownership.json` maps each wave to the directories it may create or edit; a story edits only its wave's paths and codes against another wave's published OpenAPI/AsyncAPI contract with an in-package fake when that wave has not shipped.
 
 ### Observability
+
+**As built (v1.0):** Prometheus RED metrics from the Go kernel (ServiceMonitor per chart), Grafana SLO dashboards and Alertmanager in dev; Alertmanager still uses the chart's default route; Tempo and Loki are not deployed and stage and prod have no monitoring app (`deploy/observability/README.md`). No service has an OpenTelemetry SDK; the web shell emits `traceparent`, which is not propagated. *Target — not built (see backlog, D8):* the tracing bullet below, end-to-end trace from a UI click, the security-detection counters (`depot_authz_denied_total` and others) and log shipping. Health endpoints `/healthz` and `/readyz` are built as described.
 
 All six domains converge on the requirements' OpenTelemetry stack rather than the Moonaan defaults (X-Ray, CloudWatch, RUM, Langfuse are excluded by ADR-0001's no-provider-managed-service rule):
 
@@ -7737,12 +8257,25 @@ All six domains converge on the requirements' OpenTelemetry stack rather than th
 
 ### Caching
 
+- *As built:* Valkey is adopted for gateway rate-limit counters and portal sessions only (ADR-0014).
 - **Reads:** generated entity reads are served from Postgres with per-request in-process memoization; reference data (currencies, UoM, calendars, dimension values, metadata definitions, OPA decision sets per user × legal entity) is cached in-process with event-driven invalidation (the entity's `changed` event) and a 5-minute TTL ceiling. No shared data cache is designed in: ADR-0001 names none, and the data section's OQ-11 / backend Q4 record the one place a shared store is needed — Envoy global rate-limit counters — proposing an in-cluster Valkey through an ADR addendum (per-pod limits apply until decided).
 - **Projections:** balances and on-hand are updated synchronously in the owning transaction and are rebuildable from the journal and the inventory transactions (nightly compare); ATP, `sales_ref.on_hand_summary` and the Cube semantic layer are asynchronous projections rebuilt from events, not caches; staleness is measured as projection lag and bounded by the NFRs.
 - **HTTP:** ETags on every entity read with `If-Match` concurrency; remote entries served with immutable, hashed filenames; `remoteEntry-nocache.js` and `env.json` uncached.
 - **Prompt caching (AI):** system prompt, tool catalog slice and tenant policy blocks are cache breakpoints (≈ 1 h TTL for stable blocks, 5 min for per-session context); per-tenant token metering counts cache reads at the weight decided in ai-feature OQ-2.
 
 ### Security & Auth
+
+**As built (v1.0)** (ADR-0006, ADR-0007, ADR-0009, ADR-0010, ADR-0011):
+
+- **Identity:** one Keycloak realm `depot`; the shell is a public PKCE client with tokens in memory; the portals use cookie BFFs; SCIM is served by `services/identity`.
+- **Authorization:** Envoy validates the JWT and maps claims, including duties, to `X-Depot-*` headers; services trust the headers and check the route duty with `authz.RequireDuty`; OPA only in identity and the single-host gateways. Peer calls use Ed25519 service tokens. This is safe only with the NetworkPolicy rules of ADR-0006 (D1).
+- **Tenancy:** as described below (RLS with `depot.tenant_id` and `depot.legal_entity_scopes`); policy names are `<table>_tenant_access` and `<table>_legal_entity_scope`. Egress topics are not built.
+- **Encryption at rest:** the table below is the target per datastore; application-level field encryption is `fieldcrypt` with master keys optionally wrapped by Azure Key Vault, and its three frozen `passage.*` labels (§7.16, ADR-0005, ADR-0011).
+- **Network segmentation:** *Target — not built (see backlog, D1):* the namespace-per-tier, default-deny model below. Today 67 of 69 service charts share namespace `hello-ledger` and 13 of 69 charts have a NetworkPolicy.
+- **Gateway:** Envoy is configured against a placeholder issuer and key (D32) and routes 15 services (D31); authorization decisions are not logged (D36).
+- **Audit:** *Target — not built (see backlog, D3):* the CDC-derived hash chain below; as built, see §7.16.
+
+The bullets below are the v0.x design.
 
 - **Identity:** Keycloak with a realm per tenant plus an `_internal` realm for service and saga identities; OIDC for browsers via a BFF token handler (tokens never reach the browser; `__Host-` `HttpOnly` `SameSite=Strict` session cookie, CSRF token, back-channel logout); SAML/OIDC federation to Entra ID/Okta/Google; SCIM provisioning through a `platform-ts` facade over the Keycloak Admin API (backend Q3); kiosk device enrollment with badge + PIN (frontend Q13 pending security sign-off).
 - **Authorization:** AX-style roles → duties → privileges compiled to OPA/Rego; Envoy validates the JWT and every service re-verifies it (no service trusts Envoy or mTLS alone); the service's `authz.Require` asks OPA per request with `tenantId`, `legalEntityScopes`, `duty`, `resource`, and receives `allow` plus `obligations` (step-up is required, not recommended: sensitive actions carry the OPA obligation `requires_acr: mfa`); the UI consumes one batch decision set per user × legal entity only to show or hide, never to authorize. Segregation-of-duties rules evaluated at role assignment, at approval, and in the agent allow-lists.
@@ -7777,19 +8310,19 @@ Consolidated from the six receipts and the review-round-1 decisions. Owners: pro
 
 | # | Area | Question | Owner | Need-by |
 |---|---|---|---|---|
-| 1 | Platform and stack | Shared store for Envoy global rate limiting: adopt in-cluster Valkey (backend Q4, data OQ-11) or accept per-pod limits. | @zdemanche | Wave 2 |
+| 1 | Platform and stack | Shared store for Envoy global rate limiting: adopt in-cluster Valkey (backend Q4, data OQ-11) or accept per-pod limits. **Resolved by ADR-0014 (v1.0):** in-cluster Valkey. | @zdemanche | Wave 2 |
 | 2 | Platform and stack | Tenant-scoped egress topics for external Kafka consumers (backend Q5, eventing OQ-5). | @zdemanche | Wave 4 |
 | 3 | Platform and stack | Resolved: UUIDv7 (the appendices govern the conventions); `platform/go/ids` switches from ULID in wave 3 (data OQ-01). | @BenjaminSRussell | Wave 3 |
-| 4 | Platform and stack | Resolved (C2): `platform.number_sequence` is the definition table; every posting database carries `<ctx>.number_sequence_counter` keyed `(tenant_id, sequence_id, legal_entity_id, fiscal_period)`, number allocated last in the posting transaction, block allocation kept for batch posts, definitions propagated by `dev.depot.platform.numbersequence.changed.v1` (backend Q2, data defect D10). | @zdemanche | Wave 5 / 11 |
-| 5 | Platform and stack | Keycloak on-behalf-of / token exchange for agents and internal subject forwarding (backend Q8, ai-feature Q3). | @zdemanche | Wave 2 design, wave 47 use |
-| 6 | Platform and stack | Shared front-end packages location `packages/@depot/*`, the `data/` root, and in-repo design system vs Moonaan Design System (frontend Q1, Q2); `data/` and `packages/` are not in the conventions or `ownership.json`. | @BenjaminSRussell | Wave 5 |
-| 7 | Platform and stack | Global search backend: Postgres trigram/tsvector (data assumption) vs a search engine (frontend Q3). | @BenjaminSRussell | Wave 5 |
-| 8 | Platform and stack | Where Temporal, Keycloak and schema-registry state lives (data OQ-12); logical-replication slot continuity across CloudNativePG failover (eventing OQ-8). | @zdemanche | Wave 1 / 4 |
+| 4 | Platform and stack | Resolved (C2): `platform.number_sequence` is the definition table; every posting database carries `<ctx>.number_sequence_counter` keyed `(tenant_id, sequence_id, legal_entity_id, fiscal_period)`, number allocated last in the posting transaction, block allocation kept for batch posts, definitions propagated by `dev.depot.platform.numbersequence.changed.v1` (backend Q2, data defect D10). **As built (v1.0):** overridden in code by the `numbering` service over HTTP; ADR-0015 limits it to non-fiscal numbers (D21). | @zdemanche | Wave 5 / 11 |
+| 5 | Platform and stack | Keycloak on-behalf-of / token exchange for agents and internal subject forwarding (backend Q8, ai-feature Q3). **As built (v1.0):** internal subject forwarding is the `act` claim of Ed25519 service tokens (ADR-0010); agent on-behalf-of remains open. | @zdemanche | Wave 2 design, wave 47 use |
+| 6 | Platform and stack | Shared front-end packages location `packages/@depot/*`, the `data/` root, and in-repo design system vs Moonaan Design System (frontend Q1, Q2); `data/` and `packages/` are not in the conventions or `ownership.json`. **As built (v1.0):** no `packages/` directory exists; `data/` exists. | @BenjaminSRussell | Wave 5 |
+| 7 | Platform and stack | Global search backend: Postgres trigram/tsvector (data assumption) vs a search engine (frontend Q3). **Resolved by ADR-0013 (v1.0):** a search service with a trigram index fed by events. | @BenjaminSRussell | Wave 5 |
+| 8 | Platform and stack | Where Temporal, Keycloak and schema-registry state lives (data OQ-12); logical-replication slot continuity across CloudNativePG failover (eventing OQ-8). **As built (v1.0):** Temporal has its own Postgres (`deploy/temporal-postgres`); CNPG is not deployed (ADR-0012). | @zdemanche | Wave 1 / 4 |
 | 9 | Domain and posting semantics | Resolved (C3): the ledger owns period control; the posting transaction takes `FOR SHARE` on the period-control row and `:close` the exclusive lock; no cache, no two-phase `closing` state; `dev.depot.ledger.periodcontrol.changed.v1` with status `open | on_hold | closed | permanently_closed` (backend Q1, data defect D5). | @BenjaminSRussell | Wave 14 |
 | 10 | Domain and posting semantics | Resolved (C1, R3-1/R3-3): the valuation owner posts through `ledger.Post`, then finalizes in one local transaction (§6.4 rule 2); the posted event carries `journalEntryId`, `glSeq` and `reservationId`, and `procurement-receipt-valuation`/`manufacturing-raf-valuation` set the document status; the reservation has a sweeper, a defined re-drive and a `:cancel` precondition; cross-context triggers are events consumed as commands; one key format `post:<context>:<documentType>:<documentId>:<purpose>`; event-triggered postings use reserve, post, finalize with an `inventory.valuation_reservation` (EN-077; backend §6.4 rule 5, no exception to rule 2); rejections become `valuation_rejection` tasks with `:retry`/`:cancel`; `sales-shipment-cogs` writes the COGS link back to the shipment; the F-profile allow-list gains `journal_entry_id`, `gl_seq`, `gl_posting_status` and the shipment COGS columns (no `gl-link` endpoint); `manufacturing-ts` joins the inventory (backend §3.4, eventing OQ-2). | @BenjaminSRussell | Wave 16 |
 | 11 | Domain and posting semantics | Resolved (C1): ledger consumption of invoice/payment/payroll events is a reconciliation tie; postings are synchronous `ledger.Post` in the producing command; only production-order settlement (S3b) and intercompany (S4) are Temporal sagas (eventing OQ-1). | @BenjaminSRussell | Wave 11 |
 | 12 | Domain and posting semantics | Resolved (C14): error `code` is the snake_case D.4 catalog and `serviceCode` is the per-service number (`LED-0001`); testing T4.1 asserts both (backend Q15). | @BenjaminSRussell | Wave 3 |
-| 13 | Domain and posting semantics | Audit of P3 columns: E.6 excludes P3 from CDC while E.8 derives audit from CDC. Design recorded (O1, N5): a kernel-written `<ctx>.audit_event` row in the same local transaction with an encrypted `pii_payload` (per-subject key), folded into `audit_entry` by the audit consumer, reconciled with data D12; counsel sign-off remains (backend Q17, data OQ-15). | @zdemanche | Wave 5 |
+| 13 | Domain and posting semantics | Audit of P3 columns: E.6 excludes P3 from CDC while E.8 derives audit from CDC. Design recorded (O1, N5): a kernel-written `<ctx>.audit_event` row in the same local transaction with an encrypted `pii_payload` (per-subject key), folded into `audit_entry` by the audit consumer, reconciled with data D12; counsel sign-off remains (backend Q17, data OQ-15). **As built (v1.0):** P3 handling is application-level `fieldcrypt` (ADR-0011); the CDC audit design is not built (D3). | @zdemanche | Wave 5 |
 | 14 | Domain and posting semantics | Balance keys lack a transaction-currency dimension: `balance_by_currency` added (data defect D9). Confirm. | @BenjaminSRussell | Wave 12 |
 | 15 | Testing and operations | Named accountant for finance-wave fixtures (testing OQ-2); blocks closing wave 11. | @BenjaminSRussell | Wave 11 |
 | 16 | Testing and operations | Owners for test infrastructure paths (`e2e/`, `perf/`, `fixtures/`, `contracts/`), `data/`, `packages/` and web dev-dependencies in `ownership.json` (testing OQ-3/4, ai-feature Q1, review C15); the AI section's stated paths (`services/agents-ts/`, `services/agents-py/` for `model-serving-py`, `evals/`) are reconciled here. | @BenjaminSRussell | Wave 1 |
@@ -7801,18 +8334,18 @@ Consolidated from the six receipts and the review-round-1 decisions. Owners: pro
 | 21 | Unspecified external adapters (interfaces only until decided) | OCR/AP-automation provider, e-invoice access point, container registry/CI runner, WORM object store (backend Q10–Q13); payment provider for the customer portal (frontend Q12); outbound email API for collections (ai-feature Q17); AX/SAP extraction mechanism, which is a restored SQL Server copy, BYOD, SAP SLT/ODP or files (data OQ-07). | The external product owner, named once the product is chosen | Waves 10 (AX/SAP), 18 (OCR), 30 (portal payments), 35 (e-invoice, registry), 47 (email) |
 | 22 | Scope inputs not in the requirements file | The per-wave PRD parts, `roadmap/waves.json`, the coverage inventories (Parts 12–13), `ownership.json` and `platform/go` were not in the requirements source; endpoint and entity lists are derived from the appendices and are the baseline that wave sections override (backend Q24, data R-12, testing OQ-1). | @BenjaminSRussell | Wave 1 |
 | 23 | AI | Confirm wave-47/30/36 thresholds against `docs/prd` (AP top-1 ≥ 0.92, cash precision ≥ 0.90, 50M/10M token budget, ≥ 85 auto-apply band); every such value is marked [ASSUMED — companion PRD] (review C16). | @BenjaminSRussell | Wave 46 |
-| 24 | Platform and stack | Resolved (C6): three BFFs (`web-bff`, `device-bff`, `portal-bff`), `/bff/...` for BFF routes, `/v1/<context>/...` at Envoy and the BFF rewrite of `/api/v1/<context>/...` (the requirements' own `/api/v1` vs `/v1` conflict), MCP gateway inside `agents-ts`, copilot API at `/v1/agents/copilot/conversations`, `model-serving-py`, 31 images in one inventory and one route table (backend §3.2). | @BenjaminSRussell | Wave 2 |
+| 24 | Platform and stack | Resolved (C6): three BFFs (`web-bff`, `device-bff`, `portal-bff`), `/bff/...` for BFF routes, `/v1/<context>/...` at Envoy and the BFF rewrite of `/api/v1/<context>/...` (the requirements' own `/api/v1` vs `/v1` conflict), MCP gateway inside `agents-ts`, copilot API at `/v1/agents/copilot/conversations`, `model-serving-py`, 31 images in one inventory and one route table (backend §3.2). **Superseded (v1.0)** by ADR-0008 (71 services, per-service routes) and ADR-0009 (no web or device BFF; MCP gateway is `mcp-ts` at `/mcp`). | @BenjaminSRussell | Wave 2 |
 | 25 | Domain and posting semantics | Resolved (C9): `procurement` generates payment files and owns "enter payment"; `treasury` signs through Vault transit under `system:treasury-signer` with duty `Release payments` and transmits; the `integration-paymentfile` consumer is removed. | @zdemanche | Wave 19 |
-| 26 | Platform and stack | OPC-UA/MQTT edge connector: it has no deployable, owner or design yet. Proposed deployable `iot-edge` (Go), owned by wave 25 (24 h store-and-forward, device certificates). | @zdemanche | Wave 25 |
+| 26 | Platform and stack | OPC-UA/MQTT edge connector: it has no deployable, owner or design yet. Proposed deployable `iot-edge` (Go), owned by wave 25 (24 h store-and-forward, device certificates). **As built (v1.0):** `services/iot-edge` (Go) exists with a chart and a `NOT-IMPLEMENTED.md`; the plant edge has its own Gateway. | @zdemanche | Wave 25 |
 | 27 | Security and compliance | Incident response, 72-hour GDPR breach notification, and the SOC 2 evidence store (WORM bucket with hash-chained manifests) have no design beyond the paragraph in Security & Auth (review O6). | @zdemanche | Wave 48 |
-| 28 | Security and compliance | Network segmentation detail: the namespace-per-tier and default-deny `NetworkPolicy` model, per-deployable egress allow-lists and the internet-facing listeners recorded in Security & Auth (review O4). | @zdemanche | Wave 2 |
+| 28 | Security and compliance | Network segmentation detail: the namespace-per-tier and default-deny `NetworkPolicy` model, per-deployable egress allow-lists and the internet-facing listeners recorded in Security & Auth (review O4). **As built (v1.0):** not in place; ADR-0006 rule 6 states what NetworkPolicy must enforce (D1). | @zdemanche | Wave 2 |
 | 29 | Security and compliance | P3 placement for payroll and absence data: confirm the `*_secure` tables for payroll totals, statements, statement lines and absence reasons, and aggregate-only lakehouse treatment (review O2). | @zdemanche | Wave 42 |
 | 30 | Security and compliance | Sub-processor DPAs, regions and retention for OCR, tax, carriers, payroll, card feeds, payment processor and LLM provider (the table in backend §7.12; each adapter is gated on a row) (review O8). | @zdemanche | Wave 13 |
-| 31 | Security and compliance | Multi-region active/standby topology for Postgres and Kafka (backend Q20, review O12). | @zdemanche | Wave 48 |
+| 31 | Security and compliance | Multi-region active/standby topology for Postgres and Kafka (backend Q20, review O12). **As built (v1.0):** active/passive chart built under `deploy/multi-region`, not deployed in any environment. | @zdemanche | Wave 48 |
 | 32 | Domain and posting semantics | EU payroll reference country: DE or UK (PRD open question 3); drives the wave-43 payroll engine scope. | @BenjaminSRussell | Wave 40 |
 | 33 | Testing and operations | Demo hosting provider (PRD open question 4); linked to testing OQ-8 and backend Q12. | @BenjaminSRussell | Wave 1 |
 | 34 | Platform and stack | Resolved: health paths are `/healthz` and `/readyz` (testing OQ-10). | @zdemanche | Wave 1 |
-| 35 | Security and compliance | Resolved (C13): step-up authentication is required through the OPA obligation `requires_acr: mfa`, and services re-verify the JWT (frontend Q14). | @zdemanche | Wave 2 |
+| 35 | Security and compliance | Resolved (C13): step-up authentication is required through the OPA obligation `requires_acr: mfa`, and services re-verify the JWT (frontend Q14). **Superseded by ADR-0006 (v1.0):** step-up is an auth-age check on `X-Depot-Auth-Time`, and services trust gateway headers instead of re-verifying the JWT. | @zdemanche | Wave 2 |
 | 36 | Platform and stack | Resolved: Python deployables beyond `manufacturing` are permitted by the conventions (backend Q14), and Node 24 LTS is within "20+" (backend Q19). | @BenjaminSRussell | Wave 1 |
 | 37 | Platform and stack | Temporal namespace per tenant versus a shared namespace with tenant search attributes (eventing OQ-7); affects tenant isolation of workflow data. | @zdemanche | Wave 4 |
 | 38 | Domain and posting semantics | Valuation-reservation TTL (30 min), cost-layer lock scope and `valuation-reservation-sweeper` cadence (every minute): benchmark at wave 16 before fixing (backend §6.4 rule 5, data EN-077). | @zdemanche | Wave 16 |

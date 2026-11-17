@@ -1,31 +1,67 @@
 # Sales
 
+**As built (v1.0):** six Go services and `services/prediction-py` in place of the designed `sales` (Go) and `sales-ts`
+(ADR-0008). Intercompany is the Go service `services/intercompany` (ledger component), not a saga hosted in sales; the
+S4 saga is not built (D13). The customer portal is `services/customer-portal-ts` (portal-bff component).
+
 ## Purpose & Boundaries
-Context `sales` (database `depot_sales`; waves 26-30). Deployables `sales` (Go: pricing, ATP, credit, settlement, rev rec) and `sales-ts` (order intake adapters, customer portal; hosts the intercompany IC saga worker). Owns conditions, quotations, orders, shipments, invoices, revenue schedules, AR, cash application, collections, RMA, rebates. Posts customer invoice, credit note, revenue schedule lines and cash application itself (sync `ledger.Post`); COGS is posted by inventory.
+Quotations, orders, ATP, holds, credit profiles and exposure, returns, agreements (sales); price procedures, condition
+records, promotions, rebates, royalties, commissions (pricing); invoices, credit notes, subscriptions, self-billing
+(billing); AR open items, payments, cash application, lockbox, dunning, disputes, deductions, statements (receivables);
+revenue contracts, allocations and recognition runs (revrec); release, waves, packing slips, shipments, drop-ships,
+manifests, packaging (fulfillment); payment-date prediction for AR (prediction-py).
+
+## Services
+| Directory | Lang | Prefix | Outbox relayed |
+|---|---|---|---|
+| `services/sales` | Go | `/v1/sales` | yes |
+| `services/pricing` | Go | `/v1/pricing` | no (D2) |
+| `services/billing` | Go | `/v1/billing` | yes |
+| `services/receivables` | Go | `/v1/receivables` | yes |
+| `services/revrec` | Go | `/v1/revrec` | no |
+| `services/fulfillment` | Go | `/v1/fulfillment` | yes |
+| `services/prediction-py` | Python | `/api/v1` (D22); own database | no |
 
 ## Interfaces
-Prefix `/v1/sales/`: `prices:resolve` (explain=true, p95 < 20 ms 10-line order), `quotations/{id}:send|:convert`, `sales-orders/{id}:confirm` (ATP, credit, holds; emits `salesorder.confirmed.v1`), `:hold`, `:release-hold` (credit holds need `ReleaseCreditHold`), `:release`, `:cancel`, `atp:check` (lock-free), `credit-checks` (Svc), `shipments/{id}:pick|:pack|:post` (gap-free `PS`; emits `shipment.posted.v1`), `invoice-runs` (202), `customer-invoices/{id}:post` (ledger.Post + AR open item; emits `invoice.posted.v1`) / `:credit` (separate credit-note sequence `CN`), `revenue-recognition-runs`, `revenue-contracts/{id}:allocate` (by SSP), `cash-applications:auto-match` (202), `cash-applications/{id}:apply` (emits `payment.applied.v1`), `lockbox-files` (BAI2), `dunning-runs`, `collection-cases/{id}:dispute`, `return-orders/{id}:authorize|:receive|:credit`, `rebate-agreements/{id}:settle`, `order-intake/{channel}` (Shopify, EDI 850 mapped, API), `GET /reconciliation/{check}` (ar, deferred-revenue).
-- Customer portal `/v1/sales/portal/*` (customer scope): invoices, orders, payments (card/ACH via provider; card data never touches Depot), returns (RMA `requested`), cases (until wave 45 `/v1/projects/portal/cases`), statements `?asOf=`.
+- Per-service OpenAPI in `contracts.json`; pricing exposes `resolve` and `simulate` (the designed `prices:resolve`), sales exposes `atp` and `credit-exposure` (designed `atp:check`, `credit-checks`).
+- Customer self-service routes (`customer-portal` resources in sales, billing and receivables) are called by `services/customer-portal-ts` with service tokens.
+- receivables also takes the payment provider's webhook (`/webhooks/v1/stripe`, signed with `Stripe-Signature`) through its own Gateway `depot-payments-webhook` (`deploy/gateway/payments-webhook`), with no JWT filter.
+- Posting: billing and receivables post invoices, credit notes and cash through `ledgerclient`.
 
 ## Data Ownership
-EN-056..060: condition_type, access_sequence(+step), pricing_procedure(+step), `price_condition` (access_key_hash is the ONLY lookup column; IX-SL-01 hot path), quotation, `sales_order` (status draft|quoted|open|confirmed|partially_shipped|shipped|invoiced|closed|cancelled; hold_status none|credit|manual|compliance; channel ui|api|edi|portal|ecommerce|agent) + line (supply_type stock|make_to_order|drop_ship|purchase_to_order), hold, atp_result, `shipment`(+line; F; cogs_journal_entry_id, cogs_gl_seq, gl_posting_status, cogs_amount set by consumer `sales-shipment-cogs`), `customer_invoice` (F; invoice_type invoice|credit_note|debit_note|proforma; rendered_document_key + rendered_sha256 object-lock copy; e_invoice_status), performance_obligation, revenue_schedule(+line), ar_open_item, cash_application (F, gap-free receipt), collection_case, return_order, rebate_agreement/accrual. Indexes IX-SL-01..27. Ref tables `sales_ref.*` (customer, product, on_hand_summary, atp_supply).
+Orders and lines, quotations, holds, credit profiles (sales); condition records and procedures (pricing); invoices and
+credit notes with gap-free numbers (billing); open items, payments, disputes (receivables); sales seals sensitive fields with
+`fieldcrypt` (ADR-0011); revenue schedules (revrec); shipments, packing slips, SSCC register (fulfillment);
+prediction features and scores (prediction-py, the only stateful Python service). *Target:* `shipment.cogs_journal_entry_id`,
+`gl_posting_status` and `shipment_line.cogs_amount` set from `inventory.transaction.posted` (blocked by D2, D6).
 
 ## Events Produced
-`sales.salesorder.confirmed.v1`, `sales.shipment.posted.v1` (COGS posted by inventory on consuming), `sales.invoice.posted.v1` (sourceDocument for project proposal/service work order), `sales.payment.received.v1` (agent trigger), `sales.payment.applied.v1`, `sales.dunningletter.issued.v1`, `sales.pricecondition.changed.v1`, `sales.returnorder.received.v1`.
+`depot.sales.*`, `depot.pricing.*` (not relayed), `depot.billing.invoice`, `depot.receivables.*`, `depot.revrec.*`
+(not relayed), `depot.fulfillment.*` (including `depot.fulfillment.packingslip`, the COGS trigger for inventory).
+prediction-py names one type in prose but declares no channel. *Target (D6):* `sales.shipment.posted.v1`,
+`sales.invoice.posted.v1`, `sales.salesorder.confirmed.v1`, `sales.payment.applied.v1` with the designed payloads;
+`sales.shipment.reversed.v1` is an open review item (R4-3).
 
 ## Events Consumed
-`sales-shipping` (warehouse.load.shipped -> calls own shipments/{id}:post), `sales-shipment-cogs` (inventory.transaction.posted referenceType=shipment; G), `sales-billing` (shipment.posted, returnorder.received), `sales-ar`/`sales-revrec`/`sales-collections` (invoice.posted, payment.applied), `sales-project-invoice` (projects.invoiceproposal.approved), `sales-service-invoice` (projects.serviceworkorder.completed), `sales-credit` (customer.creditchanged), `sales-atp`, `sales-ref-onhand-summary`, `sales-reservations`, `sales-fulfillment`, `sales-qualityhold`, `sales-pricecache`, `sales-party-ref`, `sales-product-ref`, `sales-partymerge`, `sales-fx`, `sales-reversal`, `sales-ar-bank`, `sales-periodcache`, `sales-approvals`, `sales-numbersequence`, `ic-saga-bridge`.
+fulfillment receives `depot.sales.order` and `depot.sales.orderhold`; revrec receives `depot.billing.invoice`.
+billing, receivables and pricing have consumer code (`deploy/kafka/billing-consumer.yaml`,
+`deploy/kafka/receivables-consumer.yaml`). prediction-py has a `KafkaUser` (`deploy/kafka/prediction-consumer.yaml`).
+*Target:* `sales-shipment-cogs` from `inventory.transaction.posted` (D2, D6).
 
 ## Dependencies
-internal: ledger, inventory, warehouse, party, product, projects, treasury, integration (EDI/e-invoice). external: tax provider, payment processor (portal), e-invoice access points, carrier adapters.
+internal: ledger (`ledgerclient`, tax), inventory (ATP, COGS), party (customers), product, warehouse (shipping),
+platform (numbering, workflow-ts), portal-bff. external: payment provider (webhook), tax providers through tax.
 
 ## Gotchas & Constraints
-- Idempotency key for engine-created docs: `<consumer-id>:<event id>`; invoice creation from proposals keyed that way.
-- Credit/hold semantics, ATP never over-promises (promised <= available); NFR-P4 500 orders/min p99 < 500 ms.
-- Intercompany saga S4 (hosted in sales-ts): workflow id `ic-mirror:<tenantid>:<salesOrderId>`; pairId UUIDv5 of source doc id; timers 5 day mirror PO, 48 h pair-match; posted docs immutable, corrections via credit note mirrored.
-- Shipment link-back: inventory never writes the shipment; sales consumer writes cogs_* columns (F allow-list). Billing and ASN do not wait for COGS.
-- Pivot S2: `shipment.posted` — no backward compensation; correction via return or reversal packing slip (R4-3 proposes `shipment.reversed.v1`).
-- Cash application: model never lifts a set to >= 85 auto-apply band (BR-30.1, assumed companion PRD).
+- COGS is posted by inventory from the packing slip; sales never writes inventory and inventory never writes the shipment.
+- prediction-py uses `/api/v1` and its own problem shape (D22, D11).
+- HPA only on pricing among these charts (D18).
+
+## Target — not built
+- Relays for pricing, revrec and prediction-py (D2); designed payloads (D6); COGS link-back.
+- S4 intercompany mirror-document saga (D13).
+- Designed `sales-ts`: superseded by ADR-0008.
 
 ## Source Sections
-- Backend 5.12 (790-831), 3.4 (337-338); Data EN-056..060 (2972-3036); Events 3.8 (4054-4065), 9.2 S2 (4489-4532), 9.4 S4 (4586-4645); consumer rows (4219-4223, 4299-4302, 4313, 4316, 4322)
+- Architecture §3.2 (sales row), §3.4 packing slip and invoice rows, §5.12 sales endpoints (target); data §9 sales; events §3.8, §9.
+- ADR-0008, ADR-0011; delta §1.1 (sales services), §2.1 (sales row), §2.2 (sales payloads).

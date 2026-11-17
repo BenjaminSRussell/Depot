@@ -1,41 +1,76 @@
-# Platform (platform Go + platform-ts)
+# Platform
+
+**As built (v1.0):** the designed `platform` (Go) and `platform-ts` deployables are split into twelve Go capability
+services plus the one Temporal worker `workflow-ts` (ADR-0008). There is no `/v1/platform/*` API (0 of 104 designed
+platform endpoints exist); each service has its own prefix.
 
 ## Purpose & Boundaries
-Context `platform` (database `depot_platform`; phases 0-1, waves 1-6, 48). Go deployable `platform` (number sequences, audit chain, org structure); TS deployable `platform-ts` (metadata registry, workflow, jobs, policy compiler, admin, SCIM facade, reconciliation-run workflow, notifications). Owns tenants, users, roles/duties/privileges, SoD, entity metadata, number sequences (DEFINITIONS only), audit chain, workflow/job definitions, attachments, legal entities, operating units, sites, warehouses, hierarchies, fiscal calendars, ISO data, UoM, parameters, country packs, privacy requests. `web-bff` sessions are stored in `depot_platform`.
+Tenants and users, roles, duties and SoD, entity metadata, number sequences, audit, batch jobs and notifications,
+organization structure (legal entities, sites, calendars), compliance and privacy, operations, country packs, search,
+printing and the release probe. Period control belongs to ledger (close), calendars to org.
+
+## Services
+| Directory | Lang | Role | Outbox relayed |
+|---|---|---|---|
+| `services/identity` | Go | users, tenants, legal entities, roles and duty assignments (`/v1/identity`, `/v1/authz`, `/v1/tenants`), signed OPA bundle, SCIM | no |
+| `services/metadata` | Go | entity metadata registry and generated data API (`/v1/metadata`, `/v1/data/{entity}`); code generator `cmd/entitygen` | yes |
+| `services/numbering` | Go | number sequences allocated over HTTP (`/v1/numbering/sequences`, ADR-0015) | no |
+| `services/audit` | Go | hash-chained change log fed over HTTP, PHI read log (`/v1/audit`) | no |
+| `services/batch` | Go | batch jobs and runs, notifications, inbox, workflow definitions and instances, event catalogue (`/v1/batch`, `/v1/notify`, `/v1/inbox`, `/v1/workflows`, `/v1/events`) | yes |
+| `services/org` | Go | legal entities, operating units, sites, warehouses, hierarchies, fiscal calendars, addresses, currencies, UoM, demo company (`/v1/org`) | no |
+| `services/compliance` | Go | SoD rules, simulation and campaigns, privacy requests, holds and erasure, audit policies, security incidents, trade screening (`/v1/sod`, `/v1/privacy`, `/v1/compliance`, `/v1/security`, `/v1/trade`) | no |
+| `services/ops` | Go | SLOs, licences, capacity, costs, failover, break-glass, region health `GET /healthz/region` (`/v1/ops`) | yes |
+| `services/localization` | Go | country packs and statutory content from the repo (`/v1/localization`); no database | n/a |
+| `services/search` | Go | global search over its own trigram index fed by events (`/v1/search`, ADR-0013) | n/a |
+| `services/print` | Go | document templates, printers, routing rules (`/print/v1`, D22) | no |
+| `services/platform-health` | Go | the `hello-ledger` release probe (`/v1/hello-ledger`, `/v1/platform/releases`) | no |
+| `services/workflow-ts` | TS | the one Temporal worker: approvals, party merge, ECO, CAPA, tender, payment run, budget plan, agent runs; event-schema compatibility gate | n/a |
 
 ## Interfaces
-Prefix `/v1/platform/...` (see also `/bff/...` in web-bff, `/scim/v2/*`). Key groups:
-- Tenants: `GET/POST /tenants` (POST = 202, provisions realm, RLS seeds, Kafka principals, Vault namespace, buckets), `/tenants/current`, `/tenants/{id}:suspend|:resume|:offboard` (Svc:`tenant.admin`; offboard = export then crypto-shred).
-- Users/service-accounts/devices: `/users` (+`:deactivate|:reactivate`), `/service-accounts` (+`:rotate-secret`), `/devices` (+`:revoke`); SCIM 2.0 `/scim/v2/Users|Groups|ServiceProviderConfig|ResourceTypes|Schemas` (Svc:`scim.provision`).
-- Authz: `/privileges`, `/duties`, `PUT /duties/{code}/privileges`, `/roles`, `PUT /roles/{code}/duties` (SoD gate: block high, warn medium/low), `/user-roles` (on SoD conflict `403 sod_conflict` or mitigation workflow, assignment stays inactive), `/user-roles/effective`, `POST /authz:check` (batch), `GET /policy-bundles/current`, `/sod-rules` (+`:evaluate`), `/sod-conflicts`, `/access-certifications` (uncertified roles expire after 30 days).
-- Metadata: `/entity-definitions` (+`/{name}:publish` additive-only, emits `entitydefinition.changed.v1`), `/entity-extensions`, `/enum-definitions`, `/form-definitions`, `/saved-views` (+`:share`), `/message-catalog`.
-- Numbering/org: `/number-sequences` (+`:stop|:resume`, `/preview`, `:allocate-block` blocks of 100 non-continuous), `/legal-entities`, `/hierarchies`, `/fiscal-calendars/{id}:generate-periods`, `/uom:convert`, `/reference-data/{set}`, `/parameters/{module}`, `/feature-flags`.
-- Workflow/tasks/jobs: `/workflow-definitions` (+`:publish`), `/workflow-instances` (+`:cancel|:signal`), `/tasks` (`:claim|:complete|:delegate|:complete-by-token` Sig single-use token), `/notifications` (+`:stream` SSE), `/notification-channels/{kind}`, `/jobs` (+`/errors`, `/events` SSE, `:cancel`, `:retry`), `/batch-schedules` (+`:run-now`).
-- Audit/attachments/privacy: `/audit-entries` (+`:export`), `/audit-chain:verify` (202), `/audit-chain/head`, `/attachments` (<=25 MiB, ClamAV scan before visible, pre-signed PUT), `/privacy-requests` (30-day SLA, `:fulfill`), `/country-packs`, `/electronic-reporting-formats`, `/compliance/controls`, `POST /graphql` (read-only, depth <=8, cost-limited), `GET /search?q=`.
-- Reconciliation: `reconciliation-run` Temporal workflow in platform-ts calls each context's `/reconciliation/{check}`.
+- Per-service OpenAPI is authoritative (`contracts.json` lists every operation and duty). Route exceptions at the gateway: `inbox` → batch, `data` → metadata.
+- Authorization data: duties and roles in identity; the bundle at `GET /v1/identity/policy/bundle` (internal listener). SoD: `/v1/sod/rules`, `/v1/sod/simulate`, `/v1/sod/evaluations` in compliance.
+- Approvals: `workflow-ts` decision routes (`/v1/workflows/*`, architecture §7.2); services answer `approval_required` where wired. No `/v1/platform/workflow-instances`, `/v1/platform/tasks` or `/v1/platform/jobs`.
+- Numbering: hr and party allocate numbers from `services/numbering` over HTTP; fiscal numbers stay in the posting services until gap-free reserve/confirm/void exists (ADR-0015, D21).
+- Audit: `POST /v1/audit/changes` (only engineering posts), `/v1/audit/reads` (PHI read log written by hr).
 
 ## Data Ownership
-Tables (EN-001..012): tenant (id=tenant id, slug, region, tier starter|professional|enterprise, keycloak_realm, vault_namespace), app_user (principal_type human|service|agent), privilege (PK code), duty/role/duty_privilege/role_duty/sod_rule (PK (tenant_id, code); shipped rows use nil tenant `00000000-0000-0000-0000-000000000000`), user_role (surrogate id; UQ with COALESCE(legal_entity_id, nil-uuid)), entity_definition/field/enum/extension, number_sequence (scope tenant|legal_entity|legal_entity_fy|site; mode continuous|non_continuous|external), audit_entry (partitioned monthly on occurred_on; chain_seq gap-free per tenant; hash = sha256(prev_hash || canonical_json || sha256(pii_payload)); retention_class fiscal_7y|standard_3y|agent_7y), audit_chain_head, legal_entity, operating_unit/hierarchy/hierarchy_node (GiST exclusion), site/warehouse, fiscal_calendar/period, uom/uom_conversion, iso_currency/country, workflow_definition, attachment (size_bytes <= 26214400), job (job_type import|export|batch|migration|projection_rebuild|partition_maintenance|retention; status queued|running|succeeded|failed|cancelled).
+Each stateful service has its own database (`depot_identity`, `depot_metadata`, `depot_numbering`, `depot_audit`,
+`depot_batch`, `depot_org`, `depot_compliance`, `depot_ops`, `depot_search`, `depot_print`, ...). Audit rows are
+append-only and hash-chained (trigger rejects updates and deletes). compliance seals sensitive fields with
+`fieldcrypt`. Designed EN-001..012 (tenant, app_user, role/duty/privilege, entity_definition, number_sequence,
+audit_entry with monthly partitions, legal_entity, fiscal_calendar) is the target shape; most of it now lives across
+identity, metadata, numbering, audit and org.
 
 ## Events Produced
-`platform.entitydefinition.changed.v1` (+snapshot), `platform.user.provisioned.v1`, `platform.workflowtask.completed.v1`, `platform.legalentity.created.v1` (+snapshot), `platform.numbersequence.changed.v1` (+snapshot), `ledger.reconciliation.completed.v1` (emitted by platform-ts workflow `reconciliation-run`, source `/depot/ledger/reconciliation`).
+Topics are per service (`depot.metadata.entity`, `depot.org.*`, `depot.privacy.*`, `depot.sod.*`, `depot.batch.run`,
+`depot.notify.message`, `depot.workflow.*`, `depot.ops.*`, `depot.numbering.sequence`, `depot.audit.change`,
+`depot.print.job`, `depot.trade.*`); the full list is in `contracts.json`. Only batch, metadata and ops are relayed to
+Kafka; identity, numbering, audit, org, compliance, print and platform-health write an outbox nobody relays (D2).
+*Target (D6):* `platform.workflowtask.completed.v1` with the designed payload, `platform.entitydefinition.changed.v1`,
+`platform.legalentity.created.v1`, `platform.numbersequence.changed.v1`.
 
 ## Events Consumed
-`platform-codegen`/`platform-shell-bff` (entitydefinition.changed), `platform-audit-events` (user, journalentry, agents.*), `platform-numbersequence` (legalentity.created -> default sequences), `platform-notifications` (workflowtask.completed, intercompanypair.mismatched, inventory.transaction.rejected, agents.approval.requested, agents.budget.threshold, ledger.reconciliation.completed), `platform-valuation-rejections` (creates workflowtask type `valuation_rejection`, assignee cost accountant, SLA 1 business day; completes on cancelled / posted with matching reservationId). Audit consumer reads Debezium CDC + `<ctx>.audit_event`; remains SINGLE writer of audit_entry chain_seq and hash.
+`workflow-ts` consumes `depot.platform.entitydefinition` (no AsyncAPI declares it; metadata publishes
+`depot.metadata.entity` — a dead subscription), `depot.tms.load` and `depot.tms.tender`. search consumes domain events
+(not declared in AsyncAPI).
 
 ## Dependencies
-internal: platform-kernel, edge-identity, eventing-backbone, ledger (period/posting refs). external: Keycloak Admin API, Temporal, Vault, S3-compatible object storage (object-lock anchors), ClamAV, Kafka.
+internal: platform-kernel, edge-identity, eventing-backbone. external: Keycloak admin API (identity), Temporal
+(`workflow-ts`, own Postgres in `deploy/temporal-postgres`), Kafka, object storage.
 
 ## Gotchas & Constraints
-- Gap-free counters do NOT live here: each posting context keeps `<ctx>.number_sequence_counter`; platform owns definitions and propagates via `numbersequence.changed`. Non-continuous uses block allocation.
-- Period control belongs to ledger, calendars to platform (Q1 settled).
-- P3 audit: `*_secure` excluded from CDC; P3 changes/reveals/exports audited via `<ctx>.audit_event` with encrypted `pii_payload` (per-subject key); erasure = crypto-shred key, chain still verifies.
-- Metadata additive-only; extension fields stored in `ext jsonb`, validated at runtime against published EntityDefinition version.
-- Job statuses seen by API: queued|running|succeeded|failed|cancelled|partial. Long ops return 202 `{jobId, statusUrl: /v1/platform/jobs/{id}, estimatedCompletionSeconds}` + Location.
-- Policy bundle compiles roles, duties, privileges, grants, SoD rules, agent allow-lists/kill switches, posting-source grants and route->privilege table (from `x-depot-duty`).
-- Security detections job over audit_entry emits `depot_actor_anomaly_total` and `depot_cross_le_access_total`.
-- Temporal history shard count 512 fixed at install.
+- Platform has no single API or database any more; "platform" is a grouping (ADR-0008).
+- Number allocation is a synchronous peer call; an HTTP allocation can burn a gap-free number (D21).
+- The audit service is not fed from CDC, so most changes are not in the chain (D3); eleven services keep their own audit tables.
+- workflow-ts copies its own service-token and helper code (`services/workflow-ts/src/serviceToken.ts`); no TS kernel.
+- `services/platform-health` is the only workload prod deploys (as `hello-ledger`, D4).
+
+## Target — not built
+- CDC-fed, hash-chained audit trail with `depot.ctx` actor and trace, head anchoring to object-locked storage (D3).
+- Shared long-running-work contract `/v1/platform/jobs` with `statusUrl`, and a live-update stream for the shell (D29).
+- Relay for every platform outbox (D2); legal-entity policies in audit (D17); gap-free numbering protocol (D21).
+- Designed v0.x API under `/v1/platform/*` (tenants, users, SCIM, policy bundles, entity definitions, tasks, jobs, attachments, privacy requests), superseded by the per-service APIs above.
 
 ## Source Sections
-- Backend 3.2 inventory row (283-285), 5.5 (422-570), 7.1-7.2, 7.10 (1237-1241), 7.16 (1319-1322), 7.18 (1328-1337)
-- Data EN-001..012 (1915-2119), 6.1 audit (2017-2053); Events 3.2 (3984-3992), consumer rows (4257-4261, 4300); Backend 5.20 reconciliation (1004)
+- Architecture §3.2 inventory (platform row), §5.5 platform endpoints (target), §7.2 authorization, §7.10 long-running work, §7.16 audit and PII, §7.18 data layer; data EN-001..012; events §3.2.
+- ADR-0006, ADR-0008, ADR-0013, ADR-0015; delta §1.1 (platform services), §2.1 (platform row).
