@@ -267,8 +267,8 @@ The edge is the AS2 Gateway `depot-as2` (`deploy/gateway/as2-*.yaml`, see `deplo
 `https://as2.<env>.depot.dev`, its own Gateway so the depot-api JWT SecurityPolicy cannot apply,
 one route (`POST /as2/v1/` to the `edi-as2` Service), TLS 1.2 or newer, an 8 MiB request buffer and
 a rate limit per client address. The chart's NetworkPolicy admits only that Gateway's Envoy proxies to
-the AS2 port (`networkPolicy.as2Gateway`); the API and metrics ports keep their previous reach unless
-`networkPolicy.apiFrom` names peers.
+the AS2 port (`networkPolicy.as2Gateway`); the API and metrics ports are covered by the generated default-deny
+policy (`ingressPolicy`, `deploy/scripts/gen_networkpolicies.py`): the depot-api Gateway, the generated peers, Prometheus.
 
 ## Slice 8 scope: inbound EDIFACT and refusal acknowledgments (#483)
 

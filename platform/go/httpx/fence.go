@@ -22,7 +22,9 @@ import (
 //
 //	DEPOT_REGION_FENCE_FILE  a file holding the region role (FENCED, PRIMARY, PASSIVE), for example the
 //	                           depot-region ConfigMap's REGION_ROLE key mounted as a file. Missing file: not fenced.
-//	DEPOT_REGION_FENCE_URL   the ops service's /healthz/region of this region; its JSON body names the role.
+//	DEPOT_REGION_FENCE_URL   the ops service's /healthz/region of this region, read through Gateway depot-region in Kubernetes
+//	                         (the charts refuse the ops Service URL: its NetworkPolicy admits only the gateways); its JSON
+//	                         body names the role.
 //	DEPOT_REGION_FENCE_INTERVAL  poll interval, default 5s (minimum 1s).
 //
 // The role is read by one background goroutine every interval and cached in an atomic, so a request never waits on

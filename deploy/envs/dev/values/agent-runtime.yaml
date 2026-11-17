@@ -1,8 +1,6 @@
 # agent-runtime in dev: callers' bearer tokens are verified against the same realm and key set the edge gateway uses
-# (deploy/gateway/securitypolicy.yaml, ConfigMap depot-dev-jwks). Only the edge gateway's namespace reaches the API.
+# (deploy/gateway/securitypolicy.yaml, ConfigMap depot-dev-jwks).
 auth:
   issuer: https://idp.dev.depot.dev/realms/dev
   audience: depot-api
   jwksConfigMap: { name: depot-dev-jwks, key: jwks }
-networkPolicy:
-  ingressNamespaces: [envoy-gateway-system]
