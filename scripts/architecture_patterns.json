@@ -1,0 +1,595 @@
+{
+  "description": "Pattern contracts carried over from the v2 compile (59), with the as-built verdict from docs/sdlc/run-1/architecture-delta.md section 2.2 (match, drift or missing) and the gap (D-id) or ADR that explains it. source must name a heading in docs/architecture.compiled/. Input to scripts/compile_architecture.py.",
+  "patterns": [
+    {
+      "id": "event-envelope",
+      "kind": "event-envelope",
+      "severity": "blocker",
+      "mustContain": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "dataschema", "tenantid", "correlationid", "causationid", "traceparent", "actor", "sequence", "data"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/eventing-backbone.md#Interfaces",
+      "asBuilt": {"verdict": "drift", "refs": ["D19"], "note": "no dataschema, traceparent or sequence; adds legalentityid (platform/go/events)"}
+    },
+    {
+      "id": "event-type-pattern",
+      "kind": "event-type",
+      "severity": "blocker",
+      "mustContain": [],
+      "mustNotContain": [],
+      "mustMatch": ["dev\\.depot\\.[a-z]+\\.[a-z0-9]+\\.[a-z0-9]+\\.v[0-9]+"],
+      "source": "components/eventing-backbone.md#Interfaces",
+      "asBuilt": {"verdict": "match", "refs": [], "note": "kernel regex equals the pattern"}
+    },
+    {
+      "id": "topic-naming",
+      "kind": "key-shape",
+      "severity": "major",
+      "mustContain": [],
+      "mustNotContain": [],
+      "mustMatch": ["depot\\.[a-z]+\\.[a-z]+"],
+      "source": "components/eventing-backbone.md#Interfaces",
+      "asBuilt": {"verdict": "drift", "refs": ["ADR-0008"], "note": "topics are per service (depot.<service>.<entity>); a few hyphenated or four-segment names"}
+    },
+    {
+      "id": "endpoint-prefix-v1",
+      "kind": "endpoint-prefix",
+      "severity": "blocker",
+      "mustContain": [],
+      "mustNotContain": [],
+      "mustMatch": ["['\\\"`]/v1/"],
+      "source": "spine.md#Naming Conventions",
+      "asBuilt": {"verdict": "drift", "refs": ["D22"], "note": "non-/v1 prefixes in agents-ts, edi, print, prediction-py, mcp-ts"}
+    },
+    {
+      "id": "problem-details-fields",
+      "kind": "error-envelope",
+      "severity": "blocker",
+      "mustContain": ["type", "title", "status", "detail", "instance", "code", "serviceCode", "traceId", "errors", "application/problem+json"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "spine.md#Cross-Cutting Non-Negotiables",
+      "asBuilt": {"verdict": "drift", "refs": ["D11"], "note": "no serviceCode; errors is a map; traceId is the chi request id"}
+    },
+    {
+      "id": "error-codes",
+      "kind": "error-envelope",
+      "severity": "major",
+      "mustContain": ["unbalanced_entry", "period_closed", "dimension_invalid", "validation_failed", "unique_violation", "state_transition_invalid", "conflict_version", "idempotency_key_reuse", "idempotency_in_progress", "forbidden_duty", "forbidden_tenant", "sod_conflict", "approval_required", "inventory_insufficient", "rate_limited", "upstream_unavailable"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/ledger.md#Interfaces",
+      "asBuilt": {"verdict": "drift", "refs": ["D11"], "note": "service codes sit in code (AUTH-0001, COM-0500)"}
+    },
+    {
+      "id": "auth-jwt",
+      "kind": "auth",
+      "severity": "blocker",
+      "mustContain": ["depot-api", "RS256"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/platform-kernel.md#Interfaces",
+      "asBuilt": {"verdict": "match", "refs": ["ADR-0006"], "note": "aud depot-api, RS256, validated at Envoy and by identity JWTVerifier; services trust X-Depot-* headers"}
+    },
+    {
+      "id": "auth-duty-annotation",
+      "kind": "auth",
+      "severity": "blocker",
+      "mustContain": ["x-depot-duty"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "spine.md#Naming Conventions",
+      "asBuilt": {"verdict": "match", "refs": [], "note": "x-depot-duty on about 98% of operations"}
+    },
+    {
+      "id": "auth-opa-decision",
+      "kind": "auth",
+      "severity": "major",
+      "mustContain": [],
+      "mustNotContain": [],
+      "mustMatch": ["depot[./]authz"],
+      "source": "components/platform-kernel.md#Interfaces",
+      "asBuilt": {"verdict": "drift", "refs": ["ADR-0006"], "note": "Rego package authz, allow only; OPA only in identity and the single-host gateways"}
+    },
+    {
+      "id": "auth-step-up",
+      "kind": "auth",
+      "severity": "major",
+      "mustContain": ["requires_acr"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/edge-identity.md#Interfaces",
+      "asBuilt": {"verdict": "missing", "refs": ["ADR-0006"], "note": "no requires_acr; auth-age check on X-Depot-Auth-Time instead"}
+    },
+    {
+      "id": "auth-headers",
+      "kind": "auth",
+      "severity": "major",
+      "mustContain": ["X-Depot-Subject-Token", "Depot-Legal-Entity", "X-Depot-Tenant"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/ledger.md#Interfaces",
+      "asBuilt": {"verdict": "drift", "refs": ["ADR-0006", "ADR-0010"], "note": "X-Depot-Legal-Entity / X-Depot-LegalEntity; X-Depot-Service-Token replaces the subject token"}
+    },
+    {
+      "id": "tenant-guc",
+      "kind": "other",
+      "severity": "blocker",
+      "mustContain": ["depot.tenant_id", "depot.legal_entity_scopes"],
+      "mustNotContain": ["app.tenant_id"],
+      "mustMatch": [],
+      "source": "components/platform-kernel.md#Gotchas & Constraints",
+      "asBuilt": {"verdict": "match", "refs": [], "note": "dbx sets depot.tenant_id per transaction"}
+    },
+    {
+      "id": "posting-idempotency-key",
+      "kind": "key-shape",
+      "severity": "blocker",
+      "mustContain": [],
+      "mustNotContain": [],
+      "mustMatch": ["post:[a-z]+:[a-z]+:"],
+      "source": "components/ledger.md#Interfaces",
+      "asBuilt": {"verdict": "drift", "refs": ["D9"], "note": "productcost, close, mobile and planning use other keys"}
+    },
+    {
+      "id": "valuation-reservation-key",
+      "kind": "key-shape",
+      "severity": "major",
+      "mustContain": ["document_type", "document_id", "purpose"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/inventory.md#Data Ownership",
+      "asBuilt": {"verdict": "missing", "refs": ["D30"], "note": "no valuation_reservation"}
+    },
+    {
+      "id": "posting-request-registry",
+      "kind": "key-shape",
+      "severity": "major",
+      "mustContain": ["posting_request", "idempotency_key", "journal_entry_id", "document_number"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/ledger.md#Data Ownership",
+      "asBuilt": {"verdict": "missing", "refs": ["D30"], "note": "no posting_request registry"}
+    },
+    {
+      "id": "rls-policies",
+      "kind": "other",
+      "severity": "blocker",
+      "mustContain": ["tenant_access", "legal_entity_scope"],
+      "mustNotContain": [],
+      "mustMatch": ["FORCE\\s+ROW\\s+LEVEL\\s+SECURITY"],
+      "source": "spine.md#Cross-Cutting Non-Negotiables",
+      "asBuilt": {"verdict": "drift", "refs": ["D17"], "note": "policy names follow the design (<table>_tenant_access, <table>_legal_entity_scope); legal-entity policy missing in some services"}
+    },
+    {
+      "id": "retention-audit-classes",
+      "kind": "retention-ttl",
+      "severity": "major",
+      "mustContain": ["retention_class", "fiscal_7y", "standard_3y", "agent_7y"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/platform.md#Data Ownership",
+      "asBuilt": {"verdict": "missing", "refs": ["D24"], "note": "no fiscal_7y, standard_3y or agent_7y"}
+    },
+    {
+      "id": "retention-idempotency",
+      "kind": "retention-ttl",
+      "severity": "major",
+      "mustContain": ["expires_at", "locked_until"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/platform-kernel.md#Interfaces",
+      "asBuilt": {"verdict": "drift", "refs": ["D12"], "note": "kernel DDL lacks state, lease and expiry; leases only in close, processmfg, receiving"}
+    },
+    {
+      "id": "retention-valuation-reservation",
+      "kind": "retention-ttl",
+      "severity": "major",
+      "mustContain": ["expires_at", "valuation_reservation"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/inventory.md#Data Ownership",
+      "asBuilt": {"verdict": "missing", "refs": ["D30"], "note": "entity absent"}
+    },
+    {
+      "id": "audited-reveal",
+      "kind": "endpoint-annotation",
+      "severity": "blocker",
+      "mustContain": ["audit_event", "pii_payload"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/platform-kernel.md#Data Ownership",
+      "asBuilt": {"verdict": "missing", "refs": ["D3"], "note": "no pii_payload audit field; only PHI read auditing"}
+    },
+    {
+      "id": "audited-export",
+      "kind": "endpoint-annotation",
+      "severity": "major",
+      "mustContain": ["audit_event", "depot_export_rows_total"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/platform.md#Gotchas & Constraints",
+      "asBuilt": {"verdict": "missing", "refs": [], "note": "no depot_export_rows_total metric"}
+    },
+    {
+      "id": "approval-required-workflow",
+      "kind": "endpoint-annotation",
+      "severity": "major",
+      "mustContain": ["approval_required", "workflow-instances"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/party.md#Interfaces",
+      "asBuilt": {"verdict": "drift", "refs": [], "note": "approval_required exists; approvals are workflow-ts /v1/workflows/*"}
+    },
+    {
+      "id": "idempotency-key-custom-methods",
+      "kind": "endpoint-annotation",
+      "severity": "blocker",
+      "mustContain": ["Idempotency-Key"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/platform-kernel.md#Interfaces",
+      "asBuilt": {"verdict": "drift", "refs": ["D12"], "note": "Idempotency-Key declared on 44% of mutating operations"}
+    },
+    {
+      "id": "if-match-concurrency",
+      "kind": "endpoint-annotation",
+      "severity": "major",
+      "mustContain": ["If-Match", "ETag", "conflict_version"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/platform-kernel.md#Interfaces",
+      "asBuilt": {"verdict": "drift", "refs": [], "note": "If-Match in 35 of 64 specs"}
+    },
+    {
+      "id": "payload-procurement.productreceipt.posted",
+      "kind": "event-payload",
+      "severity": "blocker",
+      "mustContain": ["productReceiptId", "documentNumber", "legalEntityId", "vendorId", "purchaseOrderId", "postingDate", "lines"],
+      "mustNotContain": ["productReceiptId: null", "postingDate: null"],
+      "mustMatch": [],
+      "source": "components/procurement.md#Events Produced",
+      "asBuilt": {"verdict": "missing", "refs": ["D6"], "note": "no AsyncAPI message carries the designed field set; the designed topic does not exist"}
+    },
+    {
+      "id": "payload-sales.shipment.posted",
+      "kind": "event-payload",
+      "severity": "blocker",
+      "mustContain": ["shipmentId", "documentNumber", "legalEntityId", "customerId", "salesOrderIds", "shipmentDate", "shippedQty", "stocked"],
+      "mustNotContain": ["shipmentId: null", "shipmentDate: null"],
+      "mustMatch": [],
+      "source": "components/sales.md#Events Produced",
+      "asBuilt": {"verdict": "missing", "refs": ["D6"], "note": "no AsyncAPI message carries the designed field set; the designed topic does not exist"}
+    },
+    {
+      "id": "payload-inventory.transaction.posted",
+      "kind": "event-payload",
+      "severity": "blocker",
+      "mustContain": ["transactionId", "productId", "direction", "referenceType", "referenceId", "quantity", "journalEntryId", "glSeq", "reservationId"],
+      "mustNotContain": ["journalEntryId: null", "glSeq: null", "reservationId: null"],
+      "mustMatch": [],
+      "source": "components/inventory.md#Events Produced",
+      "asBuilt": {"verdict": "missing", "refs": ["D6"], "note": "no AsyncAPI message carries the designed field set; the designed topic does not exist"}
+    },
+    {
+      "id": "payload-inventory.transaction.rejected",
+      "kind": "event-payload",
+      "severity": "major",
+      "mustContain": ["referenceType", "referenceId", "causedByEventId", "reasonCode", "retryable", "reservationId"],
+      "mustNotContain": ["reasonCode: null", "reservationId: null"],
+      "mustMatch": [],
+      "source": "components/inventory.md#Events Produced",
+      "asBuilt": {"verdict": "missing", "refs": ["D6"], "note": "no AsyncAPI message carries the designed field set; the designed topic does not exist"}
+    },
+    {
+      "id": "payload-ledger.journalentry.posted",
+      "kind": "event-payload",
+      "severity": "blocker",
+      "mustContain": ["journalEntryId", "documentNumber", "ledgers", "legalEntityId", "entryType", "postingDate", "fiscalYear", "periodNo", "sourceDocument", "idempotencyKey", "lineCount"],
+      "mustNotContain": ["journalEntryId: null", "postingDate: null"],
+      "mustMatch": [],
+      "source": "components/ledger.md#Events Produced",
+      "asBuilt": {"verdict": "missing", "refs": ["D6"], "note": "no AsyncAPI message carries the designed field set; the designed topic does not exist"}
+    },
+    {
+      "id": "payload-procurement.vendorinvoice.posted",
+      "kind": "event-payload",
+      "severity": "blocker",
+      "mustContain": ["vendorInvoiceId", "documentNumber", "vendorInvoiceNumber", "vendorId", "total", "matchResultId", "journalEntryId", "apOpenItemId"],
+      "mustNotContain": ["journalEntryId: null", "apOpenItemId: null"],
+      "mustMatch": [],
+      "source": "components/procurement.md#Events Produced",
+      "asBuilt": {"verdict": "missing", "refs": ["D6"], "note": "no AsyncAPI message carries the designed field set; the designed topic does not exist"}
+    },
+    {
+      "id": "payload-sales.invoice.posted",
+      "kind": "event-payload",
+      "severity": "blocker",
+      "mustContain": ["invoiceId", "documentNumber", "customerId", "total", "creditNote", "journalEntryId", "arOpenItemId"],
+      "mustNotContain": ["journalEntryId: null", "arOpenItemId: null"],
+      "mustMatch": [],
+      "source": "components/sales.md#Events Produced",
+      "asBuilt": {"verdict": "missing", "refs": ["D6"], "note": "no AsyncAPI message carries the designed field set; the designed topic does not exist"}
+    },
+    {
+      "id": "payload-sales.salesorder.confirmed",
+      "kind": "event-payload",
+      "severity": "major",
+      "mustContain": ["salesOrderId", "documentNumber", "legalEntityId", "customerId", "currency", "total", "lines"],
+      "mustNotContain": ["salesOrderId: null", "customerId: null"],
+      "mustMatch": [],
+      "source": "components/sales.md#Events Produced",
+      "asBuilt": {"verdict": "missing", "refs": ["D6"], "note": "no AsyncAPI message carries the designed field set; the designed topic does not exist"}
+    },
+    {
+      "id": "payload-procurement.purchaseorder.confirmed",
+      "kind": "event-payload",
+      "severity": "major",
+      "mustContain": ["purchaseOrderId", "documentNumber", "version", "legalEntityId", "vendorId", "total", "lines", "confirmedAt"],
+      "mustNotContain": ["purchaseOrderId: null", "vendorId: null"],
+      "mustMatch": [],
+      "source": "components/procurement.md#Events Produced",
+      "asBuilt": {"verdict": "missing", "refs": ["D6"], "note": "no AsyncAPI message carries the designed field set; the designed topic does not exist"}
+    },
+    {
+      "id": "payload-manufacturing.productionorder.reportedasfinished",
+      "kind": "event-payload",
+      "severity": "blocker",
+      "mustContain": ["productionOrderId", "rafId", "legalEntityId", "productId", "goodQty", "scrapQty", "receiptDims", "isFinal", "backflushedComponents", "wipCostAtReport"],
+      "mustNotContain": ["rafId: null", "goodQty: null"],
+      "mustMatch": [],
+      "source": "components/manufacturing.md#Events Produced",
+      "asBuilt": {"verdict": "missing", "refs": ["D6"], "note": "no AsyncAPI message carries the designed field set; the designed topic does not exist"}
+    },
+    {
+      "id": "payload-sales.payment.applied",
+      "kind": "event-payload",
+      "severity": "major",
+      "mustContain": ["cashApplicationId", "receiptNumber", "customerId", "amount", "unappliedAmount", "journalEntryId", "applications"],
+      "mustNotContain": ["journalEntryId: null", "cashApplicationId: null"],
+      "mustMatch": [],
+      "source": "components/sales.md#Events Produced",
+      "asBuilt": {"verdict": "missing", "refs": ["D6"], "note": "no AsyncAPI message carries the designed field set; the designed topic does not exist"}
+    },
+    {
+      "id": "payload-party.party.merged",
+      "kind": "event-payload",
+      "severity": "blocker",
+      "mustContain": ["mergeId", "survivorPartyId", "mergedPartyIds", "roleIdMap", "mergedAt"],
+      "mustNotContain": ["survivorPartyId: null", "roleIdMap: null"],
+      "mustMatch": [],
+      "source": "components/party.md#Events Produced",
+      "asBuilt": {"verdict": "match", "refs": [], "note": "all fields in services/party AsyncAPI"}
+    },
+    {
+      "id": "payload-ledger.periodcontrol.changed",
+      "kind": "event-payload",
+      "severity": "major",
+      "mustContain": ["ledgerId", "module", "fiscalYear", "periodNo", "previousStatus", "newStatus", "effectiveFrom", "changedBy"],
+      "mustNotContain": ["newStatus: null", "periodNo: null"],
+      "mustMatch": [],
+      "source": "components/ledger.md#Events Produced",
+      "asBuilt": {"verdict": "drift", "refs": ["D6"], "note": "best match is close, 6 of 8 fields"}
+    },
+    {
+      "id": "payload-platform.workflowtask.completed",
+      "kind": "event-payload",
+      "severity": "major",
+      "mustContain": ["taskId", "workflowId", "workflowType", "taskType", "outcome", "decidedBy", "decidedAt", "subject"],
+      "mustNotContain": ["taskId: null", "outcome: null"],
+      "mustMatch": [],
+      "source": "components/platform.md#Events Produced",
+      "asBuilt": {"verdict": "missing", "refs": ["D6"], "note": "no AsyncAPI message carries the designed field set; the designed topic does not exist"}
+    },
+    {
+      "id": "payload-workforce.payrollrun.posted",
+      "kind": "event-payload",
+      "severity": "major",
+      "mustContain": ["payrollRunId", "legalEntityId", "employeeCount", "totals", "journalEntryId", "paymentBatchId"],
+      "mustNotContain": ["journalEntryId: null", "totals: null"],
+      "mustMatch": [],
+      "source": "components/workforce.md#Events Produced",
+      "asBuilt": {"verdict": "missing", "refs": ["D6"], "note": "no AsyncAPI message carries the designed field set; the designed topic does not exist"}
+    },
+    {
+      "id": "status-gl-posting",
+      "kind": "status-map",
+      "severity": "major",
+      "mustContain": ["pending", "posted", "rejected", "not_required", "gl_posting_status"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/inventory.md#Data Ownership",
+      "asBuilt": {"verdict": "drift", "refs": [], "note": "no gl_posting_status or not_required"}
+    },
+    {
+      "id": "status-valuation-reservation",
+      "kind": "status-map",
+      "severity": "major",
+      "mustContain": ["reserved", "finalized", "rejected", "cancelled", "expired"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/inventory.md#Data Ownership",
+      "asBuilt": {"verdict": "missing", "refs": ["D30"], "note": "entity absent"}
+    },
+    {
+      "id": "status-period-control",
+      "kind": "status-map",
+      "severity": "major",
+      "mustContain": ["open", "on_hold", "closed", "permanently_closed"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/ledger.md#Data Ownership",
+      "asBuilt": {"verdict": "match", "refs": [], "note": "open, on_hold, closed, permanently_closed"}
+    },
+    {
+      "id": "status-production-order",
+      "kind": "status-map",
+      "severity": "major",
+      "mustContain": ["created", "estimated", "scheduled", "released", "started", "reported_finished", "ended", "cancelled"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/manufacturing.md#Data Ownership",
+      "asBuilt": {"verdict": "drift", "refs": [], "note": "no reported_finished state"}
+    },
+    {
+      "id": "status-job",
+      "kind": "status-map",
+      "severity": "major",
+      "mustContain": ["queued", "running", "succeeded", "failed", "cancelled"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/platform.md#Data Ownership",
+      "asBuilt": {"verdict": "match", "refs": [], "note": ""}
+    },
+    {
+      "id": "status-agent-run",
+      "kind": "status-map",
+      "severity": "major",
+      "mustContain": ["PLANNING", "ACTING", "AWAITING_APPROVAL", "COMMITTED", "REJECTED", "FAILED", "KILLED"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/agents.md#Gotchas & Constraints",
+      "asBuilt": {"verdict": "match", "refs": [], "note": "agents-ts"}
+    },
+    {
+      "id": "status-sales-order",
+      "kind": "status-map",
+      "severity": "minor",
+      "mustContain": ["draft", "quoted", "open", "confirmed", "partially_shipped", "shipped", "invoiced", "closed", "cancelled"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/sales.md#Data Ownership",
+      "asBuilt": {"verdict": "drift", "refs": [], "note": "no partially_shipped"}
+    },
+    {
+      "id": "status-purchase-order",
+      "kind": "status-map",
+      "severity": "minor",
+      "mustContain": ["draft", "in_review", "approved", "confirmed", "received", "invoiced", "closed", "cancelled"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/procurement.md#Data Ownership",
+      "asBuilt": {"verdict": "match", "refs": [], "note": ""}
+    },
+    {
+      "id": "outbox-inbox-tables",
+      "kind": "other",
+      "severity": "blocker",
+      "mustContain": ["outbox", "partition_key", "aggregate_type", "payload", "headers", "consumer_inbox", "event_id"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/eventing-backbone.md#Data Ownership",
+      "asBuilt": {"verdict": "drift", "refs": ["D19"], "note": "no partition_key or headers; Kafka key is aggregate_id"}
+    },
+    {
+      "id": "dlq-record-headers",
+      "kind": "other",
+      "severity": "major",
+      "mustContain": ["dlq-error-class", "dlq-attempts", "dlq-first-failed-at", "dlq-consumer", "dlq-origin-topic", "dlq-origin-partition", "dlq-origin-offset"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/eventing-backbone.md#Interfaces",
+      "asBuilt": {"verdict": "drift", "refs": [], "note": "x-origin-*, x-dlq-reason, x-dlq-detail; DLQ topic is <topic>.dlq"}
+    },
+    {
+      "id": "webhook-signature",
+      "kind": "other",
+      "severity": "major",
+      "mustContain": ["X-Depot-Signature", "HMAC"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/integration.md#Interfaces",
+      "asBuilt": {"verdict": "drift", "refs": [], "note": "Depot-Signature, HMAC-SHA256 (integration-hub-ts)"}
+    },
+    {
+      "id": "ledger-post-request",
+      "kind": "other",
+      "severity": "blocker",
+      "mustContain": ["legalEntityId", "postingDate", "documentDate", "source", "documentType", "documentId", "purpose", "rateType", "lines", "journal-entries:post"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/ledger.md#Interfaces",
+      "asBuilt": {"verdict": "drift", "refs": ["ADR-0010", "D30"], "note": "POST /v1/ledger/journal-entries through ledgerclient; service token act claim"}
+    },
+    {
+      "id": "log-fields",
+      "kind": "other",
+      "severity": "major",
+      "mustContain": ["timestamp", "level", "message", "service", "correlationId"],
+      "mustNotContain": ["console.log", "fmt.Println"],
+      "mustMatch": [],
+      "source": "components/platform-kernel.md#Gotchas & Constraints",
+      "asBuilt": {"verdict": "drift", "refs": [], "note": "access log uses requestId; other logs correlationId"}
+    },
+    {
+      "id": "health-endpoints",
+      "kind": "other",
+      "severity": "major",
+      "mustContain": ["/healthz", "/readyz"],
+      "mustNotContain": ["/health/liveness", "/health/readiness"],
+      "mustMatch": [],
+      "source": "components/platform-kernel.md#Interfaces",
+      "asBuilt": {"verdict": "match", "refs": [], "note": "/healthz, /readyz in every chart and spec"}
+    },
+    {
+      "id": "money-quantity-shape",
+      "kind": "other",
+      "severity": "major",
+      "mustContain": ["amount", "currency", "unit"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/platform-kernel.md#Gotchas & Constraints",
+      "asBuilt": {"verdict": "match", "refs": [], "note": "platform/go/money"}
+    },
+    {
+      "id": "bff-session-cookies",
+      "kind": "auth",
+      "severity": "blocker",
+      "mustContain": ["__Host-depot_sid", "X-Depot-CSRF", "HttpOnly", "SameSite"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/portal-bff.md#Interfaces",
+      "asBuilt": {"verdict": "drift", "refs": ["ADR-0009"], "note": "portals use __Host-depot_customer / __Host-depot_supplier; the web shell has no cookie session"}
+    },
+    {
+      "id": "async-job-202",
+      "kind": "other",
+      "severity": "major",
+      "mustContain": ["jobId", "statusUrl", "estimatedCompletionSeconds"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/platform.md#Gotchas & Constraints",
+      "asBuilt": {"verdict": "drift", "refs": ["D29"], "note": "statusUrl only in migration; no /v1/platform/jobs"}
+    },
+    {
+      "id": "mcp-gateway-path",
+      "kind": "other",
+      "severity": "major",
+      "mustContain": ["/v1/agents/mcp"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/agents.md#Interfaces",
+      "asBuilt": {"verdict": "drift", "refs": ["D22"], "note": "mcp-ts serves /mcp"}
+    },
+    {
+      "id": "llm-request-params",
+      "kind": "other",
+      "severity": "major",
+      "mustContain": ["output_config"],
+      "mustNotContain": ["temperature", "top_p", "top_k", "budget_tokens"],
+      "mustMatch": [],
+      "source": "components/agents.md#Gotchas & Constraints",
+      "asBuilt": {"verdict": "missing", "refs": [], "note": "no output_config in agents-ts"}
+    },
+    {
+      "id": "offline-queued-command",
+      "kind": "other",
+      "severity": "major",
+      "mustContain": ["aggregateKey", "actorSub", "occurredAt", "ifMatch", "commandId", "deviceId"],
+      "mustNotContain": [],
+      "mustMatch": [],
+      "source": "components/pwa-apps.md#Interfaces",
+      "asBuilt": {"verdict": "drift", "refs": [], "note": "3 of 6 fields (no aggregateKey, actorSub, commandId)"}
+    }
+  ]
+}

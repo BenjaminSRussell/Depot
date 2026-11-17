@@ -1,35 +1,68 @@
 # Inventory
 
+**As built (v1.0):** four Go services (ADR-0008). `services/inventory` consumes receipts and packing slips as designed
+(§3.4) and posts valuation through `ledgerclient`, but none of the four outboxes is relayed, so
+`inventory.transaction` events never reach sales or procurement (D2), and there is no valuation reservation (D30).
+
 ## Purpose & Boundaries
-Context `inventory` (Go only, database `depot_inventory`; waves 16, 20, 33, 39). Owns inventory transactions, on-hand projection, reservations, journals, counting, cost layers, costing versions/sheets, close, quality (orders, NCR/CAPA). Is the VALUATION OWNER: posts through `ledger.Post` for receipt valuation true-up, shipment COGS and RAF finished-goods valuation, triggered by events consumed as commands. Writes only its own tables (never receipt/shipment/production order rows).
+Inventory transactions, on-hand, reservations, journals, counting, transfers, holds and blockings, consignment and
+truck stock (inventory); cost transactions, valuation ledgers, aging and cost closes (costing); costing versions,
+standard-cost calculation, rolls and activation (productcost); quality orders, samples, nonconformances, CAPA, CoA,
+SPC and stability studies (quality). Inventory is the valuation owner for receipt true-up, shipment COGS and the
+finished-goods receipt of report-as-finished.
+
+## Services
+| Directory | Lang | Prefix | Outbox relayed |
+|---|---|---|---|
+| `services/inventory` | Go | `/v1/inventory` | no (D2) |
+| `services/costing` | Go | `/v1/costing` | no |
+| `services/productcost` | Go | `/v1/product-costing` | no |
+| `services/quality` | Go | `/v1/quality` | no |
 
 ## Interfaces
-- Reads: `GET /v1/inventory/inventory-transactions` (read-only; created only by posted journals/consumers), `on-hand` (lock-free), `cost-layers`, `cost-closes/{id}`, `cost-variances`, `valuation-report?asOf=`, `supplier-scorecards`.
-- Writes: `POST /reservations`, `DELETE /reservations/{id}`, `inventory-journals/{id}:post` (enforces negative-inventory policy -> `inventory_insufficient`), `counting-plans/{id}:generate` (202), `counting-journals/{id}:post`, `costing-versions/{id}:activate` (202), `cost-closes` (202), `cost-rolls` (202), `quality-orders/{id}/results`, `quality-orders/{id}:decide` (emits `qualityorder.decided.v1`), `nonconformances/{id}:escalate`, `corrective-actions/{id}:close`, `certificates-of-analysis:generate`.
-- Valuation reservations: `POST /valuation-reservations/{id}:retry` (duty `Maintain inventory valuation`; optional `postingDate` -> key gets `:<revision>` suffix), `:cancel` (allowed only when source reversed, or `reverseSource=true` which is contested), `:override-negative` (duty `Approve negative inventory`; SoD with `Post inventory journals`) — R4-2 proposes DELETING this endpoint.
-- `GET /v1/inventory/reconciliation/{check}` (value, quantity; lists open valuation reservations with age).
+- inventory: transactions (read-only), onhand, reservations, journals and journal-names, count-plans, count-sheets, count-tags, transfers and transfer-orders, holds, blockings, consignment, truck-stock, reconciliations, gl-postings, opening-batches, issue-claims; internal routes under `/internal/` are not routed by the gateway.
+- costing: costing, cost-transactions, closes, settlements, aging, valuation-ledgers, valuation-categories, value-report, reconciliations, gl-postings.
+- productcost: versions, calculations, rolls, activations, activation-attempts, cost-groups, cost-components, variances, estimates, postings.
+- quality: quality-orders, samples, sampling-plans, nonconformances, outcomes, coa, spc, instruments, stability-studies, receipt-checks.
+- Reconciliation endpoints exist in inventory and costing (designed `GET /v1/inventory/reconciliation/{check}`).
+- Posting keys: the design is `post:inventory:productreceipt:<id>:valuation` and `post:inventory:shipment:<id>:cogs`. As built, inventory's event-driven postings use an `inventory-postings:` key prefix (`services/inventory/internal/api/postings_consumer.go`) and productcost uses `productcost.activation:<id>`; D9 names productcost, close, mobile and planning.
 
 ## Data Ownership
-EN-037..045, 077: `inventory_transaction` (IL, monthly partition on transaction_date; PK (tenant_id, transaction_date, id); movement_id/step_no supersede model — status progresses by inserting new rows; direction receipt|issue; txn_type purchase|sales|production_input|production_output|transfer_out|transfer_in|adjustment|count|return_in|return_out|scrap|quality_move|co_product|by_product|opening|asset_maintenance|project; physical_status on_order..quotation; financial_status none|purchased|received_fin|sold_fin|deducted_fin|received_fin_posted|sold_posted; journal_entry_id + gl_seq set AT INSERT; idempotency_key), `transaction_request` (registry), `on_hand` (sync projection; PK (tenant_id, product_id, dimension_hash); CHECK allow_negative OR physical_on_hand - reserved_physical - blocked_qty >= 0; fillfactor 70), `reservation`, batch, serial, stock_block, inventory_journal(+line), count_task/line, `cost_layer` (immutable) + `cost_layer_balance` (only mutated field quantity_remaining), `cost_settlement`, `inventory_close`, costing_version, standard_cost, costing_sheet(+node), quality_order/result, nonconformance, `valuation_reservation` (EN-077; UQ (tenant_id, document_type, document_id, purpose); status reserved|finalized|rejected|cancelled|expired; gl_posting_status pending|posted|rejected|not_required; expires_at = created_at + 30 min; awaiting_reversal). Indexes IX-IN-01..36.
+Inventory transactions (insert-only; `services/inventory/migrations/0001_inventory_ledger.sql`), on-hand projection,
+reservations, journals, counting, cost layers and valuation, costing versions, quality records. Transactions are plain
+tables, not monthly partitions (D10). *Target — not built (D30):* `inventory.valuation_reservation` (reserved, posted,
+finalized, rejected, expired) with the per-minute sweeper that checks `ledger.posting_request` before expiring; the
+designed key `post:inventory:<documentType>:<documentId>:<purpose>` for every valuation post; `journal_entry_id` and
+`gl_seq` on every transaction at insert.
 
 ## Events Produced
-`inventory.transaction.posted.v1` (48 partitions; includes journalEntryId, glSeq, reservationId; referenceType productreceipt|shipment|productionorder|journal|transfer|count|return), `inventory.transaction.rejected.v1` (reasonCode period_closed|inventory_insufficient|product_not_released|site_unknown|blocked|other, retryable, reservationId), `inventory.valuationreservation.cancelled.v1`, `.expired.v1`, `inventory.reservation.changed.v1`, `inventory.costclose.completed.v1`, `inventory.qualityorder.decided.v1`.
+inventory: `depot.inventory.transaction`, `depot.inventory.onhand`, `depot.inventory.reservation`,
+`depot.inventory.journal`, `depot.inventory.transfer` and others; costing and productcost: `depot.costing.*`; quality:
+`depot.quality.*` (none relayed, D2). *Target (D6):* `inventory.transaction.posted.v1` with `journalEntryId`, `glSeq`,
+`reservationId` and `referenceType` (needed by sales COGS link-back and procurement receipt valuation),
+`inventory.transaction.rejected.v1` with `reasonCode` and `retryable`, `inventory.valuationreservation.cancelled.v1`
+and `.expired.v1`.
 
 ## Events Consumed
-`inventory-receipts` (productreceipt.posted, reversed; G; posts valuation true-up key `post:inventory:productreceipt:<id>:valuation`), `inventory-shipments` (shipment.posted; COGS key `post:inventory:shipment:<id>:cogs`), `inventory-raf` (reportedasfinished, rafreversed; key `post:inventory:productionorder:<rafId>:fg-receipt`), `inventory-prodcost` (productionorder.ended), `inventory-prodorder` (released -> material reservations), `inventory-reservations` (salesorder.confirmed), `inventory-returns`, `inventory-quality-triggers` (productreceipt.posted, reportedasfinished, returnorder.received), `inventory-warehousework`, `inventory-costrollup` (bom.versionactivated), `inventory-reversal`, `inventory-partymerge`, `inventory-product-ref`, `inventory-periodcache`, `inventory-numbersequence`.
+inventory receives `depot.receiving.receipt` (valuation true-up), `depot.fulfillment.packingslip` (COGS),
+`depot.sales.orderprogress` and `depot.service.workorder.completed`, with a `KafkaUser` in
+`deploy/kafka/inventory-consumer.yaml`. Production report-as-finished does not reach inventory as an event today.
 
 ## Dependencies
-internal: ledger (sync ledger.Post), product (ref), platform, procurement/sales/manufacturing (events), warehouse (location refs). external: none beyond kernel.
+internal: ledger (`ledgerclient`), product and engineering (released products), platform (org sites and warehouses),
+procurement, sales and manufacturing (events), warehouse (locations). external: none beyond the kernel.
 
 ## Gotchas & Constraints
-- Reserve-post-finalize (backend 6.4 rule 5): tx1 locks cost layers + on-hand, writes reservation `reserved`, adds issue qty to `on_hand.reserved_physical`; call `ledger.Post` OUTSIDE any tx; tx2 inserts inventory_transaction rows with journal_entry_id/gl_seq at insert, consumes layers, releases held qty, marks `finalized`, commits inbox row. On ledger rejection: reservation `rejected`, layers released, emit `transaction.rejected`; platform creates `valuation_rejection` task.
-- Expiry sweeper `valuation-reservation-sweeper` runs every minute: if `ledger.posting_request` shows post exists -> finalize, never expire; else `expired`, release, emit expired event. Re-drive via `:retry` or after inbox cleared by replay-ticket procedure; row reused (never duplicated).
-- Negative stock enforced at write (NFR-D4) by locking the single on_hand row `FOR UPDATE`; hot row ~2-5k updates/s (R-03).
-- Hot write path index budget: inventory_transaction PK + IX-IN-01..04.
-- FIFO consumption `FOR UPDATE SKIP LOCKED` via IX-IN-22. Costing: running costing; close is verification (S2). NFR-P8: 1M transactions close < 20 min; NFR-P9 cost roll 50k items < 15 min.
-- Lines with `stocked=false` (drop-ship, services) produce no inventory transaction.
-- `inventory_transaction` insert-only; carries `journal_entry_id` at insert; no `gl-link` endpoint.
-- Unresolved: `shipment.reversed` event missing (R4-3); `:override-negative` contradicts NFR-D4 (R4-2); sweeper/finalize race (R4-4).
+- Negative stock is enforced at write by locking the on-hand row (NFR-D4); the hot row limits throughput.
+- Without the reservation protocol a crash between `ledger.Post` and the local finalize leaves a journal entry with no inventory transaction until a retry with the same key (D30).
+- FIFO layer consumption uses `FOR UPDATE SKIP LOCKED`.
+- Lines with `stocked=false` (drop-ship, services) create no inventory transaction.
+- Open review items: missing `shipment.reversed` event (R4-3); `:override-negative` contradicts NFR-D4 (R4-2).
+
+## Target — not built
+- Relays for all four outboxes (D2); payload fields consumers need (D6).
+- Valuation reservation, sweeper and posting-request registry (D30); partitioned transactions (D10); uniform posting key in productcost (D9).
 
 ## Source Sections
-- Backend 3.4 (329-344), 5.9 (682-710), 6.4 rule 5 (1097); Data 9.1 EN-037..045, EN-077 (2685-2857), 12.4 (3402-3404); Events 3.5 (4019-4029), 9.1-9.3 (4446-4584), consumer registry (4283-4300)
+- Architecture §3.4 posting ownership, §5.9 inventory endpoints (target), §6.4 caller protocol rule 5; data §9.1 EN-037..045 and EN-077, §12.4; events §3.5, §9.1–9.3.
+- ADR-0008; delta §1.1 (inventory services), §2.1 (inventory row), §2.2 (valuation contracts).

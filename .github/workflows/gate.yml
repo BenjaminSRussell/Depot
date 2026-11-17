@@ -30,7 +30,7 @@ jobs:
       connect: ${{ steps.filter.outputs.connect }}
       portals: ${{ steps.filter.outputs.portals }}
       workflow: ${{ steps.filter.outputs.workflow }}
-      run: ${{ steps.filter.outputs.go == 'true' || steps.filter.outputs.web == 'true' || steps.filter.outputs.py == 'true' || steps.filter.outputs.warehouse == 'true' || steps.filter.outputs.charts == 'true' || steps.filter.outputs.agents == 'true' || steps.filter.outputs.connect == 'true' || steps.filter.outputs.portals == 'true' || steps.filter.outputs.workflow == 'true' }}
+      run: ${{ steps.filter.outputs.go == 'true' || steps.filter.outputs.web == 'true' || steps.filter.outputs.py == 'true' || steps.filter.outputs.warehouse == 'true' || steps.filter.outputs.charts == 'true' || steps.filter.outputs.agents == 'true' || steps.filter.outputs.connect == 'true' || steps.filter.outputs.portals == 'true' || steps.filter.outputs.workflow == 'true' || steps.filter.outputs.architecture == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - id: filter
@@ -76,6 +76,20 @@ jobs:
               - '.github/workflows/**'
             workflow:
               - 'services/workflow-ts/**'
+              - '.github/workflows/**'
+            # The compiled-architecture drift check in ci.yml's docs-tools job, which runs whenever ci runs.
+            # apps/*/* catches a new app directory (ownership) without running ci on every app source change.
+            architecture:
+              - 'docs/architecture.md'
+              - 'docs/architecture.compiled/**'
+              - 'services/**/api/**'
+              - 'services/**/events/**'
+              - 'tools/*/api/**'
+              - 'tools/*/events/**'
+              - 'apps/*/*'
+              - 'scripts/compile_architecture.py'
+              - 'scripts/test_compile_architecture.py'
+              - 'scripts/architecture_*.json'
               - '.github/workflows/**'
 
   ci:
