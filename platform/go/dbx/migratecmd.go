@@ -2,6 +2,8 @@ package dbx
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -21,9 +23,24 @@ import (
 // and connect as depot_app only.
 const MigrateCommand = "migrate"
 
-// AppRole is the runtime role (NOBYPASSRLS, not an owner). The migrate command refuses to run as it, or as a role that is a
-// member of it, unless MIGRATE_ALLOW_APP_ROLE=true: tables it creates would belong to the serving role.
+// AppRole is the default runtime role (NOBYPASSRLS, not an owner); MIGRATE_APP_ROLE names another (a per-service app role
+// such as dev's depot_eam_app). The migrate command refuses a session tied to it unless MIGRATE_ALLOW_APP_ROLE=true (see
+// AppRoleQuery): tables it creates, or rights it inherits, would let the serving role ALTER and DROP the schema.
 const AppRole = "depot_app"
+
+// AppRoleQuery is true when the session is tied to the app role ($1) either way round: current_user or session_user is
+// the app role; the current or the session role is a member of it (a superuser is a member of every role by pg_has_role, so
+// it is left out of these two); or the app role is a member of current_user, so it inherits the owner's rights (a GRANT of
+// the owner role to depot_app, or a depot_app login with `options=-c role=<owner>`). The TypeScript and Python migrate
+// commands run the same query.
+const AppRoleQuery = `select session_user::text = $1 or current_user::text = $1 or (app.oid is not null and (
+    (not cur.rolsuper and pg_has_role(cur.oid, app.oid, 'MEMBER'))
+    or (not sess.rolsuper and pg_has_role(sess.oid, app.oid, 'MEMBER'))
+    or pg_has_role(app.oid, cur.oid, 'MEMBER'))), current_user::text, session_user::text
+from pg_roles cur
+join pg_roles sess on sess.rolname = session_user
+left join pg_roles app on app.rolname = $1
+where cur.rolname = current_user`
 
 // DefaultMigrateRetry bounds how long the migrate command waits for the database (MIGRATE_RETRY_TIMEOUT overrides it), well
 // under the Job's activeDeadlineSeconds (600 s by default).
@@ -51,7 +68,8 @@ func MigrateURL(getenv func(string) string) (string, error) {
 }
 
 // MigrateRetry is how long the migrate command keeps retrying a database it cannot reach: MIGRATE_RETRY_TIMEOUT (a Go
-// duration; 0 tries once), else DefaultMigrateRetry.
+// duration such as 90s, 5m or 1h30m; 0 tries once), else DefaultMigrateRetry. The TypeScript and Python commands accept the
+// same forms.
 func MigrateRetry(getenv func(string) string) (time.Duration, error) {
 	raw := getenv("MIGRATE_RETRY_TIMEOUT")
 	if raw == "" {
@@ -71,8 +89,10 @@ func MigrateRetry(getenv func(string) string) (time.Duration, error) {
 //
 // A database that cannot be reached (refused or reset connection, DNS failure, timeout, a server starting up or shutting
 // down, too many connections) is retried with exponential back-off for MigrateRetry, each attempt logged; a migration's
-// own SQL error, a hook error, a wrong password or a missing database fails at once. A file interrupted by a lost
-// connection was rolled back with its schema_migrations row, so the retry applies it again.
+// own SQL error, a hook error, a wrong password, a missing database or a TLS certificate that does not verify fails at
+// once. A transactional file interrupted by a lost connection was rolled back with its schema_migrations row, so the retry
+// applies it again; a `-- dbx:no-transaction` file (NoTransactionMarker) may have run some of its statements, so such a
+// file must be safe to rerun (drop an INVALID leftover index first, IF NOT EXISTS; see ledger 0032).
 func RunMigrateCommand(ctx context.Context, args []string, getenv func(string) string, migrations fs.FS, hooks ...MigrateHook) (bool, error) {
 	if len(args) < 2 || args[1] != MigrateCommand {
 		return false, nil
@@ -88,7 +108,13 @@ func RunMigrateCommand(ctx context.Context, args []string, getenv func(string) s
 	if err != nil {
 		return true, err
 	}
-	allowApp := getenv("MIGRATE_ALLOW_APP_ROLE") == "true"
+	appRole := AppRole
+	if r := getenv("MIGRATE_APP_ROLE"); r != "" {
+		appRole = r
+	}
+	if getenv("MIGRATE_ALLOW_APP_ROLE") == "true" {
+		appRole = ""
+	}
 	pool, err := Connect(ctx, url)
 	if err != nil {
 		return true, fmt.Errorf("connect migration database: %w", err)
@@ -97,7 +123,7 @@ func RunMigrateCommand(ctx context.Context, args []string, getenv func(string) s
 	deadline := time.Now().Add(budget)
 	wait := migrateRetryFirst
 	for attempt := 1; ; attempt++ {
-		err = migrateOnce(ctx, pool, migrations, allowApp)
+		err = migrateOnce(ctx, pool, migrations, appRole)
 		if err == nil || !IsConnectionError(err) || time.Now().Add(wait).After(deadline) {
 			break
 		}
@@ -125,15 +151,16 @@ func RunMigrateCommand(ctx context.Context, args []string, getenv func(string) s
 // migratePing bounds one connection attempt (a black-holed address would otherwise wait for the OS TCP timeout).
 var migratePing = 10 * time.Second
 
-func migrateOnce(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS, allowApp bool) error {
+// migrateOnce runs one attempt; appRole is the role to refuse ("" when MIGRATE_ALLOW_APP_ROLE allows it).
+func migrateOnce(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS, appRole string) error {
 	pingCtx, cancel := context.WithTimeout(ctx, migratePing)
 	err := pool.Ping(pingCtx)
 	cancel()
 	if err != nil {
 		return fmt.Errorf("reach migration database: %w", err)
 	}
-	if !allowApp {
-		if err := refuseAppRole(ctx, pool); err != nil {
+	if appRole != "" {
+		if err := refuseAppRole(ctx, pool, appRole); err != nil {
 			return err
 		}
 	}
@@ -143,32 +170,24 @@ func migrateOnce(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS, allo
 	return nil
 }
 
-// appRoleQuery is true when the session's role is depot_app or a member of it (a superuser is a member of every role by
-// pg_has_role, so it is left out).
-const appRoleQuery = `select r.rolname = '` + AppRole + `' or (not r.rolsuper
-  and exists (select 1 from pg_roles where rolname = '` + AppRole + `')
-  and pg_has_role(r.oid, '` + AppRole + `', 'MEMBER'))
-from pg_roles r where r.rolname = current_user`
-
-func refuseAppRole(ctx context.Context, pool *pgxpool.Pool) error {
+func refuseAppRole(ctx context.Context, pool *pgxpool.Pool, appRole string) error {
 	var app bool
-	var user string
-	if err := pool.QueryRow(ctx, appRoleQuery).Scan(&app); err != nil {
+	var user, session string
+	if err := pool.QueryRow(ctx, AppRoleQuery, appRole).Scan(&app, &user, &session); err != nil {
 		return err
 	}
 	if !app {
 		return nil
 	}
-	_ = pool.QueryRow(ctx, `select current_user`).Scan(&user)
-	return fmt.Errorf("refusing to migrate as %q, the serving role %s or a member of it: the tables would belong to it. Use the owner role's URL (MIGRATE_DATABASE_URL), or set MIGRATE_ALLOW_APP_ROLE=true where %s really owns the schema (dev only)", user, AppRole, AppRole)
+	return fmt.Errorf("refusing to migrate as %q (session %q): it is the serving role %s, a member of it, or a role %s inherits, so the serving role would own or could alter the schema. Use the owner role's URL (MIGRATE_DATABASE_URL), or set MIGRATE_ALLOW_APP_ROLE=true where %s really owns the schema (dev only)", user, session, appRole, appRole, appRole)
 }
 
 // IsConnectionError reports whether err means the database could not be reached or dropped the session, as opposed to a
-// statement's own error: a failed connection attempt (except a rejected login or a missing database, which no retry
-// fixes), a network error or timeout, or a server error of class 08 (connection exception), 57P01-57P03 (shutdown, cannot
-// connect now) or 53300 (too many connections).
+// statement's own error: a failed connection attempt (except a rejected login, a missing database or a TLS failure, which
+// no retry fixes), a network error or timeout, or a server error of class 08 (connection exception), 57P01-57P03
+// (shutdown, cannot connect now) or 53300 (too many connections).
 func IsConnectionError(err error) bool {
-	if err == nil || errors.Is(err, context.Canceled) {
+	if err == nil || errors.Is(err, context.Canceled) || IsTLSError(err) {
 		return false
 	}
 	var pgErr *pgconn.PgError
@@ -191,6 +210,24 @@ func IsConnectionError(err error) bool {
 		return true
 	}
 	return strings.Contains(err.Error(), "unexpected EOF") || strings.Contains(err.Error(), "connection reset")
+}
+
+// IsTLSError reports whether err is a TLS failure no retry fixes: a server certificate that does not verify (unknown
+// authority, wrong host name, expired or otherwise invalid), a TLS alert from the server, or a server that refuses TLS when
+// the URL requires it.
+func IsTLSError(err error) bool {
+	var unknownAuthority x509.UnknownAuthorityError
+	var hostname x509.HostnameError
+	var invalid x509.CertificateInvalidError
+	var verification *tls.CertificateVerificationError
+	var alert tls.AlertError
+	var record tls.RecordHeaderError
+	switch {
+	case errors.As(err, &unknownAuthority), errors.As(err, &hostname), errors.As(err, &invalid),
+		errors.As(err, &verification), errors.As(err, &alert), errors.As(err, &record):
+		return true
+	}
+	return err != nil && strings.Contains(err.Error(), "server refused TLS connection")
 }
 
 // HandleMigrateCommand is the one line every service main calls first: when the process was started as

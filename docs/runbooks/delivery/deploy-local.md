@@ -68,13 +68,20 @@ its pod until the next sync replaces it, and the Applications that run a Job ret
   owns the service's database. It is provisioned with the database (stage and prod: B-09 parts b and c, #213) and must
   exist before PreSync: never make it an ordinary resource of the same Application, or the first install waits for it for
   ever. Until it exists the Job pod waits in `CreateContainerConfigError` and the sync fails after `activeDeadlineSeconds`.
-- **Waiting for the database.** The migrate command retries an unreachable database (refused or reset connection, DNS,
-  timeout, a server starting up or shutting down, too many connections) with exponential back-off from 1 s to 30 s for
-  `MIGRATE_RETRY_TIMEOUT` (default `5m`, `0` tries once), logging each attempt. A migration's SQL error, a rejected login or
-  a missing database fails at once.
-- **Not as depot_app.** The command refuses to run as `depot_app` or a member of it (its tables would belong to the serving
-  role); `migrateJob.allowAppRole: true` (MIGRATE_ALLOW_APP_ROLE) overrides it only where depot_app really owns the dev
-  schema (fx, receiving, hello-ledger).
+- **Waiting for the database.** The migrate command retries each attempt (connect, app-role check, migrations) when the
+  database cannot be reached or drops the session (refused or reset connection, DNS, timeout, a server starting up or
+  shutting down, too many connections), with exponential back-off from 1 s to 30 s for `MIGRATE_RETRY_TIMEOUT` (a Go
+  duration such as `90s`, `5m` or `1h30m`, the same forms in Go, TypeScript and Python; default `5m`, `0` tries once),
+  logging each retry. A migration's SQL error, a rejected login, a missing database or a TLS certificate that does not
+  verify fails at once. (The Python command cannot read a SQLSTATE from a failed connection, so it asks the server with
+  libpq's ping instead: a server that answers rejected the login, one that does not answer or is starting up is retried.)
+  A transactional file interrupted by a lost connection is rolled back and applied again; a `-- dbx:no-transaction` file
+  must be safe to rerun.
+- **Not as the app role.** The command refuses a session tied to the serving role, `depot_app` by default or the role
+  `MIGRATE_APP_ROLE` names, either way round: logged in as it or switched from it (`options=-c role=...`), a member of it,
+  or an owner role it is a member of (a `GRANT <owner> TO depot_app` would let the serving role alter every table). Never
+  grant the owner role to the app role. `migrateJob.allowAppRole: true` (MIGRATE_ALLOW_APP_ROLE) overrides the check only
+  where depot_app really owns the dev schema (fx, receiving, hello-ledger).
 - **Deadline.** `migrateJob.activeDeadlineSeconds` (600 s) bounds a run, retries included; raise it per environment for a
   migration that builds a large index (`CREATE INDEX CONCURRENTLY`, see ledger 0032 for the INVALID-leftover pattern).
   `backoffLimit` is 2.

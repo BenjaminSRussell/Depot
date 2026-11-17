@@ -177,7 +177,7 @@ export const MIGRATIONS_DIR = new URL("../migrations/", import.meta.url);
  * migration Job (D28).
  */
 export const MIGRATE_COMMAND = "migrate";
-/** The serving role: refused by migrateFromEnv unless MIGRATE_ALLOW_APP_ROLE=true (dev, where it owns the schema). */
+/** The default serving role (MIGRATE_APP_ROLE names another): refused by migrateFromEnv unless MIGRATE_ALLOW_APP_ROLE=true. */
 export const APP_ROLE = "depot_app";
 
 /** The owner role's URL: MIGRATE_DATABASE_URL, else DATABASE_URL. */
@@ -187,36 +187,88 @@ export function migrateUrl(env: Record<string, string | undefined>): string {
   return url;
 }
 
-/** How long to retry an unreachable database, in ms: MIGRATE_RETRY_TIMEOUT (`90s`, `5m`, `0`), else 5 minutes. */
+const DURATION_UNITS: Record<string, number> = { ns: 1e-6, us: 1e-3, "µs": 1e-3, ms: 1, s: 1000, m: 60_000, h: 3_600_000 };
+
+/**
+ * How long to retry an unreachable database, in ms: MIGRATE_RETRY_TIMEOUT as a Go duration (`90s`, `5m`, `1h30m`, `1.5s`,
+ * `0`, as dbx.MigrateRetry parses it), else 5 minutes.
+ */
 export function migrateRetryMs(env: Record<string, string | undefined>): number {
   const raw = env["MIGRATE_RETRY_TIMEOUT"];
   if (raw === undefined || raw === "") return 5 * 60_000;
-  const m = /^(\d+)(ms|s|m)?$/.exec(raw);
-  if (m === null || (m[2] === undefined && m[1] !== "0")) throw new Error(`MIGRATE_RETRY_TIMEOUT must be a duration such as 90s or 5m, got ${JSON.stringify(raw)}`);
-  return Number(m[1]) * ({ ms: 1, s: 1000, m: 60_000 } as Record<string, number>)[m[2] ?? "ms"]!;
+  if (raw === "0") return 0;
+  const part = /(\d+(?:\.\d*)?|\.\d+)(ns|us|µs|ms|s|m|h)/gy;
+  let total = 0;
+  let at = 0;
+  for (let m = part.exec(raw); m !== null; m = part.exec(raw)) {
+    total += Number(m[1]) * DURATION_UNITS[m[2]!]!;
+    at = part.lastIndex;
+  }
+  if (at === 0 || at !== raw.length) throw new Error(`MIGRATE_RETRY_TIMEOUT must be a Go duration such as 90s, 5m or 1h30m, got ${JSON.stringify(raw)}`);
+  return total;
 }
 
 const CONNECTION_CODES = new Set(["ECONNREFUSED", "ECONNRESET", "ENOTFOUND", "EAI_AGAIN", "ETIMEDOUT", "EHOSTUNREACH", "ENETUNREACH", "EPIPE", "57P01", "57P02", "57P03", "53300"]);
+// Node's TLS verification failures (and a server without TLS where the URL requires it): no retry fixes them.
+const TLS_CODES = /^(UNABLE_TO_|SELF_SIGNED_CERT|DEPTH_ZERO_SELF_SIGNED_CERT|CERT_|ERR_TLS_|ERR_SSL_|HOSTNAME_MISMATCH)/;
 
-/** Whether err means the database could not be reached (retried), not a statement's own error, a bad login or a missing database. */
-export function isConnectionError(err: unknown): boolean {
-  const e = err as { code?: unknown; message?: unknown } | null;
-  const code = typeof e?.code === "string" ? e.code : "";
-  if (CONNECTION_CODES.has(code) || code.startsWith("08")) return true;
-  const message = typeof e?.message === "string" ? e.message : "";
-  return code === "" && /Connection terminated|timeout exceeded when trying to connect|connect ECONNREFUSED/.test(message);
+/** Whether err (or its cause) is a TLS failure no retry fixes. */
+export function isTlsError(err: unknown): boolean {
+  for (let e = err as { code?: unknown; message?: unknown; cause?: unknown } | null | undefined, depth = 0; e && depth < 5; e = e.cause as typeof e, depth++) {
+    if (typeof e.code === "string" && TLS_CODES.test(e.code)) return true;
+    if (typeof e.message === "string" && /does not support SSL connections/.test(e.message)) return true;
+  }
+  return false;
 }
 
-const APP_ROLE_QUERY = `select r.rolname = 'depot_app' or (not r.rolsuper
-  and exists (select 1 from pg_roles where rolname = 'depot_app')
-  and pg_has_role(r.oid, 'depot_app', 'MEMBER')) as app, current_user as name
-from pg_roles r where r.rolname = current_user`;
+/**
+ * Whether err (or its cause) means the database could not be reached or dropped the session (retried), not a statement's
+ * own error, a rejected login (28xxx), a missing database (3D000) or a TLS failure.
+ */
+export function isConnectionError(err: unknown): boolean {
+  if (isTlsError(err)) return false;
+  for (let e = err as { code?: unknown; message?: unknown; cause?: unknown } | null | undefined, depth = 0; e && depth < 5; e = e.cause as typeof e, depth++) {
+    const code = typeof e.code === "string" ? e.code : "";
+    if (CONNECTION_CODES.has(code) || code.startsWith("08")) return true;
+    if (code !== "") return false;
+    if (typeof e.message === "string" && /Connection terminated|timeout exceeded when trying to connect|connect ECONNREFUSED/.test(e.message)) return true;
+  }
+  return false;
+}
+
+/**
+ * True when the session is tied to the app role ($1) either way round: current_user or session_user is it, the current or
+ * session role is a member of it (superusers left out), or it is a member of current_user and so inherits the owner's
+ * rights. The same query as dbx.AppRoleQuery in the Go services.
+ */
+const APP_ROLE_QUERY = `select session_user::text = $1 or current_user::text = $1 or (app.oid is not null and (
+    (not cur.rolsuper and pg_has_role(cur.oid, app.oid, 'MEMBER'))
+    or (not sess.rolsuper and pg_has_role(sess.oid, app.oid, 'MEMBER'))
+    or pg_has_role(app.oid, cur.oid, 'MEMBER'))) as app, current_user::text as name, session_user::text as session
+from pg_roles cur
+join pg_roles sess on sess.rolname = session_user
+left join pg_roles app on app.rolname = $1
+where cur.rolname = current_user`;
+
+async function migrateOnce(pool: pg.Pool, dir: URL | string, appRole: string | null): Promise<void> {
+  await pool.query("select 1");
+  if (appRole !== null) {
+    const who = (await pool.query<{ app: boolean; name: string; session: string }>(APP_ROLE_QUERY, [appRole])).rows[0];
+    if (who?.app) {
+      throw new Error(
+        `refusing to migrate as ${JSON.stringify(who.name)} (session ${JSON.stringify(who.session)}): it is the serving role ${appRole}, a member of it, or a role ${appRole} inherits. Use the owner role's URL (MIGRATE_DATABASE_URL), or set MIGRATE_ALLOW_APP_ROLE=true where it owns the schema (dev only)`,
+      );
+    }
+  }
+  await migrate(pool, dir);
+}
 
 /**
  * Applies the migrations as the owner role (MIGRATE_DATABASE_URL, else DATABASE_URL) and closes the pool, as
- * dbx.RunMigrateCommand does in the Go services: an unreachable database is retried with back-off for
- * MIGRATE_RETRY_TIMEOUT, depot_app (or a member of it) is refused unless MIGRATE_ALLOW_APP_ROLE=true, and migrate() holds
- * the dbx advisory lock. A migration's SQL error fails at once.
+ * dbx.RunMigrateCommand does in the Go services: each attempt (connect, app-role check, migrate()) is retried with back-off
+ * from 1 s to 30 s for MIGRATE_RETRY_TIMEOUT when the database cannot be reached or drops the session; the app role
+ * (MIGRATE_APP_ROLE, default depot_app) is refused unless MIGRATE_ALLOW_APP_ROLE=true; migrate() holds the dbx advisory
+ * lock. A migration's SQL error, a rejected login, a missing database or a TLS failure fails at once.
  */
 export async function migrateFromEnv(
   env: Record<string, string | undefined>,
@@ -226,13 +278,16 @@ export async function migrateFromEnv(
 ): Promise<void> {
   const url = migrateUrl(env);
   const deadline = Date.now() + migrateRetryMs(env);
+  const appRole = env["MIGRATE_ALLOW_APP_ROLE"] === "true" ? null : env["MIGRATE_APP_ROLE"] || APP_ROLE;
   const pool = new pg.Pool({ connectionString: url, max: 1, connectionTimeoutMillis: 10_000 });
+  // A dropped session errors on the idle client; the attempt that used it fails and is retried.
+  pool.on("error", () => undefined);
   try {
     let wait = 1000;
     for (let attempt = 1; ; attempt++) {
       try {
-        await pool.query("select 1");
-        break;
+        await migrateOnce(pool, dir, appRole);
+        return;
       } catch (err) {
         if (!isConnectionError(err) || Date.now() + wait > deadline) throw err;
         log("migration database not reachable; retrying", { attempt, retryInMs: wait, error: String(err) });
@@ -240,13 +295,6 @@ export async function migrateFromEnv(
         wait = Math.min(2 * wait, 30_000);
       }
     }
-    if (env["MIGRATE_ALLOW_APP_ROLE"] !== "true") {
-      const who = (await pool.query<{ app: boolean; name: string }>(APP_ROLE_QUERY)).rows[0];
-      if (who?.app) {
-        throw new Error(`refusing to migrate as ${JSON.stringify(who.name)}, the serving role ${APP_ROLE} or a member of it: use the owner role's URL (MIGRATE_DATABASE_URL), or set MIGRATE_ALLOW_APP_ROLE=true where it owns the schema (dev only)`);
-      }
-    }
-    await migrate(pool, dir);
   } finally {
     await pool.end();
   }

@@ -3,6 +3,8 @@ package dbx
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -16,8 +18,13 @@ import (
 )
 
 func TestIsConnectionErrorRetriesOnlyAnUnreachableDatabase(t *testing.T) {
+	_, refused := pgconn.Connect(context.Background(), "postgres://owner@127.0.0.1:1/x?sslmode=disable&connect_timeout=2")
+	var connectErr *pgconn.ConnectError
+	if !errors.As(refused, &connectErr) {
+		t.Fatalf("want a *pgconn.ConnectError, got %T %v", refused, refused)
+	}
 	retry := []error{
-		&pgconn.ConnectError{},
+		refused, // connection refused
 		fmt.Errorf("migrate: %w", &pgconn.PgError{Code: "57P03"}), // the database system is starting up
 		&pgconn.PgError{Code: "57P01"},                            // admin shutdown
 		&pgconn.PgError{Code: "08006"},
@@ -37,6 +44,10 @@ func TestIsConnectionErrorRetriesOnlyAnUnreachableDatabase(t *testing.T) {
 		&pgconn.PgError{Code: "23505"},
 		&pgconn.PgError{Code: "42501"}, // insufficient privilege
 		errors.New(`refusing to migrate as "depot_app"`),
+		fmt.Errorf("connect: %w", x509.UnknownAuthorityError{}), // TLS: unknown CA
+		fmt.Errorf("tls: %w", x509.HostnameError{Host: "db"}),   // TLS: wrong name
+		fmt.Errorf("connect: %w", &tls.CertificateVerificationError{Err: errors.New("expired")}),
+		errors.New("failed to connect: server refused TLS connection"),
 	}
 	for _, err := range noRetry {
 		if IsConnectionError(err) {
