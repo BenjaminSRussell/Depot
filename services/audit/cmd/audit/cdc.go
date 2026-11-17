@@ -134,7 +134,7 @@ type anchorer interface {
 // alerts (runbook docs/ops/runbooks/audit-chain-verify-failure.md).
 func chainNightly(ctx context.Context, getenv func(string) string, tenants []string) error {
 	if len(tenants) == 0 {
-		return errors.New("usage: audit " + chainCommand + " <tenant-id>...")
+		return errors.New("usage: audit " + chainCommand + " <tenant-id> [<tenant-id> ...]")
 	}
 	if !seeded(anchorPrincipal, anchorDuty) {
 		return errors.New("chain job not started: service principal " + tenant.ServiceActor(anchorPrincipal) + " with duty " + anchorDuty + " is not seeded")
