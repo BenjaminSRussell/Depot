@@ -1,8 +1,10 @@
 package tenant_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -304,6 +306,29 @@ func TestMiddlewareSelectionRefusalAfterUserCheck(t *testing.T) {
 	rec, _ := serveWith(http.MethodGet, map[string]string{tenant.HeaderUser: tenant.ServiceActorPrefix + "ledger", tenant.HeaderWebLegalEntity: validLE})
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("service actor in the user header must stay 401: %d %s", rec.Code, rec.Body)
+	}
+}
+
+// The refusal is logged with the tenant and the user, never with the legal-entity values.
+func TestMiddlewareSelectionRefusalLog(t *testing.T) {
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, nil)))
+	defer slog.SetDefault(prev)
+	user := "0190a5f2-7b1c-7d3e-8a4f-0000000000f1"
+	rec, _ := serveWith(http.MethodGet, map[string]string{tenant.HeaderUser: user, tenant.HeaderWebLegalEntity: validLE})
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status %d", rec.Code)
+	}
+	var entry map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &entry); err != nil {
+		t.Fatalf("log %q: %v", buf.String(), err)
+	}
+	if entry["msg"] != "legal entity selection refused" || entry["tenantId"] != validTenant || entry["user"] != user {
+		t.Fatalf("log entry %v", entry)
+	}
+	if strings.Contains(buf.String(), validLE) {
+		t.Fatalf("log names the legal entity: %s", buf.String())
 	}
 }
 

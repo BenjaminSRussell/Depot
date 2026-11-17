@@ -81,7 +81,10 @@ Keep the built model and record it as the v1.0 authorization architecture.
      to. The `le` claim becomes the list of entitled legal entities (a comma-joined string, like `duties`, because
      Envoy base64-encodes array claims; the kernel's parser already accepts up to 100). The shell's
      `X-Depot-LegalEntity` selects and narrows to one entity within that list; a selection outside the list, or a
-     selection with no claim, is refused with `403` by the kernel and by every gateway. Envoy forwards the selection
+     selection with no claim, is refused with `403` by the kernel and by every gateway. The one exception is a tenant
+     administrator (`tenant.administer` with no claim), who is entitled to every entity of the tenant and may narrow
+     to one by selection; the kernel already allows it (B-03a), and B-03c brings devgateway, `depot-server` and Envoy
+     in line with the kernel, as part of this Proposed model, pending owner confirmation. Envoy forwards the selection
      instead of stripping it (it is safe to forward because the kernel checks it against the claim-derived header).
      A write in a session with more than one entitled entity must carry a selection; peer calls carry the selected
      entity in the service token (ADR-0010). The alternative considered, one entity per token with re-authentication

@@ -352,7 +352,9 @@ func middlewareWith(verifier func() *ServiceVerifier, next http.Handler) http.Ha
 			return
 		}
 		if err != nil {
-			slog.WarnContext(r.Context(), "legal entity selection refused", "reason", err.Error(), "path", r.URL.Path, "correlationId", middleware.GetReqID(r.Context()))
+			// tenantId and user identify the caller (logpseudo pseudonymizes user under the tenant's key); the entity
+			// values are not logged.
+			slog.WarnContext(r.Context(), "legal entity selection refused", "reason", err.Error(), "tenantId", t, "user", user, "path", r.URL.Path, "correlationId", middleware.GetReqID(r.Context()))
 			reject(w, r, http.StatusForbidden, "AUTH-0003", "Forbidden", err.Error())
 			return
 		}
