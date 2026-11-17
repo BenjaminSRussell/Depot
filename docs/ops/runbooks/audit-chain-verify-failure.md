@@ -76,3 +76,36 @@ administrator. A long chain comes back in pages of 100,000 rows; follow `nextFro
 1. Verification output, the anchor history and the timeline attached to the incident.
 2. Lift the schema freeze after the credentials are rotated.
 3. Post-incident review within 5 working days.
+
+## Anchors: the one-day effect of an early claim
+
+Only `audit_anchor_record` writes anchors (migration 0013). It reads the chain head itself, under the append lock, so
+an anchor always names a row the chain held when it was written.
+
+The verdict columns (`verified`, `entries`, `breaks`) are the caller's report, though, and the function runs with the
+service's credentials. Code running as `depot_app` could therefore call it early in the day and claim that day's anchor
+with the then-current head and a verdict of its choosing. The nightly job then gets `created: false` (logged on the
+`audit chain anchored` line) and the newer head is anchored the next day. That day's verdict columns are not evidence;
+`:verify` recomputes the verdict and checks only the anchored seq and hash.
+
+If the nightly log shows `created: false` for a day the job had not anchored before, compare `created_at` of that
+day's `audit_anchor` row with the CronJob's schedule (01:43 UTC). A row written at another time was written by someone
+else with the service's credentials. Handle that as a credentials incident, the way a break that is not a fork is
+handled above.
+
+## Connector slot: staging check (heartbeat)
+
+The `audit-cdc-party` connector's heartbeat emits a non-transactional logical message with the prefix
+`depot.heartbeat`. The prefix is deliberately left out of `message.prefix.include.list`: the message exists only to put
+WAL in front of the slot, and Debezium drops it after reading it. Reading it still lets Debezium confirm the position
+to the slot.
+
+This has not yet been observed on a live connector. On staging, with `vendor_bank_account` quiet and the rest of
+`depot_party` busy, check that the slot's `confirmed_flush_lsn` keeps advancing:
+
+```sql
+select slot_name, confirmed_flush_lsn, pg_current_wal_lsn() from pg_replication_slots where slot_name = 'depot_audit_party';
+```
+
+Run it twice a few minutes apart. If it does not advance, the slot holds WAL until the 4GB cap invalidates it
+(runbook replication-slot-bloat). Then add the prefix to the include list, or move the heartbeat to a heartbeat table.

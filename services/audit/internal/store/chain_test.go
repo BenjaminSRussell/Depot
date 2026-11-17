@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 
@@ -166,9 +167,11 @@ func TestLegalEntityPolicyScopesTheTrail(t *testing.T) {
 	}
 }
 
-// TestAnchorsCannotBePlanted (review finding 6): depot_app reads anchors but cannot insert, rewrite or delete them; an
-// anchor comes only through audit_anchor_record, which takes the head hash from the chain and refuses a future date,
-// a date before yesterday and a head the chain does not hold.
+// TestAnchorsCannotBePlanted (review finding 6, re-review N1 and N4): depot_app reads anchors but cannot insert,
+// rewrite or delete them; an anchor comes only through audit_anchor_record, which reads the head (seq and hash) from
+// the chain itself and refuses a future date, a date before yesterday and a seq that is not the head. Temp tables and
+// a temp view shadowing audit_entry and audit_anchor do not reach it (its search_path ends with pg_temp and its body
+// names the schema).
 func TestAnchorsCannotBePlanted(t *testing.T) {
 	_, app, s := migratedWithApp(t)
 	ctx := scoped(1, "")
@@ -179,13 +182,17 @@ func TestAnchorsCannotBePlanted(t *testing.T) {
 	if err != nil || !a.Created || a.HeadSeq == 0 {
 		t.Fatalf("anchor %+v %v", a, err)
 	}
-	asApp := func(stmt string, args ...any) error {
+	asApp := func(stmts ...string) error {
 		return dbx.WithTenantTx(ctx, app, func(tx pgx.Tx) error {
 			if _, err := tx.Exec(ctx, `select set_config('depot.legal_entity_scopes', '*', true)`); err != nil {
 				return err
 			}
-			_, err := tx.Exec(ctx, stmt, args...)
-			return err
+			for _, stmt := range stmts {
+				if _, err := tx.Exec(ctx, stmt); err != nil {
+					return err
+				}
+			}
+			return nil
 		})
 	}
 	code := func(err error) string {
@@ -195,26 +202,113 @@ func TestAnchorsCannotBePlanted(t *testing.T) {
 		}
 		return ""
 	}
+	head := strconv.FormatInt(a.HeadSeq, 10)
+	yesterday := `(now() at time zone 'utc')::date - 1`
 	tomorrow := time.Now().UTC().Add(24 * time.Hour).Format(time.DateOnly)
 	for stmt, want := range map[string]string{
 		`update audit_anchor set verified = false`: "42501",
 		`delete from audit_anchor`:                 "42501",
 		`insert into audit_anchor (tenant_id, anchor_date, head_seq, head_hash, entries, verified, breaks, legacy_breaks)
 			values (current_setting('depot.tenant_id')::uuid, '` + tomorrow + `', 1, repeat('a', 64), 1, true, 0, 0)`: "42501",
-		`select audit_anchor_record('` + tomorrow + `'::date, 0, 0, true, 0, null, 0)`:                     "22023",
-		`select audit_anchor_record((now() at time zone 'utc')::date - 2, 0, 0, true, 0, null, 0)`:         "22023",
-		`select audit_anchor_record((now() at time zone 'utc')::date - 1, 999999999, 1, true, 0, null, 0)`: "22023",
+		`select audit_anchor_record('` + tomorrow + `'::date, ` + head + `, 0, true, 0, null, 0)`:             "22023",
+		`select audit_anchor_record((now() at time zone 'utc')::date - 2, ` + head + `, 0, true, 0, null, 0)`: "22023",
+		`select audit_anchor_record(` + yesterday + `, 999999999, 1, true, 0, null, 0)`:                       "40001",
+		`select audit_anchor_record(` + yesterday + `, 0, 0, true, 0, null, 0)`:                               "40001",
 	} {
 		if got := code(asApp(stmt)); got != want {
 			t.Errorf("%s = %s, want %s", stmt, got, want)
 		}
 	}
-	// What the function writes for yesterday is the chain's own hash at the named seq, whatever the caller believes.
-	if err := asApp(`select audit_anchor_record((now() at time zone 'utc')::date - 1, $1, 1, false, 0, null, 0)`, a.HeadSeq); err != nil {
-		t.Fatal(err)
+	// N1: a temp view named audit_entry that calls a pg_temp function would run that function as the owner if the
+	// function searched pg_temp first. It must not run.
+	if err := asApp(
+		`create function pg_temp.evil() returns bigint language plpgsql as $$ begin raise exception 'evil ran as %', current_user; end $$`,
+		`create temp view audit_entry as select tenant_id, seq, hash, pg_temp.evil() as x from `+schemaOf(t, app)+`.audit_entry`,
+		`select audit_anchor_record(`+yesterday+`, `+head+`, 1, false, 0, null, 0)`,
+		`drop view pg_temp.audit_entry`, `drop function pg_temp.evil()`,
+	); err != nil {
+		t.Fatalf("a temp view shadowing audit_entry reached the function: %v", err)
 	}
+	// N1: temp tables shadowing audit_entry (with a fabricated head) and audit_anchor are ignored: the fabricated seq is
+	// not the chain head, and nothing lands in the temp audit_anchor.
+	err = asApp(
+		`create temp table audit_entry (tenant_id uuid, seq bigint, hash text) on commit drop`,
+		`insert into audit_entry values (current_setting('depot.tenant_id')::uuid, 424242, repeat('f', 64))`,
+		`create temp table audit_anchor (like `+schemaOf(t, app)+`.audit_anchor) on commit drop`,
+		`select audit_anchor_record((now() at time zone 'utc')::date, 424242, 1, true, 0, null, 0)`,
+	)
+	if code(err) != "40001" {
+		t.Fatalf("a temp audit_entry with a fabricated head = %v; want 40001 (the real head is read)", err)
+	}
+	var fabricated int
+	if err := dbx.WithTenantTx(ctx, app, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `select count(*) from audit_anchor where head_seq = 424242 or head_hash = repeat('f', 64)`).Scan(&fabricated)
+	}); err != nil || fabricated != 0 {
+		t.Fatalf("fabricated anchors = %d, %v", fabricated, err)
+	}
+	// What the function wrote for yesterday is the chain's own head (both anchors name that seq).
 	if chain, err := s.VerifyChanges(ctx, 0, 0); err != nil || !chain.Verified || chain.Anchors.Checked != 1 {
 		t.Fatalf("anchors written by the function verify: %+v %v", chain, err)
+	}
+	var anchors int
+	if err := dbx.WithTenantTx(ctx, app, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `select count(*) from audit_anchor where head_seq = $1 and head_hash = $2`, a.HeadSeq, a.HeadHash).Scan(&anchors)
+	}); err != nil || anchors != 2 {
+		t.Fatalf("anchors on the real head = %d, %v", anchors, err)
+	}
+}
+
+func schemaOf(t *testing.T, pool *pgxpool.Pool) string {
+	t.Helper()
+	var schema string
+	if err := pool.QueryRow(context.Background(), `select current_schema()`).Scan(&schema); err != nil {
+		t.Fatal(err)
+	}
+	return pgx.Identifier{schema}.Sanitize()
+}
+
+// TestVerifyPagesCheckTheirBoundary (re-review N2): a page that stops checks that the next page's first row links to
+// its last row, and keeps an anchor whose head lies between them, so a row removed exactly at a page boundary fails
+// the page that ends there.
+func TestVerifyPagesCheckTheirBoundary(t *testing.T) {
+	admin, _, s := migratedWithApp(t)
+	ctx := scoped(1, "")
+	at := time.Now()
+	for i := range 3 {
+		if err := s.Apply(ctx, placed("b-1", leA, at.Add(time.Duration(i)*time.Second))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a, err := s.AnchorDay(ctx, at)
+	if err != nil || a.Entries != 3 {
+		t.Fatalf("anchor %+v %v", a, err)
+	}
+	for i := range 2 {
+		if err := s.Apply(ctx, placed("b-1", leA, at.Add(time.Duration(10+i)*time.Second))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	first, err := store.VerifyChangesLimit(s, ctx, 0, 0, 2)
+	if err != nil || !first.Verified || first.Complete || first.Entries != 2 {
+		t.Fatalf("intact first page %+v %v", first, err)
+	}
+	// Remove the anchored row 3, the first row after the first page.
+	if err := pgx.BeginFunc(ctx, admin, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `alter table audit_entry disable trigger audit_entry_no_mutation`); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `delete from audit_entry where tenant_id = $1 and seq = $2`, testkit.TenantID(1), a.HeadSeq); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `alter table audit_entry enable trigger audit_entry_no_mutation`)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	page, err := store.VerifyChangesLimit(s, ctx, 0, 0, 2)
+	if err != nil || page.Verified || page.Complete || page.Breaks != 2 || page.Anchors.Mismatched != 1 ||
+		page.FirstBreak == nil || page.FirstBreak.Kind != domain.BreakLink || page.FirstBreak.Seq != page.NextFromSeq {
+		t.Fatalf("page ending at the removed row: %+v %+v %v", page, page.FirstBreak, err)
 	}
 }
 

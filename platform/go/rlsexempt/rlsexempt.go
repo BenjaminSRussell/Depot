@@ -10,6 +10,9 @@ const (
 	NoEntityPol   = "no-legal-entity-policy"
 	ExtraPolicy   = "extra-permissive-policy"
 	NullEntityPol = "null-admitting-legal-entity-policy"
+	// DefinerPath: a SECURITY DEFINER function whose search_path is unset or does not end with pg_temp (tools/rlscheck);
+	// the "table" of its key is the function name.
+	DefinerPath = "definer-search-path-without-trailing-pg_temp"
 )
 
 // NilTenant is the platform tenant whose rows (system reference data) every tenant may read.

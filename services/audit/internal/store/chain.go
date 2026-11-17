@@ -2,9 +2,11 @@ package store
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/audit/internal/domain"
@@ -114,7 +116,7 @@ func verifyChanges(ctx context.Context, tx pgx.Tx, fromSeq, toSeq int64, limit i
 		return ChangeChain{}, err
 	}
 	defer rows.Close()
-	var walked, next, last int64
+	var walked, next int64
 	for rows.Next() {
 		var r domain.ChainRow
 		if err := rows.Scan(&r.Seq, &r.ID, &r.Entity, &r.RecordID, &r.Field, &r.OldValue, &r.NewValue, &r.UserID, &r.TraceID, &r.OccurredAt, &r.PrevHash, &r.Hash,
@@ -122,18 +124,20 @@ func verifyChanges(ctx context.Context, tx pgx.Tx, fromSeq, toSeq int64, limit i
 			return ChangeChain{}, err
 		}
 		if limit > 0 && walked == limit {
+			// The next page trusts this row's prevHash, so this page checks it links to the last row walked; an anchor
+			// whose head lies between the two (a removed row) stays this page's to report.
 			next = r.Seq
+			walker.Boundary(r)
 			break
 		}
 		walker.Next(r)
 		walked++
-		last = r.Seq
 	}
 	if err := rows.Err(); err != nil {
 		return ChangeChain{}, err
 	}
 	if next > 0 {
-		walker.DropAnchorsAfter(last)
+		walker.DropAnchorsAfter(next - 1)
 	}
 	out := changeChainOf(walker.Status())
 	if next > 0 {
@@ -155,10 +159,27 @@ type Anchor struct {
 	CreatedAt time.Time
 }
 
+// anchorAttempts bounds how often AnchorDay verifies again because rows were appended between its walk and the anchor.
+const anchorAttempts = 5
+
 // AnchorDay verifies the tenant's whole change chain and stores its head as the anchor of day (UTC: today or
-// yesterday), once, through audit_anchor_record (which reads the head hash from the chain itself): a second run on the
-// same day keeps the first anchor (Created false) and still returns the verdict of this run.
+// yesterday), once, through audit_anchor_record, which reads the head itself under the append lock and refuses a seq
+// that is no longer the head (40001): then rows were appended during the walk, and AnchorDay walks again. A second
+// run on the same day keeps the first anchor (Created false) and still returns the verdict of this run.
 func (s *Postgres) AnchorDay(ctx context.Context, day time.Time) (Anchor, error) {
+	var out Anchor
+	var err error
+	for range anchorAttempts {
+		out, err = s.anchorDay(ctx, day)
+		var pgErr *pgconn.PgError
+		if !errors.As(err, &pgErr) || pgErr.Code != "40001" {
+			return out, err
+		}
+	}
+	return out, err
+}
+
+func (s *Postgres) anchorDay(ctx context.Context, day time.Time) (Anchor, error) {
 	p, _ := tenant.FromContext(ctx)
 	date := day.UTC().Format(time.DateOnly)
 	var out Anchor
