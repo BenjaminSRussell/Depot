@@ -3,6 +3,28 @@
 Shop floor execution service. Wave reference: **DPT-25 / Wave 25**
 (Shop Floor Execution, Time Registration & IoT), PRD section 4.25.
 
+## Legal-entity scope of time and pay (B-03b, architecture gap D17)
+
+Migration `0039_worker_legal_entity.sql`: a worker carries the legal entity that employs it (`worker.legal_entity_id`,
+restrictive policy `worker_legal_entity_scope`), and its `time_registration`, `worker_day`, `pay_line`,
+`registration_correction` and `worker_cost_rate` rows follow it through restrictive policies on the worker's legal
+entity; `pay_export_line` follows its pay line, and `pay_export_batch` carries the legal entity it exported. A caller
+scoped to company A neither sees nor writes company B's workers, time or pay.
+
+- `POST /v1/shopfloor/workers` creates the worker in the caller's one legal entity, or in `legalEntityId` when it is in
+  the caller's scope (COM-0001 for a caller scoped to several without one; AUTH-0003 outside the scope or with none).
+- `POST /v1/shopfloor/pay:export` exports one employer's payroll: the caller's one legal entity, and only its workers'
+  lines.
+- A worker created before this has no legal entity and is visible only to all-entity reads. A tenant administrator (no
+  legal-entity claim, `tenant.administer` and `shopfloor.setup.maintain`) assigns it with
+  `POST /v1/shopfloor/workers/{id}:assign-legal-entity` (AUTH-0003 for anyone else). It is set once: a trigger refuses a
+  change, and the route answers SF-0200 for another legal entity.
+- The sweeper's auto clock-out and the production consumer's stop of starts on a finished operation run as system
+  actors with no legal entity and work across all of the tenant's legal entities (`widenForSystemCaller`); a caller with
+  a claim keeps its own scope.
+- Machines, andon, OEE, downtime, jobs, PI sheets, control recipes, process messages, edge nodes and the setup code
+  lists (time profiles, pay agreements, absence codes) stay tenant-wide, with the reasons in `platform/go/rlsexempt`.
+
 ## Slice 23: idle downtime and dated cost rates (FR-25.11, BR-25.6, D2a')
 
 **Idle downtime** (migration `0022_idle_downtime.sql`: `downtime_record.cause`, `down` or `idle`, default `down`; no new table or
@@ -899,6 +921,7 @@ Problem details use `application/problem+json` with `type` `https://depot.dev/pr
 | `SF-0197` | 404 | PI execution record not found |
 | `SF-0198` | 422 | A kiosk step message disagrees with the recipe or with what the service worked out (value not asked for, calculation result, branch decision, skipped step, machine reading that was not the one handed out, hand entry without a reason) |
 | `SF-0199` | 422 | A blocking timer is recorded before it has run out on the service's clock |
+| `SF-0200` | 409 | The worker already belongs to a legal entity, which never changes (B-03b) |
 | `SF-0178` | 422 | The control recipe cannot go to that destination, or a write is not a setpoint of the recipe |
 | `idempotency_key_reuse` | 422 | `Idempotency-Key` already used with a different request |
 

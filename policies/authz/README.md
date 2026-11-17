@@ -32,6 +32,15 @@ The PRD (`docs/prd`, `docs/PRD-full.md`) keeps its own duty identifiers (`WMS_WO
 
 `"operator_only": true` duties (the `ops.*` duties of the ops control plane) act on platform-wide state, not on one tenant's data. `authz.rego` grants them only when the subject's tenant is `data.operator_tenant_id`, which identity writes into the compiled bundle from `IDENTITY_OPERATOR_TENANT_ID`; without it they grant nothing. Identity also refuses to assign them in another tenant and drops any such assignment from the bundle, and the ops service serves the operator tenant only.
 
+## Legal-entity-scoped assignments (B-03b)
+
+`data.assignments[tenant][subject]` holds the duties of tenant-wide role assignments; they grant in every legal entity and
+on a request with none. `data.scoped_assignments[tenant][subject][legal_entity]` holds the duties of assignments scoped to
+one legal entity; `held_duties` counts one only when the request acts in that legal entity: `input.subject.legal_entity_id`
+is a UUID or a comma list (compared in lower case), and every listed entity must carry the duty. A request with no legal
+entity (a tenant administrator's) gets only the tenant-wide duties. Identity compiles both roots into the bundle;
+`data.json` seeds them empty.
+
 ## Resources
 
 Each permission is a route template matched with `glob.match(pattern, ["/", ":"], path)`:

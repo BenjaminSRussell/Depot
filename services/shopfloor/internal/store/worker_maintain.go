@@ -28,7 +28,39 @@ const (
 	// CodeCurrencyLocked: the worker's currency cannot change once a day of the worker is
 	// approved, as a revision of that day would mix currencies in it (422).
 	CodeCurrencyLocked = "SF-0169"
+	// CodeWorkerLegalEntitySet: the worker already belongs to a legal entity, which never changes (409, B-03b).
+	CodeWorkerLegalEntitySet = "SF-0200"
 )
+
+// AssignWorkerLegalEntity sets the employing legal entity of a worker created before workers carried one (B-03b,
+// D17). Such a worker, and its time and pay, is visible to no scoped caller, so only a tenant administrator (no
+// legal-entity claim, tenant.administer and the setup duty; dbx.WithTenantWideAdminTx) may assign it; anyone else
+// gets dbx.ErrNotTenantWide. A worker that already has a legal entity is SF-0200: it never changes, as its history
+// follows it.
+func (s *Postgres) AssignWorkerLegalEntity(ctx context.Context, workerID, legalEntityID, duty string, idem Idem) (Worker, error) {
+	p, _ := tenant.FromContext(ctx)
+	var out Worker
+	err := dbx.WithTenantWideAdminTx(ctx, s.pool, p, duty, func(tx pgx.Tx) error {
+		cur, err := lockWorkerRow(ctx, tx, p.TenantID, workerID)
+		if err != nil {
+			return err
+		}
+		if cur.LegalEntityID != nil {
+			if *cur.LegalEntityID == legalEntityID {
+				out = cur
+				return remember(ctx, tx, idem, http.StatusOK, out)
+			}
+			return httpx.NewProblem(http.StatusConflict, CodeWorkerLegalEntitySet, "the worker already belongs to a legal entity, which never changes")
+		}
+		out, err = scanWorker(tx.QueryRow(ctx, `update worker set legal_entity_id = $3, version = version + 1, updated_at = now()
+			where tenant_id = $1 and id = $2 returning `+workerColumns, p.TenantID, workerID, legalEntityID))
+		if err != nil {
+			return err
+		}
+		return remember(ctx, tx, idem, http.StatusOK, out)
+	})
+	return out, err
+}
 
 // WorkerInput is the editable part of a worker: everything but the party link, which never changes.
 type WorkerInput struct {

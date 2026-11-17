@@ -39,7 +39,8 @@ func inTenant(t *testing.T, pool *pgxpool.Pool, tenantID string, fn func(tx pgx.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true)`, tenantID); err != nil {
+	// Tests inspect the tenant's rows across its legal entities (B-03b).
+	if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true)`, tenantID); err != nil {
 		t.Fatal(err)
 	}
 	if err := fn(tx); err != nil {
@@ -204,7 +205,7 @@ func TestPayLineTrigger_BlocksChangesToApprovedDay(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
-	if _, err := tx.Exec(context.Background(), `select set_config('depot.tenant_id', $1, true)`, tenantID); err != nil {
+	if _, err := tx.Exec(context.Background(), `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true)`, tenantID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := tx.Exec(context.Background(), `update pay_line set hours = 1 where worker_id = $1`, worker); err == nil {

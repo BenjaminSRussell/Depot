@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/rlsexempt"
 	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
@@ -27,6 +28,7 @@ const (
 	problemNoEntityPol = "no-legal-entity-policy"
 	problemExtraPolicy = "extra-permissive-policy"
 	problemNullEntity  = "null-admitting-legal-entity-policy"
+	problemNoScope     = rlsexempt.NoEntityScope
 )
 
 type tableFacts struct {
@@ -39,6 +41,9 @@ type tableFacts struct {
 	EntityPolicy bool
 	ExtraPolicy  bool
 	NullEntity   bool
+	// EntityScope is any restrictive policy on depot.legal_entity_scopes, including one that follows a parent row's
+	// legal entity; NoEntityScope is judged only in rlsexempt.EntityScopedServices.
+	EntityScope bool
 }
 
 type violation struct {
@@ -69,7 +74,11 @@ select c.relname, c.relrowsecurity, c.relforcerowsecurity,
           and (p.roles = '{public}' or 'depot_app' = any (p.roles))
           and (coalesce(p.qual, '') || ' ' || coalesce(p.with_check, '')) !~ '` + tenantColumn + `'),
   exists (select 1 from pg_policies p where p.schemaname = n.nspname and p.tablename = c.relname and p.permissive = 'RESTRICTIVE'
-          and (coalesce(p.qual, '') || ' ' || coalesce(p.with_check, '')) ~* 'legal_entity_id[[:space:])]+is[[:space:]]+null')
+          and (coalesce(p.qual, '') || ' ' || coalesce(p.with_check, '')) ~* 'legal_entity_id[[:space:])]+is[[:space:]]+null'),
+  exists (select 1 from pg_policies p where p.schemaname = n.nspname and p.tablename = c.relname and p.permissive = 'RESTRICTIVE'
+          and p.cmd = 'ALL' and (p.roles = '{public}' or 'depot_app' = any (p.roles))
+          and p.qual like '%depot.legal_entity_scopes%'
+          and (p.with_check is null or p.with_check like '%depot.legal_entity_scopes%'))
 from pg_class c
 join pg_namespace n on n.oid = c.relnamespace
 where n.nspname = $1 and c.relkind in ('r', 'p') and not c.relispartition and c.relname <> 'schema_migrations'
@@ -179,7 +188,7 @@ func collect(t *testing.T, ctx context.Context, pool *pgxpool.Pool, service, sch
 	tables := 0
 	for rows.Next() {
 		var f tableFacts
-		if err := rows.Scan(&f.Name, &f.Enabled, &f.Forced, &f.HasTenantID, &f.TenantPolicy, &f.HasEntity, &f.EntityPolicy, &f.ExtraPolicy, &f.NullEntity); err != nil {
+		if err := rows.Scan(&f.Name, &f.Enabled, &f.Forced, &f.HasTenantID, &f.TenantPolicy, &f.HasEntity, &f.EntityPolicy, &f.ExtraPolicy, &f.NullEntity, &f.EntityScope); err != nil {
 			t.Fatal(err)
 		}
 		tables++
@@ -210,6 +219,9 @@ func judge(service string, f tableFacts) []violation {
 	}
 	if f.NullEntity {
 		add(problemNullEntity)
+	}
+	if rlsexempt.EntityScopedServices[service] && !f.HasEntity && !f.EntityScope {
+		add(problemNoScope)
 	}
 	return out
 }
@@ -245,6 +257,35 @@ func TestJudge(t *testing.T) {
 	bad := tableFacts{Name: "x", HasEntity: true}
 	if got := judge("s", bad); len(got) != 3 {
 		t.Fatalf("got %d violations, want 3: %v", len(got), got)
+	}
+}
+
+// B-03b (D17): in a service D17 named, a table must carry legal_entity_id or follow a parent's legal entity with a
+// restrictive policy; elsewhere a tenant-wide table is not judged on it.
+func TestJudgeNoEntityScopeOnlyInD17Services(t *testing.T) {
+	tenantWide := tableFacts{Name: "x", Enabled: true, Forced: true, HasTenantID: true, TenantPolicy: true}
+	if got := judge("ledger", tenantWide); len(got) != 0 {
+		t.Fatalf("a tenant-wide table outside D17 flagged: %v", got)
+	}
+	if got := judge("shopfloor", tenantWide); len(got) != 1 || got[0].Problem != problemNoScope {
+		t.Fatalf("a tenant-wide shopfloor table: %v, want one %s", got, problemNoScope)
+	}
+	child := tenantWide
+	child.EntityScope = true
+	if got := judge("shopfloor", child); len(got) != 0 {
+		t.Fatalf("a child following its parent's legal entity flagged: %v", got)
+	}
+	owner := tableFacts{Name: "x", Enabled: true, Forced: true, HasTenantID: true, TenantPolicy: true, HasEntity: true}
+	if got := judge("shopfloor", owner); len(got) != 1 || got[0].Problem != problemNoEntityPol {
+		t.Fatalf("a legal_entity_id column without its policy: %v, want one %s", got, problemNoEntityPol)
+	}
+	for _, kernel := range []string{"outbox", "consumer_inbox", "idempotency_keys", "service_token_replay"} {
+		if _, ok := allowReason(violation{"fx", kernel, problemNoScope}); !ok {
+			t.Errorf("kernel table %s has no %s reason", kernel, problemNoScope)
+		}
+	}
+	if _, ok := allowReason(violation{"fx", "exchange_rate_unlisted", problemNoScope}); ok {
+		t.Error("an unlisted table must not be excused")
 	}
 }
 

@@ -34,6 +34,9 @@ func (s *Postgres) AutoClockOut(ctx context.Context, now time.Time, afterHours, 
 	p, _ := tenant.FromContext(ctx)
 	out := []AutoClosed{}
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		if err := widenForSystemCaller(ctx, tx); err != nil {
+			return err
+		}
 		rows, err := tx.Query(ctx, `select w.id::text, lp.id::text, lp.started_at
 			from worker w
 			cross join lateral (select t.id, t.kind, t.started_at from time_registration t

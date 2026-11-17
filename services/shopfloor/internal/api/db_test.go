@@ -741,3 +741,44 @@ func TestHTTP_DatedCostRatePricesEachDay(t *testing.T) {
 		t.Fatalf("recalculate approved days: %d %s", rec.Code, rec.Body.String())
 	}
 }
+
+// B-03b (D17) over HTTP: a worker created before workers carried a legal entity is invisible to a scoped caller; a
+// scoped caller may not assign it (403), a tenant administrator (no legal-entity claim) may, once (SF-0200 after).
+func TestHTTP_TenantAdminAssignsAWorkersLegalEntity(t *testing.T) {
+	admin, app := testkit.DBWithApp(t)
+	if err := dbx.Migrate(context.Background(), admin, migrations.FS); err != nil {
+		t.Fatal(err)
+	}
+	h := newRouter(store.New(app))
+	legacy := "0195f0a0-0000-7000-8000-0000000000c1"
+	if _, err := admin.Exec(context.Background(), `insert into worker (tenant_id, id, party_id, name, cost_rate, currency) values ($1, $2, $3, 'Legacy', 20, 'USD')`, testkit.TenantID(1), legacy, jobID); err != nil {
+		t.Fatal(err)
+	}
+	if rec := call(t, h, http.MethodGet, "/v1/shopfloor/workers/"+legacy, "", allDuty); rec.Code != http.StatusNotFound {
+		t.Fatalf("scoped read of a worker with no legal entity: %d %s", rec.Code, rec.Body.String())
+	}
+	assign := func(legalEntity, body, duties, key string) *httptest.ResponseRecorder {
+		return callWith(t, h, http.MethodPost, "/v1/shopfloor/workers/"+legacy+":assign-legal-entity", body, duties,
+			map[string]string{"Idempotency-Key": key, "X-Depot-Legal-Entity": legalEntity})
+	}
+	own := `{"legalEntityId":"` + testLegalEntity + `"}`
+	if rec := assign(testLegalEntity, own, allDuty, "a-1"); rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "AUTH-0003") {
+		t.Fatalf("a scoped caller assigns: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := assign("", `{"legalEntityId":"x"}`, allDuty+",tenant.administer", "a-2"); rec.Code != http.StatusBadRequest {
+		t.Fatalf("a malformed legal entity: %d %s", rec.Code, rec.Body.String())
+	}
+	rec := assign("", own, allDuty+",tenant.administer", "a-3")
+	var w store.Worker
+	_ = json.Unmarshal(rec.Body.Bytes(), &w)
+	if rec.Code != http.StatusOK || w.LegalEntityID == nil || *w.LegalEntityID != testLegalEntity || rec.Header().Get("ETag") != `"2"` {
+		t.Fatalf("tenant administrator assigns: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := call(t, h, http.MethodGet, "/v1/shopfloor/workers/"+legacy, "", allDuty); rec.Code != http.StatusOK {
+		t.Fatalf("scoped read after the assignment: %d %s", rec.Code, rec.Body.String())
+	}
+	other := `{"legalEntityId":"00000000-0000-0000-0000-0000000000e2"}`
+	if rec := assign("", other, allDuty+",tenant.administer", "a-4"); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "SF-0200") {
+		t.Fatalf("moving the worker to another legal entity: %d %s", rec.Code, rec.Body.String())
+	}
+}

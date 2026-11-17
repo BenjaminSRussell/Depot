@@ -1,5 +1,6 @@
 {
   "assignments": {},
+  "scoped_assignments": {},
   "duties": {
     "identity.user.maintain": {"permissions": [{"resource": "/v1/identity/users{,/**}", "methods": ["GET", "POST", "PATCH"]}, {"resource": "/v1/identity/user-names", "methods": ["GET"]}]},
     "identity.user-name.read": {"permissions": [{"resource": "/v1/identity/user-names", "methods": ["GET"]}]},
@@ -3838,7 +3839,7 @@
       {"resource": "/v1/shopfloor/time-profiles/*", "methods": ["PUT"]},
       {"resource": "/v1/shopfloor/workers", "methods": ["POST"]},
       {"resource": "/v1/shopfloor/workers/*:assign-setup", "methods": ["POST"]},
-      {"resource": "/v1/shopfloor/workers/*:assign-resource", "methods": ["POST"]},
+      {"resource": "/v1/shopfloor/workers/*:assign-resource", "methods": ["POST"]}, {"resource": "/v1/shopfloor/workers/*:assign-legal-entity", "methods": ["POST"]},
       {"resource": "/v1/shopfloor/downtime-reasons", "methods": ["POST"]},
       {"resource": "/v1/shopfloor/downtime-reasons/*", "methods": ["PUT"]},
       {"resource": "/v1/shopfloor/process-categories", "methods": ["POST"]},

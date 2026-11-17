@@ -44,16 +44,25 @@ const (
 
 var errOperatorNotRegistered = errors.New("operator tenant is not registered in identity_operator; refusing to publish an empty policy")
 
-var bundleRoots = []string{"authz", "assignments", "duties", "service_grants", "service_principals", "operator_tenant_id"}
+var bundleRoots = []string{"authz", "assignments", "scoped_assignments", "duties", "service_grants", "service_principals", "operator_tenant_id"}
 
-const compiledAssignmentsQuery = `select a.tenant_id::text, u.idp_subject, a.role
+// compiledAssignmentsQuery reads every active assignment of every active user of every active tenant. A tenant-wide
+// assignment has an empty legal entity and goes to data.assignments; a legal-entity-scoped one goes to
+// data.scoped_assignments under its legal entity, where authz.rego grants it only to a request in that entity (B-03b).
+const compiledAssignmentsQuery = `select a.tenant_id::text, u.idp_subject, coalesce(a.legal_entity_id::text, ''), a.role
 from identity_role_assignments a
 join identity_users u on u.tenant_id = a.tenant_id and u.user_id = a.user_id
 join identity_tenants t on t.tenant_id = a.tenant_id
-where a.legal_entity_id is null
-  and u.status = 'active' and t.status = 'active'
+where u.status = 'active' and t.status = 'active'
   and a.valid_from <= now() and (a.valid_to is null or a.valid_to > now())
-order by 1, 2, 3`
+order by 1, 2, 3, 4`
+
+// compiledAssignments are the role assignments the bundle carries: tenant-wide ones by tenant and subject, and
+// legal-entity-scoped ones by tenant, subject and legal entity.
+type compiledAssignments struct {
+	tenantWide map[string]map[string][]string
+	scoped     map[string]map[string]map[string][]string
+}
 
 type BundleSigner struct {
 	key   *rsa.PrivateKey
@@ -141,8 +150,8 @@ func NewPolicyBundleCompiler(pool *pgxpool.Pool, catalogue *Catalogue, catalogue
 	return &PolicyBundleCompiler{pool: pool, catalogue: catalogue, catalogueRaw: catalogueRaw, rego: rego, operatorTenantID: operatorTenantID, signer: signer}, nil
 }
 
-func (c *PolicyBundleCompiler) assignments(ctx context.Context) (map[string]map[string][]string, error) {
-	out := map[string]map[string][]string{}
+func (c *PolicyBundleCompiler) assignments(ctx context.Context) (compiledAssignments, error) {
+	out := compiledAssignments{tenantWide: map[string]map[string][]string{}, scoped: map[string]map[string]map[string][]string{}}
 	err := pgx.BeginFunc(ctx, c.pool, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true), set_config('depot.policy_compile', 'on', true)`, c.operatorTenantID); err != nil {
 			return err
@@ -160,8 +169,8 @@ func (c *PolicyBundleCompiler) assignments(ctx context.Context) (map[string]map[
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var tenantID, subject, role string
-			if err := rows.Scan(&tenantID, &subject, &role); err != nil {
+			var tenantID, subject, legalEntity, role string
+			if err := rows.Scan(&tenantID, &subject, &legalEntity, &role); err != nil {
 				return err
 			}
 			if !c.catalogue.PersonAssignable(role) {
@@ -171,10 +180,20 @@ func (c *PolicyBundleCompiler) assignments(ctx context.Context) (map[string]map[
 			if c.catalogue.OperatorOnly(role) && tenantID != c.operatorTenantID {
 				continue
 			}
-			if out[tenantID] == nil {
-				out[tenantID] = map[string][]string{}
+			if legalEntity == "" {
+				if out.tenantWide[tenantID] == nil {
+					out.tenantWide[tenantID] = map[string][]string{}
+				}
+				out.tenantWide[tenantID][subject] = append(out.tenantWide[tenantID][subject], role)
+				continue
 			}
-			out[tenantID][subject] = append(out[tenantID][subject], role)
+			if out.scoped[tenantID] == nil {
+				out.scoped[tenantID] = map[string]map[string][]string{}
+			}
+			if out.scoped[tenantID][subject] == nil {
+				out.scoped[tenantID][subject] = map[string][]string{}
+			}
+			out.scoped[tenantID][subject][legalEntity] = append(out.scoped[tenantID][subject][legalEntity], role)
 		}
 		return rows.Err()
 	})
@@ -211,14 +230,15 @@ func (c *PolicyBundleCompiler) Compile(ctx context.Context) (PolicyBundle, error
 	return PolicyBundle{Revision: revision, Archive: archive}, nil
 }
 
-func (c *PolicyBundleCompiler) dataFile(assignments map[string]map[string][]string) ([]byte, error) {
+func (c *PolicyBundleCompiler) dataFile(assignments compiledAssignments) ([]byte, error) {
 	decoder := json.NewDecoder(bytes.NewReader(c.catalogueRaw))
 	decoder.UseNumber()
 	var doc map[string]any
 	if err := decoder.Decode(&doc); err != nil {
 		return nil, fmt.Errorf("parse duty catalogue: %w", err)
 	}
-	doc["assignments"] = assignments
+	doc["assignments"] = assignments.tenantWide
+	doc["scoped_assignments"] = assignments.scoped
 	doc["operator_tenant_id"] = c.operatorTenantID
 	return json.Marshal(doc)
 }
