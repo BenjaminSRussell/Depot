@@ -153,7 +153,7 @@ func postToLedger(ctx context.Context, tx pgx.Tx, tenantID string, ledger Ledger
 	if err != nil {
 		return Entry{}, nil, err
 	}
-	if err := rejectWithPeriod(ctx, ledger, in.PostingDate, in.Source.System, append(res.Violations, outcome.Errors...)); err != nil {
+	if err := rejectWithPeriod(ctx, tx, tenantID, ledger, in.PostingDate, in.Source.System, append(res.Violations, outcome.Errors...)); err != nil {
 		return Entry{}, nil, err
 	}
 	description, notices, err := applyDefaultDescriptions(ctx, tx, tenantID, ledger, in, res.Lines)
@@ -289,7 +289,7 @@ func reverseEntryTx(ctx context.Context, tx pgx.Tx, tenantID string, in ReverseI
 	}
 	v := domain.CheckReversalDate(ledger.Rules(), origDate, postingDate, in.Today)
 	if len(v) == 0 {
-		if v, err = periodViolations(ctx, ledger, postingDate, orig.sourceSystem); err != nil {
+		if v, err = periodViolations(ctx, tx, tenantID, ledger, postingDate, orig.sourceSystem); err != nil {
 			return out, err
 		}
 	}
@@ -706,7 +706,7 @@ func (s *Postgres) ValidateEntry(ctx context.Context, in PostInput) (domain.Resu
 		res.Violations = append(res.Violations, outcome.Errors...)
 		res.Warnings = outcome.Warnings
 		if res.Valid() {
-			closed, err := periodViolations(ctx, ledger, in.PostingDate, in.Source.System)
+			closed, err := periodViolations(ctx, tx, p.TenantID, ledger, in.PostingDate, in.Source.System)
 			if err != nil {
 				return err
 			}

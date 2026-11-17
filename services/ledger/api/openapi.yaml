@@ -133,6 +133,16 @@ components:
         errors:
           type: object
           additionalProperties: { type: string }
+    PeriodLockSource:
+      type: object
+      additionalProperties: false
+      required: [sourceSystem, module, status]
+      description: The status close resolved for postings from one source system (FR-14.1, B-08c)
+      properties:
+        sourceSystem: { type: string, minLength: 1, maxLength: 40, description: 'A source.system value, or "*" for every source without a row of its own' }
+        module: { type: string, minLength: 1, maxLength: 20, description: The close module that governs the source (all for "*") }
+        status: { type: string, enum: [open, on_hold, closed, permanently_closed, never_opened] }
+        openUntil: { type: string, format: date-time, description: Expiry of a temporary reopen; from then on open and on_hold are refused as closed }
     Violation:
       type: object
       required: [code, message]
@@ -2379,9 +2389,13 @@ paths:
         as a replay (without the original notices), another payload is 409
         LEDGER_IDEMPOTENCY_CONFLICT. This holds for a post, a ledger-set post and a reversal.
 
-        Period control: with CLOSE_URL configured, every posting path (this one, validate, reversal,
-        batch submit and post, ledger-set post) asks the close service for the posting date's period status
-        and answers 422 LEDGER_PERIOD_CLOSED unless the status is open. Flag duty ledger.period.postclosed
+        Period control: every posting path (this one, validate, reversal, batch submit and post, ledger-set
+        post) first reads the ledger's own period lock for the posting date and source system inside its
+        transaction (FOR SHARE; written by the close service through PUT
+        /v1/ledger/ledgers/{ledger}/period-locks/{fiscalPeriodId} before close reports a transition), then,
+        with CLOSE_URL configured, asks the close service for the period status. It answers 422
+        LEDGER_PERIOD_CLOSED unless both say open, so a posting never lands in a period close has reported
+        closed (FR-14.1, B-08c). Flag duty ledger.period.postclosed
         overrides a closed or on_hold period only; permanently_closed and never_opened always refuse. A close
         service that cannot confirm the status gives 503 LEDGER_PERIOD_STATUS_UNAVAILABLE and nothing is posted.
 
@@ -4704,3 +4718,75 @@ paths:
         "409": { $ref: "#/components/responses/ValidationRuleProblem409" }
         "412": { $ref: "#/components/responses/Problem412" }
         "422": { $ref: "#/components/responses/Problem422" }
+  /v1/ledger/ledgers/{ledger}/period-locks/{fiscalPeriodId}:
+    put:
+      tags: [ledgers]
+      operationId: putPeriodLock
+      summary: Set the ledger's period lock for one fiscal period (close service only)
+      x-depot-duty: ledger.period.lock
+      description: |
+        Replaces the ledger's own copy of a fiscal period's status (FR-14.1, B-08c). The close service calls
+        it with a service token carrying ledger.period.lock (no role grants it) inside every period
+        transition and reopen approval, and reports the transition only after this returns 200; on any
+        other answer close rolls the transition back. The update takes the ledger row FOR UPDATE, so it
+        waits for the postings in flight on the ledger and commits before any later posting reads the lock
+        (FOR SHARE, inside the posting transaction): a posting either commits before the lock changes or
+        meets the new status. It waits at most 2 s for those postings (503 LEDGER_PERIOD_LOCK_BUSY).
+
+        `sources` holds one row per source system with the status close resolved for postings from it, and
+        the row `*` for every other source; a posting meets its own source's row, else `*`. A posting into an
+        `open` or `on_hold` source whose `openUntil` (a temporary reopen's expiry) has passed is refused as
+        closed. Sources missing from a later update are removed. An update with a `version` lower than the
+        stored one is 409 LEDGER_PERIOD_LOCK_STALE; the same version is accepted again.
+      parameters:
+        - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: fiscalPeriodId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [startDate, endDate, version, sources]
+              properties:
+                startDate: { type: string, format: date }
+                endDate: { type: string, format: date }
+                version: { type: integer, format: int64, minimum: 1, description: Orders the updates of one period; close sends its database clock in microseconds }
+                sources:
+                  type: array
+                  minItems: 1
+                  maxItems: 64
+                  description: One row per source system; exactly one has sourceSystem "*"
+                  items: { $ref: "#/components/schemas/PeriodLockSource" }
+      responses:
+        "200":
+          description: The lock is committed; postings from now on meet it
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ledgerId, fiscalPeriodId, startDate, endDate, version, sources]
+                properties:
+                  ledgerId: { type: string, format: uuid }
+                  fiscalPeriodId: { type: string, format: uuid }
+                  startDate: { type: string, format: date }
+                  endDate: { type: string, format: date }
+                  version: { type: integer, format: int64 }
+                  sources:
+                    type: array
+                    items: { $ref: "#/components/schemas/PeriodLockSource" }
+        "400": { $ref: "#/components/responses/Problem400" }
+        "401": { $ref: "#/components/responses/Problem401" }
+        "403": { $ref: "#/components/responses/Problem403" }
+        "404": { $ref: "#/components/responses/Problem404" }
+        "409":
+          description: LEDGER_PERIOD_LOCK_STALE, a newer lock of the period is already stored
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "503":
+          description: LEDGER_PERIOD_LOCK_BUSY, postings in flight held the ledger past the 2 s lock wait; nothing changed
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }

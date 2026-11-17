@@ -1,6 +1,7 @@
 package ledger
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/close/internal/domain"
 )
 
 const (
@@ -22,6 +24,7 @@ const (
 	ledgersPath     = "/v1/ledger/ledgers/"
 	audience        = "ledger"
 	dutyLookup      = "ledger.ledger.lookup"
+	dutyPeriodLock  = "ledger.period.lock"
 	maxResponseSize = 1 << 20
 )
 
@@ -82,4 +85,47 @@ func (c *Client) LegalEntity(ctx context.Context, legalEntityID, ledgerID string
 		return "", errors.New("ledger: response has no legalEntityId")
 	}
 	return body.LegalEntityID, nil
+}
+
+type lockBody struct {
+	StartDate string              `json:"startDate"`
+	EndDate   string              `json:"endDate"`
+	Version   int64               `json:"version"`
+	Sources   []domain.LockSource `json:"sources"`
+}
+
+// LockPeriod sets the ledger's period lock of one fiscal period (PUT .../period-locks/{fiscalPeriodId},
+// FR-14.1, B-08c) with a service token that carries ledger.period.lock alone, on behalf of the end user in
+// ctx. It returns nil only on the ledger's 200, which the ledger sends once the lock is committed.
+func (c *Client) LockPeriod(ctx context.Context, lock domain.PeriodLock) error {
+	principal, ok := tenant.FromContext(ctx)
+	if !ok {
+		return errors.New("ledger: no principal in context")
+	}
+	if c.signer == nil {
+		return errors.New("ledger: no service signing key configured")
+	}
+	raw, err := json.Marshal(lockBody{StartDate: lock.Start.Format(time.DateOnly), EndDate: lock.End.Format(time.DateOnly), Version: lock.Version, Sources: lock.Sources})
+	if err != nil {
+		return fmt.Errorf("ledger: %w", err)
+	}
+	target := c.baseURL + ledgersPath + url.PathEscape(lock.LedgerID) + "/period-locks/" + url.PathEscape(lock.FiscalPeriodID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, target, bytes.NewReader(raw))
+	if err != nil {
+		return fmt.Errorf("ledger: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if _, err := c.signer.ApplyDuties(req, principal, audience, lock.LegalEntityID, []string{dutyPeriodLock}); err != nil {
+		return fmt.Errorf("ledger: %w", err)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("ledger: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxResponseSize))
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("ledger: period lock answered %d", resp.StatusCode)
+	}
+	return nil
 }

@@ -520,7 +520,7 @@ func (s *Postgres) SubmitBatch(ctx context.Context, id string, version int, toda
 		if err != nil {
 			return err
 		}
-		if err := rejectWithPeriod(ctx, ledger, in.PostingDate, in.Source.System, append(res.Violations, outcome.Errors...)); err != nil {
+		if err := rejectWithPeriod(ctx, tx, p.TenantID, ledger, in.PostingDate, in.Source.System, append(res.Violations, outcome.Errors...)); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `update journal_batch set submitted_by = $3, decided_by = null, last_error = null

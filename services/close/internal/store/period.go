@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -12,11 +14,15 @@ import (
 
 	"github.com/BenjaminSRussell/depot/platform/dbx"
 	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
 	"github.com/BenjaminSRussell/depot/platform/outbox"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/close/internal/domain"
 )
+
+// CodeLedgerLockUnavailable is the 503 of a period transition the ledger did not confirm (B-08c).
+const CodeLedgerLockUnavailable = "CLOSE-0012"
 
 func (s *Postgres) PeriodMatrix(ctx context.Context, legalEntityID, ledgerID string) ([]domain.PeriodStatus, error) {
 	var out []domain.PeriodStatus
@@ -107,7 +113,10 @@ func (s *Postgres) TransitionPeriod(ctx context.Context, in domain.PeriodTransit
 				return err
 			}
 		}
-		return writePeriodChange(ctx, tx, p.TenantID, in.LegalEntityID, in.LedgerID, in.FiscalPeriodID, in.Module, from, in.To, in.Actor, in.Reason, nil)
+		if err := writePeriodChange(ctx, tx, p.TenantID, in.LegalEntityID, in.LedgerID, in.FiscalPeriodID, in.Module, from, in.To, in.Actor, in.Reason, nil); err != nil {
+			return err
+		}
+		return s.lockLedgerPeriod(ctx, tx, in.LegalEntityID, in.LedgerID, in.FiscalPeriodID)
 	})
 	if err != nil {
 		return out, err
@@ -244,6 +253,12 @@ func (s *Postgres) ApproveReopen(ctx context.Context, id, actor string) (domain.
 		if req.Status != "pending" {
 			return &domain.Error{Code: domain.CodeInvalidTransition, Detail: "reopen request is " + req.Status}
 		}
+		// Every row of the period, as a PATCH takes them, so the ledger lock below is sent from a matrix no
+		// other transition of the period can change before this commits.
+		if _, err := tx.Exec(ctx, `select 1 from period_status where legal_entity_id = $1 and ledger_id = $2 and fiscal_period_id = $3 for update`,
+			req.LegalEntityID, req.LedgerID, req.FiscalPeriodID); err != nil {
+			return lockErr(err)
+		}
 		updated, done, err := domain.ApproveReopen(domain.ReopenRequest{RequestedBy: req.RequestedBy, Required: req.Required, Reason: req.Reason, Approvals: req.Approvals}, actor)
 		if err != nil {
 			return err
@@ -269,9 +284,68 @@ func (s *Postgres) ApproveReopen(ctx context.Context, id, actor string) (domain.
 			return &domain.Error{Code: domain.CodeInvalidTransition, Detail: "period is no longer closed"}
 		}
 		out = req
-		return writePeriodChange(ctx, tx, p.TenantID, req.LegalEntityID, req.LedgerID, req.FiscalPeriodID, req.Module, domain.StatusClosed, domain.StatusOpen, actor, req.Reason, req.Approvals)
+		if err := writePeriodChange(ctx, tx, p.TenantID, req.LegalEntityID, req.LedgerID, req.FiscalPeriodID, req.Module, domain.StatusClosed, domain.StatusOpen, actor, req.Reason, req.Approvals); err != nil {
+			return err
+		}
+		return s.lockLedgerPeriod(ctx, tx, req.LegalEntityID, req.LedgerID, req.FiscalPeriodID)
 	})
 	return out, err
+}
+
+// lockLedgerPeriod sends the period's new matrix to the ledger's period lock from inside the transition's
+// transaction, after every write and before the commit, with the period's rows locked FOR UPDATE (FR-14.1,
+// B-08c). The ledger acknowledges only once the lock is committed in its database, after the postings in
+// flight on the ledger have committed; postings that reach the ledger later read the new status in their own
+// transaction. So close reports a period closed only when no posting can commit into it any more. Any
+// failure (ledger unreachable, refused, timed out) rolls the transition back: the period keeps its status.
+//
+// The two commits are not atomic. If close's commit fails after the ledger's, the ledger holds the new status
+// and close the old one; the posting check refuses when either says so, so this errs towards refusing until
+// the transition is repeated. The version is the database clock under the row locks, so a late or repeated
+// lock update never overwrites a newer one.
+func (s *Postgres) lockLedgerPeriod(ctx context.Context, tx pgx.Tx, entity, ledger, period string) error {
+	if s.locks == nil {
+		return nil
+	}
+	lock := domain.PeriodLock{LegalEntityID: entity, LedgerID: ledger, FiscalPeriodID: period}
+	rows, err := tx.Query(ctx, `select module, status, coalesce(allowed_group_id, ''), reopen_expires_at, start_date, end_date
+		from period_status where legal_entity_id = $1 and ledger_id = $2 and fiscal_period_id = $3 for update`, entity, ledger, period)
+	if err != nil {
+		return lockErr(err)
+	}
+	var found []domain.LockRow
+	var dated bool
+	for rows.Next() {
+		var r domain.LockRow
+		var start, end *time.Time
+		if err := rows.Scan(&r.Module, &r.Status, &r.AllowedGroupID, &r.ReopenExpiresAt, &start, &end); err != nil {
+			rows.Close()
+			return err
+		}
+		if start != nil && end != nil {
+			lock.Start, lock.End, dated = *start, *end, true
+		}
+		found = append(found, r)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return lockErr(err)
+	}
+	if !dated {
+		// A period registered before its dates were stored (migration 0003) has no dates: the ledger cannot
+		// place a posting in it, and the close service's resolve finds no period for it either.
+		return nil
+	}
+	if err := tx.QueryRow(ctx, `select (extract(epoch from clock_timestamp()) * 1000000)::bigint`).Scan(&lock.Version); err != nil {
+		return err
+	}
+	lock.Sources = domain.LockSources(found)
+	if err := s.locks.LockPeriod(ctx, lock); err != nil {
+		slog.ErrorContext(ctx, "ledger period lock failed; period transition rolled back", "err", err, "ledgerId", ledger, "fiscalPeriodId", period)
+		return httpx.NewProblem(http.StatusServiceUnavailable, CodeLedgerLockUnavailable,
+			"the ledger could not confirm the period lock, so the period was not changed; retry when the ledger is available")
+	}
+	return nil
 }
 
 func (s *Postgres) RejectReopen(ctx context.Context, id, actor string) (domain.StoredReopen, error) {

@@ -290,7 +290,8 @@ new dimension combinations in different orders (`40P01` on `dimension_combinatio
 | `ledger.journal.post` | Umbrella: `POST /journal-entries`, `POST /validate`, `POST /journal-batches/{id}/post`, `POST /ledger-sets/{setId}/journal-entries` (PRD "Post ledger journals"). Each route also accepts its own narrow duty: `ledger.entry.post` (service only), `ledger.entry.validate`, `ledger.batch.post`, `ledger.set.post` |
 | `ledger.entry.lookup`, `ledger.ledger.lookup` | Service-only narrow reads, accepted beside `ledger.journal.read` on `GET /journal-lines` (which filters by `documentId`, the posting document's UUID) and `GET /ledgers/{id}` |
 | `ledger.journal.postledger` | Flag duty checked with `ledger.journal.post` on `POST /journal-entries` and `POST /journal-batches/{id}/post` when the entry's ledger is a non-leading member of a ledger set (FB50L, PRD "Post to ledger-specific ledger"); without it the post is refused 403 `AUTH-0003` |
-| `ledger.period.postclosed` | Flag duty (the close adjustment). Every posting path (`POST /journal-entries`, `/validate`, reversal, `/journal-batches/{id}/submit` and `/post`, `/ledger-sets/{setId}/journal-entries`) asks the close service (`GET /v1/close/periods:resolve`, signed `period.check`; non-open answers cached 30 s per ledger, module and date; an open answer is reused only within one request) for the posting date's period status and answers 422 `LEDGER_PERIOD_CLOSED` unless it is `open`. The duty overrides `closed` and `on_hold` only (the ledger has no user group to pass to close's hold exception); `permanently_closed` and `never_opened` always refuse. A date close has no registered period for is governed by `first_open_date` alone. A close service that cannot confirm the status gives 503 `LEDGER_PERIOD_STATUS_UNAVAILABLE` and nothing is posted. The service refuses to start unless `CLOSE_URL` is set (with a service signing key) or `LEDGER_PERIOD_CHECK=disabled` (dev and test; logs a warning). A reversal asks about the original entry's source module |
+| `ledger.period.postclosed` | Flag duty (the close adjustment). Every posting path (`POST /journal-entries`, `/validate`, reversal, `/journal-batches/{id}/submit` and `/post`, `/ledger-sets/{setId}/journal-entries`) first reads the ledger's own period lock (see "Period lock" below) and then asks the close service (`GET /v1/close/periods:resolve`, signed `period.check`; non-open answers cached 30 s per ledger, module and date as a fast pre-check; an open answer is reused only within one request) for the posting date's period status, and answers 422 `LEDGER_PERIOD_CLOSED` unless both say `open`. The duty overrides `closed` and `on_hold` only (the ledger has no user group to pass to close's hold exception); `permanently_closed` and `never_opened` always refuse. A date close has no registered period for is governed by `first_open_date` alone. A close service that cannot confirm the status gives 503 `LEDGER_PERIOD_STATUS_UNAVAILABLE` and nothing is posted. The service refuses to start unless `CLOSE_URL` is set (with a service signing key) or `LEDGER_PERIOD_CHECK=disabled` (dev and test; logs a warning; the period lock is still read). A reversal asks about the original entry's source module |
+| `ledger.period.lock` | Service only, held by close alone (`service_grants` close -> ledger): `PUT /ledgers/{ledger}/period-locks/{fiscalPeriodId}`, see "Period lock" below |
 | `ledger.journal.postdirect` | Checked inside `POST /journal-batches/{id}/post` for a validated batch whose journal name has no workflow (PRD "Post ledger journals without approval") |
 | `ledger.journal.write` | `POST /journal-batches`, `PATCH /journal-batches/{id}`, `POST .../submit`, `POST .../cancel`, `PUT /recurring-journals/{id}`, `POST /recurring-journals/{id}/pause`, `/resume`, `/generate`, `PUT` and `DELETE /journal-batches/{id}/attachments/{attachmentId}` (PRD "Maintain ledger journals") |
 | `ledger.journal.approve` | `POST .../approve`, `POST .../reject` (PRD "Approve ledger journals") |
@@ -422,6 +423,43 @@ new dimension combinations in different orders (`40P01` on `dimension_combinatio
   step editor with save draft and save-and-activate; the journal entry screen marks lines a step derived
   (`apps/web/src/modules/ledger`).
 
+## Period lock (FR-14.1, B-08c)
+
+A posting must not land in a period the close service has just closed. Close owns the period matrix in its own
+database and the ledger posts in another (ADR-0008, ADR-0012), so no transaction spans both, and the ledger's
+HTTP question to close was asked outside the posting transaction: a posting told "open" could commit after the
+close had gone through.
+
+The ledger therefore keeps its own copy of each period's status, `period_lock` (migration 0036, RLS on tenant and
+legal entity): one row per ledger, fiscal period and source system with the status close resolved for postings
+from that source, plus the row `*` for every source close maps to no module, the period's dates and the expiry of
+a temporary reopen (`open_until`).
+
+- Close writes it with `PUT /ledgers/{ledger}/period-locks/{fiscalPeriodId}` (duty `ledger.period.lock`, a close
+  service token on behalf of the controller) from inside every period transition and reopen approval, before it
+  commits, and reports the transition only after the ledger's 200. The update takes the ledger row `FOR UPDATE`
+  (the row every posting already holds `FOR UPDATE` for its posting sequence) and then upserts the lock rows, so it
+  waits for the postings in flight on that ledger (at most 2 s, then 503 `LEDGER_PERIOD_LOCK_BUSY` and close rolls
+  back). Each update carries close's database clock as `version`; an older one is refused (409
+  `LEDGER_PERIOD_LOCK_STALE`), so a late retry never overwrites a newer status.
+- Every posting path reads the row of its source (else `*`) for the posting date inside its own transaction,
+  `FOR SHARE`. When the ledger holds no row for the date yet it takes the ledger row `FOR SHARE` and reads again,
+  so the first lock of a period cannot slip past it either. A status other than `open`, or an `open`/`on_hold`
+  row whose `open_until` has passed, refuses with 422 `LEDGER_PERIOD_CLOSED` (overridable by
+  `ledger.period.postclosed` as above). Only then is the close service asked.
+
+So a posting either commits before close reports the period closed or is refused; it never commits after, and
+there is no time window (cached or otherwise). The close service's answer is still required as well: a lock that
+says open never overrides a close that says otherwise, which covers the one case the two commits are not atomic
+in (the ledger committed the lock, close's own commit then failed) by refusing until the transition is repeated.
+Periods close has not changed since this rollout have no lock rows and are checked against the close service alone,
+as before. Tests: `internal/closeperiods/harness_test.go` (close, then post at once, with a fake clock),
+`internal/store/period_lock_test.go` (a posting in flight commits before the lock update returns; concurrent
+postings never commit after it; every posting path; source rows, reopen expiry, duty, versions, legal entity).
+
+Rollout: deploy the ledger (migration 0036 and the route) before close; a close without the ledger route fails
+every period transition with 503 `CLOSE-0012` and changes nothing.
+
 ## Error codes
 
 Rule failures are 422 with `violations[]` (`code`, `lineIndex`, `field`,
@@ -451,7 +489,9 @@ today:
 | `LEDGER_STRUCTURE_LOCKED` | 409: change to an active or retired structure version |
 | `LEDGER_STRUCTURE_VERSION_EXISTS` | 409: the structure name and version already exist on the ledger |
 | `LEDGER_DATE_INVALID` | Posting date more than `futurePostingDays` ahead (BR-11.4), a reversal dated before the original (FR-11.8), or a reversal on another date with a reason code that forbids it (FR-11.15) |
-| `LEDGER_PERIOD_CLOSED` | Posting date before the ledger's `firstOpenDate` (BR-11.4; full period status is wave 14) |
+| `LEDGER_PERIOD_CLOSED` | Posting date before the ledger's `firstOpenDate` (BR-11.4), or in a period the ledger's period lock or the close service does not report open (FR-14.1, BR-14.1) |
+| `LEDGER_PERIOD_LOCK_STALE` | 409: a period lock update older than the stored one (B-08c) |
+| `LEDGER_PERIOD_LOCK_BUSY` | 503: postings in flight held the ledger past the 2 s wait of a period lock update; nothing changed (B-08c) |
 | `LEDGER_REVERSAL_ALREADY_REVERSED` | Entry already has a reversing entry (FR-11.8) |
 | `LEDGER_REINSTATEMENT_NOT_ALLOWED` | 422: reversing a reversing entry on a ledger with `allowReinstate` false (FR-11.8) |
 | `LEDGER_POSTING_RESTRICTED` | 403: a user other than the creator posts a batch of a journal name with `postingRestriction` `own_journals_only` (FR-11.9) |

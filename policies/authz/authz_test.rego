@@ -891,7 +891,7 @@ test_service_grants_allow_only_their_declared_routes if {
 	not allowed("ledger.account.lookup", "PUT", "/v1/ledger/charts/c1/accounts/1000")
 	not allowed("ledger.account.lookup", "GET", "/v1/ledger/journal-lines")
 	data.duties["ledger.account.lookup"].service_only
-	data.service_grants.close.ledger == ["ledger.ledger.lookup", "ledger.entry.post", "ledger.journal.reverse", "ledger.balance.read", "ledger.account.lookup", "ledger.period.postclosed"]
+	data.service_grants.close.ledger == ["ledger.ledger.lookup", "ledger.entry.post", "ledger.journal.reverse", "ledger.balance.read", "ledger.account.lookup", "ledger.period.postclosed", "ledger.period.lock"]
 	every duty in data.service_grants.close.ledger {
 		not allowed(duty, "POST", "/v1/ledger/ledgers")
 		not allowed(duty, "POST", "/v1/ledger/balances:rebuild")
@@ -3741,4 +3741,18 @@ test_ledger_partner_balances_use_the_balance_duty if {
 	allowed("ledger.balance.read", "GET", "/v1/ledger/balances/by-partner")
 	not allowed("ledger.balance.read", "POST", "/v1/ledger/balances/by-partner")
 	not allowed("ledger.entry.post", "GET", "/v1/ledger/balances/by-partner")
+}
+
+# B-08c: close sets the ledger's period lock inside every period transition; the duty is service-only, held by
+# close alone, and opens only the lock PUT.
+test_ledger_period_lock_is_service_only_and_opens_only_its_route if {
+	data.duties["ledger.period.lock"].service_only
+	holders := {svc | some svc, targets in data.service_grants; "ledger.period.lock" in targets.ledger}
+	holders == {"close"}
+	allowed("ledger.period.lock", "PUT", "/v1/ledger/ledgers/l1/period-locks/p1")
+	not allowed("ledger.period.lock", "GET", "/v1/ledger/ledgers/l1/period-locks/p1")
+	not allowed("ledger.period.lock", "PUT", "/v1/ledger/ledgers/l1")
+	not allowed("ledger.period.lock", "POST", "/v1/ledger/journal-entries")
+	not allowed("ledger.journal.post", "PUT", "/v1/ledger/ledgers/l1/period-locks/p1")
+	not allowed("ledger.ledger.write", "PUT", "/v1/ledger/ledgers/l1/period-locks/p1")
 }

@@ -129,6 +129,8 @@ type Store interface {
 	ListEntryAttachments(ctx context.Context, entryID string) ([]domain.Attachment, error)
 	PutBatchAttachment(ctx context.Context, batchID, id string, in domain.Attachment) (domain.Attachment, bool, error)
 	DeleteBatchAttachment(ctx context.Context, batchID, id string, today time.Time) error
+	// PutPeriodLock replaces the ledger's period lock of one fiscal period (FR-14.1, B-08c).
+	PutPeriodLock(ctx context.Context, in PeriodLockInput) (PeriodLock, error)
 	Ping(ctx context.Context) error
 }
 
