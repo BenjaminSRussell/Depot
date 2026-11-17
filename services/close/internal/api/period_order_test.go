@@ -18,9 +18,12 @@ import (
 	"github.com/BenjaminSRussell/depot/services/close/migrations"
 )
 
+type moveFunc func(module, status string) *httptest.ResponseRecorder
+
 // storeBackedPeriods serves the period PATCH endpoint from the Postgres store,
-// with one registered period whose ALL row is open.
-func storeBackedPeriods(t *testing.T) func(module, status string) *httptest.ResponseRecorder {
+// with one registered period whose ALL row is open, and returns the store so
+// a test can read the matrix back.
+func storeBackedPeriods(t *testing.T) (moveFunc, *store.Postgres, context.Context) {
 	t.Helper()
 	admin, app := testkit.DBWithApp(t)
 	if err := dbx.Migrate(context.Background(), admin, migrations.FS); err != nil {
@@ -39,7 +42,11 @@ func storeBackedPeriods(t *testing.T) func(module, status string) *httptest.Resp
 	r := httpx.NewRouter()
 	a.Register(r)
 	move := func(module, status string) *httptest.ResponseRecorder {
-		req := httptest.NewRequest(http.MethodPatch, "/v1/close/periods/"+period+"/modules/"+module, strings.NewReader(`{"ledgerId":"`+ledger+`","status":"`+status+`"}`))
+		body := `{"ledgerId":"` + ledger + `","status":"` + status + `"`
+		if status == "on_hold" {
+			body += `,"allowedGroupId":"controllers"`
+		}
+		req := httptest.NewRequest(http.MethodPatch, "/v1/close/periods/"+period+"/modules/"+module, strings.NewReader(body+"}"))
 		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
 		req.Header.Set("X-Depot-Duties", "period.maintain")
 		req.Header.Set("X-Depot-Legal-Entity", entity)
@@ -48,10 +55,10 @@ func storeBackedPeriods(t *testing.T) func(module, status string) *httptest.Resp
 		r.ServeHTTP(rec, req)
 		return rec
 	}
-	return move
+	return move, st, ctx
 }
 
-func mustMove(t *testing.T, move func(string, string) *httptest.ResponseRecorder, module, status string) {
+func mustMove(t *testing.T, move moveFunc, module, status string) {
 	t.Helper()
 	if rec := move(module, status); rec.Code != http.StatusOK {
 		t.Fatalf("%s to %s: %d %s", module, status, rec.Code, rec.Body)
@@ -71,17 +78,16 @@ func refused(t *testing.T, rec *httptest.ResponseRecorder, naming string) {
 func TestPeriodCloseOrderIsEnforcedThroughTheStore(t *testing.T) {
 	for _, to := range []string{"closed", "permanently_closed"} {
 		t.Run(to, func(t *testing.T) {
-			move := storeBackedPeriods(t)
-			mustMove(t, move, "gl", "open")
+			move, _, _ := storeBackedPeriods(t)
+			mustMove(t, move, "gl", "on_hold")
 
-			refused(t, move("all", to), "gl")
-			refused(t, move("gl", to), "all is still open")
+			refused(t, move("all", to), "cannot close all: module gl is still on_hold")
+			refused(t, move("gl", to), "module ap has no row of its own and all is still open")
 
 			for _, m := range domain.SubledgerModules() {
-				mustMove(t, move, string(m), "open")
 				mustMove(t, move, string(m), "closed")
 			}
-			refused(t, move("all", to), "gl")
+			refused(t, move("all", to), "cannot close all: module gl is still on_hold")
 			mustMove(t, move, "gl", to)
 			mustMove(t, move, "all", to)
 		})
@@ -89,8 +95,72 @@ func TestPeriodCloseOrderIsEnforcedThroughTheStore(t *testing.T) {
 }
 
 func TestPeriodGLCloseWaitsForAnOpenSubledgerThroughTheStore(t *testing.T) {
-	move := storeBackedPeriods(t)
-	mustMove(t, move, "gl", "open")
+	move, _, _ := storeBackedPeriods(t)
 	mustMove(t, move, "ap", "open")
-	refused(t, move("gl", "closed"), "ap")
+	mustMove(t, move, "all", "on_hold")
+	refused(t, move("gl", "closed"), "cannot close gl: module ap is still open")
+}
+
+// A module without a row of its own starts from the ALL row: a closed or
+// permanently closed ALL cannot be reopened through a module PATCH.
+func TestPeriodModuleWithoutRowCannotBypassAClosedAllThroughTheStore(t *testing.T) {
+	move, _, _ := storeBackedPeriods(t)
+	mustMove(t, move, "all", "closed")
+	refused(t, move("ap", "open"), "module ap (through all, it has no row of its own) is closed")
+	refused(t, move("gl", "on_hold"), "module gl (through all, it has no row of its own) is closed")
+	mustMove(t, move, "all", "permanently_closed")
+	refused(t, move("ap", "open"), "module ap (through all, it has no row of its own) is permanently closed")
+	refused(t, move("gl", "open"), "module gl (through all, it has no row of its own) is permanently closed")
+}
+
+// The BR-14.2 reference configuration for a March close, replayed column by
+// column through the endpoint. Cash and production never get a row: the held
+// ALL row stops their postings, so GL closes without them.
+func TestPeriodBR142ReferenceMatrixThroughTheStore(t *testing.T) {
+	move, st, ctx := storeBackedPeriods(t)
+	type step struct{ module, to, refuse string }
+	columns := [][]step{
+		{ // Day 1-3 after period end
+			{"inventory", "on_hold", ""}, {"projects", "on_hold", ""}, {"payroll", "on_hold", ""},
+			{"ap", "open", ""}, {"ar", "open", ""}, {"bank", "open", ""}, {"tax", "open", ""}, {"assets", "open", ""}, {"gl", "open", ""},
+			{"gl", "closed", "cannot close gl: module ap is still open"}, // the store reads rows by module name
+		},
+		{ // Day 4-5
+			{"inventory", "closed", ""}, {"projects", "closed", ""}, {"payroll", "closed", ""},
+			{"ap", "on_hold", ""}, {"ar", "on_hold", ""}, {"bank", "on_hold", ""},
+			{"assets", "closed", ""}, {"gl", "on_hold", ""}, {"all", "on_hold", ""},
+			{"gl", "closed", "cannot close gl: module ap is still on_hold"},
+		},
+		{ // After GL close
+			{"ap", "closed", ""}, {"ar", "closed", ""}, {"bank", "closed", ""},
+			{"gl", "closed", "cannot close gl: module tax is still open"},
+			{"tax", "closed", ""},
+			{"all", "closed", "cannot close all: module gl is still on_hold"},
+			{"gl", "closed", ""},
+			{"all", "closed", ""},
+		},
+	}
+	for _, col := range columns {
+		for _, s := range col {
+			if s.refuse != "" {
+				refused(t, move(s.module, s.to), s.refuse)
+			} else {
+				mustMove(t, move, s.module, s.to)
+			}
+		}
+	}
+	matrix, err := st.PeriodMatrix(ctx, testkit.TenantID(9), testkit.TenantID(7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[domain.Module]bool{}
+	for _, p := range matrix {
+		seen[p.Module] = true
+		if p.Status != domain.StatusClosed {
+			t.Errorf("after GL close %s is %s", p.Module, p.Status)
+		}
+	}
+	if len(matrix) != 10 || seen[domain.ModuleCash] || seen[domain.ModuleProduction] {
+		t.Fatalf("want ten rows without cash and production, got %+v", matrix)
+	}
 }

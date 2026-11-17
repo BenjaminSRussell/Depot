@@ -23,8 +23,12 @@ func DefaultSmartBands() []SmartBand {
 // the ending of its own band (FR-26.7; AC-26.10: 7.7805 -> 7.99). Rounding up can
 // carry the candidate past its band's upper edge (9.995 -> 10.99, 99.96 ->
 // 100.95), so the band is re-selected and the candidate recomputed in the next
-// band from that band's lower edge: 9.995 -> 10.95, 99.96 -> 100.
+// band from that band's lower edge: 9.995 -> 10.95, 99.96 -> 100. Zero stays
+// zero: a 100% discount yields 0.00 (BR-26.10), not the first price point.
 func SmartRound(v decimal.Decimal, bands []SmartBand) decimal.Decimal {
+	if v.IsZero() {
+		return v
+	}
 	i := len(bands) - 1
 	for j, b := range bands {
 		if b.Unbounded || v.LessThan(b.UpTo) {

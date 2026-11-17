@@ -33,8 +33,9 @@ func TestResolve_PropertyDeterministic(t *testing.T) {
 
 // TestSmartRound_PropertyEndsInItsOwnBand (FR-26.7, B-08): every result is at
 // or above the input, ends in the ending of the band it falls in, and is the
-// lowest such price point (no cent between the input and the result, looking at
-// most two units down, is one), for the default bands and random band tables.
+// lowest such price point: no value on the 0.0001 grid from the input up to the
+// result is one. Default bands and random tables with endings of up to four
+// places; zero stays zero (BR-26.10).
 func TestSmartRound_PropertyEndsInItsOwnBand(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
 		bands := domain.DefaultSmartBands()
@@ -43,27 +44,34 @@ func TestSmartRound_PropertyEndsInItsOwnBand(t *testing.T) {
 		}
 		v := decimal.New(rapid.Int64Range(0, 50_000_000).Draw(t, "v"), -int32(rapid.IntRange(0, 4).Draw(t, "places")))
 		got := domain.SmartRound(v, bands)
+		if v.IsZero() {
+			if !got.IsZero() {
+				t.Fatalf("SmartRound(0) = %s; want 0", got)
+			}
+			return
+		}
 		if got.LessThan(v) {
 			t.Fatalf("SmartRound(%s) = %s is below the input", v, got)
 		}
-		if !endsInOwnBand(got, bands) {
+		if !endsInOwnBand(ticks(got), bands) {
 			t.Fatalf("SmartRound(%s) = %s does not end in its band's ending (bands %v)", v, got, bands)
 		}
-		for c := got.Sub(decimal.New(1, -2)); !c.LessThan(v); c = c.Sub(decimal.New(1, -2)) {
+		for c, end := ticks(v), ticks(got); c < end; c++ {
 			if endsInOwnBand(c, bands) {
-				t.Fatalf("SmartRound(%s) = %s, but %s is a lower price point", v, got, c)
-			}
-			if got.Sub(c).GreaterThan(decimal.NewFromInt(2)) {
-				break
+				t.Fatalf("SmartRound(%s) = %s, but %s is a lower price point", v, got, decimal.New(c, -4))
 			}
 		}
 	})
 }
 
-func endsInOwnBand(p decimal.Decimal, bands []domain.SmartBand) bool {
+// ticks is a decimal with at most four places as a count of 0.0001.
+func ticks(v decimal.Decimal) int64 { return v.Shift(4).IntPart() }
+
+// endsInOwnBand reports whether the price p (in ticks) ends in the ending of the band it falls in.
+func endsInOwnBand(p int64, bands []domain.SmartBand) bool {
 	for _, b := range bands {
-		if b.Unbounded || p.LessThan(b.UpTo) {
-			return p.Sub(p.Floor()).Equal(b.Ending)
+		if b.Unbounded || p < ticks(b.UpTo) {
+			return p%10_000 == ticks(b.Ending)
 		}
 	}
 	return false
@@ -74,12 +82,12 @@ func genBands(t *rapid.T) []domain.SmartBand {
 	bands := make([]domain.SmartBand, n)
 	upTo := decimal.Zero
 	for i := range bands {
-		bands[i].Ending = decimal.New(rapid.Int64Range(0, 99).Draw(t, "ending"), -2)
+		bands[i].Ending = decimal.New(rapid.Int64Range(0, 9_999).Draw(t, "ending"), -4)
 		if i == n-1 {
 			bands[i].Unbounded = true
 			continue
 		}
-		upTo = upTo.Add(decimal.New(rapid.Int64Range(1, 20_000).Draw(t, "width"), -2))
+		upTo = upTo.Add(decimal.New(rapid.Int64Range(1, 2_000_000).Draw(t, "width"), -4))
 		bands[i].UpTo = upTo
 	}
 	return bands

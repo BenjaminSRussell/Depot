@@ -146,7 +146,15 @@ paths:
     patch:
       operationId: transitionPeriod
       x-depot-duty: period.maintain
-      description: Transitions a module of a registered period (open, on_hold, closed, permanently_closed). Closed periods change only through the reopen workflow.
+      description: >
+        Transitions a module of a registered period (open, on_hold, closed, permanently_closed). Closed periods change only
+        through the reopen workflow. A module without a row of its own starts from the ALL row (FR-14.1), so under a closed or
+        permanently closed ALL it cannot be opened or held; it may take a row of its own with the status it inherits.
+        Closing order (FR-14.2), for closed and permanently_closed alike: gl closes only after every subledger row is closed and,
+        while ALL is open, only after every subledger has a closed row of its own (ALL on hold or closed already stops postings
+        to modules without a row, BR-14.2); all closes only after every module row, gl included, is closed. An ordering or
+        state refusal is 409 CLOSE-0001 whose detail names the module and what to do (close it first, put all on hold, or
+        request a reopen).
       parameters:
         - { name: fiscalPeriodId, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: module, in: path, required: true, schema: { type: string } }
@@ -168,7 +176,11 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
+        '409':
+          description: CLOSE-0001 invalid transition (closing order of FR-14.2, closed or permanently closed period, never opened module, same status) or CLOSE-0002 period busy.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '503': { $ref: '#/components/responses/Problem' }
   /v1/close/periods/{fiscalPeriodId}/modules/{module}:request-reopen:
     post:

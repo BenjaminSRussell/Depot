@@ -34,7 +34,12 @@ func (m *memPeriods) TransitionPeriod(_ context.Context, in domain.PeriodTransit
 	if err := domain.ValidateTransition(m.rows[in.FiscalPeriodID], in.To, in.Module); err != nil {
 		return domain.PeriodStatus{}, err
 	}
-	m.rows[in.FiscalPeriodID] = append(m.rows[in.FiscalPeriodID], domain.Row{Module: in.Module, Status: in.To})
+	rows := m.rows[in.FiscalPeriodID]
+	if i := slices.IndexFunc(rows, func(r domain.Row) bool { return r.Module == in.Module }); i >= 0 {
+		rows[i].Status = in.To
+	} else {
+		m.rows[in.FiscalPeriodID] = append(rows, domain.Row{Module: in.Module, Status: in.To})
+	}
 	return domain.PeriodStatus{FiscalPeriodID: in.FiscalPeriodID, Module: in.Module, Status: in.To, LedgerID: in.LedgerID}, nil
 }
 func (m *memPeriods) RequestReopen(_ context.Context, in domain.StoredReopen) (domain.StoredReopen, error) {
