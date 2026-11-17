@@ -19,7 +19,7 @@ this file covers the work in between.
 | Item | Commit | Review | Next step |
 |---|---|---|---|
 | B-03b: OPA legal-entity rule, scoped assignments in the bundle, D17 legal-entity policies (shopfloor worker and pay data) | c0611102 | [b03b-review-1.md](reviews/b03b-review-1.md): changes required (1 Blocker: a scoped assignment granted tenant-level duties such as SCIM; 2 Major: unvalidated and unaudited legal-entity assignment) | Fixes in progress, then re-review and the PR |
-| B-07a: CDC audit pipeline, `depot.ctx`, `:verify`, nightly job, daily anchor | d7c7723d | [b07a-review-1.md](reviews/b07a-review-1.md): changes required (2 Major, 6 Minor, 4 Nit) | Fix all 12 findings (below), re-review, then open the PR |
+| B-07a: CDC audit pipeline, `depot.ctx`, `:verify`, nightly job, daily anchor | d7c7723d, fixes 59409863 | [b07a-review-1.md](reviews/b07a-review-1.md): changes required (2 Major, 6 Minor, 4 Nit); all 12 fixed in 59409863 | Re-review in progress, then the PR |
 
 The B-07a fixes agreed after review 1:
 
@@ -35,7 +35,8 @@ The B-07a fixes agreed after review 1:
 
 The B-03b follow-up is issue #725, covering the 9 tables whose D17 reason is interim: mobile `device_session` and `offline_transaction`; hub `hub_delivery` and `hub_attempt`; agents `agent_run`, `agent_action`, `approval_request`, `agent_run_state` and `agent_run_credential`.
 
-## Not started or in progress (no code on the branch yet)
+| B-09a: owner-role migration Jobs in all 60 charts, a `migrate` command in every image, `MIGRATE_ON_START=false` (D28) | a3d87d69 | Independent review in progress | Fix any findings, then the PR. The k3d proof is written but has not run (there is no Docker here) |
 
-- B-09a: owner-role migration Jobs in every chart, with `MIGRATE_ON_START=false` (D28).
-- Then B-04, B-05b and B-05c, B-07b and B-07c, B-09b and B-09c, B-10, B-01b, B-02b and B-02c, and the P1 waves in [execution-plan.md](execution-plan.md).
+## Not started
+
+- B-04, B-05b and B-05c, B-07b and B-07c, B-09b and B-09c, B-10, B-01b, B-02b and B-02c, and the P1 waves in [execution-plan.md](execution-plan.md).
