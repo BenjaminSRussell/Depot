@@ -166,6 +166,14 @@ func (w *ChangeWalker) remember(hash string) {
 	}
 }
 
+// Boundary checks the first row after a page that stopped (the next page's first row, which that page will trust):
+// it must link to the last row walked, so rows removed exactly at a page boundary are a break of this page.
+func (w *ChangeWalker) Boundary(next ChainRow) {
+	if w.status.Entries > 0 && next.PrevHash != w.prev {
+		w.fail(next, BreakLink)
+	}
+}
+
 // DropAnchorsAfter forgets the anchors whose head lies after seq: a walk that stopped there (a page of a longer
 // range) cannot judge them.
 func (w *ChangeWalker) DropAnchorsAfter(seq int64) {

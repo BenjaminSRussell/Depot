@@ -38,8 +38,13 @@ func TestDetachedSignaturesAreDomainSeparated(t *testing.T) {
 			t.Errorf("%s verified", name)
 		}
 	}
-	if _, _, _, err := signer.SignDetached("depot.service-token.v1.", []byte("x")); err == nil {
-		t.Fatal("the service-token domain must be refused")
+	for _, d := range []string{"depot.service-token.v1.", "depot.service-token.v1.x.", "depot.service-token.", "depot."} {
+		if _, _, _, err := signer.SignDetached(d, []byte("x")); err == nil {
+			t.Fatalf("%q shares a prefix with the service-token domain and must be refused", d)
+		}
+		if v.VerifyDetached(d, "party", "k1", []byte("x"), sig) {
+			t.Fatalf("%q verified", d)
+		}
 	}
 	if _, _, _, err := signer.SignDetached("audit", []byte("x")); err == nil {
 		t.Fatal("a malformed domain must be refused")

@@ -10,8 +10,11 @@ import (
 // signature can never be presented as (part of) a service token, nor a token signature as a detached one.
 var ErrDetachedDomain = errors.New("detached signature domain must be a dotted prefix ending in '.' other than the service-token one")
 
+// detachedDomainOK refuses a domain in a prefix relation with the service-token context, in either direction
+// ("depot.service-token.v1.x." or "depot."): one signed message could then read as the other's.
 func detachedDomainOK(domain string) bool {
-	return strings.HasSuffix(domain, ".") && strings.HasPrefix(domain, "depot.") && domain != serviceTokenContext
+	return strings.HasSuffix(domain, ".") && strings.HasPrefix(domain, "depot.") && len(domain) > len("depot.") &&
+		!strings.HasPrefix(domain, serviceTokenContext) && !strings.HasPrefix(serviceTokenContext, domain)
 }
 
 // SignDetached signs msg with the service's ADR-0010 key under the domain-separation prefix domain (for example

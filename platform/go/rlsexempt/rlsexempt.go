@@ -14,6 +14,9 @@ const (
 	// restrictive legal-entity policy NoEntityPol checks) nor has a restrictive policy on depot.legal_entity_scopes
 	// (a child table that follows its parent's legal entity).
 	NoEntityScope = "no-legal-entity-scope"
+	// DefinerPath: a SECURITY DEFINER function whose search_path is unset or does not end with pg_temp (tools/rlscheck);
+	// the "table" of its key is the function name.
+	DefinerPath = "definer-search-path-without-trailing-pg_temp"
 )
 
 // EntityScopedServices are the services architecture gap D17 named as having no legal-entity column or policy

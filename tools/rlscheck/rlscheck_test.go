@@ -29,7 +29,25 @@ const (
 	problemExtraPolicy = "extra-permissive-policy"
 	problemNullEntity  = "null-admitting-legal-entity-policy"
 	problemNoScope     = rlsexempt.NoEntityScope
+	// problemDefinerPath: a SECURITY DEFINER function without a search_path that ends with pg_temp. PostgreSQL then
+	// searches pg_temp first for relations, so a caller's temp table or view runs as the function owner (B-07a
+	// re-review N1). The violation's "table" is the function name.
+	problemDefinerPath = "definer-search-path-without-trailing-pg_temp"
 )
+
+// definerQuery lists the SECURITY DEFINER functions of a schema with their search_path setting (” when unset).
+const definerQuery = `
+select p.proname, coalesce((select substr(c, length('search_path=') + 1) from unnest(p.proconfig) c where c like 'search_path=%'), '')
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = $1 and p.prosecdef
+order by p.proname`
+
+// definerPathSafe reports whether a function's search_path lists pg_temp, and lists it last.
+func definerPathSafe(path string) bool {
+	parts := strings.Split(path, ",")
+	last := strings.Trim(strings.TrimSpace(parts[len(parts)-1]), `"`)
+	return path != "" && last == "pg_temp"
+}
 
 type tableFacts struct {
 	Name         string
@@ -195,6 +213,24 @@ func collect(t *testing.T, ctx context.Context, pool *pgxpool.Pool, service, sch
 		out = append(out, judge(service, f)...)
 	}
 	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	rows.Close()
+	defs, err := pool.Query(ctx, definerQuery, schema)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer defs.Close()
+	for defs.Next() {
+		var name, path string
+		if err := defs.Scan(&name, &path); err != nil {
+			t.Fatal(err)
+		}
+		if !definerPathSafe(path) {
+			out = append(out, violation{service, name, problemDefinerPath})
+		}
+	}
+	if err := defs.Err(); err != nil {
 		t.Fatal(err)
 	}
 	return tables, out
@@ -370,6 +406,9 @@ func TestFixtureViolationsArePinned(t *testing.T) {
 	want := []string{
 		"fixture.bad_column:" + problemExtraPolicy,
 		"fixture.bad_column:" + problemNoTenantPol,
+		"fixture.definer_from_current:" + problemDefinerPath,
+		"fixture.definer_no_path:" + problemDefinerPath,
+		"fixture.definer_temp_first:" + problemDefinerPath,
 		"fixture.extra_true:" + problemExtraPolicy,
 		"fixture.insert_true:" + problemExtraPolicy,
 		"fixture.null_admitting:" + problemNullEntity,
