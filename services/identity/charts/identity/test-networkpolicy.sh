@@ -63,9 +63,11 @@ if helm template identity "$chart_dir" --set bundle.enabled=true --set networkPo
   exit 1
 fi
 
-helm template identity "$chart_dir" --set migrateDatabaseSecret=identity-db-owner | grep -Fq 'MIGRATE_DATABASE_URL'
-if helm template identity "$chart_dir" | grep -Fq 'MIGRATE_DATABASE_URL'; then
-  echo "MIGRATE_DATABASE_URL must render only when migrateDatabaseSecret is set" >&2
+# The serving Deployment carries MIGRATE_DATABASE_URL only for the dev on-start exception (migrateDatabaseSecret); the
+# PreSync migration Job (templates/migrate-job.yaml, B-09a) always sets it from the owner Secret, so check the Deployment alone.
+helm template identity "$chart_dir" --set migrateDatabaseSecret=identity-db-owner -s templates/deployment.yaml | grep -Fq 'MIGRATE_DATABASE_URL'
+if helm template identity "$chart_dir" -s templates/deployment.yaml | grep -Fq 'MIGRATE_DATABASE_URL'; then
+  echo "the serving Deployment must carry MIGRATE_DATABASE_URL only when migrateDatabaseSecret is set" >&2
   exit 1
 fi
 echo "identity chart NetworkPolicy checks passed"
