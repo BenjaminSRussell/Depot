@@ -12,6 +12,7 @@ test checks, without a cluster:
   plain-directory source is applied by some dev Application and parses; Strimzi custom resources sync after the
   operator and name an existing Kafka or KafkaConnect; their Secret references (KafkaConnector
   `${secrets:ns/name:key}`, workload secretKeyRef) are written by an ExternalSecret that a dev Application syncs;
+- (test_kafka_consumers.py checks each consumer's ACLs against its code and the dev enablement, D34)
 - every consumer KafkaUser in deploy/kafka is the username of a chart's consumer, reads its group and writes only
   dead-letter topics a synced KafkaTopic creates; the inventory postings consumer's ACLs are exactly the topics,
   group and dead-letter topic its code uses (#480); an outbox connector that routes by event type (outbox-sales,
@@ -79,7 +80,7 @@ BACKBONE_ORDER = [
     {"strimzi-operator"},
     {"kafka-cluster", "apicurio-postgres", "debezium-cdc-secrets", "temporal-postgres"},
     {"apicurio-registry", "kafka-consumer-users", "temporal"},
-    {"debezium-connect"},
+    {"debezium-connect", "kafka-consumer-credentials"},
 ]
 WAVE = "argocd.argoproj.io/sync-wave"
 # Custom-resource API groups and the dev Application that installs their CRDs and controller.
@@ -168,6 +169,22 @@ def charts():
             continue  # subchart, rendered by its parent
         found.add(rel)
     return found
+
+
+def consumer_blocks():
+    """(values file, block) for every Kafka consumer block of a chart: a mapping with `username` under `kafka`, or one with
+    `brokers` (pricing's cacheConsumer). deploy/scripts/test_kafka_consumers.py finds the blocks by the same rule."""
+    out = []
+
+    def walk(node, path, values_file):
+        if isinstance(node, dict):
+            if "username" in node and (path and path[-1] == "kafka" or "brokers" in node):
+                out.append((values_file, node))
+            for k, v in node.items():
+                walk(v, path + [k], values_file)
+    for values_file in sorted(REPO.glob("services/*/charts/*/values.yaml")) + sorted(REPO.glob("tools/*/charts/*/values.yaml")):
+        walk(yaml.safe_load(values_file.read_text()) or {}, [], values_file)
+    return out
 
 
 def wave(app):
@@ -643,11 +660,8 @@ class ArgoApplicationsTest(unittest.TestCase):
         # and writes only dead-letter topics that a synced KafkaTopic creates.
         users, topics = self.synced_kafka_resources()
         charts_by_user = {}
-        for values_file in sorted(REPO.glob("services/*/charts/*/values.yaml")):
-            values = yaml.safe_load(values_file.read_text()) or {}
-            kafka = ((values.get("consumer") or {}).get("kafka")) or values.get("kafka")
-            if isinstance(kafka, dict) and kafka.get("username"):
-                charts_by_user.setdefault(kafka["username"], []).append((values_file, kafka))
+        for values_file, kafka in consumer_blocks():
+            charts_by_user.setdefault(kafka["username"], []).append((values_file, kafka))
         for path in manifests(DEPLOY / "kafka"):
             if not path.name.endswith("-consumer.yaml"):
                 continue
@@ -659,8 +673,9 @@ class ArgoApplicationsTest(unittest.TestCase):
                     self.assertIn(name, charts_by_user, f"{path.name}: no chart names consumer username {name}")
                     granted = users[name]
                     for values_file, kafka in charts_by_user[name]:
-                        self.assertIn("Read", granted.get(("group", kafka.get("group")), set()),
-                                      f"{name}: no Read on group {kafka.get('group')} ({values_file.relative_to(REPO)})")
+                        if kafka.get("group"):  # pricing's per-pod groups have no chart value (test_kafka_consumers.py)
+                            self.assertIn("Read", granted.get(("group", kafka["group"]), set()),
+                                          f"{name}: no Read on group {kafka['group']} ({values_file.relative_to(REPO)})")
                         if kafka.get("dlqTopic"):
                             self.assertIn("Write", granted.get(("topic", kafka["dlqTopic"]), set()), f"{name}: dlqTopic")
                     for (kind, resource), ops in granted.items():
@@ -1301,6 +1316,10 @@ class ArgoApplicationsTest(unittest.TestCase):
             "changeRequested.ts maps it, but eventConsumer.ts subscribes only to the tender and budget plan topics",
         ("workflow-ts", "dev.depot.party.merge.requested.v1"):
             "changeRequested.ts maps it, but eventConsumer.ts subscribes only to the tender and budget plan topics",
+        ("integration-hub-ts", "dev.depot.cutover.plan.rolledback.v1"):
+            "the coexistence sweep acts on it only when kafka.topics lists depot.cutover.plan; the chart default does not",
+        ("integration-hub-ts", "dev.depot.migration.coexistence.changed.v1"):
+            "the coexistence sweep acts on it only when kafka.topics lists depot.migration.coexistence; the chart default does not",
     }
 
     def test_consumer_event_types_route_to_topics_they_read(self):
@@ -1325,30 +1344,31 @@ class ArgoApplicationsTest(unittest.TestCase):
                          for ref in c["messages"].values()}
             routers.append((producer, cfg, published))
         services_by_user = {}
-        for values_file in sorted(REPO.glob("services/*/charts/*/values.yaml")):
-            values = yaml.safe_load(values_file.read_text()) or {}
-            kafka = ((values.get("consumer") or {}).get("kafka")) or values.get("kafka")
-            if isinstance(kafka, dict) and kafka.get("username"):
-                services_by_user.setdefault(kafka["username"], set()).add(values_file.relative_to(REPO).parts[1])
+        for values_file, kafka in consumer_blocks():
+            services_by_user.setdefault(kafka["username"], set()).add(values_file.relative_to(REPO).parts[1])
+        user_docs = [doc for path in manifests(DEPLOY / "kafka") if path.name.endswith("-consumer.yaml")
+                     for doc in load_docs(path) if doc.get("kind") == "KafkaUser"]
+        # A service with several consumers (production's planned order intake and shop-floor job cards) has a user for each;
+        # an event type its code names must land on a topic one of them reads.
+        read_by_service = {}
+        for doc in user_docs:
+            for service in services_by_user.get(doc["metadata"]["name"], ()):
+                read_by_service.setdefault(service, set()).update(
+                    a["resource"]["name"] for a in doc["spec"]["authorization"]["acls"]
+                    if a["resource"]["type"] == "topic" and "Read" in a["operations"])
         checked = set()
-        for path in manifests(DEPLOY / "kafka"):
-            if not path.name.endswith("-consumer.yaml"):
-                continue
-            for doc in load_docs(path):
-                if doc.get("kind") != "KafkaUser":
-                    continue
-                user = doc["metadata"]["name"]
-                read = {a["resource"]["name"] for a in doc["spec"]["authorization"]["acls"]
-                        if a["resource"]["type"] == "topic" and "Read" in a["operations"]}
-                for service in sorted(services_by_user.get(user, ())):
-                    for typ in sorted(service_event_types(service)):
-                        for producer, cfg, published in routers:
-                            matched, topic = outbox_route(cfg, typ)
-                            if producer == service or not matched or typ not in published or (service, typ) in self.UNSUBSCRIBED_HANDLERS:
-                                continue
-                            checked.add((user, topic))
-                            with self.subTest(consumer=user, type=typ):
-                                self.assertIn(topic, read, f"{typ} lands on {topic} (outbox-{producer}), which {user} does not read")
+        for doc in user_docs:
+            user = doc["metadata"]["name"]
+            for service in sorted(services_by_user.get(user, ())):
+                read = read_by_service[service]
+                for typ in sorted(service_event_types(service)):
+                    for producer, cfg, published in routers:
+                        matched, topic = outbox_route(cfg, typ)
+                        if producer == service or not matched or typ not in published or (service, typ) in self.UNSUBSCRIBED_HANDLERS:
+                            continue
+                        checked.add((user, topic))
+                        with self.subTest(consumer=user, type=typ):
+                            self.assertIn(topic, read, f"{typ} lands on {topic} (outbox-{producer}), which {service}'s users do not read")
         self.assertIn(("search-consumer", "depot.fulfillment.packingslip"), checked)
         self.assertIn(("intercompany-consumer", "depot.expense.report"), checked)
 

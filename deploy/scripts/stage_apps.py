@@ -44,6 +44,10 @@ SINGLETONS = {
 # Dev-only migration settings (D28): dropped from the stage Applications, so stage runs every chart's owner-role Job.
 DEV_MIGRATION_VALUES = ("migrateJob", "migrateOnStart", "migrateDatabaseSecret")
 DEV_ONLY_VALUE_FILES = {"$values/deploy/envs/dev/migrate-jobs.yaml"}
+# Dev-only event consumer switches (D34, B-05b): the brokers and credentials Secret under a `kafka` mapping and the
+# `enabled` of the mapping that holds it. Stage has no Kafka cluster or KafkaUser credentials yet (#213), so a consumer dev
+# turns on stays at its chart default (off) in stage.
+DEV_CONSUMER_KEYS = ("brokers", "secret")
 # Literal dev values that name the dev environment, and their stage counterparts.
 STAGE_STRINGS = [
     (".dev.depot.dev", ".stage.depot.dev"),
@@ -81,6 +85,21 @@ def stage_strings(value):
     return value
 
 
+def drop_dev_consumers(values: dict) -> dict:
+    out = {}
+    for key, value in values.items():
+        if isinstance(value, dict):
+            value = drop_dev_consumers(value)
+            if key == "kafka":
+                value = {k: v for k, v in value.items() if k not in DEV_CONSUMER_KEYS}
+            if not value:
+                continue
+        out[key] = value
+    if "kafka" in values and isinstance(values["kafka"], dict):
+        out.pop("enabled", None)
+    return out
+
+
 def chart_replicas(chart: str) -> int | None:
     values = yaml.safe_load((REPO / chart / "values.yaml").read_text()) or {}
     return values.get("replicaCount")
@@ -113,6 +132,7 @@ def stage_application(app: dict) -> dict:
     # default, the owner role's <chart>-db-owner Secret provisioned with the stage database, and never migrates on start.
     for key in DEV_MIGRATION_VALUES:
         values.pop(key, None)
+    helm["valuesObject"] = values = drop_dev_consumers(values)
     replicas = values.get("replicaCount", chart_replicas(src["path"]))
     if name not in SINGLETONS and (replicas or 1) < 2:
         values["replicaCount"] = 2

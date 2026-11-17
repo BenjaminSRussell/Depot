@@ -1,0 +1,40 @@
+# The production shop-floor job card consumer (`production consume-shopfloor`, group production-shopfloor, #481) books
+# the shop floor's registration.posted and registration.corrected into job cards at the worker cost rate and parks
+# what it cannot apply on depot.shopfloor.registration.dlq. The chart's shopfloorConsumer.kafka.username names this
+# user. Literal ACLs: the user reads only the two registration topics (outbox-shopfloor in connect.yaml writes them)
+# and writes only its dead-letter topic (B-05b, D34).
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: production-shopfloor-consumer
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot
+spec:
+  authentication:
+    type: scram-sha-512
+  authorization:
+    type: simple
+    acls:
+      - resource: {type: topic, name: depot.shopfloor.registration, patternType: literal}
+        operations: [Read, Describe]
+      - resource: {type: topic, name: depot.shopfloor.registration-corrected, patternType: literal}
+        operations: [Read, Describe]
+      - resource: {type: topic, name: depot.shopfloor.registration.dlq, patternType: literal}
+        operations: [Write, Describe]
+      - resource: {type: group, name: production-shopfloor, patternType: literal}
+        operations: [Read, Describe]
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: depot-shopfloor-registration-dlq
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot
+spec:
+  topicName: depot.shopfloor.registration.dlq
+  partitions: 3
+  replicas: 3
+  config:
+    retention.ms: 2592000000
