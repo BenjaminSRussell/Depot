@@ -11,14 +11,15 @@ paths:
       operationId: ingestChange
       summary: "Record a change to an audited record"
       description: >-
-        Appends one field change to the tenant's hash chain (AUD-API-1, FR-5.10). The actor is the verified caller of the
-        request, never a body value: a body that names userId is refused with AUD-0002. A person's request is recorded with
-        actorKind person and the person as userId. A service token whose end user is a service principal is that service
-        acting on its own (actorKind service, userId "service:<name>"). A service token carrying an end user is the calling
+        Appends one field change to the tenant's hash chain (AUD-API-1, FR-5.10). Only a service that signs its call with
+        a service token (X-Depot-Service-Token) may record a change; a call with identity headers only is refused with
+        403 AUD-0007, because those headers prove nothing on this route. The actor is the verified caller, never a body
+        value: a body that names userId is refused with AUD-0002. A token whose end user is a service principal is that
+        service acting on its own (actorKind service, userId "service:<name>"). A token carrying an end user is the calling
         service recording a change it made for that user: userId "service:<calling service>", actorKind service (agent for
         the agent runtime), onBehalfOf the user. actorKind and onBehalfOf may be sent but must match what the verified
-        caller is; onBehalfOf from a person's token, from a service acting on its own, or naming anyone but the user the
-        service token carries is refused with AUD-0006.
+        caller is; onBehalfOf from a service acting on its own, or naming anyone but the user the token carries, is
+        refused with AUD-0006.
       x-depot-duty: audit.write
       requestBody:
         required: true
@@ -26,6 +27,9 @@ paths:
       responses:
         '202':
           description: Change recorded on the hash chain.
+        '403':
+          description: The caller has no verified service token (AUD-0007), or lacks audit.write (AUTH-0003).
+          content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
         '422':
           description: >-
             The body names the actor (userId, AUD-0002), or claims an actorKind or onBehalfOf the verified caller cannot
@@ -236,14 +240,15 @@ components:
         userId: { type: string, description: Never accepted. The actor is the verified caller; sending it is refused with AUD-0002. }
         actorKind:
           type: string
-          enum: [person, service, agent]
+          enum: [service, agent]
           description: Optional. Taken from the verified caller; a different value is refused with AUD-0006.
         onBehalfOf:
           type: string
           maxLength: 256
           description: >-
             Optional. Accepted only from a verified service token carrying an end user, and only naming that user; the
-            change is then stored with actorKind service. Refused from a person's token with AUD-0006.
+            change is then stored with actorKind service (agent for the agent runtime). Refused with AUD-0006 from a
+            service acting on its own or when it names another user.
         traceId: { type: string, description: Defaults to the request id. }
         occurredAt: { type: string, format: date-time, description: Defaults to now. }
         reason: { type: string, maxLength: 1000, description: Why the change was made, as the person gave it. }
@@ -265,7 +270,9 @@ components:
         actorKind:
           type: string
           enum: [person, service, agent]
-          description: Absent on changes recorded before AUD-API-1, whose actor was not checked.
+          description: >-
+            Absent on changes recorded before AUD-API-1, whose actor was not checked. person is reserved for the CDC feed
+            (B-07); this API records service and agent only. Every AUD-API-1 field is absent when empty.
         onBehalfOf: { type: string, description: The person a service or agent recorded the change for. }
         traceId: { type: string }
         occurredAt: { type: string, format: date-time }

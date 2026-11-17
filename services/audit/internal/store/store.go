@@ -95,7 +95,13 @@ func (s *Postgres) Apply(ctx context.Context, change domain.Change) error {
 		return p
 	}
 	p, _ := tenant.FromContext(ctx)
+	change = change.Normalize()
 	return dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		// Appends are serialised per tenant, as for the read log: under READ COMMITTED two transactions would read
+		// the same head and fork the chain.
+		if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('audit_entry:' || $1::text, 0))`, p.TenantID); err != nil {
+			return err
+		}
 		var prev string
 		err := tx.QueryRow(ctx, `select hash from audit_entry where tenant_id=$1 order by seq desc limit 1`, p.TenantID).Scan(&prev)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -121,17 +127,29 @@ func (s *Postgres) Apply(ctx context.Context, change domain.Change) error {
 		if err := fireAlerts(ctx, tx, p.TenantID, change); err != nil {
 			return err
 		}
-		evt, err := events.New(recordedType, "depot/audit", change.RecordID, p.TenantID, map[string]any{
-			"entity": change.Entity, "recordId": change.RecordID, "field": change.Field,
-			"oldValue": change.OldValue, "newValue": change.NewValue, "userId": change.UserID, "traceId": change.TraceID,
-			"actorKind": change.ActorKind, "onBehalfOf": change.OnBehalfOf, "reason": change.Reason, "changeSetId": change.ChangeSetID,
-			"eventType": change.EventType, "eventId": change.EventID, "workflowInstanceId": change.WorkflowInstanceID,
-		})
+		evt, err := events.New(recordedType, "depot/audit", change.RecordID, p.TenantID, recordedPayload(change))
 		if err != nil {
 			return err
 		}
 		return outbox.Enqueue(ctx, tx, "change", id, evt)
 	})
+}
+
+// recordedPayload is the change.recorded event data. The AUD-API-1 fields are left out when empty, as in Record.
+func recordedPayload(c domain.Change) map[string]any {
+	data := map[string]any{
+		"entity": c.Entity, "recordId": c.RecordID, "field": c.Field,
+		"oldValue": c.OldValue, "newValue": c.NewValue, "userId": c.UserID, "traceId": c.TraceID,
+	}
+	for k, v := range map[string]string{
+		"actorKind": c.ActorKind, "onBehalfOf": c.OnBehalfOf, "reason": c.Reason, "changeSetId": c.ChangeSetID,
+		"eventType": c.EventType, "eventId": c.EventID, "workflowInstanceId": c.WorkflowInstanceID,
+	} {
+		if v != "" {
+			data[k] = v
+		}
+	}
+	return data
 }
 
 func fireAlerts(ctx context.Context, tx pgx.Tx, tenantID string, change domain.Change) error {

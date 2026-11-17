@@ -118,6 +118,12 @@ func (a *API) ingest(w http.ResponseWriter, r *http.Request) {
 	if !validTenant(w, r) {
 		return
 	}
+	p, _ := tenant.FromContext(r.Context())
+	if !verifiedService(p) {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusForbidden, domain.CodeServiceOnly,
+			"changes are recorded only by a service that signs its call with a service token; identity headers are not accepted on this route"))
+		return
+	}
 	var req ingestRequest
 	if err := httpx.Decode(r, &req); err != nil {
 		httpx.Fail(w, r, err)
@@ -128,7 +134,6 @@ func (a *API) ingest(w http.ResponseWriter, r *http.Request) {
 			"userId must not be sent: the actor is the verified caller of the request"))
 		return
 	}
-	p, _ := tenant.FromContext(r.Context())
 	who, refusal := verifiedActor(p, req.ActorKind, req.OnBehalfOf)
 	if refusal != "" {
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, domain.CodeActorRefused, refusal))
@@ -146,9 +151,6 @@ func (a *API) ingest(w http.ResponseWriter, r *http.Request) {
 		Reason: req.Reason, ChangeSetID: req.ChangeSetID, EventType: req.EventType, EventID: req.EventID, WorkflowInstanceID: req.WorkflowInstanceID,
 	}
 	if fields := domain.Validate(change); len(fields) > 0 {
-		if _, ok := fields["userId"]; ok {
-			fields["userId"] = "the caller is unknown: the actor is the verified caller of the request"
-		}
 		pr := httpx.NewProblem(http.StatusBadRequest, "COM-0001", "request failed validation")
 		pr.Errors = fields
 		httpx.Fail(w, r, pr)

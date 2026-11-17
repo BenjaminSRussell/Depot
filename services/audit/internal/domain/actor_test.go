@@ -5,9 +5,17 @@ import (
 	"encoding/hex"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/BenjaminSRussell/depot/services/audit/internal/domain"
 )
+
+func serviceChange() domain.Change {
+	c := change("bankAccount", "DE01", "DE02", "trace-1")
+	c.ActorKind, c.UserID, c.OnBehalfOf = domain.ActorService, "service:billing", "ana"
+	c.Reason, c.ChangeSetID, c.EventType, c.EventID, c.WorkflowInstanceID = "vendor letter 12", "cs-1", "dev.depot.party.vendor.updated.v1", "evt-1", "wf-1"
+	return c
+}
 
 // TestLegacyRowsKeepTheirHash: rows written before AUD-API-1 carry no actor kind or context, so their hash payload
 // must be the original one, or every existing tenant chain would stop verifying.
@@ -30,11 +38,32 @@ func TestLegacyRowsKeepTheirHash(t *testing.T) {
 	}
 }
 
-func TestContextFieldsAreOnTheChain(t *testing.T) {
-	c := change("bankAccount", "DE01", "DE02", "trace-1")
-	c.ActorKind, c.UserID, c.OnBehalfOf = domain.ActorService, "service:billing", "ana"
-	c.Reason, c.ChangeSetID, c.EventType, c.EventID, c.WorkflowInstanceID = "vendor letter 12", "cs-1", "dev.depot.party.vendor.updated.v1", "evt-1", "wf-1"
+// TestV2HashKnownAnswer pins the v2 payload for outside verifiers: the expected digest was computed independently
+// (Python json.dumps(values, ensure_ascii=False, separators=(",", ":")), which for an array of strings is RFC 8785)
+// over the array documented on domain.Hash. The values exercise HTML characters, short and \u00xx escapes, U+2028,
+// a quote, a backslash, a non-ASCII letter and a nanosecond time truncated to microseconds.
+func TestV2HashKnownAnswer(t *testing.T) {
+	c := domain.Change{
+		Entity: "party.vendor", RecordID: "v-1", Field: "note", OldValue: "a<b>&c",
+		NewValue: "line\nnext\ttab   \x01 \"q\" \\ é", UserID: "service:billing", ActorKind: domain.ActorService, OnBehalfOf: "ana",
+		TraceID: "trace-1", OccurredAt: time.Date(2026, 11, 1, 10, 0, 0, 123456789, time.FixedZone("CET", 3600)),
+		Reason: "why", ChangeSetID: "cs-1", EventType: "dev.depot.party.vendor.updated.v1", EventID: "evt-1", WorkflowInstanceID: "wf-1",
+	}
+	const want = "74873d78ba793a4b0aaaf50dff8e0245a00b29762d7fda2ee37052689d048d5f"
+	if got := domain.Hash(domain.Genesis, c); got != want {
+		t.Fatalf("v2 hash %s; want %s", got, want)
+	}
 	e, err := domain.Link("", c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.Hash != want || e.OccurredAt.Nanosecond() != 123456000 || e.OccurredAt.Location() != time.UTC {
+		t.Fatalf("linked %s at %s", e.Hash, e.OccurredAt)
+	}
+}
+
+func TestContextFieldsAreOnTheChain(t *testing.T) {
+	e, err := domain.Link("", serviceChange())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,8 +79,10 @@ func TestContextFieldsAreOnTheChain(t *testing.T) {
 		func(c *domain.Change) { c.EventType = "x" },
 		func(c *domain.Change) { c.EventID = "evt-2" },
 		func(c *domain.Change) { c.WorkflowInstanceID = "wf-2" },
+		func(c *domain.Change) { c.OccurredAt = c.OccurredAt.Add(time.Microsecond) },
 		// A value that moves into its neighbour must not hash the same.
 		func(c *domain.Change) { c.UserID, c.ActorKind = "service:billing|service", "" },
+		func(c *domain.Change) { c.UserID, c.ActorKind = `service:billing","service`, "" },
 	}
 	for i, f := range tamper {
 		bad := e
@@ -64,32 +95,49 @@ func TestContextFieldsAreOnTheChain(t *testing.T) {
 
 func TestValidateActorKind(t *testing.T) {
 	tests := []struct {
-		name      string
-		kind, obo string
-		wantField string
+		name            string
+		kind, user, obo string
+		wantField       string
 	}{
-		{"person", domain.ActorPerson, "", ""},
-		{"service for a person", domain.ActorService, "ana", ""},
-		{"agent for a person", domain.ActorAgent, "ana", ""},
-		{"service on its own", domain.ActorService, "", ""},
-		{"missing kind", "", "", "actorKind"},
-		{"unknown kind", "robot", "", "actorKind"},
-		{"person on behalf of someone", domain.ActorPerson, "ana", "onBehalfOf"},
+		{"person", domain.ActorPerson, "ana", "", ""},
+		{"service for a person", domain.ActorService, "service:billing", "ana", ""},
+		{"agent for a person", domain.ActorAgent, "service:agents", "ana", ""},
+		{"service on its own", domain.ActorService, "service:search-index", "", ""},
+		{"missing kind", "", "ana", "", "actorKind"},
+		{"unknown kind", "robot", "ana", "", "actorKind"},
+		{"person on behalf of someone", domain.ActorPerson, "ana", "bob", "onBehalfOf"},
+		{"person as a service actor", domain.ActorPerson, "service:billing", "", "userId"},
+		{"service as a person id", domain.ActorService, "ana", "", "userId"},
+		{"agent as a person id", domain.ActorAgent, "ana", "bob", "userId"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			c := change("name", "a", "b", "t")
-			c.ActorKind, c.OnBehalfOf = tc.kind, tc.obo
+			c.ActorKind, c.UserID, c.OnBehalfOf = tc.kind, tc.user, tc.obo
 			fields := domain.Validate(c)
 			if (tc.wantField == "" && len(fields) > 0) || (tc.wantField != "" && fields[tc.wantField] == "") {
 				t.Fatalf("fields %v", fields)
 			}
 		})
 	}
-	c := change("name", "a", "b", "t")
-	c.Reason = strings.Repeat("x", domain.MaxChangeReason+1)
-	c.EventID = strings.Repeat("x", 257)
+}
+
+func TestValidateTextLimitsCountCharacters(t *testing.T) {
+	c := serviceChange()
+	c.Reason = strings.Repeat("é", domain.MaxChangeReason)
+	c.EventID = strings.Repeat("ü", 256)
+	if f := domain.Validate(c); len(f) > 0 {
+		t.Fatalf("limits at the boundary in characters: %v", f)
+	}
+	c.Reason += "é"
+	c.EventID += "ü"
 	if f := domain.Validate(c); f["reason"] == "" || f["eventId"] == "" {
-		t.Fatalf("length limits: %v", f)
+		t.Fatalf("over the limit: %v", f)
+	}
+	c = serviceChange()
+	c.NewValue = "bad \xff"
+	c.Reason = "nul \x00"
+	if f := domain.Validate(c); f["newValue"] == "" || f["reason"] == "" {
+		t.Fatalf("invalid UTF-8 and NUL: %v", f)
 	}
 }

@@ -20,6 +20,9 @@ components:
     recorded:
       name: recorded
       title: Field change recorded
+      description: >-
+        The AUD-API-1 fields (actorKind, onBehalfOf, reason, changeSetId, eventType, eventId, workflowInstanceId) are
+        absent when empty, as in the Record of GET /v1/audit/records/{entity}/{recordId}.
       payload:
         type: object
         required: [entity, recordId, field, userId, traceId]
@@ -30,7 +33,7 @@ components:
           oldValue: { type: string }
           newValue: { type: string }
           userId: { type: string, description: 'The verified actor: the person, or "service:<name>".' }
-          actorKind: { type: string, enum: [person, service, agent] }
+          actorKind: { type: string, enum: [person, service, agent], description: person is reserved for the CDC feed (B-07). }
           onBehalfOf: { type: string }
           traceId: { type: string }
           reason: { type: string }
