@@ -50,6 +50,8 @@ def _load(text):
 DEPLOY = Path(__file__).resolve().parents[1]
 REPO = DEPLOY.parent
 WEB_SRC = REPO / "apps" / "web" / "src"
+# The shell and the two device apps built from it (they re-export modules of apps/web today).
+SHELL_ROOTS = [WEB_SRC, REPO / "apps" / "technician" / "src", REPO / "apps" / "warehouse-mobile" / "src"]
 GATEWAY_DIR = DEPLOY / "gateway"
 ROUTES_FILE = GATEWAY_DIR / "httproutes.yaml"
 BTP_FILE = GATEWAY_DIR / "backendtrafficpolicy.yaml"
@@ -105,28 +107,77 @@ def shell_files(root: Path = WEB_SRC):
         yield path
 
 
-def shell_prefixes(root: Path = WEB_SRC) -> dict[str, set[str]]:
-    """prefix -> files (relative to the repo) of the shell that call /api/v1/<prefix>."""
+def _enclosing(text: str, i: int) -> str:
+    """The argument list of the call around text[i] (balanced parentheses, so a call prettier wrapped over several lines
+    counts as one), or the statement around it when it is not inside a call."""
+    depth, j = 0, i
+    while j > 0:
+        j -= 1
+        c = text[j]
+        if c == ")":
+            depth += 1
+        elif c == "(":
+            if depth == 0:
+                break
+            depth -= 1
+        elif c in ";{}" and depth == 0:
+            j = -1
+            break
+    if j <= 0:  # not inside a call: the statement
+        start = max(text.rfind(";", 0, i), text.rfind("\n\n", 0, i)) + 1
+        end = text.find(";", i)
+        return text[start:end if end >= 0 else len(text)]
+    depth, k = 0, j + 1
+    while k < len(text):
+        c = text[k]
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            if depth == 0:
+                break
+            depth -= 1
+        k += 1
+    return text[j:k + 1]
+
+
+def _path_literals(chunk: str):
+    return {m.group(1) for m in PATH_LITERAL.finditer(chunk)} - {"api"}
+
+
+def shell_prefixes(roots=None) -> dict[str, set[str]]:
+    """prefix -> files (relative to the repo) of the shell that call /api/v1/<prefix>.
+
+    `roots` defaults to SHELL_ROOTS (a single directory is accepted too). The portal SPAs are not scanned: their
+    `/api/v1/...` calls go to their own BFF through Gateway depot-portals, whose routes take the whole `/api/v1/` prefix."""
+    roots = SHELL_ROOTS if roots is None else ([roots] if isinstance(roots, Path) else roots)
     found: dict[str, set[str]] = {}
-    for path in shell_files(root):
-        text = path.read_text()
-        rel = path.relative_to(REPO).as_posix() if path.is_relative_to(REPO) else str(path)
-        for m in API_LITERAL.finditer(text):
-            found.setdefault(m.group(1), set()).add(rel)
-        # A client that joins paths to a bare /api/v1 root (assets: /assets and /leases; service: the generic case
-        # routes; migration-factory: /migration and /cutover). When the file has another /api/v1/<x> base too, only
-        # the lines that name the root count.
-        roots = ROOT_CONST.findall(text)
-        if not roots and not ROOT_INLINE.search(text):
-            continue
-        only_root_lines = bool(roots) and bool(OTHER_BASE.search(text))
-        for line in text.splitlines():
-            if only_root_lines and not any(re.search(rf"\b{r}\b", line) for r in roots):
-                continue
-            for m in PATH_LITERAL.finditer(line):
-                if m.group(1) != "api":
-                    found.setdefault(m.group(1), set()).add(rel)
+    for root in roots:
+        for path in shell_files(root):
+            text = path.read_text()
+            rel = path.relative_to(REPO).as_posix() if path.is_relative_to(REPO) else str(path)
+            for prefix in _file_prefixes(text):
+                found.setdefault(prefix, set()).add(rel)
     return found
+
+
+def _file_prefixes(text: str) -> set[str]:
+    out = {m.group(1) for m in API_LITERAL.finditer(text)}
+    # A client that joins paths to a bare /api/v1 root (assets: /assets and /leases; service: the generic case routes;
+    # migration-factory: /migration and /cutover). When the root is the file's only API base, every path literal in it
+    # counts; when the file has another /api/v1/<x> base too, only the literals in a call (or statement) that passes the
+    # root, and `${root}/<x>` templates.
+    names = ROOT_CONST.findall(text)
+    if not names and not ROOT_INLINE.search(text):
+        return out
+    if not names or not OTHER_BASE.search(text):
+        return out | _path_literals(text)
+    for name in names:
+        out |= set(re.findall(rf"\$\{{{name}\}}/([a-z][a-z0-9-]*)", text))
+        for m in re.finditer(rf"\b{name}\b", text):
+            if re.match(r"\s*=\s*[\"'`]", text[m.end():]):
+                continue  # the declaration itself
+            out |= _path_literals(_enclosing(text, m.start()))
+    return out
 
 
 # --- Argo CD dev Applications and charts ------------------------------------------------------------------------------
@@ -340,6 +391,8 @@ def build(shell=None, releases=None) -> Model:
                 if any("{" in e for e in own):
                     errors.append(f"/api/v1/{prefix}: {other} has a path parameter right after the prefix")
                     continue
+                # Route names come from chunking: the sorted elements in groups of MAX_RULES - 1 (one rule is left for the
+                # /v1 pass-through), named <service>-1, -2, ... (plain <service> for one group), so they can renumber.
                 per = MAX_RULES - 1
                 chunks = [own[i:i + per] for i in range(0, len(own), per)]
                 for i, chunk in enumerate(chunks, 1):

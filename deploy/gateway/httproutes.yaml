@@ -79,6 +79,12 @@ spec:
         - path:
             type: PathPrefix
             value: /api/v1/ar
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /v1/ar
       backendRefs:
         - name: prediction
           port: 8080
@@ -86,12 +92,6 @@ spec:
         - path:
             type: PathPrefix
             value: /v1/ar
-      filters:
-        - type: URLRewrite
-          urlRewrite:
-            path:
-              type: ReplacePrefixMatch
-              replacePrefixMatch: /api/v1/ar
       backendRefs:
         - name: prediction
           port: 8080
@@ -1601,6 +1601,12 @@ spec:
         - path:
             type: PathPrefix
             value: /api/v1/predictions
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /v1/predictions
       backendRefs:
         - name: prediction
           port: 8080
@@ -1608,12 +1614,6 @@ spec:
         - path:
             type: PathPrefix
             value: /v1/predictions
-      filters:
-        - type: URLRewrite
-          urlRewrite:
-            path:
-              type: ReplacePrefixMatch
-              replacePrefixMatch: /api/v1/predictions
       backendRefs:
         - name: prediction
           port: 8080

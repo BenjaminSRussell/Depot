@@ -23,11 +23,13 @@ missing, malformed or the nil tenant); the tenant is never read from a body.
 
 | Route | Duty | Notes |
 |---|---|---|
-| `POST /api/v1/predictions/payment/retrain` | `agents.admin` | body `paidInvoices` (up to 50,000); 201 with the model (status, rows, maeDays); 422 AGT-0213 below min_rows |
-| `POST /api/v1/predictions/payment/score` | `agents.admin` | body `openInvoices` (1 to 5,000); 422 AGT-0213 without an ACTIVE model |
-| `GET /api/v1/ar/invoices/{id}/prediction` | `collections.view` | the stored prediction with `stale` |
-| `GET`/`PUT /api/v1/predictions/payment/settings` | `agents.admin` | the tenant's `minRows` and `maeMaxDays` (9.47.20); a tenant without its own uses the service defaults; the next retrain uses them |
-| `GET /api/v1/predictions/payment/accuracy` | `agents.admin` | accuracy report over predictions whose invoices were since paid: MAE days, share within 7 days, `p_late_30d` calibration per bucket, overall and per model version |
+| `POST /v1/predictions/payment/retrain` | `agents.admin` | body `paidInvoices` (up to 50,000); 201 with the model (status, rows, maeDays); 422 AGT-0213 below min_rows |
+| `POST /v1/predictions/payment/score` | `agents.admin` | body `openInvoices` (1 to 5,000); 422 AGT-0213 without an ACTIVE model |
+| `GET /v1/ar/invoices/{id}/prediction` | `collections.view` | the stored prediction with `stale` |
+| `GET`/`PUT /v1/predictions/payment/settings` | `agents.admin` | the tenant's `minRows` and `maeMaxDays` (9.47.20); a tenant without its own uses the service defaults; the next retrain uses them |
+| `GET /v1/predictions/payment/accuracy` | `agents.admin` | accuracy report over predictions whose invoices were since paid: MAE days, share within 7 days, `p_late_30d` calibration per bucket, overall and per model version |
+
+Each route is also served under the older `/api/v1/...` path (hidden from the schema) for callers that have not moved; the gateway routes `predictions` and `ar` pass `/v1/...` through (D22, B-02a).
 
 OpenAPI: `api/openapi.yaml`. Event: `events/asyncapi.yaml`.
 

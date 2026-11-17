@@ -329,6 +329,22 @@ class GeneratedApiRoutes(unittest.TestCase):
             (root / "modules" / "a" / "inline.ts").write_text('apiFetch(`/api/v1${path}`); send("/zeta/1");')
             self.assertEqual(set(gen.shell_prefixes(root)), {"alpha", "beta", "zeta"})
 
+    def test_shell_scan_reads_a_root_call_prettier_wrapped_over_several_lines(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "client.ts").write_text(
+                'export const base = "/api/v1/service";\nexport const caseBase = "/api/v1";\n'
+                'export function listCases(signal?: AbortSignal) {\n'
+                '  return json<Page<GenericCase>>(\n    `/cases${query({ a: 1 })}`,\n    {},\n    signal,\n    caseBase,\n  );\n}\n'
+                'export function listOrders() {\n  return json<Page<Order>>(\n    "/work-orders",\n    {},\n  );\n}\n'
+                'const u = `${caseBase}/case-mailboxes`;\n')
+            self.assertEqual(set(gen.shell_prefixes(root)), {"service", "cases", "case-mailboxes"})
+
+    def test_shell_scan_covers_the_device_apps(self):
+        self.assertEqual(gen.SHELL_ROOTS[1:], [gen.REPO / "apps" / "technician" / "src", gen.REPO / "apps" / "warehouse-mobile" / "src"])
+        for root in gen.SHELL_ROOTS:
+            self.assertTrue(root.is_dir(), root)
+
     def test_shared_prefix_split_takes_only_the_elements_the_primary_does_not_serve(self):
         split = [r for r in MODEL.routes if r.prefix == "production" and r.elements]
         self.assertTrue(split)
@@ -365,6 +381,25 @@ class GeneratedApiRoutes(unittest.TestCase):
                 self.assertIsNotNone(svc, f"{release} {key}: {url} names no Service a dev chart renders")
                 self.assertEqual(svc.port, target[2], url)
                 self.assertEqual(svc.release, "purchasing" if key == "purchasing" else key)
+
+    def test_stage_portal_upstreams_match_dev_and_the_stage_namespaces(self):
+        # Stage runs the same charts in the same namespaces (deploy/envs/stage/apps/services.yaml), so the BFFs' upstreams are
+        # the dev ones; each named namespace is where stage deploys that service.
+        stage_ns = {}
+        for path in sorted((DEPLOY / "envs/stage/apps").glob("*.yaml")):
+            for doc in yaml.safe_load_all(path.read_text()):
+                if doc and doc.get("kind") == "ApplicationSet":
+                    for element in doc["spec"]["generators"][0]["list"]["elements"]:
+                        stage_ns[element["name"]] = element["namespace"]
+                elif doc and doc.get("kind") == "Application":  # identity-stage, receiving-stage, ...
+                    stage_ns[doc["metadata"]["name"].removesuffix("-stage")] = doc["spec"]["destination"]["namespace"]
+        dev = {(r, k): (url, t) for r, k, url, t in gen.portal_upstreams()}
+        for portal in ("customer-portal", "supplier-portal"):
+            stage = yaml.safe_load((DEPLOY / f"envs/stage/values/{portal}.yaml").read_text())["upstreams"]
+            self.assertEqual(stage, {k: url for (r, k), (url, _) in dev.items() if r == portal}, portal)
+            for key in stage:
+                with self.subTest(portal=portal, upstream=key):
+                    self.assertEqual(stage_ns.get(key), dev[(portal, key)][1][0])
 
 
 class AS2Edge(unittest.TestCase):

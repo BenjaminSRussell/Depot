@@ -2835,13 +2835,13 @@
       "openapi": "3.1.0",
       "title": "Depot payment prediction",
       "operations": [
-        {"method": "GET", "path": "/api/v1/ar/invoices/{invoice_id}/prediction", "operationId": "getInvoicePaymentPrediction", "duty": "collections.view"},
-        {"method": "GET", "path": "/api/v1/predictions/payment/accuracy", "operationId": "getPaymentPredictionAccuracy", "duty": "agents.admin"},
-        {"method": "GET", "path": "/api/v1/predictions/payment/dso", "operationId": "getPaymentDso", "duty": "collections.view"},
-        {"method": "POST", "path": "/api/v1/predictions/payment/retrain", "operationId": "retrainPaymentModel", "duty": "agents.admin"},
-        {"method": "POST", "path": "/api/v1/predictions/payment/score", "operationId": "scorePaymentDates", "duty": "agents.admin"},
-        {"method": "GET", "path": "/api/v1/predictions/payment/settings", "operationId": "getPaymentPredictionSettings", "duty": "agents.admin"},
-        {"method": "PUT", "path": "/api/v1/predictions/payment/settings", "operationId": "putPaymentPredictionSettings", "duty": "agents.admin"}
+        {"method": "GET", "path": "/v1/ar/invoices/{invoice_id}/prediction", "operationId": "getInvoicePaymentPrediction", "duty": "collections.view"},
+        {"method": "GET", "path": "/v1/predictions/payment/accuracy", "operationId": "getPaymentPredictionAccuracy", "duty": "agents.admin"},
+        {"method": "GET", "path": "/v1/predictions/payment/dso", "operationId": "getPaymentDso", "duty": "collections.view"},
+        {"method": "POST", "path": "/v1/predictions/payment/retrain", "operationId": "retrainPaymentModel", "duty": "agents.admin"},
+        {"method": "POST", "path": "/v1/predictions/payment/score", "operationId": "scorePaymentDates", "duty": "agents.admin"},
+        {"method": "GET", "path": "/v1/predictions/payment/settings", "operationId": "getPaymentPredictionSettings", "duty": "agents.admin"},
+        {"method": "PUT", "path": "/v1/predictions/payment/settings", "operationId": "putPaymentPredictionSettings", "duty": "agents.admin"}
       ]
     },
     {
