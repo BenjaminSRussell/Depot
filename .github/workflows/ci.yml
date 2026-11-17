@@ -532,7 +532,9 @@ jobs:
           exit 1
 
   # The docs and ops tools (#560): the OpenAPI gate over every service spec (a route without an entry fails), the AsyncAPI
-  # reference, the docs link check and the cost, licence and capacity calculators the ops service mirrors.
+  # reference, the docs link check and the cost, licence and capacity calculators the ops service mirrors. Also the
+  # compiled-architecture drift check (docs/architecture.compiled/README.md): it fails when docs/architecture.md, a spec
+  # or a service directory changed without `python3 scripts/compile_architecture.py --write`.
   docs-tools:
     runs-on: ubuntu-24.04
     steps:
@@ -542,6 +544,8 @@ jobs:
           python-version: '3.12'
       - run: pip install pyyaml==6.0.2
       - run: python -m unittest discover -s docs/ops/tools -p 'test_*.py'
+      - run: python -m unittest discover -s scripts -p 'test_compile_architecture.py'
+      - run: python scripts/compile_architecture.py --check
 
   deploy-release:
     runs-on: ubuntu-24.04

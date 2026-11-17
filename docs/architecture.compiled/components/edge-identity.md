@@ -1,38 +1,53 @@
-# Edge and Identity (Envoy Gateway, Keycloak, OPA)
+# Edge and Identity
+
+**As built (v1.0):** Envoy Gateway validates the JWT and maps claims to trusted `X-Depot-*` headers (ADR-0006); one
+Keycloak realm `depot` (ADR-0007); duties travel in the access token; OPA decides only in identity and the single-host
+gateways; Ed25519 service tokens between services (ADR-0010); Valkey holds gateway rate-limit counters (ADR-0014).
 
 ## Purpose & Boundaries
-Envoy Gateway does TLS 1.3, JWT validation per tenant issuer, rate limiting and coarse route-duty ext_authz ONLY; business authorization, routing logic and validation stay in services. Keycloak 26+ (Operator, 3 replicas): realm per tenant + one `_internal` realm for service/saga identities. OPA: sidecar per pod plus standalone OPA-Envoy plugin for gateway ext_authz; bundles compiled by `platform-ts`. Optional in-cluster Valkey (proposed, needs ADR-0001 addendum) for global rate-limit counters only.
+Authenticates every caller at the edge and turns the token into headers services can trust. Business authorization
+stays in the service (route duty check). Config lives in `deploy/gateway`, `deploy/envoy-gateway`, `deploy/keycloak`
+(realm `deploy/keycloak/realm-depot.json`), `deploy/keycloak-fips` and the duty catalogue and Rego in `policies/authz`.
+The `identity` service (platform component) serves the policy bundle, SCIM and administration.
+
+## Services
+None of its own. Edge config is in `deploy/`; the identity service is owned by the platform component
+(`services/identity`), the portal BFFs by portal-bff.
 
 ## Interfaces
-- Envoy: Gateway API `HTTPRoute`, `SecurityPolicy`, `BackendTrafficPolicy`; routes by `/v1/<context>` prefix (longer prefix e.g. `/v1/procurement/portal` routes to TS deployable); cert-manager. Maps `tenant_id`, `azp`, `tier` to headers used only for rate limiting/logs (services re-derive tenant from token, except `_internal` path). Generates `X-Correlation-Id` if absent.
-- Rate limits: descriptors `(tenant_id, tier)` and `(tenant_id, azp)`; Starter 600/min, Professional 3,000, Enterprise 12,000 sustained, burst 100/500/2,000; `device` class 120/min per device; per-agent caps under tenant budget; `429 rate_limited` + `Retry-After`; body limits 1 MiB single / 10 MiB bulk (`413 payload_too_large`); CORS closed by default with per-tenant origin allow-lists at gateway; webhook delivery tiers 60/300/1,200 per min.
-- Keycloak realm template: clients, scopes, mappers (audience mapper adds `aud: depot-api`, mandatory, verified by realm template test), password+MFA policy; `tenant_id` hard-coded claim per realm. Claims: iss, sub, aud, azp, exp, iat, jti, typ, acr, tenant_id, tier, and for agents agent_id, on_behalf_of. Duties/roles/LE grants deliberately NOT in token. Token lifetimes: access 15 min, refresh 12 h single-use rotation (Revoke Refresh Token on, reuse 0), SSO session max 12 h; tenants may shorten not lengthen.
-- Flows: browser users via BFF (code+PKCE S256); devices OAuth device grant RFC 8628 (device class 120 req/min); partners client credentials with private_key_jwt or mTLS (azp = "API key"; no separate API-key system); internal services client credentials in `_internal` + mTLS + `X-Depot-Tenant`; agents OAuth 2.1 code+PKCE delegated token; federation OIDC/SAML brokering; SCIM via facade in platform-ts (Keycloak core has no SCIM).
-- Step-up: OPA obligation `requires_acr: "mfa"` for payment.approve, payment.release, periodcontrol.admin, vendorbank.write, customerbank.write, any `*.reveal`, role assignment; service returns 401 + `WWW-Authenticate: Bearer error="insufficient_user_authentication", acr_values="mfa"`.
-- OPA bundle: `GET /v1/platform/policy-bundles/current` (Svc:`policy.bundle.read`, mTLS), ETag/delta, <=10 s propagation; fail-secure 503 if sidecar unreachable or bundle older than 5 min.
-- `/.well-known/oauth-protected-resource` (RFC 9728) for MCP clients.
+- Gateways (`deploy/gateway/README.md`): `depot-api` for `/api/v1/<svc>/...` (browser, rewritten to `/v1/<svc>`) and `/v1/<svc>/...` (partners, agents); `depot-portals` for the two portal hosts; separate gateways for AS2, region health, the plant edge (iot-edge) and the payments webhook; MCP at `POST /mcp` on `mcp.depot.<tenant>`.
+- `ClientTrafficPolicy/depot-api-strip-identity-headers` removes client-supplied identity headers first (only `X-Depot-LegalEntity-Scope` passes, for the read-only all-entity view). `SecurityPolicy/depot-api-jwt` then validates issuer, audience `depot-api`, signature via JWKS and expiry, refuses the nil tenant, and maps `tid`, `le`, `sub`, `duties`, `tier` to `X-Depot-Tenant`, `X-Depot-Legal-Entity`, `X-Depot-User`, `X-Depot-Duties`, `X-Depot-Tier`. Envoy also strips the shell's `X-Depot-LegalEntity` selection that devgateway and `depot-server` forward (D23).
+- Rate limits: `BackendTrafficPolicy/depot-api-tenant-rate-limit`, one global limit per tenant by tier (starter 600/min, professional 3,000, enterprise 12,000), counters in Valkey; per-address limits on the AS2, region and portal edges. Designed bursts, `azp` and `device` classes and per-agent caps are not configured; services do not set `RateLimit-*` headers.
+- Keycloak realm `depot`: clients `depot-web` (public, PKCE S256), `depot-services`, `depot-identity-deprovision`, `depot-portal-supplier`, `depot-portal-customer`; every token carries `aud: depot-api`; access tokens 300 s, refresh rotation with reuse 0. Device grant disabled; no per-kiosk clients (ADR-0009).
+- OPA: identity compiles and signs a bundle (Rego, duties, tenant-wide role assignments) and serves it at `GET /v1/identity/policy/bundle` on an internal listener; identity's `RequireOPA` returns 503 on a policy outage. Decision shape `allow` only, Rego `package authz`.
 
 ## Data Ownership
-Keycloak and Temporal have their own CNPG clusters (outside the 12 contexts, OQ-12). Valkey (if adopted) holds rate-limit counters only, no P3. Bundle data lives in platform context.
+Keycloak state (realm, users, the `duties` user attribute), the duty catalogue in `policies/authz`, rate-limit counters
+in Valkey (never P3, never a system of record). Identity's own tables belong to the platform component.
 
 ## Events Produced
-absent — the source document does not address this (kill-switch changes reach OPA data within 10 s via bundle).
+None. Kill-switch and role changes reach services through the next token or bundle, not through events.
 
 ## Events Consumed
-absent — the source document does not address this
+None.
 
 ## Dependencies
-internal: platform (bundle compiler, tenants API), platform-kernel. external: Keycloak, OPA, Envoy Gateway, cert-manager, Valkey (optional), Vault (client secrets).
+internal: platform (identity: bundle, SCIM, tenants), platform-kernel (`authz`, `tenant`). external: Envoy Gateway,
+Keycloak, OPA (identity and single-host gateways), Valkey, cert-manager, External Secrets.
 
 ## Gotchas & Constraints
-- Envoy validation is not trusted alone: every service re-verifies JWT (east-west calls bypass gateway).
-- Valkey NEVER Redis; rate limiting fails open to Envoy's local per-pod limiter, not unlimited; Valkey is a soft dependency, never in readiness.
-- Keycloak SCIM extension unconfirmed (Q3); token exchange / `act` claim support unconfirmed (Q8): fallback custom claim mapper + token-exchange policy.
-- OPA bundle size risk at 100 tenants x 10k users: delta bundles, per-tenant-cohort sharding, load test in wave 2 (Q22).
-- Per-tenant Kafka ACLs on shared topics impossible; see eventing-backbone egress topics.
-- Network: namespaces per tier (edge, bff, services, data, platform-infra, ai, integration-egress) with default-deny NetworkPolicy; mTLS east-west; egress via gateway with RFC1918/link-local/metadata blocking for webhooks.
-- Moonaan defaults (Cognito, Verified Permissions/Cedar, API-gateway-less) are NOT used.
+- Services trust `X-Depot-*` headers without re-verifying the JWT. That is safe only if nothing but the gateway can reach a service (ADR-0006 rule 6); today only 13 of 69 charts ship a NetworkPolicy, no namespace has default-deny and 63 services share namespace `hello-ledger` (D1).
+- Envoy, devgateway and `depot-server` enforce different checks (OPA only in the single-host gateways) (D23).
+- Duties in the token mean a role change takes effect on the next token (≤ 300 s). Step-up is an auth-age check, not an `acr` obligation.
+- Valkey, never Redis; rate limiting is a soft dependency (ADR-0014).
+- OPA decision logs are off and there is no central denial metric (ADR-0006 backlog).
+
+## Target — not built
+- Default-deny NetworkPolicy, namespace per tier and per-deployable egress allow-lists (D1).
+- One enforcement model across Envoy, devgateway and `depot-server` (D23).
+- Designed v0.x items superseded by ADR-0006/0007/0010: realm per tenant plus `_internal` realm, ext_authz to OPA-Envoy, OPA sidecars with `{allow, legalEntityScopes, obligations}`, `requires_acr: mfa` step-up, per-service JWT re-verification, `X-Depot-Subject-Token`.
+- Agent on-behalf-of token exchange (open question).
 
 ## Source Sections
-- Backend 7.1 (1117-1133), 7.2 (1135-1145), 7.4 (1156-1179), 7.17 (1324-1326); Frontend 8.1-8.2 (5564-5626)
-- Cross-Cutting Security & Auth (7744-7771); Open Questions 1,5,28 (7779-7807)
+- Architecture §3.2 route table, §7.1 authentication, §7.2 authorization, §7.4 request path, §7.17 rate limiting; Cross-Cutting Security & Auth; frontend §8.
+- ADR-0006, ADR-0007, ADR-0009, ADR-0010, ADR-0014; delta §2.1 (edge-identity row), §3.

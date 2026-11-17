@@ -1,32 +1,45 @@
 # device-bff
 
+**Not built (ADR-0009).** There is no device BFF and no service directory for one. Warehouse handhelds use
+`services/mobile` (warehouse component) for device sessions and offline replay; shop-floor kiosk enrollment is in
+`services/shopfloor` (manufacturing component); `apps/warehouse-mobile` and `apps/technician` keep IndexedDB command
+queues. The component stays in the manifest to record where the designed responsibilities went.
+
 ## Purpose & Boundaries
-TS edge service `services/device-bff-ts` (wave 8 allocation: first user wave 25, then 32, 45). Session BFF for shopfloor kiosk, warehouse-mobile and technician PWAs: device enrollment, worker sessions, offline packets, ordered command sync. No database of its own.
+Designed (v0.x): device enrollment, worker sessions (badge and PIN), offline packets and command sync for the
+shop-floor kiosk, warehouse mobile and technician apps at `/bff/v1/sync`, `/bff/v1/packets/{kind}` and
+`/bff/v1/device/*`, with an OAuth device grant. As built these are spread over mobile, shopfloor and the apps.
+
+## Services
+None. The designed directory, services/device-bff-ts, does not exist. Responsibilities moved to `services/mobile` and
+`services/shopfloor`, which their own components own.
 
 ## Interfaces
-- Same session endpoints as web-bff plus: `POST /bff/v1/device/enroll`, `POST /bff/v1/device/worker-session` (badge + PIN), `POST /bff/v1/sync`, `GET /bff/v1/packets/:kind` (`roster`, `work-orders`, `pick-lists`, `reference`; versioned, ETag, size-capped; e.g. `/bff/v1/packets/shopfloor?resource=`).
-- `/bff/v1/sync`: ordered replay of queued commands, each `(deviceId, commandId)`; idempotent on that pair (repeat returns stored result); applied in queue order under the worker's token; batches up to 50; per-command status returned; BFF replays with `Idempotency-Key = id`.
-- Platform side: `POST /v1/platform/devices` (+`:revoke`) register kiosk/scanner/edge; device-flow enrolment code.
-- Envoy `device` rate class 120 req/min/device.
+- As built: mobile `/v1/mobile` (devices, sessions, menus, flows, scan, offline, events); shopfloor `/v1/shopfloor` (sessions, edge-nodes, registrations, server-sent events). Both are reached through Gateway `depot-api` with a bearer token.
+- The Keycloak device grant is disabled in realm `depot`; there are no `depot-device` or per-kiosk clients (ADR-0009).
+- Designed and superseded: `/bff/v1/sync`, `/bff/v1/packets/{kind}`, `/bff/v1/device/*`, `depot-kiosk` sessions.
 
 ## Data Ownership
-absent — the source document does not address this (stateless; packets assembled from context APIs).
+None. Device sessions and offline logs live in mobile's database; kiosk enrollment in shopfloor's.
 
 ## Events Produced
-absent — the source document does not address this
+None. (mobile publishes `depot.mobile.*`, not relayed.)
 
 ## Events Consumed
-absent — the source document does not address this (`manufacturing-shopfloor-bff` consumer lives in manufacturing and pushes to kiosks).
+None.
 
 ## Dependencies
-internal: platform (devices), manufacturing, warehouse, projects, edge-identity. external: Keycloak (per-device client `depot-kiosk-<deviceId>`, `depot-device`), OPA.
+Would depend on edge-identity, warehouse, manufacturing and projects. As built those dependencies belong to mobile,
+shopfloor and the apps.
 
 ## Gotchas & Constraints
-- Kiosk identity: supervisor with duty `EnrollDevices` enrolls; per-device Keycloak client; device cookie `__Host-depot_device` (SameSite=Strict, 90-day rotation); worker identity via RFC 8693 token exchange (device client -> worker subject), scoped to `ReportProduction` + time-registration duties; actor = `user:<sub>`. 5 failed PINs lock badge 5 min with audit entry.
-- Offline sign-in with cached Argon2id verifiers only for offline-safe duties (time/operation feedback), 5 attempts, TTL 24 h; security sign-off pending (Q13 blocks wave 25).
-- Queue entries replay only under session whose `sub` == `actorSub`; others locked. Conflict outcomes (412 `conflict_version`, `state_transition_invalid`, `inventory_insufficient`, `period_closed`) -> conflict inbox, never auto-discarded; 429 honors Retry-After; 5xx backoff 1-60 s; 401 pauses.
-- Never store P3 on device; clock skew > 5 min warning.
-- Device sessions: 12 h shift for warehouse-mobile/technician, idle lock 15 min.
+- Token expiry during long offline periods is open (Q18); the apps replay queued commands after the user signs in again.
+- The offline command shape only partly matches the designed `QueuedCommand` (3 of 6 fields: no `aggregateKey`, `actorSub`, `commandId`) (pattern `offline-queued-command`).
+- mobile uses a non-standard posting key (D9) and has no legal-entity policy (D17).
+
+## Target — not built
+- Nothing is planned as a device BFF. Gaps that remain are in mobile and shopfloor (D2, D9, D17) and in the apps' offline queue shape.
 
 ## Source Sections
-- Frontend 2.4 (4856), 8.5-8.6 (5678-5688), 7.6 offline engine (5457-5510); Backend 5.20 (987-994), 3.2 (301)
+- Architecture §3.2 designed inventory (device-bff row) and route table, §5.20 device-bff endpoints (target), §7.1 machines and scanners row; frontend §2, §7.6.1 kiosk.
+- ADR-0009; delta §2.1 (device-bff row: missing).

@@ -1,37 +1,56 @@
 # Party
 
+**As built (v1.0):** one Go service, `services/party`, in place of the designed TypeScript `party-ts` (ADR-0008). Its
+outbox is relayed, and the merge event payload matches the designed contract.
+
 ## Purpose & Boundaries
-Context `party` (database `depot_party`; wave 7), TS only (`party-ts`). One row per real-world organization or person with layered roles (customer, vendor, contact, employee, bank, prospect). Owns party, customer/vendor roles, addresses, tax registrations, groups, payment/delivery terms, credit limits, dedup/merge, governance. Party and contacts/bank details are owned here (portal profile endpoints moved from sales/procurement).
+Tenant-level parties (organizations and persons) with layered roles; customers and vendors per legal entity; groups,
+payment terms, posting profiles, tax registrations, vendor bank accounts, vendor onboarding (prospects, requests,
+questionnaires, documents) and portal profile data; duplicate detection and governed merge.
+
+## Services
+| Directory | Lang | Datastore | Outbox relayed |
+|---|---|---|---|
+| `services/party` | Go | Postgres, own database | yes (`outbox-party`) |
 
 ## Interfaces
-Generated CRUD for parties, customers, vendors, contacts, addresses, tax registrations, groups, payment terms, delivery terms. Custom:
-- `POST /v1/party/parties:match` (duplicate blocking, precision >= 0.95; never creates), `GET /duplicate-candidates`, `POST /duplicate-candidates/{id}:dismiss`.
-- `POST /v1/party/parties/{id}:merge` (governed, approval workflow, survivorship; emits `party.merged.v1`; privilege `party.merge`).
-- `GET /parties/{id}/roles`; `POST /customers`; `PATCH /customers/{id}/credit-limit` (sensitive: `403 approval_required` + task; privilege `customer.creditlimit`); `POST /vendors`.
-- Bank accounts: `POST|GET /vendors/{id}/bank-accounts` (P3, encrypted `*_secure`, masked `****1234`, approval workflow, SoD with payment runs), `POST .../{bankId}:reveal` (audited, `vendorbank.reveal`).
-- `POST /tax-registrations/{id}:validate` (VIES/regional), `POST /addresses:validate`.
-- Portal: `GET|PATCH /v1/party/portal/profile` (customer scope; bank-detail changes route to bank-change approval).
-- `POST /change-requests`, `GET /change-requests/{id}` (governance for sensitive fields).
+- Prefix `/v1/party` (resources: parties, customers, vendors, customer-groups, vendor-groups, payment-terms, posting-profiles, tax-registrations, merge-requests, pending-changes, vendor-prospects, vendor-requests, vendor-questionnaires, vendor-documents, vendor-audit, customer-portal, vendor-portal, partners, controlled-documents). Every operation and duty is in `contracts.json`.
+- Merge is a governed request (`merge-requests`) approved through `workflow-ts` (party-merge activities); sensitive changes go through `pending-changes`.
+- Party numbers come from `services/numbering` over HTTP (ADR-0015).
+- Designed custom methods (`parties:match`, `duplicate-candidates`, `{id}:merge`, `bank-accounts/{id}:reveal`, `/v1/party/portal/profile`) are the target shape; the built route names differ.
 
 ## Data Ownership
-EN-013..017: `party.party` (party_number via sequence PTY `PTY-{######}`, party_type organization|person, status draft|pending_approval|active|blocked|inactive|merged, name_normalized, phonetic_key, merged_into_party_id, search_vector), `party_role` (UQ (tenant_id, party_id, role_type)), `customer` (ML; customer_account UQ per tenant+LE; credit_limit numeric(20,6); credit_check_mode none|warn|hold; hold_status none|invoice|delivery|all; posting_profile_id REF ledger), `vendor` (ML; vendor_account; payment_method check|ach|sepa|wire|card|other; is_1099), address, party_address, contact, tax_registration (registration_number_hash HMAC), party_secure and party_bank_account_secure (P3, CDC-excluded), party_bank_account, customer_group/vendor_group, payment_terms, delivery_terms, credit_limit_change (I), party_merge (I), party_match_candidate (CHECK party_a_id < party_b_id). Indexes IX-PA-01..27 (trgm GIN on name_normalized, phonetic+country, tax hash).
+Party, roles, customer and vendor per legal entity, groups, terms, tax registrations, bank accounts and merge state
+(designed EN-013..017). Sensitive fields (bank details, national ids) are sealed with `platform/go/fieldcrypt` and
+looked up by blind index (ADR-0011), not stored in designed `*_secure` pgcrypto tables. Party is tenant-level; customer
+and vendor rows are per legal entity.
 
 ## Events Produced
-`party.party.created.v1` (partyId, partyNumber, partyType, displayName, roles[], countryCode, internalLegalEntityId? drives intercompany), `party.party.merged.v1` (mergeId, survivorPartyId, mergedPartyIds[], roleIdMap[], mergedAt; key T:survivorPartyId), `party.customer.creditchanged.v1` (customerId, partyId, legalEntityId, previousLimit, newLimit, creditStatus ok|hold|blocked, reason, effectiveFrom). Snapshot topics for party.party and party.customer. Also approval via `/depot/party/credit`.
+`depot.party.party`, `depot.party.customer`, `depot.party.merge`, `depot.party.change`, `depot.party.vendorbank`,
+`depot.party.vendorgroup`, `depot.party.vendorinvite`, `depot.party.protectedfields` (types in `contracts.json`). The
+merge event carries the designed fields (mergeId, survivorPartyId, mergedPartyIds, roleIdMap, mergedAt).
+*Target:* `party.customer.creditchanged.v1` with the designed payload; snapshot topics.
 
 ## Events Consumed
-`party-approvals` (workflowtask.completed), `party-legalentity-ref` (legalentity.created), `party-numbersequence` (platform.numbersequence.changed). Other contexts consume `party.merged` (`<ctx>-partymerge`) to rewrite their `party_id` columns.
+None declared in AsyncAPI. Designed consumers (`party-approvals`, `party-legalentity-ref`, `party-numbersequence`) are
+replaced by synchronous calls to identity/org and numbering and by `workflow-ts` approvals. Other services are meant to
+rewrite `party_id` on the merge event; no AsyncAPI document declares a `receive` on `depot.party.merge`.
 
 ## Dependencies
-internal: platform (legal entities, workflow), ledger (posting_profile REF), edge-identity. external: VIES and national tax-id validators (validation deferred and record saved `unverified` on failure).
+internal: platform (numbering, org legal entities, workflow-ts approvals), ledger (posting profiles), edge-identity,
+platform-kernel (`fieldcrypt`, `tenant`). external: tax-id validators (localization pack), none in the critical path.
 
 ## Gotchas & Constraints
-- Dedup: candidate generation via trigram >= 0.6, phonetic+country, same tax-id hash; Fellegi-Sunter scoring; merged parties keep `merged_into_party_id`; fiscal rows keep id plus pointer, non-fiscal rows rewritten by each context on `party.merged`.
-- P3 columns never in events/CDC/logs; person-party national ids only in party_secure.
-- `registration_number` NULL for person parties.
-- Merge/new bank accounts require approval workflow and SoD vs payment runs.
-- Bank-change from portals routes to approval, never direct write.
-- Customer/vendor are per legal entity; party is tenant-level.
+- P3 fields never go into events, logs or exports; the frozen `passage.fieldcrypt.*` labels protect existing ciphertext (ADR-0005).
+- Bank-detail changes from portals route to approval, never a direct write.
+- Merged parties keep a pointer; fiscal rows in other services keep the old id.
+- `registration_number` is NULL for person parties.
+
+## Target — not built
+- Per-subject keys and crypto-shred on erasure: superseded by pseudonymization (ADR-0011).
+- `<ctx>-partymerge` consumers in the subledger services; credit-limit change event with the designed payload.
+- Designed TypeScript deployable `party-ts`: superseded by ADR-0008.
 
 ## Source Sections
-- Backend 3.2 party row (287), 5.6 (572-594); Data EN-013..017 (2127-2228), 5.2 ERD (1637-1660); Events 3.3 (3998-4000), consumer rows 6,7,8 (4189-4191); AX/SAP party mapping (3547-3552, 3589-3592)
+- Architecture §3.2 (party row), §5.6 party endpoints (target), §7.16 field encryption; data EN-013..017; events §3.3.
+- ADR-0008, ADR-0011, ADR-0015; delta §1.1 (`services/party`), §2.1 (party row), §2.2 (`payload-party.party.merged`).

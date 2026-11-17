@@ -1,28 +1,46 @@
-# Analytics (supporting context + lakehouse)
+# Analytics
+
+**As built (v1.0):** `services/analytics` (Go) in place of the designed `analytics-ts` (ADR-0008), plus the `data/`
+assets (CDC connector template, dbt project, Cube model). The lakehouse (Iceberg, Trino or ClickHouse) is not deployed
+and no table-CDC connector exists (D3).
 
 ## Purpose & Boundaries
-Context `analytics` (TS only: `analytics-ts`; database `depot_analytics`, operational tables only; wave 46). Semantic-layer API facade (Cube), dashboards, document designer, catalog/lineage. Lakehouse: Debezium table CDC -> Kafka -> Apache Iceberg (S3-compatible) -> Trino / ClickHouse; dbt; Cube semantic layer; OpenMetadata tags. Backend only exposes the `analytics` facade.
+Semantic query API, metrics, dashboards, saved queries, schedules and exports, data-quality rules and lineage, archive
+partitions, and UX telemetry (events, funnels, signals).
+
+## Services
+| Directory | Lang | Prefix | Outbox relayed |
+|---|---|---|---|
+| `services/analytics` | Go | `/v1/analytics`, `/v1/catalog`, `/v1/archive` | no (D2) |
 
 ## Interfaces
-`POST /v1/analytics/query` (governed metric query proxied to Cube; tenant row filter, P3 exclusion; User:`analytics.query`; limits <= 10 measures, <= 8 dimensions, 50k rows), `GET /metrics`, `GET|POST /dashboards`, `GET /catalog` (catalog + lineage), `POST /document-templates/{id}:render` (fiscal docs stored with object lock), `POST /document-templates`.
+- `/v1/analytics/query` and `query:execute` (read-only POST, honoured for the all-entity read view), `metrics`, `dashboards`, `saved-queries`, `schedules`, `exports`, `reconciliation`, `ux-events`, `ux-funnels`, `ux-signals`.
+- `/v1/catalog/dq-rules`, `/v1/catalog/lineage`; `/v1/archive/partitions`.
+- Cube model in `data/cube` (tested by `data/cube/cube.test.js` in CI); dbt project in `data/dbt`; CDC template `data/cdc/connector.template.json`.
 
 ## Data Ownership
-Operational tables (dashboards, templates, catalog). Iceberg: one table per source CDC table partitioned by tenant_id bucket + date; append-only for journal_entry, journal_line, inventory_transaction, tax_transaction, production_order_event, machine_event (1-min rollups; raw opt-in), audit; merge-on-read for M/ML/F tables. Excluded: `*_secure`, outbox, consumer_inbox, idempotency_key, number_sequence_counter, dimension_set. Masked: P2 via column tags/masked views; erasure propagates by party_id.
+Operational tables only: dashboards, saved queries, schedules, DQ rules, lineage edges, archive state, UX telemetry.
+The analytical store is not deployed.
 
 ## Events Produced
-absent — the source document does not address this
+`depot.analytics.metric`, `depot.analytics.report`, `depot.catalog.dq`, `depot.archive.partition` (not relayed).
 
 ## Events Consumed
-`analytics-lakehouse` (all event topics via cross-tenant principal -> event-fact/archive Iceberg tables); Iceberg sink consumes CDC topics.
+None declared. The designed lakehouse feed is table CDC, not built.
 
 ## Dependencies
-internal: eventing-backbone (CDC), platform (OPA grants -> Cube queryRewrite RLS), agents (ask-the-data consumer). external: Iceberg, Trino/ClickHouse (choice deferred to wave 47), Cube, dbt, OpenMetadata.
+internal: platform, every context (as data sources, once CDC exists), eventing-backbone. external: Cube, dbt,
+Iceberg/Trino/ClickHouse (target).
 
 ## Gotchas & Constraints
-- Lag budget: commit -> Iceberg visible p95 < 60 s (NFR-P10). Replication slot lag alert 1 GiB, page 5 GiB; `max_slot_wal_keep_size` set; recovery = re-snapshot.
-- Cube metrics checked against GL (REC-19 semantic layer, tolerance 0.00, wave 46); metrics carry reconciliation status TRUSTED/BLOCKED; empty `NO_SCOPE` result means no access.
-- Dashboards enforce RLS; statements beyond ~1M balance rows served from lakehouse.
-- Cube semantic RLS via `queryRewrite` from OPA (FR-46.7).
+- P3 data must never reach the lakehouse or exports (designed rule; enforced by `fieldcrypt` ciphertext today).
+- Export auditing metric `depot_export_rows_total` is not built (pattern `audited-export`).
+
+## Target — not built
+- Lakehouse deployment, table-CDC connectors, dbt runs and Cube serving (D3).
+- Relay for the analytics outbox (D2).
+- Designed `analytics-ts`: superseded by ADR-0008.
 
 ## Source Sections
-- Backend 5.18 (953-963), 3.2 (298), 4 Analytics/GraphQL (364-365); Data 11 (3317-3352); Events 10 (4649-4655); Frontend analytics module (4834); AI 13 wave-46 hook (7660)
+- Architecture §5.18 analytics endpoints (target), data §11 CQRS, read models and the lakehouse, events §10 lakehouse CDC.
+- ADR-0008; delta §1.1 (`services/analytics`), §2.1 (analytics row).
