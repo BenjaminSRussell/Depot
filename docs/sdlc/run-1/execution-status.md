@@ -18,7 +18,7 @@ this file covers the work in between.
 
 | Item | Commit | Review | Next step |
 |---|---|---|---|
-| B-03b: OPA legal-entity rule, scoped assignments in the bundle, D17 legal-entity policies (shopfloor worker and pay data) | c0611102 | Independent review in progress, no file yet | Fix the findings, then open the PR |
+| B-03b: OPA legal-entity rule, scoped assignments in the bundle, D17 legal-entity policies (shopfloor worker and pay data) | c0611102 | [b03b-review-1.md](reviews/b03b-review-1.md): changes required (1 Blocker: a scoped assignment granted tenant-level duties such as SCIM; 2 Major: unvalidated and unaudited legal-entity assignment) | Fixes in progress, then re-review and the PR |
 | B-07a: CDC audit pipeline, `depot.ctx`, `:verify`, nightly job, daily anchor | d7c7723d | [b07a-review-1.md](reviews/b07a-review-1.md): changes required (2 Major, 6 Minor, 4 Nit) | Fix all 12 findings (below), re-review, then open the PR |
 
 The B-07a fixes agreed after review 1:
@@ -33,7 +33,7 @@ The B-07a fixes agreed after review 1:
 8. Give the CDC role column-level grants that exclude `*_sealed`, and correct the "never leave the database" wording.
 9. Fix the nits: unauthenticated trace id documented, the `dlqTopic` value used, a KafkaTopic CR with one partition, and `lock_timeout` in party 0021.
 
-The B-03b follow-up is an issue for the 9 tables whose D17 reason is interim: mobile `device_session` and `offline_transaction`; hub `hub_delivery` and `hub_attempt`; agents `agent_run`, `agent_action`, `approval_request`, `agent_run_state` and `agent_run_credential`.
+The B-03b follow-up is issue #725, covering the 9 tables whose D17 reason is interim: mobile `device_session` and `offline_transaction`; hub `hub_delivery` and `hub_attempt`; agents `agent_run`, `agent_action`, `approval_request`, `agent_run_state` and `agent_run_credential`.
 
 ## Not started or in progress (no code on the branch yet)
 
