@@ -13,7 +13,8 @@ cookie and never an OAuth token; the BFF would add `Authorization: Bearer` and a
 What is built:
 
 - **Portals** follow the design. `customer-portal-ts` and `supplier-portal-ts` are cookie-session BFFs
-  (`__Host-depot_customer`, `__Host-depot_supplier`), confidential Keycloak clients, sessions in Valkey (ADR-0014),
+  (`__Host-depot_customer`, `__Host-depot_supplier`), confidential Keycloak clients, sessions in memory (a Redis-protocol store such as Valkey when `sessionStore.url` is
+  set, which no environment does yet; ADR-0014),
   behind their own Gateway `depot-portals` with CSRF and origin checks (`deploy/gateway/README.md`).
 - **The web shell has no BFF.** `apps/web` uses the public client `depot-web` (PKCE S256, no client secret,
   `deploy/keycloak/realm-depot.json`). The PKCE verifier is kept in `sessionStorage` for the redirect step only; the
@@ -72,5 +73,6 @@ these becomes true:
 - Backlog: serve `apps/web` from an image and chart with the CSP, `frame-ancestors` and Trusted Types headers above, and test the headers in CI (D7).
 - Backlog: add a test or lint rule that fails if the shell writes a token to web storage (D7).
 - Backlog: remove the remaining "web BFF" and "device-bff" references from `apps/technician/README.md`, `services/fieldservice/NOT-IMPLEMENTED.md` and other READMEs (D7).
-- Backlog: decide how the shell gets live updates for long-running work without `/bff/v1/stream` (end-user gap 3).
-- Backlog: re-evaluate this ADR whenever a trigger above becomes true, at the latest before module federation from another origin ships.
+- Backlog: decide how the shell gets live updates for long-running work without `/bff/v1/stream` (end-user gap 3; D29).
+- Backlog: re-evaluate this ADR whenever a trigger above becomes true, at the latest before module federation from another origin ships (D7).
+- Backlog: give the portal SPAs an image and chart with the same header tests (D38).

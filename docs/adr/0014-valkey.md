@@ -29,6 +29,19 @@ Valkey is an approved in-cluster dependency of Depot, for exactly two uses:
 Valkey is never a system of record and never a cache of authorization decisions or P3 data. Any other use needs its
 own decision. The Redis product is not used; the clients speak the Redis protocol, so a Valkey server is the target.
 
+## Alternatives rejected
+
+- **Local (per-pod) rate limits in Envoy only.** No shared store, but each gateway replica counts on its own, so a
+  tenant's effective limit grows with the replica count and tier limits cannot be enforced as published (D.7).
+- **Rate limits in each service.** Duplicates the logic in about 60 services and counts per service, not per tenant
+  across the API.
+- **The Redis product.** Licence change (RSAL/SSPL) conflicts with ADR-0001's open-source, in-stack rule; Valkey is
+  the protocol-compatible fork.
+- **Sticky sessions for the portal BFFs instead of a shared store.** Loses sessions on every pod restart or scale-in
+  and needs session affinity in the gateway; kept only as the single-replica in-memory default.
+- **Portal sessions in Postgres.** Workable, but adds a database per portal for short-lived data and a write per
+  request for the per-session rate limit.
+
 ## Consequences
 
 - Global tier limits work across gateway replicas; burst allowances are not expressible in the Envoy Gateway API and

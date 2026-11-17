@@ -4,11 +4,12 @@
 
 | | |
 |---|---|
-| Version | **1.0 "as built"** |
+| Version | **1.0 "as built"**, revised after the independent stage-2 review (findings R-01 to R-18) |
 | Date | 2026-11-17 |
 | Produced by | SDLC run 1, stage 2 (Architecture). Earlier versions (v0.x, compiled 2026-10-23) were the design before code |
-| Evidence | [`docs/sdlc/run-1/architecture-delta.md`](sdlc/run-1/architecture-delta.md): as-built vs as-designed delta with code references, deviations D1–D27 |
+| Evidence | [`docs/sdlc/run-1/architecture-delta.md`](sdlc/run-1/architecture-delta.md): as-built vs as-designed delta with code references, deviations D1–D27. [`docs/sdlc/run-1/architecture-review-response.md`](sdlc/run-1/architecture-review-response.md): how each review finding was resolved |
 | Decisions | ADRs [0001](adr/0001-platform-stack.md), [0002](adr/0002-frepple-comparison.md), [0003](adr/0003-setup-checklist-reads.md), [0004](adr/0004-windows-packaging.md), [0005](adr/0005-rename-to-depot.md), [0006](adr/0006-gateway-asserted-identity.md), [0007](adr/0007-single-keycloak-realm.md), [0008](adr/0008-service-decomposition-and-languages.md), [0009](adr/0009-browser-tokens-without-web-bff.md), [0010](adr/0010-ed25519-service-tokens.md), [0011](adr/0011-application-field-encryption.md), [0012](adr/0012-plain-postgres-and-sql-migrations.md), [0013](adr/0013-search-service.md), [0014](adr/0014-valkey.md), [0015](adr/0015-number-sequence-service.md) |
+| Awaiting owner sign-off | The multi-entity legal-entity model in ADR-0006 rule 4 and §7.3 is **Proposed (recommended; pending owner confirmation)**. Until confirmed, the as-built single-entity behaviour described there stands (D33) |
 
 This document was written as a design before most of the code existed. Version 1.0 keeps that structure and headings and
 marks, section by section, what the code does now. Read the markers this way:
@@ -18,8 +19,11 @@ marks, section by section, what the code does now. Read the markers this way:
 - **Target — not built (see backlog):** design intent that still stands but has no implementation yet. The matching
   item is in [Known gaps](#known-gaps) and becomes a backlog item.
 - **Superseded by ADR-00NN:** the design was replaced by a decision already made in code; the ADR is authoritative.
-- Text with no marker is design that the code follows, or detail that was not audited (for example most of the data
-  model and the AI section).
+- **Proposed (recommended; pending owner confirmation):** a direction chosen to close a gap, not yet confirmed by the
+  owners. It is not as built and not yet accepted.
+- Text with no marker is design that the code follows, or detail that was not audited. Not audited for v1.0: most of
+  the data model, the Testing section (its Atlas references are superseded by ADR-0012), the AI section, and frontend
+  §2–§4 and §6–§12 outside their as-built notes (frontend §2.1 is the v0.x target layout).
 
 Sources of truth that outrank this document: each service's `api/openapi.yaml` (endpoints) and `events/asyncapi.yaml`
 (topics), its migrations (schema), and `deploy/` (topology). The endpoint catalogue (§5), the topic registry and
@@ -31,19 +35,26 @@ As-built summary (details in the delta, §1):
   Helm chart and an Argo CD application in dev and stage. Prod deploys only `hello-ledger` and `kyverno`.
 - Identity: one Keycloak realm `depot` (ADR-0007); duties in the access token; Envoy Gateway validates the JWT and
   maps claims to `X-Depot-*` headers that services trust (ADR-0006); Ed25519 service tokens between services (ADR-0010).
+  In the deploy files Envoy is configured against a placeholder issuer (`…/realms/dev`) and a static placeholder key,
+  not against realm `depot`, so no real token passes it yet (D32).
+- Kubernetes routing: Envoy has 17 HTTPRoutes for 15 backend services; most services the web shell calls have no route
+  and are reachable only through the single-host gateways (D31).
 - Web shell: public OIDC client with tokens in memory, no web BFF (ADR-0009). Portals: two cookie BFFs.
 - Data: plain PostgreSQL 17, a database per stateful service, hand-written SQL migrations applied by `dbx.Migrate`
   (ADR-0012); RLS on tenant and legal entity; application-level field encryption (ADR-0011).
 - Events: transactional outbox tables in 58 services, relayed by 21 Debezium connectors; 358 topics published in AsyncAPI;
-  one Temporal worker (`workflow-ts`).
-- Not built: OpenTelemetry tracing, CDC-fed audit chain, outbox connectors for every service, stage and prod platform.
+  consumers in 17 Go services, `workflow-ts`, `integration-hub-ts` and `prediction-py`, none enabled in any environment,
+  and 7 of them without a Kafka user (D34); one Temporal worker (`workflow-ts`).
+- Not built: OpenTelemetry tracing, CDC-fed audit chain, authorization-decision logging, outbox connectors for every
+  service, stage and prod platform.
 
 Corrections to the stage-2 delta found while verifying it against the code (the delta file is kept unchanged):
 
 - The dev shared Postgres server creates 21 service databases by script (the delta says 22; its own list has 21),
   plus separate releases for metadata and batch.
-- 63 of the 65 dev service releases share namespace `hello-ledger`; batch and metadata run in their own namespaces
-  (the delta says every service shares it).
+- 67 of the 69 service charts run in namespace `hello-ledger` in dev: 63 of the 65 ApplicationSet entries plus the
+  hand-written fx, identity, org and receiving Applications. Only batch and metadata have their own namespaces (the
+  delta says every service shares it).
 - `fieldcrypt` is imported by compliance, hr, migration, party, payables, receiving and sales. metadata does not
   encrypt; its code generator emits fieldcrypt-sealed fields for other services.
 - Crypto-shred is not available per tenant either: tenant data keys are derived from a shared master key, so no
@@ -55,41 +66,95 @@ Corrections to the stage-2 delta found while verifying it against the code (the 
 - New finding: chart values say stage and prod run migrations as an Argo PreSync Job, but no chart defines one (D28).
 - The web shell already emits a W3C `traceparent` (`apps/web/src/shell/telemetry.ts`); the backend does not
   propagate it, so the delta's "no OpenTelemetry" finding stands for services.
+- `ledger.Post` has 21 callers: 19 through `platform/go/ledgerclient` and receiving and payables with their own HTTP
+  clients (the delta says 19).
+- Found by the independent review and verified: Envoy routes 15 services (D31); Envoy's issuer and key are placeholders
+  (D32); the shell's `X-Depot-LegalEntity` cannot narrow anything (D33); seven Kafka consumers have no `KafkaUser` (D34).
 
 ## Known gaps
 
 Deviations where the code must change to meet the design or an accepted ADR. Each becomes a backlog item. The D-id is
-the delta's deviation id (D28 was found in stage 2; D29 and D30 turn delta findings without a D-id into items); it is not the decision numbering of backend §8 or the data
-section's defect list. Severity is the delta's. The follow-up work for each ADR is listed as `Backlog:` bullets in that
-ADR's Consequences.
+the delta's deviation id; D28 was found in stage 2, D29 and D30 turn delta findings without a D-id into items, and D31
+to D43 come from the independent review. It is not the decision numbering of backend §8 or the data section's defect
+list. Severity is the delta's, or the review's for D31 onward. Rows are ordered by severity, then by id. Owner is the
+accountable role. The exit criterion is the check that closes the gap. The follow-up work for each ADR is listed as
+`Backlog:` bullets in that ADR's Consequences, each with its D-id.
 
-| D-id | Severity | Gap |
-|---|---|---|
-| D1 | High | Services trust gateway `X-Depot-*` headers, but only 13 of 69 charts have a NetworkPolicy, no namespace has a default-deny policy, and 63 services share one namespace; ADR-0006 rule 6 is not met |
-| D2 | High | 37 services write an outbox that no Debezium connector relays (ledger, inventory, close, tax, treasury, payables, shopfloor, planning and others), so their events never reach Kafka |
-| D3 | High | No CDC-fed, hash-chained audit trail and no `depot.ctx` actor/trace message; `services/audit` is fed over HTTP by `engineering` only |
-| D4 | High | Stage and prod lack the platform (prod: `hello-ledger` and `kyverno` only; stage: no Kafka, Temporal, Postgres, Keycloak or gateway applications); no database or Secret for ledger, inventory or numbering anywhere |
-| D6 | High | Built event payloads lack fields consumers need (for example `journalEntryId`/`glSeq` on inventory transaction events for COGS link-back; 13 of 15 payload contracts unmet), and some subscriptions have no relayed producer |
-| D7 | High | ADR-0009 conditions unmet: `apps/web` has no image or host with a strict CSP, Trusted Types or a no-tokens-in-storage check |
-| D8 | High | No OpenTelemetry in services; `traceId` is the chi request id, not a W3C trace id; Tempo and Loki not deployed |
-| D9 | Med | Posting idempotency key not uniform: productcost, close, mobile and planning do not use `post:<ctx>:<doc>:<id>:<purpose>` |
-| D10 | Med | Journal tables are not range-partitioned (EN-027/028); NFR-P1 (5,000 lines/s, p99 < 200 ms) cannot be shown on this schema |
-| D11 | Med | Problem details: no `serviceCode`, `errors` is a map, the service code sits in `code`; portal BFFs and routing-py use other shapes |
-| D12 | Med | No kernel idempotency middleware (52 hand-rolled implementations, 3 with leases); `Idempotency-Key` declared on 44% of mutating operations |
-| D13 | Med | Temporal sagas S3b (production-order settlement) and S4 (intercompany mirror documents) not built; payment-run, ECO and CAPA workflows have no trigger |
-| D17 | Med | No legal-entity column and policy (and no `rlsexempt` reason) in shopfloor (pay data), scheduling, audit, mobile, fx, integration-hub-ts and agents-ts |
-| D18 | Med | Production database topology (replicas, WAL archive, PITR, failover), PodDisruptionBudgets, Argo Rollouts and HPA (3 charts) not built (ADR-0012) |
-| D19 | Med | Event envelope lacks `traceparent`, `sequence` and `dataschema`; Kafka key is `aggregate_id`, not `tenantid:subject` |
-| D21 | Med | `numbering` `gap_free` has no reserve/confirm/void, so an HTTP allocation can burn a number (ADR-0015) |
-| D23 | Med | Envoy, devgateway and `depot-server` enforce different checks: OPA only in the single-host gateways, and Envoy strips the shell's `X-Depot-LegalEntity` selection that the other two forward (ADR-0006 rule 7) |
-| D28 | Med | No migration Job in any chart although stage and prod values rely on one; with `MIGRATE_ON_START=false` nothing applies migrations outside dev (ADR-0012) |
-| D30 | Med | No `inventory.valuation_reservation` (reserve, post, finalize, sweeper) and no `ledger.posting_request` registry (`GET /v1/ledger/posting-requests/{key}`), so event-driven valuation postings have no crash-safe protocol (delta §2.2) |
-| D29 | Med | No shared long-running-work contract: no `/v1/platform/jobs`, `statusUrl` only in `migration`, no live-update stream for the shell (U4) (delta §6.2 items 2–3) |
-| D22 | Low | Non-`/v1` prefixes in agents-ts (`/api/v1`), edi (`/edi/v1`), print (`/print/v1`), prediction-py (`/api/v1`) and mcp-ts (`/mcp`) |
-| D24 | Low | Kafka retention 7 days (designed 30); no retention classes (`fiscal_7y`, `standard_3y`, `agent_7y`) and no event-replay API |
+| D-id | Severity | Owner | Gap | Exit criterion |
+|---|---|---|---|---|
+| D1 | High | security, platform | Services trust gateway `X-Depot-*` headers, but only 13 of 69 charts have a NetworkPolicy, no namespace has a default-deny policy, and 67 of 69 service charts share one namespace; ADR-0006 rule 6 is not met | Every namespace that runs a Depot service has default-deny ingress and gateway-plus-generated-peer allow rules; a CI check fails on a chart without them; a forged-header call from a non-peer pod is refused in an integration test |
+| D2 | High | eventing | 37 services write an outbox that no Debezium connector relays (ledger, inventory, close, tax, treasury, payables, shopfloor, planning and others), so their events never reach Kafka | Every service with an outbox table has an `outbox-<service>` connector; a CI check compares outbox tables with `connect.yaml` |
+| D3 | High | security | No CDC-fed, hash-chained audit trail and no `depot.ctx` actor/trace message; `services/audit` is fed over HTTP by `engineering` only | A change in any service with a mutable master-data table appears in the audit chain with actor and trace id, through CDC; chain verification runs nightly |
+| D4 | High | platform | Stage and prod lack the platform (prod: `hello-ledger` and `kyverno` only; stage: no Kafka, Temporal, Postgres, Keycloak or gateway applications); no database or Secret for ledger, inventory or numbering anywhere | Stage and prod app-of-apps deploy the platform and every service database and Secret; the `tools/e2e` suite passes against stage |
+| D6 | High | eventing | Built event payloads lack fields consumers need (for example `journalEntryId`/`glSeq` on inventory transaction events for COGS link-back; 13 of 15 payload contracts unmet), and some subscriptions have no relayed producer | Each consumed topic's AsyncAPI payload carries the fields its consumers read; a contract test per consumer passes |
+| D7 | High | frontend | ADR-0009 conditions unmet: `apps/web` has no image or host with a strict CSP, Trusted Types or a no-tokens-in-storage check | An `apps/web` image and chart serve the shell with the ADR-0009 headers, tested in CI; a lint or test fails on a token written to web storage |
+| D8 | High | platform | No OpenTelemetry in services; `traceId` is the chi request id, not a W3C trace id; Tempo and Loki not deployed | A request from the shell is followable as one trace through Envoy, a service, Postgres and a Kafka consumer in dev |
+| D31 | High | platform | Envoy routes only 15 services (17 HTTPRoutes in `deploy/gateway/httproutes.yaml`: org, fx, receiving, search, workflows, inbox → batch, ledger, pricing, sales, party, analytics, planning, data → metadata, controlling → costacct, ops, predictions and ar → prediction-py). The web shell calls about 80 `/api/v1/<prefix>` values; inventory, procurement, payables, production, warehouse, hr, treasury and most others would get 404 at Envoy in Kubernetes | Every chart with an API has an HTTPRoute and a `BackendTrafficPolicy` target ref; a CI check compares the shell's `/api/v1` prefixes and the services' OpenAPI prefixes with the routes and fails on a missing one |
+| D32 | High | security | `SecurityPolicy/depot-api-jwt` validates issuer `https://idp.dev.depot.dev/realms/dev` against a static placeholder key (`localJWKS` ConfigMap `depot-dev-jwks`; no private key exists, `deploy/gateway/README.md`). The realm is `depot`. agent-runtime (agents-ts) is configured for `realms/dev` (dev) and `realms/stage` (stage); the portals for `realms/depot`. No environment connects Envoy to the realm, so no real token passes the gateway | Envoy uses `remoteJWKS` and the `depot` realm issuer per environment, agent-runtime uses the same issuer, and a test mints a token from `realm-depot.json` in a test Keycloak and passes it through the gateway to a service |
+| D33 | High | security, frontend | A user entitled to several legal entities cannot switch company. As built, `le` is one string attribute (`legal_entity_id`, `multivalued: false`); the kernel rejects with 400 any `X-Depot-LegalEntity` that differs from `X-Depot-Legal-Entity` (`tenant.requestLegalEntity`); devgateway and `depot-server` return 403 unless the selection equals the claim; Envoy strips the selection. With no `le` claim, the kernel takes the selection as the scope, which only the gateways prevent. Replaces the legal-entity part of D23. Target model: ADR-0006 rule 4, Proposed (pending owner confirmation) | Owners confirm the model; then an end-to-end test signs in a user entitled to two legal entities, switches company in the shell and reads and writes in each through Envoy, devgateway and `depot-server`; a selection outside the entitled list is refused with 403 on all three paths; a request with no `le` claim and a selection is refused |
+| D34 | High | eventing | Kafka consumers in finreport, fulfillment, pricing, production, purchasing, shopfloor and integration-hub-ts have no `KafkaUser`, though their charts name users such as `fulfillment-consumer` and the cluster's authenticated listener is SCRAM-SHA-512 with `simple` authorization (the plain listener has no ACLs for anonymous clients). Separately, no environment enables any consumer: every consumer chart defaults to `consumer.enabled: false` or empty `brokers`, and no environment values override it. Flows such as sales order → fulfillment, planned order → production, journal → finreport and price-cache invalidation cannot run | Every consumer group has a `KafkaUser` with ACLs; a CI check pairs each `eventing` consumer and kafkajs consumer with a `KafkaUser`; dev enables the consumers whose producers are relayed and a smoke test sees one event consumed per consumer |
+| D35 | High | security | ADR-0011's conditions are unmet: eight services mount the master keys as a plain secret (`FIELDCRYPT_KEYS`: compliance, hr, migration, party, payables, receiving, sales and integration-hub-ts's TypeScript port); the charts support Azure Key Vault wrapping through workload identity (`deploy/tofu/cluster/modules/aks`), but no environment under `deploy/envs` enables it; there is no custody record or rotation runbook, and a re-encryption job exists only in hr (`hr reseal-pii`, off by default); erasure does not reach the search index, Kafka (7-day retention), the lakehouse, logs or backups, and no backup retention is tied to the erasure SLA; counsel has not signed off pseudonymization as erasure (Q17); the list of key holders is not reviewed per environment | Each condition in ADR-0011 is met and evidenced: KMS-wrapped keys in stage and prod with a custody record and a rotation drill; an erasure test that checks every listed copy; counsel sign-off recorded before EU personal data is loaded; a per-environment list of key holders reviewed by security |
+| D36 | High | security | Authorization decisions are not logged. OPA decision logs are off; in Kubernetes no OPA decision is made; `authz.RequireDuty` writes a 403 problem but no record with actor, tenant, duty and route; the kernel access log has method, path and status only; Envoy writes no allow/deny record with the subject | `authz.Require` and the three gateways emit one structured allow/deny record per decision (pseudonymized subject, tenant, duty, route, outcome, request id), shipped to the log store and retained by class, plus `depot_authz_denied_total`; a test asserts a denied call produces the record |
+| D9 | Med | finance-eng | Posting idempotency key not uniform: productcost, close, mobile and planning do not use `post:<ctx>:<doc>:<id>:<purpose>`; inventory's event-driven postings use the prefix `inventory-postings:` (`services/inventory/internal/api/postings_consumer.go`); receiving uses `post:receiving:…`, the service name where the design has the context (`procurement`); receiving and payables post with their own clients, not `ledgerclient` | The key's second segment is defined (service name, per ADR-0008, or context) and every poster, inventory included, calls `ledger.Post` through `ledgerclient` with that one format; a test scans callers |
+| D10 | Med | finance-eng | Journal tables are not range-partitioned (EN-027/028); NFR-P1 (5,000 lines/s, p99 < 200 ms) cannot be shown on this schema | Journal tables partitioned monthly; the NFR-P1 load test passes |
+| D11 | Med | platform | Problem details: no `serviceCode`, `errors` is a map, the service code sits in `code`; portal BFFs and routing-py use other shapes | One problem shape in the kernel, the TS services and routing-py, checked by a conformance test |
+| D12 | Med | platform | No kernel idempotency middleware (52 hand-rolled implementations, 3 with leases); `Idempotency-Key` declared on 44% of mutating operations | Kernel middleware per §7.5 used by every Go service; `Idempotency-Key` declared on every creating or posting operation, checked by Spectral |
+| D13 | Med | finance-eng | Temporal sagas S3b (production-order settlement) and S4 (intercompany mirror documents) not built; payment-run, ECO and CAPA workflows have no trigger | S3b and S4 built with compensation tests; each workflow has a trigger in a product flow |
+| D16 | Med | security | Realm guard rails missing (ADR-0007): no test that `tid`, `le` and `duties` are not user-editable or that the clients that call the API carry the `depot-api` audience; no documented per-tenant IdP federation procedure; `tenant_id` claim references remain in the PRD and runbooks | Realm-configuration test in CI; operator-guide procedure with a test realm export; no `tenant_id` claim references left |
+| D17 | Med | platform | No legal-entity column and policy (and no `rlsexempt` reason) in shopfloor (pay data), scheduling, audit, mobile, fx, integration-hub-ts and agents-ts | Each listed table has a legal-entity policy or an `rlsexempt` reason; `tools/rlscheck` passes |
+| D18 | Med | platform | Production database topology (replicas, WAL archive, PITR, failover), PodDisruptionBudgets, Argo Rollouts and HPA (3 charts) not built (ADR-0012) | Production topology decided and deployed; restore drill meets RPO 5 min / RTO 1 h |
+| D19 | Med | eventing | Event envelope lacks `traceparent` and `sequence` (the relay's enricher SMT flattens a `headers` object into extensions, but the Go outbox writes none); `dataschema` is set only by the enricher on the 21 relayed topics, not by `outbox.Enqueue`; Kafka key is `aggregate_id`, not `tenantid:subject` | `traceparent` and `sequence` set by `outbox.Enqueue` and carried through the enricher; consumer test reads them; key decided and applied |
+| D21 | Med | finance-eng | `numbering` `gap_free` has no reserve/confirm/void, so an HTTP allocation can burn a number (ADR-0015) | Reserve, confirm and void with a voided-number log, or `gap_free` refused for remote callers |
+| D23 | Med | security | Envoy, devgateway and `depot-server` enforce different checks: OPA only in the single-host gateways (ADR-0006 rule 7). The legal-entity selection part is now D33 | One enforcement model; the three gateways pass the same route-table test |
+| D28 | Med | platform | No migration Job in any chart, although chart values say stage and prod use one. On-start migration is set only for fx, identity, org, receiving and transport (dev and stage values), pricing (chart default) and `hello-ledger` (all three environments). ledger, inventory, sales and the other 50-odd services with migrations have no migration path in any environment, dev included (ADR-0012) | Every chart with migrations has an owner-role migration Job; serving pods run `MIGRATE_ON_START=false`; a fresh environment comes up with every schema applied |
+| D29 | Med | frontend, platform | No shared long-running-work contract: no `/v1/platform/jobs`, `statusUrl` only in `migration`, no live-update stream for the shell (U4) (delta §6.2 items 2–3) | One job contract used by every long operation; the shell shows live status for it |
+| D30 | Med | finance-eng | No `inventory.valuation_reservation` (reserve, post, finalize, sweeper) and no `ledger.posting_request` registry (`GET /v1/ledger/posting-requests/{key}`), so event-driven valuation postings have no crash-safe protocol (delta §2.2) | Protocol built; a crash-injection test shows no lost or double posting |
+| D37 | Med | platform | The Temporal frontend has no mTLS and no authorizer; only a label-based NetworkPolicy limits it, and `workflow-ts` can mint service tokens such as `payment-run.execute` (delta §3 row 11, `services/workflow-ts/NOT-IMPLEMENTED.md`) | mTLS between workers and the frontend and a Temporal authorizer that admits only `workflow-ts` and its starters; a test shows another pod cannot start a workflow |
+| D38 | Med | frontend | No image or chart serves the portal SPAs (`apps/customer-portal`, `apps/supplier-portal`) (delta §6.2 item 7; `apps/web` is D7) | Each portal SPA has an image and chart behind `depot-portals`, with the same header tests as D7 |
+| D41 | Med | security | A revoked duty keeps working for up to the 300 s access-token life (ADR-0006 rule 5); the window is not in the operator or security guides, and tenant administrators have no action that also ends Keycloak sessions | Guides state the window; a session-revocation action ends Keycloak sessions and refresh tokens, with a test |
+| D42 | Med | platform | Windows single-host install not proven: MSI install, upgrade and rollback on a Windows VM and the `tools/e2e` live-stack suite against `depot-server.exe` have not run (#213); TLS certificates cannot be read from the Windows store; no outbox relay without Kafka Connect (ADR-0004) | The VM and live-stack runs pass in CI; the certificate-store and outbox-relay items each have a decision |
+| D22 | Low | platform | Non-`/v1` prefixes in agents-ts (`/api/v1`), edi (`/edi/v1`), print (`/print/v1`), prediction-py (`/api/v1`) and mcp-ts (`/mcp`) | Every service serves `/v1/<prefix>` or has a recorded exception, and the routes (D31) agree |
+| D24 | Low | eventing | Kafka retention 7 days (designed 30); no retention classes (`fiscal_7y`, `standard_3y`, `agent_7y`) and no event-replay API | Retention per topic class configured; replay API built |
+| D39 | Low | platform | Client contract uneven: `If-Match` in 35 of 64 specs; custom methods mix `:verb` (230 paths) and `/verb` (40 paths) (delta §6.2 item 5) | `If-Match` on every update of a versioned entity; one custom-method style, checked by Spectral |
+| D40 | Low | platform | The kernel sets neither `X-Depot-Api-Build` nor `RateLimit-*` headers; only some services and mcp-ts do (delta C24) | Kernel sets both, or the design drops them; a test checks the response headers |
+| D43 | Low | security | No CI check guards the three frozen `passage.*` labels or flags a new `passage` string (ADR-0005, ADR-0011) | CI check fails on a changed label or a new `passage` string outside them |
 
-Documentation-only deviations (D5, D6 catalogue part, D9 path, D14–D16, D20, D25–D27) are handled by this version and
-ADRs 0006–0015; D27 (recompile `docs/architecture.compiled`) is stage 3.
+Documentation-only deviations (D5, D6 catalogue part, D9 path, D14, D20, D25–D27) are handled by this version and
+ADRs 0006–0015; D27 (recompile `docs/architecture.compiled`) is stage 3. D15 and D16 are no longer documentation-only:
+their open conditions are D35 and D16 above.
+
+Deferred, not a v1.0 gap (each with its reason):
+
+- No composition layer: web modules make several API calls per page (delta §6.2 item 2). Accepted by ADR-0009 until one
+  of its triggers holds.
+- Fastify, zod and Kysely not used in TypeScript services (D25). Recorded by ADR-0008; conformance tests are in D11 and
+  D12.
+- Tenant egress topics for external Kafka consumers (Q5) and agent delegation tokens (Q8): open questions owned by
+  wave 35 and wave 47, not v1.0 commitments.
+
+## Auditability and end-user impact (v1.0)
+
+A summary for sign-off readers. Each row maps a finding of delta §6 (and the independent review) to the decision or gap
+that carries it.
+
+| # | Finding | Effect | Carried by |
+|---|---|---|---|
+| A1 | Authorization decisions are not logged anywhere (OPA decision logs off; no allow/deny record with actor, duty and route in services or gateways) | An auditor cannot answer "who was refused or allowed what, when" from the system; only status codes in access logs | D36 |
+| A2 | No CDC-fed, hash-chained audit trail; `services/audit` is fed by `engineering` only; eleven services keep their own audit tables | Who-changed-what for mutable master data (vendor bank accounts, price conditions, credit limits) depends on per-service code | D3 |
+| A3 | Actor and trace are lost across async hops: no `depot.ctx`, no `traceparent` or `sequence` in the event envelope, no OpenTelemetry | A UI action cannot be followed through the posting, the event and its consumers | D3, D8, D19 |
+| A4 | Identity provenance in Kubernetes rests on network isolation that covers 13 of 69 services | A pod in `hello-ledger` can forge `X-Depot-User` and be recorded as a genuine user in audit rows | D1 (ADR-0006 rule 6) |
+| A5 | Events of 37 services never reach Kafka; seven consumers have no Kafka user; no consumer is enabled | Downstream audit, lakehouse and reconciliation see no journal, valuation or tax events; cross-service flows do not run | D2, D34 |
+| A6 | Retention classes not implemented; Kafka keeps 7 days; no replay API | Replay beyond a week is impossible | D24 |
+| A7 | Erasure is pseudonymization; no crypto-shred; copies in search, Kafka, lakehouse and backups not covered; counsel sign-off pending | An erasure request may leave personal data in secondary copies | D35 (ADR-0011) |
+| U1 | Permission changes apply within the 300 s access-token life, not ≤ 10 s | After a role change users see stale navigation and actions, and a revoked duty works for up to five minutes | ADR-0006 rule 5, D41 |
+| U2 | A user entitled to several legal entities cannot switch company in the shell, on Windows or in Kubernetes | Multi-company users need a separate account per company, or an administrator changes their `le` attribute | D33 (ADR-0006 rule 4, Proposed) |
+| U3 | Most of the shell's modules have no Envoy route, and Envoy accepts no real token yet | In Kubernetes the shell works only for the 15 routed services, and only once D32 is fixed; Windows installs are not affected | D31, D32 |
+| U4 | `Idempotency-Key` on 44% of mutating operations, `If-Match` in 35 of 64 specs, mixed custom-method styles | Safe retry and optimistic concurrency are not uniform for the shell, partners and the MCP tool generator | D12, D39 |
+| U5 | No generic live updates and no shared job contract | Long operations give inconsistent feedback across modules | D29 |
+| U6 | Several API calls per page, no composition layer | More round trips per page through Envoy | Deferred (ADR-0009 triggers) |
+| U7 | Inconsistent error shapes (kernel, portals, routing-py) | Partners and the MCP gateway see three error shapes | D11 |
+| U8 | Synchronous `ledger.Post` from 21 services; numbering over HTTP for hr and party; unpartitioned journals | Posting latency and availability depend on the ledger; trial-balance latency grows with volume | ADR-0008, D10, D21 |
+| U9 | No image for `apps/web` or the portal SPAs | The shell and portals cannot be served to users from the charts yet | D7, D38 |
 
 ## Requirements Summary
 
@@ -108,7 +173,7 @@ flowchart TB
   end
 
   subgraph Edge["Edge & identity"]
-    Envoy["Envoy Gateway<br/>JWT validation → X-Depot-* headers · tier rate limits (Valkey)"]
+    Envoy["Envoy Gateway<br/>JWT validation → X-Depot-* headers · tier rate limits (Valkey)<br/>17 HTTPRoutes, 15 services (D31) · placeholder issuer and key (D32)"]
     BFF["Portal BFFs (TS): customer-portal-ts · supplier-portal-ts<br/>cookie sessions (no web-bff or device-bff, ADR-0009)"]
     KC["Keycloak<br/>OIDC/SAML, one realm depot (ADR-0007)"]
     OPA["OPA<br/>in identity and single-host gateways only (ADR-0006)"]
@@ -147,7 +212,7 @@ flowchart TB
   subgraph Data["Analytics & AI"]
     Ice["Iceberg lakehouse ← CDC<br/>Trino / ClickHouse · dbt · Cube<br/>target — not deployed (data/ assets only)"]
     MCP["MCP gateway: mcp-ts at /mcp<br/>generated tools under the user's duties"]
-    Agents["agents-ts: agent runtime (Temporal) and copilot API<br/>AP coding · cash application · MRP triage · collections · journal anomaly<br/>pgvector retrieval · agents-py eval harness"]
+    Agents["agents-ts: agent runtime and copilot API (agent runs are workflow-ts workflows)<br/>AP coding · cash application · MRP triage · collections · journal anomaly<br/>pgvector retrieval · agents-py eval harness"]
     Models["model-serving-py: target — not built"]
   end
 
@@ -159,8 +224,8 @@ flowchart TB
   PWA --> BFF --> Contexts
   Ext -->|REST · GraphQL · EDI · OPC-UA · SFTP| Envoy
   Ext -->|Kafka · webhooks| Hooks
-  Envoy -.->|JWKS| KC
-  Envoy -->|"X-Depot-* headers"| Contexts
+  Envoy -.->|"JWKS (target; static placeholder key today, D32)"| KC
+  Envoy -->|"X-Depot-* headers (routed services only, D31)"| Contexts
   Contexts -.->|identity only| OPA
   Contexts --> Lib
   Plat -.->|"metadata, policy bundles, sequence definitions"| Ledger
@@ -181,13 +246,13 @@ flowchart TB
   MCP --> Envoy
   Agents --> MCP
   Agents --> Models
-  Agents --> Temporal
+  Agents -->|"starts and wakes agent-run workflows through the workflow-ts API (service token)"| Temporal
   Ice --> Web
 ```
 
 Reading the picture: every state change is written with its event in one database transaction (outbox) and relayed by Debezium to Kafka; the universal journal is the single synchronous cross-context write (`ledger.Post`), and the flows that need another context's valuation are posted by the valuation owner inside its own transaction through `ledger.Post` (receipt → GR/IR accrual by `procurement` then valuation true-up by `inventory`, shipment → COGS by `inventory`, RAF by `inventory` and `manufacturing`); only production-order settlement (single context) and intercompany mirror documents (multi-context compensation) run as Temporal sagas; everything reachable by a user is reachable by an external system or an AI agent through the same gateway and the same OPA decision.
 
-**As built (v1.0):** the outbox pattern is in place, but only 21 services' outboxes are relayed (D2); the synchronous `ledger.Post` is `POST /v1/ledger/journal-entries`, called by 19 services through `platform/go/ledgerclient`; no Temporal saga is built (D13); and users, partners and agents share one gateway, where authorization is the route's duty checked in the service against the token's duties (ADR-0006), not an OPA decision.
+**As built (v1.0):** the outbox pattern is in place, but only 21 services' outboxes are relayed (D2); the synchronous `ledger.Post` is `POST /v1/ledger/journal-entries`, called by 21 services (19 through `platform/go/ledgerclient`, receiving and payables with their own clients); no Temporal saga is built (D13); and users, partners and agents share one gateway, where authorization is the route's duty checked in the service against the token's duties (ADR-0006), not an OPA decision. In Kubernetes that gateway routes only 15 services (D31) and does not yet accept tokens from realm `depot` (D32).
 
 ## Backend Services
 
@@ -444,8 +509,9 @@ Deviations from B.1's language column, both permitted by the Engineering convent
 
 | Layer | Path prefix | Served by | Rule |
 |---|---|---|---|
-| Browser API | `/api/v1/<svc>/...` on Gateway `depot-api` | Envoy Gateway → the service's `HTTPRoute` | JWT validated and mapped to `X-Depot-*` headers (ADR-0006); Envoy rewrites `/api/v1/<svc>` to `/v1/<svc>`; per-tenant tier rate limit. Exceptions: `inbox` → batch, `data` → metadata, `controlling` → costacct |
-| Partner and agent API | `/v1/<svc>/...` on Gateway `depot-api` | Envoy Gateway, pass-through | same checks |
+| Browser API | `/api/v1/<prefix>/...` on Gateway `depot-api` | Envoy Gateway → one of 17 `HTTPRoute`s in `deploy/gateway/httproutes.yaml` | Routed prefixes (backend in brackets where it differs): `org`, `fx`, `receiving`, `search`, `workflows` (workflow-ts), `inbox` (batch), `ledger`, `pricing`, `sales`, `party`, `analytics`, `planning`, `data` (metadata), `controlling` (costacct), `ops`, `predictions` and `ar` (both prediction-py): 15 backend services. JWT validated and mapped to `X-Depot-*` headers (ADR-0006, but see D32); Envoy rewrites `/api/v1/<prefix>` to `/v1/<prefix>`; per-tenant tier rate limit. Every other prefix (inventory, procurement, payables, production, warehouse, hr, treasury and about 60 more that the shell calls) has no route and gets 404 at Envoy (D31) |
+| Partner and agent API | `/v1/<prefix>/...` on Gateway `depot-api` | Envoy Gateway, pass-through, same 17 routes | same checks; same 15 services only (D31) |
+| Single-host gateways | `/api/v1/<service>/...` and `/v1/<service>/...` | devgateway, `depot-server` (ADR-0004) | route every supervised service by its first path segment; JWT verification and an OPA decision (D23) |
 | Portals | `/bff/...` and `/api/v1/...` on `customer.<env>.depot.dev`, `supplier.<env>.depot.dev` (Gateway `depot-portals`) | customer-portal-ts, supplier-portal-ts | Cookie session in the BFF, CSRF and origin checks, no JWT at the edge; the BFF calls services with Ed25519 service tokens (ADR-0010) |
 | Other edges | AS2 (Gateway for `as2-*`), region health `GET /healthz/region`, plant edge for iot-edge, payments webhook | their own Gateways | each with its own TLS listener, header stripping and per-address rate limit |
 | MCP | `POST /mcp` on `mcp.depot.<tenant>` | mcp-ts | MCP gateway for agents |
@@ -474,7 +540,7 @@ There are no `/bff/...` routes for the web shell or devices (ADR-0009).
 | Go engine jobs (MRP, cost close, depreciation, payroll) | Job row in the owning service, started by `POST …` (202); a TS workflow starts it and awaits the `*.completed` event as a Temporal signal | Avoids a second workflow SDK in Go. Temporal's Go SDK remains an allowed alternative if the kernel owner adds it |
 | Caller-initiated work that need not block | Accept-and-queue: `202` + `statusUrl` | Section 7.10 |
 
-**As built (v1.0):** financial posting is `POST /v1/ledger/journal-entries` through `platform/go/ledgerclient` (19 calling services), authenticated with a service token (ADR-0010). Generated `HEAD` existence checks and `<context>_ref` read models are not built; services call each other's REST APIs synchronously (for example close period checks, tax, numbering). Cross-context events work only where the producer's outbox is relayed (D2). Temporal runs in one worker, `workflow-ts` (approvals, party merge, ECO, CAPA, tender, payment run, budget plan, agent runs); Go engine jobs are per-service job resources, and there is no `/v1/platform/jobs` (D29).
+**As built (v1.0):** financial posting is `POST /v1/ledger/journal-entries`, called by 21 services: 19 through `platform/go/ledgerclient`, and receiving and payables with their own HTTP clients (D9); authenticated with a service token (ADR-0010). Generated `HEAD` existence checks and `<context>_ref` read models are not built; services call each other's REST APIs synchronously (for example close period checks, tax, numbering). Cross-context events work only where the producer's outbox is relayed (D2). Temporal runs in one worker, `workflow-ts` (approvals, party merge, ECO, CAPA, tender, payment run, budget plan, agent runs); Go engine jobs are per-service job resources, and there is no `/v1/platform/jobs` (D29).
 
 ### 3.4 Posting ownership (decision)
 
@@ -493,7 +559,7 @@ Decision: **the valuation owner posts through `ledger.Post`, then finalizes in o
 | Project WIP / POC / billing proposals | `projects` | WIP, accrued revenue | Synchronous |
 | Manual journals, allocations, accruals, revaluation, translation, consolidation, year-end | `ledger` (internal, same transaction scope) | As defined | Own table |
 
-**As built (v1.0):** postings come from the capability services (receiving, payables, billing, receivables, inventory, costing, productcost, production, assets, treasury, payroll, expense, projects, close, consolidation, intercompany and others), each through `ledgerclient`. *Target — not built (see backlog):* the one key format (productcost, close, mobile and planning use others, D9); the `valuation_reservation` reserve-post-finalize protocol and `posting_request` registry (D30); the S3b settlement and S4 intercompany sagas (D13). COGS link-back by event also depends on inventory's outbox being relayed (D2) and on the payload fields (D6).
+**As built (v1.0):** postings come from 21 capability services (assets, billing, budgeting, close, consolidation, costacct, costing, eam, expense, intercompany, inventory, payroll, productcost, production, projects, receivables, revrec, tax and treasury through `ledgerclient`; receiving and payables through their own clients, `services/receiving/internal/domain/ports.go` and `services/payables/internal/ledger/ledger.go`; moving them onto `ledgerclient` is part of D9). *Target — not built (see backlog):* the one key format (productcost, close, mobile, planning and inventory's event-driven postings use others, and receiving uses its service name as the key segment, D9); the `valuation_reservation` reserve-post-finalize protocol and `posting_request` registry (D30); the S3b settlement and S4 intercompany sagas (D13). COGS link-back by event also depends on inventory's outbox being relayed (D2) and on the payload fields (D6).
 
 ## 4. Technology stack
 
@@ -1187,7 +1253,7 @@ Generated CRUD covers projects, WBS, project resources, hour/expense/item journa
 
 ## 6. The universal-journal posting API (`ledger.Post`)
 
-**As built (v1.0):** the endpoint is `POST /v1/ledger/journal-entries` (reversal `POST /v1/ledger/journal-entries/{id}/reverse`), called through `platform/go/ledgerclient` by 19 services. The caller authenticates with an Ed25519 service token whose `act` is the end user (ADR-0010); there is no `X-Depot-Subject-Token` and no `_internal` realm. Idempotency rests on the ledger's idempotency table; there is no `posting_request` registry or `GET /v1/ledger/posting-requests/{key}` (D30). Journal tables are not partitioned (D10). The ledger's outbox is not relayed, so journal events do not reach Kafka (D2); the built topic is `depot.ledger.journal`, not `depot.ledger.journalentry`. The contract below is otherwise the target.
+**As built (v1.0):** the endpoint is `POST /v1/ledger/journal-entries` (reversal `POST /v1/ledger/journal-entries/{id}/reverse`), called by 21 services, 19 of them through `platform/go/ledgerclient` and receiving and payables through their own clients (D9). The caller authenticates with an Ed25519 service token whose `act` is the end user (ADR-0010); there is no `X-Depot-Subject-Token` and no `_internal` realm. Idempotency rests on the ledger's idempotency table; there is no `posting_request` registry or `GET /v1/ledger/posting-requests/{key}` (D30). Journal tables are not partitioned (D10). The ledger's outbox is not relayed, so journal events do not reach Kafka (D2); the built topic is `depot.ledger.journal`, not `depot.ledger.journalentry`. The contract below is otherwise the target.
 
 ### 6.1 Contract
 
@@ -1314,9 +1380,9 @@ As built (v1.0); the decisions are ADR-0006, ADR-0007, ADR-0009 and ADR-0010. Ro
 | Token lifetimes | Access 5 min (`accessTokenLifespan` 300); refresh with single-use rotation (`revokeRefreshToken` on, reuse 0); SSO idle 30 min, SSO max 10 h. Realm-wide (ADR-0007) |
 | Step-up | Auth-age check: Envoy maps the token's `auth_time` to `X-Depot-Auth-Time` and a route needing a fresh sign-in (for example a 21 CFR Part 11 signature) checks it with `tenant.AuthAge`, failing closed. The OPA `requires_acr` obligation is not built |
 
-Claims issued (as built): the standard OIDC claims, `aud` = `depot-api`, `auth_time`, and the user-attribute claims `tid` (tenant), `le` (legal entities), `duties`, `tier`, `roles`, and `vendor_id` / `customer_id` for portal users. **Duties and legal-entity grants are in the token** (ADR-0006), so a change applies within the 5-minute access-token life, not ≤ 10 s. The agent claims `agent_id` and `on_behalf_of` remain target (Q8).
+Claims issued (as built): the standard OIDC claims, `auth_time`, and the user-attribute claims `tid` (tenant), `le` (legal entity: one string, user attribute `legal_entity_id`, `multivalued: false`), `duties` and `tier` on `depot-web` and `depot-services` tokens; `tid`, `le`, realm roles and `vendor_id` / `customer_id` on the portal clients' tokens. Only `depot-web` and `depot-services` have the audience mapper that adds `aud` = `depot-api`; the portal clients and `depot-identity-deprovision` do not (their tokens are not meant for Envoy). Target (D33, Proposed): `le` lists every legal entity the user is entitled to. **Duties and legal-entity grants are in the token** (ADR-0006), so a change applies within the 5-minute access-token life, not ≤ 10 s. The agent claims `agent_id` and `on_behalf_of` remain target (Q8).
 
-Validation (as built): Envoy Gateway's `SecurityPolicy/depot-api-jwt` validates issuer, audience `depot-api`, signature (JWKS) and expiry and refuses the nil tenant; devgateway and `depot-server` use identity's `JWTVerifier`. Services do not re-verify the user's JWT; they trust the `X-Depot-*` headers, which is safe only under ADR-0006 rule 6 (D1). *Superseded by ADR-0006, kept for the per-service fallback named there:* validation in every service (kernel `authz`, re-done even behind Envoy because east-west calls bypass the gateway): RS256 only (reject `none`/HS*), signature via JWKS cached by `kid` with a refetch (rate-limited) on unknown `kid`, `iss` ∈ the issuer registry (tenant realms from the platform tenant read model + `_internal`), `aud` contains `depot-api` (Keycloak access tokens do not carry the Cognito-style `client_id`-only audience; the audience mapper is mandatory and verified in the realm template test), `exp`/`nbf` with 30 s skew, `typ` = `Bearer` (ID tokens rejected), `azp` ∈ allowed clients. Libraries: `jose` in TS and a maintained JWKS-aware JWT library in the Go kernel; **no hand-rolled verification**. `401 unauthenticated` for missing/invalid token, `403 forbidden_duty` for a valid token lacking permission.
+Validation (as built): Envoy Gateway's `SecurityPolicy/depot-api-jwt` validates issuer, audience `depot-api`, signature and expiry and refuses the nil tenant, but it is configured against a placeholder: issuer `https://idp.dev.depot.dev/realms/dev` and a static placeholder public key in ConfigMap `depot-dev-jwks` (`localJWKS`) for which no private key exists, so nothing can mint a token it accepts (`deploy/gateway/README.md`, #80). It is not connected to realm `depot` in any environment (D32). agent-runtime (agents-ts) verifies bearer tokens itself, configured for `realms/dev` (dev) and `realms/stage` (stage), and requires the `X-Depot-*` headers to agree with the token (an explicit exception in ADR-0006). The portal BFFs use `realms/depot`. devgateway and `depot-server` use identity's `JWTVerifier`. Services do not re-verify the user's JWT; they trust the `X-Depot-*` headers, which is safe only under ADR-0006 rule 6 (D1). *Superseded by ADR-0006, kept for the per-service fallback named there:* validation in every service (kernel `authz`, re-done even behind Envoy because east-west calls bypass the gateway): RS256 only (reject `none`/HS*), signature via JWKS cached by `kid` with a refetch (rate-limited) on unknown `kid`, `iss` ∈ the issuer registry (tenant realms from the platform tenant read model + `_internal`), `aud` contains `depot-api` (Keycloak access tokens do not carry the Cognito-style `client_id`-only audience; the audience mapper is mandatory and verified in the realm template test), `exp`/`nbf` with 30 s skew, `typ` = `Bearer` (ID tokens rejected), `azp` ∈ allowed clients. Libraries: `jose` in TS and a maintained JWKS-aware JWT library in the Go kernel; **no hand-rolled verification**. `401 unauthenticated` for missing/invalid token, `403 forbidden_duty` for a valid token lacking permission.
 
 ### 7.2 Authorization (OPA, duties, SoD)
 
@@ -1337,7 +1403,7 @@ Validation (as built): Envoy Gateway's `SecurityPolicy/depot-api-jwt` validates 
   `/v1/platform/workflow-instances`.
 - **Fail-secure:** identity's `RequireOPA` returns `503` on a policy outage. Service duty checks have no runtime
   dependency.
-- **Decision logging:** OPA decision logs are off, and there is no central denial metric (ADR-0006 backlog).
+- **Decision logging:** none. OPA decision logs are off; `authz.RequireDuty` returns a 403 problem without writing a record of actor, tenant, duty and route; the kernel access log (`httpx.logRequests`) has method, path, status and request id only; Envoy writes no allow/deny record; there is no denial metric (D36).
 
 The bullets below are the v0.x design. *Superseded by ADR-0006* except where they describe identity's own OPA use;
 the agent rules remain target (wave 47).
@@ -1354,8 +1420,8 @@ the agent rules remain target (wave 47).
 
 ### 7.3 Tenant propagation and isolation
 
-1. Envoy strips every client-supplied `X-Depot-*` header (except `X-Depot-LegalEntity-Scope`), validates the JWT and maps `tid`, `le`, `sub`, `duties`, `tier` and `auth_time` to `X-Depot-Tenant`, `X-Depot-Legal-Entity`, `X-Depot-User`, `X-Depot-Duties`, `X-Depot-Tier` and `X-Depot-Auth-Time` (`deploy/gateway/README.md`). Services take the tenant from these headers (ADR-0006); on a peer call with a service token they take it from the verified token instead (ADR-0010).
-2. The kernel `tenant` middleware builds the `Principal` (tenant, legal entities, user, duties) from those headers or the service token, canonicalizes the tenant and refuses the nil tenant, and stores it in the request context (`tenant.FromContext`). Missing tenant = `401`. The web shell sends `X-Depot-LegalEntity: <uuid>` to narrow the token's legal entities to one; it can narrow but never widen. devgateway and `depot-server` forward it after checking it; Envoy's `ClientTrafficPolicy` strips it today, so in Kubernetes the shell's selection does not reach the service (part of D23). `X-Depot-LegalEntity-Scope: ALL` asks for the all-entity read view under rule 3a. (The v0.x header name `Depot-Legal-Entity` is not used.)
+1. Envoy strips every client-supplied `X-Depot-*` header (except `X-Depot-LegalEntity-Scope`; the shell's `X-Depot-LegalEntity` is stripped too), validates the JWT (against a placeholder issuer and key today, D32) and maps `tid`, `le`, `sub`, `duties`, `tier` and `auth_time` to `X-Depot-Tenant`, `X-Depot-Legal-Entity`, `X-Depot-User`, `X-Depot-Duties`, `X-Depot-Tier` and `X-Depot-Auth-Time` (`deploy/gateway/README.md`). Services take the tenant from these headers (ADR-0006); on a peer call with a service token they take it from the verified token instead (ADR-0010).
+2. The kernel `tenant` middleware builds the `Principal` (tenant, legal entities, user, duties) from those headers or the service token, canonicalizes the tenant and refuses the nil tenant, and stores it in the request context (`tenant.FromContext`). Missing tenant = `401`. **As built:** the web shell sends `X-Depot-LegalEntity: <uuid>`, but nothing narrows. `le` is a single string, and `tenant.requestLegalEntity` rejects with `400 COM-0001` any selection that differs from `X-Depot-Legal-Entity` (test `TestMiddlewareBothLegalEntityHeaders`); devgateway and `depot-server` return `403 AUTH-0003` unless the selection equals the claim exactly; Envoy strips the selection. When the request has no `le` claim the kernel takes the selection as the scope, which only the gateways prevent. User-visible effect: a user entitled to several legal entities cannot switch company in the shell, on Windows or in Kubernetes (D33). **Proposed (recommended; pending owner confirmation):** a user may work in any legal entity they are entitled to. The `le` claim carries the list of entitled legal entities (a comma-joined string, as `duties`, because Envoy base64-encodes array claims; the kernel's `X-Depot-Legal-Entity` parser already accepts up to 100); the shell's `X-Depot-LegalEntity` selects one entity within that list and narrows the request to it; a selection outside the list is refused with `403` by the kernel and by every gateway; a selection without a claim is refused; Envoy forwards the selection instead of stripping it; a write in a multi-entity session must carry a selection; peer calls carry the selected entity in the service token (ADR-0010). Acceptance test in D33. `X-Depot-LegalEntity-Scope: ALL` asks for the all-entity read view under rule 3a. (The v0.x header name `Depot-Legal-Entity` is not used.)
 3. `dbx` begins every transaction with `SET LOCAL depot.tenant_id`, `depot.legal_entity_scopes` (E.1; `dbx.WithTenantTx`). *Target — not built (see backlog, D3):* it also emits a transactional logical-decoding message `depot.ctx` carrying `{actor, traceId, correlationId}` so CDC audit entries know who and which trace caused the change (Debezium reads logical decoding messages with pgoutput).
 3a. **Legal-entity scope is fail-closed everywhere.** `tenant.InLegalEntityScope(principal, entity)` is the one app-level check (built on `tenant.LegalEntityScopeList`, the parser `dbx.LegalEntityScopes` also uses): the entity must be a non-nil UUID in the caller's claim, and a caller with no claim is in scope only when it holds `org.switcher.all-scope`, which the middleware keeps only on a read that sends `X-Depot-LegalEntity-Scope: ALL`, or on a POST route its service wraps in `tenant.ReadOnlyPOST` (an explicit allowlist for write-free queries; today only `POST /v1/analytics/query`; `POST /v1/analytics/exports` stores an export job, so it stays write-classified and keeps `NO_SCOPE`). An empty scope without that duty is refused (`403`), never treated as "all". **Documented exception:** identity's `withAdminTx` (`services/identity/admin_common.go`) sets `depot.legal_entity_scopes` to `*` for tenant-level administration writes by a caller with no legal-entity header who holds the explicit `tenant.administer` duty and the specific admin duty (`identity.legal-entity.maintain`, `identity.security-role.maintain`), without `org.switcher.all-scope`. `tenant.administer` is the dedicated tenant-administrator capability (a human-assignable flag duty with no routes, seeded in `policies/authz/data.json`; named distinctly from the `Svc:tenant.admin` service scope of the platform tenant API, which is never carried in a user's duties claim); a missing legal-entity claim alone never grants tenant-wide writes, so a token from a misconfigured IdP cannot reach them; every other service must use the helper. **Every "no claim + duty" tenant-level writer** (predicate, `dbx.TenantWide` / `tenant.IsTenantAdmin`: caller has no legal-entity claim AND `tenant.administer` AND the named duty; none holds `org.switcher.all-scope`, which never survives a write; a caller without `tenant.administer` is refused `403` on a create or assign, and sees `404` when ending a tenant-wide assignment, because its scoped transaction cannot see that row): identity `withAdminTx` (`identity.legal-entity.maintain`, `identity.security-role.maintain`; explicit `*` scope); migration runs, specs, templates, packages and cross-references (`tenantWide` in `services/migration/internal/api`: `tenant.IsTenantAdmin`, route duty); party merge and audit (`party.merge`; explicit `*` scope in `adminTx`, otherwise `ErrScopedPrincipal`); org currency-rounding put and delete (`org.reference.write`; explicit `*` scope, because legal-entity rounding rows are scoped); org create legal entity, reference status, units and conversions, fiscal calendars, hierarchies and teams (`rejectScopedCaller`: no claim, `tenant.administer`, route duty; their tables carry no legal-entity scope policy, or admit an empty scope for bootstrap); ledger tenant description templates (`mayWriteDescription`: no claim and `tenant.administer`; `legal_entity_id IS NULL` rows pass the policy). **Bootstrap and rollout of `tenant.administer`:** granting it through identity's role assignments requires the assigner to be a tenant administrator, so it cannot be escalated into; the assignment is always tenant-wide (a `legalEntityId` is refused) and the last active one of a tenant cannot be ended (`409 IDN-LAST-TENANT-ADMIN`, which also covers ending your own). The first holder comes from the platform operator (`identity.tenant.maintain`, operator tenant only): `POST /v1/tenants` accepts `adminUserId` and `adminIdpSubject` to create the initial administrator with the tenant, and `POST /v1/tenants/{id}/admins` grants it to a user of an existing tenant; both are audited in the target tenant and the operator tenant. **Rollout step before deploying this change:** the Keycloak duties mapper must emit `tenant.administer` in the duties claim of every user holding an administrative duty today (`identity.legal-entity.maintain`, `identity.security-role.maintain`, `org.reference.write`, `party.merge`, hierarchy and team maintainers), as it only reaches the claim through a role assignment; an operator recovers a tenant whose administrators lack it through the endpoint above.
 4. The pool connects as `depot_app` (no `BYPASSRLS`); a missing setting yields zero rows, never cross-tenant rows. A kernel test iterates every table and proves isolation (NFR-SEC2). Batch/CDC roles are separate with the same policies; Debezium sits outside RLS and the outbox payload carries `tenant_id`.
@@ -1365,7 +1431,8 @@ the agent rules remain target (wave 47).
 ### 7.4 Request path
 
 As built (v1.0). The v0.x diagram had an ext_authz call to OPA-Envoy, JWT re-verification in the service and an OPA
-sidecar decision; those steps are superseded by ADR-0006.
+sidecar decision; those steps are superseded by ADR-0006. In Kubernetes this path exists only for the 15 services with
+an HTTPRoute (D31), and the JWT step accepts no real token until Envoy is connected to realm `depot` (D32).
 
 ```mermaid
 sequenceDiagram
@@ -1408,8 +1475,12 @@ sequenceDiagram
   generated `KafkaTopic` resources (D24). 358 topics are declared in AsyncAPI.
 - **Consume side:** `platform/go/eventing` consumers with `consumer_inbox`, up to 10 attempts with exponential backoff
   capped at 2 min, then the dead-letter topic `<topic>.dlq` with `x-origin-*`, `x-dlq-reason` and `x-dlq-detail`
-  headers. No `sequence`-gap parking. Consumers exist in 17 Go services plus `workflow-ts` and `integration-hub-ts`;
-  each has a `KafkaUser` in `deploy/kafka/*-consumer.yaml`.
+  headers. No `sequence`-gap parking. Consumers exist in 17 Go services plus `workflow-ts`, `integration-hub-ts` and
+  `prediction-py`. 13 have a SCRAM `KafkaUser` in `deploy/kafka/*-consumer.yaml` (billing, edi, intercompany, inventory,
+  payables, receivables, receiving, revrec, scheduling, search, tax, prediction, workflow-ts); finreport, fulfillment,
+  pricing, production, purchasing, shopfloor and integration-hub-ts have none, although their charts name one and the
+  authenticated listener is SCRAM-SHA-512 with `simple` authorization. No environment enables any consumer: the charts
+  default to `consumer.enabled: false` or empty `brokers` and no environment values override them (D34).
 - **Schema registry:** Apicurio Registry is deployed with the event backbone in dev; compatibility gating was not audited.
 - **Replay:** *Target — not built (see backlog, D24):* no `/v1/integration/event-replays`.
 
@@ -1570,7 +1641,10 @@ Alerting: multi-window multi-burn-rate (14.4× over 1 h/5 m pages, 6× over 6 h/
   keys derived by HKDF from master keys, optionally wrapped by Azure Key Vault) and looked up through blind indexes
   (HMAC). Used by compliance, hr, migration, party, payables, receiving and sales (ADR-0011). No pgcrypto, no Vault
   transit for fields, and no per-subject key, so crypto-shred is not available.
-- **Erasure** pseudonymizes the subject's records (compliance, BR-48.5), refused under a legal hold.
+- **Erasure** pseudonymizes the subject's records (compliance, BR-48.5), refused under a legal hold. It does not yet
+  reach the search index, Kafka (7-day retention), the lakehouse, logs or backups, and counsel sign-off (Q17) is pending
+  (ADR-0011 conditions, D35). Master keys are mounted by eight services (the seven above and integration-hub-ts's
+  TypeScript port); Key Vault wrapping is supported but not enabled in any environment (D35).
 - **Frozen labels.** Three cryptographic labels keep the former product name because data at rest and retained logs
   depend on them (ADR-0005). They are the only sanctioned "passage" strings in the code; changing one needs a `.v2`
   label and a re-encryption or re-index migration:
@@ -1602,8 +1676,9 @@ Enforced at Envoy Gateway (per Appendix D.7), not in business code: descriptors 
   migrations (ADR-0012). RLS is forced in every service's migrations, with a permissive `<table>_tenant_access` and a restrictive
   `<table>_legal_entity_scope` policy (the design's names, prefixed by the table); exemptions are allowlisted with reasons in
   `platform/go/rlsexempt` and checked by `tools/rlscheck`. Legal-entity policies are missing in some services (D17).
-- Migrations are hand-written SQL applied by `dbx.Migrate` under an advisory lock, no Atlas; no migration Job outside
-  dev (D28).
+- Migrations are hand-written SQL applied by `dbx.Migrate` under an advisory lock, no Atlas. No chart has a migration
+  Job; only fx, identity, org, receiving, transport and pricing migrate on start (and `hello-ledger`), so most services
+  have no migration path in any environment, dev included (D28).
 - No pooler; services use `pgxpool`.
 - Gap-free and other sequences: `services/numbering` over HTTP for hr and party; no kernel `sequence` package
   (ADR-0015, D21).
@@ -1631,7 +1706,7 @@ superseded by ADR-0012, ADR-0015 and ADR-0013.
 
 ### 7.20 Deployment and scaling notes
 
-**As built (v1.0):** Argo CD app-of-apps per environment (`deploy/envs/{dev,stage,prod}/apps`) with digest-pinned images (placeholder digests until release). Dev runs the services ApplicationSet plus the event backbone, Temporal, Postgres, Keycloak, gateway, Kyverno and monitoring. Stage has the services ApplicationSet and a few service Applications but no event backbone, Temporal, Postgres, Keycloak or gateway; prod deploys only `hello-ledger` and `kyverno` (D4). There are no PodDisruptionBudgets and no Argo Rollouts, HPA is in three charts (inventory, pricing, production), and migrations have no PreSync Job (D18, D28). The bullets below are target.
+**As built (v1.0):** Argo CD app-of-apps per environment (`deploy/envs/{dev,stage,prod}/apps`) with digest-pinned images (placeholder digests until release). Dev runs the services ApplicationSet plus the event backbone, Temporal, Postgres, Keycloak, gateway, Kyverno and monitoring. Stage has the services ApplicationSet and a few service Applications but no event backbone, Temporal, Postgres, Keycloak or gateway; prod deploys only `hello-ledger` and `kyverno` (D4). There are no PodDisruptionBudgets and no Argo Rollouts, HPA is in three charts (inventory, pricing, production), and migrations have no PreSync Job (D18, D28). Envoy routes 15 services (D31). The bullets below are target.
 
 - Stateless Deployments with HPA on CPU and request rate (Go engines) or event-loop lag (TS); Temporal workers scale on task-queue backlog (KEDA, optional); Kafka consumers scale to partition count. PodDisruptionBudgets everywhere; the `ledger` runs ≥ 3 replicas across zones with a 3-instance synchronous-replication CNPG cluster.
 - Argo CD app-of-apps syncs digest-pinned Helm releases; Argo Rollouts canary with k6 traffic for engines; rollback to prior digest ≤ 15 min. Migrations run as PreSync Jobs.
@@ -1692,7 +1767,7 @@ CloudNativePG is not deployed (ADR-0012). Later decisions are ADR-0006 to ADR-00
 | Q13 | S3-compatible object store with Object Lock for bare-metal and k3d (e.g. MinIO, Ceph RGW) | G.3 WORM storage must be portable | Unspecified |
 | Q14 | Python deployables beyond B.1's `manufacturing` (`product-py` configurator, `warehouse-py` VRP, `projects-py` dispatch, `agents-py` evals) | Language column in B.1 | Closed: permitted by the conventions ("OR-Tools" in `<name>-py`); service count is 31 (Section 3.2) **As built:** six Python services and 71 services in total (ADR-0008). |
 | Q15 | Error `code` collision: Engineering conventions use `LED-0001` as the stable `code`; D.4 uses snake_case `code` | Client contract | `code` = D.4 snake_case; `serviceCode` = per-service number |
-| Q16 | Migrations on start (conventions: `dbx.Migrate` in `main`) vs PreSync Job; `DATABASE_URL` from a secret vs Vault dynamic credentials | Zero-downtime rollouts with multiple replicas; credential rotation | Advisory-locked on-start migrate allowed in dev only; PreSync Job in stage/prod; credentials as rotating files **As built:** on-start migration in dev only; the PreSync Job for stage and prod does not exist yet (D28); credentials come from chart Secrets (ADR-0012). |
+| Q16 | Migrations on start (conventions: `dbx.Migrate` in `main`) vs PreSync Job; `DATABASE_URL` from a secret vs Vault dynamic credentials | Zero-downtime rollouts with multiple replicas; credential rotation | Advisory-locked on-start migrate allowed in dev only; PreSync Job in stage/prod; credentials as rotating files **As built:** on-start migration for six services (fx, identity, org, receiving, transport, pricing) in dev and stage, none for the rest; the PreSync Job does not exist (D28); credentials come from chart Secrets (ADR-0012). |
 | Q17 | CDC for tables with P3 columns (E.6 excludes P3 from CDC; E.8 derives audit from CDC) | Audit of sensitive changes | P3 in `*_secure` tables; changes, reveals and exports audited by a kernel-written `<ctx>.audit_event` row in the same local transaction with an encrypted `pii_payload`, folded into `platform.audit_entry` by the audit consumer (Section 7.16). Owner @zdemanche, needed by wave 5 |
 | Q18 | Maximum offline duration for PWAs vs 12 h refresh lifetime | Offline queue replay after long outages | Replay uses a fresh login for the same device/user; confirm acceptable |
 | Q19 | Go services' target Go minor and Node LTS pin | Conventions say Go 1.23+, Node 20+; Node 20 is end-of-life | Go: current supported minor at project start; Node: 24 LTS (closed: within the conventions' "20+") |
@@ -4178,7 +4253,7 @@ sequenceDiagram
 
 ## 2. Event envelope
 
-**As built (v1.0):** `platform/go/events.Event` has `specversion`, `id`, `source`, `type`, `subject`, `time`, `datacontenttype`, `data` and the extensions `tenantid`, `correlationid`, `causationid`, `actor` and `legalentityid`. The event-type regex matches the design. *Target — not built (see backlog, D19):* `dataschema`, `traceparent` and `sequence`.
+**As built (v1.0):** `platform/go/events.Event` has `specversion`, `id`, `source`, `type`, `subject`, `time`, `datacontenttype`, `data` and the extensions `tenantid`, `correlationid`, `causationid`, `actor` and `legalentityid`. The event-type regex matches the design. `dataschema` is not set by the Go envelope but is filled by the relay's enricher SMT on every relayed topic (events §2.5). *Target — not built (see backlog, D19):* `traceparent` and `sequence`.
 
 ### 2.1 Mapping of the house envelope to CloudEvents attribute names
 
@@ -4279,7 +4354,7 @@ Extension attribute names are lowercase alphanumeric as CloudEvents requires.
 
 ### 2.5 Debezium outbox relay (per context database)
 
-**As built (v1.0):** one `KafkaConnector` per relayed service database (21) in `deploy/kafka/connect.yaml`, EventRouter keyed on `aggregate_id` (no `partition_key` column), routing `aggregate_type` to `depot.<service>.${routedByValue}`; topic creation by Connect with 7-day default retention. No enricher SMT and no `headers` column. *Target — not built (see backlog, D2, D3, D19):* a connector for every outbox, the table-CDC connector, the `tenantid:subject` key.
+**As built (v1.0):** one `KafkaConnector` per relayed service database (21) in `deploy/kafka/connect.yaml`, EventRouter keyed on `aggregate_id` (no `partition_key` column), routing `aggregate_type` to `depot.<service>.${routedByValue}`; topic creation by Connect with 7-day default retention. Every connector chains the EventRouter with the CloudEvents enricher SMT (`transforms: outbox,enrich`; `deploy/kafka-connect/enricher`, image `depot-connect:debezium-3.0.7-enricher-0.1.0`), which completes the structured envelope: `specversion`, `datacontenttype`, default `source`, `dataschema` from `https://schemas.depot.dev/{type}.json` when absent, `tenantid` from the router header, `legalentityid` from the payload, extensions flattened from an optional `headers` object in the event, and `ce_*` Kafka headers; it rejects records without id, time, valid type or tenant. The kernel `dbx.OutboxDDL` has no `headers` column; where a service's own migration adds one, the connector does not route it. *Target — not built (see backlog, D2, D3, D19):* a connector for every outbox, the table-CDC connector, the `tenantid:subject` key.
 
 One Strimzi `KafkaConnector` per context database for the outbox, and a separate connector for table CDC (section 10).
 
@@ -4422,7 +4497,7 @@ Totals (types): 42 principal events from C.7 + 5 proposed **[P]** + 15 added (13
 
 ### 4.1 Rules (C.2, with Kafka-level settings **[P]**)
 
-**As built (v1.0):** topics are created by Kafka Connect, not generated `KafkaTopic` resources; default retention 7 days (D24); key `aggregate_id` (D19); one SCRAM `KafkaUser` per consumer service (`deploy/kafka/*-consumer.yaml`). The rules below are target where they differ.
+**As built (v1.0):** topics are created by Kafka Connect, not generated `KafkaTopic` resources; default retention 7 days (D24); key `aggregate_id` (D19); SCRAM `KafkaUser`s exist for 13 consumers (`deploy/kafka/*-consumer.yaml`); finreport, fulfillment, pricing, production, purchasing, shopfloor and integration-hub-ts have none, and no environment enables any consumer (D34). The rules below are target where they differ.
 
 | Item | Setting |
 |---|---|
@@ -5159,6 +5234,8 @@ All remotes build from the single `apps/web` workspace and its single lockfile. 
 
 ### 2.1 Topology diagram
 
+*Target layout (v0.x), not as built.* The diagram shows module-federation remotes, an `apps/shopfloor` PWA, web-bff and device-bff cookie sessions and a realm per tenant. As built: 59 in-tree modules without federation (§1), the shop floor as a shell module, no web or device BFF (ADR-0009), one realm (ADR-0007), and the portals' own BFFs.
+
 ```mermaid
 flowchart LR
   subgraph Browser["Desktop browser — apps/web (shell, installable PWA, online-only)"]
@@ -5706,7 +5783,7 @@ A module missing from `modules`, or with `enabled: false`, is not loaded and its
   - Unsaved changes trigger the guard.
   - Last-used LE is a localStorage convenience, read with try/catch. Never auth.
 - **Query cache isolation.** Every react-query key starts with `[tenantId, leId, …]`. On an LE switch, queries for the previous LE are kept but never rendered under the new LE. On sign-out the cache is cleared.
-- **API scoping.** *As built:* the UI sends `X-Depot-LegalEntity: <uuid>`, which `platform/go/tenant` intersects with the token's `le` claim (not OPA); Envoy currently strips it (D23). The v0.x text follows. The UI sends `Depot-Legal-Entity: <uuid>` (one UUID, or a comma-separated list) on every API call. The gateway and service intersect it with the grants in OPA; it can narrow but never widen scope. Generated list calls also send `filter=legalEntityId eq '<uuid>'` as defense-in-depth. The header name and semantics are fixed by the backend contract (Q6 resolved). Without the header the server fails closed: a principal with no legal entity sees no legal-entity-scoped rows, unless it holds `org.switcher.all-scope` and explicitly requests the ALL scope on a read (`X-Depot-LegalEntity-Scope: ALL`). The gateway passes `X-Depot-LegalEntity-Scope` through (it is honoured only on GET, HEAD and OPTIONS, and on POST routes the service wraps in `tenant.ReadOnlyPOST`, and only with the JWT-derived `org.switcher.all-scope` duty) and strips every other identity header. Header values must be UUIDs; `*` is rejected with 400 COM-0001. The org service's `legal_entity` and `legal_entity_name` tables are tenant-level: a principal with no entity may read and write them within its own tenant, because the first entity of a tenant is created by such a principal.
+- **API scoping.** *As built:* the UI sends `X-Depot-LegalEntity: <uuid>`; `platform/go/tenant` accepts it only when it equals the token's single `le` claim (400 otherwise; devgateway and `depot-server` 403), and Envoy strips it, so a multi-entity user cannot switch company (D33). *Proposed (recommended; pending owner confirmation):* the selection picks one entity from the list in `le`, refused with 403 outside it (backend §7.3, ADR-0006 rule 4). The v0.x text follows. The UI sends `Depot-Legal-Entity: <uuid>` (one UUID, or a comma-separated list) on every API call. The gateway and service intersect it with the grants in OPA; it can narrow but never widen scope. Generated list calls also send `filter=legalEntityId eq '<uuid>'` as defense-in-depth. The header name and semantics are fixed by the backend contract (Q6 resolved). Without the header the server fails closed: a principal with no legal entity sees no legal-entity-scoped rows, unless it holds `org.switcher.all-scope` and explicitly requests the ALL scope on a read (`X-Depot-LegalEntity-Scope: ALL`). The gateway passes `X-Depot-LegalEntity-Scope` through (it is honoured only on GET, HEAD and OPTIONS, and on POST routes the service wraps in `tenant.ReadOnlyPOST`, and only with the JWT-derived `org.switcher.all-scope` duty) and strips every other identity header. Header values must be UUIDs; `*` is rejected with 400 COM-0001. The org service's `legal_entity` and `legal_entity_name` tables are tenant-level: a principal with no entity may read and write them within its own tenant, because the first entity of a tenant is created by such a principal.
 - **Unauthorized LE in URL.** A code the user has no grant for renders `ForbiddenPage` with a switcher to a granted LE. The UI never reveals whether the LE exists.
 
 ### 5.3 Deep links
@@ -5991,7 +6068,7 @@ These are installable, but writes are online-only. When offline, the shell shows
 
 ### 8.1 Realm and clients (per tenant realm)
 
-**As built (v1.0):** clients in realm `depot`: `depot-web` (public, PKCE S256), `depot-services`, `depot-identity-deprovision`, `depot-portal-supplier` and `depot-portal-customer` (confidential, portal BFFs); all tokens carry `aud: depot-api`. No `depot-device` or per-kiosk clients.
+**As built (v1.0):** clients in realm `depot`: `depot-web` (public, PKCE S256), `depot-services`, `depot-identity-deprovision`, `depot-portal-supplier` and `depot-portal-customer` (confidential, portal BFFs); only `depot-web` and `depot-services` carry `aud: depot-api` (audience mapper); the portal clients and `depot-identity-deprovision` have no audience mapper. No `depot-device` or per-kiosk clients.
 
 | Client | Type | Used by | Flow | Notes |
 |---|---|---|---|---|
@@ -6284,7 +6361,7 @@ The strategy is deferred to `testing-architect`. The gates this architecture dep
 | Q3 | Global search backend: a BFF fan-out to per-context list endpoints with indexed `like` (trigram), or a dedicated search index? No search engine is in ADR-0001. | backend-architect | Wave 5 (U2) |
 | Q4 | Confirm the shapes and versioning of the metadata registry endpoints for form definitions, message catalog and saved views (§3.3); paths settled to the backend names (`/v1/platform/message-catalog`, form definitions by `{id}`). | backend-architect | Waves 3, 5 |
 | Q5 | Email, Slack and Teams approval delivery (U8): which wave owns the notification channels, and is one-tap approve a signed short-lived link or a full sign-in? | backend-architect / security | Wave 4 |
-| Q6 | LE scoping header `Depot-Legal-Entity` and its narrowing semantics at the gateway and services. Resolved: the header is part of the backend contract (§7.3); it narrows the token's legal-entity scopes and never widens. | backend-architect | Wave 2 |
+| Q6 | LE scoping header `Depot-Legal-Entity` and its narrowing semantics at the gateway and services. Resolved: the header is part of the backend contract (§7.3); it narrows the token's legal-entity scopes and never widens. *As built:* it narrows nothing (D33); the multi-entity model in backend §7.3 is Proposed, pending owner confirmation. | backend-architect | Wave 2 |
 | Q7 | SSE bridge (Kafka and Temporal → web-bff) for live updates: is it acceptable in the BFF, and what are its scaling limits at 10k concurrent users? | backend-architect | Wave 5 (U4) |
 | Q8 | BFF session store placement: a BFF-owned Postgres database (proposed) or another store. Must be in-stack (no managed services). | backend-architect | Wave 2 |
 | Q9 | Tenant host scheme (`<tenant>.app.<env>.depot.dev`?) and Keycloak host on the same registrable domain. | platform / SRE | Wave 2 |
@@ -6312,6 +6389,8 @@ The strategy is deferred to `testing-architect`. The gates this architecture dep
 ## Testing Strategy
 
 ## Testing Architecture
+
+*Not audited for v1.0.* This section is the v0.x test strategy. Its Atlas references (T10 CI order, M-07 Atlas lint, FR-0.3) are superseded by ADR-0012 (`dbx.Migrate`, with `expand_contract_lint.py` not yet run in CI, D18); the CI workflow names are as in backend §2.
 
 Author: Testing Architect. Inputs: `requirements.md` (PRD v0.2: Part 0, ADR-0001, Engineering conventions, Appendices A-L), read in full (1,576 lines). Companion sections written in parallel and referenced by name: **Backend Architect (API design, error catalog, idempotency, posting contract)**, **Frontend Architect (shell, generated forms, component and accessibility patterns, PWAs)**, **Eventing Architect (event schemas, registry, outbox/inbox, topics)**. Where this section needs something from them it is listed in T11.
 
@@ -8147,7 +8226,7 @@ Depot/
 ├── services/<name>/        one Go module per capability service (58); <name>-ts/ (7, plain Node, one Temporal worker in workflow-ts), <name>-py/ (6, FastAPI) — ADR-0008
 ├── apps/web/               React 19 shell + 59 in-tree modules (module federation pending)
 ├── apps/<app>/             warehouse-mobile, technician, supplier-portal, customer-portal; stubs ess and developer-portal (shop floor is a shell module)
-├── tools/                  depot-server (Windows, ADR-0004), migration-factory, rlscheck, e2e, signoff-packets, connectors, importexport, tenant-restore, docs
+├── tools/                  depot-server (Windows, ADR-0004), entitygen, migration-factory, rlscheck, e2e, signoff-packets, connectors, importexport, tenant-restore, docs
 ├── deploy/                 per-service charts live in services/*/charts; argocd apps per env (deploy/envs), gateway, kafka, keycloak, postgres, temporal, observability, multi-region, windows (WiX), tofu, k3d
 ├── policies/authz/         Rego package authz and the duty catalogue (bundle built by identity)
 ├── data/                   lakehouse: debezium connectors, dbt models, cube schemas — not in the conventions or `ownership.json`; consolidated question 16
@@ -8158,7 +8237,7 @@ Depot/
 └── .github/workflows/      component-prefixed, path-filtered CI; one always-running `gate` is the only required check
 ```
 
-CI/CD shape: `platform-ci.yml`, `services-ci.yml` (matrix over changed Go modules), `web-ci.yml`, `pwa-ci.yml`, `charts-ci.yml`, `data-ci.yml`, each path-filtered with `defaults.run.working-directory`; `gate.yml` detects changed components with `dorny/paths-filter`, calls each affected CI via `workflow_call`, and ends in a `gate` job (`if: always()`) that branch protection requires. CD: every service builds a signed, SBOM-attested image keyed by digest on push to `main`; Argo CD promotes by digest through dev → stage → prod with rollback to the prior digest. One version tag for the whole repo; component releases are `workflow_call` targets of a root `release.yml`. Components consume each other in-tree (a service's `api/openapi.yaml` is read by the web module's client generator with a drift test); never vendored copies, never per-service repos. Deviation from the topology reference (recorded): each service's Helm chart is co-located under `services/<name>/charts/<name>` as the requirements' engineering conventions and backend §2 fix; only provider Terraform/OpenTofu modules and the umbrella chart stay under `deploy/`.
+**As built (v1.0):** the workflows are `ci.yml`, `gate.yml` (the one required check), `ci-negative.yml`, `windows-msi.yml`, `pages.yml`, `record-release.yml` and `cleanup-branches.yml` (backend §2); there is no `release.yml` and none of the per-component workflows named next. *Target (v0.x):* CI/CD shape: `platform-ci.yml`, `services-ci.yml` (matrix over changed Go modules), `web-ci.yml`, `pwa-ci.yml`, `charts-ci.yml`, `data-ci.yml`, each path-filtered with `defaults.run.working-directory`; `gate.yml` detects changed components with `dorny/paths-filter`, calls each affected CI via `workflow_call`, and ends in a `gate` job (`if: always()`) that branch protection requires. CD: every service builds a signed, SBOM-attested image keyed by digest on push to `main`; Argo CD promotes by digest through dev → stage → prod with rollback to the prior digest. One version tag for the whole repo; component releases are `workflow_call` targets of a root `release.yml`. Components consume each other in-tree (a service's `api/openapi.yaml` is read by the web module's client generator with a drift test); never vendored copies, never per-service repos. Deviation from the topology reference (recorded): each service's Helm chart is co-located under `services/<name>/charts/<name>` as the requirements' engineering conventions and backend §2 fix; only provider Terraform/OpenTofu modules and the umbrella chart stay under `deploy/`.
 
 Ownership rule (binding for `generate-code`): `roadmap/ownership.json` maps each wave to the directories it may create or edit; a story edits only its wave's paths and codes against another wave's published OpenAPI/AsyncAPI contract with an in-package fake when that wave has not shipped.
 
@@ -8192,7 +8271,8 @@ All six domains converge on the requirements' OpenTelemetry stack rather than th
 - **Authorization:** Envoy validates the JWT and maps claims, including duties, to `X-Depot-*` headers; services trust the headers and check the route duty with `authz.RequireDuty`; OPA only in identity and the single-host gateways. Peer calls use Ed25519 service tokens. This is safe only with the NetworkPolicy rules of ADR-0006 (D1).
 - **Tenancy:** as described below (RLS with `depot.tenant_id` and `depot.legal_entity_scopes`); policy names are `<table>_tenant_access` and `<table>_legal_entity_scope`. Egress topics are not built.
 - **Encryption at rest:** the table below is the target per datastore; application-level field encryption is `fieldcrypt` with master keys optionally wrapped by Azure Key Vault, and its three frozen `passage.*` labels (§7.16, ADR-0005, ADR-0011).
-- **Network segmentation:** *Target — not built (see backlog, D1):* the namespace-per-tier, default-deny model below. Today 63 services share namespace `hello-ledger` and 13 of 69 charts have a NetworkPolicy.
+- **Network segmentation:** *Target — not built (see backlog, D1):* the namespace-per-tier, default-deny model below. Today 67 of 69 service charts share namespace `hello-ledger` and 13 of 69 charts have a NetworkPolicy.
+- **Gateway:** Envoy is configured against a placeholder issuer and key (D32) and routes 15 services (D31); authorization decisions are not logged (D36).
 - **Audit:** *Target — not built (see backlog, D3):* the CDC-derived hash chain below; as built, see §7.16.
 
 The bullets below are the v0.x design.
