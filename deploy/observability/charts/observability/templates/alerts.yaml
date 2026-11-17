@@ -23,6 +23,18 @@ data:
               severity: {{ .Values.pagerDuty.severity | quote }}
             annotations:
               summary: p95 latency exceeds the Depot SLO
+      # A kafkajs consumer (integration-hub-ts) that has not run for 15 minutes keeps retrying its start in the
+      # background while the pod stays Ready: a wrong SCRAM password, a missing CA file or ACL, a topic that never came
+      # (D34, B-05b). kafka_consumer_start_failures_total and the service's log say why.
+      - name: depot.kafka
+        rules:
+          - alert: DepotKafkaConsumerNotRunning
+            expr: kafka_consumer_running == 0
+            for: 15m
+            labels:
+              severity: {{ .Values.pagerDuty.severity | quote }}
+            annotations:
+              summary: A Kafka consumer has not been running for 15 minutes and keeps retrying its start
 {{- /* global.pagerDutyAllowed comes from the cloud profile (#599): a profile whose egress allowlist has no PagerDuty
        (gcc, gcc-high, dod, china) renders no paging receiver; route alerts to an in-boundary receiver instead. */}}
 {{- if and .Values.pagerDuty.enabled (ne (toString ((.Values.global | default dict).pagerDutyAllowed)) "false") }}

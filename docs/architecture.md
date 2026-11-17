@@ -1503,7 +1503,9 @@ sequenceDiagram
   `fsGroup: 65532` and the workflow pod a numeric user, and integration-hub's user and dead-letter topic follow the
   naming (`integration-hub-consumer`, `depot.hub.consumer.dlq`). workflow-ts and integration-hub-ts start their kafkajs
   consumer in the background and retry with backoff, so a source topic that does not exist yet no longer stops the
-  Temporal worker or the hub. Every consumed topic is relayed since B-05a. Dev turns on the one consumer whose needs dev
+  Temporal worker or the hub; a crash kafkajs does not restart from is retried the same way, and the hub's
+  `kafka_consumer_running` gauge drives the observability chart's `DepotKafkaConsumerNotRunning` alert (15 minutes).
+  Every consumed topic is relayed since B-05a. Dev turns on the one consumer whose needs dev
   meets: receiving's (ERS, ERS tax and erasure groups), whose source topics are declared KafkaTopics in `connect.yaml` so
   they exist before the first event. Its credentials reach `hello-ledger` through a dev `SecretStore` (External Secrets,
   Kubernetes provider, `deploy/envs/dev/kafka-consumer-credentials`) whose service account has one RoleBinding, to a
