@@ -22,9 +22,13 @@ scoped to company A neither sees nor writes company B's workers, time or pay.
   AUTH-0003 for anyone else. Each change publishes `worker.assigned` with `legalEntityId` and the administrator in
   `assignedBy`, and old export batches whose lines all belong to the legal entity's workers get it too (migration
   `0041`: exported lines follow their batch, or the pay line's worker while the batch has none).
-- The shop floor has no copy of the tenant's legal entities, so the value is not checked against them; a wrong one can
-  be corrected while the worker has no registration, day, correction or cost rate. After that it never changes: a
-  trigger refuses the change and the route answers SF-0200. An export batch's legal entity is set once as well.
+- Both routes confirm the legal entity with identity before they write (`GET /v1/identity/legal-entities/{id}`,
+  service-only duty `identity.legal-entity.lookup`, signed for the tenant administrator; chart values `identityUrl` and
+  `serviceIdentity`): unknown or inactive is SF-0201, identity not answering or not configured is SF-0202 (503, never a
+  pass). The bulk route takes `dryRun`, and `allUnassigned` assigns at most 1,000 workers per call (`remaining`). A
+  worker's legal entity can be corrected while it has no registration, day, correction or cost rate; after that it never
+  changes: a trigger refuses the change and the route answers SF-0200. An export batch's legal entity is set once as
+  well. A new exported line must belong to a batch and a pay line of the caller's legal entity (0042).
 - The sweeper's auto clock-out, the production consumer's stop of starts on a finished operation, and the auto
   clock-out route called with a verified service token work across all of the tenant's legal entities. They mark their
   context in process (`store.WithSystemScope`), which no header or user id can do; a caller with a claim keeps its
@@ -929,6 +933,8 @@ Problem details use `application/problem+json` with `type` `https://depot.dev/pr
 | `SF-0198` | 422 | A kiosk step message disagrees with the recipe or with what the service worked out (value not asked for, calculation result, branch decision, skipped step, machine reading that was not the one handed out, hand entry without a reason) |
 | `SF-0199` | 422 | A blocking timer is recorded before it has run out on the service's clock |
 | `SF-0200` | 409 | The worker already has time or pay in its legal entity, which therefore never changes (B-03b) |
+| `SF-0201` | 422 | Identity knows no active legal entity with this id in the tenant; nothing was assigned (B-03b) |
+| `SF-0202` | 503 | Identity could not confirm the legal entity, or the check is not configured (`identityUrl`); nothing was assigned (B-03b) |
 | `SF-0178` | 422 | The control recipe cannot go to that destination, or a write is not a setpoint of the recipe |
 | `idempotency_key_reuse` | 422 | `Idempotency-Key` already used with a different request |
 

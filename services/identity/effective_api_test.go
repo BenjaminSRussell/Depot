@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -98,7 +100,18 @@ func TestEffectivePermissionsEndpoint(t *testing.T) {
 
 	grantRole(t, app, tenantA, "party.vendor.view", "", "now() - interval '1 day', null")
 	grantRole(t, app, tenantA, "identity.user.maintain", "", "now() - interval '2 days', now() - interval '1 day'")
+	grantRole(t, app, tenantA, "party.vendor.maintain", legalA, "now() - interval '1 day', null")
+	// B-03b re-review R3: a scoped tenant-level duty (stored before identity refused them) and a scoped assignment in a
+	// legal entity that is no longer active grant nothing, exactly as in the bundle and OPA.
 	grantRole(t, app, tenantA, "audit.log.view", legalA, "now() - interval '1 day', null")
+	const inactive = "10000000-0000-0000-0000-000000000077"
+	if err := asTenant(t, app, tenantA, "*", func(tx pgx.Tx) error {
+		_, err := tx.Exec(context.Background(), `insert into identity_legal_entities (tenant_id, legal_entity_id, code, display_name, status) values ($1, $2, 'OLD', 'Old', 'inactive')`, tenantA, inactive)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	grantRole(t, app, tenantA, "party.vendor.maintain", inactive, "now() - interval '1 day', null")
 	grantRole(t, app, tenantB, "party.vendor.maintain", "", "now() - interval '1 day', null")
 
 	t.Run("tenant-wide active duties only, unknown roles ignored", func(t *testing.T) {
@@ -118,22 +131,29 @@ func TestEffectivePermissionsEndpoint(t *testing.T) {
 		if got := rows["GET /v1/identity/users{,/**}"]; got.Allow || got.DutyMissing != "identity.user.maintain" {
 			t.Errorf("expired identity.user.maintain must not grant: %+v", got)
 		}
-		if got := rows["GET /v1/audit{,/**}"]; got.Allow {
+		if got := rows["POST /v1/vendors{,/**}"]; got.Allow {
 			t.Errorf("legal-entity-scoped duty leaked into tenant-wide report: %+v", got)
 		}
 	})
 
-	t.Run("legal entity adds its scoped duties", func(t *testing.T) {
+	t.Run("legal entity adds its scoped duties, but no tenant-level one", func(t *testing.T) {
 		body, rows := decodeReport(t, getReport(router, tenantA, path+"?legalEntityId="+legalA, view))
-		if len(body.Duties) != 2 || len(body.IgnoredRoles) != 2 {
-			t.Fatalf("duties = %v ignored = %v, want audit.log.view, party.vendor.view and ap_clerk, tenant_admin", body.Duties, body.IgnoredRoles)
+		if strings.Join(body.Duties, ",") != "party.vendor.maintain,party.vendor.view" || strings.Join(body.IgnoredRoles, ",") != "ap_clerk,audit.log.view,tenant_admin" {
+			t.Fatalf("duties = %v ignored = %v, want party.vendor.maintain, party.vendor.view and ap_clerk, audit.log.view, tenant_admin", body.Duties, body.IgnoredRoles)
 		}
-		if got := rows["GET /v1/audit{,/**}"]; !got.Allow || got.Duty != "audit.log.view" {
-			t.Errorf("GET audit = %+v", got)
+		if got := rows["POST /v1/vendors{,/**}"]; !got.Allow || got.Duty != "party.vendor.maintain" {
+			t.Errorf("POST vendors = %+v", got)
+		}
+		if got := rows["GET /v1/audit{,/**}"]; got.Allow {
+			t.Errorf("a scoped tenant-level duty granted: %+v", got)
 		}
 		_, other := decodeReport(t, getReport(router, tenantA, path+"?legalEntityId="+legalB, view))
-		if other["GET /v1/audit{,/**}"].Allow {
+		if other["POST /v1/vendors{,/**}"].Allow {
 			t.Error("legal entity B must not inherit legal entity A duty")
+		}
+		body, rows = decodeReport(t, getReport(router, tenantA, path+"?legalEntityId="+inactive, view))
+		if rows["POST /v1/vendors{,/**}"].Allow || !slices.Contains(body.IgnoredRoles, "party.vendor.maintain") {
+			t.Errorf("a scoped assignment in an inactive legal entity granted: duties %v ignored %v", body.Duties, body.IgnoredRoles)
 		}
 	})
 

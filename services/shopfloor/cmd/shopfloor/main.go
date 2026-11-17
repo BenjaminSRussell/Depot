@@ -22,6 +22,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/api"
 	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/pki"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/registry"
 	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
 	"github.com/BenjaminSRussell/depot/services/shopfloor/migrations"
 )
@@ -99,6 +100,18 @@ func run(ctx context.Context, getenv func(string) string, args []string) error {
 	}
 	if issuer != nil {
 		a.WithIssuer(issuer)
+	}
+	// The assign-legal-entity routes confirm the legal entity with identity (B-03b); without IDENTITY_URL they answer 503.
+	if identityURL := getenv("IDENTITY_URL"); identityURL != "" {
+		signer, err := tenant.ServiceSignerFromEnv(getenv)
+		if err != nil {
+			return fmt.Errorf("service signing key for the legal-entity check: %w", err)
+		}
+		check, err := registry.NewLegalEntities(identityURL, signer, nil)
+		if err != nil {
+			return err
+		}
+		a.WithLegalEntityChecker(check)
 	}
 	// The enrollment redeem route carries no identity (its token is the credential), so the root router has
 	// no tenant middleware; every other route sits behind it on a sub-router.

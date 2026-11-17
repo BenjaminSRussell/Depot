@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -12,7 +13,9 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/dbx"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/registry"
 	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
 )
 
@@ -454,6 +457,9 @@ func (a *API) assignLegalEntity(w http.ResponseWriter, r *http.Request) {
 	if a.replayed(w, r, idem) {
 		return
 	}
+	if !a.legalEntityUsable(w, r, entity) {
+		return
+	}
 	out, err := a.store.AssignWorkerLegalEntity(r.Context(), id, entity, DutySetup, user, idem)
 	if errors.Is(err, dbx.ErrNotTenantWide) {
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "only a tenant administrator may assign a worker's legal entity"))
@@ -471,6 +477,7 @@ type assignLegalEntitiesRequest struct {
 	LegalEntityID string   `json:"legalEntityId"`
 	WorkerIDs     []string `json:"workerIds"`
 	AllUnassigned bool     `json:"allUnassigned"`
+	DryRun        bool     `json:"dryRun"`
 }
 
 // assignLegalEntities assigns one legal entity to many workers created before workers carried one: the listed
@@ -525,10 +532,13 @@ func (a *API) assignLegalEntities(w http.ResponseWriter, r *http.Request) {
 		validationFailed(w, r, fields)
 		return
 	}
-	if a.replayed(w, r, idem) {
+	if !req.DryRun && a.replayed(w, r, idem) {
 		return
 	}
-	out, err := a.store.AssignWorkersLegalEntity(r.Context(), store.BulkLegalEntityAssignment{LegalEntityID: entity, WorkerIDs: workers, AllUnassigned: req.AllUnassigned}, DutySetup, user, idem)
+	if !a.legalEntityUsable(w, r, entity) {
+		return
+	}
+	out, err := a.store.AssignWorkersLegalEntity(r.Context(), store.BulkLegalEntityAssignment{LegalEntityID: entity, WorkerIDs: workers, AllUnassigned: req.AllUnassigned, DryRun: req.DryRun}, DutySetup, user, idem)
 	if errors.Is(err, dbx.ErrNotTenantWide) {
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "only a tenant administrator may assign workers' legal entity"))
 		return
@@ -538,4 +548,42 @@ func (a *API) assignLegalEntities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, out)
+}
+
+// Legal-entity check codes (B-03b).
+const (
+	// CodeLegalEntityUnknown: identity knows no active legal entity with this id in the tenant (422).
+	CodeLegalEntityUnknown = "SF-0201"
+	// CodeLegalEntityCheckUnavailable: identity could not confirm the legal entity, or the check is not configured
+	// (IDENTITY_URL); nothing was assigned (503).
+	CodeLegalEntityCheckUnavailable = "SF-0202"
+)
+
+// legalEntityUsable refuses a legal entity identity does not confirm as an active one of the tenant, before anything is
+// written: an assignment freezes once a worker has time or pay, so a mistyped id must never be stored (B-03b). Only a
+// tenant administrator gets this far (the store refuses anyone else, and the check's service token needs one), so the
+// caller is checked first. An identity outage is 503, never a pass.
+func (a *API) legalEntityUsable(w http.ResponseWriter, r *http.Request, entity string) bool {
+	p, _ := tenant.FromContext(r.Context())
+	if !dbx.TenantWide(p, DutySetup) {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "only a tenant administrator may assign workers' legal entity"))
+		return false
+	}
+	if a.legalEntities == nil {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusServiceUnavailable, CodeLegalEntityCheckUnavailable, "the legal-entity check against identity is not configured (IDENTITY_URL)"))
+		return false
+	}
+	active, err := a.legalEntities.Active(r.Context(), entity)
+	switch {
+	case errors.Is(err, registry.ErrLegalEntityUnknown), err == nil && !active:
+		p := httpx.NewProblem(http.StatusUnprocessableEntity, CodeLegalEntityUnknown, "the tenant has no active legal entity with this id")
+		p.Errors = map[string]string{"legalEntityId": "must be an active legal entity of the tenant"}
+		httpx.Fail(w, r, p)
+		return false
+	case err != nil:
+		slog.ErrorContext(r.Context(), "legal-entity check failed", "err", err)
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusServiceUnavailable, CodeLegalEntityCheckUnavailable, "identity could not confirm the legal entity; nothing was assigned"))
+		return false
+	}
+	return true
 }

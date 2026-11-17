@@ -2,7 +2,7 @@
   "version": 3,
   "compiler": "scripts/compile_architecture.py",
   "note": "Generated from the OpenAPI and AsyncAPI specs and scripts/architecture_patterns.json. Do not edit; run python3 scripts/compile_architecture.py --write.",
-  "summary": {"openapiDocuments": 65, "paths": 2622, "operations": 3245, "asyncapiDocuments": 60, "topics": 385, "topicsPublished": 383, "topicsSubscribed": 17, "patterns": 59},
+  "summary": {"openapiDocuments": 65, "paths": 2623, "operations": 3246, "asyncapiDocuments": 60, "topics": 385, "topicsPublished": 383, "topicsSubscribed": 17, "patterns": 59},
   "patterns": [
     {
       "id": "event-envelope",
@@ -1913,6 +1913,7 @@
         {"method": "POST", "path": "/v1/identity/customer-contacts/{id}:disable", "operationId": "disableCustomerContact", "duty": "identity.customer-contact.maintain"},
         {"method": "POST", "path": "/v1/identity/customer-contacts/{id}:resend", "operationId": "resendCustomerContactInvitation", "duty": "identity.customer-contact.maintain"},
         {"method": "GET", "path": "/v1/identity/customer-portal/legal-entity", "operationId": "customerPortalLegalEntity", "duty": "identity.customer-portal.read"},
+        {"method": "GET", "path": "/v1/identity/legal-entities/{id}", "operationId": "lookupLegalEntity", "duty": "identity.legal-entity.lookup"},
         {"method": "GET", "path": "/v1/identity/user-names", "operationId": "listUserNames", "duty": "identity.user-name.read"},
         {"method": "GET", "path": "/v1/identity/users", "operationId": "listUsers", "duty": "identity.user.maintain"},
         {"method": "GET", "path": "/v1/identity/users/{id}", "operationId": "getUser", "duty": "identity.user.maintain"},

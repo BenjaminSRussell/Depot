@@ -64,3 +64,22 @@ func backfillExportBatches(ctx context.Context, tx pgx.Tx, tenantID, legalEntity
 		    where x.tenant_id = b.tenant_id and x.batch_id = b.id and w.legal_entity_id is distinct from $2::uuid)`, tenantID, legalEntityID)
 	return int(tag.RowsAffected()), err
 }
+
+// countBackfillableExportBatches is backfillExportBatches as a dry run: how many batches without a legal entity would
+// get legalEntityID once the workers in assign have it too.
+func countBackfillableExportBatches(ctx context.Context, tx pgx.Tx, tenantID, legalEntityID string, assign []string) (int, error) {
+	if assign == nil {
+		assign = []string{} // NULL would make "not (w.id = any(...))" unknown and hide a foreign worker
+	}
+	var n int
+	err := tx.QueryRow(ctx, `select count(*) from pay_export_batch b
+		where b.tenant_id = $1 and b.legal_entity_id is null
+		  and exists (select 1 from pay_export_line x where x.tenant_id = b.tenant_id and x.batch_id = b.id)
+		  and not exists (
+		    select 1 from pay_export_line x
+		    join pay_line pl on pl.tenant_id = x.tenant_id and pl.id = x.pay_line_id
+		    join worker w on w.tenant_id = pl.tenant_id and w.id = pl.worker_id
+		    where x.tenant_id = b.tenant_id and x.batch_id = b.id
+		      and w.legal_entity_id is distinct from $2::uuid and not (w.id = any($3::uuid[])))`, tenantID, legalEntityID, assign).Scan(&n)
+	return n, err
+}

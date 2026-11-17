@@ -80,7 +80,7 @@ const tenantExpr = tenantColumn + `[^=]*= *[A-Za-z_(]*current_setting\(.depot\.t
 // a parent's in an EXISTS) against the list in depot.legal_entity_scopes. orTrue is a disjunct that admits every row.
 const (
 	entityScopeExpr = `legal_entity_id[^,]*= *ANY *\(string_to_array\(current_setting\(.depot\.legal_entity_scopes.`
-	orTrue          = `[[:<:]]or[[:space:]]+true[[:>:]]`
+	orTrue          = `[[:<:]]or[[:space:]]+(true[[:>:]]|\(*[0-9]+ *= *[0-9]+)`
 )
 
 const tableFactsQuery = `
@@ -417,6 +417,7 @@ func TestEntityScopeFixtureViolationsArePinned(t *testing.T) {
 	sort.Strings(keys)
 	want := []string{
 		service + ".child_no_entity:" + problemNoScope,
+		service + ".child_tautology:" + problemNoScope,
 		service + ".child_vacuous:" + problemNoScope,
 		service + ".tenant_wide:" + problemNoScope,
 	}

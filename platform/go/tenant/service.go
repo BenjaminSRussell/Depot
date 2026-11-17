@@ -313,7 +313,8 @@ var serviceGrants = map[string]map[string][]string{
 	},
 	// The shopfloor sweeper reads the active tenants from the identity registry instead of a configured list (#25).
 	"shopfloor": {
-		"identity": {"identity.tenant-registry.read"},
+		// Assigning the legal entity that employs a worker checks that it exists and is active in the tenant (B-03b).
+		"identity": {"identity.tenant-registry.read", "identity.legal-entity.lookup"},
 	},
 	// The supplier portal BFF acts for one vendor user at a time (#511). Every token it signs carries the vendor id (vnd) from the
 	// user's verified session, and the target service scopes every read and write to that vendor. Only vendor-portal duties,
@@ -375,9 +376,12 @@ func serviceGrant(iss, aud string) []string { return serviceGrants[iss][aud] }
 // per tenant and the read may have been made with any scope, including ALL-scope and tenant-administrator callers
 // who have no legal-entity claim, so the token names no entity.
 //
+// identity.legal-entity.lookup checks that a legal entity exists in the tenant (B-03b); the shop floor carries it for a tenant
+// administrator assigning workers to a legal entity, a request with no legal entity.
+//
 // identity.ops.tenant-read and print.ops.render are the ops control plane's (#50): it reads platform-wide tenant state and renders a
 // statement of the operator's own, so no single legal entity is involved; service:ops-reporter carries them.
-var tenantLevelDuties = map[string]struct{}{"party.merge.execute": {}, "identity.feature.view": {}, "identity.tenant-registry.read": {}, "audit.read-log.write": {}, "identity.ops.tenant-read": {}, "print.ops.render": {}}
+var tenantLevelDuties = map[string]struct{}{"party.merge.execute": {}, "identity.feature.view": {}, "identity.tenant-registry.read": {}, "identity.legal-entity.lookup": {}, "audit.read-log.write": {}, "identity.ops.tenant-read": {}, "print.ops.render": {}}
 
 // tenantReadDuties are tenant-level duties any signed-in user's service call may carry: they read tenant settings, or
 // (audit.read-log.write) record the user's own access; the rest of tenantLevelDuties need a tenant administrator.

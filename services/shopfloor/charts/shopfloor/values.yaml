@@ -36,6 +36,16 @@ serviceMonitor:
   enabled: false
   interval: 30s
 
+# Assigning workers to a legal entity (POST workers/{id}:assign-legal-entity and workers:assign-legal-entity, B-03b)
+# confirms with identity that the legal entity exists in the tenant and is active. identityUrl is identity's base URL;
+# the calls are signed with serviceIdentity.signingKeySecret (key signing-key, a base64 Ed25519 seed) whose public key
+# identity trusts for the caller "shopfloor" (grant shopfloor -> identity.legal-entity.lookup). Empty: those routes
+# answer 503 SF-0202 and nothing is assigned.
+identityUrl: ""
+serviceIdentity:
+  signingKeySecret: ""
+  keyId: ""
+
 # The CA that signs edge connector client certificates (25-4, dev and demo plant; the platform
 # certificate issuer is not built). A Secret with keys ca.crt and ca.key. Empty: enrollment answers SF-0173.
 edgeCa:

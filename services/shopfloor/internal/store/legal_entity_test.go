@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
@@ -35,7 +36,7 @@ func inCompany(tenantID, legalEntity string, duties ...string) context.Context {
 // to company B sees nothing of company A's worker, registrations, days or pay, cannot book time on it, and its payroll
 // export carries only company B's lines.
 func TestLegalEntity_WorkerTimeAndPayStayInTheirCompany(t *testing.T) {
-	s, app, _ := setup(t)
+	s, app, admin := setup(t)
 	tenantID := testkit.TenantID(91)
 	ctxA, ctxB := inCompany(tenantID, companyA), inCompany(tenantID, companyB)
 
@@ -109,6 +110,24 @@ func TestLegalEntity_WorkerTimeAndPayStayInTheirCompany(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	// B-03b re-review R2: company A cannot put company B's pay line into its own export batch (foreign keys ignore
+	// row-level security, so only the policy's WITH CHECK stops it).
+	var lineB string
+	if err := admin.QueryRow(context.Background(), `select id::text from pay_line where tenant_id = $1 and worker_id = $2`, tenantID, workerB.ID).Scan(&lineB); err != nil {
+		t.Fatal(err)
+	}
+	err = pgx.BeginFunc(context.Background(), app, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(context.Background(), `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', $2, true)`, tenantID, companyA); err != nil {
+			return err
+		}
+		_, err := tx.Exec(context.Background(), `insert into pay_export_line (tenant_id, pay_line_id, batch_id) values ($1, $2, $3)`, tenantID, lineB, exportA.BatchID)
+		return err
+	})
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "42501" {
+		t.Fatalf("company A exported company B's pay line into its batch: %v, want a row-level security refusal", err)
 	}
 }
 
@@ -280,12 +299,23 @@ func TestLegalEntity_BulkAssignmentBackfillsWorkersAndExportBatches(t *testing.T
 		len(res.NotFound) != 1 || res.NotFound[0] != missing || len(res.Unchanged) != 0 {
 		t.Fatalf("listed bulk assignment = %+v", res)
 	}
+	// A dry run reports what the call would do and writes nothing.
+	dry, err := s.AssignWorkersLegalEntity(tenantAdmin, BulkLegalEntityAssignment{LegalEntityID: companyA, AllUnassigned: true, DryRun: true}, setupDuty, "admin-1", idem("bulk-dry"))
+	if err != nil || !dry.DryRun || dry.AssignedCount != 1 || dry.Remaining != 0 || dry.ExportBatches != 1 {
+		t.Fatalf("dry run = %+v, %v; want legacy1 and its export batch", dry, err)
+	}
+	if got := workerAssignedEvents(t, app, tenantID, legacy1); len(got) != 0 {
+		t.Fatalf("the dry run published %v", got)
+	}
+	if list, err := s.ListPayExports(ctxA, 10); err != nil || len(list) != 0 {
+		t.Fatalf("the dry run assigned %d export batches, %v", len(list), err)
+	}
 	res, err = s.AssignWorkersLegalEntity(tenantAdmin, BulkLegalEntityAssignment{LegalEntityID: companyA, AllUnassigned: true}, setupDuty, "admin-1", idem("bulk-all"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res.Assigned) != 1 || res.Assigned[0] != legacy1 || res.ExportBatches != 1 || len(res.Conflicts) != 0 {
-		t.Fatalf("all-unassigned bulk assignment = %+v, want legacy1 and its export batch", res)
+	if res.AssignedCount != 1 || len(res.Assigned) != 0 || res.Remaining != 0 || res.ExportBatches != 1 || len(res.Conflicts) != 0 {
+		t.Fatalf("all-unassigned bulk assignment = %+v, want legacy1 (counted, not listed) and its export batch", res)
 	}
 	if got := workerAssignedEvents(t, app, tenantID, legacy1); len(got) != 1 || got[0] != [2]string{companyA, "admin-1"} {
 		t.Fatalf("worker.assigned events of legacy1 = %v", got)
@@ -349,5 +379,25 @@ func TestLegalEntity_AutoClockOutBySweeperCoversEveryCompany(t *testing.T) {
 	closed, err = s.AutoClockOut(WithSystemScope(sweeperID), now, 12, 10)
 	if err != nil || len(closed) != 1 || closed[0].WorkerID != workerB.ID {
 		t.Fatalf("the sweeper closed %+v, %v; want company B's worker", closed, err)
+	}
+}
+
+// B-03b re-review R4: one allUnassigned call assigns at most MaxBulkLegalEntityWorkers workers and says how many are
+// left, so the backfill repeats it.
+func TestLegalEntity_BulkAllUnassignedIsBounded(t *testing.T) {
+	s, _, admin := setup(t)
+	tenantID := testkit.TenantID(97)
+	if _, err := admin.Exec(context.Background(), `insert into worker (tenant_id, id, party_id, name, cost_rate, currency)
+		select $1, gen_random_uuid(), gen_random_uuid(), 'Legacy ' || g, 20, 'USD' from generate_series(1, $2::int) g`, tenantID, MaxBulkLegalEntityWorkers+1); err != nil {
+		t.Fatal(err)
+	}
+	tenantAdmin := inCompany(tenantID, "", tenant.DutyTenantAdmin, setupDuty)
+	first, err := s.AssignWorkersLegalEntity(tenantAdmin, BulkLegalEntityAssignment{LegalEntityID: companyA, AllUnassigned: true}, setupDuty, "admin-1", idem("bound-1"))
+	if err != nil || first.AssignedCount != MaxBulkLegalEntityWorkers || first.Remaining != 1 || len(first.Assigned) != 0 {
+		t.Fatalf("first call = assigned %d remaining %d listed %d, %v", first.AssignedCount, first.Remaining, len(first.Assigned), err)
+	}
+	second, err := s.AssignWorkersLegalEntity(tenantAdmin, BulkLegalEntityAssignment{LegalEntityID: companyA, AllUnassigned: true}, setupDuty, "admin-1", idem("bound-2"))
+	if err != nil || second.AssignedCount != 1 || second.Remaining != 0 {
+		t.Fatalf("second call = %+v, %v", second, err)
 	}
 }
