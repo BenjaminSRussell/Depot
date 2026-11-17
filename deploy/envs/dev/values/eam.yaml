@@ -1,0 +1,7 @@
+# Dev values for the eam Application (deploy/envs/dev/apps/services.yaml). The database is depot_eam in the shared dev
+# Postgres (deploy/envs/dev/apps/postgres.yaml), DATABASE_URL from the ExternalSecret `eam-database` (key url) for the
+# role depot_eam_app. The migration Job (D28) runs as that role, which has owned the tables since eam migrated on start in
+# dev; stage and prod use the chart default, the owner role's eam-db-owner Secret.
+migrateJob:
+  ownerSecret: eam-database
+  ownerSecretKey: url

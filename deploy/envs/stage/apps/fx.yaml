@@ -18,7 +18,6 @@ spec:
         image:
           repository: ghcr.io/benjaminsrussell/fx
           digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
-        migrateOnStart: true
         replicaCount: 2
       releaseName: fx
   destination:

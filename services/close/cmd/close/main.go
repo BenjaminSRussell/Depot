@@ -29,6 +29,8 @@ const (
 
 func main() {
 	slog.SetDefault(newLogger(os.Stdout))
+	// "<binary> migrate" applies the migrations as the owner role and exits: the chart's PreSync migration Job (D28).
+	dbx.HandleMigrateCommand(migrations.FS)
 	if err := run(context.Background(), os.Getenv); err != nil {
 		slog.Error("close stopped", "err", err)
 		os.Exit(1)
@@ -122,8 +124,11 @@ func run(ctx context.Context, getenv func(string) string) error {
 		return fmt.Errorf("connect database: %w", err)
 	}
 	defer pool.Close()
-	if err := dbx.Migrate(ctx, pool, migrations.FS); err != nil {
-		return fmt.Errorf("migrate database: %w", err)
+	// Dev only: outside dev the chart's migration Job applies them as the owner role (D28).
+	if getenv("MIGRATE_ON_START") == "true" {
+		if err := dbx.Migrate(ctx, pool, migrations.FS); err != nil {
+			return fmt.Errorf("migrate database: %w", err)
+		}
 	}
 	if err := tenant.ShareReplayCache(ctx, pool); err != nil {
 		return err

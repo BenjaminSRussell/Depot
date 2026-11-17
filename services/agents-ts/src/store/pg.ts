@@ -44,6 +44,24 @@ export async function migrate(pool: pg.Pool, dir: URL = MIGRATIONS_DIR): Promise
   }
 }
 
+/** The first argument that runs the image as its schema migration step (`node dist/main.js migrate`): the chart's owner-role migration Job (D28). */
+export const MIGRATE_COMMAND = "migrate";
+
+/**
+ * Applies the migrations with the owner role's URL (MIGRATE_DATABASE_URL, else DATABASE_URL) and closes the pool; the same
+ * contract as dbx.RunMigrateCommand in the Go services.
+ */
+export async function migrateFromEnv(env: Record<string, string | undefined>, dir: URL = MIGRATIONS_DIR): Promise<void> {
+  const url = env["MIGRATE_DATABASE_URL"] || env["DATABASE_URL"];
+  if (url === undefined || url === "") throw new Error("MIGRATE_DATABASE_URL or DATABASE_URL is required to migrate");
+  const pool = new pg.Pool({ connectionString: url, max: 1 });
+  try {
+    await migrate(pool, dir);
+  } finally {
+    await pool.end();
+  }
+}
+
 /** An `agent_run` row. Status is RUNNING until the run ends (a run waiting for approval is RUNNING). */
 export interface StoredRun {
   runId: string;

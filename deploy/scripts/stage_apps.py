@@ -105,6 +105,14 @@ def stage_application(app: dict) -> dict:
     # Keep the dev release name, so the chart's Service and every in-cluster URL that names it are the same in stage.
     helm.setdefault("releaseName", name)
     values = helm.setdefault("valuesObject", {})
+    # Dev's migration Job may sign in as the role that has owned a dev schema since it migrated on start; stage uses the chart
+    # default, the owner role's <chart>-db-owner Secret provisioned with the stage database (D28, ADR-0012 rule 3).
+    job = values.get("migrateJob")
+    if isinstance(job, dict):
+        for key in ("ownerSecret", "ownerSecretKey"):
+            job.pop(key, None)
+        if not job:
+            del values["migrateJob"]
     replicas = values.get("replicaCount", chart_replicas(src["path"]))
     if name not in SINGLETONS and (replicas or 1) < 2:
         values["replicaCount"] = 2

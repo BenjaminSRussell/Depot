@@ -30,6 +30,8 @@ const (
 
 func main() {
 	slog.SetDefault(newLogger(os.Stdout))
+	// "<binary> migrate" applies the migrations as the owner role and exits: the chart's PreSync migration Job (D28).
+	dbx.HandleMigrateCommand(migrations.FS)
 	if err := run(context.Background(), os.Getenv); err != nil {
 		slog.Error("print stopped", "err", err)
 		os.Exit(1)

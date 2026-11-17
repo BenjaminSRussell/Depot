@@ -1,0 +1,4 @@
+# Stage values for the eam Application. The migration Job (D28) connects as the owner role (the chart default, named
+# here because dev overrides it); eam-db-owner is provisioned with the stage database (#213).
+migrateJob:
+  ownerSecret: eam-db-owner

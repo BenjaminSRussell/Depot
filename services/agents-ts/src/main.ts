@@ -22,7 +22,7 @@ import { createAdminServer, createRequestHandler, listen, Metrics } from "./serv
 import { PgApprovalStore } from "./store/approvals.js";
 import { PgKillSwitchLog } from "./store/killswitch.js";
 import { KillSwitchPoller } from "./runtime/killswitch-poller.js";
-import { openAgentStore } from "./store/pg.js";
+import { MIGRATE_COMMAND, migrateFromEnv, openAgentStore } from "./store/pg.js";
 import { PgVersionStore } from "./store/registry.js";
 
 export { loadConfig };
@@ -145,7 +145,20 @@ async function main(): Promise<void> {
 }
 
 // Only the entrypoint starts the server; importing this module (tests) has no side effects.
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// `node dist/main.js migrate` applies the migrations as the owner role and exits: the chart's PreSync migration Job (D28).
+const isEntrypoint = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isEntrypoint && process.argv[2] === MIGRATE_COMMAND) {
+  migrateFromEnv(process.env).then(
+    () => {
+      process.stdout.write(`${JSON.stringify({ level: "info", message: "migrations applied", service: "agents-ts" })}\n`);
+      process.exit(0);
+    },
+    (err: unknown) => {
+      process.stderr.write(`${JSON.stringify({ level: "error", message: "migrations failed", service: "agents-ts", error: String(err) })}\n`);
+      process.exit(1);
+    },
+  );
+} else if (isEntrypoint) {
   main().catch((err: unknown) => {
     process.stderr.write(`${JSON.stringify({ level: "error", message: "agents failed to start", service: "agents-ts", error: String(err) })}\n`);
     process.exit(1);

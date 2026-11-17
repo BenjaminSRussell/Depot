@@ -16,8 +16,7 @@ spec:
         image:
           repository: ghcr.io/benjaminsrussell/org
           digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
-        migrateOnStart: true
-        migrateDatabaseSecret: org-db-owner
+        # The migration Job (D28) connects with the chart default, org-db-owner (depot_org_owner).
         replicaCount: 1
   destination:
     server: https://kubernetes.default.svc

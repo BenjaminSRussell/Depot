@@ -27,6 +27,8 @@ const (
 
 func main() {
 	slog.SetDefault(newLogger(os.Stdout))
+	// "<binary> migrate" applies the migrations as the owner role and exits: the chart's PreSync migration Job (D28).
+	dbx.HandleMigrateCommand(migrations.FS)
 	start := run
 	switch {
 	case len(os.Args) > 1 && os.Args[1] == "consume":
@@ -54,7 +56,7 @@ func newLogger(w io.Writer) *slog.Logger {
 
 // run serves the revrec API on HTTP_ADDR and its metrics on ADMIN_ADDR.
 // DATABASE_URL is required; migrations run at start only when
-// MIGRATE_ON_START=true (dev), otherwise the migrator job applies them.
+// MIGRATE_ON_START=true (dev), otherwise the chart's migration Job applies them (revrec migrate).
 func run(ctx context.Context, getenv func(string) string) error {
 	databaseURL := getenv("DATABASE_URL")
 	if databaseURL == "" {

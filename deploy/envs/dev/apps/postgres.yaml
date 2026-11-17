@@ -2470,6 +2470,11 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: transport
+        # The owner-role migration Jobs of the charts in this namespace (templates/migrate-job.yaml, D28): their pods
+        # are labelled <chart>-migrate, not the service's name, and each signs in with its own owner Secret.
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: migrate
       ports:
         - { protocol: TCP, port: 5432 }
     - from:

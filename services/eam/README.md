@@ -238,8 +238,11 @@ charts/eam/              Helm chart (depot-eam)
 ## Run
 
 ```
-DATABASE_URL=postgres://... HTTP_ADDR=:8080 go run ./cmd/eam
+DATABASE_URL=postgres://... HTTP_ADDR=:8080 MIGRATE_ON_START=true go run ./cmd/eam
 ```
+
+`MIGRATE_ON_START=true` applies the migrations at start (dev only); in the cluster the chart's migration Job runs
+`eam migrate` as the owner role (D28).
 
 Every request needs the gateway headers (`X-Depot-Tenant`, `X-Depot-Duties`,
 optional `X-Depot-User`). Creating POSTs need `Idempotency-Key`.

@@ -1547,7 +1547,7 @@ def ingress_policy_problems(docs, release, namespace, expected):
     """Why the rendered chart docs do not carry D1's default-deny ingress policy (ADR-0006 rule 6); empty when they do.
 
     expected is the chart's generated ingressPolicy (deploy/scripts/gen_networkpolicies.py). The policy <release>-ingress
-    must select every pod the chart renders, deny ingress by default, admit the API port only from the listed Gateways'
+    must select every pod the chart renders but the migration Job's (D28), deny ingress by default, admit the API port only from the listed Gateways'
     Envoy pods and exactly the generated peers (plus the ingress controller for hello-ledger's smoke Ingress), and the
     metrics ports only from Prometheus, every port a plain TCP number. No other NetworkPolicy of the chart may admit the API
     or metrics ports, by number, name or range (policies are additive, so one broad rule would undo the default deny).
@@ -1568,7 +1568,14 @@ def ingress_policy_problems(docs, release, namespace, expected):
         pod = pod_template(d)
         if pod is None:
             continue
-        name = (pod.get("metadata", {}).get("labels") or {}).get("app.kubernetes.io/name")
+        labels = pod.get("metadata", {}).get("labels") or {}
+        name = labels.get("app.kubernetes.io/name")
+        if labels.get("app.kubernetes.io/component") == "migrate":
+            # The owner-role migration Job (D28) opens no port: it is left to the namespace default-deny, never selected
+            # here (deploy/scripts/test_migrate_jobs.py checks its labels, ports and that no policy selects it).
+            if name in selected:
+                problems.append(f"{d['kind']} {d['metadata']['name']}: the migration Job's pod is selected by {release}-ingress")
+            continue
         if name not in selected:
             problems.append(f"{d['kind']} {d['metadata']['name']} (app.kubernetes.io/name {name}) is not selected")
     api, metrics, names = expected["apiPort"], set(expected["metricsPorts"]), named_ports(docs)

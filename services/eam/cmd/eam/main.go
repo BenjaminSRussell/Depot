@@ -20,6 +20,8 @@ import (
 )
 
 func main() {
+	// "<binary> migrate" applies the migrations as the owner role and exits: the chart's PreSync migration Job (D28).
+	dbx.HandleMigrateCommand(migrations.FS)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if err := run(ctx, os.Getenv, os.Stdout); err != nil {
@@ -44,8 +46,11 @@ func run(ctx context.Context, getenv func(string) string, out io.Writer) error {
 		return fmt.Errorf("connect: %w", err)
 	}
 	defer pool.Close()
-	if err := dbx.Migrate(ctx, pool, migrations.FS); err != nil {
-		return fmt.Errorf("migrate: %w", err)
+	// Dev only: outside dev the chart's migration Job applies them as the owner role (D28).
+	if getenv("MIGRATE_ON_START") == "true" {
+		if err := dbx.Migrate(ctx, pool, migrations.FS); err != nil {
+			return fmt.Errorf("migrate: %w", err)
+		}
 	}
 	s := store.New(pool)
 	h := api.New(s, s.Ready)

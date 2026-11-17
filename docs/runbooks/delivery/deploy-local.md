@@ -44,10 +44,43 @@ metadata) is matched by that namespace's name, and the Gateway pods and Promethe
 other layout. `global.regionFenceUrl` must go through Gateway `depot-region`
 (`https://region.<env>.depot.dev/healthz/region`); the charts refuse to render with the ops Service URL.
 
+## Database migrations
+
+Serving pods never change the schema: they run `MIGRATE_ON_START=false` and connect as `depot_app` (ADR-0012 rule 3, D28,
+B-09a). Every chart whose service has `migrations/` carries `templates/migrate-job.yaml`, a Job `<release>-migrate` that Argo
+CD runs as a **PreSync hook** (a plain `helm install`/`upgrade` runs it as a pre-install/pre-upgrade hook): before any other
+resource of the release syncs, the service image runs its migrate command (`<binary> migrate` for Go, `node <entry> migrate`
+for agents-ts and integration-hub-ts, `python -m prediction.migrate`) with the owner role's URL, which applies the pending
+`migrations/*.sql` files under the `dbx.Migrate` advisory lock and exits. A failed migration fails the sync, so new pods never
+start on a schema that was not applied; Argo CD keeps the last Job and its pod until the next sync replaces it.
+
+- **Owner Secret.** `migrateJob.ownerSecret` (default `<chart>-db-owner`, key `DATABASE_URL`) holds the URL of the role that
+  owns the service's database. It is provisioned with the database (stage and prod: B-09 parts b and c, #213). Until it
+  exists the Job pod waits in `CreateContainerConfigError` and the sync fails after `activeDeadlineSeconds` (600 s).
+  In dev, fx, receiving, transport, eam and hello-ledger (and the local `hello-ledger-local`) point the Job at the Secret of
+  the role that has owned their schema since they migrated on start; identity and org use their `-db-owner` Secrets.
+- **Labels and network.** The Job's pod is `app.kubernetes.io/name: <chart>-migrate`, `app.kubernetes.io/component:
+  migrate`, so the chart's Service does not route to it and no generated NetworkPolicy selects it or admits it as a peer;
+  the namespace default-deny refuses every connection to it. Postgres admits migrate pods: the shared dev server by the
+  `component: migrate` label, `deploy/postgres` releases each `clientApps` entry's `<entry>-migrate` pod.
+- **Run it by hand.** `kubectl -n hello-ledger logs job/<release>-migrate` shows the last run. Locally:
+  `DATABASE_URL=<owner url> go run ./cmd/<service> migrate` (Go), or `MIGRATE_ON_START=true` with the owner URL in dev.
+- **Dev on-start migration** is allowed only with the Job off: `migrateJob.enabled=false` and the chart's migrate-on-start
+  value `true`. With the Job on, a chart whose serving pods would migrate on start refuses to render
+  (`migrateJob.servingMigrateOnStart` names that value).
+- **Changing the Job.** `templates/migrate-job.yaml` and each chart's `migrateJob` values block are generated: edit
+  `deploy/scripts/gen_migrate_jobs.py` and run it; `make -C deploy test-argocd` runs `--check` and
+  `deploy/scripts/test_migrate_jobs.py`, which fails on a service with migrations and no Job.
+- **k3d proof.** `make -C deploy test-migrate-k3d [SERVICES="ledger fx platform-health"]` creates a throwaway k3d cluster,
+  builds the images, helm-installs the charts against empty databases and checks every migration was applied by the owner
+  role, with the dev Postgres NetworkPolicy and the namespace default-deny in place. Needs docker, k3d, kubectl and helm;
+  it is not in CI yet.
+
 ## Troubleshoot
 
 | Symptom | Check |
 |---|---|
+| Argo app stuck in `Syncing` / sync failed on `<release>-migrate` | `kubectl -n <ns> describe job <release>-migrate` and `logs job/<release>-migrate`: a missing owner Secret (`CreateContainerConfigError`) or a failing migration file; fix and sync again |
 | a service gets connection timeouts calling a peer | the caller is not in the peer's `ingressPolicy.peers`: add the `*_URL` client or grant, rerun `python3 deploy/scripts/gen_networkpolicies.py` |
 | `tofu apply` fails on provider | `provider_kind` other than `k3d` is not implemented |
 | pod `CreateContainerConfigError` | Secret `hello-ledger-db` missing in namespace `hello-ledger` |

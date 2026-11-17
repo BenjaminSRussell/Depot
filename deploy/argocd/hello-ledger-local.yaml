@@ -16,7 +16,10 @@ spec:
         image:
           repository: depot-local/hello-ledger
           tag: local
-        migrateOnStart: true
+        # The migration Job (D28) runs as the role that has owned this local schema since on-start migration, from the
+        # hello-ledger-db Secret make deploy-local creates; stage and prod use the owner role's hello-ledger-db-owner.
+        migrateJob:
+          ownerSecret: hello-ledger-db
   destination:
     server: https://kubernetes.default.svc
     namespace: hello-ledger
