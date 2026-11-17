@@ -16,8 +16,9 @@ Every Kafka consumer in the code has a KafkaUser named `<service>-consumer` (pro
 The consumer's chart names it in the `username` of its consumer block (`consumer.kafka`, `kafka`,
 `shopfloorConsumer.kafka` or pricing's `cacheConsumer`), and its template mounts the Secret named by the block's `secret`
 at `/var/run/depot/kafka` (keys `password` and `ca.crt`) and sets `KAFKA_USERNAME`, `KAFKA_PASSWORD_FILE` and
-`KAFKA_TLS_CA_FILE`. The client signs in over the 9093 listener (`depot-kafka-bootstrap.kafka.svc:9093` from another
-namespace).
+`KAFKA_TLS_CA_FILE`. The Secret's files are root-owned and 0440, so the pod sets an `fsGroup` (65532 for the distroless
+images, 1000 for the node images, which also need a numeric `runAsUser`). The client signs in over the 9093 listener
+(`depot-kafka-bootstrap.kafka.svc:9093` from another namespace).
 
 The ACLs are least privilege, all literal except one:
 
@@ -32,14 +33,20 @@ the code (every `kafka.ConfigFromEnv` and `eventing.Config` in Go, every kafkajs
 kafka-python `KafkaConsumer` in Python), works out each one's groups, topics and dead-letter topic from the constants
 and helpers it uses, and resolves environment variables through the chart. It then requires the user's ACLs to be exactly
 those. A topic added to a consumer therefore needs its ACL here, or CI fails; so does a consumer without a user, a user
-without a consumer, or a chart that does not mount the credentials.
+without a consumer, or a chart that does not mount the credentials where the pod can read them. It fails closed on what
+it cannot derive (a group or topic list set elsewhere, a kafkajs consumer outside the config pattern, another Kafka
+client library).
 
 ## Dev
 
 A consumer is on in dev only when its topics are relayed (an outbox connector writes them) and dev has what it needs to
-start: brokers, credentials and its database Secret. Today that is receiving's consumer and workflow-ts's tender and
-budget plan trigger. The other consumers stay off, each with its reason in `DEV_OFF` in the test; for all of them it is
-the missing dev database Secret (D4).
+start: brokers, credentials and its database Secret. Today that is receiving's consumer. The other consumers stay off,
+each with its reason in `DEV_OFF` in the test: for most it is the missing dev database Secret (D4); workflow-ts's trigger
+waits for a worker signing key, without which the workflows it starts could run no activity.
+
+Topic auto-creation is off and an outbox relay creates a topic with its first event, so the source topics of every
+consumer that is on are declared as KafkaTopics in `connect.yaml`; the test requires it. The kafkajs consumers
+(workflow-ts, integration-hub-ts) also start in the background and retry, so a missing topic never stops their process.
 
 The User Operator writes each user's Secret next to the KafkaUser, in `kafka`. A consumer that is on gets a copy in its
 own namespace from `deploy/envs/dev/kafka-consumer-credentials`: a `SecretStore` (External Secrets, Kubernetes provider)
@@ -49,7 +56,8 @@ whose service account may only `get` the users of the consumers that are on and 
 To turn another consumer on in dev:
 
 1. give its service a dev database Secret (D4);
-2. add its ExternalSecret to `deploy/envs/dev/kafka-consumer-credentials/credentials.yaml` and its user to that Role;
+2. add its ExternalSecret to `deploy/envs/dev/kafka-consumer-credentials/credentials.yaml`, its user to that Role, and a
+   KafkaTopic in `connect.yaml` for each of its source topics;
 3. set its chart's consumer block in `deploy/envs/dev/values/<app>.yaml` (or the Application's values): `enabled: true`
    where the chart has it, `brokers: depot-kafka-bootstrap.kafka.svc:9093`, `secret: <user>-kafka`;
 4. remove it from `DEV_OFF`.
@@ -62,5 +70,5 @@ Stage has no Kafka yet (#213): `stage_apps.py` drops the dev Kafka values, so ev
 each consumer group that is on, it produces one CloudEvent of type `dev.depot.smoke.ping.v1` to one of the group's topics
 as a temporary KafkaUser `consumer-smoke`, and waits for the group's committed offset to move past it. No handler takes
 that type, so the consumer skips it or dead-letters it: the test shows the event was consumed, not handled. The
-temporary user and pod are deleted afterwards. The test needs a dev cluster (#213), is not part of CI and has not been
-run yet. `--dry-run` prints the plan without touching a cluster.
+temporary user and pod are deleted afterwards; a produce that fails marks that row FAIL and the run goes on. The test
+needs a dev cluster (#213), is not part of CI and has not been run yet. `--dry-run` prints the plan without touching a cluster.

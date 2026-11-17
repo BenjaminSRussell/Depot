@@ -7,7 +7,7 @@ import { createDecisionHandler } from "./decisionApi.js";
 import { createVerifier, parsePublicKeys } from "./agentsToken.js";
 import { buildActivities } from "./activityRegistry.js";
 import { jsonLine } from "./logging/pseudonymize.js";
-import { eventConsumerConfigFromEnv, startEventConsumer, type RunningEventConsumer } from "./eventConsumer.js";
+import { eventConsumerConfigFromEnv, startEventConsumerInBackground, type RunningEventConsumer } from "./eventConsumer.js";
 
 const address = process.env.TEMPORAL_ADDRESS ?? "temporal-frontend.temporal.svc:7233";
 const taskQueue = process.env.TEMPORAL_TASK_QUEUE ?? "depot-approvals";
@@ -28,9 +28,10 @@ const worker = await Worker.create({
 const clientConnection = await Connection.connect({ address });
 const client = new Client({ connection: clientConnection, namespace: process.env.TEMPORAL_NAMESPACE ?? "depot" });
 const decisions = createServer(createDecisionHandler(client, { taskQueue, ...(process.env.DEPOT_SERVICE_PUBLIC_KEYS ? { agentsVerifier: createVerifier({ keys: parsePublicKeys(process.env.DEPOT_SERVICE_PUBLIC_KEYS) }) } : {}) })).listen(Number(process.env.HTTP_PORT ?? 8080));
-// Starts tenderWorkflow on transport's load.released and signals it on tender.accepted and tender.declined (#426).
+// Starts tenderWorkflow on transport's load.released and signals it on tender.accepted and tender.declined (#426). The consumer
+// starts in the background and retries until its topics exist and the brokers answer, so it never stops the worker (D34).
 const consumerConfig = eventConsumerConfigFromEnv(process.env);
-const events: RunningEventConsumer | null = consumerConfig ? await startEventConsumer(consumerConfig, client, taskQueue, warn) : null;
+const events: RunningEventConsumer | null = consumerConfig ? startEventConsumerInBackground(consumerConfig, client, taskQueue, warn) : null;
 
 const shutdown = (): void => {
   decisions.close();

@@ -6,10 +6,14 @@ Consumers are found in the code, not in a hand list:
   composite literals, string concatenation, small helper functions and the parameters of the function the call sits in
   (bound at each of its call sites) are evaluated; a value the evaluator cannot work out fails the test unless
   DYNAMIC_TOPICS says where it comes from. A group that ends in a per-pod value (pricing's pricing-cache-<pod>) needs a
-  prefix ACL.
-- TypeScript: every kafkajs `consumer({ groupId })` and the config object its file returns (group, topics, dlqTopic),
-  with `env.X || default`, `env["X"] ?? default` and constant arrays.
+  prefix ACL. `cfg.Group`/`cfg.Topics` set after ConfigFromEnv in the same function are followed; set anywhere else, or a
+  kafka.Config literal, is a problem.
+- TypeScript: every kafkajs `consumer({ groupId: config.group })` and the config object its file returns (group, topics,
+  dlqTopic), with `env.X || default`, `env["X"] ?? default` and constant arrays. Any other `.consumer(` call, and any
+  `.subscribe(` outside the loop over that config's topics, is a problem.
 - Python: every class that builds a kafka-python `KafkaConsumer` and the calls that construct it (group, topics).
+- Any other Kafka client library (sarama, segmentio/kafka-go, confluent-kafka, franz-go outside the platform, aiokafka,
+  node-rdkafka and the like) is a problem unless FOREIGN_KAFKA_CLIENTS lists the file with a reason.
 Environment variables resolve through the consumer's chart: the template that reads `.Values.<block>.username` maps each
 env var to its values key, and the chart default (or the dev value) is what the pod gets.
 
@@ -22,12 +26,16 @@ For every consumer block of a chart (a values mapping with `username` under `kaf
   without a chart;
 - the chart's group keys and dlqTopic agree with the code, and the template wires the user the way every consumer does:
   KAFKA_USERNAME from the block, KAFKA_PASSWORD_FILE and KAFKA_TLS_CA_FILE from the Secret named by the block's `secret`,
-  mounted at /var/run/depot/kafka.
+  mounted at /var/run/depot/kafka; rendered with helm and the consumer on, the pod has an fsGroup (the files are 0440)
+  and, where the image's USER is a name, a numeric runAsUser;
+- no other user's group falls under a prefix group grant.
 In dev (deploy/envs/dev), every block is either on or listed in DEV_OFF with the reason. A block that is on must: read only
-topics an outbox connector relays (the debezium user may write them), point at the TLS listener, name a Secret an
-ExternalSecret in its namespace writes from the KafkaUser's Secret and the cluster CA (through the kafka-users SecretStore,
-whose Role may read exactly the users that are on), and, rendered with helm, reference only Secrets dev declares or
-lists as provisioned outside the repository (test_migrate_jobs.EXTERNALLY_PROVISIONED, UNMANAGED_SECRETS).
+topics an outbox connector relays (the debezium user may write them) and a synced KafkaTopic declares, point at the TLS
+listener, name a Secret an ExternalSecret in its namespace writes from the KafkaUser's Secret and the cluster CA (through
+the kafka-users SecretStore, whose ServiceAccount has exactly one binding, a RoleBinding in kafka to a Role that may only
+`get` the named Secrets of the users that are on), and, rendered with helm, reference only Secrets dev declares or lists
+as provisioned outside the repository (test_migrate_jobs.EXTERNALLY_PROVISIONED, UNMANAGED_SECRETS). The fail-closed
+rules and the RBAC check have negative tests on synthetic sources and mutated manifests.
 
 Not covered here: whether an event is really consumed in a cluster. `make -C deploy smoke-consumers` does that against
 a dev cluster (#213); it is not run in CI.
@@ -40,6 +48,8 @@ import os
 import re
 import shutil
 import sys
+import subprocess
+import tempfile
 import unittest
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -92,6 +102,20 @@ DEV_OFF = {
     "search-consumer": NO_DB.format("search-db"),
     "shopfloor-consumer": NO_DB.format("shopfloor database"),
     "tax-consumer": NO_DB.format("tax-db"),
+    "workflow-ts-consumer": "dev gives the worker no serviceIdentity.signingKeySecret, so it registers no activities and every "
+                            "tenderWorkflow or budgetPlanWorkflow the trigger started would stall; budgeting, which "
+                            "budgetPlanWorkflow records its decision in, has no dev database either",
+}
+
+# Values a chart requires before its consumer renders, besides the switch, the brokers and the Secret (fsGroup check).
+RENDER_VALUES = {
+    "billing": {"consumer.icCharge.revenueAccount": "4000"},
+    "edi": {"serviceIdentity.signingKeySecret": "k", "sources.fulfillmentUrl": "http://f", "sources.billingUrl": "http://b",
+            "sources.salesUrl": "http://s"},
+    "finreport": {"serviceIdentity.signingKeySecret": "k"},
+    "intercompany": {"ledgerUrl": "http://ledger:8080", "serviceIdentity.signingKeySecret": "k", "consumer.accounts.cost": "6000",
+                     "consumer.accounts.recovery": "7000", "consumer.accounts.margin": "7100"},
+    "prediction-py": {"sync.signingKeySecret": "k", "sync.receivablesUrl": "http://r"},
 }
 
 # Secrets a dev consumer that is on reads besides those test_migrate_jobs.EXTERNALLY_PROVISIONED and
@@ -523,37 +547,69 @@ class Consumer:
     pairs: list = field(default_factory=list)  # (group, topics) of each consumer, for the smoke test
 
 
-def go_consumers():
-    """(consumers, dead-letter configs, problems) of every Go package that builds a consumer."""
+CODE_BASES = (REPO / "services", REPO / "tools")
+
+
+def rel(path):
+    try:
+        return path.relative_to(REPO).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def go_consumers(bases=CODE_BASES):
+    """(consumers, dead-letter configs, problems) of every Go package that builds a consumer.
+
+    The service is the first directory under a base (services/<service>/...). Fails closed: a group or topic list the
+    evaluator cannot work out, a `cfg.Group`/`cfg.Topics` assignment it cannot tie to a ConfigFromEnv call in the same
+    function, and a kafka.Config literal (a consumer that skips ConfigFromEnv) are problems.
+    """
     consumers, dlqs, problems = [], [], []
     dirs = set()
-    for base in (REPO / "services", REPO / "tools"):
+    for base in bases:
         for p in base.rglob("*.go"):
             if "node_modules" not in p.parts and not p.name.endswith("_test.go") and EVENTING_KAFKA in p.read_text():
-                dirs.add(p.parent)
-    for d in sorted(dirs):
+                dirs.add((base, p.parent))
+    for base, d in sorted(dirs):
         pkg = GoPackage.at(d)
-        service = d.relative_to(REPO).parts[1]
+        service = d.relative_to(base).parts[0]
         for file, text in pkg.files.items():
             imports = {path: alias for alias, path in pkg.imports(file).items()}
-            where = lambda pos: f"{file.relative_to(REPO)}:{text.count(chr(10), 0, pos) + 1}"  # noqa: E731
+            where = lambda pos, file=file, text=text: f"{rel(file)}:{text.count(chr(10), 0, pos) + 1}"  # noqa: E731
             if EVENTING_KAFKA in imports:
-                for m in re.finditer(rf"(?<![\w.]){imports[EVENTING_KAFKA]}\.ConfigFromEnv\(", text):
+                alias = imports[EVENTING_KAFKA]
+                for m in re.finditer(rf"(?<![\w.]){alias}\.Config\{{", text):
+                    problems.append(f"{where(m.start())}: a {alias}.Config literal; build consumer configs with ConfigFromEnv")
+                tied = set()
+                for m in re.finditer(rf"(?<![\w.]){alias}\.ConfigFromEnv\(", text):
                     args = call_args(text, m.start())
                     func = pkg.enclosing(file, m.start())
-                    for env in bindings(pkg, func, [args[1], args[3]]):
+                    # `cfg, err := kafka.ConfigFromEnv(...)` followed by `cfg.Group = ...` / `cfg.Topics = ...` in the same function.
+                    var = re.search(r"(\w+)\s*,\s*\w+\s*:?=\s*$", text[:m.start()].rsplit("\n", 1)[-1])
+                    overrides = {}
+                    if var and func:
+                        body = text[func.body_start:func.body_end]
+                        for o in re.finditer(rf"(?<![\w.]){var.group(1)}\.(Group|Topics)\s*=(?!=)\s*", body):
+                            overrides[o.group(1)] = read_expr(body, o.end())
+                            tied.add(func.body_start + o.start())
+                    group_expr, topics_expr = overrides.get("Group", args[1]), overrides.get("Topics", args[3])
+                    for env in bindings(pkg, func, [group_expr, topics_expr]):
                         ctx = Ctx(pkg, file, func, env)
-                        groups = go_eval(args[1], ctx)
-                        dynamic = DYNAMIC_TOPICS.get((service, args[3]))
-                        topics = [dynamic()] if dynamic else go_eval(args[3], ctx)
+                        groups = go_eval(group_expr, ctx)
+                        dynamic = DYNAMIC_TOPICS.get((service, topics_expr))
+                        topics = [dynamic()] if dynamic else go_eval(topics_expr, ctx)
                         c = Consumer(service, where(m.start()))
                         if len(groups) != 1 or not isinstance(groups[0], str):
-                            problems.append(f"{c.where}: cannot work out the consumer group {args[1]!r}: {groups}")
+                            problems.append(f"{c.where}: cannot work out the consumer group {group_expr!r}: {groups}")
                         elif len(topics) != 1 or not isinstance(topics[0], tuple):
-                            problems.append(f"{c.where}: cannot work out the topics {args[3]!r}: {topics}")
+                            problems.append(f"{c.where}: cannot work out the topics {topics_expr!r}: {topics}")
                         else:
                             c.groups, c.topics = {groups[0]}, set(topics[0])
                             consumers.append(c)
+                for o in re.finditer(r"(?<![\w.])\w+\.(Group|Topics)\s*=(?!=)", text):
+                    if o.start() not in tied:
+                        problems.append(f"{where(o.start())}: sets .{o.group(1)} where no ConfigFromEnv call of the same "
+                                        "function explains it; the check cannot see the consumer's real group or topics")
             if EVENTING in imports:
                 for m in re.finditer(rf"(?<![\w.]){imports[EVENTING]}\.Config\{{", text):
                     fields = literal_fields(text, m.start())
@@ -570,13 +626,42 @@ def go_consumers():
                             problems.append(f"{where(m.start())}: cannot work out Name/DeadLetterTopic: {names} {values}")
                             continue
                         dlqs.append(Consumer(service, where(m.start()), dlqs=set(values), name=names[0]))
-    for base in (REPO / "services", REPO / "tools"):
-        for p in base.rglob("*.go"):
-            if "node_modules" in p.parts or p.name.endswith("_test.go"):
-                continue
-            if "kgo.ConsumerGroup" in p.read_text() or "sarama" in p.read_text():
-                problems.append(f"{p.relative_to(REPO)}: a Kafka consumer outside platform/go/eventing/kafka")
     return consumers, dlqs, problems
+
+
+# Kafka client libraries other than the ones this check reads (platform/go/eventing/kafka, kafkajs, kafka-python), by the
+# import or dependency that names them. A file or manifest that uses one is a problem unless FOREIGN_KAFKA_CLIENTS lists it
+# with the reason; the check could not derive that client's topics and groups.
+FOREIGN_GO = ("github.com/IBM/sarama", "github.com/Shopify/sarama", "github.com/segmentio/kafka-go",
+              "github.com/confluentinc/confluent-kafka-go", "github.com/twmb/franz-go")
+FOREIGN_PY = ("confluent_kafka", "aiokafka", "faust", "pykafka")
+FOREIGN_JS = ("node-rdkafka", "@confluentinc/kafka-javascript", "kafka-node", "@platformatic/kafka", "@confluentinc/schemaregistry")
+# (repo-relative path) -> why it may use a client the check does not read.
+FOREIGN_KAFKA_CLIENTS = {}
+
+
+def foreign_kafka_clients(bases=CODE_BASES):
+    found = []
+    for base in bases:
+        for p in base.rglob("*"):
+            if not p.is_file() or "node_modules" in p.parts or "testdata" in p.parts:
+                continue
+            if p.suffix == ".go" and not p.name.endswith("_test.go"):
+                text = p.read_text()
+                hits = [lib for lib in FOREIGN_GO if f'"{lib}' in text]
+            elif p.suffix == ".py":
+                text = p.read_text()
+                hits = [lib for lib in FOREIGN_PY if re.search(rf"^\s*(?:import|from)\s+{lib}\b", text, re.M)]
+            elif p.name == "package.json":
+                deps = json.loads(p.read_text())
+                names = {k for key in ("dependencies", "devDependencies", "optionalDependencies") for k in deps.get(key) or {}}
+                hits = [lib for lib in FOREIGN_JS if lib in names]
+            else:
+                continue
+            if hits and rel(p) not in FOREIGN_KAFKA_CLIENTS:
+                found.append(f"{rel(p)}: uses {', '.join(hits)}, a Kafka client the check cannot read; consume through "
+                             "platform/go/eventing/kafka, kafkajs or kafka-python, or list it in FOREIGN_KAFKA_CLIENTS")
+    return found
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -635,15 +720,46 @@ def ts_eval(expr, file):
     return Unresolved(e)
 
 
-def ts_consumers():
+KAFKAJS_CONSUMER = re.compile(r"\.consumer\(\s*\{\s*groupId:\s*(\w+)\.group\s*,?\s*\}\s*\)")
+SUBSCRIBE_LOOP = re.compile(r"for\s*\(\s*const\s+(\w+)\s+of\s+(\w+)\.topics\s*\)\s*\{?\s*await\s+\w+\.subscribe\("
+                            r"\s*\{\s*(?:topic:\s*(\w+)|(topic))\s*[,}]")
+
+
+def ts_consumers(bases=CODE_BASES):
+    """kafkajs consumers: (service, file, {group, topics, dlqTopic}) and problems.
+
+    Fails closed: in a file that imports kafkajs, every `.consumer(` call must be `.consumer({ groupId: <config>.group })`,
+    every `.subscribe(` must be the loop `for (const t of <config>.topics) await c.subscribe({ topic: t, ... })` over the same
+    config, and the file must return that config object with group and topics.
+    """
     out, problems = [], []
-    for base in (REPO / "services", REPO / "tools"):
-        for d in sorted(p for p in base.iterdir() if (p / "package.json").is_file() and "kafkajs" in (p / "package.json").read_text()):
-            for file in ts_files(d / "src"):
+    for base in bases:
+        for d in sorted(p for p in base.iterdir() if (p / "package.json").is_file()):
+            for file in ts_files(d / "src") if (d / "src").is_dir() else []:
                 text = strip_comments(file.read_text())
-                if "kafkajs" not in text or not re.search(r"\.consumer\(\s*\{\s*groupId", text):
+                if not re.search(r"""from\s+["']kafkajs["']|require\(\s*["']kafkajs["']\s*\)""", text):
                     continue
-                where = file.relative_to(REPO).as_posix()
+                where = rel(file)
+                calls = list(re.finditer(r"\.consumer\(", text))
+                if not calls:
+                    continue
+                configs = set()
+                for c in calls:
+                    m = KAFKAJS_CONSUMER.match(text, c.start())
+                    if not m:
+                        problems.append(f"{where}:{text.count(chr(10), 0, c.start()) + 1}: a kafkajs consumer the check cannot "
+                                        "read; build it as .consumer({ groupId: config.group }) from a config object")
+                    else:
+                        configs.add(m.group(1))
+                loops = {m.group(2) for m in SUBSCRIBE_LOOP.finditer(text) if m.group(1) == (m.group(3) or m.group(4))}
+                for s in re.finditer(r"\.subscribe\(", text):
+                    loop = SUBSCRIBE_LOOP.search(text, max(0, s.start() - 200), s.end() + 200)
+                    if (not loop or not (loop.start() <= s.start() <= loop.end()) or loop.group(2) not in configs
+                            or loop.group(1) != (loop.group(3) or loop.group(4))):
+                        problems.append(f"{where}:{text.count(chr(10), 0, s.start()) + 1}: a subscribe() outside the loop over "
+                                        "the derived config's topics; the KafkaUser would not grant that topic")
+                if not configs or not loops:
+                    continue
                 found = None
                 for m in re.finditer(r"\breturn\s*\{", text):
                     o = text.index("{", m.start())
@@ -659,7 +775,11 @@ def ts_consumers():
                     problems.append(f"{where}: a kafkajs consumer whose config object (group, topics) is not found")
                     continue
                 values = {k: ts_eval(found[k], file) for k in ("group", "topics", "dlqTopic") if k in found}
-                out.append((d.relative_to(REPO).parts[1], where, values))
+                bad = {k: v for k, v in values.items() if isinstance(v, Unresolved)}
+                if bad:
+                    problems.append(f"{where}: cannot work out {bad}")
+                    continue
+                out.append((d.relative_to(base).parts[0], where, values))
     return out, problems
 
 
@@ -705,9 +825,9 @@ def py_split(v):
     return Unresolved(repr(v))
 
 
-def py_consumers():
+def py_consumers(bases=CODE_BASES):
     out, problems = [], []
-    for base in (REPO / "services", REPO / "tools"):
+    for base in bases:
         for file in sorted(base.rglob("*.py")):
             if "tests" in file.parts or file.name.startswith("test_") or "node_modules" in file.parts:
                 continue
@@ -715,7 +835,7 @@ def py_consumers():
             if "KafkaConsumer" not in src:
                 continue
             tree = ast.parse(src)
-            where = file.relative_to(REPO).as_posix()
+            where = rel(file)
             classes = {}
             for cls in [n for n in tree.body if isinstance(n, ast.ClassDef)]:
                 if any(isinstance(n, ast.Call) and ast.unparse(n.func) == "KafkaConsumer" for n in ast.walk(cls)):
@@ -734,7 +854,7 @@ def py_consumers():
                         problems.append(f"{where}:{call.lineno}: {call.func.id} without group and topics")
                         continue
                     values = {k: py_eval(bound[k], fn.body, tree.body) for k in ("group", "topics")}
-                    out.append((file.relative_to(REPO).parts[1], f"{where}:{call.lineno}", values))
+                    out.append((file.relative_to(base).parts[0], f"{where}:{call.lineno}", values))
     return out, problems
 
 
@@ -857,11 +977,63 @@ def app_values(app, src):
 
 
 def acls(user):
-    return {(a["resource"]["type"], a["resource"]["name"], a["resource"].get("patternType", "literal")): set(a["operations"])
+    return {(a["resource"]["type"], a["resource"].get("name", ""), a["resource"].get("patternType", "literal")): set(a["operations"])
             for a in user["spec"]["authorization"]["acls"]}
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+
+def credential_rbac_problems(docs, ns, sa, names):
+    """What lets the copy ServiceAccount ns/sa do anything but `get` the Secrets `names` in kafka: exactly one RoleBinding,
+    in kafka, to a Role whose every rule is get on named Secrets, and no other binding of any kind."""
+    problems = []
+
+    def names_sa(b):
+        return any(s.get("kind") == "ServiceAccount" and s.get("name") == sa
+                   and (s.get("namespace") or b["metadata"].get("namespace")) == ns for s in b.get("subjects") or [])
+    found = [d for d in docs if d.get("kind") in ("RoleBinding", "ClusterRoleBinding") and names_sa(d)]
+    roles = {(d["metadata"].get("namespace"), d["metadata"]["name"]): d for d in docs if d.get("kind") == "Role"}
+    granted = set()
+    for b in found:
+        where = f"{b['kind']} {b['metadata'].get('namespace', '')}/{b['metadata']['name']}"
+        if b["kind"] != "RoleBinding" or b["roleRef"].get("kind") != "Role" or b["metadata"].get("namespace") != "kafka":
+            problems.append(f"{where}: only a RoleBinding in kafka to a Role may name {ns}/{sa}")
+            continue
+        role = roles.get(("kafka", b["roleRef"]["name"]))
+        if role is None:
+            problems.append(f"{where}: no Role kafka/{b['roleRef']['name']} in the repository")
+            continue
+        for rule in role.get("rules") or []:
+            if (rule.get("apiGroups") != [""] or rule.get("resources") != ["secrets"] or rule.get("verbs") != ["get"]
+                    or not rule.get("resourceNames")):
+                problems.append(f"Role kafka/{role['metadata']['name']}: {rule} is not `get` on named Secrets")
+            granted |= set(rule.get("resourceNames") or [])
+    if len(found) != 1:
+        problems.append(f"{len(found)} bindings name {ns}/{sa}; want exactly one")
+    if granted != set(names):
+        problems.append(f"{ns}/{sa} may read {sorted(granted)}; want exactly {sorted(names)}")
+    return problems
+
+
+def prefix_clashes(users):
+    """(owner, prefix, other user, group) for every group of another user that a prefix group grant also covers."""
+    out = []
+    for owner, doc in users.items():
+        for kind, prefix, pattern in acls(doc):
+            if kind != "group" or pattern != "prefix":
+                continue
+            for other, odoc in users.items():
+                if other != owner:
+                    out += [(owner, prefix, other, n) for k, n, _ in acls(odoc) if k == "group" and n.startswith(prefix)]
+    return out
+
+
+def image_user(service):
+    """The last USER of services/<service>/Dockerfile, or None."""
+    f = REPO / "services" / service / "Dockerfile"
+    users = re.findall(r"^USER\s+(\S+)", f.read_text(), re.M) if f.is_file() else []
+    return users[-1] if users else None
+
 
 class KafkaConsumersTest(unittest.TestCase):
     @classmethod
@@ -869,7 +1041,7 @@ class KafkaConsumersTest(unittest.TestCase):
         cls.go, cls.go_dlqs, go_problems = go_consumers()
         ts, ts_problems = ts_consumers()
         py, py_problems = py_consumers()
-        cls.discovery_problems = go_problems + ts_problems + py_problems
+        cls.discovery_problems = go_problems + ts_problems + py_problems + foreign_kafka_clients()
         cls.blocks = chart_blocks()
         cls.apps = argo.applications()
         cls.users, cls.topics_created = {}, set()
@@ -970,6 +1142,17 @@ class KafkaConsumersTest(unittest.TestCase):
         orphans = sorted(u for u, f in self.user_files.items() if f.name.endswith("-consumer.yaml") and u not in claimed)
         self.assertEqual([], orphans, "consumer KafkaUsers no chart names")
 
+    def test_a_prefix_group_grant_covers_no_other_users_group(self):
+        # pricing-consumer's prefix grant pricing-cache- would let it join (and commit offsets for) any other user's group
+        # that starts with it.
+        self.assertEqual([], prefix_clashes(self.users))
+        self.assertIn(("group", "pricing-cache-", "prefix"), acls(self.users["pricing-consumer"]))
+        clash = {"apiVersion": "kafka.strimzi.io/v1beta2", "kind": "KafkaUser", "metadata": {"name": "x-consumer"},
+                 "spec": {"authorization": {"acls": [{"resource": {"type": "group", "name": "pricing-cache-reports",
+                                                                    "patternType": "literal"}, "operations": ["Read"]}]}}}
+        self.assertEqual([("pricing-consumer", "pricing-cache-", "x-consumer", "pricing-cache-reports")],
+                         prefix_clashes({**self.users, "x-consumer": clash}))
+
     def test_chart_values_agree_with_the_code(self):
         for b, e in self.expected.items():
             with self.subTest(block=f"{b.chart.relative_to(REPO)}:{b.dotted}"):
@@ -991,6 +1174,135 @@ class KafkaConsumersTest(unittest.TestCase):
                 self.assertRegex(text, rf"secretName:\s*\{{\{{[^}}]*\.Values\.{re.escape(b.dotted)}\.secret\b")
                 self.assertRegex(text, rf"mountPath:\s*{CREDENTIALS_DIR}\b")
                 self.assertNotRegex(text, r"name:\s*KAFKA_PASSWORD\s*\n", "the password is mounted as a file, not put in the env")
+
+    @unittest.skipUnless(shutil.which("helm"), "helm not on PATH")
+    def test_every_consumer_can_read_its_mounted_credentials(self):
+        # The Secret volume's files are root-owned and 0440: the pod needs an fsGroup (or the user would get "permission
+        # denied" on KAFKA_PASSWORD_FILE and crash), and an image whose USER is a name needs a numeric runAsUser for
+        # runAsNonRoot. Every block is rendered with its consumer on, not only the ones dev turns on.
+        for b in self.blocks:
+            with self.subTest(block=f"{b.chart.relative_to(REPO)}:{b.dotted}"):
+                values = yaml.safe_load((b.chart / "values.yaml").read_text())
+                owner = b.owner(values)
+                owner_path = b.path if owner is b.get(values) else b.path[:-1]
+                sets = {f"{b.dotted}.secret": "kafka-credentials"}
+                sets[(b.dotted if "brokers" in b.data or owner is b.get(values) else ".".join(owner_path)) + ".brokers"] = DEV_BROKERS
+                if "enabled" in owner:
+                    sets[".".join(owner_path) + ".enabled"] = "true"
+                sets.update(RENDER_VALUES.get(b.service, {}))
+                cmd = ["helm", "template", "r", str(b.chart)] + [x for k, v in sets.items() for x in ("--set", f"{k}={v}")]
+                res = subprocess.run(cmd, capture_output=True, text=True)
+                self.assertEqual(0, res.returncode, res.stderr.strip())
+                hits = [(d, c) for d in yaml.safe_load_all(res.stdout) if d for c in argo.pod_containers(d)
+                        if {"name": "KAFKA_USERNAME", "value": b.data["username"]} in (c.get("env") or [])]
+                self.assertEqual(1, len(hits), f"one rendered container runs as {b.data['username']}")
+                workload, container = hits[0]
+                pod = workload["spec"]["template"]["spec"]
+                volumes = {v["name"]: v for v in pod.get("volumes") or []}
+                mounts = [m for m in container.get("volumeMounts") or [] if m["mountPath"] == CREDENTIALS_DIR]
+                self.assertEqual(1, len(mounts), f"the credentials are mounted at {CREDENTIALS_DIR}")
+                self.assertEqual("kafka-credentials", volumes[mounts[0]["name"]]["secret"]["secretName"])
+                sc = pod.get("securityContext") or {}
+                self.assertIsInstance(sc.get("fsGroup"), int, f"{workload['metadata']['name']}: no fsGroup, so the nonroot "
+                                                              "user cannot read the 0440 credentials")
+                user = image_user(b.service)
+                if user and not re.fullmatch(r"\d+(:\d+)?", user):
+                    run_as = (container.get("securityContext") or {}).get("runAsUser", sc.get("runAsUser"))
+                    self.assertIsInstance(run_as, int, f"the image's USER is {user!r}: runAsNonRoot needs a numeric runAsUser")
+
+    # ------------------------------------------------------------------------------------------------------- fail closed
+
+    def write_tree(self, files):
+        root = Path(tempfile.mkdtemp(prefix="kc-"))
+        self.addCleanup(shutil.rmtree, root, True)
+        for name, text in files.items():
+            f = root / name
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text)
+        return root
+
+    GO_CONSUMER = """package main
+
+import (
+\t"github.com/BenjaminSRussell/depot/platform/eventing"
+\t"github.com/BenjaminSRussell/depot/platform/eventing/kafka"
+)
+
+const group = "demo-group"
+const topic = "depot.demo.thing"
+
+func kafkaConfig(getenv func(string) string) (kafka.Config, error) {
+\tcfg, err := kafka.ConfigFromEnv(getenv, group, group, []string{topic})
+\tOVERRIDE
+\treturn cfg, err
+}
+
+func consumerConfig() eventing.Config { return eventing.Config{Name: group, DeadLetterTopic: topic + ".dlq"} }
+
+EXTRA
+"""
+
+    def go_tree(self, override="", extra=""):
+        root = self.write_tree({"demo/cmd/demo/consumer.go": self.GO_CONSUMER.replace("OVERRIDE", override).replace("EXTRA", extra)})
+        return go_consumers([root])
+
+    def test_go_derivation_follows_group_and_topics_set_after_config_from_env(self):
+        consumers, dlqs, problems = self.go_tree()
+        self.assertEqual([], problems)
+        self.assertEqual([({"demo-group"}, {"depot.demo.thing"})], [(c.groups, c.topics) for c in consumers])
+        self.assertEqual([("demo-group", {"depot.demo.thing.dlq"})], [(d.name, d.dlqs) for d in dlqs])
+        consumers, _, problems = self.go_tree('cfg.Group = "demo-group-v2"\n\tcfg.Topics = []string{topic, "depot.demo.other"}')
+        self.assertEqual([], problems)
+        self.assertEqual([({"demo-group-v2"}, {"depot.demo.thing", "depot.demo.other"})], [(c.groups, c.topics) for c in consumers])
+
+    def test_go_derivation_fails_closed(self):
+        _, _, problems = self.go_tree("cfg.Topics = append(cfg.Topics, os.Getenv(\"EXTRA_TOPIC\"))")
+        self.assertTrue(any("cannot work out the topics" in p for p in problems), problems)
+        _, _, problems = self.go_tree(extra='func later(c kafka.Config) kafka.Config {\n\tc.Group = "elsewhere"\n\treturn c\n}')
+        self.assertTrue(any("sets .Group where no ConfigFromEnv" in p for p in problems), problems)
+        _, _, problems = self.go_tree(extra='var raw = kafka.Config{Group: "raw", Topics: []string{"depot.raw"}}')
+        self.assertTrue(any("kafka.Config literal" in p for p in problems), problems)
+
+    TS_CONSUMER = """import { Kafka } from "kafkajs";
+export function configFromEnv(env: Record<string, string | undefined>) {
+  return { group: env.KAFKA_GROUP || "demo", topics: ["depot.demo.thing"], dlqTopic: "depot.demo.dlq" };
+}
+export async function start(config: { group: string; topics: string[] }) {
+  const kafka = new Kafka({ clientId: "demo", brokers: [] });
+  const consumer = kafka.consumer({ groupId: config.group });
+  for (const topic of config.topics) {
+    await consumer.subscribe({ topic, fromBeginning: false });
+  }
+  EXTRA
+}
+"""
+
+    def ts_tree(self, extra=""):
+        root = self.write_tree({"demo-ts/package.json": '{"dependencies": {"kafkajs": "2.2.4"}}',
+                                "demo-ts/src/consumer.ts": self.TS_CONSUMER.replace("EXTRA", extra)})
+        return ts_consumers([root])
+
+    def test_ts_derivation_fails_closed(self):
+        found, problems = self.ts_tree()
+        self.assertEqual([], problems)
+        self.assertEqual([("demo-ts", ("depot.demo.thing",))], [(svc, v["topics"]) for svc, _, v in found])
+        _, problems = self.ts_tree('await consumer.subscribe({ topic: "depot.sales.order" });')
+        self.assertTrue(any("subscribe() outside the loop" in p for p in problems), problems)
+        _, problems = self.ts_tree("const opts = { groupId: config.group };\n  const other = kafka.consumer(opts);")
+        self.assertTrue(any("kafkajs consumer the check cannot read" in p for p in problems), problems)
+
+    def test_other_kafka_clients_are_reported(self):
+        self.assertEqual([], foreign_kafka_clients())
+        root = self.write_tree({
+            "a/main.go": 'package main\n\nimport kafka "github.com/segmentio/kafka-go"\n\nvar _ = kafka.Reader{}\n',
+            "b/app.py": "import aiokafka\n",
+            "c/package.json": '{"dependencies": {"node-rdkafka": "3.0.0"}}',
+            "d/ok.py": "from kafka import KafkaProducer\n",
+        })
+        problems = foreign_kafka_clients([root])
+        self.assertEqual(3, len(problems), problems)
+        for name in ("a/main.go", "b/app.py", "c/package.json"):
+            self.assertTrue(any(name in p for p in problems), (name, problems))
 
     # -------------------------------------------------------------------------------------------------------------- dev
 
@@ -1030,8 +1342,6 @@ class KafkaConsumersTest(unittest.TestCase):
                 ns = d["metadata"].get("namespace") or app["spec"]["destination"]["namespace"]
                 written[(ns, (d["spec"].get("target") or {}).get("name") or d["metadata"]["name"])] = d
         stores = {(d["metadata"]["namespace"], d["metadata"]["name"]): d for _, d in docs if d["kind"] == "SecretStore"}
-        roles = {(d["metadata"]["namespace"], d["metadata"]["name"]): d for _, d in docs if d["kind"] == "Role"}
-        bindings_ = [d for _, d in docs if d["kind"] == "RoleBinding"]
         connect = argo.load_docs(DEPLOY / "kafka/connect.yaml")
         (debezium,) = [d for d in connect if d["kind"] == "KafkaUser" and d["metadata"]["name"] == "debezium"]
         relay = [a["resource"] for a in debezium["spec"]["authorization"]["acls"]
@@ -1048,6 +1358,10 @@ class KafkaConsumersTest(unittest.TestCase):
             with self.subTest(user=user):
                 e = self.expected[b]
                 self.assertEqual([], sorted(t for t in e.topics if not relayed(t)), "topics no outbox connector relays")
+                # A relay creates a topic only with its first event and auto-creation is off; a consumer that subscribes
+                # before then finds no topic.
+                self.assertEqual([], sorted(t for t in e.topics if t not in self.topics_created),
+                                 "source topics no synced KafkaTopic declares")
                 self.assertEqual(DEV_BROKERS, node.get("brokers") or owner.get("brokers"), "the SCRAM-SHA-512 TLS listener")
                 self.assertEqual(user, node["username"])
                 for k, v in node.items():
@@ -1072,18 +1386,41 @@ class KafkaConsumersTest(unittest.TestCase):
                 self.assertIsNotNone(store, f"no SecretStore {ns}/{ref['name']}")
                 k8s = store["spec"]["provider"]["kubernetes"]
                 self.assertEqual("kafka", k8s["remoteNamespace"])
-                sa = k8s["auth"]["serviceAccount"]["name"]
-                granted = set()
-                for rb in bindings_:
-                    if any(s.get("kind") == "ServiceAccount" and s["name"] == sa and s.get("namespace") == ns for s in rb["subjects"]):
-                        role = roles[(rb["metadata"]["namespace"], rb["roleRef"]["name"])]
-                        self.assertEqual("kafka", rb["metadata"]["namespace"])
-                        granted |= {n for rule in role["rules"] if rule["verbs"] == ["get"] for n in rule.get("resourceNames", [])}
-                        self.assertTrue(all(r["resources"] == ["secrets"] and r["verbs"] == ["get"] for r in role["rules"]))
-                self.assertLessEqual({user, CLUSTER_CA_SECRET}, granted, f"the kafka-users store may not read {user}")
-                readers |= granted
+                readers.add((ns, k8s["auth"]["serviceAccount"]["name"]))
         on = {b.data["username"] for b, _, _, v in self.dev_blocks() if self.enabled(b, v)}
-        self.assertEqual(on | {CLUSTER_CA_SECRET}, readers, "the store reads exactly the users of the consumers that are on")
+        self.assertTrue(readers)
+        plain = [d for _, d in docs]
+        for ns, sa in sorted(readers):
+            self.assertEqual([], credential_rbac_problems(plain, ns, sa, on | {CLUSTER_CA_SECRET}),
+                             "the copy store may only get the users of the consumers that are on and the cluster CA")
+
+    def test_the_credential_copy_rbac_check_fails_on_wider_grants(self):
+        # Mutations of the committed RBAC that must each fail credential_rbac_problems.
+        docs = [d for _, _, files, _ in argo.directory_sources(self.apps, "dev") for f in files for d in argo.load_docs(f)]
+        (store,) = [d for d in docs if d["kind"] == "SecretStore" and d["metadata"]["name"] == "kafka-users"]
+        ns, sa = store["metadata"]["namespace"], store["spec"]["provider"]["kubernetes"]["auth"]["serviceAccount"]["name"]
+        (role,) = [d for d in docs if d["kind"] == "Role" and d["metadata"]["name"] == "depot-read-kafka-consumer-credentials"]
+        names = set(role["rules"][0]["resourceNames"])
+        self.assertEqual([], credential_rbac_problems(docs, ns, sa, names))
+        subject = [{"kind": "ServiceAccount", "name": sa, "namespace": ns}]
+
+        def with_rule(rule):
+            r = json.loads(json.dumps(role))
+            r["rules"].append(rule)
+            return [d for d in docs if d is not role] + [r]
+        mutations = {
+            "unnamed get": with_rule({"apiGroups": [""], "resources": ["secrets"], "verbs": ["get"]}),
+            "list": with_rule({"apiGroups": [""], "resources": ["secrets"], "verbs": ["get", "list"], "resourceNames": ["x"]}),
+            "watch": with_rule({"apiGroups": [""], "resources": ["secrets"], "verbs": ["watch"], "resourceNames": ["x"]}),
+            "configmaps": with_rule({"apiGroups": [""], "resources": ["configmaps"], "verbs": ["get"], "resourceNames": ["x"]}),
+            "cluster binding": docs + [{"kind": "ClusterRoleBinding", "metadata": {"name": "wide"}, "subjects": subject,
+                                        "roleRef": {"kind": "ClusterRole", "name": "view"}}],
+            "second binding": docs + [{"kind": "RoleBinding", "metadata": {"name": "more", "namespace": "hello-ledger"},
+                                       "subjects": subject, "roleRef": {"kind": "ClusterRole", "name": "edit"}}],
+        }
+        for name, mutated in mutations.items():
+            with self.subTest(mutation=name):
+                self.assertNotEqual([], credential_rbac_problems(mutated, ns, sa, names))
 
     @unittest.skipUnless(shutil.which("helm"), "helm not on PATH")
     def test_dev_consumers_that_are_on_render_with_secrets_dev_provides(self):

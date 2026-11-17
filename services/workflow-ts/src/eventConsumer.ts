@@ -19,6 +19,7 @@ import {
   type TenderOutcomeEvent,
 } from "./tenderTriggers.js";
 import { handlePlanSubmitted, planSubmittedType, type PlanSubmittedEvent } from "./budgetPlanTriggers.js";
+import { startInBackground, type BackgroundStartOptions, type BackgroundStarted } from "./backgroundStart.js";
 
 /** Topics of transport's outbox (platform/go/events.Topic): depot.<context>.<entity>. */
 export const TENDER_TOPICS = ["depot.tms.load", "depot.tms.tender"] as const;
@@ -170,11 +171,6 @@ export async function startEventConsumer(
   });
   const producer: Producer = kafka.producer();
   const consumer: Consumer = kafka.consumer({ groupId: config.group });
-  await producer.connect();
-  await consumer.connect();
-  for (const topic of config.topics) {
-    await consumer.subscribe({ topic, fromBeginning: false });
-  }
   const handle = createEventHandler({
     client,
     taskQueue,
@@ -184,15 +180,50 @@ export async function startEventConsumer(
       await producer.send({ topic: record.topic, messages: [{ key: record.key, value: record.value, headers: record.headers }] });
     },
   });
-  await consumer.run({
-    eachMessage: async ({ topic, partition, message }) => {
-      await handle({ topic, partition, offset: message.offset, key: message.key, value: message.value });
-    },
-  });
+  try {
+    await producer.connect();
+    await consumer.connect();
+    for (const topic of config.topics) {
+      await consumer.subscribe({ topic, fromBeginning: false });
+    }
+    await consumer.run({
+      eachMessage: async ({ topic, partition, message }) => {
+        await handle({ topic, partition, offset: message.offset, key: message.key, value: message.value });
+      },
+    });
+  } catch (err) {
+    // A source topic Debezium has not created yet, or a broker that is down: let go of the connections before the caller retries.
+    await Promise.allSettled([consumer.disconnect(), producer.disconnect()]);
+    throw err;
+  }
   return {
     async stop() {
       await consumer.disconnect();
       await producer.disconnect();
     },
   };
+}
+
+/**
+ * Starts the consumer without holding up or failing the worker (D34): a failure to connect or subscribe, such as a source
+ * topic that does not exist yet (topic auto-creation is off and Debezium creates a topic with its first event) or a broker
+ * that is down, is logged and retried with backoff, 5 s doubling to 2 min, while the worker keeps serving every other
+ * workflow. stop() ends the retries and stops the consumer once it runs.
+ */
+export function startEventConsumerInBackground(
+  config: EventConsumerConfig,
+  client: Pick<Client, "workflow">,
+  taskQueue: string,
+  warn?: (message: string, attributes: Record<string, string>) => void,
+  options: BackgroundStartOptions = {},
+): BackgroundStarted {
+  return startInBackground(() => startEventConsumer(config, client, taskQueue, warn), {
+    onError: (err, retryInMs) =>
+      warn?.("event consumer not started; retrying", {
+        error: err instanceof Error ? err.message : String(err),
+        retryInMs: String(retryInMs),
+        topics: config.topics.join(","),
+      }),
+    ...options,
+  });
 }

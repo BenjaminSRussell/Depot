@@ -18,8 +18,12 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
+        # The image's node user (Dockerfile `USER node`), numeric so the kubelet can check runAsNonRoot.
+        runAsUser: 1000
+        runAsGroup: 1000
         {{- if or .Values.serviceIdentity.signingKeySecret .Values.kafka.secret }}
-        fsGroup: 65532
+        # Mounted secrets are 0440: the node user reads them through this group.
+        fsGroup: 1000
         {{- end }}
         seccompProfile:
           type: RuntimeDefault

@@ -1,11 +1,10 @@
-# workflow in dev: the tender and budget plan trigger is on (D34, B-05b). The worker consumes transport's depot.tms.load and
-# depot.tms.tender and budgeting's depot.budget.plan (outbox-transport and outbox-budgeting in deploy/kafka/connect.yaml
-# relay them) as the KafkaUser workflow-ts-consumer, over the SCRAM-SHA-512 TLS listener. Its credentials Secret is the copy
-# deploy/envs/dev/kafka-consumer-credentials writes; until it exists the worker pod waits for the volume. With the
-# consumer on, a worker that cannot reach Kafka at start exits and is restarted (src/worker.ts).
-kafka:
-  brokers: depot-kafka-bootstrap.kafka.svc:9093
-  secret: workflow-ts-consumer-kafka
-# tenderWorkflow's activities call transport (the chart default names a `depot` namespace that dev does not have); transport
-# runs in dev with its database, and its ingress policy admits the workflow pods.
+# workflow in dev. The tender and budget plan trigger (kafka.*, KafkaUser workflow-ts-consumer) stays off: dev gives the worker
+# no serviceIdentity.signingKeySecret, so it registers no activities and every tenderWorkflow or budgetPlanWorkflow the trigger
+# started would stall, and budgeting has no dev database to record a plan decision in (deploy/scripts/test_kafka_consumers.py,
+# DEV_OFF). To turn it on: a signing key, then kafka.brokers depot-kafka-bootstrap.kafka.svc:9093 and kafka.secret
+# workflow-ts-consumer-kafka with its copy in deploy/envs/dev/kafka-consumer-credentials (deploy/kafka/README.md).
+#
+# The activities call transport and budgeting, which dev releases in hello-ledger (the chart defaults name a `depot`
+# namespace that dev does not have); both services' ingress policies admit the workflow pods.
 transportUrl: http://transport.hello-ledger.svc:8080
+budgetingUrl: http://budgeting.hello-ledger.svc:8080

@@ -195,11 +195,6 @@ export async function startConsumer(
   });
   const producer: Producer = kafka.producer();
   const consumer: Consumer = kafka.consumer({ groupId: config.group });
-  await producer.connect();
-  await consumer.connect();
-  for (const topic of config.topics) {
-    await consumer.subscribe({ topic, fromBeginning: false });
-  }
   const handle = createMessageHandler({
     store,
     dlqTopic: config.dlqTopic,
@@ -212,11 +207,22 @@ export async function startConsumer(
       });
     },
   });
-  await consumer.run({
-    eachMessage: async ({ topic, partition, message }) => {
-      await handle({ topic, partition, offset: message.offset, key: message.key, value: message.value });
-    },
-  });
+  try {
+    await producer.connect();
+    await consumer.connect();
+    for (const topic of config.topics) {
+      await consumer.subscribe({ topic, fromBeginning: false });
+    }
+    await consumer.run({
+      eachMessage: async ({ topic, partition, message }) => {
+        await handle({ topic, partition, offset: message.offset, key: message.key, value: message.value });
+      },
+    });
+  } catch (err) {
+    // A topic Debezium has not created yet, or a broker that is down: let go of the connections before the caller retries.
+    await Promise.allSettled([consumer.disconnect(), producer.disconnect()]);
+    throw err;
+  }
   return {
     async stop() {
       await consumer.disconnect();

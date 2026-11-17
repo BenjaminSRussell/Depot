@@ -148,8 +148,14 @@ def main(argv=None):
             event = {"specversion": "1.0", "id": str(uuid.uuid4()), "source": "/deploy/scripts/smoke_consumers",
                      "type": "dev.depot.smoke.ping.v1", "time": datetime.now(timezone.utc).isoformat(),
                      "datacontenttype": "application/json", "data": {"consumer": user}}
-            kube.sh(f"bin/kafka-console-producer.sh --bootstrap-server {BOOTSTRAP} --producer.config /tmp/client.properties "
-                    f"--topic {topic}", stdin=json.dumps(event) + "\n")
+            try:
+                kube.sh(f"bin/kafka-console-producer.sh --bootstrap-server {BOOTSTRAP} --producer.config /tmp/client.properties "
+                        f"--topic {topic}", stdin=json.dumps(event) + "\n")
+            except RuntimeError as err:
+                # A topic that does not exist yet or a refused write fails this row only; the others still run.
+                print(f"FAIL {user}: group {group} on {topic}: could not produce: {err}")
+                failed.append((user, group, topic))
+                continue
             deadline = time.time() + args.timeout
             while time.time() < deadline and committed(kube, group, topic) <= before:
                 time.sleep(5)

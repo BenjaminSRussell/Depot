@@ -8,6 +8,7 @@ import pg from "pg";
 import { FieldKeys } from "./crypt.ts";
 import { CoexistenceStore, CoexistenceSweeper, coexistenceRecorder } from "./coexistence.ts";
 import { consumerConfigFromEnv, startConsumer, type RunningConsumer } from "./consumer.ts";
+import { startInBackground } from "./backgroundStart.ts";
 import { httpTransport } from "./dispatcher.ts";
 import { httpMigrationClient } from "./migrationClient.ts";
 import { Maintenance, usageRetentionDaysFromEnv } from "./maintenance.ts";
@@ -103,10 +104,15 @@ const coexistence = new CoexistenceSweeper({
 });
 coexistence.start(Number(env["HUB_COEXISTENCE_INTERVAL_MS"] ?? 15_000));
 
+// The consumer starts in the background and retries (5 s doubling to 2 min) until its topics exist and the brokers answer,
+// so a topic Debezium has not created yet never stops the API and the poller (D34).
 let consumer: RunningConsumer | null = null;
 const consumerConfig = consumerConfigFromEnv(env);
 if (consumerConfig !== null) {
-  consumer = await startConsumer(consumerConfig, store, metrics, coexistenceRecorder(coexistenceStore, metrics));
+  consumer = startInBackground(() => startConsumer(consumerConfig, store, metrics, coexistenceRecorder(coexistenceStore, metrics)), {
+    onError: (err, retryInMs) =>
+      logLine({ level: "warn", msg: "kafka consumer not started; retrying", error: (err as Error).message, retryInMs, topics: consumerConfig.topics.join(",") }),
+  });
 }
 
 const shutdown = async () => {

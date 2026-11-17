@@ -60,6 +60,8 @@ serviceMonitor:
   interval: 30s
 
 podSecurityContext:
+  # Group of the 0440 Kafka credentials and other mounted Secrets, for the nonroot user (D34).
+  fsGroup: 65532
   runAsNonRoot: true
   seccompProfile:
     type: RuntimeDefault
