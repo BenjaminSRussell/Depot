@@ -37,20 +37,19 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"unicode/utf8"
 
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/BenjaminSRussell/depot/platform/dbx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tracectx"
 )
 
 const (
@@ -127,9 +126,6 @@ func WithCause(ctx context.Context, c Cause) context.Context {
 	return context.WithValue(ctx, causeKey, c)
 }
 
-// traceparent is the W3C header: version-traceid-parentid-flags; the trace id is 32 lowercase hex digits, not all zero.
-var traceparent = regexp.MustCompile(`^[0-9a-f]{2}-([0-9a-f]{32})-[0-9a-f]{16}-[0-9a-f]{2}$`)
-
 // Capture puts the X-Depot-Reason header and the trace id of a traceparent header into the request context.
 // httpx.NewRouter mounts it after the request id.
 func Capture(next http.Handler) http.Handler {
@@ -138,8 +134,8 @@ func Capture(next http.Handler) http.Handler {
 		if reason := r.Header.Get(HeaderReason); reason != "" {
 			ctx = WithReason(ctx, reason)
 		}
-		if m := traceparent.FindStringSubmatch(strings.TrimSpace(r.Header.Get("traceparent"))); m != nil && strings.Trim(m[1], "0") != "" {
-			ctx = WithTrace(ctx, m[1])
+		if span, ok := tracectx.Parse(r.Header.Get(tracectx.Header)); ok {
+			ctx = WithTrace(ctx, span.TraceID)
 		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -170,7 +166,7 @@ func From(ctx context.Context) (Message, error) {
 	if t, _ := ctx.Value(traceKey).(string); t != "" {
 		m.TraceID = t
 	} else {
-		m.TraceID = clean(middleware.GetReqID(ctx), MaxRef)
+		m.TraceID = clean(tracectx.TraceID(ctx), MaxRef)
 	}
 	if c, ok := ctx.Value(causeKey).(Cause); ok {
 		m.EventType, m.EventID, m.WorkflowInstanceID = c.EventType, c.EventID, c.WorkflowInstanceID

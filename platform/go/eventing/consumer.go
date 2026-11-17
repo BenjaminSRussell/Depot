@@ -15,6 +15,7 @@ import (
 
 	"github.com/BenjaminSRussell/depot/platform/events"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tracectx"
 )
 
 const (
@@ -175,7 +176,12 @@ func (c *Consumer) process(ctx context.Context, rec Record) error {
 		log.ErrorContext(ctx, "service principal refused; event dead-lettered", "err", err)
 		return c.park(ctx, rec, reasonPermanent, err)
 	}
-	actorCtx := tenant.With(ctx, actor)
+	span := tracectx.NewRoot()
+	if parent, ok := tracectx.Parse(evt.Traceparent); ok {
+		span = parent.Child()
+	}
+	log = log.With("traceId", span.TraceID)
+	actorCtx := tenant.With(tracectx.With(ctx, span), actor)
 	for attempt := 1; ; attempt++ {
 		started := time.Now()
 		applied, err := c.apply(actorCtx, handler, evt)
