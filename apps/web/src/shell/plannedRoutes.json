@@ -1,0 +1,9 @@
+[
+  { "path": "/admin/audit", "issue": "B-23", "slice": 3, "date": "2027-06-30", "reason": "The audit page is built in slice 3." },
+  { "path": "/admin/alerts", "issue": "B-35", "slice": 17, "date": "2027-12-31", "reason": "The alerts page is built in slice 17." },
+  { "path": "/admin/documents", "issue": "B-35", "slice": 17, "date": "2027-12-31", "reason": "The documents page is built in slice 17." },
+  { "path": "/admin/texts", "issue": "B-35", "slice": 17, "date": "2027-12-31", "reason": "The standard texts page is built in slice 17." },
+  { "path": "/workflow/designer", "issue": "B-34", "slice": 16, "date": "2027-12-31", "reason": "The workflow designer is built in slice 16." },
+  { "path": "/workflow/templates", "issue": "B-34", "slice": 16, "date": "2027-12-31", "reason": "The message templates page is built in slice 16." },
+  { "path": "/workflow/jobs", "issue": "B-34", "slice": 16, "date": "2027-12-31", "reason": "The job monitor is built in slice 16." }
+]

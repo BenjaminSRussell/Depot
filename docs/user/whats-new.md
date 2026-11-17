@@ -2,6 +2,12 @@
 
 Changes to Depot in plain language, newest first. Add an entry here for every change a user will notice. The "What's new" page in the app shows this file.
 
+## 2026-11-17
+
+- **Sequences** under **Admin** now lists how your documents are numbered, for each legal entity. It is read-only for now.
+- **Import** under **Admin** opens the same step as the setup guide, where you check a file of vendors, customers or products and start the import.
+- Pages that are not built yet no longer appear in the menus, and no page shows made-up rows. If you open one by its address, it says it isn't available yet.
+
 ## 2026-11-10
 
 - The PDF of a purchase order, invoice or packing slip now shows the vendor's or customer's address, prints names in Polish, Czech, Greek, Cyrillic and other European alphabets, numbers every page and repeats the table header on each page.

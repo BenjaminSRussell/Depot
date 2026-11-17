@@ -22,7 +22,7 @@ function jwt(claims: Record<string, unknown>): string {
   return `${encode({ alg: "RS256", kid: "k" })}.${encode(claims)}.signature`;
 }
 
-const ADMIN_DUTIES = "audit.read,numbering.write,identity.user.maintain,identity.effective-permission.view,identity.security-role.maintain,identity.legal-entity.maintain";
+const ADMIN_DUTIES = "audit.read,numbering.read,numbering.write,identity.user.maintain,identity.effective-permission.view,identity.security-role.maintain,identity.legal-entity.maintain";
 const CLERK_DUTIES = "receiving.receipt.maintain,ledger.journal.read";
 
 function tokenFor(sub: string, duties: string): string {
@@ -229,7 +229,7 @@ function navLink(label: string) {
 }
 
 describe("admin navigation follows the token's duties", () => {
-  const gated = ["Audit log", "Sequences", "Alerts", "Check what a user can do", "Assign roles", "Company access", "Users", "Roles"];
+  const gated = ["Sequences", "Check what a user can do", "Assign roles", "Company access", "Users", "Roles"];
 
   it("renders every duty-gated admin entry for an admin token", () => {
     adminNavAs(sessionFrom({ access_token: tokenFor("admin", ADMIN_DUTIES), expires_in: 300 }, 0).duties);

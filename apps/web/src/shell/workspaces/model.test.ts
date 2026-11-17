@@ -19,7 +19,7 @@ const modules: DepotModule[] = [
     title: "Admin",
     routes: [],
     nav: [
-      { label: "Audit", to: "/admin/audit" },
+      { label: "Import", to: "/admin/import" },
       { label: "Sequences", to: "/admin/sequences" },
       { label: "Brand new screen", to: "/admin/brand-new" },
     ],
@@ -29,26 +29,26 @@ const { areas } = loadWorkspaceConfig();
 
 describe("resolveNavEntries", () => {
   it("applies the task label and decision, and keeps unclassified entries reachable under Other", () => {
-    const [audit, sequences, unknown] = resolveNavEntries(modules, areas);
-    expect(audit).toMatchObject({ label: "Audit log", originalLabel: "Audit", decision: "keep", area: "administration", areaLabel: "Administration" });
+    const [imported, sequences, unknown] = resolveNavEntries(modules, areas);
+    expect(imported).toMatchObject({ label: "Import data", originalLabel: "Import", decision: "keep", area: "administration", areaLabel: "Administration" });
     expect(sequences).toMatchObject({ label: "Sequences", decision: "advanced" });
     expect(unknown).toMatchObject({ label: "Brand new screen", decision: "keep", area: OTHER_AREA_ID, areaLabel: "Other" });
   });
 
   it("marks entries that need a duty as gated", () => {
-    const [entry] = resolveNavEntries([{ ...modules[0], nav: [{ label: "Audit", to: "/admin/audit", duty: "audit.read" }] }], areas);
+    const [entry] = resolveNavEntries([{ ...modules[0], nav: [{ label: "Import", to: "/admin/import", duty: "migration.run" }] }], areas);
     expect(entry.gated).toBe(true);
   });
 });
 
 describe("matchesQuery", () => {
-  const [audit] = resolveNavEntries(modules, areas);
+  const [imported] = resolveNavEntries(modules, areas);
 
   it("matches the task label, the original screen name, the module and the business area", () => {
-    for (const query of ["audit log", "Audit", "admin", "administration", "  "]) {
-      expect(matchesQuery(audit, query), query).toBe(true);
+    for (const query of ["import data", "Import", "admin", "administration", "  "]) {
+      expect(matchesQuery(imported, query), query).toBe(true);
     }
-    expect(matchesQuery(audit, "finance")).toBe(false);
+    expect(matchesQuery(imported, "finance")).toBe(false);
   });
 });
 
@@ -56,14 +56,14 @@ describe("groupByArea", () => {
   it("splits kept entries from advanced ones and drops empty areas", () => {
     const groups = groupByArea(resolveNavEntries(modules, areas), areas);
     expect(groups.map((g) => g.area.id)).toEqual(["administration", OTHER_AREA_ID]);
-    expect(groups[0].main.map((e) => e.to)).toEqual(["/admin/audit"]);
+    expect(groups[0].main.map((e) => e.to)).toEqual(["/admin/import"]);
     expect(groups[0].advanced.map((e) => e.to)).toEqual(["/admin/sequences"]);
   });
 });
 
 describe("loadWorkspaceConfig tenant override", () => {
   const replacement = { id: "buyer", label: "Purchasing desk", persona: "Buyer", description: "Custom.", entries: ["/purchasing/purchase-orders"] };
-  const extra = { id: "custom", label: "Custom", persona: "Custom role", description: "Added by a tenant.", entries: ["/admin/audit"] };
+  const extra = { id: "custom", label: "Custom", persona: "Custom role", description: "Added by a tenant.", entries: ["/admin/import"] };
   const shipped = loadWorkspaceConfig();
 
   function rejected(override: unknown) {
@@ -104,7 +104,7 @@ describe("loadWorkspaceConfig tenant override", () => {
     const merged = loadWorkspaceConfig({ workspaces: [extra] });
     const resolved = resolveWorkspaces(merged, resolveNavEntries(modules, areas));
     expect(resolved.map((w) => w.id)).toEqual(expect.arrayContaining(["custom", "tenant-admin"]));
-    expect(resolved.find((w) => w.id === "custom")?.entries.map((e) => e.to)).toEqual(["/admin/audit"]);
+    expect(resolved.find((w) => w.id === "custom")?.entries.map((e) => e.to)).toEqual(["/admin/import"]);
   });
 });
 
