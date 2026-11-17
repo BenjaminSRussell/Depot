@@ -226,3 +226,118 @@ Environment: `PATH+=/usr/local/go/bin:/root/go/bin:/root/.local/bin`, local PG16
 | `helm template` audit chart, defaults | Renders 3 resources; `kubeconform -strict`: 3 valid |
 | `helm template` with consumer and chainNightly enabled (brokers, secret, one tenant) | Renders 5 resources; `kubeconform -strict`: 5 valid, 0 invalid. `helm lint`: 0 failed. |
 | `helm template` with chainNightly enabled and no tenants, and with the consumer but no brokers | Fails with the intended `fail`/`required` messages |
+
+---
+
+# Re-review of the fix commit 59409863 (on top of d7c7723d)
+
+## Verdict: CHANGES REQUIRED
+
+Eleven of the twelve findings are fixed correctly, and #2 is resolved as a documented risk. The fix for #6 opens a new Blocker (N1): the SECURITY DEFINER function `audit_anchor_record` does not put `pg_temp` in its search_path. As a result, `depot_app` can run arbitrary SQL as the function owner and plant fabricated anchors. I reproduced both on the local database.
+
+## Outcome per finding
+
+1. **Forged depot.ctx: fixed (two Nits, N3 and N4).**
+   - Domain separation holds. Detached signatures sign `"depot.audit-ctx.v1." || msg`; service tokens sign `"depot.service-token.v1." || body`. Neither prefix is a prefix of the other, and the key signs nothing else (the only other `ed25519.Sign` is the token path).
+   - The signature covers tenant, txid and the exact body bytes, newline-separated. None of the three can contain a newline, so the encoding is unambiguous. The body also carries the tenant, and `Verify` takes the tenant from the parsed body.
+   - The issuer is bound to the source database: `Verify` requires `env.Iss == source`, where `source` is the table registry's owning service, and looks up the key by that issuer. Party runs with `DEPOT_SERVICE_NAME=party`.
+   - The txid check compares the low 32 bits of `txid_current()` (epoch-extended) with Debezium's 32-bit BEGIN xid. That is correct, and `txid_current()` returns the top-level xid even inside a savepoint. A signed envelope copied into another transaction therefore fails, unless the low 32 bits repeat inside the 1-hour window, which is not practical.
+   - When party has no key, `Emit` writes the message unsigned and logs once. The consumer records the change as `system` with flag `unattributed-bad-signature`, and the business change still goes through.
+   - When the consumer has no verifier, `Verifier` stays a nil interface and every message is rejected with `ErrNoVerifierKeys`.
+   - Tests cover the forged, no-keys, wrong-issuer and other-transaction cases.
+2. **Mixed-version or rollback fork: resolved as a documented risk.** README §"Rollout, and no rollback past B-07a", the runbook's "First: was it a fork…" section, and the new `fork` break kind (the row recomputes and links to one of the last 10,000 hashes) together let operators tell a fork from tampering. The §7.18 expand/contract rule is still bent, but that is now stated plainly. Accepted.
+3. **Stale context on xid reuse: fixed.**
+   - The join now requires `committed_at` within ±1 h of the change's source commit time. Debezium stamps the message and the changes with the same commit `ts_ms`.
+   - Rows from before 0011 get `-infinity`, so they never join.
+   - The consumer purges expired contexts itself, at most once an hour per tenant, inside the context's inbox transaction.
+   - The DLQ replay limits are documented.
+   - The reasoning about the window is sound: reusing a low-32 xid within an hour would take more than 1.2 million transactions per second.
+4. **Legacy "|" ambiguity: fixed.** Such rows are counted as `knownBreaks.legacyAmbiguous`, which covers every field of the legacy payload except the time.
+5. **Scope and cost of `:verify`: fixed, with a new Minor (N2).**
+   - `tenantWide` requires `LegalEntityScopes(p)=="*"` (no `le` claim, the all-scope duty and the ALL header on a GET) or `dbx.TenantWide(p, "audit.verify")`. Anyone else gets 403 AUD-0009.
+   - A request walks at most 100,000 rows. The response carries `complete`, `nextFromSeq` and `startPrevHash`.
+6. **Planted anchors: not fixed, and a regression.** See N1.
+7. **Connector on, consumer off: fixed.**
+   - The connector has `state: stopped`, which Strimzi 0.46 supports.
+   - The topic is declared as a KafkaTopic with 30-day retention.
+   - The heartbeat query is a non-transactional logical message, and the heartbeat topic is routed into the audit topic, where the decoder skips it (`op` empty, so ignored).
+   - Nit N5: I have not verified that a heartbeat whose prefix is filtered out actually advances the slot.
+8. **Sealed columns: fixed.**
+   - The wording is corrected.
+   - The CDC role now gets column-level SELECT without `*_sealed`.
+   - I checked the upgrade both ways on the local database, with a renamed role and per-schema copies. On the old-0021 path (table-wide SELECT, sealed readable) followed by 0022, the role ends with no table SELECT, `account_holder` readable, and both sealed columns unreadable. On the fresh path, the new 0021 plus 0022 gives the same result. Both migrations re-run cleanly, and REPLICA IDENTITY stays FULL.
+   - Editing the merged 0021 is safe: `dbx.Migrate` keeps no checksums, and 0022 converges the old state.
+9. **Client-supplied trace id: fixed.** It is documented as client input.
+10. **`dlqTopic` unused: fixed.** It is wired through `AUDIT_CDC_DLQ_TOPIC`.
+11. **One-partition invariant: fixed.** There is a KafkaTopic with `partitions: 1`, and test_argocd_apps checks it.
+12. **No lock timeout in 0021: fixed.** 0021 now sets `lock_timeout`.
+
+## New findings
+
+### N1. Blocker: `audit_anchor_record` can be hijacked through pg_temp, from depot_app up to the table owner
+
+**Where:** `services/audit/migrations/0011_cdc_review_fixes.sql:31` (`SECURITY DEFINER SET search_path FROM CURRENT`).
+
+**Cause.**
+- `FROM CURRENT` captured `search_path=<schema>` without `pg_temp`.
+- When `pg_temp` is not listed, PostgreSQL searches it first for relations.
+- The function refers to `audit_entry` and `audit_anchor` without a schema.
+- `depot_app` holds EXECUTE on the function, and like PUBLIC it can create temp tables, views and functions.
+
+**Reproduced on local PG16**, with audit migrations 0001–0012 applied into schema `demo` by root and the calls made as `depot_app`:
+1. `create temp table audit_entry(tenant_id, seq, hash)` holding seq 424242 and hash `ffff…`, then `select demo.audit_anchor_record(today, 424242, …)`. It returned `t`, and `demo.audit_anchor` gained an anchor for a seq that does not exist, with hash `ffff…` and `verified=t`. No real `audit_entry` row exists.
+2. `create function pg_temp.evil()` that runs `alter table demo.audit_anchor disable trigger audit_anchor_no_mutation; delete from demo.audit_anchor; …`, plus a temp view `audit_entry` that calls it. Calling the function printed `NOTICE: evil runs as root` (the owner), deleted the earlier anchor, and inserted a new fabricated one.
+
+**Impact in production.** The owner is the migration role that owns `audit_entry`. Any code or credential running as `depot_app` can therefore disable the append-only triggers on the chain and rewrite or delete chain rows and anchors. That is exactly the owner-level tampering the chain and the anchors exist to detect, and it is far worse than the original Minor #6.
+
+**Fix.**
+- Pin an explicit path with `pg_temp` last. For example, after CREATE: `EXECUTE format('ALTER FUNCTION audit_anchor_record(date,bigint,bigint,boolean,bigint,bigint,bigint) SET search_path = %I, pg_temp', current_schema());`. Also schema-qualify both tables in the body.
+- Add a test in `TestAnchorsCannotBePlanted`: as depot_app, create a temp `audit_entry` and a temp `audit_anchor`, call the function, and assert that it read the real head (or raised) and that no fabricated row exists.
+- Optionally revoke TEMP on the database from depot_app.
+
+### N2. Minor: `:verify` paging does not check the link across a page boundary
+
+**Where:** `services/audit/internal/store/chain.go:124`.
+
+**Scenario.**
+- A page stops at `last` and has already fetched the next row (`next`). The next request starts at `fromSeq=next`, trusts that row's prevHash, and drops anchors after `last`.
+- Suppose rows between `last` and `next` were removed (owner-level, which N1 currently makes possible), together with an anchored head among them.
+- Then both pages report `verified: true`, and the anchor in the gap is checked by neither.
+- Only a client that compares `startPrevHash` with the previous page's `head` notices. The nightly job walks the whole chain, so it still catches this.
+
+**Fix.** Before stopping, compare the fetched `next` row's prevHash with `walker.prev` and fail `link-mismatch` if they differ. Keep anchors with seq below `next` in the page's anchor set.
+
+### N3. Nit: detached-signature domain check is exact match only
+
+**Where:** `platform/go/tenant/detached.go:13`.
+
+`detachedDomainOK` refuses only exact equality with the token context. A future domain such as `depot.service-token.v1.x.` would share a prefix with it. Refuse any domain that is a prefix of `serviceTokenContext`, or has it as a prefix. That is safe today, because only `depot.audit-ctx.v1.` is used.
+
+### N4. Nit, residual once N1 is fixed: today's anchor can still be pre-claimed
+
+Even after N1 is fixed, `depot_app` can pre-claim today's anchor with a real but stale seq, or seq 0. It also supplies the verdict columns (`verified`, `entries`, `breaks`), so the nightly job's real head for that day is not anchored (`Created=false`). This is bounded to one day at a time. Consider writing the verdict columns only from the CronJob's own role.
+
+### N5. Nit: heartbeat slot advance not verified
+
+**Where:** `deploy/kafka/connect.yaml:4287`.
+
+The heartbeat message's prefix `depot.heartbeat` is not in `message.prefix.include.list`. Check on staging that `confirmed_flush_lsn` of `depot_audit_party` advances while `vendor_bank_account` is quiet.
+
+## Tests run (re-review)
+
+All runs used fresh databases `rev_b07a_1`, `rev_b07a_2` and `rev_b07a_3` (recreated), and depot_app authenticated with `depot_app`.
+
+| Command | Result |
+|---|---|
+| `services/audit`: `go vet ./... && go test -count=1 ./...` | PASS (all 6 packages) |
+| `platform/go`: `go test -count=1 ./auditctx/... ./tenant/... ./httpx/... ./eventing/...` | PASS |
+| `services/party`: `go test -count=1 ./...` | PASS (8 packages) |
+| `tools/rlscheck`: `go test -count=1 ./...` | PASS |
+| `python3 deploy/scripts/test_argocd_apps.py` | OK (49) |
+| `gen_networkpolicies.py --check` | OK |
+| `helm template` and `kubeconform -strict` (consumer, nightly and publicKeys set) | 5 of 5 valid; `helm lint` OK; consumer env has `AUDIT_CDC_DLQ_TOPIC` and `DEPOT_SERVICE_NAME` |
+| Manual SQL: party old 0021 → 0022, and fresh 0021 + 0022 (renamed role, per-schema) | Both end with column-level SELECT and no sealed columns |
+| Manual SQL: `audit_anchor_record` pg_temp hijack as depot_app (N1) | Reproduced: fabricated anchor planted, and arbitrary SQL ran as the owner |
+| `opa test policies/authz` | Not rerun: the fix commit does not touch `policies/` (289/289 earlier) |
+
+I dropped the demo schemas and the temporary role afterwards.
