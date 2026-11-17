@@ -23,6 +23,23 @@ const (
 
 func main() {
 	slog.SetDefault(newLogger(os.Stdout))
+	switch {
+	case len(os.Args) > 1 && os.Args[1] == cdcCommand:
+		if err := runCDCConsumer(context.Background(), os.Getenv); err != nil && !errors.Is(err, context.Canceled) {
+			slog.Error("audit "+cdcCommand+" stopped", "err", err)
+			os.Exit(1)
+		}
+		return
+	case len(os.Args) > 1 && os.Args[1] == chainCommand:
+		if err := chainNightly(context.Background(), os.Getenv, os.Args[2:]); err != nil {
+			slog.Error("audit "+chainCommand+" failed", "err", err)
+			os.Exit(1)
+		}
+		return
+	case len(os.Args) > 1:
+		slog.Error("audit stopped", "err", fmt.Errorf("unknown command %q (no argument serves; %q runs the CDC consumer; %q verifies and anchors)", os.Args[1], cdcCommand, chainCommand))
+		os.Exit(2)
+	}
 	if err := run(context.Background(), os.Getenv); err != nil {
 		slog.Error("audit stopped", "err", err)
 		os.Exit(1)

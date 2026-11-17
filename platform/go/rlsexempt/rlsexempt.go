@@ -146,6 +146,8 @@ var Allowlist = map[string]string{
 	"receivables.gateway_route:" + problemNoEntityPol:             "permanent: the route exists to find the legal entity of a webhook before any scope is known; no depot_app grant, read only by receivables_gateway_route() (0030_gateway_payments, #30)",
 	"identity.identity_tenants:" + problemExtraPolicy:             "permanent: SELECT-only operator policy gated on identity_operator, whose own policy is tenant-scoped; lets the provisioning operator list tenants",
 	"ledger.description_template:" + problemNullEntity:            "permanent: NULL legal_entity_id is a tenant-wide description template, not a missing scope",
+	"audit.audit_entry:" + problemNullEntity:                      "permanent: NULL legal_entity_id is a tenant-level audit entry (a tenant-level record such as a role assignment, or a row written before B-07) that every reader of the tenant may see; the hash chain itself is tenant-wide (0009_cdc_change_feed, B-07)",
+	"audit.alert_inbox:" + problemNullEntity:                      "permanent: NULL legal_entity_id is an alert on a tenant-level audit entry, scoped as the entry is (0009_cdc_change_feed, B-07)",
 	"print.print_output_rule:" + problemNullEntity:                "permanent: NULL legal_entity_id is a tenant-wide output rule; only callers with tenant-wide authority may create or delete one (#622 review)",
 	"org.address_purpose:" + problemNullEntity:                    "permanent: NULL legal_entity_id is tenant-wide reference data",
 	"org.currency_rounding:" + problemNullEntity:                  "permanent: NULL legal_entity_id is tenant-wide reference data",

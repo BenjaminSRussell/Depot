@@ -813,6 +813,10 @@ spec:
         operations: [Create, Describe, Write, DescribeConfigs]
       - resource: {type: topic, name: depot.migration.coexistence, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
+      # Audit CDC (B-07): one literal per audit-cdc-<service> connector, the single topic it routes table changes and
+      # depot.ctx messages to (services/audit/internal/cdc/tables.go).
+      - resource: {type: topic, name: depot.cdc.party, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
       - resource: {type: topic, name: depot-connect-, patternType: prefix}
         operations: [Create, Describe, Read, Write, DescribeConfigs]
       - resource: {type: group, name: depot-connect, patternType: literal}
@@ -4224,6 +4228,60 @@ spec:
     transforms.enrich.source.default: depot
     transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Audit table CDC (B-07, architecture gap D3): a connector type separate from the outbox relays. It captures row changes
+# of a service's audited master-data tables (table.include.list, from the service's publication depot_audit_<service>)
+# and the depot.ctx logical-decoding messages the service writes in the same transactions (auditctx.Emit,
+# message.prefix.include.list), and routes both to the single topic depot.cdc.<service>, created with one partition so a
+# transaction's message is read before its changes. The audit CDC consumer (`audit cdc-consume`, deploy/kafka/audit-consumer.yaml)
+# turns each change into chain records with the message's actor, reason and trace id. Values are plain Debezium JSON,
+# no CloudEvents envelope: numbers as strings (decimal.handling.mode string). P3 columns are in column.exclude.list, so
+# their values never leave the database. The tables need REPLICA IDENTITY FULL, so an update carries its old values.
+# Adding a table or a service is wiring only (services/audit/internal/cdc/tables.go says how); deploy/scripts/test_argocd_apps.py
+# checks the connector against the service's migrations, the consumer's table registry and the ACLs.
+# The pilot table set is party's vendor bank accounts. debezium_cdc_party (the outbox-party role) reads them: party
+# migration 0021 sets REPLICA IDENTITY FULL, creates depot_audit_party and grants SELECT. The slot is a second one on depot_party.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: audit-cdc-party
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-party:username}
+    database.password: ${secrets:kafka/debezium-cdc-party:password}
+    database.dbname: depot_party
+    topic.prefix: depot.cdc.party
+    slot.name: depot_audit_party
+    publication.name: depot_audit_party
+    publication.autocreate.mode: disabled
+    table.include.list: public.vendor_bank_account
+    column.exclude.list: public.vendor_bank_account.account_number_sealed,public.vendor_bank_account.routing_number_sealed
+    message.prefix.include.list: depot.ctx
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    decimal.handling.mode: string
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 1
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: route
+    transforms.route.type: org.apache.kafka.connect.transforms.RegexRouter
+    transforms.route.regex: 'depot\.cdc\.party\..+'
+    transforms.route.replacement: depot.cdc.party
+    key.converter: org.apache.kafka.connect.json.JsonConverter
+    key.converter.schemas.enable: false
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
     producer.override.acks: all

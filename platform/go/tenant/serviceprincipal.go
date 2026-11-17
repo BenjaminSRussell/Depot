@@ -76,6 +76,11 @@ var servicePrincipals = map[string][]string{
 	// close's reopen-expiry sweeper closes an expired temporary reopen and sets the ledger's period lock with it (FR-14.1,
 	// B-08c); it signs PUT /v1/ledger/ledgers/{ledger}/period-locks/{fiscalPeriodId} only, as the legal entity of the period.
 	"close-reopen-expiry": {"ledger.period.lock"},
+	// The audit CDC consumer (B-07, `audit cdc-consume`) folds captured row changes into the change chain, in-process, as the
+	// tenant of each row; the nightly chain job (`audit chain-nightly`) verifies each tenant's chain and stores its daily
+	// anchor. Each holds one flag duty and reaches no route.
+	"audit-cdc":    {"audit.cdc.apply"},
+	"audit-anchor": {"audit.chain.anchor"},
 }
 
 // servicePrincipalIssuers names the services whose signing key may present each
@@ -119,6 +124,8 @@ var servicePrincipalIssuers = map[string][]string{
 	"shopfloor-production":    {"shopfloor"},
 	"ops-reporter":            {"ops"},
 	"close-reopen-expiry":     {"close"},
+	"audit-cdc":               {"audit"},
+	"audit-anchor":            {"audit"},
 }
 
 func ServicePrincipalTable() map[string][]string {

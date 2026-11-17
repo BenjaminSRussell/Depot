@@ -408,6 +408,15 @@ def outbox_prefixes(cfg, spec):
     return {".".join(spec["channels"][c]["address"].split(".")[:2]) + "." for c in sent}
 
 
+def is_outbox_connector(doc):
+    """An outbox relay (outbox-<service>), as opposed to an audit table-CDC connector (audit-cdc-<service>, B-07)."""
+    return doc.get("kind") == "KafkaConnector" and doc["metadata"]["name"].startswith("outbox-")
+
+
+def is_audit_cdc_connector(doc):
+    return doc.get("kind") == "KafkaConnector" and doc["metadata"]["name"].startswith("audit-cdc-")
+
+
 def outbox_services():
     """Every service whose migrations create an outbox table -> the schema of that table. Deployables under tools/ (a
     directory with migrations and a Helm chart, such as tools/migration-factory) count as services."""
@@ -1018,8 +1027,11 @@ class ArgoApplicationsTest(unittest.TestCase):
         # whose migrations create an outbox table has an outbox-<service> connector in deploy/kafka/connect.yaml, and every
         # connector names a service that has one (its end-to-end provisioning is the test below).
         services = outbox_services()
-        connectors = {d["metadata"]["name"].removeprefix("outbox-") for d in load_docs(DEPLOY / "kafka/connect.yaml")
-                      if d["kind"] == "KafkaConnector"}
+        docs = load_docs(DEPLOY / "kafka/connect.yaml")
+        connectors = {d["metadata"]["name"].removeprefix("outbox-") for d in docs if is_outbox_connector(d)}
+        self.assertEqual([], [d["metadata"]["name"] for d in docs if d["kind"] == "KafkaConnector"
+                              and not is_outbox_connector(d) and not is_audit_cdc_connector(d)],
+                         "a connector is an outbox relay (outbox-<service>) or an audit table CDC (audit-cdc-<service>)")
         self.assertGreater(len(services), 50, "the outbox scan found too few services; did the migrations move?")
         self.assertEqual([], sorted(set(services) - connectors),
                          "services whose migrations create an outbox table but have no outbox-<service> connector in deploy/kafka/connect.yaml")
@@ -1034,7 +1046,7 @@ class ArgoApplicationsTest(unittest.TestCase):
         raw_insert = re.compile(r"insert\s+into\s+(?:\w+\.)?outbox\s*\(", re.I)
         checked = set()
         for d in load_docs(DEPLOY / "kafka/connect.yaml"):
-            if d["kind"] != "KafkaConnector":
+            if not is_outbox_connector(d):
                 continue
             service = d["metadata"]["name"].removeprefix("outbox-")
             root = service_root(service)
@@ -1062,7 +1074,7 @@ class ArgoApplicationsTest(unittest.TestCase):
         # which route to topics without an ACL and stop the connector. Each such call needs a resolver in
         # RUNTIME_EVENT_TYPES or an entry in UNRESOLVED_EVENT_TYPE_CALLS_OK saying why it is safe.
         for d in load_docs(DEPLOY / "kafka/connect.yaml"):
-            if d["kind"] == "KafkaConnector":
+            if is_outbox_connector(d):
                 service = d["metadata"]["name"].removeprefix("outbox-")
                 with self.subTest(service=service):
                     self.assertEqual([], unresolved_event_type_calls(service), "events.Type calls the scanner cannot resolve")
@@ -1106,7 +1118,9 @@ class ArgoApplicationsTest(unittest.TestCase):
         # Debezium names its metrics after topic.prefix, so two connectors on one worker must not share it.
         self.assertEqual(len(connectors), len({c["spec"]["config"]["topic.prefix"] for c in connectors}), "topic.prefix must be unique")
         tables = outbox_services()
-        for connector in connectors:
+        # Every connector holds a slot and a walsender (the limits below), but only outbox relays relay an outbox; the audit
+        # table-CDC connectors have their own test (test_audit_cdc_connectors_match_their_tables_and_the_consumer).
+        for connector in [c for c in connectors if is_outbox_connector(c)]:
             name, cfg = connector["metadata"]["name"], connector["spec"]["config"]
             with self.subTest(connector=name):
                 service = name.removeprefix("outbox-")
@@ -1199,6 +1213,67 @@ class ArgoApplicationsTest(unittest.TestCase):
                 with self.subTest(consumer=doc["metadata"]["name"]):
                     self.assertEqual([], sorted(t for t in read if not t.endswith(".dlq") and not writable(t)),
                                      f"{path.name}: topics no outbox connector writes")
+
+    def test_audit_cdc_connectors_match_their_tables_and_the_consumer(self):
+        # Architecture gap D3 (B-07a): an audit-cdc-<service> connector captures the service's audited tables and its
+        # depot.ctx messages into one single-partition topic the audit consumer reads. It must agree with the service's
+        # migrations (publication, REPLICA IDENTITY FULL, the CDC role's SELECT), keep P3 columns (*_sealed) out, reuse
+        # the outbox relay's database and role, write only a topic the debezium user may write and the audit consumer
+        # reads, and capture exactly the tables services/audit/internal/cdc/tables.go registers.
+        docs = load_docs(DEPLOY / "kafka/connect.yaml")
+        (debezium,) = [d for d in docs if d["kind"] == "KafkaUser" and d["metadata"]["name"] == "debezium"]
+        writable = {a["resource"]["name"] for a in debezium["spec"]["authorization"]["acls"]
+                    if a["resource"]["type"] == "topic" and a["resource"].get("patternType", "literal") == "literal" and "Write" in a["operations"]}
+        outbox = {d["metadata"]["name"].removeprefix("outbox-"): d["spec"]["config"] for d in docs if is_outbox_connector(d)}
+        (consumer,) = [d for d in load_docs(DEPLOY / "kafka/audit-consumer.yaml") if d["kind"] == "KafkaUser"]
+        readable = {a["resource"]["name"] for a in consumer["spec"]["authorization"]["acls"]
+                    if a["resource"]["type"] == "topic" and "Read" in a["operations"]}
+        registry_src = (REPO / "services/audit/internal/cdc/tables.go").read_text()
+        registered = set(re.findall(r'Server:\s*"([^"]+)",\s*Table:\s*"([^"]+)"', registry_src))
+        self.assertEqual([], re.findall(r'Column:\s*"(\w+_sealed)"', registry_src), "the audit registry never records a P3 (*_sealed) column")
+        connectors = [d for d in docs if is_audit_cdc_connector(d)]
+        self.assertTrue(connectors, "no audit-cdc-<service> connector in deploy/kafka/connect.yaml")
+        captured = set()
+        for connector in connectors:
+            name, cfg = connector["metadata"]["name"], connector["spec"]["config"]
+            with self.subTest(connector=name):
+                service = name.removeprefix("audit-cdc-")
+                topic, pub = f"depot.cdc.{service}", "depot_audit_" + service.replace("-", "_")
+                self.assertEqual(topic, cfg["topic.prefix"])
+                self.assertEqual(pub, cfg["slot.name"])
+                self.assertEqual(pub, cfg["publication.name"])
+                self.assertEqual("disabled", cfg["publication.autocreate.mode"], "the publication comes from the migrations")
+                self.assertEqual("no_data", cfg["snapshot.mode"])
+                self.assertEqual("depot.ctx", cfg["message.prefix.include.list"], "the connector must capture the depot.ctx messages")
+                self.assertEqual("string", cfg["decimal.handling.mode"], "amounts are recorded as text, not Debezium's binary decimal")
+                self.assertEqual(1, int(cfg["topic.creation.default.partitions"]), "one partition: a transaction's depot.ctx message is read before its changes")
+                self.assertIn(service, outbox, f"{name}: no outbox-{service} connector whose database and role it reuses")
+                for key in ("database.hostname", "database.dbname", "database.user", "database.password"):
+                    self.assertEqual(outbox[service][key], cfg[key], f"{name}: {key} differs from outbox-{service}")
+                tables = [t.strip() for t in cfg["table.include.list"].split(",") if t.strip()]
+                (router,) = [n for n in cfg["transforms"].split(",") if cfg.get(f"transforms.{n}.type") == REGEX_ROUTER]
+                for raw in [f"{topic}.message"] + [f"{topic}.{t}" for t in tables]:
+                    self.assertEqual(topic, regex_route(cfg[f"transforms.{router}.regex"], cfg[f"transforms.{router}.replacement"], raw), raw)
+                self.assertIn(topic, writable, f"{name}: the debezium user may not write {topic}")
+                self.assertIn(topic, readable, f"{name}: the audit consumer (deploy/kafka/audit-consumer.yaml) does not read {topic}")
+                (user_ref,) = CONNECT_SECRET_REF.findall(cfg["database.user"])
+                cdc_role = "debezium_cdc_" + service.replace("-", "_")
+                self.assertEqual(f"debezium-cdc-{service}", user_ref[1])
+                migrations = "\n".join(p.read_text() for p in sorted((service_root(service) / "migrations").glob("*.sql")))
+                self.assertRegex(migrations, rf"CREATE PUBLICATION {pub}\b")
+                excluded = {c.strip() for c in cfg.get("column.exclude.list", "").split(",") if c.strip()}
+                for qualified in tables:
+                    table = qualified.split(".", 1)[1]
+                    captured.add((cfg["topic.prefix"], qualified))
+                    self.assertRegex(migrations, rf"ALTER PUBLICATION {pub} ADD TABLE [^;\n]*\b{table}\b", f"{pub} does not publish {table}")
+                    self.assertRegex(migrations, rf"ALTER TABLE {table} REPLICA IDENTITY FULL", f"{table}: an update would carry no old values")
+                    self.assertRegex(migrations, rf"GRANT SELECT ON {table} TO {cdc_role}\b", f"{cdc_role} cannot read {table}")
+                    sealed = set(re.findall(rf"(?is)create\s+table\s+(?:if\s+not\s+exists\s+)?{table}\s*\((.*?)\n\);", migrations))
+                    columns = {c for block in sealed for c in re.findall(r"\b(\w+_sealed)\b", block)}
+                    columns |= set(re.findall(rf"(?i)alter\s+table\s+{table}\s+add\s+column\s+(?:if\s+not\s+exists\s+)?(\w+_sealed)\b", migrations))
+                    self.assertEqual([], sorted(f"{qualified}.{c}" for c in columns if f"{qualified}.{c}" not in excluded),
+                                     f"{name}: P3 columns not in column.exclude.list")
+        self.assertEqual(registered, captured, "the audit CDC registry (services/audit/internal/cdc/tables.go) and the connectors' tables differ")
 
     # Event types a consumer service names but does not subscribe to, so they need no read ACL: (service, type) -> why.
     UNSUBSCRIBED_HANDLERS = {
