@@ -13,8 +13,9 @@ this file covers the work in between.
 | B-05a | #720 |
 | B-02a | #722 |
 | B-01a | #724 |
+| B-03b, B-07a, B-09a | #726 |
 
-## On branch `claude/confident-gauss-ncr4l9`, not yet in a PR
+## Merged in #726 (kept for the review trail)
 
 | Item | Commit | Review | Next step |
 |---|---|---|---|
@@ -40,3 +41,11 @@ The B-03b follow-up is issue #725, covering the 9 tables whose D17 reason is int
 ## Not started
 
 - B-04, B-05b and B-05c, B-07b and B-07c, B-09b and B-09c, B-10, B-01b, B-02b and B-02c, and the P1 waves in [execution-plan.md](execution-plan.md).
+
+## After #726
+
+- B-03b re-review 2 approved with R6 (identity lookup should require a service principal), R7 (registry client follows
+  redirects; a 404 from a wrong URL reads as unknown) and R8 (signing key mount needs `fsGroup`). Fixing as a follow-up.
+- Deploy dependency: the shop floor assign routes answer 503 SF-0202 until an environment sets `identityUrl` and
+  `serviceIdentity` and identity trusts the shop floor key; the backfill runbook waits on that.
+- Next: B-05b (Kafka users, in progress), B-04 (gateway enforcement and decision logs, now unblocked).
