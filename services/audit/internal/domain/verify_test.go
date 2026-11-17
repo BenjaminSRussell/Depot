@@ -168,3 +168,49 @@ func TestChangeWalkerReportsALegacyForkApart(t *testing.T) {
 		t.Fatalf("legacy fork is a known break: %+v", s)
 	}
 }
+
+// A replica that reads the head under a narrower scope (a B-06 image after migration 0009) links its row to an older
+// row than the one before it: the row recomputes, so :verify names a fork, not a broken link (review finding 2).
+func TestChangeWalkerNamesAForkApartFromABrokenLink(t *testing.T) {
+	rows := chain(t, 3)
+	forked, err := domain.Link(rows[1].Hash, domain.Change{Entity: "document", RecordID: "d-1", Field: "signature", NewValue: "ana",
+		UserID: "service:engineering", ActorKind: domain.ActorService, OnBehalfOf: "ana", TraceID: "t", OccurredAt: time.Date(2026, 11, 3, 10, 0, 0, 0, time.UTC)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows = append(rows, domain.ChainRow{Seq: 13, ID: "f", Entry: forked})
+	s := walk(rows, true, nil)
+	if s.Verified || s.Breaks != 1 || s.FirstBreak.Kind != domain.BreakFork || s.FirstBreak.Seq != 13 {
+		t.Fatalf("fork: %+v %+v", s, s.FirstBreak)
+	}
+	// A row that links to a hash the chain never held is still a broken link.
+	rows[3].PrevHash = domain.Hash(domain.Genesis, rows[3].Change)
+	rows[3].Hash = domain.Hash(rows[3].PrevHash, rows[3].Change)
+	if s := walk(rows, true, nil); s.FirstBreak.Kind != domain.BreakLink {
+		t.Fatalf("unknown predecessor: %+v", s.FirstBreak)
+	}
+}
+
+// The legacy payload joins fields with "|": a "|" moved between neighbouring fields keeps the hash, so a legacy row
+// holding one is reported as a known legacy-ambiguous break (review finding 4).
+func TestChangeWalkerReportsAmbiguousLegacyRows(t *testing.T) {
+	at := time.Date(2026, 9, 1, 8, 0, 0, 0, time.UTC)
+	c := domain.Change{Entity: "document", RecordID: "d-1", Field: "note", OldValue: "a|b", NewValue: "c", UserID: "u", TraceID: "t-1", OccurredAt: at}
+	e := domain.Entry{Change: c, PrevHash: domain.Genesis, Hash: domain.Hash(domain.Genesis, c)}
+	shifted := e
+	shifted.OldValue, shifted.NewValue = "a", "b|c"
+	if domain.Hash(domain.Genesis, shifted.Change) != e.Hash {
+		t.Fatal("the legacy payload is expected to be ambiguous here")
+	}
+	for _, row := range []domain.Entry{e, shifted} {
+		s := walk([]domain.ChainRow{{Seq: 1, ID: "l", Entry: row}}, true, nil)
+		if !s.Verified || s.LegacyAmbiguous != 1 {
+			t.Fatalf("ambiguous legacy row: %+v", s)
+		}
+	}
+	plain := c
+	plain.OldValue = "ab"
+	if s := walk([]domain.ChainRow{{Seq: 1, ID: "p", Entry: domain.Entry{Change: plain, PrevHash: domain.Genesis, Hash: domain.Hash(domain.Genesis, plain)}}}, true, nil); s.LegacyAmbiguous != 0 {
+		t.Fatalf("a legacy row without '|' is not ambiguous: %+v", s)
+	}
+}

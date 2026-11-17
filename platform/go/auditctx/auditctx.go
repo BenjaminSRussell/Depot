@@ -16,17 +16,32 @@
 //
 // The reason is what the person gave for the change (the X-Depot-Reason header, captured by Capture, which
 // httpx.NewRouter mounts, or WithReason). The trace id is the W3C trace id of a traceparent header when the request
-// carries one, else the request id.
+// carries one, else the request id. Both are client input, not authenticated: they say what the client claimed, and
+// neither is an authority field.
+//
+// The message is signed (B-07a review). Any session on the database can call pg_logical_emit_message, so a message
+// is trusted only when the owning service signed it with its ADR-0010 Ed25519 service key (DEPOT_SERVICE_SIGNING_KEY):
+// the signature covers the domain "depot.audit-ctx.v1.", the tenant, txid_current() of the emitting transaction and
+// the body bytes. The consumer verifies it against the issuing service's public key from the same registry service
+// tokens are verified with (DEPOT_SERVICE_PUBLIC_KEYS), requires the issuer to be the service whose database the
+// change came from, and requires the signed transaction id to be the change's own, so a copied message does not
+// attribute another transaction. Database credentials alone cannot attribute a change to anyone.
 package auditctx
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"os"
 	"regexp"
+	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5/middleware"
@@ -41,8 +56,13 @@ import (
 const (
 	// Prefix is the logical-decoding message prefix the audit CDC connectors capture (message.prefix.include.list).
 	Prefix = "depot.ctx"
-	// Version is the message layout; the audit consumer refuses a version it does not know as missing context.
+	// Version is the body layout; the audit consumer refuses a version it does not know as missing context.
 	Version = 1
+	// EnvelopeVersion is the layout of the signed envelope written as the message content.
+	EnvelopeVersion = 2
+	// SignatureDomain separates depot.ctx signatures from every other use of a service key (service tokens sign
+	// under "depot.service-token.v1.").
+	SignatureDomain = "depot.audit-ctx.v1."
 	// HeaderReason carries the reason a person gave for a change.
 	HeaderReason = "X-Depot-Reason"
 	// MaxReason and MaxRef bound the text fields, in characters, as the audit service does.
@@ -158,23 +178,105 @@ func From(ctx context.Context) (Message, error) {
 	return m, nil
 }
 
-// Emit writes the depot.ctx message for ctx into tx. Call it in every transaction that changes an audited table,
-// before the transaction's first change to one: the consumer attaches a message to the changes that follow it in the
-// transaction (a change written before it is recorded as unattributed). A transaction that changes nothing audited
-// need not call it. It assigns the transaction an id, so do not call it in read-only transactions.
+// Envelope is the content of a depot.ctx message: the body (a Message, as the exact JSON bytes that were signed),
+// the emitting transaction's txid_current(), and the issuing service's signature over them.
+type Envelope struct {
+	V    int    `json:"v"`
+	Body string `json:"body"`
+	TxID string `json:"txid"`
+	Iss  string `json:"iss,omitempty"`
+	Kid  string `json:"kid,omitempty"`
+	Sig  string `json:"sig,omitempty"`
+}
+
+// SignedBytes is what a depot.ctx signature covers after SignatureDomain: the tenant, the transaction id and the body,
+// separated by newlines (none of the three can hold one: a UUID, a decimal and compact JSON).
+func SignedBytes(tenantID, txid, body string) []byte {
+	return []byte(tenantID + "\n" + txid + "\n" + body)
+}
+
+var (
+	signer        atomic.Pointer[tenant.ServiceSigner]
+	signerOnce    sync.Once
+	signerMissing sync.Once
+)
+
+// ConfigureSigner installs the service's ADR-0010 signer from the environment (DEPOT_SERVICE_NAME and
+// DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE) and fails on a malformed key, so a service stops at
+// startup instead of writing unsigned messages. Without a key configured it installs none.
+func ConfigureSigner(getenv func(string) string) error {
+	s, err := tenant.ServiceSignerFromEnv(getenv)
+	if err != nil {
+		return fmt.Errorf("auditctx: %w", err)
+	}
+	SetSigner(s)
+	return nil
+}
+
+// SetSigner replaces the signer Emit uses; nil makes Emit write unsigned messages.
+func SetSigner(s *tenant.ServiceSigner) {
+	signerOnce.Do(func() {})
+	signer.Store(s)
+}
+
+func currentSigner() *tenant.ServiceSigner {
+	signerOnce.Do(func() {
+		s, err := tenant.ServiceSignerFromEnv(os.Getenv)
+		if err != nil {
+			slog.Error("auditctx: service signing key misconfigured; depot.ctx messages are unsigned", "err", err)
+		}
+		signer.Store(s)
+	})
+	return signer.Load()
+}
+
+// Emit writes the signed depot.ctx message for ctx into tx. Call it in every transaction that changes an audited
+// table, before the transaction's first change to one: the consumer attaches a message to the changes that follow it
+// in the transaction (a change written before it is recorded as unattributed). A transaction that changes nothing
+// audited need not call it. It assigns the transaction an id, so do not call it in read-only transactions.
+//
+// Without a signing key the message is written unsigned, and the consumer records the changes as unattributed
+// (flag unattributed-bad-signature); Emit logs that once. The business change is never refused for it.
 func Emit(ctx context.Context, tx pgx.Tx) error {
 	m, err := From(ctx)
 	if err != nil {
 		return err
 	}
-	body, err := json.Marshal(m)
+	var txid string
+	if err := tx.QueryRow(ctx, `select txid_current()::text`).Scan(&txid); err != nil {
+		return fmt.Errorf("auditctx: txid: %w", err)
+	}
+	s := currentSigner()
+	if s == nil {
+		signerMissing.Do(func() {
+			slog.Warn("auditctx: no service signing key; depot.ctx messages are unsigned and their changes are recorded as unattributed")
+		})
+	}
+	content, err := Seal(s, m, txid)
 	if err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `select pg_logical_emit_message(true, $1::text, $2::text)`, Prefix, string(body)); err != nil {
+	if _, err := tx.Exec(ctx, `select pg_logical_emit_message(true, $1::text, $2::text)`, Prefix, string(content)); err != nil {
 		return fmt.Errorf("auditctx: emit %s: %w", Prefix, err)
 	}
 	return nil
+}
+
+// Seal builds the message content for m emitted in transaction txid, signed by s (unsigned when s is nil).
+func Seal(s *tenant.ServiceSigner, m Message, txid string) ([]byte, error) {
+	body, err := json.Marshal(m)
+	if err != nil {
+		return nil, err
+	}
+	env := Envelope{V: EnvelopeVersion, Body: string(body), TxID: txid}
+	if s != nil {
+		iss, kid, sig, err := s.SignDetached(SignatureDomain, SignedBytes(m.TenantID, env.TxID, env.Body))
+		if err != nil {
+			return nil, fmt.Errorf("auditctx: sign: %w", err)
+		}
+		env.Iss, env.Kid, env.Sig = iss, kid, base64.StdEncoding.EncodeToString(sig)
+	}
+	return json.Marshal(env)
 }
 
 // WithAuditedTx is dbx.WithTenantTx with the depot.ctx message written first: use it for the transactions that
@@ -188,24 +290,70 @@ func WithAuditedTx(ctx context.Context, pool *pgxpool.Pool, fn func(tx pgx.Tx) e
 	})
 }
 
-// Decode parses a depot.ctx message body. It refuses an unknown version, a tenant that is not a UUID, a missing
-// actor or an unknown actor kind; the audit consumer then records the changes as unattributed.
-func Decode(body []byte) (Message, error) {
+// Open parses a depot.ctx message content: the envelope and its body. It refuses an unknown envelope or body
+// version, a tenant that is not a UUID, a missing actor or an unknown actor kind. It does not check the signature
+// (Verify does).
+func Open(content []byte) (Envelope, Message, error) {
+	var env Envelope
+	if err := json.Unmarshal(content, &env); err != nil {
+		return Envelope{}, Message{}, fmt.Errorf("auditctx: %w", err)
+	}
+	if env.V != EnvelopeVersion {
+		return Envelope{}, Message{}, fmt.Errorf("auditctx: envelope version %d", env.V)
+	}
 	var m Message
-	if err := json.Unmarshal(body, &m); err != nil {
-		return Message{}, fmt.Errorf("auditctx: %w", err)
+	if err := json.Unmarshal([]byte(env.Body), &m); err != nil {
+		return Envelope{}, Message{}, fmt.Errorf("auditctx: body: %w", err)
 	}
 	switch {
 	case m.V != Version:
-		return Message{}, fmt.Errorf("auditctx: version %d", m.V)
+		return Envelope{}, Message{}, fmt.Errorf("auditctx: version %d", m.V)
 	case !ids.Valid(m.TenantID):
-		return Message{}, errors.New("auditctx: tenantId is not a UUID")
+		return Envelope{}, Message{}, errors.New("auditctx: tenantId is not a UUID")
 	case m.Actor == "":
-		return Message{}, errors.New("auditctx: no actor")
+		return Envelope{}, Message{}, errors.New("auditctx: no actor")
 	case m.ActorKind != ActorPerson && m.ActorKind != ActorService && m.ActorKind != ActorAgent:
-		return Message{}, fmt.Errorf("auditctx: actorKind %q", m.ActorKind)
+		return Envelope{}, Message{}, fmt.Errorf("auditctx: actorKind %q", m.ActorKind)
 	}
-	return m, nil
+	return env, m, nil
+}
+
+// Verifier checks a detached signature: tenant.ServiceVerifier, built from DEPOT_SERVICE_PUBLIC_KEYS.
+type Verifier interface {
+	VerifyDetached(domain, iss, kid string, msg, sig []byte) bool
+}
+
+// Reasons Verify refuses a message.
+var (
+	ErrUnsigned       = errors.New("auditctx: message is not signed")
+	ErrWrongIssuer    = errors.New("auditctx: message is signed by another service than the one whose database the change came from")
+	ErrBadSignature   = errors.New("auditctx: signature does not verify (wrong key, unknown key id or altered message)")
+	ErrTxIDMismatch   = errors.New("auditctx: message is signed for another transaction")
+	ErrNoVerifierKeys = errors.New("auditctx: no service public keys configured")
+)
+
+// Verify checks that env is source's signature over m and that it was signed in the transaction the decoder saw
+// it in. sourceTxID is Debezium's source.txId, the 32-bit transaction id from the transaction's BEGIN; the signed
+// txid_current() carries the epoch in its high 32 bits, so the low 32 bits are compared.
+func Verify(v Verifier, env Envelope, m Message, source string, sourceTxID int64) error {
+	if env.Sig == "" || env.Iss == "" {
+		return ErrUnsigned
+	}
+	if v == nil {
+		return ErrNoVerifierKeys
+	}
+	if env.Iss != source {
+		return ErrWrongIssuer
+	}
+	sig, err := base64.StdEncoding.DecodeString(env.Sig)
+	if err != nil || !v.VerifyDetached(SignatureDomain, env.Iss, env.Kid, SignedBytes(m.TenantID, env.TxID, env.Body), sig) {
+		return ErrBadSignature
+	}
+	signed, err := strconv.ParseUint(env.TxID, 10, 64)
+	if err != nil || uint32(signed) != uint32(sourceTxID) {
+		return ErrTxIDMismatch
+	}
+	return nil
 }
 
 func clean(s string, limit int) string {

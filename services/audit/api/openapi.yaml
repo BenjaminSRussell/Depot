@@ -48,8 +48,13 @@ paths:
         row's prevHash. Every daily anchor whose head lies in the range must still be held by the chain (seq and hash),
         so a chain rewritten or cut short after its anchor fails. Rows written before B-06 that cannot recompute for a
         known reason (an occurredAt with a sub-microsecond part, recovered by trying each lost nanosecond; two rows linked
-        to the same predecessor) are counted under knownBreaks and do not fail verification. The walk spans every legal
-        entity of the tenant (the chain is one per tenant); the verdict names rows by seq and id only, never by content.
+        to the same predecessor; a "|" in a field, which the legacy encoding cannot place) are counted under knownBreaks
+        and do not fail verification. The walk spans every legal entity of the tenant (the chain is one per tenant), so
+        the caller needs tenant-wide authority as well as audit.verify: no legal-entity claim and the all-scope duty with
+        the ALL-scope header, or a tenant administrator; anyone else gets 403 AUD-0009. The verdict names rows by seq and
+        id only, never by content. One request walks at most 100,000 rows: a longer range answers complete false and
+        nextFromSeq; ask again with fromSeq set to it and check that the new page's startPrevHash is the previous page's
+        head.
       x-depot-duty: audit.verify
       parameters:
         - { name: fromSeq, in: query, description: First seq to verify (inclusive)., schema: { type: integer, format: int64, minimum: 1 } }
@@ -60,6 +65,9 @@ paths:
           content: { application/json: { schema: { $ref: '#/components/schemas/ChangeChain' } } }
         '400':
           description: fromSeq or toSeq is not a positive integer, or toSeq is before fromSeq (AUD-0008).
+          content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+        '403':
+          description: The caller lacks audit.verify (AUTH-0003) or tenant-wide authority (AUD-0009).
           content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
         default: { $ref: '#/components/responses/Problem' }
   /v1/audit/records/{entity}/{recordId}:
@@ -302,13 +310,18 @@ components:
           enum: [person, service, agent, system]
           description: >-
             Absent on changes recorded before AUD-API-1, whose actor was not checked. person and system come from the CDC
-            feed (B-07): person is the person of the source transaction's depot.ctx message, system a captured change whose
-            transaction carried none (with flag unattributed). This API records service and agent only. Every AUD-API-1
-            and B-07 field is absent when empty.
+            feed (B-07): person is the person of the source transaction's depot.ctx message, signed by the source
+            service; system a captured change whose transaction carried no verified message (with flag unattributed or
+            unattributed-bad-signature). This API records service and agent only. Every AUD-API-1 and B-07 field is
+            absent when empty.
         onBehalfOf: { type: string, description: The person a service or agent recorded the change for. }
-        traceId: { type: string }
+        traceId:
+          type: string
+          description: >-
+            The trace id of the request that made the change: the W3C trace id of its traceparent header, else its
+            request id. Client input, not authenticated; never an authority field.
         occurredAt: { type: string, format: date-time }
-        reason: { type: string }
+        reason: { type: string, description: Why the change was made, as the person gave it (client input). }
         changeSetId: { type: string }
         eventType: { type: string }
         eventId: { type: string }
@@ -317,17 +330,23 @@ components:
         source: { type: string, description: The service whose database the change was captured from (CDC); absent for a change recorded over HTTP. }
         flag:
           type: string
-          enum: [unattributed]
-          description: unattributed for a captured change whose transaction carried no depot.ctx message (actorKind system).
+          enum: [unattributed, unattributed-bad-signature]
+          description: >-
+            For a captured change without a verified actor (actorKind system): unattributed, its transaction carried no
+            depot.ctx message; unattributed-bad-signature, it carried one that did not verify (unsigned, an unknown key,
+            another service's key, altered, or signed for another transaction), whose claimed actor is not recorded.
         hash: { type: string }
     ChangeChain:
       type: object
-      required: [verified, entries, fromSeq, toSeq, head, breaks, knownBreaks, anchors]
+      required: [verified, complete, entries, fromSeq, toSeq, startPrevHash, head, breaks, knownBreaks, anchors]
       properties:
-        verified: { type: boolean, description: true when the range has no break; known legacy breaks do not count. }
+        verified: { type: boolean, description: true when the walked rows have no break; known legacy breaks do not count. }
+        complete: { type: boolean, description: false when the walk stopped at 100,000 rows; nextFromSeq is then present. }
+        nextFromSeq: { type: integer, format: int64, description: The fromSeq of the next page. }
         entries: { type: integer, format: int64, description: Rows walked. }
         fromSeq: { type: integer, format: int64, description: First seq walked (0 for an empty range). }
         toSeq: { type: integer, format: int64, description: Last seq walked (0 for an empty range). }
+        startPrevHash: { type: string, description: The prevHash the walk started from (64 zeros from the tenant's first row, else the first row's own, trusted). }
         head: { type: string, description: Hash of the last row walked (64 zeros for an empty chain). }
         breaks: { type: integer, format: int64, description: Breaks found; after a break the walk goes on from the broken row's stored hash. }
         firstBreak:
@@ -339,16 +358,19 @@ components:
             id: { type: string, description: The row's id; absent for an anchored head the chain no longer holds. }
             kind:
               type: string
-              enum: [hash-mismatch, link-mismatch, anchor-mismatch]
+              enum: [hash-mismatch, link-mismatch, fork, anchor-mismatch]
               description: >-
-                hash-mismatch, a stored value changed; link-mismatch, a row removed, inserted or reordered;
+                hash-mismatch, a stored value changed; link-mismatch, a row removed, inserted or reordered; fork, a row
+                that recomputes but links to an earlier row than the one before it (two writers read the same head, as
+                a replica reading the head under a narrower scope does: diagnose before treating it as tampering);
                 anchor-mismatch, a daily anchor names a head the chain no longer holds.
         knownBreaks:
           type: object
-          required: [legacyPrecision, legacyFork]
+          required: [legacyPrecision, legacyFork, legacyAmbiguous]
           properties:
             legacyPrecision: { type: integer, format: int64, description: Rows from before B-06 hashed over a sub-microsecond time, recovered. }
             legacyFork: { type: integer, format: int64, description: Rows from before B-06 linked to the same predecessor as the row before. }
+            legacyAmbiguous: { type: integer, format: int64, description: 'Rows from before B-06 with a "|" in a field: they recompute, but the legacy encoding cannot prove where one field ends.' }
         anchors:
           type: object
           required: [checked, mismatched]

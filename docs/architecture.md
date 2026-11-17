@@ -1642,22 +1642,33 @@ Alerting: multi-window multi-burn-rate (14.4× over 1 h/5 m pages, 6× over 6 h/
   no head anchoring to object-locked storage (D3).
 - **As built (B-07a, D3 part a):** the CDC pipeline, `depot.ctx`, change-chain verification and the daily anchor exist,
   piloted on party's `vendor_bank_account`. A table-CDC connector type, `audit-cdc-<service>` in
-  `deploy/kafka/connect.yaml` (separate from the outbox relays, reusing the service's CDC role), captures the tables of
-  the service's publication `depot_audit_<service>` (REPLICA IDENTITY FULL, P3 columns in `column.exclude.list`) and
-  the `depot.ctx` logical-decoding messages into one single-partition topic `depot.cdc.<service>`. `depot.ctx` is the
-  design above: `platform/go/auditctx` (`WithAuditedTx`/`Emit`) writes `pg_logical_emit_message(true, 'depot.ctx', …)`
-  in the transaction that changes an audited table, carrying the actor derived from the verified principal (person,
-  service, or service/agent `onBehalfOf` a user), the reason (`X-Depot-Reason`, captured by `httpx.NewRouter`), the
-  trace id (W3C `traceparent`, else the request id) and a per-transaction `changeSetId`. It is emitted per audited
-  transaction, not by `dbx` in every transaction (that would assign every read transaction an id). `audit cdc-consume`
-  (platform `eventing` consumer, `Config.Decode` for Debezium records, inbox keyed by CDC position) records one chain
-  row per changed field with the actor of its transaction's message; a change without one is recorded as `actorKind`
-  `system`, flag `unattributed`. The chain rows gain `legal_entity_id` (restrictive policy admitting NULL for
-  tenant-level entries), `source` and `flag`, covered by a v3 hash payload. `GET /v1/audit/records:verify` (duty
-  `audit.verify`) reports the first break and counts legacy-precision and legacy-fork rows from before B-06 apart; the
-  `audit chain-nightly` CronJob verifies every listed tenant and stores the day's head in the append-only
-  `audit_anchor` (one per tenant per UTC day), which `:verify` checks. Not yet: anchor export to object-locked storage,
-  the rest of the A7 set (B-07b/c) and every other entity (B-36); the consumer and CronJob are off by default.
+  `deploy/kafka/connect.yaml` (separate from the outbox relays, reusing the service's CDC role with a column-level
+  SELECT, created `state: stopped` until the consumer is enabled, with a table-less heartbeat), captures the tables of
+  the service's publication `depot_audit_<service>` (REPLICA IDENTITY FULL) and the `depot.ctx` logical-decoding
+  messages into one topic `depot.cdc.<service>` (a KafkaTopic with one partition, 30 days). P3 columns are not written
+  to Kafka, but their ciphertext is in the WAL and reaches Kafka Connect, where `column.exclude.list` drops it.
+  `depot.ctx` is the design above: `platform/go/auditctx` (`WithAuditedTx`/`Emit`) writes
+  `pg_logical_emit_message(true, 'depot.ctx', …)` at the start of the transaction that changes an audited table,
+  carrying the actor derived from the verified principal (person, service, or service/agent `onBehalfOf` a user), the
+  reason (`X-Depot-Reason`, captured by `httpx.NewRouter`), the trace id (W3C `traceparent`, else the request id; both
+  client input, unauthenticated) and a per-transaction `changeSetId`. Because any database session can emit such a
+  message, it is signed with the emitting service's ADR-0010 Ed25519 key over `depot.audit-ctx.v1.`, the tenant,
+  `txid_current()` and the body; the consumer verifies it against the service-token key registry
+  (`DEPOT_SERVICE_PUBLIC_KEYS`), requires the issuer to be the source service and the signed txid to be the change's
+  Debezium `txId`, and records changes of an unverified message as `system`, flag `unattributed-bad-signature`. It is
+  emitted per audited transaction, not by `dbx` in every transaction (that would assign every read transaction an id).
+  `audit cdc-consume` (platform `eventing` consumer, `Config.Decode` for Debezium records, inbox keyed by CDC position)
+  records one chain row per changed field with the actor of its transaction's verified message, joined by `txId`,
+  position and a one-hour commit-time window; a change without one is recorded as `actorKind` `system`, flag
+  `unattributed`. The chain rows gain `legal_entity_id` (restrictive policy admitting NULL for tenant-level entries),
+  `source` and `flag`, covered by a v3 hash payload. `GET /v1/audit/records:verify` (duty `audit.verify` and
+  tenant-wide authority, 100,000 rows per page) reports the first break (`fork` named apart) and counts
+  legacy-precision, legacy-fork and legacy-ambiguous rows from before B-06 apart; the `audit chain-nightly` CronJob
+  verifies every listed tenant and stores the day's head in the append-only `audit_anchor` (one per tenant per UTC day,
+  written only through a SECURITY DEFINER function that reads the head from the chain), which `:verify` checks. No
+  rollback of audit past B-07a once a row with a legal entity exists: a B-06 image forks the chain under the new
+  policy. Not yet: anchor export to object-locked storage, the rest of the A7 set (B-07b/c) and every other entity
+  (B-36); the consumer, connector and CronJob are off by default.
 - **Field encryption.** Sensitive fields are sealed in the service with `platform/go/fieldcrypt` (AES-256-GCM, per-tenant
   keys derived by HKDF from master keys, optionally wrapped by Azure Key Vault) and looked up through blind indexes
   (HMAC). Used by compliance, hr, migration, party, payables, receiving and sales (ADR-0011). No pgcrypto, no Vault

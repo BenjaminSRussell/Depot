@@ -107,7 +107,7 @@ func (d Decoder) Decode(r eventing.Record) (events.Event, error) {
 		if env.Message == nil || env.Message.Prefix != auditctx.Prefix || !positioned || !known {
 			return ignored, nil
 		}
-		msg, err := auditctx.Decode(env.Message.Content)
+		_, msg, err := auditctx.Open(env.Message.Content)
 		if err != nil {
 			return ignored, nil
 		}

@@ -19,15 +19,16 @@ import (
 )
 
 const (
-	cdcCommand    = "cdc-consume"
-	chainCommand  = "chain-nightly"
+	cdcCommand   = "cdc-consume"
+	chainCommand = "chain-nightly"
+	// cdcDeadLetter is the default dead-letter topic; AUDIT_CDC_DLQ_TOPIC (chart consumer.kafka.dlqTopic) overrides it.
 	cdcDeadLetter = "depot.audit.cdc.dlq"
+	envDeadLetter = "AUDIT_CDC_DLQ_TOPIC"
 	// anchorPrincipal is the nightly chain job's service principal; anchorDuty its flag duty.
 	anchorPrincipal = "audit-anchor"
 	anchorDuty      = "audit.chain.anchor"
-	// contextRetention is how long the consumer keeps depot.ctx messages: far longer than a transaction's changes take
-	// to follow its message, far shorter than a source database takes to reuse a transaction id.
-	contextRetention = 7 * 24 * time.Hour
+	// contextRetention is how long depot.ctx messages are kept (cdc.ContextRetention).
+	contextRetention = cdc.ContextRetention
 )
 
 // servicePrincipals is the table the start gates read; tests replace it.
@@ -52,6 +53,22 @@ func runCDCConsumer(ctx context.Context, getenv func(string) string) error {
 	if err != nil {
 		return err
 	}
+	// depot.ctx signatures are checked against the source services' ADR-0010 keys, the same registry the audit API
+	// verifies service tokens with (DEPOT_SERVICE_NAME, DEPOT_SERVICE_PUBLIC_KEYS).
+	keys, err := tenant.ServiceVerifierFromEnv(getenv)
+	if err != nil {
+		return fmt.Errorf("service public keys: %w", err)
+	}
+	handler := &cdc.Handler{Registry: registry, Log: slog.Default()}
+	if keys != nil {
+		handler.Verifier = keys
+	} else {
+		slog.Warn("DEPOT_SERVICE_PUBLIC_KEYS is unset: no depot.ctx message can be verified, so every captured change is recorded as unattributed-bad-signature or unattributed")
+	}
+	deadLetter := getenv(envDeadLetter)
+	if deadLetter == "" {
+		deadLetter = cdcDeadLetter
+	}
 	pool, err := dbx.Connect(ctx, databaseURL)
 	if err != nil {
 		return fmt.Errorf("connect database: %w", err)
@@ -62,10 +79,10 @@ func runCDCConsumer(ctx context.Context, getenv func(string) string) error {
 		return err
 	}
 	defer client.Close()
-	handler := &cdc.Handler{Registry: registry, Sink: store.New(pool), Log: slog.Default()}
+	handler.Sink = store.New(pool)
 	consumer, err := eventing.NewConsumer(client, client, eventing.NewPgInbox(pool), eventing.Config{
 		Name: cdc.ConsumerName, Handlers: handler.Handlers(), Decode: cdc.Decoder{Registry: registry}.Decode,
-		DeadLetterTopic: cdcDeadLetter, Log: slog.Default(),
+		DeadLetterTopic: deadLetter, Log: slog.Default(),
 	})
 	if err != nil {
 		return err

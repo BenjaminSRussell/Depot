@@ -73,7 +73,7 @@ func TestVerifyReportsLegacyPrecisionRowsAsKnownBreaks(t *testing.T) {
 // the first anchor; an anchored head the chain no longer holds (the chain cut short after it) fails :verify.
 func TestAnchorDayWritesOneHeadPerTenantPerDay(t *testing.T) {
 	admin, _, s := migratedWithApp(t)
-	day := time.Date(2026, 11, 3, 1, 17, 0, 0, time.UTC)
+	day := time.Now().UTC().Truncate(24 * time.Hour).Add(-24*time.Hour + 77*time.Minute) // yesterday 01:17 UTC
 	t1, t2 := scoped(1, ""), scoped(2, "")
 	for i := range 3 {
 		if err := s.Apply(t1, placed("b-1", leA, day.Add(time.Duration(i)*time.Minute))); err != nil {
@@ -84,7 +84,7 @@ func TestAnchorDayWritesOneHeadPerTenantPerDay(t *testing.T) {
 		t.Fatal(err)
 	}
 	first, err := s.AnchorDay(t1, day)
-	if err != nil || !first.Created || first.Entries != 3 || !first.Verified || first.HeadSeq == 0 || first.Date != "2026-11-03" {
+	if err != nil || !first.Created || first.Entries != 3 || !first.Verified || first.HeadSeq == 0 || first.Date != day.Format(time.DateOnly) {
 		t.Fatalf("first anchor %+v %v", first, err)
 	}
 	if err := s.Apply(t1, placed("b-1", leA, day.Add(time.Hour))); err != nil {
@@ -166,44 +166,91 @@ func TestLegalEntityPolicyScopesTheTrail(t *testing.T) {
 	}
 }
 
-// TestAnchorsAreAppendOnlyAndContextsTenantScoped: depot_app inserts and reads anchors but cannot rewrite them;
-// depot.ctx messages are per tenant and purged by age.
-func TestAnchorsAreAppendOnlyAndContextsTenantScoped(t *testing.T) {
+// TestAnchorsCannotBePlanted (review finding 6): depot_app reads anchors but cannot insert, rewrite or delete them; an
+// anchor comes only through audit_anchor_record, which takes the head hash from the chain and refuses a future date,
+// a date before yesterday and a head the chain does not hold.
+func TestAnchorsCannotBePlanted(t *testing.T) {
 	_, app, s := migratedWithApp(t)
 	ctx := scoped(1, "")
-	if _, err := s.AnchorDay(ctx, time.Now()); err != nil {
+	if err := s.Apply(ctx, placed("b-1", leA, time.Now())); err != nil {
 		t.Fatal(err)
 	}
-	for _, stmt := range []string{`update audit_anchor set verified = false`, `delete from audit_anchor`} {
-		err := dbx.WithTenantTx(ctx, app, func(tx pgx.Tx) error {
-			_, err := tx.Exec(ctx, stmt)
+	a, err := s.AnchorDay(ctx, time.Now())
+	if err != nil || !a.Created || a.HeadSeq == 0 {
+		t.Fatalf("anchor %+v %v", a, err)
+	}
+	asApp := func(stmt string, args ...any) error {
+		return dbx.WithTenantTx(ctx, app, func(tx pgx.Tx) error {
+			if _, err := tx.Exec(ctx, `select set_config('depot.legal_entity_scopes', '*', true)`); err != nil {
+				return err
+			}
+			_, err := tx.Exec(ctx, stmt, args...)
 			return err
 		})
+	}
+	code := func(err error) string {
 		var pgErr *pgconn.PgError
-		if !errors.As(err, &pgErr) || pgErr.Code != "42501" {
-			t.Errorf("%q = %v; want insufficient_privilege", stmt, err)
+		if errors.As(err, &pgErr) {
+			return pgErr.Code
+		}
+		return ""
+	}
+	tomorrow := time.Now().UTC().Add(24 * time.Hour).Format(time.DateOnly)
+	for stmt, want := range map[string]string{
+		`update audit_anchor set verified = false`: "42501",
+		`delete from audit_anchor`:                 "42501",
+		`insert into audit_anchor (tenant_id, anchor_date, head_seq, head_hash, entries, verified, breaks, legacy_breaks)
+			values (current_setting('depot.tenant_id')::uuid, '` + tomorrow + `', 1, repeat('a', 64), 1, true, 0, 0)`: "42501",
+		`select audit_anchor_record('` + tomorrow + `'::date, 0, 0, true, 0, null, 0)`:                     "22023",
+		`select audit_anchor_record((now() at time zone 'utc')::date - 2, 0, 0, true, 0, null, 0)`:         "22023",
+		`select audit_anchor_record((now() at time zone 'utc')::date - 1, 999999999, 1, true, 0, null, 0)`: "22023",
+	} {
+		if got := code(asApp(stmt)); got != want {
+			t.Errorf("%s = %s, want %s", stmt, got, want)
 		}
 	}
-	msg := cdc.TxContext{Source: "party", TxID: 7, LSN: 70}
+	// What the function writes for yesterday is the chain's own hash at the named seq, whatever the caller believes.
+	if err := asApp(`select audit_anchor_record((now() at time zone 'utc')::date - 1, $1, 1, false, 0, null, 0)`, a.HeadSeq); err != nil {
+		t.Fatal(err)
+	}
+	if chain, err := s.VerifyChanges(ctx, 0, 0); err != nil || !chain.Verified || chain.Anchors.Checked != 1 {
+		t.Fatalf("anchors written by the function verify: %+v %v", chain, err)
+	}
+}
+
+// TestContextsAreTenantScopedWindowedAndPurged (review finding 3): a depot.ctx message is found at or after its
+// position, within cdc.ContextWindow of the change's commit, for its own tenant only, and purged by age.
+func TestContextsAreTenantScopedWindowedAndPurged(t *testing.T) {
+	_, app, s := migratedWithApp(t)
+	ctx := scoped(1, "")
+	committed := time.Date(2026, 11, 3, 9, 15, 0, 0, time.UTC)
+	msg := cdc.TxContext{Source: "party", TxID: 7, LSN: 70, Verified: true, CommittedAt: committed}
 	msg.Actor, msg.ActorKind, msg.Reason = "ana", "person", "why"
 	if err := dbx.WithTenantTx(ctx, app, func(tx pgx.Tx) error { return s.RecordTxContext(ctx, tx, msg) }); err != nil {
 		t.Fatal(err)
 	}
-	find := func(ctx context.Context, lsn int64) bool {
+	find := func(ctx context.Context, lsn int64, at time.Time) bool {
 		var found bool
 		if err := dbx.WithTenantTx(ctx, app, func(tx pgx.Tx) error {
 			var err error
-			_, found, err = s.FindTxContext(ctx, tx, "party", 7, lsn)
+			var got cdc.TxContext
+			got, found, err = s.FindTxContext(ctx, tx, "party", 7, lsn, at)
+			if found && (!got.Verified || got.Actor != "ana") {
+				t.Errorf("found %+v", got)
+			}
 			return err
 		}); err != nil {
 			t.Fatal(err)
 		}
 		return found
 	}
-	if !find(ctx, 80) || find(ctx, 60) || find(scoped(2, ""), 80) {
+	if !find(ctx, 80, committed) || find(ctx, 60, committed) || find(scoped(2, ""), 80, committed) {
 		t.Fatal("a message is found at or after its position, for its own tenant only")
 	}
-	if n, err := s.PurgeTxContexts(ctx, time.Now().Add(time.Hour)); err != nil || n != 1 || find(ctx, 80) {
+	if find(ctx, 80, committed.Add(cdc.ContextWindow+time.Minute)) || find(ctx, 80, committed.Add(-cdc.ContextWindow-time.Minute)) {
+		t.Fatal("a message committed outside the window of the change (a reused transaction id) is not found")
+	}
+	if n, err := s.PurgeTxContexts(ctx, time.Now().Add(time.Hour)); err != nil || n != 1 || find(ctx, 80, committed) {
 		t.Fatalf("purge %d %v", n, err)
 	}
 }
