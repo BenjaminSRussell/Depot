@@ -28,7 +28,7 @@ func TestGrants_AppRoleAppendsButCannotRewrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	change := domain.Change{Entity: "party.vendor", RecordID: "v-1", Field: "name", OldValue: "Acme", NewValue: "Acme Ltd",
-		UserID: "user-1", TraceID: "trace-abc", OccurredAt: time.Now().UTC()}
+		UserID: "user-1", ActorKind: domain.ActorPerson, TraceID: "trace-abc", OccurredAt: time.Now().UTC()}
 	if err := s.Apply(ctx, change); err != nil {
 		t.Fatalf("apply as depot_app needs the audit_entry sequence: %v", err)
 	}

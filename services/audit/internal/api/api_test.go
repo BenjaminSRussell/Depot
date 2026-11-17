@@ -88,7 +88,7 @@ const (
 	changes = "/v1/audit/changes"
 	record  = "/v1/audit/records/party.vendor/v-1"
 	duties  = "audit.read,audit.write"
-	valid   = `{"entity":"party.vendor","recordId":"v-1","field":"name","oldValue":"Acme","newValue":"Acme Ltd","userId":"user-1","traceId":"trace-abc"}`
+	valid   = `{"entity":"party.vendor","recordId":"v-1","field":"name","oldValue":"Acme","newValue":"Acme Ltd","traceId":"trace-abc"}`
 )
 
 func TestAuditHTTP(t *testing.T) {
@@ -107,7 +107,7 @@ func TestAuditHTTP(t *testing.T) {
 		{"ingest ok", http.MethodPost, changes, valid, duties, &fakeStore{}, true, http.StatusAccepted, `"recorded"`},
 		{"ingest without tenant", http.MethodPost, changes, valid, "", &fakeStore{}, false, http.StatusUnauthorized, "AUTH-0001"},
 		{"ingest malformed", http.MethodPost, changes, `{`, duties, &fakeStore{}, true, http.StatusBadRequest, "COM-0001"},
-		{"ingest missing field", http.MethodPost, changes, `{"entity":"party.vendor","recordId":"v-1","oldValue":"a","newValue":"b","userId":"u","traceId":"t"}`, duties, &fakeStore{}, true, http.StatusBadRequest, `"field"`},
+		{"ingest missing field", http.MethodPost, changes, `{"entity":"party.vendor","recordId":"v-1","oldValue":"a","newValue":"b","traceId":"t"}`, duties, &fakeStore{}, true, http.StatusBadRequest, `"field"`},
 		{"ingest without duty", http.MethodPost, changes, valid, "audit.read", &fakeStore{}, true, http.StatusForbidden, "AUTH-0003"},
 		{"ingest store error", http.MethodPost, changes, valid, duties, &fakeStore{err: errors.New("secret")}, true, http.StatusInternalServerError, "COM-0500"},
 		{"query viewer", http.MethodGet, record, "", duties, viewer, true, http.StatusOK, `"traceId":"trace-abc"`},

@@ -21,18 +21,26 @@ import (
 
 const recordedType = "dev.depot.audit.change.recorded.v1"
 
-// Record is a queryable audit row.
+// Record is a queryable audit row. UserID is the verified actor; ActorKind is empty only on rows written before
+// AUD-API-1, whose actor was not checked.
 type Record struct {
-	ID         string    `json:"id"`
-	Entity     string    `json:"entity"`
-	RecordID   string    `json:"recordId"`
-	Field      string    `json:"field"`
-	OldValue   string    `json:"oldValue"`
-	NewValue   string    `json:"newValue"`
-	UserID     string    `json:"userId"`
-	TraceID    string    `json:"traceId"`
-	OccurredAt time.Time `json:"occurredAt"`
-	Hash       string    `json:"hash"`
+	ID                 string    `json:"id"`
+	Entity             string    `json:"entity"`
+	RecordID           string    `json:"recordId"`
+	Field              string    `json:"field"`
+	OldValue           string    `json:"oldValue"`
+	NewValue           string    `json:"newValue"`
+	UserID             string    `json:"userId"`
+	ActorKind          string    `json:"actorKind,omitempty"`
+	OnBehalfOf         string    `json:"onBehalfOf,omitempty"`
+	TraceID            string    `json:"traceId"`
+	OccurredAt         time.Time `json:"occurredAt"`
+	Reason             string    `json:"reason,omitempty"`
+	ChangeSetID        string    `json:"changeSetId,omitempty"`
+	EventType          string    `json:"eventType,omitempty"`
+	EventID            string    `json:"eventId,omitempty"`
+	WorkflowInstanceID string    `json:"workflowInstanceId,omitempty"`
+	Hash               string    `json:"hash"`
 }
 
 // Alert is an inbox item produced from a matching rule.
@@ -103,9 +111,11 @@ func (s *Postgres) Apply(ctx context.Context, change domain.Change) error {
 		}
 		id := ids.New()
 		if _, err := tx.Exec(ctx, `insert into audit_entry
-			(tenant_id, id, entity, record_id, field, old_value, new_value, user_id, trace_id, occurred_at, prev_hash, hash)
-			values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-			p.TenantID, id, change.Entity, change.RecordID, change.Field, change.OldValue, change.NewValue, change.UserID, change.TraceID, change.OccurredAt, entry.PrevHash, entry.Hash); err != nil {
+			(tenant_id, id, entity, record_id, field, old_value, new_value, user_id, trace_id, occurred_at, prev_hash, hash,
+			 actor_kind, on_behalf_of, reason, change_set_id, event_type, event_id, workflow_instance_id)
+			values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+			p.TenantID, id, change.Entity, change.RecordID, change.Field, change.OldValue, change.NewValue, change.UserID, change.TraceID, change.OccurredAt, entry.PrevHash, entry.Hash,
+			change.ActorKind, change.OnBehalfOf, change.Reason, change.ChangeSetID, change.EventType, change.EventID, change.WorkflowInstanceID); err != nil {
 			return err
 		}
 		if err := fireAlerts(ctx, tx, p.TenantID, change); err != nil {
@@ -114,6 +124,8 @@ func (s *Postgres) Apply(ctx context.Context, change domain.Change) error {
 		evt, err := events.New(recordedType, "depot/audit", change.RecordID, p.TenantID, map[string]any{
 			"entity": change.Entity, "recordId": change.RecordID, "field": change.Field,
 			"oldValue": change.OldValue, "newValue": change.NewValue, "userId": change.UserID, "traceId": change.TraceID,
+			"actorKind": change.ActorKind, "onBehalfOf": change.OnBehalfOf, "reason": change.Reason, "changeSetId": change.ChangeSetID,
+			"eventType": change.EventType, "eventId": change.EventID, "workflowInstanceId": change.WorkflowInstanceID,
 		})
 		if err != nil {
 			return err
@@ -159,7 +171,8 @@ func (s *Postgres) Query(ctx context.Context, entity, recordID string) ([]Record
 	p, _ := tenant.FromContext(ctx)
 	var out []Record
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `select id, entity, record_id, field, old_value, new_value, user_id, trace_id, occurred_at, hash
+		rows, err := tx.Query(ctx, `select id, entity, record_id, field, old_value, new_value, user_id, trace_id, occurred_at, hash,
+			actor_kind, on_behalf_of, reason, change_set_id, event_type, event_id, workflow_instance_id
 			from audit_entry where tenant_id=$1 and entity=$2 and record_id=$3 order by seq`, p.TenantID, entity, recordID)
 		if err != nil {
 			return err
@@ -168,7 +181,8 @@ func (s *Postgres) Query(ctx context.Context, entity, recordID string) ([]Record
 		out = []Record{}
 		for rows.Next() {
 			var rec Record
-			if err := rows.Scan(&rec.ID, &rec.Entity, &rec.RecordID, &rec.Field, &rec.OldValue, &rec.NewValue, &rec.UserID, &rec.TraceID, &rec.OccurredAt, &rec.Hash); err != nil {
+			if err := rows.Scan(&rec.ID, &rec.Entity, &rec.RecordID, &rec.Field, &rec.OldValue, &rec.NewValue, &rec.UserID, &rec.TraceID, &rec.OccurredAt, &rec.Hash,
+				&rec.ActorKind, &rec.OnBehalfOf, &rec.Reason, &rec.ChangeSetID, &rec.EventType, &rec.EventID, &rec.WorkflowInstanceID); err != nil {
 				return err
 			}
 			out = append(out, rec)

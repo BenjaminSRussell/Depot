@@ -37,15 +37,25 @@ type API struct {
 	reviews     atomic.Int64
 }
 
+// ingestRequest is the body of POST /v1/audit/changes. UserID exists only so a request that names the actor is
+// refused with AUD-0002: the actor is always the verified caller (AUD-API-1). ActorKind and OnBehalfOf, when sent,
+// must agree with the verified caller (AUD-0006).
 type ingestRequest struct {
-	Entity     string    `json:"entity"`
-	RecordID   string    `json:"recordId"`
-	Field      string    `json:"field"`
-	OldValue   string    `json:"oldValue"`
-	NewValue   string    `json:"newValue"`
-	UserID     string    `json:"userId"`
-	TraceID    string    `json:"traceId"`
-	OccurredAt time.Time `json:"occurredAt"`
+	Entity             string    `json:"entity"`
+	RecordID           string    `json:"recordId"`
+	Field              string    `json:"field"`
+	OldValue           string    `json:"oldValue"`
+	NewValue           string    `json:"newValue"`
+	UserID             *string   `json:"userId"`
+	ActorKind          string    `json:"actorKind"`
+	OnBehalfOf         string    `json:"onBehalfOf"`
+	TraceID            string    `json:"traceId"`
+	OccurredAt         time.Time `json:"occurredAt"`
+	Reason             string    `json:"reason"`
+	ChangeSetID        string    `json:"changeSetId"`
+	EventType          string    `json:"eventType"`
+	EventID            string    `json:"eventId"`
+	WorkflowInstanceID string    `json:"workflowInstanceId"`
 }
 
 type expandRequest struct {
@@ -113,25 +123,35 @@ func (a *API) ingest(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
+	if req.UserID != nil {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, domain.CodeActorNamed,
+			"userId must not be sent: the actor is the verified caller of the request"))
+		return
+	}
+	p, _ := tenant.FromContext(r.Context())
+	who, refusal := verifiedActor(p, req.ActorKind, req.OnBehalfOf)
+	if refusal != "" {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, domain.CodeActorRefused, refusal))
+		return
+	}
 	if req.OccurredAt.IsZero() {
 		req.OccurredAt = time.Now().UTC()
-	}
-	if req.UserID == "" {
-		if p, ok := tenant.FromContext(r.Context()); ok {
-			req.UserID = p.UserID
-		}
 	}
 	if req.TraceID == "" {
 		req.TraceID = middleware.GetReqID(r.Context())
 	}
 	change := domain.Change{
-		Entity: req.Entity, RecordID: req.RecordID, Field: req.Field,
-		OldValue: req.OldValue, NewValue: req.NewValue, UserID: req.UserID, TraceID: req.TraceID, OccurredAt: req.OccurredAt,
+		Entity: req.Entity, RecordID: req.RecordID, Field: req.Field, OldValue: req.OldValue, NewValue: req.NewValue,
+		UserID: who.userID, ActorKind: who.kind, OnBehalfOf: who.onBehalfOf, TraceID: req.TraceID, OccurredAt: req.OccurredAt,
+		Reason: req.Reason, ChangeSetID: req.ChangeSetID, EventType: req.EventType, EventID: req.EventID, WorkflowInstanceID: req.WorkflowInstanceID,
 	}
 	if fields := domain.Validate(change); len(fields) > 0 {
-		p := httpx.NewProblem(http.StatusBadRequest, "COM-0001", "request failed validation")
-		p.Errors = fields
-		httpx.Fail(w, r, p)
+		if _, ok := fields["userId"]; ok {
+			fields["userId"] = "the caller is unknown: the actor is the verified caller of the request"
+		}
+		pr := httpx.NewProblem(http.StatusBadRequest, "COM-0001", "request failed validation")
+		pr.Errors = fields
+		httpx.Fail(w, r, pr)
 		return
 	}
 	if err := a.store.Apply(r.Context(), change); err != nil {

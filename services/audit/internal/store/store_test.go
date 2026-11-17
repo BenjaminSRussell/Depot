@@ -34,7 +34,7 @@ func TestApplyAppearsWithinTwoSecondsWithTrace(t *testing.T) {
 	s, ctx := migrated(t)
 	change := domain.Change{
 		Entity: "party.vendor", RecordID: "v-1", Field: "name",
-		OldValue: "Acme", NewValue: "Acme Ltd", UserID: "user-1", TraceID: "trace-abc",
+		OldValue: "Acme", NewValue: "Acme Ltd", UserID: "user-1", ActorKind: domain.ActorPerson, TraceID: "trace-abc",
 		OccurredAt: time.Now().UTC(),
 	}
 	start := time.Now()
@@ -72,7 +72,7 @@ func TestAlertInboxFromChange(t *testing.T) {
 	}
 	change := domain.Change{
 		Entity: "party.vendor", RecordID: "v-1", Field: "name",
-		OldValue: "Acme", NewValue: "Acme Ltd", UserID: "user-1", TraceID: "trace-abc",
+		OldValue: "Acme", NewValue: "Acme Ltd", UserID: "user-1", ActorKind: domain.ActorPerson, TraceID: "trace-abc",
 		OccurredAt: time.Now().UTC(),
 	}
 	if err := s.Apply(ctx, change); err != nil {
@@ -106,7 +106,7 @@ func TestMigrationsApplyWithRLSAndImmutability(t *testing.T) {
 	app := store.New(pool)
 	change := domain.Change{
 		Entity: "party.vendor", RecordID: "v-1", Field: "name",
-		OldValue: "Acme", NewValue: "Acme Ltd", UserID: "user-1", TraceID: "trace-abc",
+		OldValue: "Acme", NewValue: "Acme Ltd", UserID: "user-1", ActorKind: domain.ActorPerson, TraceID: "trace-abc",
 		OccurredAt: time.Now().UTC(),
 	}
 	if err := app.Apply(ctx, change); err != nil {

@@ -33,6 +33,18 @@ Contract: `api/openapi.yaml`. Event: `dev.depot.audit.change.recorded.v1`.
 
 Wave 3 entity metadata is not imported; `entity` is an opaque name. Wave 4 Kafka is not imported; a future consumer calls `cdc.Consumer.Apply`.
 
+## Who made a change (B-06, AUD-API-1, FR-5.10)
+
+The actor of a change is the verified caller of `POST /v1/audit/changes`, never a body value: a body that sets `userId` is refused with AUD-0002, as for the read log. The service derives the actor from the verified principal:
+
+| Caller | `userId` | `actorKind` | `onBehalfOf` |
+|---|---|---|---|
+| A person (gateway-verified identity, no service token) | the person | `person` | empty |
+| A service token whose `act` is a service principal (`service:<name>`, accepted only from that principal's own issuer) | `service:<name>` | `service` | empty |
+| A service token carrying an end user as `act` | `service:<calling service>` | `service` (`agent` when the issuer is `agents`) | the end user |
+
+The body may send `actorKind` and `onBehalfOf`, but only to restate what the verified caller is: `onBehalfOf` from a person's request, from a service acting on its own, or naming anyone but the user the service token carries is refused with AUD-0006, and so is an `actorKind` that differs from the derived one. The History panel can therefore show "Recorded by Billing service for Ana Ruiz" apart from a change a person made directly. A change also carries `reason` (up to 1,000 characters), `changeSetId` (the field changes of one save), `eventType` and `eventId` (the business event that carried it) and `workflowInstanceId` (each up to 256 characters). They are columns of `audit_entry` (migration `0005_change_actor_context.sql`, expand only), are returned by `GET /v1/audit/records/{entity}/{recordId}` and published on `dev.depot.audit.change.recorded.v1`, and are covered by the row hash. Rows written before the migration keep `actorKind` empty (their actor was not checked) and their original hash payload, so existing chains still verify; a new row is hashed as a versioned JSON array of all its fields.
+
 ## PHI read-access log (#606, HIPAA overlay)
 
 HIPAA audit controls ask who looked at protected health information, not only who changed it. A service that returns a record with `phi` fields (see `services/metadata`) records the read with `POST /v1/audit/reads`: `entity`, `recordId`, `fields[]`, `purpose` (required, a reason code or free text up to 500 characters), and optionally `traceId` (default: the request id) and `occurredAt` (default: now, at most five minutes ahead). The reader is the verified caller of the request (the `act` of a service token), never the body: a body that sets `userId` is refused with AUD-0002. `sourceService` is the verified service that recorded the read. `platform/go/phiaudit` is the client and the fake for tests.
@@ -52,10 +64,11 @@ Metrics: `audit_phi_reads_recorded_total`, `audit_phi_reads_failed_total`, `audi
 | COM-0001 | 400 | malformed body or missing change fields |
 | AUTH-0001, AUTH-0003, COM-0500 | 401, 403, 500 | missing tenant, duty missing, internal error |
 | AUD-0001 | 422 | domain rejection (invalid change, checkout rules) |
-| AUD-0002 | 422 | a read-log request named the reader (`userId`); the reader is the verified caller |
+| AUD-0002 | 422 | a read-log or change request named the reader or actor (`userId`); it is always the verified caller |
 | AUD-0003 | 400 | invalid read-log filter: time range, `limit`, `cursor` or export `format`, or break-glass `status` |
 | AUD-0004 | 404 | a break-glass review named a read this tenant's log does not hold |
 | AUD-0005 | 409 | a break-glass review that may not be made: the read is not break-glass, is already reviewed, or the reviewer is the reader |
+| AUD-0006 | 422 | a change claimed an `onBehalfOf` or `actorKind` the verified caller cannot vouch for: `onBehalfOf` from a person or from a service acting on its own, or not the user the service token carries; an `actorKind` other than the caller's |
 | COM-0001 | 400 | read-log entry failed validation (missing or over-long `purpose`, `fields`, `entity`, `recordId`; `occurredAt` in the future) |
 
 Metrics: `audit_changes_applied_total`, `audit_changes_failed_total`.

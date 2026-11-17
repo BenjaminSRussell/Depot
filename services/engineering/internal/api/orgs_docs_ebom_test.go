@@ -284,10 +284,14 @@ func TestHTTPAuditorPostsChange(t *testing.T) {
 	if err := api.NewHTTPAuditor(hs.URL, signer).RecordSignature(ctx, sig); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`"entity":"document"`, `"recordId":"d1"`, "Approved for release", "Carol Kane", "abc123", "DRW-1"} {
+	for _, want := range []string{`"entity":"document"`, `"recordId":"d1"`, "Approved for release", "Carol Kane", "abc123", "DRW-1", `"onBehalfOf":"carol"`} {
 		if !strings.Contains(gotBody, want) {
 			t.Fatalf("audit body %s lacks %q", gotBody, want)
 		}
+	}
+	// The audit service refuses a body that names the actor (B-06, AUD-API-1): the actor is the verified token.
+	if strings.Contains(gotBody, `"userId"`) {
+		t.Fatalf("audit body %s names userId; the audit service refuses it with AUD-0002", gotBody)
 	}
 	if gotPath != "/v1/audit/changes" || gotToken == "" {
 		t.Fatalf("path=%s token=%q; want a signed call", gotPath, gotToken)
