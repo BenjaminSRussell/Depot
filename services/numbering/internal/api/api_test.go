@@ -21,6 +21,7 @@ type fakeStore struct {
 	ping   error
 	seq    store.Sequence
 	issued store.Issued
+	items  []store.Sequence
 }
 
 func (f *fakeStore) Create(_ context.Context, in store.Sequence, _ string) (store.Sequence, error) {
@@ -36,6 +37,12 @@ func (f *fakeStore) Get(context.Context, string) (store.Sequence, error) {
 		return store.Sequence{}, f.err
 	}
 	return f.seq, nil
+}
+func (f *fakeStore) List(_ context.Context, after string, limit int) ([]store.Sequence, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.items, nil
 }
 func (f *fakeStore) Allocate(context.Context, string, string) (store.Issued, error) {
 	if f.err != nil {
@@ -104,6 +111,39 @@ func TestSequences(t *testing.T) {
 			rec := do(r, tc.method, tc.path, tc.body, tc.duties, tc.withTenant)
 			if rec.Code != tc.wantStatus || !strings.Contains(rec.Body.String(), tc.wantBody) {
 				t.Fatalf("got %d %s; want %d containing %s", rec.Code, rec.Body.String(), tc.wantStatus, tc.wantBody)
+			}
+		})
+	}
+}
+
+func TestListSequences(t *testing.T) {
+	one := store.Sequence{ID: testkit.TenantID(5), Code: "INV", Name: "Invoices", Format: "INV-{######}", LegalEntityID: testkit.TenantID(9), Mode: "gap_free", StartFrom: 1}
+	tests := []struct {
+		name, query, duties string
+		store               *fakeStore
+		withTenant          bool
+		wantStatus          int
+		wantBody            string
+	}{
+		{"last page has no next", "", allDuties, &fakeStore{items: []store.Sequence{one}}, true, http.StatusOK, `"next":""`},
+		{"full page returns the last id as next", "?limit=1", allDuties, &fakeStore{items: []store.Sequence{one}}, true, http.StatusOK, `"next":"` + one.ID + `"`},
+		{"empty list is an empty array", "", allDuties, &fakeStore{}, true, http.StatusOK, `"items":[]`},
+		{"without tenant", "", "", &fakeStore{}, false, http.StatusUnauthorized, "AUTH-0001"},
+		{"without read duty", "", "numbering.write", &fakeStore{}, true, http.StatusForbidden, "AUTH-0003"},
+		{"limit out of range", "?limit=0", allDuties, &fakeStore{}, true, http.StatusBadRequest, `"limit"`},
+		{"limit not a number", "?limit=x", allDuties, &fakeStore{}, true, http.StatusBadRequest, `"limit"`},
+		{"cursor not a uuid", "?after=nope", allDuties, &fakeStore{}, true, http.StatusBadRequest, `"after"`},
+		{"store error", "", allDuties, &fakeStore{err: errors.New("pg secret")}, true, http.StatusInternalServerError, "COM-0500"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			r, _ := newRouter(tc.store)
+			rec := do(r, http.MethodGet, createPath+tc.query, "", tc.duties, tc.withTenant)
+			if rec.Code != tc.wantStatus || !strings.Contains(rec.Body.String(), tc.wantBody) {
+				t.Fatalf("got %d %s; want %d containing %s", rec.Code, rec.Body.String(), tc.wantStatus, tc.wantBody)
+			}
+			if strings.Contains(rec.Body.String(), "pg secret") {
+				t.Fatalf("store error leaked: %s", rec.Body.String())
 			}
 		})
 	}

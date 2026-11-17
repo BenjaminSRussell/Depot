@@ -7,6 +7,18 @@ servers:
   - url: https://app.local.depot.dev
 paths:
   /v1/numbering/sequences:
+    get:
+      operationId: listSequences
+      summary: "List number sequences in the caller's legal-entity scope"
+      x-depot-duty: numbering.read
+      parameters:
+        - { name: after, in: query, schema: { type: string, format: uuid }, description: 'Cursor: the next value of the previous page' }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+      responses:
+        '200':
+          description: One page in id order. next is empty on the last page.
+          content: { application/json: { schema: { $ref: '#/components/schemas/SequencePage' } } }
+        default: { $ref: '#/components/responses/Problem' }
     post:
       operationId: createSequence
       summary: "Create a number sequence for a legal entity"
@@ -83,6 +95,12 @@ components:
         legalEntityId: { type: string, format: uuid }
         mode: { type: string, enum: [gap_free, continuous, non_continuous] }
         startFrom: { type: integer }
+    SequencePage:
+      type: object
+      required: [items, next]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Sequence' } }
+        next: { type: string }
     Issued:
       type: object
       required: [value, formatted, sequence, legalEntityId]
