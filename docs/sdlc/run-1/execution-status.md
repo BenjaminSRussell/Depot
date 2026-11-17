@@ -19,7 +19,7 @@ this file covers the work in between.
 | Item | Commit | Review | Next step |
 |---|---|---|---|
 | B-03b: OPA legal-entity rule, scoped assignments in the bundle, D17 legal-entity policies (shopfloor worker and pay data) | c0611102 | [b03b-review-1.md](reviews/b03b-review-1.md): changes required (1 Blocker: a scoped assignment granted tenant-level duties such as SCIM; 2 Major: unvalidated and unaudited legal-entity assignment) ; fixed in 358c3682, re-review resolved the Blocker but found R1 (Major: legal entity not validated) | R1 fix in progress (identity existence check, dry run), then the wave 2b PR |
-| B-07a: CDC audit pipeline, `depot.ctx`, `:verify`, nightly job, daily anchor | d7c7723d, fixes 59409863 | [b07a-review-1.md](reviews/b07a-review-1.md): changes required (2 Major, 6 Minor, 4 Nit); all 12 fixed in 59409863; re-review found a Blocker (SECURITY DEFINER search_path), fixed in cbd21b13 | Approved after re-review 2 (R2-1 fixed in 691da2ce) | In the wave 2b PR with B-03b and B-09a |
+| B-07a: CDC audit pipeline, `depot.ctx`, `:verify`, nightly job, daily anchor | d7c7723d, fixes 59409863 | [b07a-review-1.md](reviews/b07a-review-1.md): changes required (2 Major, 6 Minor, 4 Nit); all 12 fixed in 59409863; re-review found a Blocker (SECURITY DEFINER search_path), fixed in cbd21b13; approved after re-review 2 (R2-1 fixed in 691da2ce) | In the wave 2b PR with B-03b and B-09a |
 
 The B-07a fixes agreed after review 1:
 
