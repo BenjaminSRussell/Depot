@@ -2,7 +2,7 @@
   "version": 3,
   "compiler": "scripts/compile_architecture.py",
   "note": "Generated from the OpenAPI and AsyncAPI specs and scripts/architecture_patterns.json. Do not edit; run python3 scripts/compile_architecture.py --write.",
-  "summary": {"openapiDocuments": 65, "paths": 2617, "operations": 3240, "asyncapiDocuments": 57, "topics": 366, "topicsPublished": 365, "topicsSubscribed": 16, "patterns": 59},
+  "summary": {"openapiDocuments": 65, "paths": 2619, "operations": 3242, "asyncapiDocuments": 57, "topics": 366, "topicsPublished": 365, "topicsSubscribed": 16, "patterns": 59},
   "patterns": [
     {
       "id": "event-envelope",
@@ -906,6 +906,7 @@
         {"method": "PUT", "path": "/v1/close/periods/{fiscalPeriodId}", "operationId": "registerPeriod", "duty": "period.maintain"},
         {"method": "PATCH", "path": "/v1/close/periods/{fiscalPeriodId}/modules/{module}", "operationId": "transitionPeriod", "duty": "period.maintain"},
         {"method": "POST", "path": "/v1/close/periods/{fiscalPeriodId}/modules/{module}:request-reopen", "operationId": "requestReopen", "duty": "period.reopen"},
+        {"method": "POST", "path": "/v1/close/periods/{fiscalPeriodId}:resync-ledger-lock", "operationId": "resyncLedgerLock", "duty": "period.maintain"},
         {"method": "GET", "path": "/v1/close/periods:resolve", "operationId": "resolveFiscalPeriod", "duty": "period.check"},
         {"method": "GET", "path": "/v1/close/regrouping-rules/{code}", "operationId": "getRegroupingRule", "duty": "close.regrouping.write"},
         {"method": "PUT", "path": "/v1/close/regrouping-rules/{code}", "operationId": "putRegroupingRule", "duty": "close.regrouping.write"},
@@ -2227,6 +2228,7 @@
         {"method": "PUT", "path": "/v1/ledger/ledgers/{ledger}/open-item-accounts/{account}", "operationId": "putOpenItemAccount", "duty": "ledger.account.write"},
         {"method": "POST", "path": "/v1/ledger/ledgers/{ledger}/open-item-accounts/{account}:activate", "operationId": "activateOpenItemAccount", "duty": "ledger.balance.rebuild"},
         {"method": "GET", "path": "/v1/ledger/ledgers/{ledger}/open-item-activations", "operationId": "listOpenItemActivations", "duty": "ledger.journal.read"},
+        {"method": "PUT", "path": "/v1/ledger/ledgers/{ledger}/period-locks/{fiscalPeriodId}", "operationId": "putPeriodLock", "duty": "ledger.period.lock"},
         {"method": "GET", "path": "/v1/ledger/ledgers/{ledger}/realignments", "operationId": "listRealignments", "duty": "ledger.journal.read"},
         {"method": "POST", "path": "/v1/ledger/ledgers/{ledger}/realignments", "operationId": "createRealignment", "duty": "ledger.realignment.run"},
         {"method": "GET", "path": "/v1/ledger/ledgers/{ledger}/realignments/{id}", "operationId": "getRealignment", "duty": "ledger.journal.read"},

@@ -75,7 +75,24 @@ func gateFrom(ctx context.Context) PeriodGate {
 
 func overridable(status string) bool { return status == statusClosed || status == statusOnHold }
 
-func periodViolations(ctx context.Context, ledger Ledger, postingDate time.Time, sourceSystem string) ([]domain.Violation, error) {
+// periodViolations decides whether a posting dated postingDate from sourceSystem may land in its fiscal
+// period (FR-14.1, BR-14.1). It runs inside the posting transaction. The ledger's own period lock is checked
+// first (see lockedPeriodStatus; forWrite on the paths that write an entry): close writes it before it
+// reports a transition, so a period close has reported closed refuses the posting even while the close
+// service still answers open (B-08c). The close service's answer is then asked as well; it is the only check
+// for a period close has not locked yet, and a lock that says open does not override a close that says
+// otherwise.
+func periodViolations(ctx context.Context, tx pgx.Tx, tenantID string, ledger Ledger, postingDate time.Time, sourceSystem string, forWrite bool) ([]domain.Violation, error) {
+	locked, err := lockedPeriodStatus(ctx, tx, tenantID, ledger.ID, postingDate, sourceSystem, forWrite)
+	if err != nil {
+		return nil, err
+	}
+	if locked.found && locked.status != statusOpen {
+		if v := closedPeriod(ctx, postingDate, locked.status, "for source "+locked.source+" in the ledger's period lock (set by the close service)"); v != nil {
+			return v, nil
+		}
+		// Overridden by ledger.period.postclosed: the close service's answer must allow it too.
+	}
 	gate := gateFrom(ctx)
 	if gate == nil {
 		return nil, nil
@@ -90,11 +107,15 @@ func periodViolations(ctx context.Context, ledger Ledger, postingDate time.Time,
 	case status == statusOpen:
 		return nil, nil
 	}
+	return closedPeriod(ctx, postingDate, status, "in the close service"), nil
+}
+
+func closedPeriod(ctx context.Context, postingDate time.Time, status, where string) []domain.Violation {
 	if p, ok := tenant.FromContext(ctx); ok && overridable(status) && p.HasDuty(DutyPostClosedPeriod) {
-		return nil, nil
+		return nil
 	}
 	return []domain.Violation{{Code: codePeriodClosed, Field: "postingDate",
-		Message: "fiscal period of " + postingDate.Format(time.DateOnly) + " is " + status + " in the close service; only an open period accepts postings" + holderHint(status)}}, nil
+		Message: "fiscal period of " + postingDate.Format(time.DateOnly) + " is " + status + " " + where + "; only an open period accepts postings" + holderHint(status)}}
 }
 
 func holderHint(status string) string {
@@ -104,11 +125,11 @@ func holderHint(status string) string {
 	return ""
 }
 
-func rejectWithPeriod(ctx context.Context, ledger Ledger, postingDate time.Time, sourceSystem string, found []domain.Violation) error {
+func rejectWithPeriod(ctx context.Context, tx pgx.Tx, tenantID string, ledger Ledger, postingDate time.Time, sourceSystem string, forWrite bool, found []domain.Violation) error {
 	if len(found) > 0 {
 		return &domain.RejectedError{Violations: found}
 	}
-	closed, err := periodViolations(ctx, ledger, postingDate, sourceSystem)
+	closed, err := periodViolations(ctx, tx, tenantID, ledger, postingDate, sourceSystem, forWrite)
 	if err != nil {
 		return err
 	}

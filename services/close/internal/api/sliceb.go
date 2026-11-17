@@ -29,6 +29,7 @@ type PeriodStore interface {
 	ApproveReopen(ctx context.Context, id, actor string) (domain.StoredReopen, error)
 	RejectReopen(ctx context.Context, id, actor string) (domain.StoredReopen, error)
 	ExpireReopened(ctx context.Context) (int, error)
+	ResyncLedgerLock(ctx context.Context, legalEntityID, ledgerID, fiscalPeriodID string, wait time.Duration) (domain.PeriodLock, error)
 }
 
 type ChecklistStore interface {

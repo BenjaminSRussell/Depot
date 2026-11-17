@@ -162,6 +162,7 @@ func (a *API) Register(r chi.Router) {
 		a.registerValidationRules(r)
 		a.registerSplitting(r)
 		a.registerRealignment(r)
+		a.registerPeriodLocks(r)
 	})
 }
 
