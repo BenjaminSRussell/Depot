@@ -13,3 +13,11 @@ scan:
 # X-Forwarded-For past the Envoy pods: the pod CIDR of the stage cluster. 10.244.0.0/16 is the AKS Azure CNI overlay default
 # (deploy/tofu/cluster/modules/aks sets no pod_cidr); change it if the stage cluster uses another.
 trustedProxies: 10.244.0.0/16
+# The services this BFF calls, at the Service names and ports their charts render in namespace hello-ledger (the chart
+# defaults name a namespace per service, which no environment has). deploy/scripts/test_gateway.py checks each against the
+# dev Service table of deploy/scripts/gen_httproutes.py (D31, B-02a).
+upstreams:
+  purchasing: http://purchasing-purchasing.hello-ledger.svc:80
+  receiving: http://receiving.hello-ledger.svc:8080
+  party: http://party.hello-ledger.svc:8080
+  payables: http://payables.hello-ledger.svc:8080
