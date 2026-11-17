@@ -406,6 +406,783 @@ spec:
         key: depot/dev/hr-postgres/cdc-password
         property: value
 ---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: agents-ts-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: agents-ts-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/agents-ts-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: analytics-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: analytics-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/analytics-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: assets-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: assets-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/assets-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: audit-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: audit-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/audit-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: close-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: close-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/close-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: compliance-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: compliance-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/compliance-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: consolidation-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: consolidation-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/consolidation-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: costacct-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: costacct-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/costacct-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: costing-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: costing-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/costing-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: edi-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: edi-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/edi-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: engineering-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: engineering-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/engineering-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: finreport-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: finreport-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/finreport-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: fx-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: fx-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/fx-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: identity-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: identity-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/identity-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: integration-hub-ts-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: integration-hub-ts-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/integration-hub-ts-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: inventory-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: inventory-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/inventory-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: lean-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: lean-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/lean-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: ledger-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: ledger-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/ledger-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: migration-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: migration-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/migration-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: mobile-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: mobile-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/mobile-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: numbering-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: numbering-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/numbering-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: org-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: org-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/org-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: payables-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: payables-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/payables-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: payroll-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: payroll-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/payroll-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: planning-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: planning-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/planning-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: platform-health-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: platform-health-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/platform-health-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: prediction-py-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: prediction-py-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/prediction-py-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: pricing-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: pricing-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/pricing-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: print-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: print-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/print-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: processmfg-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: processmfg-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/processmfg-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: productcost-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: productcost-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/productcost-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: quality-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: quality-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/quality-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: revrec-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: revrec-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/revrec-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: scheduling-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: scheduling-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/scheduling-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: shopfloor-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: shopfloor-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/shopfloor-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: tax-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: tax-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/tax-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: treasury-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: treasury-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/treasury-postgres/cdc-password
+        property: value
+---
 # eam's DATABASE_URL (chart value database.secretName eam-database, key url): its own login role
 # depot_eam_app in depot_eam, created by 60-eam-db.sh with the same Vault password (APP_PASSWORD). The
 # password goes into the URL as is, so it must be URL-safe (hex, like the other dev passwords).
@@ -550,9 +1327,11 @@ data:
     GRANT ALL ON SCHEMA public TO depot_app;
     SQL
   # One 95- script per outbox connector database (deploy/kafka/connect.yaml): each creates its database and CDC role and
-  # needs only depot_app from 10-app-role.sh, so they share a number and run in name order after the others. Their
-  # passwords are optional: with its Vault key not yet written a script creates the database, skips the CDC role and logs
-  # it, so the shared Postgres still starts; write the key and restart the pod (docs/runbooks/delivery/deploy-local.md).
+  # needs only depot_app from 10-app-role.sh, so they share a number and run in name order after the others
+  # (95-fx-cdc.sh and 95-org-cdc.sh create only the role: 30-fx-db.sh and 40-org-db.sh create those databases and
+  # 50-receiving-cdc.sh revokes their CONNECT from PUBLIC). Their passwords are optional: with its Vault key not yet
+  # written a script creates the database, skips the CDC role and logs it, so the shared Postgres still starts; write the
+  # key and restart the pod (docs/runbooks/delivery/deploy-local.md).
   95-billing-db.sh: |
     psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
     SELECT 'CREATE DATABASE depot_billing' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_billing')\gexec
@@ -777,6 +1556,584 @@ data:
     GRANT CONNECT ON DATABASE depot_hr TO debezium_cdc_hr;
     SQL
     fi
+  95-agents-ts-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_agents' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_agents')\gexec
+    REVOKE CONNECT ON DATABASE depot_agents FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_agents TO depot_app;
+    \c depot_agents
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_AGENTS_TS_PASSWORD" ]; then
+      echo "95-agents-ts-db.sh: CDC_AGENTS_TS_PASSWORD is empty (Vault depot/dev/agents-ts-postgres/cdc-password not written); debezium_cdc_agents_ts not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_AGENTS_TS_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_agents_ts LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_agents TO debezium_cdc_agents_ts;
+    SQL
+    fi
+  95-analytics-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_analytics' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_analytics')\gexec
+    REVOKE CONNECT ON DATABASE depot_analytics FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_analytics TO depot_app;
+    \c depot_analytics
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_ANALYTICS_PASSWORD" ]; then
+      echo "95-analytics-db.sh: CDC_ANALYTICS_PASSWORD is empty (Vault depot/dev/analytics-postgres/cdc-password not written); debezium_cdc_analytics not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_ANALYTICS_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_analytics LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_analytics TO debezium_cdc_analytics;
+    SQL
+    fi
+  95-assets-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_assets' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_assets')\gexec
+    REVOKE CONNECT ON DATABASE depot_assets FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_assets TO depot_app;
+    \c depot_assets
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_ASSETS_PASSWORD" ]; then
+      echo "95-assets-db.sh: CDC_ASSETS_PASSWORD is empty (Vault depot/dev/assets-postgres/cdc-password not written); debezium_cdc_assets not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_ASSETS_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_assets LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_assets TO debezium_cdc_assets;
+    SQL
+    fi
+  95-audit-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_audit' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_audit')\gexec
+    REVOKE CONNECT ON DATABASE depot_audit FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_audit TO depot_app;
+    \c depot_audit
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_AUDIT_PASSWORD" ]; then
+      echo "95-audit-db.sh: CDC_AUDIT_PASSWORD is empty (Vault depot/dev/audit-postgres/cdc-password not written); debezium_cdc_audit not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_AUDIT_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_audit LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_audit TO debezium_cdc_audit;
+    SQL
+    fi
+  95-close-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_close' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_close')\gexec
+    REVOKE CONNECT ON DATABASE depot_close FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_close TO depot_app;
+    \c depot_close
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_CLOSE_PASSWORD" ]; then
+      echo "95-close-db.sh: CDC_CLOSE_PASSWORD is empty (Vault depot/dev/close-postgres/cdc-password not written); debezium_cdc_close not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_CLOSE_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_close LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_close TO debezium_cdc_close;
+    SQL
+    fi
+  95-compliance-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_compliance' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_compliance')\gexec
+    REVOKE CONNECT ON DATABASE depot_compliance FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_compliance TO depot_app;
+    \c depot_compliance
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_COMPLIANCE_PASSWORD" ]; then
+      echo "95-compliance-db.sh: CDC_COMPLIANCE_PASSWORD is empty (Vault depot/dev/compliance-postgres/cdc-password not written); debezium_cdc_compliance not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_COMPLIANCE_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_compliance LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_compliance TO debezium_cdc_compliance;
+    SQL
+    fi
+  95-consolidation-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_consolidation' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_consolidation')\gexec
+    REVOKE CONNECT ON DATABASE depot_consolidation FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_consolidation TO depot_app;
+    \c depot_consolidation
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_CONSOLIDATION_PASSWORD" ]; then
+      echo "95-consolidation-db.sh: CDC_CONSOLIDATION_PASSWORD is empty (Vault depot/dev/consolidation-postgres/cdc-password not written); debezium_cdc_consolidation not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_CONSOLIDATION_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_consolidation LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_consolidation TO debezium_cdc_consolidation;
+    SQL
+    fi
+  95-costacct-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_costacct' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_costacct')\gexec
+    REVOKE CONNECT ON DATABASE depot_costacct FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_costacct TO depot_app;
+    \c depot_costacct
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_COSTACCT_PASSWORD" ]; then
+      echo "95-costacct-db.sh: CDC_COSTACCT_PASSWORD is empty (Vault depot/dev/costacct-postgres/cdc-password not written); debezium_cdc_costacct not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_COSTACCT_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_costacct LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_costacct TO debezium_cdc_costacct;
+    SQL
+    fi
+  95-costing-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_costing' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_costing')\gexec
+    REVOKE CONNECT ON DATABASE depot_costing FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_costing TO depot_app;
+    \c depot_costing
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_COSTING_PASSWORD" ]; then
+      echo "95-costing-db.sh: CDC_COSTING_PASSWORD is empty (Vault depot/dev/costing-postgres/cdc-password not written); debezium_cdc_costing not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_COSTING_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_costing LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_costing TO debezium_cdc_costing;
+    SQL
+    fi
+  95-edi-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_edi' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_edi')\gexec
+    REVOKE CONNECT ON DATABASE depot_edi FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_edi TO depot_app;
+    \c depot_edi
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_EDI_PASSWORD" ]; then
+      echo "95-edi-db.sh: CDC_EDI_PASSWORD is empty (Vault depot/dev/edi-postgres/cdc-password not written); debezium_cdc_edi not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_EDI_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_edi LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_edi TO debezium_cdc_edi;
+    SQL
+    fi
+  95-engineering-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_engineering' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_engineering')\gexec
+    REVOKE CONNECT ON DATABASE depot_engineering FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_engineering TO depot_app;
+    \c depot_engineering
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_ENGINEERING_PASSWORD" ]; then
+      echo "95-engineering-db.sh: CDC_ENGINEERING_PASSWORD is empty (Vault depot/dev/engineering-postgres/cdc-password not written); debezium_cdc_engineering not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_ENGINEERING_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_engineering LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_engineering TO debezium_cdc_engineering;
+    SQL
+    fi
+  95-finreport-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_finreport' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_finreport')\gexec
+    REVOKE CONNECT ON DATABASE depot_finreport FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_finreport TO depot_app;
+    \c depot_finreport
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_FINREPORT_PASSWORD" ]; then
+      echo "95-finreport-db.sh: CDC_FINREPORT_PASSWORD is empty (Vault depot/dev/finreport-postgres/cdc-password not written); debezium_cdc_finreport not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_FINREPORT_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_finreport LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_finreport TO debezium_cdc_finreport;
+    SQL
+    fi
+  95-fx-cdc.sh: |
+    if [ -z "$CDC_FX_PASSWORD" ]; then
+      echo "95-fx-cdc.sh: CDC_FX_PASSWORD is empty (Vault depot/dev/fx-postgres/cdc-password not written); debezium_cdc_fx not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_FX_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_fx LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_fx TO debezium_cdc_fx;
+    SQL
+    fi
+  95-identity-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_identity' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_identity')\gexec
+    REVOKE CONNECT ON DATABASE depot_identity FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_identity TO depot_app;
+    \c depot_identity
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_IDENTITY_PASSWORD" ]; then
+      echo "95-identity-db.sh: CDC_IDENTITY_PASSWORD is empty (Vault depot/dev/identity-postgres/cdc-password not written); debezium_cdc_identity not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_IDENTITY_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_identity LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_identity TO debezium_cdc_identity;
+    SQL
+    fi
+  95-integration-hub-ts-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_integration_hub' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_integration_hub')\gexec
+    REVOKE CONNECT ON DATABASE depot_integration_hub FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_integration_hub TO depot_app;
+    \c depot_integration_hub
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_INTEGRATION_HUB_TS_PASSWORD" ]; then
+      echo "95-integration-hub-ts-db.sh: CDC_INTEGRATION_HUB_TS_PASSWORD is empty (Vault depot/dev/integration-hub-ts-postgres/cdc-password not written); debezium_cdc_integration_hub_ts not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_INTEGRATION_HUB_TS_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_integration_hub_ts LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_integration_hub TO debezium_cdc_integration_hub_ts;
+    SQL
+    fi
+  95-inventory-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_inventory' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_inventory')\gexec
+    REVOKE CONNECT ON DATABASE depot_inventory FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_inventory TO depot_app;
+    \c depot_inventory
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_INVENTORY_PASSWORD" ]; then
+      echo "95-inventory-db.sh: CDC_INVENTORY_PASSWORD is empty (Vault depot/dev/inventory-postgres/cdc-password not written); debezium_cdc_inventory not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_INVENTORY_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_inventory LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_inventory TO debezium_cdc_inventory;
+    SQL
+    fi
+  95-lean-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_lean' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_lean')\gexec
+    REVOKE CONNECT ON DATABASE depot_lean FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_lean TO depot_app;
+    \c depot_lean
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_LEAN_PASSWORD" ]; then
+      echo "95-lean-db.sh: CDC_LEAN_PASSWORD is empty (Vault depot/dev/lean-postgres/cdc-password not written); debezium_cdc_lean not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_LEAN_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_lean LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_lean TO debezium_cdc_lean;
+    SQL
+    fi
+  95-ledger-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_ledger' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_ledger')\gexec
+    REVOKE CONNECT ON DATABASE depot_ledger FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_ledger TO depot_app;
+    \c depot_ledger
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_LEDGER_PASSWORD" ]; then
+      echo "95-ledger-db.sh: CDC_LEDGER_PASSWORD is empty (Vault depot/dev/ledger-postgres/cdc-password not written); debezium_cdc_ledger not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_LEDGER_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_ledger LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_ledger TO debezium_cdc_ledger;
+    SQL
+    fi
+  95-migration-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_migration' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_migration')\gexec
+    REVOKE CONNECT ON DATABASE depot_migration FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_migration TO depot_app;
+    \c depot_migration
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_MIGRATION_PASSWORD" ]; then
+      echo "95-migration-db.sh: CDC_MIGRATION_PASSWORD is empty (Vault depot/dev/migration-postgres/cdc-password not written); debezium_cdc_migration not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_MIGRATION_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_migration LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_migration TO debezium_cdc_migration;
+    SQL
+    fi
+  95-mobile-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_mobile' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_mobile')\gexec
+    REVOKE CONNECT ON DATABASE depot_mobile FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_mobile TO depot_app;
+    \c depot_mobile
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_MOBILE_PASSWORD" ]; then
+      echo "95-mobile-db.sh: CDC_MOBILE_PASSWORD is empty (Vault depot/dev/mobile-postgres/cdc-password not written); debezium_cdc_mobile not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_MOBILE_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_mobile LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_mobile TO debezium_cdc_mobile;
+    SQL
+    fi
+  95-numbering-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_numbering' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_numbering')\gexec
+    REVOKE CONNECT ON DATABASE depot_numbering FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_numbering TO depot_app;
+    \c depot_numbering
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_NUMBERING_PASSWORD" ]; then
+      echo "95-numbering-db.sh: CDC_NUMBERING_PASSWORD is empty (Vault depot/dev/numbering-postgres/cdc-password not written); debezium_cdc_numbering not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_NUMBERING_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_numbering LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_numbering TO debezium_cdc_numbering;
+    SQL
+    fi
+  95-org-cdc.sh: |
+    if [ -z "$CDC_ORG_PASSWORD" ]; then
+      echo "95-org-cdc.sh: CDC_ORG_PASSWORD is empty (Vault depot/dev/org-postgres/cdc-password not written); debezium_cdc_org not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_ORG_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_org LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_org TO debezium_cdc_org;
+    SQL
+    fi
+  95-payables-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_payables' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_payables')\gexec
+    REVOKE CONNECT ON DATABASE depot_payables FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_payables TO depot_app;
+    \c depot_payables
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_PAYABLES_PASSWORD" ]; then
+      echo "95-payables-db.sh: CDC_PAYABLES_PASSWORD is empty (Vault depot/dev/payables-postgres/cdc-password not written); debezium_cdc_payables not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PAYABLES_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_payables LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_payables TO debezium_cdc_payables;
+    SQL
+    fi
+  95-payroll-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_payroll' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_payroll')\gexec
+    REVOKE CONNECT ON DATABASE depot_payroll FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_payroll TO depot_app;
+    \c depot_payroll
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_PAYROLL_PASSWORD" ]; then
+      echo "95-payroll-db.sh: CDC_PAYROLL_PASSWORD is empty (Vault depot/dev/payroll-postgres/cdc-password not written); debezium_cdc_payroll not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PAYROLL_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_payroll LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_payroll TO debezium_cdc_payroll;
+    SQL
+    fi
+  95-planning-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_planning' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_planning')\gexec
+    REVOKE CONNECT ON DATABASE depot_planning FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_planning TO depot_app;
+    \c depot_planning
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_PLANNING_PASSWORD" ]; then
+      echo "95-planning-db.sh: CDC_PLANNING_PASSWORD is empty (Vault depot/dev/planning-postgres/cdc-password not written); debezium_cdc_planning not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PLANNING_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_planning LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_planning TO debezium_cdc_planning;
+    SQL
+    fi
+  95-platform-health-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_platform_health' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_platform_health')\gexec
+    REVOKE CONNECT ON DATABASE depot_platform_health FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_platform_health TO depot_app;
+    \c depot_platform_health
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_PLATFORM_HEALTH_PASSWORD" ]; then
+      echo "95-platform-health-db.sh: CDC_PLATFORM_HEALTH_PASSWORD is empty (Vault depot/dev/platform-health-postgres/cdc-password not written); debezium_cdc_platform_health not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PLATFORM_HEALTH_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_platform_health LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_platform_health TO debezium_cdc_platform_health;
+    SQL
+    fi
+  95-prediction-py-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_prediction' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_prediction')\gexec
+    REVOKE CONNECT ON DATABASE depot_prediction FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_prediction TO depot_app;
+    \c depot_prediction
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_PREDICTION_PY_PASSWORD" ]; then
+      echo "95-prediction-py-db.sh: CDC_PREDICTION_PY_PASSWORD is empty (Vault depot/dev/prediction-py-postgres/cdc-password not written); debezium_cdc_prediction_py not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PREDICTION_PY_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_prediction_py LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_prediction TO debezium_cdc_prediction_py;
+    SQL
+    fi
+  95-pricing-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_pricing' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_pricing')\gexec
+    REVOKE CONNECT ON DATABASE depot_pricing FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_pricing TO depot_app;
+    \c depot_pricing
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_PRICING_PASSWORD" ]; then
+      echo "95-pricing-db.sh: CDC_PRICING_PASSWORD is empty (Vault depot/dev/pricing-postgres/cdc-password not written); debezium_cdc_pricing not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PRICING_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_pricing LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_pricing TO debezium_cdc_pricing;
+    SQL
+    fi
+  95-print-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_print' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_print')\gexec
+    REVOKE CONNECT ON DATABASE depot_print FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_print TO depot_app;
+    \c depot_print
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_PRINT_PASSWORD" ]; then
+      echo "95-print-db.sh: CDC_PRINT_PASSWORD is empty (Vault depot/dev/print-postgres/cdc-password not written); debezium_cdc_print not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PRINT_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_print LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_print TO debezium_cdc_print;
+    SQL
+    fi
+  95-processmfg-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_processmfg' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_processmfg')\gexec
+    REVOKE CONNECT ON DATABASE depot_processmfg FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_processmfg TO depot_app;
+    \c depot_processmfg
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_PROCESSMFG_PASSWORD" ]; then
+      echo "95-processmfg-db.sh: CDC_PROCESSMFG_PASSWORD is empty (Vault depot/dev/processmfg-postgres/cdc-password not written); debezium_cdc_processmfg not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PROCESSMFG_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_processmfg LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_processmfg TO debezium_cdc_processmfg;
+    SQL
+    fi
+  95-productcost-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_productcost' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_productcost')\gexec
+    REVOKE CONNECT ON DATABASE depot_productcost FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_productcost TO depot_app;
+    \c depot_productcost
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_PRODUCTCOST_PASSWORD" ]; then
+      echo "95-productcost-db.sh: CDC_PRODUCTCOST_PASSWORD is empty (Vault depot/dev/productcost-postgres/cdc-password not written); debezium_cdc_productcost not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PRODUCTCOST_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_productcost LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_productcost TO debezium_cdc_productcost;
+    SQL
+    fi
+  95-quality-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_quality' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_quality')\gexec
+    REVOKE CONNECT ON DATABASE depot_quality FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_quality TO depot_app;
+    \c depot_quality
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_QUALITY_PASSWORD" ]; then
+      echo "95-quality-db.sh: CDC_QUALITY_PASSWORD is empty (Vault depot/dev/quality-postgres/cdc-password not written); debezium_cdc_quality not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_QUALITY_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_quality LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_quality TO debezium_cdc_quality;
+    SQL
+    fi
+  95-revrec-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_revrec' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_revrec')\gexec
+    REVOKE CONNECT ON DATABASE depot_revrec FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_revrec TO depot_app;
+    \c depot_revrec
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_REVREC_PASSWORD" ]; then
+      echo "95-revrec-db.sh: CDC_REVREC_PASSWORD is empty (Vault depot/dev/revrec-postgres/cdc-password not written); debezium_cdc_revrec not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_REVREC_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_revrec LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_revrec TO debezium_cdc_revrec;
+    SQL
+    fi
+  95-scheduling-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_scheduling' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_scheduling')\gexec
+    REVOKE CONNECT ON DATABASE depot_scheduling FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_scheduling TO depot_app;
+    \c depot_scheduling
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_SCHEDULING_PASSWORD" ]; then
+      echo "95-scheduling-db.sh: CDC_SCHEDULING_PASSWORD is empty (Vault depot/dev/scheduling-postgres/cdc-password not written); debezium_cdc_scheduling not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_SCHEDULING_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_scheduling LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_scheduling TO debezium_cdc_scheduling;
+    SQL
+    fi
+  95-shopfloor-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_shopfloor' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_shopfloor')\gexec
+    REVOKE CONNECT ON DATABASE depot_shopfloor FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_shopfloor TO depot_app;
+    \c depot_shopfloor
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_SHOPFLOOR_PASSWORD" ]; then
+      echo "95-shopfloor-db.sh: CDC_SHOPFLOOR_PASSWORD is empty (Vault depot/dev/shopfloor-postgres/cdc-password not written); debezium_cdc_shopfloor not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_SHOPFLOOR_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_shopfloor LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_shopfloor TO debezium_cdc_shopfloor;
+    SQL
+    fi
+  95-tax-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_tax' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_tax')\gexec
+    REVOKE CONNECT ON DATABASE depot_tax FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_tax TO depot_app;
+    \c depot_tax
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_TAX_PASSWORD" ]; then
+      echo "95-tax-db.sh: CDC_TAX_PASSWORD is empty (Vault depot/dev/tax-postgres/cdc-password not written); debezium_cdc_tax not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_TAX_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_tax LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_tax TO debezium_cdc_tax;
+    SQL
+    fi
+  95-treasury-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_treasury' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_treasury')\gexec
+    REVOKE CONNECT ON DATABASE depot_treasury FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_treasury TO depot_app;
+    \c depot_treasury
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_TREASURY_PASSWORD" ]; then
+      echo "95-treasury-db.sh: CDC_TREASURY_PASSWORD is empty (Vault depot/dev/treasury-postgres/cdc-password not written); debezium_cdc_treasury not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_TREASURY_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_treasury LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_treasury TO debezium_cdc_treasury;
+    SQL
+    fi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -796,7 +2153,7 @@ spec:
         app.kubernetes.io/name: postgres
       annotations:
         # initdb scripts run only on an empty PGDATA; bump this whenever postgres-init changes so the pod restarts
-        depot.dev/init-rev: "10"
+        depot.dev/init-rev: "11"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -808,9 +2165,9 @@ spec:
       containers:
         - name: postgres
           image: postgres:17-alpine@sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb
-          # One logical slot and one walsender per outbox connector on this Postgres (deploy/kafka/connect.yaml), with
-          # headroom; deploy/scripts/test_argocd_apps.py fails when the connectors outgrow these limits.
-          args: [-c, wal_level=logical, -c, max_replication_slots=32, -c, max_wal_senders=32]
+          # One logical slot and one walsender per outbox connector on this Postgres (deploy/kafka/connect.yaml: 56 of
+          # them), with headroom; deploy/scripts/test_argocd_apps.py fails when the connectors outgrow these limits.
+          args: [-c, wal_level=logical, -c, max_replication_slots=64, -c, max_wal_senders=64]
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -882,6 +2239,117 @@ spec:
             - name: CDC_HR_PASSWORD
               valueFrom:
                 secretKeyRef: { name: hr-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_AGENTS_TS_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: agents-ts-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_ANALYTICS_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: analytics-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_ASSETS_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: assets-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_AUDIT_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: audit-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_CLOSE_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: close-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_COMPLIANCE_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: compliance-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_CONSOLIDATION_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: consolidation-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_COSTACCT_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: costacct-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_COSTING_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: costing-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_EDI_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: edi-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_ENGINEERING_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: engineering-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_FINREPORT_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: finreport-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_FX_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: fx-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_IDENTITY_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: identity-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_INTEGRATION_HUB_TS_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: integration-hub-ts-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_INVENTORY_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: inventory-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_LEAN_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: lean-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_LEDGER_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: ledger-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_MIGRATION_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: migration-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_MOBILE_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: mobile-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_NUMBERING_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: numbering-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_ORG_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: org-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_PAYABLES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: payables-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_PAYROLL_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: payroll-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_PLANNING_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: planning-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_PLATFORM_HEALTH_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: platform-health-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_PREDICTION_PY_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: prediction-py-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_PRICING_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: pricing-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_PRINT_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: print-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_PROCESSMFG_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: processmfg-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_PRODUCTCOST_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: productcost-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_QUALITY_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: quality-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_REVREC_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: revrec-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_SCHEDULING_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: scheduling-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_SHOPFLOOR_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: shopfloor-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_TAX_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: tax-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_TREASURY_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: treasury-cdc, key: CDC_PASSWORD, optional: true }
             - name: EAM_APP_PASSWORD
               valueFrom:
                 secretKeyRef: { name: eam-database, key: APP_PASSWORD }

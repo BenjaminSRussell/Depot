@@ -56,17 +56,28 @@ The shared dev Postgres (`deploy/envs/dev/apps/postgres.yaml`) creates the datab
 `debezium_cdc_<service>`. The role's password is the Vault key `depot/dev/<service>-postgres/cdc-password`, which
 Kafka Connect reads too (`debezium-cdc-<service>` in `deploy/envs/dev/kafka-secrets/debezium-cdc.yaml`).
 
-- For the `95-<service>-db.sh` services (billing, budgeting, warehouse, intercompany, fieldservice, ops, receivables,
-  expense, projects, party, product, purchasing, production, hr) the key is optional. Without it the pod still starts, the
-  database is created, and the init log says `debezium_cdc_<service> not created`; that connector fails to log in.
+- For the `95-<service>-db.sh` services the key is optional: billing, budgeting, warehouse, intercompany, fieldservice,
+  ops, receivables, expense, projects, party, product, purchasing, production, hr, and (B-05a) agents-ts, analytics,
+  assets, audit, close, compliance, consolidation, costacct, costing, edi, engineering, finreport, identity,
+  integration-hub-ts, inventory, lean, ledger, migration, mobile, numbering, payables, payroll, planning, platform-health,
+  prediction-py, pricing, print, processmfg, productcost, quality, revrec, scheduling, shopfloor, tax and treasury.
+  Without it the pod still starts, the database is created, and the init log says `debezium_cdc_<service> not created`;
+  that connector fails to log in. fx and org use `95-fx-cdc.sh` and `95-org-cdc.sh`, which create only the role
+  (their databases come from `30-fx-db.sh` and `40-org-db.sh`). A hyphen in the service name becomes an underscore in
+  the role, database and slot (`debezium_cdc_agents_ts`), not in the Vault key or the Secrets
+  (`depot/dev/agents-ts-postgres/cdc-password`, `agents-ts-cdc`, `debezium-cdc-agents-ts`); agents-ts, integration-hub-ts
+  and prediction-py use the databases their charts name (`depot_agents`, `depot_integration_hub`, `depot_prediction`).
 - To enable one: write the key (URL-safe hex, property `value`), wait for the ExternalSecrets `<service>-cdc`
   (namespace `hello-ledger`) and `debezium-cdc-<service>` (namespace `kafka`) to sync, then restart the Postgres pod:
   `kubectl -n hello-ledger rollout restart deploy/postgres`. Init scripts run only on an empty data directory, which is
   an emptyDir, so the restart recreates every dev database.
 - The receiving, eam, transport, sales and fulfillment keys stay required: a missing one keeps the pod in
   `CreateContainerConfigError`.
-- The Postgres allows 32 replication slots and walsenders, one each per connector; raise `max_replication_slots` and
-  `max_wal_senders` in its args before adding connectors past that (`deploy/scripts/test_argocd_apps.py` checks).
+- The Postgres allows 64 replication slots and walsenders, one each per connector (56 connectors point at it); raise
+  `max_replication_slots` and `max_wal_senders` in its args before adding connectors past that
+  (`deploy/scripts/test_argocd_apps.py` checks). Every service whose migrations create an outbox table has a connector
+  (the same test fails on one that does not), so a new service with an outbox adds its 95- script, its two ExternalSecrets
+  and its connector together.
 
 ## Tear down
 

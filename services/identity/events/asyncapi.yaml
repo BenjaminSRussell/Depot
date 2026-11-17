@@ -1,0 +1,151 @@
+asyncapi: 3.0.0
+info:
+  title: Depot identity events
+  version: 0.1.0
+  description: |
+    CloudEvents 1.0 envelope; the schemas below are the data member. `record` (admin_common.go) writes each event to the
+    identity_audit table and the outbox in one transaction, with aggregate type and entity id: SCIM users
+    (scim_users.go), SCIM groups (scim_groups.go) and role assignments (tenants_api.go, and scim_users.go when a
+    deprovisioned user's assignments end). The `outbox-identity` connector (deploy/kafka/connect.yaml) routes
+    dev.depot.identity.<entity>.<verb>.v<n> to depot.identity.<entity>. No consumer reads these topics yet.
+defaultContentType: application/cloudevents+json
+channels:
+  user:
+    address: depot.identity.user
+    description: Outbox relay topic for SCIM user changes, keyed by user id.
+    messages:
+      userProvisioned:
+        $ref: "#/components/messages/UserProvisioned"
+      userUpdated:
+        $ref: "#/components/messages/UserUpdated"
+      userDeprovisioned:
+        $ref: "#/components/messages/UserDeprovisioned"
+      userReactivated:
+        $ref: "#/components/messages/UserReactivated"
+  scimGroup:
+    address: depot.identity.scimgroup
+    description: Outbox relay topic for SCIM group changes, keyed by group id.
+    messages:
+      scimGroupCreated:
+        $ref: "#/components/messages/ScimGroupCreated"
+      scimGroupUpdated:
+        $ref: "#/components/messages/ScimGroupUpdated"
+      scimGroupDeleted:
+        $ref: "#/components/messages/ScimGroupDeleted"
+  roleAssignment:
+    address: depot.identity.roleassignment
+    description: Outbox relay topic for role assignments, keyed by assignment id.
+    messages:
+      roleAssignmentAssigned:
+        $ref: "#/components/messages/RoleAssignmentAssigned"
+      roleAssignmentEnded:
+        $ref: "#/components/messages/RoleAssignmentEnded"
+operations:
+  publishUser:
+    action: send
+    channel:
+      $ref: "#/channels/user"
+    summary: SCIM provisioning creates, updates, deprovisions or reactivates a user.
+    messages:
+      - $ref: "#/channels/user/messages/userProvisioned"
+      - $ref: "#/channels/user/messages/userUpdated"
+      - $ref: "#/channels/user/messages/userDeprovisioned"
+      - $ref: "#/channels/user/messages/userReactivated"
+  publishScimGroup:
+    action: send
+    channel:
+      $ref: "#/channels/scimGroup"
+    summary: SCIM provisioning creates, updates or deletes a group.
+    messages:
+      - $ref: "#/channels/scimGroup/messages/scimGroupCreated"
+      - $ref: "#/channels/scimGroup/messages/scimGroupUpdated"
+      - $ref: "#/channels/scimGroup/messages/scimGroupDeleted"
+  publishRoleAssignment:
+    action: send
+    channel:
+      $ref: "#/channels/roleAssignment"
+    summary: A role is assigned to a user, or an assignment ends (the user was deprovisioned).
+    messages:
+      - $ref: "#/channels/roleAssignment/messages/roleAssignmentAssigned"
+      - $ref: "#/channels/roleAssignment/messages/roleAssignmentEnded"
+components:
+  messages:
+    UserProvisioned:
+      name: dev.depot.identity.user.provisioned.v1
+      summary: A user was provisioned over SCIM
+      contentType: application/cloudevents+json
+      payload: { $ref: "#/components/schemas/UserData" }
+    UserUpdated:
+      name: dev.depot.identity.user.updated.v1
+      summary: A SCIM user was updated
+      contentType: application/cloudevents+json
+      payload: { $ref: "#/components/schemas/UserData" }
+    UserDeprovisioned:
+      name: dev.depot.identity.user.deprovisioned.v1
+      summary: A SCIM user was deprovisioned
+      contentType: application/cloudevents+json
+      payload: { $ref: "#/components/schemas/UserData" }
+    UserReactivated:
+      name: dev.depot.identity.user.reactivated.v1
+      summary: A deprovisioned SCIM user was reactivated
+      contentType: application/cloudevents+json
+      payload: { $ref: "#/components/schemas/UserData" }
+    ScimGroupCreated:
+      name: dev.depot.identity.scimgroup.created.v1
+      summary: A SCIM group was created
+      contentType: application/cloudevents+json
+      payload: { $ref: "#/components/schemas/ScimGroupData" }
+    ScimGroupUpdated:
+      name: dev.depot.identity.scimgroup.updated.v1
+      summary: A SCIM group's name or members changed
+      contentType: application/cloudevents+json
+      payload: { $ref: "#/components/schemas/ScimGroupData" }
+    ScimGroupDeleted:
+      name: dev.depot.identity.scimgroup.deleted.v1
+      summary: A SCIM group was deleted
+      contentType: application/cloudevents+json
+      payload: { $ref: "#/components/schemas/ScimGroupData" }
+    RoleAssignmentAssigned:
+      name: dev.depot.identity.roleassignment.assigned.v1
+      summary: A role was assigned to a user
+      contentType: application/cloudevents+json
+      payload: { $ref: "#/components/schemas/RoleAssignmentData" }
+    RoleAssignmentEnded:
+      name: dev.depot.identity.roleassignment.ended.v1
+      summary: A role assignment ended
+      contentType: application/cloudevents+json
+      payload: { $ref: "#/components/schemas/RoleAssignmentData" }
+  schemas:
+    UserData:
+      type: object
+      required: [userId, userName, status]
+      additionalProperties: false
+      properties:
+        userId: { type: string, format: uuid }
+        userName: { type: string }
+        externalId: { type: string }
+        status: { type: string, enum: [active, deprovisioned] }
+    ScimGroupData:
+      type: object
+      required: [groupId, displayName]
+      additionalProperties: false
+      properties:
+        groupId: { type: string, format: uuid }
+        displayName: { type: string }
+        externalId: { type: string }
+        added: { type: array, items: { type: string }, description: "Member user ids added by this change." }
+        removed: { type: array, items: { type: string }, description: "Member user ids removed by this change." }
+    RoleAssignmentData:
+      type: object
+      required: [assignmentId, userId, role, validFrom, createdAt]
+      additionalProperties: false
+      properties:
+        assignmentId: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        role: { type: string }
+        legalEntityId: { type: string, format: uuid }
+        validFrom: { type: string, format: date-time }
+        validTo: { type: string, format: date-time }
+        reason: { type: string }
+        grantedBy: { type: string }
+        createdAt: { type: string, format: date-time }

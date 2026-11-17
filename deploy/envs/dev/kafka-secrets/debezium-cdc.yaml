@@ -523,6 +523,931 @@ spec:
         key: depot/dev/hr-postgres/cdc-password
         property: value
 ---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-agents-ts
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-agents-ts
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_agents_ts
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/agents-ts-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-analytics
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-analytics
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_analytics
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/analytics-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-assets
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-assets
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_assets
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/assets-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-audit
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-audit
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_audit
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/audit-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-close
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-close
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_close
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/close-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-compliance
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-compliance
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_compliance
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/compliance-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-consolidation
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-consolidation
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_consolidation
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/consolidation-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-costacct
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-costacct
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_costacct
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/costacct-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-costing
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-costing
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_costing
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/costing-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-edi
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-edi
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_edi
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/edi-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-engineering
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-engineering
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_engineering
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/engineering-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-finreport
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-finreport
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_finreport
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/finreport-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-fx
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-fx
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_fx
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/fx-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-identity
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-identity
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_identity
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/identity-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-integration-hub-ts
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-integration-hub-ts
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_integration_hub_ts
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/integration-hub-ts-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-inventory
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-inventory
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_inventory
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/inventory-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-lean
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-lean
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_lean
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/lean-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-ledger
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-ledger
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_ledger
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/ledger-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-migration
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-migration
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_migration
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/migration-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-mobile
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-mobile
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_mobile
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/mobile-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-numbering
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-numbering
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_numbering
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/numbering-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-org
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-org
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_org
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/org-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-payables
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-payables
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_payables
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/payables-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-payroll
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-payroll
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_payroll
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/payroll-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-planning
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-planning
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_planning
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/planning-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-platform-health
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-platform-health
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_platform_health
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/platform-health-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-prediction-py
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-prediction-py
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_prediction_py
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/prediction-py-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-pricing
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-pricing
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_pricing
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/pricing-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-print
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-print
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_print
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/print-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-processmfg
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-processmfg
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_processmfg
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/processmfg-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-productcost
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-productcost
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_productcost
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/productcost-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-quality
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-quality
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_quality
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/quality-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-revrec
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-revrec
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_revrec
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/revrec-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-scheduling
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-scheduling
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_scheduling
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/scheduling-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-shopfloor
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-shopfloor
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_shopfloor
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/shopfloor-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-tax
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-tax
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_tax
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/tax-postgres/cdc-password
+        property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-treasury
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-treasury
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_treasury
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/treasury-postgres/cdc-password
+        property: value
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -531,7 +1456,7 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: [secrets]
-    resourceNames: [debezium-cdc-metadata, debezium-cdc-batch, debezium-cdc-receiving, debezium-cdc-eam, debezium-cdc-transport, debezium-cdc-sales, debezium-cdc-fulfillment, debezium-cdc-budgeting, debezium-cdc-billing, debezium-cdc-fieldservice, debezium-cdc-warehouse, debezium-cdc-intercompany, debezium-cdc-ops, debezium-cdc-receivables, debezium-cdc-expense, debezium-cdc-projects, debezium-cdc-party, debezium-cdc-product, debezium-cdc-purchasing, debezium-cdc-production, debezium-cdc-hr]
+    resourceNames: [debezium-cdc-metadata, debezium-cdc-batch, debezium-cdc-receiving, debezium-cdc-eam, debezium-cdc-transport, debezium-cdc-sales, debezium-cdc-fulfillment, debezium-cdc-budgeting, debezium-cdc-billing, debezium-cdc-fieldservice, debezium-cdc-warehouse, debezium-cdc-intercompany, debezium-cdc-ops, debezium-cdc-receivables, debezium-cdc-expense, debezium-cdc-projects, debezium-cdc-party, debezium-cdc-product, debezium-cdc-purchasing, debezium-cdc-production, debezium-cdc-hr, debezium-cdc-agents-ts, debezium-cdc-analytics, debezium-cdc-assets, debezium-cdc-audit, debezium-cdc-close, debezium-cdc-compliance, debezium-cdc-consolidation, debezium-cdc-costacct, debezium-cdc-costing, debezium-cdc-edi, debezium-cdc-engineering, debezium-cdc-finreport, debezium-cdc-fx, debezium-cdc-identity, debezium-cdc-integration-hub-ts, debezium-cdc-inventory, debezium-cdc-lean, debezium-cdc-ledger, debezium-cdc-migration, debezium-cdc-mobile, debezium-cdc-numbering, debezium-cdc-org, debezium-cdc-payables, debezium-cdc-payroll, debezium-cdc-planning, debezium-cdc-platform-health, debezium-cdc-prediction-py, debezium-cdc-pricing, debezium-cdc-print, debezium-cdc-processmfg, debezium-cdc-productcost, debezium-cdc-quality, debezium-cdc-revrec, debezium-cdc-scheduling, debezium-cdc-shopfloor, debezium-cdc-tax, debezium-cdc-treasury]
     verbs: [get]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

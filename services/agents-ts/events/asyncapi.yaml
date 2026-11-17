@@ -7,22 +7,81 @@ info:
     data member, with snake_case field names as in the PRD and the other
     services' events. `src/domain/events.ts` builds and validates the payloads
     of four events (run.completed, approval.requested, budget.threshold,
-    killswitch.changed); the schemas below mirror those payloads. The
-    outbox wiring that writes them inside the business transaction is a later
-    slice (see NOT-IMPLEMENTED.md), so `channels` and `operations` stay empty
-    until that wiring exists and the spec matches code.
-    `version.promoted` is still planned. `killswitch.changed` is written to
-    the outbox by `POST /api/v1/agents/kill-switch` in the toggle's
-    transaction (src/store/killswitch.ts); agent workers do not consume it
-    (they poll kill_switch_change), and `KillSwitchFeed`
+    killswitch.changed); the schemas below mirror those payloads. Three are
+    written to the outbox inside the business transaction and relayed by the
+    `outbox-agents-ts` connector (deploy/kafka/connect.yaml), which routes
+    dev.depot.agent.<entity>.<verb>.v<n> to depot.agent.<entity>:
+    approval.requested (src/store/approvals.ts), budget.threshold
+    (`PgAgentStore.settle`) and killswitch.changed (`POST
+    /api/v1/agents/kill-switch`, src/store/killswitch.ts). Only those have a
+    channel. run.completed is built but not written yet (see
+    NOT-IMPLEMENTED.md) and `version.promoted` is still planned; each gets its
+    channel with the wiring. Agent workers do not consume killswitch.changed
+    (they poll kill_switch_change); `KillSwitchFeed`
     (src/runtime/killswitch-feed.ts) parses exactly the KillSwitchChangedData
-    schema below for a consumer outside this service; the broker channel is
-    added with the relay.
+    schema below for a consumer outside this service.
 defaultContentType: application/cloudevents+json
-channels: {}
-operations: {}
+channels:
+  approvalRequested:
+    address: depot.agent.approval
+    description: Outbox relay topic for approval requests raised at an approval gate (FR-47.8).
+    messages:
+      approvalRequested:
+        $ref: "#/components/messages/ApprovalRequested"
+  budgetThreshold:
+    address: depot.agent.budget
+    description: Outbox relay topic for cost-guard alerts (AC-47.4).
+    messages:
+      budgetThreshold:
+        $ref: "#/components/messages/BudgetThreshold"
+  killSwitchChanged:
+    address: depot.agent.killswitch
+    description: Outbox relay topic for kill-switch toggles.
+    messages:
+      killSwitchChanged:
+        $ref: "#/components/messages/KillSwitchChanged"
+operations:
+  publishApprovalRequested:
+    action: send
+    channel:
+      $ref: "#/channels/approvalRequested"
+    summary: Written with the approval request in one transaction (src/store/approvals.ts).
+    messages:
+      - $ref: "#/channels/approvalRequested/messages/approvalRequested"
+  publishBudgetThreshold:
+    action: send
+    channel:
+      $ref: "#/channels/budgetThreshold"
+    summary: Written by PgAgentStore.settle when the month's budget moves up into SOFT or HARD.
+    messages:
+      - $ref: "#/channels/budgetThreshold/messages/budgetThreshold"
+  publishKillSwitchChanged:
+    action: send
+    channel:
+      $ref: "#/channels/killSwitchChanged"
+    summary: Written with the toggle and its version in one transaction (src/store/killswitch.ts).
+    messages:
+      - $ref: "#/channels/killSwitchChanged/messages/killSwitchChanged"
 components:
-  messages: {}
+  messages:
+    ApprovalRequested:
+      name: dev.depot.agent.approval.requested.v1
+      summary: A run reached an approval gate
+      contentType: application/cloudevents+json
+      payload:
+        $ref: "#/components/schemas/ApprovalRequestedData"
+    BudgetThreshold:
+      name: dev.depot.agent.budget.threshold.v1
+      summary: The month's token budget moved up into SOFT or HARD
+      contentType: application/cloudevents+json
+      payload:
+        $ref: "#/components/schemas/BudgetThresholdData"
+    KillSwitchChanged:
+      name: dev.depot.agent.killswitch.changed.v1
+      summary: The kill switch was toggled
+      contentType: application/cloudevents+json
+      payload:
+        $ref: "#/components/schemas/KillSwitchChangedData"
   schemas:
     PlannedEventTypes:
       type: string

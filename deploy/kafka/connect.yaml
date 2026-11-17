@@ -344,6 +344,444 @@ spec:
         operations: [Create, Describe, Write, DescribeConfigs]
       - resource: {type: topic, name: depot.hr.review, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
+      # agents-ts: one literal per AsyncAPI channel of services/agents-ts/events/asyncapi.yaml (outbox-agents-ts routes by event type).
+      - resource: {type: topic, name: depot.agent.approval, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.agent.budget, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.agent.killswitch, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # analytics: one literal per AsyncAPI channel of services/analytics/events/asyncapi.yaml (outbox-analytics routes by event type).
+      - resource: {type: topic, name: depot.analytics.metric, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.catalog.dq, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.archive.partition, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.analytics.report, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # assets: one literal per AsyncAPI channel of services/assets/events/asyncapi.yaml (outbox-assets routes by event type).
+      - resource: {type: topic, name: depot.assets.asset, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.assets.lease, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.assets.depreciation, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.assets.capexrequest, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # audit: one literal per AsyncAPI channel of services/audit/events/asyncapi.yaml (outbox-audit routes by event type).
+      - resource: {type: topic, name: depot.audit.change, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # close: one literal per AsyncAPI channel of services/close/events/asyncapi.yaml (outbox-close routes by event type).
+      - resource: {type: topic, name: depot.close.period, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.close.yearend, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.close.run, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.close.task, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.close.allocation, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.close.accrual, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.close.regrouping, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # compliance: one literal per AsyncAPI channel of services/compliance/events/asyncapi.yaml (outbox-compliance routes by event type).
+      - resource: {type: topic, name: depot.sod.conflict, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.sod.mitigation, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.trade.screening, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.privacy.request, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.privacy.hold, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.privacy.erasure, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # consolidation: one literal per AsyncAPI channel of services/consolidation/events/asyncapi.yaml (outbox-consolidation routes by event type).
+      - resource: {type: topic, name: depot.consol.run, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # costacct: one literal per AsyncAPI channel of services/costacct/events/asyncapi.yaml (outbox-costacct routes by event type).
+      - resource: {type: topic, name: depot.controlling.costentry, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.controlling.allocation, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.controlling.hierarchy, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # costing: one literal per AsyncAPI channel of services/costing/events/asyncapi.yaml (outbox-costing routes by event type).
+      - resource: {type: topic, name: depot.costing.cost, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.costing.reconciliation, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.costing.agingsnapshot, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # edi: one literal per AsyncAPI channel of services/edi/events/asyncapi.yaml (outbox-edi routes by event type).
+      - resource: {type: topic, name: depot.edi.message, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.edi.delivery, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.edi.einvoice, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.edi.punchout, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.edi.selfbilling, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.edi.dispute, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # engineering: one literal per AsyncAPI channel of services/engineering/events/asyncapi.yaml (outbox-engineering routes by event type).
+      - resource: {type: topic, name: depot.engineering.bomversion, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.engineering.eco, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.engineering.ecr, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.engineering.routeversion, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.engineering.resource, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.engineering.calendar, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.engineering.releasesession, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.engineering.releaseline, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.engineering.releasedproduct, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.engineering.document, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.engineering.ebom, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # finreport: one literal per AsyncAPI channel of services/finreport/events/asyncapi.yaml (outbox-finreport routes by event type).
+      - resource: {type: topic, name: depot.reporting.statement, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.reporting.definition, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.reporting.hierarchy, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.reporting.balance, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.reporting.lag, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.reporting.distribution, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.reporting.legalhold, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.reporting.sharelink, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.reporting.library, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.reporting.runs, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # fx: one literal per AsyncAPI channel of services/fx/events/asyncapi.yaml (outbox-fx routes by event type).
+      - resource: {type: topic, name: depot.fx.rate, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.fx.provider, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # identity: one literal per AsyncAPI channel of services/identity/events/asyncapi.yaml (outbox-identity routes by event type).
+      - resource: {type: topic, name: depot.identity.user, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.identity.scimgroup, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.identity.roleassignment, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # integration-hub-ts: one literal per AsyncAPI channel of services/integration-hub-ts/events/asyncapi.yaml (outbox-integration-hub-ts routes by event type).
+      - resource: {type: topic, name: depot.hub.subscription, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.hub.webhook, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.hub.apiclient, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.hub.catalogentry, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # inventory: one literal per AsyncAPI channel of services/inventory/events/asyncapi.yaml (outbox-inventory routes by event type).
+      - resource: {type: topic, name: depot.inventory.transaction, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.inventory.onhand, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.inventory.journal, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.inventory.reservation, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.inventory.blocking, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.inventory.hold, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.inventory.transfer, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.inventory.ownership, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.inventory.consignment, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.inventory.countsheet, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.inventory.journalname, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.inventory.reconciliation, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # lean: one literal per AsyncAPI channel of services/lean/events/asyncapi.yaml (outbox-lean routes by event type).
+      - resource: {type: topic, name: depot.lean.flow, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.lean.kanban, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.lean.kanbanjob, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.lean.flowperiod, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # ledger: one literal per AsyncAPI channel of services/ledger/events/asyncapi.yaml (outbox-ledger routes by event type).
+      - resource: {type: topic, name: depot.ledger.journal, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.ledger.balance, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.ledger.batch, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.ledger.recurring, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.ledger.openitem, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.ledger.rules, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.ledger.realignment, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # migration: one literal per AsyncAPI channel of services/migration/events/asyncapi.yaml (outbox-migration routes by event type).
+      - resource: {type: topic, name: depot.migration.syncrun, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.migration.syncabsent, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # mobile: one literal per AsyncAPI channel of services/mobile/events/asyncapi.yaml (outbox-mobile routes by event type).
+      - resource: {type: topic, name: depot.mobile.flow, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.mobile.session, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.mobile.offline, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # numbering: one literal per AsyncAPI channel of services/numbering/events/asyncapi.yaml (outbox-numbering routes by event type).
+      - resource: {type: topic, name: depot.numbering.sequence, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # org: one literal per AsyncAPI channel of services/org/events/asyncapi.yaml (outbox-org routes by event type).
+      - resource: {type: topic, name: depot.org.legalentity, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.org.operatingunit, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.org.site, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.org.warehouse, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.org.fiscalcalendar, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.org.hierarchyversion, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.org.teammembership, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.org.location, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.org.address, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.org.currencyrounding, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.org.democompany, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # payables: one literal per AsyncAPI channel of services/payables/events/asyncapi.yaml (outbox-payables routes by event type).
+      - resource: {type: topic, name: depot.payables.openitem, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.payables.vendor, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.payables.paymentproposal, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # planning: one literal per AsyncAPI channel of services/planning/events/asyncapi.yaml (outbox-planning routes by event type).
+      - resource: {type: topic, name: depot.planning.plan, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.planning.plannedorder, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.planning.forecast, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.planning.scenario, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # platform-health: one literal per AsyncAPI channel of services/platform-health/events/asyncapi.yaml (outbox-platform-health routes by event type).
+      - resource: {type: topic, name: depot.platform.release, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # prediction-py: one literal per AsyncAPI channel of services/prediction-py/events/asyncapi.yaml (outbox-prediction-py routes by event type).
+      - resource: {type: topic, name: depot.prediction.payment, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # pricing: one literal per AsyncAPI channel of services/pricing/events/asyncapi.yaml (outbox-pricing routes by event type).
+      - resource: {type: topic, name: depot.pricing.conditionrecord, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.pricing.journal, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.pricing.rebateaccrual, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.pricing.commission, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.pricing.commissionexport, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.pricing.fund, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.pricing.fundusage, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.pricing.parameters, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.pricing.procedureassignment, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.pricing.campaign, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.pricing.freegoodsrule, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.pricing.commodity, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.pricing.rebateagreement, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.pricing.procedure, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.pricing.vendorrebateclaim, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.pricing.brokercontract, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.pricing.royaltyagreement, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.pricing.contractaccrual, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.pricing.contractclaim, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # print: one literal per AsyncAPI channel of services/print/events/asyncapi.yaml (outbox-print routes by event type).
+      - resource: {type: topic, name: depot.print.job, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # processmfg: one literal per AsyncAPI channel of services/processmfg/events/asyncapi.yaml (outbox-processmfg routes by event type).
+      - resource: {type: topic, name: depot.production.formula, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.production.batchorder, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.production.coproduct, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.production.batchattribute, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.production.batch, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.production.reworkorder, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.production.inheritancerule, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.production.batchrequirement, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.production.batchrecordprofile, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.production.batchrecord, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # productcost: one literal per AsyncAPI channel of services/productcost/events/asyncapi.yaml (outbox-productcost routes by event type).
+      - resource: {type: topic, name: depot.costing.costcomponent, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.costing.costgroup, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.costing.version, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.costing.standardcost, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.costing.postingaccounts, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.costing.activationattempt, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # quality: one literal per AsyncAPI channel of services/quality/events/asyncapi.yaml (outbox-quality routes by event type).
+      - resource: {type: topic, name: depot.quality.order, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.quality.result, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.quality.usagedecision, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.quality.compliancelist, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.quality.complianceresult, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.quality.stabilitystudy, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.quality.nonconformance, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.quality.capa, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.quality.coa, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # revrec: one literal per AsyncAPI channel of services/revrec/events/asyncapi.yaml (outbox-revrec routes by event type).
+      - resource: {type: topic, name: depot.revrec.contract, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.revrec.schedule, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # scheduling: one literal per AsyncAPI channel of services/scheduling/events/asyncapi.yaml (outbox-scheduling routes by event type).
+      - resource: {type: topic, name: depot.scheduling.run, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.scheduling.job, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.scheduling.orderdates, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.scheduling.campaign, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.scheduling.cleanoutcounter, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.scheduling.resource, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.scheduling.capacityoverride, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.scheduling.capacityblock, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.scheduling.network, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.scheduling.orderimport, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.scheduling.operation, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.scheduling.order, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.scheduling.parameters, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.scheduling.bottleneck, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # shopfloor: one literal per AsyncAPI channel of services/shopfloor/events/asyncapi.yaml (outbox-shopfloor routes by event type).
+      - resource: {type: topic, name: depot.shopfloor.registration, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.shopfloor.payday, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.shopfloor.registration-corrected, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.shopfloor.payday-revised, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.shopfloor.timeprofile, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.shopfloor.payagreement, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.shopfloor.worker, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.shopfloor.absencecode, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.shopfloor.downtimereason, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.shopfloor.processcategory, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.shopfloor.edge-node, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.shopfloor.edge-config, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.shopfloor.control-recipe, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.shopfloor.pay-export, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.shopfloor.andon, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.shopfloor.job, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.shopfloor.oee, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.shopfloor.process-messages, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # tax: one literal per AsyncAPI channel of services/tax/events/asyncapi.yaml (outbox-tax routes by event type).
+      - resource: {type: topic, name: depot.tax.provider, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # treasury: one literal per AsyncAPI channel of services/treasury/events/asyncapi.yaml (outbox-treasury routes by event type).
+      - resource: {type: topic, name: depot.treasury.statement, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.treasury.check, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.treasury.reconciliation, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.treasury.cashdesk, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
       - resource: {type: topic, name: depot-connect-, patternType: prefix}
         operations: [Create, Describe, Read, Write, DescribeConfigs]
       - resource: {type: group, name: depot-connect, patternType: literal}
@@ -1552,6 +1990,2143 @@ spec:
     transforms.outbox.route.topic.replacement: depot.hr.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Agents-ts routes by event type: dev.depot.agent.<entity>.<verb>.v<n> goes to depot.agent.<entity>, the AsyncAPI channels in
+# services/agents-ts/events/asyncapi.yaml (3 of them).
+# Also: only approval.requested, budget.threshold and killswitch.changed are written to the outbox; run.completed is built but not
+# written yet (services/agents-ts/NOT-IMPLEMENTED.md).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_agents_ts has REPLICATION; the dev Postgres init (95-agents-ts-db.sh) creates depot_agents and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0008 and 0009.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-agents-ts
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-agents-ts:username}
+    database.password: ${secrets:kafka/debezium-cdc-agents-ts:password}
+    database.dbname: depot_agents
+    topic.prefix: depot.agent
+    slot.name: depot_outbox_agents_ts
+    publication.name: depot_outbox_agents_ts
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.agent\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.agent.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Analytics routes by event type: dev.depot.<context>.<entity>.<verb>.v<n> goes to depot.<context>.<entity>, the AsyncAPI
+# channels in services/analytics/events/asyncapi.yaml.
+# Also: it publishes under three contexts (analytics, catalog and archive), so the route keeps <context>.<entity>.
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_analytics has REPLICATION; the dev Postgres init (95-analytics-db.sh) creates depot_analytics and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0007 and 0008.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-analytics
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-analytics:username}
+    database.password: ${secrets:kafka/debezium-cdc-analytics:password}
+    database.dbname: depot_analytics
+    topic.prefix: depot.analytics
+    slot.name: depot_outbox_analytics
+    publication.name: depot_outbox_analytics
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.(?<routedByValue>(?:analytics|catalog|archive)\.[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Assets routes by event type: dev.depot.assets.<entity>.<verb>.v<n> goes to depot.assets.<entity>, the AsyncAPI channels in
+# services/assets/events/asyncapi.yaml (4 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_assets has REPLICATION; the dev Postgres init (95-assets-db.sh) creates depot_assets and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0014 and 0015.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-assets
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-assets:username}
+    database.password: ${secrets:kafka/debezium-cdc-assets:password}
+    database.dbname: depot_assets
+    topic.prefix: depot.assets
+    slot.name: depot_outbox_assets
+    publication.name: depot_outbox_assets
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.assets\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.assets.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Audit routes by event type: dev.depot.audit.<entity>.<verb>.v<n> goes to depot.audit.<entity>, the AsyncAPI channels in
+# services/audit/events/asyncapi.yaml (1 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_audit has REPLICATION; the dev Postgres init (95-audit-db.sh) creates depot_audit and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0007 and 0008.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-audit
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-audit:username}
+    database.password: ${secrets:kafka/debezium-cdc-audit:password}
+    database.dbname: depot_audit
+    topic.prefix: depot.audit
+    slot.name: depot_outbox_audit
+    publication.name: depot_outbox_audit
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.audit\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.audit.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Close routes by event type: dev.depot.close.<entity>.<verb>.v<n> goes to depot.close.<entity>, the AsyncAPI channels in
+# services/close/events/asyncapi.yaml (7 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_close has REPLICATION; the dev Postgres init (95-close-db.sh) creates depot_close and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0008 and 0009.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-close
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-close:username}
+    database.password: ${secrets:kafka/debezium-cdc-close:password}
+    database.dbname: depot_close
+    topic.prefix: depot.close
+    slot.name: depot_outbox_close
+    publication.name: depot_outbox_close
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.close\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.close.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Compliance routes by event type: dev.depot.<context>.<entity>.<verb>.v<n> goes to depot.<context>.<entity>, the AsyncAPI
+# channels in services/compliance/events/asyncapi.yaml.
+# Also: it publishes under three contexts (sod, trade and privacy), so the route keeps <context>.<entity>.
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_compliance has REPLICATION; the dev Postgres init (95-compliance-db.sh) creates depot_compliance and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0009 and 0010.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-compliance
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-compliance:username}
+    database.password: ${secrets:kafka/debezium-cdc-compliance:password}
+    database.dbname: depot_compliance
+    topic.prefix: depot.compliance
+    slot.name: depot_outbox_compliance
+    publication.name: depot_outbox_compliance
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.(?<routedByValue>(?:sod|trade|privacy)\.[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Consolidation routes by event type: dev.depot.consol.<entity>.<verb>.v<n> goes to depot.consol.<entity>, the AsyncAPI channels in
+# services/consolidation/events/asyncapi.yaml (1 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_consolidation has REPLICATION; the dev Postgres init (95-consolidation-db.sh) creates depot_consolidation and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0008 and 0009.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-consolidation
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-consolidation:username}
+    database.password: ${secrets:kafka/debezium-cdc-consolidation:password}
+    database.dbname: depot_consolidation
+    topic.prefix: depot.consol
+    slot.name: depot_outbox_consolidation
+    publication.name: depot_outbox_consolidation
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.consol\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.consol.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Costacct routes by event type: dev.depot.controlling.<entity>.<verb>.v<n> goes to depot.controlling.<entity>, the AsyncAPI channels in
+# services/costacct/events/asyncapi.yaml (3 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_costacct has REPLICATION; the dev Postgres init (95-costacct-db.sh) creates depot_costacct and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0007 and 0008.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-costacct
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-costacct:username}
+    database.password: ${secrets:kafka/debezium-cdc-costacct:password}
+    database.dbname: depot_costacct
+    topic.prefix: depot.controlling
+    slot.name: depot_outbox_costacct
+    publication.name: depot_outbox_costacct
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.controlling\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.controlling.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Costing routes by event type: dev.depot.costing.<entity>.<verb>.v<n> goes to depot.costing.<entity>, the AsyncAPI channels in
+# services/costing/events/asyncapi.yaml (3 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_costing has REPLICATION; the dev Postgres init (95-costing-db.sh) creates depot_costing and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0010 and 0011.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-costing
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-costing:username}
+    database.password: ${secrets:kafka/debezium-cdc-costing:password}
+    database.dbname: depot_costing
+    topic.prefix: depot.costing
+    slot.name: depot_outbox_costing
+    publication.name: depot_outbox_costing
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.costing\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.costing.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Edi routes by event type: dev.depot.edi.<entity>.<verb>.v<n> goes to depot.edi.<entity>, the AsyncAPI channels in
+# services/edi/events/asyncapi.yaml (6 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_edi has REPLICATION; the dev Postgres init (95-edi-db.sh) creates depot_edi and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0023 and 0024.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-edi
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-edi:username}
+    database.password: ${secrets:kafka/debezium-cdc-edi:password}
+    database.dbname: depot_edi
+    topic.prefix: depot.edi
+    slot.name: depot_outbox_edi
+    publication.name: depot_outbox_edi
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.edi\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.edi.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Engineering routes by event type: dev.depot.engineering.<entity>.<verb>.v<n> goes to depot.engineering.<entity>, the AsyncAPI channels in
+# services/engineering/events/asyncapi.yaml (11 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_engineering has REPLICATION; the dev Postgres init (95-engineering-db.sh) creates depot_engineering and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0012 and 0013.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-engineering
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-engineering:username}
+    database.password: ${secrets:kafka/debezium-cdc-engineering:password}
+    database.dbname: depot_engineering
+    topic.prefix: depot.engineering
+    slot.name: depot_outbox_engineering
+    publication.name: depot_outbox_engineering
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.engineering\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.engineering.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Finreport routes by event type: dev.depot.reporting.<entity>.<verb>.v<n> goes to depot.reporting.<entity>, the AsyncAPI channels in
+# services/finreport/events/asyncapi.yaml (10 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_finreport has REPLICATION; the dev Postgres init (95-finreport-db.sh) creates depot_finreport and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0023 and 0024.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-finreport
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-finreport:username}
+    database.password: ${secrets:kafka/debezium-cdc-finreport:password}
+    database.dbname: depot_finreport
+    topic.prefix: depot.reporting
+    slot.name: depot_outbox_finreport
+    publication.name: depot_outbox_finreport
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.reporting\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.reporting.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Fx routes by event type: dev.depot.fx.<entity>.<verb>.v<n> goes to depot.fx.<entity>, the AsyncAPI channels in
+# services/fx/events/asyncapi.yaml (2 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_fx has REPLICATION; the dev Postgres init (95-fx-cdc.sh) creates that role (depot_fx comes from an earlier script),
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0007 and 0008.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-fx
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-fx:username}
+    database.password: ${secrets:kafka/debezium-cdc-fx:password}
+    database.dbname: depot_fx
+    topic.prefix: depot.fx
+    slot.name: depot_outbox_fx
+    publication.name: depot_outbox_fx
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.fx\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.fx.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Identity routes by event type: dev.depot.identity.<entity>.<verb>.v<n> goes to depot.identity.<entity>, the AsyncAPI channels in
+# services/identity/events/asyncapi.yaml (3 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_identity has REPLICATION; the dev Postgres init (95-identity-db.sh) creates depot_identity and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0017 and 0018.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-identity
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-identity:username}
+    database.password: ${secrets:kafka/debezium-cdc-identity:password}
+    database.dbname: depot_identity
+    topic.prefix: depot.identity
+    slot.name: depot_outbox_identity
+    publication.name: depot_outbox_identity
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.identity\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.identity.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Integration-hub-ts routes by event type: dev.depot.hub.<entity>.<verb>.v<n> goes to depot.hub.<entity>, the AsyncAPI channels in
+# services/integration-hub-ts/events/asyncapi.yaml (4 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_integration_hub_ts has REPLICATION; the dev Postgres init (95-integration-hub-ts-db.sh) creates depot_integration_hub and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0008 and 0009.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-integration-hub-ts
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-integration-hub-ts:username}
+    database.password: ${secrets:kafka/debezium-cdc-integration-hub-ts:password}
+    database.dbname: depot_integration_hub
+    topic.prefix: depot.hub
+    slot.name: depot_outbox_integration_hub_ts
+    publication.name: depot_outbox_integration_hub_ts
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.hub\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.hub.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Inventory routes by event type: dev.depot.inventory.<entity>.<verb>.v<n> goes to depot.inventory.<entity>, the AsyncAPI channels in
+# services/inventory/events/asyncapi.yaml (12 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_inventory has REPLICATION; the dev Postgres init (95-inventory-db.sh) creates depot_inventory and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0044 and 0045.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-inventory
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-inventory:username}
+    database.password: ${secrets:kafka/debezium-cdc-inventory:password}
+    database.dbname: depot_inventory
+    topic.prefix: depot.inventory
+    slot.name: depot_outbox_inventory
+    publication.name: depot_outbox_inventory
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.inventory\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.inventory.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Lean routes by event type: dev.depot.lean.<entity>.<verb>.v<n> goes to depot.lean.<entity>, the AsyncAPI channels in
+# services/lean/events/asyncapi.yaml (4 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_lean has REPLICATION; the dev Postgres init (95-lean-db.sh) creates depot_lean and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0006 and 0007.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-lean
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-lean:username}
+    database.password: ${secrets:kafka/debezium-cdc-lean:password}
+    database.dbname: depot_lean
+    topic.prefix: depot.lean
+    slot.name: depot_outbox_lean
+    publication.name: depot_outbox_lean
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.lean\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.lean.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Ledger routes by event type: dev.depot.ledger.<entity>.<verb>.v<n> goes to depot.ledger.<entity>, the AsyncAPI channels in
+# services/ledger/events/asyncapi.yaml (7 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_ledger has REPLICATION; the dev Postgres init (95-ledger-db.sh) creates depot_ledger and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0036 and 0037.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-ledger
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-ledger:username}
+    database.password: ${secrets:kafka/debezium-cdc-ledger:password}
+    database.dbname: depot_ledger
+    topic.prefix: depot.ledger
+    slot.name: depot_outbox_ledger
+    publication.name: depot_outbox_ledger
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.ledger\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.ledger.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Migration routes by event type: dev.depot.migration.<entity>.<verb>.v<n> goes to depot.migration.<entity>, the AsyncAPI channels in
+# services/migration/events/asyncapi.yaml (2 of them).
+# Also: its outbox is migration.outbox (the service keeps its tables in the migration schema).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_migration has REPLICATION; the dev Postgres init (95-migration-db.sh) creates depot_migration and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on migration.outbox are
+# the service's migrations 0022 and 0023.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-migration
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-migration:username}
+    database.password: ${secrets:kafka/debezium-cdc-migration:password}
+    database.dbname: depot_migration
+    topic.prefix: depot.migration
+    slot.name: depot_outbox_migration
+    publication.name: depot_outbox_migration
+    publication.autocreate.mode: disabled
+    table.include.list: migration.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.migration\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.migration.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Mobile routes by event type: dev.depot.mobile.<entity>.<verb>.v<n> goes to depot.mobile.<entity>, the AsyncAPI channels in
+# services/mobile/events/asyncapi.yaml (3 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_mobile has REPLICATION; the dev Postgres init (95-mobile-db.sh) creates depot_mobile and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0005 and 0006.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-mobile
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-mobile:username}
+    database.password: ${secrets:kafka/debezium-cdc-mobile:password}
+    database.dbname: depot_mobile
+    topic.prefix: depot.mobile
+    slot.name: depot_outbox_mobile
+    publication.name: depot_outbox_mobile
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.mobile\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.mobile.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Numbering routes by event type: dev.depot.numbering.<entity>.<verb>.v<n> goes to depot.numbering.<entity>, the AsyncAPI channels in
+# services/numbering/events/asyncapi.yaml (1 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_numbering has REPLICATION; the dev Postgres init (95-numbering-db.sh) creates depot_numbering and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0004 and 0005.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-numbering
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-numbering:username}
+    database.password: ${secrets:kafka/debezium-cdc-numbering:password}
+    database.dbname: depot_numbering
+    topic.prefix: depot.numbering
+    slot.name: depot_outbox_numbering
+    publication.name: depot_outbox_numbering
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.numbering\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.numbering.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Org routes by event type: dev.depot.org.<entity>.<verb>.v<n> goes to depot.org.<entity>, the AsyncAPI channels in
+# services/org/events/asyncapi.yaml (11 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_org has REPLICATION; the dev Postgres init (95-org-cdc.sh) creates that role (depot_org comes from an earlier script),
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0035 and 0036.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-org
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-org:username}
+    database.password: ${secrets:kafka/debezium-cdc-org:password}
+    database.dbname: depot_org
+    topic.prefix: depot.org
+    slot.name: depot_outbox_org
+    publication.name: depot_outbox_org
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.org\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.org.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Payables routes by event type: dev.depot.payables.<entity>.<verb>.v<n> goes to depot.payables.<entity>, the AsyncAPI channels in
+# services/payables/events/asyncapi.yaml (3 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_payables has REPLICATION; the dev Postgres init (95-payables-db.sh) creates depot_payables and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0025 and 0026.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-payables
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-payables:username}
+    database.password: ${secrets:kafka/debezium-cdc-payables:password}
+    database.dbname: depot_payables
+    topic.prefix: depot.payables
+    slot.name: depot_outbox_payables
+    publication.name: depot_outbox_payables
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.payables\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.payables.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Payroll routes by event type: dev.depot.payroll.<entity>.<verb>.v<n> goes to depot.payroll.<entity>, the AsyncAPI channels in
+# services/payroll/events/asyncapi.yaml.
+# Also: it publishes nothing yet (services/payroll/events/asyncapi.yaml has no channels), so the debezium user has no payroll
+# ACL: the first event it writes fails the task until its channel and ACL are added (deploy/scripts/test_argocd_apps.py refuses a
+# type defined in code that the AsyncAPI does not declare).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_payroll has REPLICATION; the dev Postgres init (95-payroll-db.sh) creates depot_payroll and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0005 and 0006.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-payroll
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-payroll:username}
+    database.password: ${secrets:kafka/debezium-cdc-payroll:password}
+    database.dbname: depot_payroll
+    topic.prefix: depot.payroll
+    slot.name: depot_outbox_payroll
+    publication.name: depot_outbox_payroll
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.payroll\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.payroll.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Planning routes by event type: dev.depot.planning.<entity>.<verb>.v<n> goes to depot.planning.<entity>, the AsyncAPI channels in
+# services/planning/events/asyncapi.yaml (4 of them).
+# Also: message.raised, message.applied and message.dismissed belong to the plan run, so a RegexRouter after the EventRouter sends
+# depot.planning.message to depot.planning.plan, the channel that carries them.
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_planning has REPLICATION; the dev Postgres init (95-planning-db.sh) creates depot_planning and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0032 and 0033.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-planning
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-planning:username}
+    database.password: ${secrets:kafka/debezium-cdc-planning:password}
+    database.dbname: depot_planning
+    topic.prefix: depot.planning
+    slot.name: depot_outbox_planning
+    publication.name: depot_outbox_planning
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,rename,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.planning\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.planning.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.rename.type: org.apache.kafka.connect.transforms.RegexRouter
+    transforms.rename.regex: 'depot\.planning\.message'
+    transforms.rename.replacement: depot.planning.plan
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Platform-health routes by event type: dev.depot.platform.<entity>.<verb>.v<n> goes to depot.platform.<entity>, the AsyncAPI channels in
+# services/platform-health/events/asyncapi.yaml (1 of them).
+# Also: it publishes release.promoted and release.rolledback under the platform context (tenant ids.Nil: platform-wide); the
+# depot.platform. prefix ACL of outbox-batch already covers depot.platform.release, which also has its own literal entry.
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_platform_health has REPLICATION; the dev Postgres init (95-platform-health-db.sh) creates depot_platform_health and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0005 and 0006.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-platform-health
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-platform-health:username}
+    database.password: ${secrets:kafka/debezium-cdc-platform-health:password}
+    database.dbname: depot_platform_health
+    topic.prefix: depot.platformhealth
+    slot.name: depot_outbox_platform_health
+    publication.name: depot_outbox_platform_health
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.platform\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.platform.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Prediction-py routes by event type: dev.depot.prediction.<entity>.<verb>.v<n> goes to depot.prediction.<entity>, the AsyncAPI channels in
+# services/prediction-py/events/asyncapi.yaml (1 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_prediction_py has REPLICATION; the dev Postgres init (95-prediction-py-db.sh) creates depot_prediction and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0005 and 0006.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-prediction-py
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-prediction-py:username}
+    database.password: ${secrets:kafka/debezium-cdc-prediction-py:password}
+    database.dbname: depot_prediction
+    topic.prefix: depot.prediction
+    slot.name: depot_outbox_prediction_py
+    publication.name: depot_outbox_prediction_py
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.prediction\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.prediction.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Pricing routes by event type: dev.depot.pricing.<entity>.<verb>.v<n> goes to depot.pricing.<entity>, the AsyncAPI channels in
+# services/pricing/events/asyncapi.yaml (19 of them).
+# Also: the channel depot.pricing.parameters also carries tenantparameter.changed and depot.pricing.commodity carries the
+# commoditybasis, commodityindex, commoditycalculation and commodityrun events, so two RegexRouters after the EventRouter rename those topics.
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_pricing has REPLICATION; the dev Postgres init (95-pricing-db.sh) creates depot_pricing and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0022 and 0023.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-pricing
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-pricing:username}
+    database.password: ${secrets:kafka/debezium-cdc-pricing:password}
+    database.dbname: depot_pricing
+    topic.prefix: depot.pricing
+    slot.name: depot_outbox_pricing
+    publication.name: depot_outbox_pricing
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,rename1,rename2,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.pricing\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.pricing.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.rename1.type: org.apache.kafka.connect.transforms.RegexRouter
+    transforms.rename1.regex: 'depot\.pricing\.tenantparameter'
+    transforms.rename1.replacement: depot.pricing.parameters
+    transforms.rename2.type: org.apache.kafka.connect.transforms.RegexRouter
+    transforms.rename2.regex: 'depot\.pricing\.commodity(?:basis|index|calculation|run)'
+    transforms.rename2.replacement: depot.pricing.commodity
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Print routes by event type: dev.depot.print.<entity>.<verb>.v<n> goes to depot.print.<entity>, the AsyncAPI channels in
+# services/print/events/asyncapi.yaml (1 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_print has REPLICATION; the dev Postgres init (95-print-db.sh) creates depot_print and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0010 and 0011.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-print
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-print:username}
+    database.password: ${secrets:kafka/debezium-cdc-print:password}
+    database.dbname: depot_print
+    topic.prefix: depot.print
+    slot.name: depot_outbox_print
+    publication.name: depot_outbox_print
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.print\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.print.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Processmfg routes by event type: dev.depot.production.<entity>.<verb>.v<n> goes to depot.production.<entity>, the AsyncAPI channels in
+# services/processmfg/events/asyncapi.yaml (10 of them).
+# Also: it publishes under the production context next to outbox-production; topic.prefix is its own because Debezium names
+# its metrics after it.
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_processmfg has REPLICATION; the dev Postgres init (95-processmfg-db.sh) creates depot_processmfg and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0013 and 0014.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-processmfg
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-processmfg:username}
+    database.password: ${secrets:kafka/debezium-cdc-processmfg:password}
+    database.dbname: depot_processmfg
+    topic.prefix: depot.processmfg
+    slot.name: depot_outbox_processmfg
+    publication.name: depot_outbox_processmfg
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.production\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.production.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Productcost routes by event type: dev.depot.costing.<entity>.<verb>.v<n> goes to depot.costing.<entity>, the AsyncAPI channels in
+# services/productcost/events/asyncapi.yaml (6 of them).
+# Also: it publishes under the costing context next to outbox-costing; topic.prefix is its own because Debezium names its
+# metrics after it.
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_productcost has REPLICATION; the dev Postgres init (95-productcost-db.sh) creates depot_productcost and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0007 and 0008.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-productcost
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-productcost:username}
+    database.password: ${secrets:kafka/debezium-cdc-productcost:password}
+    database.dbname: depot_productcost
+    topic.prefix: depot.productcost
+    slot.name: depot_outbox_productcost
+    publication.name: depot_outbox_productcost
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.costing\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.costing.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Quality routes by event type: dev.depot.quality.<entity>.<verb>.v<n> goes to depot.quality.<entity>, the AsyncAPI channels in
+# services/quality/events/asyncapi.yaml (9 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_quality has REPLICATION; the dev Postgres init (95-quality-db.sh) creates depot_quality and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0010 and 0011.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-quality
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-quality:username}
+    database.password: ${secrets:kafka/debezium-cdc-quality:password}
+    database.dbname: depot_quality
+    topic.prefix: depot.quality
+    slot.name: depot_outbox_quality
+    publication.name: depot_outbox_quality
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.quality\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.quality.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Revrec routes by event type: dev.depot.revrec.<entity>.<verb>.v<n> goes to depot.revrec.<entity>, the AsyncAPI channels in
+# services/revrec/events/asyncapi.yaml (2 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_revrec has REPLICATION; the dev Postgres init (95-revrec-db.sh) creates depot_revrec and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0013 and 0014.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-revrec
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-revrec:username}
+    database.password: ${secrets:kafka/debezium-cdc-revrec:password}
+    database.dbname: depot_revrec
+    topic.prefix: depot.revrec
+    slot.name: depot_outbox_revrec
+    publication.name: depot_outbox_revrec
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.revrec\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.revrec.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Scheduling routes by event type: dev.depot.scheduling.<entity>.<verb>.v<n> goes to depot.scheduling.<entity>, the AsyncAPI channels in
+# services/scheduling/events/asyncapi.yaml (14 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_scheduling has REPLICATION; the dev Postgres init (95-scheduling-db.sh) creates depot_scheduling and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0027 and 0028.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-scheduling
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-scheduling:username}
+    database.password: ${secrets:kafka/debezium-cdc-scheduling:password}
+    database.dbname: depot_scheduling
+    topic.prefix: depot.scheduling
+    slot.name: depot_outbox_scheduling
+    publication.name: depot_outbox_scheduling
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.scheduling\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.scheduling.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Shopfloor routes by event type: dev.depot.shopfloor.<entity>.<verb>.v<n> goes to depot.shopfloor.<entity>, the AsyncAPI channels in
+# services/shopfloor/events/asyncapi.yaml (18 of them).
+# Also: several channels are not named after the type's entity (registration.corrected has depot.shopfloor.registration-corrected,
+# payday.exported depot.shopfloor.pay-export, oeebucket.* depot.shopfloor.oee, ...), so the EventRouter keeps <entity>.<verb> and
+# RegexRouters after it rename the exceptions, then strip the verb from the rest (registration.posted lands on depot.shopfloor.registration).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_shopfloor has REPLICATION; the dev Postgres init (95-shopfloor-db.sh) creates depot_shopfloor and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0037 and 0038.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-shopfloor
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-shopfloor:username}
+    database.password: ${secrets:kafka/debezium-cdc-shopfloor:password}
+    database.dbname: depot_shopfloor
+    topic.prefix: depot.shopfloor
+    slot.name: depot_outbox_shopfloor
+    publication.name: depot_outbox_shopfloor
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,rename1,rename2,rename3,rename4,rename5,rename6,rename7,rename8,rename9,rename10,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.shopfloor\.(?<routedByValue>[a-z][a-z0-9]*\.[a-z][a-z0-9]*)\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.shopfloor.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.rename1.type: org.apache.kafka.connect.transforms.RegexRouter
+    transforms.rename1.regex: 'depot\.shopfloor\.registration\.corrected'
+    transforms.rename1.replacement: depot.shopfloor.registration-corrected
+    transforms.rename2.type: org.apache.kafka.connect.transforms.RegexRouter
+    transforms.rename2.regex: 'depot\.shopfloor\.payday\.revised'
+    transforms.rename2.replacement: depot.shopfloor.payday-revised
+    transforms.rename3.type: org.apache.kafka.connect.transforms.RegexRouter
+    transforms.rename3.regex: 'depot\.shopfloor\.payday\.exported'
+    transforms.rename3.replacement: depot.shopfloor.pay-export
+    transforms.rename4.type: org.apache.kafka.connect.transforms.RegexRouter
+    transforms.rename4.regex: 'depot\.shopfloor\.workercostrate\.[a-z][a-z0-9]*'
+    transforms.rename4.replacement: depot.shopfloor.worker
+    transforms.rename5.type: org.apache.kafka.connect.transforms.RegexRouter
+    transforms.rename5.regex: 'depot\.shopfloor\.edgenode\.[a-z][a-z0-9]*'
+    transforms.rename5.replacement: depot.shopfloor.edge-node
+    transforms.rename6.type: org.apache.kafka.connect.transforms.RegexRouter
+    transforms.rename6.regex: 'depot\.shopfloor\.edgeconfig\.[a-z][a-z0-9]*'
+    transforms.rename6.replacement: depot.shopfloor.edge-config
+    transforms.rename7.type: org.apache.kafka.connect.transforms.RegexRouter
+    transforms.rename7.regex: 'depot\.shopfloor\.controlrecipe\.[a-z][a-z0-9]*'
+    transforms.rename7.replacement: depot.shopfloor.control-recipe
+    transforms.rename8.type: org.apache.kafka.connect.transforms.RegexRouter
+    transforms.rename8.regex: 'depot\.shopfloor\.oeebucket\.[a-z][a-z0-9]*'
+    transforms.rename8.replacement: depot.shopfloor.oee
+    transforms.rename9.type: org.apache.kafka.connect.transforms.RegexRouter
+    transforms.rename9.regex: 'depot\.shopfloor\.processmessage\.[a-z][a-z0-9]*'
+    transforms.rename9.replacement: depot.shopfloor.process-messages
+    transforms.rename10.type: org.apache.kafka.connect.transforms.RegexRouter
+    transforms.rename10.regex: 'depot\.shopfloor\.([a-z][a-z0-9]*)\.[a-z][a-z0-9]*'
+    transforms.rename10.replacement: depot.shopfloor.$1
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Tax routes by event type: dev.depot.tax.<entity>.<verb>.v<n> goes to depot.tax.<entity>, the AsyncAPI channels in
+# services/tax/events/asyncapi.yaml (1 of them).
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_tax has REPLICATION; the dev Postgres init (95-tax-db.sh) creates depot_tax and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0010 and 0011.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-tax
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-tax:username}
+    database.password: ${secrets:kafka/debezium-cdc-tax:password}
+    database.dbname: depot_tax
+    topic.prefix: depot.tax
+    slot.name: depot_outbox_tax
+    publication.name: depot_outbox_tax
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.tax\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.tax.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Treasury routes by event type: dev.depot.treasury.<entity>.<verb>.v<n> goes to depot.treasury.<entity>, the AsyncAPI channels in
+# services/treasury/events/asyncapi.yaml (4 of them).
+# Also: cash desk days and entries keep the desk's order on depot.treasury.cashdesk (the outbox key is the desk id), so a
+# RegexRouter after the EventRouter sends depot.treasury.cashdeskday and depot.treasury.cashdeskentry there.
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_treasury has REPLICATION; the dev Postgres init (95-treasury-db.sh) creates depot_treasury and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0016 and 0017.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-treasury
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-treasury:username}
+    database.password: ${secrets:kafka/debezium-cdc-treasury:password}
+    database.dbname: depot_treasury
+    topic.prefix: depot.treasury
+    slot.name: depot_outbox_treasury
+    publication.name: depot_outbox_treasury
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,rename,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.treasury\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.treasury.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.rename.type: org.apache.kafka.connect.transforms.RegexRouter
+    transforms.rename.regex: 'depot\.treasury\.cashdesk(?:day|entry)'
+    transforms.rename.replacement: depot.treasury.cashdesk
     transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
     transforms.enrich.source.default: depot
     transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json

@@ -15,12 +15,15 @@ test checks, without a cluster:
 - every consumer KafkaUser in deploy/kafka is the username of a chart's consumer, reads its group and writes only
   dead-letter topics a synced KafkaTopic creates; the inventory postings consumer's ACLs are exactly the topics,
   group and dead-letter topic its code uses (#480); an outbox connector that routes by event type (outbox-sales,
-  outbox-fulfillment and the others) sends every message of its service's AsyncAPI to that message's channel, the
-  debezium user's literal ACLs under its prefix are exactly those channels, and every event type of that context the
-  service defines in Go is a declared message;
-- every outbox connector has, in dev, its database and REPLICATION role (dev Postgres init or a deploy/postgres
-  release), one Vault key read by both sides, its publication and outbox grant in the service's migrations, its
-  ExternalSecret and Role entry, and debezium write ACLs; every topic a consumer KafkaUser reads has a producer (#213);
+  outbox-fulfillment and the others) sends every message of its service's AsyncAPI, through the EventRouter regex and
+  any stock RegexRouter after it, to that message's channel, the debezium user's literal ACLs under each prefix are
+  exactly the channels of the connectors writing there, and every event type of those contexts the service defines in
+  code is a declared message;
+- every service whose migrations create an outbox table has an outbox-<service> connector and every connector has such a
+  service (D2, B-05a); every outbox connector has, in dev, its database and REPLICATION role (dev Postgres init or a
+  deploy/postgres release), one Vault key read by both sides, its publication and outbox grant in the service's
+  migrations, its ExternalSecret and Role entry, and debezium write ACLs; every topic a consumer KafkaUser reads has a
+  producer (#213);
 - if helm is on PATH, every dev and local Application whose source is a chart in this repo renders with its
   values, and outside local every container image is pinned by digest; Temporal's persistence values name the
   Service and Secret its database chart renders;
@@ -266,6 +269,54 @@ def service_event_types(service):
             if context:
                 types.add(f"dev.depot.{context}.{entity}.{verb}.v{version}")
     return types
+
+
+JAVA_GROUP_REF = re.compile(r"\$(\d+)|\$\{(\w+)\}")
+NAMED_GROUP = re.compile(r"\(\?<(?=[A-Za-z])")
+REGEX_ROUTER = "org.apache.kafka.connect.transforms.RegexRouter"
+OUTBOX_TABLE = re.compile(r"create\s+table\s+(?:if\s+not\s+exists\s+)?(?:(\w+)\.)?outbox\b", re.I)
+
+
+def regex_route(regex, replacement, value):
+    """Kafka's RegexRouter, which Debezium's EventRouter also runs on route.topic.regex and route.topic.replacement: a
+    value the regex matches whole becomes the replacement (Java $n and ${name} group references); any other keeps its name."""
+    m = re.fullmatch(NAMED_GROUP.sub("(?P<", regex), value)
+    return m.expand(JAVA_GROUP_REF.sub(lambda g: rf"\g<{g.group(1) or g.group(2)}>", replacement)) if m else value
+
+
+def outbox_route(cfg, typ):
+    """(whether the EventRouter regex matches typ, the topic an event of type typ lands on) for an outbox connector that
+    routes by event type: the EventRouter's route, then every stock RegexRouter in the transform chain, in order."""
+    regex = cfg["transforms.outbox.route.topic.regex"]
+    topic = regex_route(regex, cfg["transforms.outbox.route.topic.replacement"], typ)
+    for name in cfg["transforms"].split(","):
+        if cfg.get(f"transforms.{name}.type") == REGEX_ROUTER:
+            topic = regex_route(cfg[f"transforms.{name}.regex"], cfg[f"transforms.{name}.replacement"], topic)
+    return re.fullmatch(NAMED_GROUP.sub("(?P<", regex), typ) is not None, topic
+
+
+def asyncapi(service):
+    path = REPO / f"services/{service}/events/asyncapi.yaml"
+    return yaml.safe_load(path.read_text()) if path.is_file() else None
+
+
+def outbox_prefixes(cfg, spec):
+    """The topic prefixes (depot.<context>.) a type-routed outbox connector writes under: the replacement's, or, when that
+    is only depot. (the service publishes under several contexts), one per context of the channels its AsyncAPI sends to."""
+    prefix = cfg["transforms.outbox.route.topic.replacement"].split("${", 1)[0]
+    if prefix != "depot.":
+        return {prefix}
+    sent = {o["channel"]["$ref"].rsplit("/", 1)[1] for o in (spec.get("operations") or {}).values() if o.get("action") == "send"}
+    return {".".join(spec["channels"][c]["address"].split(".")[:2]) + "." for c in sent}
+
+
+def outbox_services():
+    """Every service whose migrations create an outbox table -> the schema of that table."""
+    found = {}
+    for path in sorted(REPO.glob("services/*/migrations/*.sql")):
+        for schema in OUTBOX_TABLE.findall(path.read_text()):
+            found.setdefault(path.parts[-3], schema.lower() or "public")
+    return found
 
 
 class ArgoApplicationsTest(unittest.TestCase):
@@ -649,11 +700,21 @@ class ArgoApplicationsTest(unittest.TestCase):
         self.assertTrue(container["readOnlyRootFilesystem"])
         self.assertEqual(container["capabilities"], {"drop": ["ALL"]})
 
+    # Event types a service names in code that it never writes to its outbox, so the type check below may skip them:
+    # (service, type) -> why. Anything else the service defines must be a message of its AsyncAPI.
+    UNWRITTEN_EVENT_TYPES = {
+        ("payables", "dev.depot.payables.invoice.posted.v1"):
+            "consumer/invoiceposted.go reads it (receiving's invoice handoff); payables writes no invoice.posted",
+        ("agents-ts", "dev.depot.agent.run.completed.v1"):
+            "src/domain/events.ts builds it but nothing writes it to the outbox yet (services/agents-ts/NOT-IMPLEMENTED.md)",
+    }
+
     def test_type_routed_outbox_connectors_match_their_asyncapi_channels(self):
-        # outbox-sales and outbox-fulfillment route by the event type's entity, not aggregate_type (#480): every
-        # message the service's AsyncAPI declares under its own topic prefix routes to that message's channel, the
-        # debezium user writes exactly those channels under the prefix by literal ACL, and the inventory postings
-        # consumer's sales and fulfillment topics are among them.
+        # outbox-sales, outbox-fulfillment and every other connector that routes by event type, not aggregate_type (#480,
+        # B-05a): every message the service's AsyncAPI declares under a topic prefix the connector writes routes (through the
+        # EventRouter regex and any RegexRouter after it) to that message's channel; the debezium user's literal ACLs under
+        # each such prefix are exactly the channels the connectors writing there declare; the inventory postings consumer's
+        # sales and fulfillment topics are among them.
         docs = load_docs(DEPLOY / "kafka/connect.yaml")
         (debezium,) = [d for d in docs if d["kind"] == "KafkaUser" and d["metadata"]["name"] == "debezium"]
         writable = {a["resource"]["name"] for a in debezium["spec"]["authorization"]["acls"]
@@ -661,42 +722,54 @@ class ArgoApplicationsTest(unittest.TestCase):
                     and "Write" in a["operations"]}
         connectors = {d["metadata"]["name"]: d["spec"]["config"] for d in docs if d["kind"] == "KafkaConnector"
                       and d["spec"]["config"].get("transforms.outbox.route.by.field") == "type"
-                      and d["metadata"]["name"] != "outbox-fieldservice"}  # its own test: it spans three topic contexts
+                      and d["metadata"]["name"] != "outbox-fieldservice"}  # its own test: it keeps one topic whole
         self.assertLessEqual({"outbox-sales", "outbox-fulfillment"}, set(connectors))
-        routed = set()
-        for name, cfg in connectors.items():
+        routed, per_prefix, declared_under = set(), {}, {}
+        for name, cfg in sorted(connectors.items()):
             with self.subTest(connector=name):
                 service = name.removeprefix("outbox-")
-                regex = re.compile(cfg["transforms.outbox.route.topic.regex"].replace("(?<", "(?P<"))
-                replacement = cfg["transforms.outbox.route.topic.replacement"]
-                prefix = replacement.split("${", 1)[0]
-                self.assertEqual(cfg["topic.prefix"] + ".", prefix)
-                spec = yaml.safe_load((REPO / f"services/{service}/events/asyncapi.yaml").read_text())
-                messages = spec["components"]["messages"]
-                channels, declared = set(), set()
-                for channel in spec["channels"].values():
-                    if not channel["address"].startswith(prefix):
+                spec = asyncapi(service)
+                self.assertIsNotNone(spec, f"{name}: services/{service}/events/asyncapi.yaml is missing")
+                prefixes = outbox_prefixes(cfg, spec)
+                self.assertTrue(prefixes, f"{name}: no topic prefix")
+                for prefix in prefixes:
+                    per_prefix.setdefault(prefix, set())
+                    declared_under.setdefault(prefix, set())
+                messages = (spec.get("components") or {}).get("messages") or {}
+                for channel in (spec.get("channels") or {}).values():
+                    prefix = next((p for p in prefixes if channel["address"].startswith(p)), None)
+                    if not prefix:
                         continue
-                    channels.add(channel["address"])
+                    per_prefix[prefix].add(channel["address"])
                     for ref in channel["messages"].values():
                         message = messages[ref["$ref"].rsplit("/", 1)[1]]
                         # Some specs name a message by its verb and carry the CloudEvents type in x-depot-type.
                         typ = message.get("x-depot-type") or message["name"]
-                        declared.add(typ)
-                        m = regex.fullmatch(typ)
-                        self.assertIsNotNone(m, f"{name}: {typ} does not match the route")
-                        self.assertEqual(replacement.replace("${routedByValue}", m["routedByValue"]), channel["address"], typ)
-                self.assertEqual({t for t in writable if t.startswith(prefix)}, channels,
-                                 f"{name}: debezium literal ACLs under {prefix} differ from the AsyncAPI channels")
-                # A type the service writes that the regex does not route keeps its own name as the topic, which no ACL
-                # allows, and fails the connector task for every later event; so every type of the topic's context the
-                # service or a platform/go package it imports defines (expense's report.approved lives in
-                # platform/go/reimbursement) must be a declared message.
-                context = cfg["topic.prefix"].removeprefix("depot.")
-                defined = {typ for typ in service_event_types(service) if typ.startswith(f"dev.depot.{context}.")}
-                self.assertEqual(set(), defined - declared, f"{name}: event types defined in code but not in the AsyncAPI")
-                routed |= channels
+                        declared_under[prefix].add(typ)
+                        matched, topic = outbox_route(cfg, typ)
+                        self.assertTrue(matched, f"{name}: {typ} does not match the route")
+                        self.assertEqual(channel["address"], topic, typ)
+                routed |= {c for p in prefixes for c in per_prefix[p]}
+        for prefix, channels in sorted(per_prefix.items()):
+            with self.subTest(prefix=prefix):
+                self.assertEqual(sorted(channels), sorted(t for t in writable if t.startswith(prefix)),
+                                 f"debezium literal ACLs under {prefix} differ from the AsyncAPI channels of the connectors writing there")
+        for name, cfg in sorted(connectors.items()):
+            with self.subTest(connector=name, check="types defined in code"):
+                # A type the service writes that the route does not send to a channel keeps its own name (or an undeclared
+                # entity's) as the topic, which no ACL allows, and fails the connector task for every later event; so every
+                # type of the contexts it writes that the service or a platform/go package it imports defines (expense's
+                # report.approved lives in platform/go/reimbursement) must be a declared message of a connector on that prefix.
+                service = name.removeprefix("outbox-")
+                prefixes = outbox_prefixes(cfg, asyncapi(service))
+                contexts = {p.removeprefix("depot.").rstrip(".") for p in prefixes}
+                declared = set().union(*(declared_under[p] for p in prefixes))
+                defined = {typ for typ in service_event_types(service) if typ.split(".")[2] in contexts
+                           and (service, typ) not in self.UNWRITTEN_EVENT_TYPES}
+                self.assertEqual([], sorted(defined - declared), f"{name}: event types defined in code but not in the AsyncAPI")
         self.assertLessEqual({"depot.sales.orderprogress", "depot.fulfillment.packingslip"}, routed)
+        for key in self.UNWRITTEN_EVENT_TYPES:
+            self.assertIn(key[1], service_event_types(key[0]), f"stale UNWRITTEN_EVENT_TYPES entry {key}")
 
     def test_outbox_fieldservice_routes_every_event_to_its_asyncapi_channel(self):
         # fieldservice writes workorder.posted, workorder.completed and assignment.changed under aggregate_type "workorder", and
@@ -836,6 +909,19 @@ class ArgoApplicationsTest(unittest.TestCase):
         for migration in ("0007_cdc_publication.sql", "0008_cdc_role_grants.sql"):
             self.assertTrue((REPO / "services/ops/migrations" / migration).exists(), migration)
 
+    def test_every_service_with_an_outbox_table_has_a_connector(self):
+        # Architecture gap D2 (B-05a, #666): an outbox no connector relays keeps its events out of Kafka for good. Every service
+        # whose migrations create an outbox table has an outbox-<service> connector in deploy/kafka/connect.yaml, and every
+        # connector names a service that has one (its end-to-end provisioning is the test below).
+        services = outbox_services()
+        connectors = {d["metadata"]["name"].removeprefix("outbox-") for d in load_docs(DEPLOY / "kafka/connect.yaml")
+                      if d["kind"] == "KafkaConnector"}
+        self.assertGreater(len(services), 50, "the outbox scan found too few services; did the migrations move?")
+        self.assertEqual([], sorted(set(services) - connectors),
+                         "services whose migrations create an outbox table but have no outbox-<service> connector in deploy/kafka/connect.yaml")
+        self.assertEqual([], sorted(connectors - set(services)),
+                         "outbox-<service> connectors in deploy/kafka/connect.yaml whose service's migrations create no outbox table")
+
     def test_every_outbox_connector_is_provisioned_end_to_end(self):
         # Every KafkaConnector in connect.yaml needs, in dev (#213): its database and REPLICATION role (created by the shared
         # dev Postgres init in postgres.yaml, or by a deploy/postgres release on its own host), the same Vault password on
@@ -867,13 +953,16 @@ class ArgoApplicationsTest(unittest.TestCase):
         connectors = [d for d in docs if d["kind"] == "KafkaConnector"]
         self.assertEqual(len(connectors), len({c["spec"]["config"]["slot.name"] for c in connectors}), "slot names must be unique")
         self.assertEqual(len(connectors), len({c["spec"]["config"]["publication.name"] for c in connectors}))
+        # Debezium names its metrics after topic.prefix, so two connectors on one worker must not share it.
+        self.assertEqual(len(connectors), len({c["spec"]["config"]["topic.prefix"] for c in connectors}), "topic.prefix must be unique")
+        tables = outbox_services()
         for connector in connectors:
             name, cfg = connector["metadata"]["name"], connector["spec"]["config"]
             with self.subTest(connector=name):
                 service = name.removeprefix("outbox-")
                 db, pub = cfg["database.dbname"], cfg["publication.name"]
                 self.assertEqual("disabled", cfg["publication.autocreate.mode"], "the publication comes from the migrations")
-                self.assertEqual("public.outbox", cfg["table.include.list"])
+                self.assertEqual(f"{tables.get(service, 'public')}.outbox", cfg["table.include.list"])
                 (user_ref,) = CONNECT_SECRET_REF.findall(cfg["database.user"])
                 (pass_ref,) = CONNECT_SECRET_REF.findall(cfg["database.password"])
                 self.assertEqual(user_ref[:2], pass_ref[:2])
@@ -909,18 +998,26 @@ class ArgoApplicationsTest(unittest.TestCase):
                 migrations = "\n".join(p.read_text() for p in sorted((REPO / f"services/{service}/migrations").glob("*.sql")))
                 self.assertRegex(migrations, rf"CREATE PUBLICATION {pub}\b", f"services/{service}/migrations never creates {pub}")
                 self.assertRegex(migrations, rf"ALTER PUBLICATION {pub} ADD TABLE")
-                self.assertRegex(migrations, rf"GRANT SELECT ON outbox TO {cdc_role}\b", f"{cdc_role} cannot read the outbox")
-                prefix = cfg["transforms.outbox.route.topic.replacement"].split("${", 1)[0]
-                self.assertTrue(any(r["name"].startswith(prefix) or prefix.startswith(r["name"]) for r in acls),
-                                f"{name}: no ACL lets the debezium user write under {prefix}")
+                self.assertRegex(migrations, rf"GRANT SELECT ON (?:\w+\.)?outbox TO {cdc_role}\b", f"{cdc_role} cannot read the outbox")
                 if cfg["transforms.outbox.route.by.field"] == "type":
-                    # Routed by event type, a channel is the topic its events land on (the regex is checked against
+                    # Routed by event type, a channel is the topic its events land on (the route is checked against
                     # every message in test_type_routed_outbox_connectors_match_their_asyncapi_channels).
-                    spec = yaml.safe_load((REPO / f"services/{service}/events/asyncapi.yaml").read_text())
-                    channels = {c["address"] for c in spec["channels"].values() if c["address"].startswith(prefix)}
-                    self.assertTrue(channels, f"{name}: its AsyncAPI declares no channel under {prefix}")
+                    spec = asyncapi(service)
+                    self.assertIsNotNone(spec, f"{name}: services/{service}/events/asyncapi.yaml is missing")
+                    prefixes = tuple(sorted(outbox_prefixes(cfg, spec)))
+                    channels = {c["address"] for c in (spec.get("channels") or {}).values() if c["address"].startswith(prefixes)}
+                    if not channels:
+                        # A service that publishes nothing yet (payroll) still has its connector: the first event type it
+                        # defines needs a channel and an ACL, which the type check of the test above enforces.
+                        contexts = {p.removeprefix("depot.").rstrip(".") for p in prefixes}
+                        self.assertEqual([], sorted(t for t in service_event_types(service) if t.split(".")[2] in contexts),
+                                         f"{name}: its AsyncAPI declares no channel under {prefixes}")
                     self.assertEqual([], sorted(t for t in channels if not writable(t)),
                                      f"{name}: AsyncAPI channels the debezium user may not write")
+                else:
+                    prefix = cfg["transforms.outbox.route.topic.replacement"].split("${", 1)[0]
+                    self.assertTrue(any(r["name"].startswith(prefix) or prefix.startswith(r["name"]) for r in acls),
+                                    f"{name}: no ACL lets the debezium user write under {prefix}")
         # Each connector holds one logical replication slot and one walsender on its Postgres: the shared dev Postgres must
         # allow at least as many as the connectors pointing at it, and a deploy/postgres release (limits in its
         # StatefulSet template) serves one connector each.
@@ -955,6 +1052,8 @@ class ArgoApplicationsTest(unittest.TestCase):
 
     # Event types a consumer service names but does not subscribe to, so they need no read ACL: (service, type) -> why.
     UNSUBSCRIBED_HANDLERS = {
+        ("intercompany", "dev.depot.payables.openitem.settled.v1"):
+            "chargefeed imports platform/go/reimbursement for report.approved only; nothing in intercompany handles openitem.settled",
         ("payables", "dev.depot.expense.report.approved.v1"):
             "consumer.HandleExpenseReportApproved is not wired: `payables consume` reads only depot.interco.chargeinvoice",
         ("workflow-ts", "dev.depot.party.change.requested.v1"):
@@ -969,11 +1068,21 @@ class ArgoApplicationsTest(unittest.TestCase):
         # topic it lands on must be one the consumer's KafkaUser reads. This caught search reading packing slips from
         # depot.fulfillment.shipment while outbox-fulfillment writes them to depot.fulfillment.packingslip.
         docs = load_docs(DEPLOY / "kafka/connect.yaml")
-        routers = [(d["metadata"]["name"].removeprefix("outbox-"),
-                    re.compile(d["spec"]["config"]["transforms.outbox.route.topic.regex"].replace("(?<", "(?P<")),
-                    d["spec"]["config"]["transforms.outbox.route.topic.replacement"])
-                   for d in docs if d["kind"] == "KafkaConnector"
-                   and d["spec"]["config"].get("transforms.outbox.route.by.field") == "type"]
+        routers = []
+        for d in docs:
+            cfg = d["spec"].get("config") or {}
+            if d["kind"] != "KafkaConnector" or cfg.get("transforms.outbox.route.by.field") != "type":
+                continue
+            producer = d["metadata"]["name"].removeprefix("outbox-")
+            spec = asyncapi(producer)
+            prefixes = tuple(outbox_prefixes(cfg, spec))
+            messages = (spec.get("components") or {}).get("messages") or {}
+            # The types the producer publishes: a regex that matches a type another service writes (processmfg's and
+            # production's both match dev.depot.production.*; payables' matches receiving's payables.invoice.posted) is no producer of it.
+            published = {(lambda m: m.get("x-depot-type") or m["name"])(messages[ref["$ref"].rsplit("/", 1)[1]])
+                         for c in (spec.get("channels") or {}).values() if c["address"].startswith(prefixes)
+                         for ref in c["messages"].values()}
+            routers.append((producer, cfg, published))
         services_by_user = {}
         for values_file in sorted(REPO.glob("services/*/charts/*/values.yaml")):
             values = yaml.safe_load(values_file.read_text()) or {}
@@ -992,11 +1101,10 @@ class ArgoApplicationsTest(unittest.TestCase):
                         if a["resource"]["type"] == "topic" and "Read" in a["operations"]}
                 for service in sorted(services_by_user.get(user, ())):
                     for typ in sorted(service_event_types(service)):
-                        for producer, regex, replacement in routers:
-                            m = regex.fullmatch(typ)
-                            if producer == service or not m or (service, typ) in self.UNSUBSCRIBED_HANDLERS:
+                        for producer, cfg, published in routers:
+                            matched, topic = outbox_route(cfg, typ)
+                            if producer == service or not matched or typ not in published or (service, typ) in self.UNSUBSCRIBED_HANDLERS:
                                 continue
-                            topic = replacement.replace("${routedByValue}", m["routedByValue"])
                             checked.add((user, topic))
                             with self.subTest(consumer=user, type=typ):
                                 self.assertIn(topic, read, f"{typ} lands on {topic} (outbox-{producer}), which {user} does not read")
