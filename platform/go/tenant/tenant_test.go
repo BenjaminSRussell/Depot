@@ -184,21 +184,6 @@ func TestMiddlewareAllScopeOnlyOnExplicitRead(t *testing.T) {
 	}
 }
 
-func TestMiddlewareAcceptsWebLegalEntityHeader(t *testing.T) {
-	var got string
-	h := tenant.Middleware(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		p, _ := tenant.FromContext(r.Context())
-		got = p.LegalEntityID
-	}))
-	r := httptest.NewRequest(http.MethodGet, "/x", nil)
-	r.Header.Set(tenant.HeaderTenant, validTenant)
-	r.Header.Set(tenant.HeaderWebLegalEntity, validLE)
-	h.ServeHTTP(httptest.NewRecorder(), r)
-	if got != validLE {
-		t.Fatalf("got %q", got)
-	}
-}
-
 func serveWith(method string, headers map[string]string) (*httptest.ResponseRecorder, *tenant.Principal) {
 	var got *tenant.Principal
 	h := tenant.Middleware(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
@@ -230,13 +215,95 @@ func TestMiddlewareRejectsWildcardInBothSpellings(t *testing.T) {
 
 func TestMiddlewareBothLegalEntityHeaders(t *testing.T) {
 	other := "0190a5f2-7b1c-7d3e-8a4f-1234567890ad"
-	rec, _ := serveWith(http.MethodGet, map[string]string{tenant.HeaderLegalEntity: validLE, tenant.HeaderWebLegalEntity: other})
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("conflicting headers: %d", rec.Code)
+	rec, p := serveWith(http.MethodGet, map[string]string{tenant.HeaderLegalEntity: validLE, tenant.HeaderWebLegalEntity: other})
+	if rec.Code != http.StatusForbidden || p != nil || !strings.Contains(rec.Body.String(), `"code":"AUTH-0003"`) {
+		t.Fatalf("selection outside the claim: %d %s", rec.Code, rec.Body)
 	}
-	rec, p := serveWith(http.MethodGet, map[string]string{tenant.HeaderLegalEntity: validLE, tenant.HeaderWebLegalEntity: strings.ToUpper(validLE)})
+	rec, p = serveWith(http.MethodGet, map[string]string{tenant.HeaderLegalEntity: validLE, tenant.HeaderWebLegalEntity: strings.ToUpper(validLE)})
 	if rec.Code != http.StatusOK || p.LegalEntityID != validLE {
 		t.Fatalf("identical headers: %d %+v", rec.Code, p)
+	}
+}
+
+// RR-01 (B-03a, D33, ADR-0006 rule 4): the shell's selection can only narrow the gateway-asserted claim. With no claim it
+// is refused, except for a tenant administrator, who is entitled to every entity of the tenant.
+func TestMiddlewareLegalEntitySelection(t *testing.T) {
+	a, b, c := "0190a5f2-7b1c-7d3e-8a4f-00000000000a", "0190a5f2-7b1c-7d3e-8a4f-00000000000b", "0190a5f2-7b1c-7d3e-8a4f-00000000000c"
+	admin := tenant.DutyTenantAdmin + ",org.legalentity.read"
+	tests := []struct {
+		name                     string
+		claim, selection, duties string
+		wantStatus               int
+		wantCode                 string
+		wantLE                   string
+	}{
+		{name: "no claim, selection: refused", selection: a, duties: "party.read", wantStatus: http.StatusForbidden, wantCode: "AUTH-0003"},
+		{name: "no claim, selection, all-scope duty but not tenant admin: refused", selection: a, duties: tenant.DutyAllScope, wantStatus: http.StatusForbidden, wantCode: "AUTH-0003"},
+		{name: "no claim, comma selection: refused", selection: a + "," + b, wantStatus: http.StatusForbidden, wantCode: "AUTH-0003"},
+		{name: "no claim, tenant admin, selection: narrowed as before", selection: strings.ToUpper(a), duties: admin, wantStatus: http.StatusOK, wantLE: a},
+		{name: "no claim, tenant admin, comma selection: as before", selection: a + ", " + b, duties: admin, wantStatus: http.StatusOK, wantLE: a + "," + b},
+		{name: "claim list, selection inside: narrowed", claim: a + "," + b + "," + c, selection: b, wantStatus: http.StatusOK, wantLE: b},
+		{name: "claim list, two selected inside: narrowed to both", claim: a + "," + b + "," + c, selection: c + "," + a, wantStatus: http.StatusOK, wantLE: c + "," + a},
+		{name: "claim list, selection outside: refused", claim: a + "," + b, selection: c, wantStatus: http.StatusForbidden, wantCode: "AUTH-0003"},
+		{name: "claim list, selection partly outside: refused", claim: a + "," + b, selection: a + "," + c, wantStatus: http.StatusForbidden, wantCode: "AUTH-0003"},
+		{name: "single claim, other selection, tenant admin duty: refused", claim: a, selection: b, duties: admin, wantStatus: http.StatusForbidden, wantCode: "AUTH-0003"},
+		{name: "claim list, no selection: claim unchanged", claim: a + "," + b, wantStatus: http.StatusOK, wantLE: a + "," + b},
+		{name: "no claim, no selection: unscoped as before", duties: "party.read", wantStatus: http.StatusOK, wantLE: ""},
+		{name: "no claim, tenant admin, no selection: unscoped as before", duties: admin, wantStatus: http.StatusOK, wantLE: ""},
+		{name: "no claim, malformed selection: 400 as before", selection: "not-a-uuid", wantStatus: http.StatusBadRequest, wantCode: "COM-0001"},
+	}
+	for _, tc := range tests {
+		for _, method := range []string{http.MethodGet, http.MethodPost} {
+			headers := map[string]string{}
+			if tc.claim != "" {
+				headers[tenant.HeaderLegalEntity] = tc.claim
+			}
+			if tc.selection != "" {
+				headers[tenant.HeaderWebLegalEntity] = tc.selection
+			}
+			if tc.duties != "" {
+				headers[tenant.HeaderDuties] = tc.duties
+			}
+			rec, p := serveWith(method, headers)
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("%s %s: status %d, want %d: %s", tc.name, method, rec.Code, tc.wantStatus, rec.Body)
+			}
+			if tc.wantCode != "" {
+				if p != nil || !strings.Contains(rec.Body.String(), `"code":"`+tc.wantCode+`"`) || rec.Header().Get("Content-Type") != "application/problem+json" {
+					t.Fatalf("%s %s: want problem %s, got %s (principal %+v)", tc.name, method, tc.wantCode, rec.Body, p)
+				}
+				continue
+			}
+			if p == nil || p.LegalEntityID != tc.wantLE {
+				t.Fatalf("%s %s: principal %+v, want legal entity %q", tc.name, method, p, tc.wantLE)
+			}
+		}
+	}
+}
+
+// The tenant administrator principal (no le claim, tenant.administer) keeps working on its routes: it stays a tenant
+// administrator without a selection, keeps an ALL-scope read, and still loses the all-scope duty on a write.
+func TestMiddlewareTenantAdminWithoutClaimUnaffected(t *testing.T) {
+	duties := tenant.DutyTenantAdmin + "," + tenant.DutyAllScope
+	rec, p := serveWith(http.MethodGet, map[string]string{tenant.HeaderDuties: duties, tenant.HeaderLegalEntityScopeAll: tenant.LegalEntityScopeAll})
+	if rec.Code != http.StatusOK || !tenant.IsTenantAdmin(*p) || !p.HasDuty(tenant.DutyAllScope) || !tenant.InLegalEntityScope(*p, validLE) {
+		t.Fatalf("ALL-scope read: %d %+v", rec.Code, p)
+	}
+	rec, p = serveWith(http.MethodPost, map[string]string{tenant.HeaderDuties: duties})
+	if rec.Code != http.StatusOK || !tenant.IsTenantAdmin(*p) || p.HasDuty(tenant.DutyAllScope) {
+		t.Fatalf("tenant-level write: %d %+v", rec.Code, p)
+	}
+	rec, p = serveWith(http.MethodPost, map[string]string{tenant.HeaderDuties: duties, tenant.HeaderWebLegalEntity: validLE})
+	if rec.Code != http.StatusOK || p.LegalEntityID != validLE || tenant.IsTenantAdmin(*p) || !tenant.InLegalEntityScope(*p, validLE) {
+		t.Fatalf("write in a selected entity: %d %+v", rec.Code, p)
+	}
+}
+
+// A forged service actor in the user header stays a 401 even when the selection would also be refused.
+func TestMiddlewareSelectionRefusalAfterUserCheck(t *testing.T) {
+	rec, _ := serveWith(http.MethodGet, map[string]string{tenant.HeaderUser: tenant.ServiceActorPrefix + "ledger", tenant.HeaderWebLegalEntity: validLE})
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("service actor in the user header must stay 401: %d %s", rec.Code, rec.Body)
 	}
 }
 

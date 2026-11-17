@@ -67,12 +67,16 @@ Keep the built model and record it as the v1.0 authorization architecture.
 4. **Legal-entity scope** comes from the `le` claim (`X-Depot-Legal-Entity`), and is widened to all entities only on
    reads that send `X-Depot-LegalEntity-Scope: ALL` by a caller holding `org.switcher.all-scope` (`tenant.go`;
    architecture §7.3 rule 3a).
-   - *As built:* `le` is one string (user attribute `legal_entity_id`, `multivalued: false`). The kernel rejects with
-     `400` any `X-Depot-LegalEntity` that differs from `X-Depot-Legal-Entity` (`tenant.requestLegalEntity`, test
-     `TestMiddlewareBothLegalEntityHeaders`); devgateway and `depot-server` return `403` unless the selection equals
-     the claim; Envoy strips the selection. With no `le` claim the kernel takes the selection as the scope, which only
-     the gateways prevent. Nothing narrows, and a user entitled to several legal entities cannot switch company in the
-     shell on any deployment (D33).
+   - *As built:* `le` is one string (user attribute `legal_entity_id`, `multivalued: false`). The kernel lets
+     `X-Depot-LegalEntity` only narrow `X-Depot-Legal-Entity`: every selected entity must be in the claim (one entity,
+     or a comma list of up to 100), and a selection outside it is refused with `403 AUTH-0003`
+     (`tenant.requestLegalEntity`, tests `TestMiddlewareBothLegalEntityHeaders`, `TestMiddlewareLegalEntitySelection`).
+     A selection with no `le` claim is refused with `403 AUTH-0003`, except from a tenant administrator
+     (`tenant.administer`, no claim; `tenant.IsTenantAdmin`), who is entitled to every entity of the tenant and may
+     still pick one (B-03a, RR-01; before, the kernel took any selection as the scope when the claim was empty).
+     devgateway and `depot-server` return `403` unless the selection equals the claim, tenant administrators
+     included; Envoy strips the selection. Because the single claim is one entity, nothing narrows in practice, and a
+     user entitled to several legal entities cannot switch company in the shell on any deployment (D33).
    - **Proposed (recommended; pending owner confirmation):** a user may work in any legal entity they are entitled
      to. The `le` claim becomes the list of entitled legal entities (a comma-joined string, like `duties`, because
      Envoy base64-encodes array claims; the kernel's parser already accepts up to 100). The shell's
