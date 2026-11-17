@@ -513,7 +513,13 @@ class ArgoApplicationsTest(unittest.TestCase):
                         self.assertTrue(doc.get("apiVersion") and doc.get("kind"), f"{f}: document without kind")
                         self.assertTrue((doc.get("metadata") or {}).get("name"), f"{f}: {doc['kind']} without name")
                         ns = doc["metadata"].get("namespace")
-                        if ns and doc["kind"] != "Namespace":
+                        if doc["kind"] == "ReferenceGrant":
+                            # Lives in the namespace of the Service it opens to the app's routes (the gateway's grants
+                            # to batch and metadata, D31): each Service it names is a dev Application released there.
+                            released = {a["metadata"]["name"] for a in dev.values() if a["spec"]["destination"]["namespace"] == ns}
+                            for to in doc["spec"]["to"]:
+                                self.assertIn(to["name"], released, f"{f}: ReferenceGrant in {ns}")
+                        elif ns and doc["kind"] != "Namespace":
                             self.assertEqual(ns, app["spec"]["destination"]["namespace"], f"{f}: {doc['kind']}")
                         provider = CRD_PROVIDERS.get(doc["apiVersion"].split("/")[0])
                         if provider:
@@ -1245,6 +1251,28 @@ class ArgoApplicationsTest(unittest.TestCase):
                                 self.assertIn(topic, read, f"{typ} lands on {topic} (outbox-{producer}), which {user} does not read")
         self.assertIn(("search-consumer", "depot.fulfillment.packingslip"), checked)
         self.assertIn(("intercompany-consumer", "depot.expense.report"), checked)
+
+    @unittest.skipUnless(shutil.which("helm"), "helm not on PATH")
+    def test_gateway_routes_and_portal_upstreams_reach_services_the_dev_charts_render(self):
+        # D31 (B-02a): gen_httproutes.py reads each chart's Service name and http port from templates/service.yaml without
+        # helm; rendering the dev Application here proves every backendRef and every portal BFF upstream names a real Service.
+        import gen_httproutes as gen
+        dev = self.dev_apps()
+        model = gen.build()
+        wanted = {(r.backend.release, r.backend.namespace, r.backend.name, r.backend.port) for r in model.routes}
+        for release, _, url, (ns, name, port) in gen.portal_upstreams():
+            (owner,) = [b.release for (bns, bname), b in model.services.items() if (bns, bname) == (ns, name)] or [None]
+            self.assertIsNotNone(owner, f"{release}: {url}")
+            wanted.add((owner, ns, name, port))
+        for release, ns, name, port in sorted(wanted):
+            with self.subTest(release=release, service=name):
+                app = dev[release]
+                (src,) = service_chart_sources(app)
+                self.assertEqual(app["spec"]["destination"]["namespace"], ns)
+                services = {d["metadata"]["name"]: d for d in render(app, src) if d["kind"] == "Service"}
+                self.assertIn(name, services)
+                http = [p["port"] for p in services[name]["spec"]["ports"] if p.get("name") == "http"]
+                self.assertEqual(http, [port])
 
     @unittest.skipUnless(shutil.which("helm"), "helm not on PATH")
     def test_temporal_values_match_its_database(self):

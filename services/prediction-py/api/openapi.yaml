@@ -10,7 +10,7 @@ info:
 servers:
   - url: https://api.depot.dev
 paths:
-  /api/v1/predictions/payment/retrain:
+  /v1/predictions/payment/retrain:
     post:
       operationId: retrainPaymentModel
       summary: Train the tenant's payment-date model on paid invoices
@@ -36,7 +36,7 @@ paths:
         "403": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
-  /api/v1/predictions/payment/score:
+  /v1/predictions/payment/score:
     post:
       operationId: scorePaymentDates
       summary: Score open invoices with the tenant's ACTIVE model
@@ -65,7 +65,7 @@ paths:
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
-  /api/v1/ar/invoices/{invoice_id}/prediction:
+  /v1/ar/invoices/{invoice_id}/prediction:
     get:
       operationId: getInvoicePaymentPrediction
       summary: The stored payment prediction of one invoice
@@ -89,7 +89,7 @@ paths:
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
-  /api/v1/predictions/payment/dso:
+  /v1/predictions/payment/dso:
     get:
       operationId: getPaymentDso
       summary: The forecast days to pay (DSO) of a legal entity
@@ -121,7 +121,7 @@ paths:
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
-  /api/v1/predictions/payment/settings:
+  /v1/predictions/payment/settings:
     get:
       operationId: getPaymentPredictionSettings
       summary: The tenant's prediction.payment parameters (9.47.20)
@@ -159,7 +159,7 @@ paths:
         "400": {$ref: "#/components/responses/Problem"}
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
-  /api/v1/predictions/payment/accuracy:
+  /v1/predictions/payment/accuracy:
     get:
       operationId: getPaymentPredictionAccuracy
       summary: Prediction accuracy report (FR-47.15, 9.47.15)
