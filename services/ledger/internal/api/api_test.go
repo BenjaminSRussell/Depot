@@ -517,6 +517,37 @@ func TestPostEntry_RequestValidation(t *testing.T) {
 	}
 }
 
+func withRateOverride(rate, reason string) string {
+	return strings.Replace(entryBody, `"lines":[`, `"rateOverride":{"rate":"`+rate+`","reason":"`+reason+`"},"lines":[`, 1)
+}
+
+func TestPostEntry_RateOverrideIsValidatedAndCarriesTheDuty(t *testing.T) {
+	for _, rate := range []string{"", "abc", "NaN", "0", "-1.1"} {
+		fs := &fakeStore{}
+		rec := call(server(fs), http.MethodPost, "/v1/ledger/journal-entries", withRateOverride(rate, "contract"), dutyPost, map[string]string{"Idempotency-Key": "k"})
+		errs, _ := decode(t, rec)["errors"].(map[string]any)
+		if _, ok := errs["rateOverride.rate"]; rec.Code != http.StatusBadRequest || !ok || len(fs.posted) != 0 {
+			t.Errorf("rate %q: status %d, errors %v", rate, rec.Code, errs)
+		}
+	}
+	for _, tc := range []struct {
+		duties string
+		want   bool
+	}{{dutyPost, false}, {dutyPost + "," + store.DutyRateOverride, true}} {
+		fs := &fakeStore{}
+		rec := call(server(fs), http.MethodPost, "/v1/ledger/journal-entries", withRateOverride("1.2", "contract"), tc.duties, map[string]string{"Idempotency-Key": "k"})
+		if rec.Code != http.StatusCreated || len(fs.posted) != 1 || fs.posted[0].CanOverrideRate != tc.want ||
+			fs.posted[0].RateOverride == nil || fs.posted[0].RateOverride.String() != "1.2" || fs.posted[0].RateOverrideReason != "contract" {
+			t.Errorf("duties %s: status %d, posted %+v", tc.duties, rec.Code, fs.posted)
+		}
+	}
+	fs := &fakeStore{}
+	rec := call(server(fs), http.MethodPost, "/v1/ledger/journal-entries", entryBody, dutyPost, map[string]string{"Idempotency-Key": "k"})
+	if rec.Code != http.StatusCreated || fs.posted[0].RateOverride != nil {
+		t.Errorf("a request without rateOverride carries none: %+v", fs.posted)
+	}
+}
+
 func TestPostEntry_RuleRejectionIs422WithEveryViolation(t *testing.T) {
 	idx := 1
 	fs := &fakeStore{err: &domain.RejectedError{Violations: []domain.Violation{
