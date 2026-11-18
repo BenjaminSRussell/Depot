@@ -2,6 +2,11 @@
 
 Changes to Depot in plain language, newest first. Add an entry here for every change a user will notice. The "What's new" page in the app shows this file.
 
+## 2026-11-17
+
+- Each release now has to show that the screens people use for their daily tasks did not get harder to use. Release notes carry a usability check, and a release that changes a task's screens without a measured reference does not go out.
+- The supplier portal has a demo build that answers with a sample vendor and two purchase orders, so you can try it without signing in. Invoices, shipments and payments are not in the demo yet.
+
 ## 2026-11-10
 
 - The PDF of a purchase order, invoice or packing slip now shows the vendor's or customer's address, prints names in Polish, Czech, Greek, Cyrillic and other European alphabets, numbers every page and repeats the table header on each page.

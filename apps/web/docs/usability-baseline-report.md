@@ -1,5 +1,7 @@
 # Usability baseline report (template)
 
+Extended by docs/ux/ (UXS-19); where they differ, docs/ux wins.
+
 Copy this file to `usability-baseline-YYYY-MM-DD.md` in this folder, fill it in after the sessions, and commit it. The first report is the **baseline**: it is taken before the work in #497 lands. Later rounds use the same template and the same tasks (`usability-tasks.md`) so the numbers can be compared.
 
 ## Round
@@ -17,24 +19,36 @@ Copy this file to `usability-baseline-YYYY-MM-DD.md` in this folder, fill it in 
 
 A paragraph in plain language: what works, what doesn't, and the three things most worth fixing. Then the table below with one row per persona.
 
-| Persona | Participants | Task success (%) | Median time per task | Errors per task | SUS (mean) | Change since baseline |
-|---|---|---|---|---|---|---|
-| Accounts payable clerk | | | | | | |
-| Accounts receivable clerk | | | | | | |
-| Buyer | | | | | | |
-| Receiving and warehouse | | | | | | |
-| Sales representative | | | | | | |
-| Production planner | | | | | | |
-| Shop floor supervisor | | | | | | |
-| Controller | | | | | | |
-| People and payroll administrator | | | | | | |
-| Administrator | | | | | | |
+| Persona | Participants | Task success (%) | Unaided success (%) | Median time per task | Errors per task | SUS (mean) | Change since baseline |
+|---|---|---|---|---|---|---|---|
+| Accounts payable clerk | | | | | | | |
+| Accounts receivable clerk | | | | | | | |
+| Buyer | | | | | | | |
+| Receiving and warehouse | | | | | | | |
+| Sales representative | | | | | | | |
+| Production planner | | | | | | | |
+| Shop floor supervisor | | | | | | | |
+| Controller | | | | | | | |
+| People and payroll administrator | | | | | | | |
+| Administrator | | | | | | | |
+| Shop-floor operator | | | | | | | |
+| Field technician | | | | | | | |
+| Customer portal user | | | | | | | |
+| Supplier portal user | | | | | | | |
+| Master-data steward | | | | | | | |
+| Approver | | | | | | | |
+| Maintenance planner | | | | | | | |
+| Auditor | | | | | | | |
+| New users (NU1 to NU3) | | | | | | | |
 
 How the numbers are worked out:
 
 - **Task success** is the share of attempts scored *pass*. Report *pass with help* separately and do not count it as success.
 - **Median time** is taken over *pass* attempts only.
 - **Errors per task** is the mean number of errors per attempt over all attempts.
+- **Unaided success** is the share of attempts scored *pass* rather than *pass with help*, per persona.
+- **Interactions (median)** is taken over *pass* attempts from the recording and compared with the task's **Budget** (`usability-tasks.md`, `e2e/taskBudgets.json`). **SEQ** is the mean answer to the single ease question, 1 (very difficult) to 7 (very easy).
+- **Not measured** names the task and the reason (planned route, no demo data, persona not yet recruited). A task listed here has no reference and counts as failed at the release gate.
 - **SUS** is the standard 10-question System Usability Scale, scored 0 to 100: for each odd question take the answer minus 1, for each even question take 5 minus the answer, add them up and multiply by 2.5. Report the mean per persona and the lowest single score.
 
 ## Results by persona
@@ -43,9 +57,9 @@ Repeat this block for each persona.
 
 ### Persona name
 
-| Task | Pass | Pass with help | Fail | Median time (s) | Errors per attempt | Notes |
-|---|---|---|---|---|---|---|
-| AP1 | | | | | | |
+| Task | Pass | Pass with help | Fail | Median time (s) | Errors per attempt | Interactions (median) | Budget | SEQ | Not measured (reason) | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|
+| AP1 | | | | | | | | | | |
 
 SUS scores per participant: `P1 __, P2 __, P3 __, P4 __, P5 __`.
 

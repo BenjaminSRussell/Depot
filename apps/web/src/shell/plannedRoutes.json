@@ -1,0 +1,14 @@
+[
+  {
+    "route": "/close",
+    "reason": "Period close screen is built by the B-25 slice; the CT4 task starts there once it ships",
+    "issue": 691,
+    "slice": 4
+  },
+  {
+    "route": "/mobile-flows/devices",
+    "reason": "Device management screen is built by the B-37 slice; the WS1 task starts there once it ships",
+    "issue": 703,
+    "slice": 12
+  }
+]
