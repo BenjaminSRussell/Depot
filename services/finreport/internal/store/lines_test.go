@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -15,6 +16,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/platform/testkit"
 
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/datascope"
 	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
 	"github.com/BenjaminSRussell/depot/services/finreport/migrations"
 )
@@ -329,4 +331,86 @@ func TestDrillLines_PropertyPagesSumToCell(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestDrillLines_DimensionScope(t *testing.T) {
+	pool := testkit.DB(t)
+	ctx := testkit.Ctx(testkit.TenantID(1))
+	if err := dbx.Migrate(ctx, pool, migrations.FS); err != nil {
+		t.Fatal(err)
+	}
+	st := New(pool)
+	if _, _, err := st.SaveDraft(ctx, drillDefinition("DRILL-DIM"), nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.Publish(ctx, "DRILL-DIM", "tester"); err != nil {
+		t.Fatal(err)
+	}
+	ledger := ids.New()
+	inCostCentre := func(l domain.JournalLine, costCentre string) domain.JournalLine {
+		l.Combination = "COST_CENTER=" + costCentre
+		return l
+	}
+	loadLedger(t, ctx, pool, st, ledger, 3, []domain.JournalLine{
+		inCostCentre(line(ledger, 1, "2026-03-05", 3, "4000", "0", "60.000000"), "100"),
+		inCostCentre(line(ledger, 2, "2026-03-06", 3, "4000", "0", "40.000000"), "200"),
+		line(ledger, 3, "2026-03-07", 3, "4000", "0", "5.000000"),
+	})
+	err := dbx.WithTenantTx(ctx, pool, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `update reporting_balance set dims = jsonb_build_object('COST_CENTER', split_part(combination, '=', 2)) where combination like 'COST_CENTER=%'`)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := RunSpec{Code: "DRILL-DIM", LedgerID: ledger, CurrencyType: "acct", PeriodYear: 2026, PeriodNo: 3,
+		Calendar: storeFixtureCalendar(), RequestedBy: "tester", RequestHash: "d"}
+
+	spec.DimensionScope, spec.IdempotencyKey = datascope.Scope{"COST_CENTER": {"100"}}, "dim-100"
+	run, err := st.CreateRun(ctx, spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run.DimensionScope != "COST_CENTER=100" {
+		t.Fatalf("scope key %q", run.DimensionScope)
+	}
+	rev, err := st.GetCell(ctx, run.ID, "REV", "P")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !rev.Value.Equal(decimal.RequireFromString("60")) || !rev.FilteredAmount.Equal(decimal.RequireFromString("45")) {
+		t.Fatalf("REV P value %s filtered %s, want 60 and 45", rev.Value, rev.FilteredAmount)
+	}
+	items, last := walk(t, ctx, st, run.ID, "REV", "P", -1, 10)
+	if len(items) != 1 || !last.CumulativeSum.Equal(rev.Value) || !last.Reconciliation.Reconciled() || !last.Cell.FilteredAmount.Equal(rev.FilteredAmount) {
+		t.Fatalf("drill: %d lines, cumulative %s, %+v, filtered %s", len(items), last.CumulativeSum, last.Reconciliation, last.Cell.FilteredAmount)
+	}
+
+	_, def, cells, err := st.RunOutput(ctx, run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	csv, err := domain.RenderCSV(def, cells, domain.Stamp{RunID: run.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(csv), "60.00") || strings.Contains(string(csv), "100.00") || strings.Contains(string(csv), "105.00") {
+		t.Fatalf("csv does not carry the scoped values only:\n%s", csv)
+	}
+
+	spec.DimensionScope, spec.IdempotencyKey = nil, "dim-all"
+	whole, err := st.CreateRun(ctx, spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	full, err := st.GetCell(ctx, whole.ID, "REV", "P")
+	if err != nil || !full.Value.Equal(decimal.RequireFromString("105")) || !full.FilteredAmount.IsZero() {
+		t.Fatalf("unrestricted REV P: %+v, %v", full, err)
+	}
+
+	restricted := run.DimensionScope
+	mine, err := st.ListRunsPage(ctx, RunQuery{DimensionScope: &restricted}, nil, 10)
+	if err != nil || len(mine.Items) != 1 || mine.Items[0].ID != run.ID {
+		t.Fatalf("runs of the restricted scope: %+v, %v", mine, err)
+	}
 }

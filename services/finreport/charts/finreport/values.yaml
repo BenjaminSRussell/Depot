@@ -38,6 +38,8 @@ serviceIdentity:
   keyId: ""
 serviceUrls:
   ledger: ""
+opa:
+  url: http://127.0.0.1:8181
 # Kafka consumer of dev.depot.ledger.journal.posted.v1 (FR-15.1): one pod per
 # partition set; ordering across partitions is handled by the read model.
 consumer:

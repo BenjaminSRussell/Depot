@@ -50,13 +50,14 @@ func ExcludesClosing(k Kind) bool { return k == KindIncomeStatement || k == Kind
 // Cell is one row x column value of a statement run. Computed cells (calculation
 // rows and CALC columns) are derived from other cells and carry no balance keys.
 type Cell struct {
-	Row      string          `json:"row"`
-	Column   string          `json:"column"`
-	Value    decimal.Decimal `json:"value"`
-	Blank    bool            `json:"blank"`
-	Computed bool            `json:"computed,omitempty"`
-	Note     string          `json:"note,omitempty"`
-	Keys     []Key           `json:"keys"`
+	Row            string          `json:"row"`
+	Column         string          `json:"column"`
+	Value          decimal.Decimal `json:"value"`
+	Blank          bool            `json:"blank"`
+	Computed       bool            `json:"computed,omitempty"`
+	Note           string          `json:"note,omitempty"`
+	Keys           []Key           `json:"keys"`
+	FilteredAmount decimal.Decimal `json:"filteredAmount"`
 }
 
 // KeySum is the sum of the cell's balance keys.

@@ -368,6 +368,8 @@ paths:
                   blank: {type: boolean}
                   computed: {type: boolean}
                   sumOfKeys: {$ref: '#/components/schemas/Decimal'}
+                  filteredAmount: {$ref: '#/components/schemas/Decimal', description: Amount of the cell outside the viewer's dimension permissions (FR-15.9)}
+                  warning: {$ref: '#/components/schemas/FilteredWarning'}
                   keys:
                     type: array
                     items: {$ref: '#/components/schemas/BalanceKey'}
@@ -431,6 +433,8 @@ paths:
                   blank: {type: boolean}
                   computed: {type: boolean}
                   value: {$ref: '#/components/schemas/Decimal'}
+                  filteredAmount: {$ref: '#/components/schemas/Decimal', description: Amount of the cell outside the viewer's dimension permissions (FR-15.9)}
+                  warning: {$ref: '#/components/schemas/FilteredWarning'}
                   hwm: {type: integer, format: int64, description: "Posting sequence the run reflects; later lines are not listed. For a consolidated run, the mark of the column's ledger, or 0 on a consolidated column, whose lines each follow their own ledger's mark (the run's hwmByLedger)"}
                   limit: {type: integer}
                   items:
@@ -2374,6 +2378,13 @@ components:
         computed: {type: boolean, description: Calculation row or CALC column; no balance keys}
         note: {type: string, description: REPORT-0010 when a prior-year period is missing (BR-15.9)}
         keyCount: {type: integer}
+        filteredAmount: {$ref: '#/components/schemas/Decimal', description: Amount of the cell outside the viewer's dimension permissions (FR-15.9)}
+    FilteredWarning:
+      type: [object, 'null']
+      description: REPORT-0007 when part of the cell is outside the viewer's dimension permissions
+      properties:
+        code: {type: string}
+        detail: {type: string}
     BalanceKey:
       type: object
       properties:

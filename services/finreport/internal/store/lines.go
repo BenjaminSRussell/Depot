@@ -66,7 +66,7 @@ func (s *Postgres) DrillLines(ctx context.Context, runID, row, column string, q 
 		if err != nil {
 			return err
 		}
-		cell, err := scanCell(tx.QueryRow(ctx, `select row_code, column_code, value::text, blank, computed, note, balance_keys::text
+		cell, err := scanCell(tx.QueryRow(ctx, `select `+cellColumns+`
 			from statement_cell where run_id=$1 and row_code=$2 and column_code=$3`, runID, row, column))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return problem(404, CodeCellNotFound, fmt.Sprintf("cell %s/%s does not exist in run %s", row, column, runID))
