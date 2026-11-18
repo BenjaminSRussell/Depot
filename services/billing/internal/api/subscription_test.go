@@ -101,11 +101,7 @@ func TestSubscription_CancelBeforeAFutureDatedPlanChangeIgnoresThatChange(t *tes
 
 func exemptTax(t *testing.T) TaxEngine {
 	t.Helper()
-	tax, err := ParseTaxRates("EXEMPT=0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return tax
+	return rateTax{"EXEMPT": 0}
 }
 
 func subscriptionBody(currency, price string, months int, start string) string {

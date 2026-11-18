@@ -122,11 +122,7 @@ func newGLRig(t *testing.T, configured bool) *glRig {
 	fake := ledgerclient.NewFake()
 	g := &glRig{admin: admin, fake: fake, allocs: &fakeAllocations{byOrder: map[string]revrec.Allocation{}}, ledger: &refusingLedger{Fake: fake, refuse: map[string]error{}}, ledgerID: ids.New(), clock: time.Date(2027, 3, 12, 15, 4, 0, 0, time.UTC)}
 	fake.AddLedger(g.ledgerID, leID)
-	tax, err := ParseTaxRates("EXEMPT=0,DE19=19")
-	if err != nil {
-		t.Fatal(err)
-	}
-	g.api = New(st, tax, 2000).WithAllocations(g.allocs)
+	g.api = New(st, rateTax{"EXEMPT": 0, "DE19": 19}, 2000).WithAllocations(g.allocs)
 	if configured {
 		g.api.WithLedger(g.ledger, st, map[string]store.GLProfile{leID: {
 			LegalEntityID: leID, LedgerID: g.ledgerID, ReceivableAccount: "1200", TaxAccount: "2300", ChargeAccount: "4800", DeferredRevenueAccounts: []string{"4100"},

@@ -19,6 +19,7 @@ import (
 	"github.com/BenjaminSRussell/depot/services/billing/internal/revrec"
 	"github.com/BenjaminSRussell/depot/services/billing/internal/salesreport"
 	"github.com/BenjaminSRussell/depot/services/billing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/taxcalc"
 	"github.com/BenjaminSRussell/depot/services/billing/internal/taxreport"
 	"github.com/BenjaminSRussell/depot/services/billing/migrations"
 )
@@ -55,9 +56,8 @@ func newLogger(w io.Writer) *slog.Logger {
 }
 
 // run serves the billing API on HTTP_ADDR and the metrics on ADMIN_ADDR. The
-// tax engine is the rate table in BILLING_TAX_RATES when set, otherwise the
-// fail-closed UnavailableTax until the wave-13 tax client is wired, so no
-// invoice posts with silent zero tax.
+// tax engine is the wave-13 tax service at TAX_URL, otherwise the fail-closed
+// UnavailableTax, so no invoice posts with silent zero tax.
 func run(ctx context.Context, getenv func(string) string) error {
 	if err := tenant.ConfigureServiceVerifier(getenv); err != nil {
 		return err
@@ -70,9 +70,13 @@ func run(ctx context.Context, getenv func(string) string) error {
 	if err != nil {
 		return err
 	}
-	tax, err := api.ParseTaxRates(getenv("BILLING_TAX_RATES"))
+	var tax api.TaxEngine = api.UnavailableTax{}
+	calc, err := taxcalc.FromEnv(getenv)
 	if err != nil {
-		return err
+		return fmt.Errorf("tax calculate client: %w", err)
+	}
+	if calc != nil {
+		tax = calc
 	}
 	pool, err := dbx.Connect(ctx, databaseURL)
 	if err != nil {

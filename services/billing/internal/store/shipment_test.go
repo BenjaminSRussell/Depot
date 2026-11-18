@@ -42,6 +42,8 @@ func TestShipmentProposals_BatchStoredReplayedAndPosted(t *testing.T) {
 	le := ids.New()
 	first, second := shipmentInvoice(t, le, ids.New()), shipmentInvoice(t, le, ids.New())
 	second.Type = domain.TypeConsolidated
+	first.ShipTo = &domain.ShipTo{Country: "DE", TaxGroup: "B2B", TaxID: "DE123456789", Certificate: "CERT-1"}
+	first.Lines[0].ItemTaxGroup = "GOODS"
 	b := batchFor(le)
 	created, err := s.CreateShipmentProposals(tctx, b, []Invoice{first, second})
 	if err != nil {
@@ -63,6 +65,9 @@ func TestShipmentProposals_BatchStoredReplayedAndPosted(t *testing.T) {
 	if src.PackingSlipID != want.PackingSlipID || src.PackingSlipLineID != want.PackingSlipLineID || !src.PackingSlipDate.Equal(want.PackingSlipDate) ||
 		src.OrderID != want.OrderID || src.OrderLineID != want.OrderLineID || src.ProductID != want.ProductID || src.PriceExplainRef != "px-1" {
 		t.Errorf("source read back %+v, want %+v", src, want)
+	}
+	if invs[0].ShipTo == nil || *invs[0].ShipTo != *first.ShipTo || invs[0].Lines[0].ItemTaxGroup != "GOODS" || invs[1].ShipTo != nil || invs[1].Lines[0].ItemTaxGroup != "" {
+		t.Errorf("ship-to read back %+v group %q, want the stored ship-to and item tax group, and none on the other invoice", invs[0].ShipTo, invs[0].Lines[0].ItemTaxGroup)
 	}
 	if _, _, found, err := s.FindProposalBatch(tctx, "unknown"); err != nil || found {
 		t.Errorf("unknown key: found %v err %v", found, err)

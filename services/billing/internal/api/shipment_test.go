@@ -81,7 +81,7 @@ func shipmentBody(consolidate bool, slips ...testSlip) string {
 		ss = append(ss, slip)
 	}
 	raw, _ := json.Marshal(map[string]any{"legalEntityId": leID, "customerId": custID, "invoiceAccountId": acctID, "currency": "EUR",
-		"invoiceDate": "2027-03-10", "paymentTermDays": 30, "consolidate": consolidate, "slips": ss})
+		"invoiceDate": "2027-03-10", "paymentTermDays": 30, "consolidate": consolidate, "shipTo": json.RawMessage(germanShipTo), "slips": ss})
 	return string(raw)
 }
 
@@ -191,6 +191,16 @@ func TestShipmentProposals_Refusals(t *testing.T) {
 			status: http.StatusBadRequest, code: "COM-0001", field: "slips[0].lines[0].revenueAccount"},
 		{name: "slip without date", key: "k6", body: strings.Replace(shipmentBody(false, slipA), `"date":"2027-03-08"`, `"date":""`, 1),
 			status: http.StatusBadRequest, code: "COM-0001", field: "slips[0].date"},
+		{name: "engine refuses the tax code", key: "k8", body: shipmentBody(false, slipA), tax: &fakeTax{err: &UnknownTaxCodeError{Code: "DE19"}}, status: http.StatusUnprocessableEntity, code: CodeUnknownTaxCode},
+		{name: "empty shipTo has no country", key: "k9", body: withShipTo(shipmentBody(false, slipA), `{}`), status: http.StatusBadRequest, code: "COM-0001", field: "shipTo.country"},
+		{name: "lowercase shipTo country", key: "k10", body: withShipTo(shipmentBody(false, slipA), `{"country":"de"}`), status: http.StatusBadRequest, code: "COM-0001", field: "shipTo.country"},
+		{name: "three letter shipTo country", key: "k11", body: withShipTo(shipmentBody(false, slipA), `{"country":"DEU"}`), status: http.StatusBadRequest, code: "COM-0001", field: "shipTo.country"},
+		{name: "shipTo tax id too long", key: "k12", body: withShipTo(shipmentBody(false, slipA), `{"country":"DE","taxId":"`+strings.Repeat("9", 65)+`"}`), status: http.StatusBadRequest, code: "COM-0001", field: "shipTo.taxId"},
+		{name: "shipTo certificate too long", key: "k13", body: withShipTo(shipmentBody(false, slipA), `{"country":"DE","certificate":"`+strings.Repeat("c", 65)+`"}`), status: http.StatusBadRequest, code: "COM-0001", field: "shipTo.certificate"},
+		{name: "shipTo as a string", key: "k14", body: withShipTo(shipmentBody(false, slipA), `"DE"`), status: http.StatusBadRequest, code: "COM-0001"},
+		{name: "shipTo unknown field", key: "k15", body: withShipTo(shipmentBody(false, slipA), `{"country":"DE","region":"BY"}`), status: http.StatusBadRequest, code: "COM-0001"},
+		{name: "item tax group too long", key: "k16", body: withItemTaxGroup(shipmentBody(false, slipA), strings.Repeat("g", 65)), status: http.StatusBadRequest, code: "COM-0001", field: "slips[0].lines[0].itemTaxGroup"},
+		{name: "item tax group as a number", key: "k17", body: strings.ReplaceAll(shipmentBody(false, slipA), `"taxCode":"DE19"`, `"taxCode":"DE19","itemTaxGroup":7`), status: http.StatusBadRequest, code: "COM-0001"},
 		{name: "same slip line twice", key: "k7", body: shipmentBody(false, slipA, testSlip{id: uuid(105), order: uuid(201), date: "2027-03-08", lines: []int{1}}),
 			status: http.StatusBadRequest, code: "COM-0001"},
 	}
@@ -214,6 +224,143 @@ func TestShipmentProposals_Refusals(t *testing.T) {
 				t.Errorf("a refused request stored %d batches", s.batchCreates)
 			}
 		})
+	}
+}
+
+const germanShipTo = `{"country":"DE","taxGroup":"B2B","taxId":"DE123456789","certificate":"CERT-1"}`
+
+func withShipTo(body, shipTo string) string {
+	return strings.Replace(body, `"shipTo":`+germanShipTo, `"shipTo":`+shipTo, 1)
+}
+
+func withItemTaxGroup(body, group string) string {
+	return strings.ReplaceAll(body, `"taxCode":"DE19"`, `"taxCode":"DE19","itemTaxGroup":"`+group+`"`)
+}
+
+func TestShipmentProposals_TaxEqualsEngineResult(t *testing.T) {
+	s := newFakeStore()
+	tax := &fakeTax{perLine: "7.50", code: "DE-STD"}
+	h := setup(t, s, tax)
+	body := withItemTaxGroup(withShipTo(shipmentBody(false, slipA), germanShipTo), "GOODS")
+	rec := do(h, http.MethodPost, "/v1/billing/proposals", "ship-tax", body)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	var got proposalBatchDTO
+	decode(t, rec, &got)
+	inv := got.Items[0]
+	if inv.Totals.Tax != "15.00" || inv.Totals.Gross != "215.00" {
+		t.Errorf("totals %+v, want the engine's 7.50 per line", inv.Totals)
+	}
+	for _, l := range inv.Lines {
+		if l.TaxCode != "DE-STD" || l.Tax != "7.50" {
+			t.Errorf("line %+v, want the engine's code DE-STD and tax 7.50, not the caller's DE19", l)
+		}
+	}
+	in := tax.inputs[0]
+	if in.ShipTo == nil || *in.ShipTo != (domain.ShipTo{Country: "DE", TaxGroup: "B2B", TaxID: "DE123456789", Certificate: "CERT-1"}) ||
+		in.LegalEntityID != leID || in.Currency != "EUR" || in.Date.Format("2006-01-02") != "2027-03-10" {
+		t.Errorf("engine asked with %+v", in)
+	}
+	for _, l := range in.Lines {
+		if l.ItemTaxGroup != "GOODS" {
+			t.Errorf("engine line %+v lost its item tax group", l)
+		}
+	}
+	stored := s.invoices[inv.ID]
+	if stored.ShipTo == nil || stored.ShipTo.Country != "DE" || stored.Lines[0].ItemTaxGroup != "GOODS" {
+		t.Errorf("stored invoice keeps ship-to %+v and group %q", stored.ShipTo, stored.Lines[0].ItemTaxGroup)
+	}
+}
+
+func TestShipmentProposals_WithoutShipToAsksTheEngineWithAnEmptyParty(t *testing.T) {
+	s := newFakeStore()
+	tax := &fakeTax{perLine: "19.00"}
+	h := setup(t, s, tax)
+	body := strings.Replace(shipmentBody(false, slipA), `"shipTo":`+germanShipTo+`,`, "", 1)
+	rec := do(h, http.MethodPost, "/v1/billing/proposals", "ship-nst", body)
+	var got proposalBatchDTO
+	decode(t, rec, &got)
+	if rec.Code != http.StatusCreated || len(tax.inputs) != 1 || got.Items[0].Totals.Tax != "38.00" {
+		t.Fatalf("status %d, engine inputs %+v, totals %+v", rec.Code, tax.inputs, got.Items[0].Totals)
+	}
+	if in := tax.inputs[0]; in.ShipTo == nil || *in.ShipTo != (domain.ShipTo{}) {
+		t.Errorf("engine asked with ship-to %+v, want an empty party", in.ShipTo)
+	}
+	if stored := s.invoices[got.Items[0].ID]; stored.ShipTo == nil {
+		t.Error("stored invoice lost the empty ship-to, so the post-time re-quote would replay stored tax")
+	}
+
+	tax.perLine = "19.02"
+	post := do(h, http.MethodPost, "/v1/billing/invoices/"+got.Items[0].ID+":post", "", "")
+	var p httpx.Problem
+	decode(t, post, &p)
+	if post.Code != http.StatusConflict || p.Code != CodeTaxMoved {
+		t.Errorf("post status %d code %s, want 409 BIL-0002 from the engine re-quote", post.Code, p.Code)
+	}
+}
+
+func TestShipmentProposals_WithoutShipToFailsClosedWhenTheEngineIsDown(t *testing.T) {
+	s := newFakeStore()
+	body := strings.Replace(shipmentBody(false, slipA), `"shipTo":`+germanShipTo+`,`, "", 1)
+	rec := do(setup(t, s, UnavailableTax{}), http.MethodPost, "/v1/billing/proposals", "ship-nst-down", body)
+	if rec.Code != http.StatusServiceUnavailable || len(s.invoices) != 0 {
+		t.Fatalf("status %d with %d invoices stored, want 503 and none", rec.Code, len(s.invoices))
+	}
+}
+
+func TestShipmentProposals_ShipToIsPartOfTheIdempotentRequest(t *testing.T) {
+	h := setup(t, newFakeStore(), &fakeTax{perLine: "19.00"})
+	if rec := do(h, http.MethodPost, "/v1/billing/proposals", "ship-st", withShipTo(shipmentBody(false, slipA), germanShipTo)); rec.Code != http.StatusCreated {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	other := withShipTo(shipmentBody(false, slipA), `{"country":"FR"}`)
+	rec := do(h, http.MethodPost, "/v1/billing/proposals", "ship-st", other)
+	var p httpx.Problem
+	decode(t, rec, &p)
+	if rec.Code != http.StatusUnprocessableEntity || p.Code != "idempotency_key_reuse" {
+		t.Fatalf("status %d code %s, want 422 idempotency_key_reuse", rec.Code, p.Code)
+	}
+}
+
+func TestShipmentProposals_UnavailableEngineFailsClosed(t *testing.T) {
+	s := newFakeStore()
+	rec := do(setup(t, s, UnavailableTax{}), http.MethodPost, "/v1/billing/proposals", "ship-un", withShipTo(shipmentBody(false, slipA), germanShipTo))
+	var p httpx.Problem
+	decode(t, rec, &p)
+	if rec.Code != http.StatusServiceUnavailable || p.Code != CodeTaxUnavailable || s.batchCreates != 0 {
+		t.Fatalf("status %d code %s batches %d, want 503 %s and nothing stored", rec.Code, p.Code, s.batchCreates, CodeTaxUnavailable)
+	}
+}
+
+func TestShipmentProposals_RefusedWithoutMaintainDuty(t *testing.T) {
+	s := newFakeStore()
+	rec := doAs(setup(t, s, &fakeTax{perLine: "19.00"}), http.MethodPost, "/v1/billing/proposals", "ship-d", shipmentBody(false, slipA), "billing.invoice.view", nil)
+	if rec.Code != http.StatusForbidden || s.batchCreates != 0 {
+		t.Fatalf("status %d, batches %d: %s", rec.Code, s.batchCreates, rec.Body)
+	}
+}
+
+func TestShipmentProposals_PostRequotesWithTheStoredShipTo(t *testing.T) {
+	s := newFakeStore()
+	tax := &fakeTax{perLine: "7.50", code: "DE-STD"}
+	h := setup(t, s, tax)
+	body := withItemTaxGroup(withShipTo(shipmentBody(false, slipA), germanShipTo), "GOODS")
+	var got proposalBatchDTO
+	decode(t, do(h, http.MethodPost, "/v1/billing/proposals", "ship-rq", body), &got)
+	id := got.Items[0].ID
+
+	tax.err = ErrTaxUnavailable
+	if down := do(h, http.MethodPost, "/v1/billing/invoices/"+id+":post", "", ""); down.Code != http.StatusServiceUnavailable || s.invoices[id].Status == domain.StatusPosted {
+		t.Fatalf("post with the engine down: status %d, want 503 and still a proposal", down.Code)
+	}
+	tax.err = nil
+	if up := do(h, http.MethodPost, "/v1/billing/invoices/"+id+":post", "", ""); up.Code != http.StatusOK {
+		t.Fatalf("post with an unchanged engine answer: status %d: %s", up.Code, up.Body)
+	}
+	requote := tax.inputs[len(tax.inputs)-1]
+	if requote.ShipTo == nil || requote.ShipTo.TaxGroup != "B2B" || requote.Lines[0].ItemTaxGroup != "GOODS" || requote.Date.Format("2006-01-02") != "2027-03-10" {
+		t.Errorf("re-quote asked with %+v, want the proposal's ship-to, item tax group and invoice date", requote)
 	}
 }
 

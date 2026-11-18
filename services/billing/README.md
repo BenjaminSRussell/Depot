@@ -25,7 +25,7 @@ internal/domain/        pure rules: line validation, totals (per-line rounding),
                         BIL-0006 (shipment.go)
 internal/store/         Postgres persistence under RLS; post = one transaction
 internal/api/           HTTP handlers, DTOs, validation, idempotency, duties, metrics;
-                        tax.go holds the TaxEngine seam (rate table or fail-closed);
+                        tax.go holds the TaxEngine seam (the tax service client in internal/taxcalc, or fail-closed);
                         credit.go the credit-note handlers; shipment.go the proposals and trace
 internal/events/        event types and payloads (invoice.posted, creditnote.posted, creditnote.booked)
 migrations/             0001_billing_init.sql (invoice, invoice_line, number_sequence_counter, outbox)
@@ -79,17 +79,20 @@ DATABASE_URL=postgres://... MIGRATE_ON_START=true HTTP_ADDR=:8080 go run ./cmd/b
 
 Configuration: `DATABASE_URL` (required), `MIGRATE_ON_START` (dev only),
 `HTTP_ADDR` (default `:8080`), `ADMIN_ADDR` (default `:9090`, `/metrics`),
-`BILLING_MAX_LINES` (default 2000, 1 to 10000), `BILLING_TAX_RATES` (interim tax
-engine, for example `DE19=19,DE7=7,EXEMPT=0`), `BILLING_SUBSCRIPTION_JOB_TENANT_IDS` with
+`BILLING_MAX_LINES` (default 2000, 1 to 10000), `TAX_URL` and `TAX_TIMEOUT` (default 3s;
+the tax engine), `BILLING_SUBSCRIPTION_JOB_TENANT_IDS` with
 `BILLING_SUBSCRIPTION_JOB_INTERVAL` (default 1h) or `BILLING_SUBSCRIPTION_JOB_AT` (`HH:MM`, UTC;
 runs once a day, for example `03:00`, and not at start; set one of the two) to run the
 due-period subscription billing job, which creates the proposals only.
 
-Until the wave-13 tax client is wired, the tax engine is the rate table in
-`BILLING_TAX_RATES`: line tax = rounded line net × the code's percent, rounded per
-line. With the setting empty the engine is `api.UnavailableTax`: every proposal and
-post fails closed with `BIL-0001` and nothing is booked with silent zero tax. A tax
-code the table does not list is refused with `BIL-0102`.
+Invoice tax is the wave-13 tax engine's answer (`POST /v1/tax/calculate` at `TAX_URL`,
+signed as `billing-tax-calc`). A shipment proposal may carry `shipTo`
+(`country`, `taxGroup`, `taxId`, `certificate`) and each slip line an `itemTaxGroup`; they are
+the engine's `party` and `item_tax_group`, are stored with the proposal, and the post-time
+re-quote repeats them. Without `shipTo` the engine is not called: the line keeps the caller's `taxCode` and optional `tax` (zero when omitted). The line's `taxCode` becomes the engine's code (the largest tax
+when it returns several). With `shipTo` and `TAX_URL` unset the engine is `api.UnavailableTax`: every
+proposal and post fails closed with `BIL-0001` and nothing is booked with silent zero tax.
+An engine refusal (422) is `BIL-0102`.
 
 ## Test
 
@@ -251,7 +254,7 @@ caller names them.
 `depot.interco.chargeinvoice`, KafkaUser `deploy/kafka/billing-consumer.yaml`, dead-letter topic `depot.billing.iccharge.dlq`) and
 raises the lender's FREE_TEXT invoice proposal in the lender's legal entity for the pairing's customer account: one line at the
 charge's price on `BILLING_IC_REVENUE_ACCOUNT` (chart `consumer.icCharge.revenueAccount`, required), with the charge's tax code or
-`BILLING_IC_TAX_CODE`, quoted by the `BILLING_TAX_RATES` engine, due after `BILLING_IC_PAYMENT_TERM_DAYS` (default 30). It runs as the
+`BILLING_IC_TAX_CODE`, re-quoted by the tax engine at post time, due after `BILLING_IC_PAYMENT_TERM_DAYS` (default 30). It runs as the
 service principal `billing-iccharge` (flag duty `billing.iccharge.from-event`). The proposal is keyed `ic-charge:<charge>:<version>`,
 so a redelivery creates nothing; a person posts it. A charge whose lender has no legal entity in the registry or whose pairing names
 no customer id goes to the dead-letter topic.
