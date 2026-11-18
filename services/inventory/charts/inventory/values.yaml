@@ -121,6 +121,8 @@ ingressPolicy:
     podNames: [depot-migration-factory]
   - name: fulfillment
     podNames: [fulfillment]
+  - name: planning
+    podNames: [planning]
   - name: productcost
     podNames: [productcost]
   - name: production

@@ -302,6 +302,7 @@ type Store interface {
 	GetOrder(ctx context.Context, id string) (Order, error)
 	ListOrders(ctx context.Context, f OrderFilter) (OrderPage, error)
 	ListOrderLines(ctx context.Context, f OrderLineFilter) ([]OrderLineSummary, error)
+	ListOpenOrderLines(ctx context.Context, f OpenLineFilter) (OpenLinePage, error)
 	PortalProducts(ctx context.Context, f PortalProductFilter) ([]PortalProduct, error)
 	ConfirmOrder(ctx context.Context, id string, version int, actor string, now time.Time) (ConfirmResult, error)
 	ReleaseHold(ctx context.Context, orderID, holdID string, version int, actor string, now time.Time) (ConfirmResult, error)

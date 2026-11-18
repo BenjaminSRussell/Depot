@@ -79,6 +79,11 @@ type API struct {
 
 	// runs executes asynchronous plan runs (planrun.go).
 	runs *runner
+
+	openInputs      OpenInputs
+	liveLoaded      atomic.Int64
+	liveUnavailable atomic.Int64
+	liveEmpty       atomic.Int64
 }
 
 // New returns an API over st.
@@ -137,6 +142,9 @@ func (a *API) Metrics() http.Handler {
 		fmt.Fprintf(w, "# HELP planning_plan_runs_completed_total Plan versions that became current.\n# TYPE planning_plan_runs_completed_total counter\nplanning_plan_runs_completed_total %d\n", a.runsCompleted.Load())
 		fmt.Fprintf(w, "# HELP planning_plan_runs_replayed_total Plan runs answered from an Idempotency-Key replay.\n# TYPE planning_plan_runs_replayed_total counter\nplanning_plan_runs_replayed_total %d\n", a.runsReplayed.Load())
 		fmt.Fprintf(w, "# HELP planning_plan_runs_refused_total Plan runs refused (invalid input, cycle, lock).\n# TYPE planning_plan_runs_refused_total counter\nplanning_plan_runs_refused_total %d\n", a.runsRefused.Load())
+		fmt.Fprintf(w, "# HELP planning_live_inputs_total Plan runs that read open sales demand and on-hand instead of a snapshot, by outcome.\n# TYPE planning_live_inputs_total counter\n")
+		fmt.Fprintf(w, "planning_live_inputs_total{outcome=\"loaded\"} %d\nplanning_live_inputs_total{outcome=\"unavailable\"} %d\nplanning_live_inputs_total{outcome=\"empty\"} %d\n",
+			a.liveLoaded.Load(), a.liveUnavailable.Load(), a.liveEmpty.Load())
 		fmt.Fprintf(w, "# HELP planning_async_plan_runs_total Asynchronous plan runs started and how they ended.\n# TYPE planning_async_plan_runs_total counter\n")
 		fmt.Fprintf(w, "planning_async_plan_runs_total{outcome=\"started\"} %d\nplanning_async_plan_runs_total{outcome=\"succeeded\"} %d\nplanning_async_plan_runs_total{outcome=\"failed\"} %d\nplanning_async_plan_runs_total{outcome=\"cancelled\"} %d\n",
 			a.runs.started.Load(), a.runs.succeeded.Load(), a.runs.failed.Load(), a.runs.cancelled.Load())
@@ -621,7 +629,12 @@ func (a *API) runPlan(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	if fields := req.validate(); len(fields) > 0 {
+	live := len(req.Items) == 0
+	fields := req.validate()
+	if live {
+		delete(fields, "items")
+	}
+	if len(fields) > 0 {
 		validationFailed(w, r, fields)
 		return
 	}
@@ -632,6 +645,15 @@ func (a *API) runPlan(w http.ResponseWriter, r *http.Request) {
 		PlanCode string     `json:"planCode"`
 		Request  runRequest `json:"request"`
 	}{code, req})
+	if live {
+		if !a.loadLiveItems(w, r, code, &req) {
+			return
+		}
+		if fields := req.validate(); len(fields) > 0 {
+			validationFailed(w, r, fields)
+			return
+		}
+	}
 	asOf, items, buffers, ok := a.buildSnapshot(w, r, code, req, nil)
 	if !ok {
 		return
