@@ -155,7 +155,7 @@ func TestBlockChangeTakesEffectWithinTheCacheWindow(t *testing.T) {
 	blocked.Store(false)
 
 	clock = clock.Add(productblock.DefaultTTL - time.Second)
-	asProblem(t, f.client.Check(ctx(), entityID, productID, productblock.PurchaseOrder), 422, productblock.CodeBlocked)
+	_ = asProblem(t, f.client.Check(ctx(), entityID, productID, productblock.PurchaseOrder), 422, productblock.CodeBlocked)
 	if f.calls.Load() != 1 {
 		t.Fatalf("inside the window the answer is cached, product was asked %d times", f.calls.Load())
 	}
@@ -195,7 +195,7 @@ func TestInputsThatAreNotCheckable(t *testing.T) {
 	} else if errors.As(err, new(*httpx.Problem)) {
 		t.Fatalf("an empty process must not look like a refusal: %v", err)
 	}
-	asProblem(t, f.client.Check(context.Background(), entityID, productID, productblock.PurchaseOrder), 503, productblock.CodeUnavailable)
+	_ = asProblem(t, f.client.Check(context.Background(), entityID, productID, productblock.PurchaseOrder), 503, productblock.CodeUnavailable)
 }
 
 func TestOutcomesAreCounted(t *testing.T) {
@@ -233,7 +233,7 @@ func TestFromEnv(t *testing.T) {
 
 func TestFakeRefusesBlockedProducts(t *testing.T) {
 	f := &productblock.Fake{BlockedDetail: map[string]string{productID: "blocked"}}
-	asProblem(t, f.Check(ctx(), entityID, productID, productblock.SalesOrder), 422, productblock.CodeBlocked)
+	_ = asProblem(t, f.Check(ctx(), entityID, productID, productblock.SalesOrder), 422, productblock.CodeBlocked)
 	if err := f.Check(ctx(), entityID, "other", productblock.SalesOrder); err != nil {
 		t.Fatal(err)
 	}
