@@ -64,6 +64,23 @@ Rules:
 - **Permissions:** name the missing duty in plain words when you know it, and point to an administrator.
 - **Don't blame or guess.** Avoid "you entered an invalid value" when the service may be at fault; "Something went wrong on our side" is fine for a 500.
 
+## Banned in text people read
+
+`src/shell/plainLanguage.test.ts` scans every string in the modules and the shell and fails on these (rules in `src/shell/plainLanguageRules.ts`, fixtures in `plainLanguageRules.test.ts`):
+
+| Rule | Flags | Write instead |
+|---|---|---|
+| `SPEC_REF`, `DELIVERY_REF` | Spec ids, waves and slices | Say what the page does |
+| `UUID_WORD` | "UUID" | Let the person pick the record by name |
+| `ID_PROMPT` | "Enter the vendor id" | A lookup field that shows names |
+| `DUTY_CODE` | A duty code such as `sales.order.approve` | The duty in plain words; `dutyName("sales.order.approve")` from `src/shell/shared/dutyName.ts` returns "Approve sales order". `src/shell/shared/` imports nothing outside its own folder (`boundary.test.ts`) |
+| `PROBLEM_CODE` | A code such as `REPORT-0010` in a sentence | `ProblemMessage`, which keeps the code under Details |
+| `RAW_ENUM` | A raw status such as `PENDING_APPROVAL` in a sentence | `StatusPill` or a label from the catalog |
+
+Existing offenders are listed in `src/shell/plainLanguageAllowlist.json`. The list only shrinks: the test fails on a new offender and on an entry that no longer matches, so delete an entry when you fix its string. Raw id fields move to lookups in B-27, which empties `UUID_WORD` and `ID_PROMPT`.
+
+Accessibility has the same shape: `e2e/axeAllowlist.json` holds the dated axe exceptions (`route`, `rule`, `reason`, `expires`). The scan fails on any violation, minor included, that is not listed, and on a row past its date.
+
 ## Glossary
 
 Use these words, with these meanings, and the same word for the same thing on every screen.

@@ -106,6 +106,7 @@ Define as `--text-sm-size`/`--text-sm-leading` pairs. Weights: `--weight-regular
   - While open, the sidebar gets `role="dialog" aria-modal="true" aria-label="Navigation"`, shows a top `<button aria-label="Close navigation">` (hidden at 960px and above), traps focus with `useFocusTrap`, and locks body scroll.
   - Open moves focus to "Close navigation". Esc, the scrim, the close button or choosing a link closes the drawer and returns focus to "Open navigation".
   - Transition: `transform var(--duration-slow) var(--ease-out)`.
+- **Below 640px (Context sheet).** The top bar keeps the menu button, the title and one "Context" button (`ContextSheet.tsx`). The button opens a bottom sheet (`role="dialog" aria-modal="true" aria-label="Context and account"`) that holds the legal-entity and site pickers, Help, Compact view and the account menu, so the bar never scrolls sideways (WCAG 1.4.10). The sheet traps focus with `useFocusTrap`, closes on Esc, the scrim or "Close", and returns focus to the "Context" button. `e2e/reflow.demo.spec.ts` checks every route for sideways scrolling at 390 and 320px.
 - **Route change** (`useEffect` on `pathname`, skipped on first render): focus the `h1` with `preventScroll`, scroll the content to the top, and close the drawer. Hide the `h1` focus outline (`h1:focus{outline:none}`), because it is not interactive.
 - **Offline.** `useOnlineStatus()` listens to `online`/`offline`. While offline, show `Alert tone="warning"` under the top bar (copy in section 7).
 

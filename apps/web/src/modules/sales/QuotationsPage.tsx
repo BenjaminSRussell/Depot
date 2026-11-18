@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent } from "react";
+import { dutyName } from "../../shell/shared/dutyName";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -288,7 +289,7 @@ export function NewQuotationPage() {
             {header("probabilityPct", "Win probability %", "Leave empty for the legal entity's default (50% unless changed in Sales parameters).", { optional: true, numeric: true })}
           </FormSection>
           <FormSection collapse="advanced">
-            {header("listingOverrideReason", "Listing override reason", "Needs the sales.order.approve duty. Accepts lines the product listing denies and logs the reason.", { optional: true })}
+            {header("listingOverrideReason", "Listing override reason", `Needs the ${dutyName("sales.order.approve")} duty. Accepts lines the product listing denies and logs the reason.`, { optional: true })}
           </FormSection>
           <LinesEditor lines={values.lines} errors={errors} legalEntityId={values.legalEntityId} newLineDate={start} onChange={(lines) => update({ lines })} />
           {failure ? (

@@ -267,7 +267,7 @@ describe("Deductions", () => {
       return undefined;
     };
     renderAt(`/receivables/deductions/${DED}`);
-    expect(await screen.findByText(/above the deduction limit; it needs the receivables.write-off.approve duty/)).toBeInTheDocument();
+    expect(await screen.findByText(/above the deduction limit; it needs the Approve receivables write off duty/)).toBeInTheDocument();
 
     fill("Part amounts", "200.00, 99.99");
     fireEvent.click(screen.getByRole("button", { name: "Split" }));

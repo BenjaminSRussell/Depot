@@ -62,7 +62,7 @@ function Summary() {
             ))}
           </ul>
           <p>
-            <Link to={MY_WORK_PATH}>{copy.myWork.seeAll}</Link>
+            <Link to={MY_WORK_PATH} className={styles.seeAll}>{copy.myWork.seeAll}</Link>
           </p>
         </>
       )}
