@@ -16,6 +16,7 @@ type Txn struct {
 	TaxDate         Date   `json:"tax_date"`
 	Amount          Dec    `json:"amount"`
 	SettlementRunID string `json:"settlement_run_id"`
+	Cleared         bool   `json:"-"`
 
 	// Optional figures that the VAT return and the EU sales list need.
 	Base                *Dec   `json:"base_amount,omitempty"`
@@ -34,8 +35,7 @@ type GLMovement interface {
 }
 
 type Poster interface {
-	// TODO: DPT-12 replace with the ledger.Post client once services/ledger exists
-	Post(ctx context.Context, idempotencyKey string, s Settlement) error
+	Post(ctx context.Context, idempotencyKey string, s Settlement) (entryID string, err error)
 }
 
 type CodeSettlement struct {
@@ -62,6 +62,7 @@ func PostingKey(settlementID string) string { return "post:tax:settlement:" + se
 type bucket struct {
 	code, direction string
 	all, open       decimal.Decimal
+	cleared         decimal.Decimal
 	hasOpen         bool
 }
 
@@ -79,6 +80,9 @@ func Settle(ctx context.Context, txns []Txn, period Period, priorVersion int, gl
 			buckets[key] = b
 		}
 		b.all = b.all.Add(t.Amount.Decimal)
+		if t.Cleared {
+			b.cleared = b.cleared.Add(t.Amount.Decimal)
+		}
 		if t.SettlementRunID == "" {
 			b.open = b.open.Add(t.Amount.Decimal)
 			b.hasOpen = true
@@ -99,7 +103,7 @@ func Settle(ctx context.Context, txns []Txn, period Period, priorVersion int, gl
 	for _, k := range sortedKeys(keys) {
 		recorded := decimal.Zero
 		if b := buckets[k]; b != nil {
-			recorded = b.all
+			recorded = b.all.Sub(b.cleared)
 		}
 		if !recorded.Equal(movements[k]) {
 			return Settlement{}, &Error{Code: CodeSettlementMismatch, Field: k, Detail: fmt.Sprintf(
@@ -134,9 +138,18 @@ func sortedKeys(set map[string]bool) []string {
 	return keys
 }
 
-func PostSettlement(ctx context.Context, p Poster, settlementID string, s Settlement) error {
-	if len(s.TransactionIDs) == 0 {
-		return nil
+func PostSettlement(ctx context.Context, p Poster, settlementID string, s Settlement) (string, error) {
+	if len(s.TransactionIDs) == 0 || !hasAmount(s) {
+		return "", nil
 	}
 	return p.Post(ctx, PostingKey(settlementID), s)
+}
+
+func hasAmount(s Settlement) bool {
+	for _, l := range s.Lines {
+		if !l.Amount.IsZero() {
+			return true
+		}
+	}
+	return false
 }

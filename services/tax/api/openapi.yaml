@@ -101,7 +101,11 @@ paths:
         tax the debit movement). The period must cover whole calendar months. Any difference is TAX-0008
         and nothing is settled. Open transactions are then marked with the new run (a delta run when
         earlier runs exist). No open transaction is TAX-0009. A ledger that cannot be read is 502. The ledger and account map come from the legal entity's stored
-        configuration (PUT /v1/tax/ledger-config); none stored is 422 COM-0503.
+        configuration (PUT /v1/tax/ledger-config); none stored is 422 COM-0503. The run is then posted to the ledger under the key
+        post:tax:settlement:<run id>:settle: the settled output and use tax debit their accounts, the settled input tax credits its
+        account, and output minus input goes to the settlement account (the request's settlement_account, else the configured one; neither
+        is 422 COM-0503 and nothing is settled). A failed post is 502 COM-0502 and the run stays pending: the next run posts it again
+        before settling. A ledger refusal such as a closed period is 422 with the ledger's code.
       requestBody:
         required: true
         content:
@@ -1285,9 +1289,23 @@ components:
                   valid_to: { $ref: "#/components/schemas/Date" }
     CalculateResult:
       type: object
-      required: [engine, fallback, lines, document_taxes_by_code, warnings, determination_trace]
+      required: [engine, fallback, lines, document_taxes_by_code, warnings, determination_trace, posting_lines]
       properties:
         engine: { type: string }
+        posting_lines:
+          type: array
+          description: >-
+            The tax legs of the document for the ledger, from the legal entity's ledger configuration: output tax credits, recoverable input
+            tax debits, use tax credits (a credit note flips the side). They do not balance alone; the caller adds the counter-leg and posts one
+            journal. Empty without a configuration; a code with no account is warning TAX-0015.
+          items:
+            type: object
+            properties:
+              account: { type: string }
+              credit: { type: boolean }
+              amount: { $ref: "#/components/schemas/Decimal" }
+              tax_code: { type: string }
+              jurisdiction: { type: string }
         fallback: { type: boolean }
         lines:
           type: array
@@ -1394,11 +1412,13 @@ components:
       properties:
         period_from: { $ref: "#/components/schemas/Date" }
         period_to: { $ref: "#/components/schemas/Date" }
+        settlement_account: { type: string, pattern: '^[A-Za-z0-9._-]{1,20}$', description: Overrides the configured settlement account for this run. }
     LedgerConfig:
       type: object
       required: [ledger_id, accounts]
       properties:
         ledger_id: { type: string, format: uuid }
+        settlement_account: { type: string, pattern: '^[A-Za-z0-9._-]{1,20}$', description: GL account that receives output minus input tax when a settlement run posts. }
         accounts:
           type: object
           description: GL tax account per "code|direction" key, for example "VAT19|output".
@@ -1409,6 +1429,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         ledger_id: { type: string, format: uuid }
+        posted_entry_id: { type: string, description: The ledger entry of the settlement; empty while the post is pending. }
         version: { type: integer, minimum: 1 }
         period_from: { $ref: "#/components/schemas/Date" }
         period_to: { $ref: "#/components/schemas/Date" }
