@@ -789,8 +789,12 @@ paths:
         writes dev.depot.costing.cost.changed.v1 to the outbox. Adjustments of one product x site
         are serialised; with expectedValue (the value the caller previewed) a value that moved since
         is refused with CST-ADJ-006. A replayed Idempotency-Key returns the stored adjustment with 200
-        and writes nothing; the same key with another body is idempotency_key_reuse. The ledger
-        voucher (inventory / cost adjustment account) is not posted yet.
+        and writes nothing; the same key with another body is idempotency_key_reuse. The delta's ledger
+        voucher (Dr inventory and Cr the adjustment account when it raises the value, the mirror when
+        it lowers it) is stored in the same transaction and sent after commit; voucher is POSTED when
+        the ledger confirmed it and PENDING when it did not answer or refused a closed period, and
+        POST /v1/costing/gl-postings then retries it. A legal entity without a posting profile is
+        refused with CST-GL-002.
       x-depot-duty: costing.adjust
       parameters:
         - $ref: "#/components/parameters/TenantHeader"
@@ -816,7 +820,7 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem", description: "CST-VLG-005 valuation ledger not found" }
-        "409": { $ref: "#/components/responses/Problem", description: "CST-ADJ-006 the value changed since the preview" }
+        "409": { $ref: "#/components/responses/Problem", description: "CST-ADJ-006 the value changed since the preview; CST-GL-002 the legal entity has no costing posting profile" }
         "422": { $ref: "#/components/responses/AdjustmentRefused" }
   /v1/costing/adjustments/{id}:
     get:
@@ -1860,6 +1864,7 @@ components:
         newUnitCost: { $ref: "#/components/schemas/Decimal", description: "Present when the quantity is positive." }
         costTransactionId: { type: string, format: uuid, description: "The MANUAL_ADJ cost transaction; absent on a preview." }
         createdAt: { type: string, format: date-time }
+        voucher: { type: string, enum: [POSTED, PENDING], description: "State of the ledger voucher of the delta on a post; absent on a preview and a replay." }
     AdjustmentList:
       type: object
       required: [items]

@@ -96,7 +96,7 @@ type Store interface {
 	// Manual cost adjustments (FR-20.6). CreateAdjustment reports created=false
 	// for an idempotent replay.
 	PreviewAdjustment(ctx context.Context, in AdjustmentRequest) (Adjustment, error)
-	CreateAdjustment(ctx context.Context, in AdjustmentRequest, idempotencyKey, requestHash string) (a Adjustment, created bool, err error)
+	CreateAdjustment(ctx context.Context, in AdjustmentRequest, idempotencyKey, requestHash string, ledger ledgerclient.Ledger) (a Adjustment, created bool, err error)
 	GetAdjustment(ctx context.Context, id string) (Adjustment, error)
 	ListAdjustments(ctx context.Context, f AdjustmentFilter, after string, limit int) (AdjustmentPage, error)
 	// Stored reconciliation runs (FR-20.4). CreateReconciliationRun reports

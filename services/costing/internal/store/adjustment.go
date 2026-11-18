@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/events"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 	"github.com/BenjaminSRussell/depot/platform/money"
 	"github.com/BenjaminSRussell/depot/platform/outbox"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
@@ -83,6 +86,7 @@ type Adjustment struct {
 	NewUnitCost          string     `json:"newUnitCost,omitempty"`
 	CostTransactionID    string     `json:"costTransactionId,omitempty"`
 	CreatedAt            *time.Time `json:"createdAt,omitempty"`
+	Voucher              string     `json:"voucher,omitempty"`
 }
 
 // AdjustmentFilter selects adjustments for the list. Empty fields do not filter.
@@ -236,9 +240,13 @@ func (s *Postgres) PreviewAdjustment(ctx context.Context, in AdjustmentRequest) 
 // value, refuses a stale preview (CST-ADJ-006), stores the adjustment, appends
 // its MANUAL_ADJ cost transaction and, for an ON_HAND adjustment of the primary
 // valuation that changes the unit cost of positive stock, writes cost.changed
-// to the outbox. A repeated Idempotency-Key returns the stored adjustment with
-// created=false and writes nothing; with another request it is refused.
-func (s *Postgres) CreateAdjustment(ctx context.Context, in AdjustmentRequest, idempotencyKey, requestHash string) (Adjustment, bool, error) {
+// to the outbox. The general-ledger voucher of the delta is staged in the same
+// transaction (a legal entity without a posting profile is refused, 409
+// CST-GL-002) and sent after commit; a ledger that does not answer leaves it
+// PENDING for POST /v1/costing/gl-postings. A repeated Idempotency-Key returns the
+// stored adjustment with created=false and writes nothing; with another request
+// it is refused.
+func (s *Postgres) CreateAdjustment(ctx context.Context, in AdjustmentRequest, idempotencyKey, requestHash string, ledger ledgerclient.Ledger) (Adjustment, bool, error) {
 	p, _ := tenant.FromContext(ctx)
 	var out Adjustment
 	created := false
@@ -311,6 +319,19 @@ func (s *Postgres) CreateAdjustment(ctx context.Context, in AdjustmentRequest, i
 			adj.FinancialDate); err != nil {
 			return err
 		}
+		if !plan.Delta.IsZero() {
+			profile, err := loadProfile(ctx, tx, p.TenantID, adj.LegalEntityID)
+			if err != nil {
+				return err
+			}
+			key := adjustmentKeyPrefix + adj.ID
+			if err := insertVoucher(ctx, tx, p.TenantID, voucher{legalEntityID: adj.LegalEntityID, sourceKey: key, glLedgerID: profile.GLLedgerID,
+				currency: adj.Currency, date: adj.FinancialDate, key: "costing-" + strings.ReplaceAll(key, ":", "-"),
+				lines: domain.CloseVoucher(profile.accounts(), plan.Delta)}); err != nil {
+				return err
+			}
+			adj.Voucher = voucherPending
+		}
 		out, created = adj, true
 		if adj.Kind != domain.AdjustOnHand || adj.ValuationLedgerID != "" || !plan.HasUnitCost || plan.OldUnitCost.Equal(plan.NewUnitCost) {
 			return nil
@@ -327,6 +348,15 @@ func (s *Postgres) CreateAdjustment(ctx context.Context, in AdjustmentRequest, i
 	})
 	if err != nil {
 		return Adjustment{}, false, err
+	}
+	if created && out.Voucher == voucherPending && ledger != nil {
+		booked, _, err := s.postStaged(ctx, ledger, out.LegalEntityID, adjustmentKeyPrefix+out.ID)
+		if err != nil {
+			slog.ErrorContext(ctx, "costing adjustment voucher not sent", "adjustment", out.ID, "err", err, "correlationId", middleware.GetReqID(ctx))
+		}
+		if len(booked) == 1 {
+			out.Voucher = voucherPosted
+		}
 	}
 	return out, created, nil
 }

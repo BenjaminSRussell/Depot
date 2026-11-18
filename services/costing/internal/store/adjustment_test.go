@@ -9,6 +9,7 @@ import (
 
 	"github.com/BenjaminSRussell/depot/platform/dbx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 	"github.com/BenjaminSRussell/depot/platform/testkit"
 	"github.com/BenjaminSRussell/depot/services/costing/internal/domain"
 )
@@ -33,6 +34,17 @@ func fr201Stock(t *testing.T, s *Postgres, ctx context.Context, le, product, sit
 	return receipt1
 }
 
+func profileLedger(t *testing.T, s *Postgres, ctx context.Context, le string) *ledgerclient.Fake {
+	t.Helper()
+	led, glID := ledgerclient.NewFake(), ids.New()
+	led.AddLedger(glID, le)
+	if _, err := s.SavePostingProfile(ctx, PostingProfile{LegalEntityID: le, GLLedgerID: glID, InventoryAccount: "1400", GRIRAccount: "2100",
+		APAccount: "2000", PPVAccount: "5100", AdjustmentAccount: "5000"}, "tester"); err != nil {
+		t.Fatal(err)
+	}
+	return led
+}
+
 func onHand(le, product, site, mode, value string) AdjustmentRequest {
 	in := AdjustmentRequest{LegalEntityID: le, Kind: domain.AdjustOnHand, Mode: mode, ProductID: product, SiteID: site,
 		FinancialDate: "2026-01-31", Reason: "NRV"}
@@ -48,6 +60,7 @@ func TestPostgres_OnHandAdjustmentRevaluesAndEmitsCostChanged(t *testing.T) {
 	s, app := setup(t)
 	ctx := scopedCtx(testkit.TenantID(21))
 	le, product, site := ids.New(), ids.New(), ids.New()
+	led := profileLedger(t, s, ctx, le)
 	fr201Stock(t, s, ctx, le, product, site)
 
 	in := onHand(le, product, site, domain.ModeUnitCost, "10")
@@ -64,7 +77,7 @@ func TestPostgres_OnHandAdjustmentRevaluesAndEmitsCostChanged(t *testing.T) {
 	}
 
 	in.ExpectedValue = "550.00"
-	adj, created, err := s.CreateAdjustment(ctx, in, "adj-1", "hash-a"+pad)
+	adj, created, err := s.CreateAdjustment(ctx, in, "adj-1", "hash-a"+pad, led)
 	if err != nil || !created || adj.ID == "" || adj.CostTransactionID == "" || adj.Delta != "-50.00" || adj.CreatedAt == nil {
 		t.Fatalf("create = %+v, created %v, err %v", adj, created, err)
 	}
@@ -87,20 +100,20 @@ func TestPostgres_OnHandAdjustmentRevaluesAndEmitsCostChanged(t *testing.T) {
 	}
 
 	// Replay: the same key and request return the stored adjustment and write nothing.
-	again, created, err := s.CreateAdjustment(ctx, in, "adj-1", "hash-a"+pad)
+	again, created, err := s.CreateAdjustment(ctx, in, "adj-1", "hash-a"+pad, led)
 	if err != nil || created || again.ID != adj.ID || again.Delta != adj.Delta || again.OldValue != "550.00" {
 		t.Fatalf("replay = %+v, created %v, err %v", again, created, err)
 	}
-	if _, _, err := s.CreateAdjustment(ctx, in, "adj-1", "hash-b"+pad); problemCode(err) != CodeIdempotencyReuse {
+	if _, _, err := s.CreateAdjustment(ctx, in, "adj-1", "hash-b"+pad, led); problemCode(err) != CodeIdempotencyReuse {
 		t.Errorf("reused key: %v, want %s", err, CodeIdempotencyReuse)
 	}
 	// The preview said 550.00, but the value is 500.00 now: refused, nothing written.
-	if _, _, err := s.CreateAdjustment(ctx, in, "adj-2", "hash-c"+pad); problemCode(err) != CodeAdjustmentStale {
+	if _, _, err := s.CreateAdjustment(ctx, in, "adj-2", "hash-c"+pad, led); problemCode(err) != CodeAdjustmentStale {
 		t.Errorf("stale preview: %v, want %s", err, CodeAdjustmentStale)
 	}
 	// Setting the cost it already has changes nothing.
 	same := onHand(le, product, site, domain.ModeUnitCost, "10")
-	if _, _, err := s.CreateAdjustment(ctx, same, "adj-3", "hash-d"+pad); domainCode(err) != domain.CodeAdjustNoChange {
+	if _, _, err := s.CreateAdjustment(ctx, same, "adj-3", "hash-d"+pad, led); domainCode(err) != domain.CodeAdjustNoChange {
 		t.Errorf("no change: %v, want %s", err, domain.CodeAdjustNoChange)
 	}
 	if got, err := s.GetAdjustment(ctx, adj.ID); err != nil || got.NewValue != "500.00" || got.UnitCost != "10" || got.Reason != "NRV" {
@@ -125,11 +138,12 @@ func TestPostgres_ReceiptAdjustmentAndRefusals(t *testing.T) {
 	s, app := setup(t)
 	ctx := scopedCtx(testkit.TenantID(22))
 	le, product, site := ids.New(), ids.New(), ids.New()
+	led := profileLedger(t, s, ctx, le)
 	receipt := fr201Stock(t, s, ctx, le, product, site)
 
 	in := AdjustmentRequest{LegalEntityID: le, Kind: domain.AdjustReceipt, Mode: domain.ModeAmount, ReceiptTransactionID: receipt,
 		FinancialDate: "2026-02-10", Amount: "12.5", Reason: "freight invoice"}
-	adj, created, err := s.CreateAdjustment(ctx, in, "rcpt-1", "hash-r"+pad)
+	adj, created, err := s.CreateAdjustment(ctx, in, "rcpt-1", "hash-r"+pad, led)
 	if err != nil || !created || adj.ProductID != product || adj.SiteID != site || adj.Qty != "100" ||
 		adj.OldValue != "1000.00" || adj.NewValue != "1012.50" || adj.Delta != "12.50" {
 		t.Fatalf("receipt adjustment = %+v, %v", adj, err)
@@ -140,7 +154,7 @@ func TestPostgres_ReceiptAdjustmentAndRefusals(t *testing.T) {
 	}
 	// A second adjustment of the receipt starts from the adjusted value.
 	in.Amount = "-2.5"
-	if adj2, _, err := s.CreateAdjustment(ctx, in, "rcpt-2", "hash-s"+pad); err != nil || adj2.OldValue != "1012.50" || adj2.NewValue != "1010.00" {
+	if adj2, _, err := s.CreateAdjustment(ctx, in, "rcpt-2", "hash-s"+pad, led); err != nil || adj2.OldValue != "1012.50" || adj2.NewValue != "1010.00" {
 		t.Fatalf("second receipt adjustment = %+v, %v", adj2, err)
 	}
 	if got := outboxRows(t, ctx, app); len(got) != 0 {
@@ -176,7 +190,7 @@ func TestPostgres_ReceiptAdjustmentAndRefusals(t *testing.T) {
 		t.Errorf("other legal entity sees %d adjustments, err %v", len(got.Items), err)
 	}
 	// Paging: newest financial date first, two per page.
-	if _, _, err := s.CreateAdjustment(ctx, onHand(le, product, site, domain.ModeAmount, "-1"), "oh-1", "hash-t"+pad); err != nil {
+	if _, _, err := s.CreateAdjustment(ctx, onHand(le, product, site, domain.ModeAmount, "-1"), "oh-1", "hash-t"+pad, led); err != nil {
 		t.Fatal(err)
 	}
 	var seen []string
@@ -205,6 +219,7 @@ func TestPostgres_GroupLedgerAdjustmentStaysInItsLedger(t *testing.T) {
 	s, app := setup(t)
 	ctx := scopedCtx(testkit.TenantID(24))
 	le, product, site := ids.New(), ids.New(), ids.New()
+	led := profileLedger(t, s, ctx, le)
 	gaap, err := s.CreateValuationLedger(ctx, ValuationLedger{LegalEntityID: le, LedgerGroupID: ids.New(), Code: "USGAAP",
 		Method: "FIFO", Currency: "USD", RateType: "SPOT"})
 	if err != nil {
@@ -218,7 +233,7 @@ func TestPostgres_GroupLedgerAdjustmentStaysInItsLedger(t *testing.T) {
 	}
 	in := onHand(le, product, site, domain.ModeUnitCost, "13")
 	in.ValuationLedgerID = gaap.ID
-	adj, _, err := s.CreateAdjustment(ctx, in, "g-adj", "hash-g"+pad)
+	adj, _, err := s.CreateAdjustment(ctx, in, "g-adj", "hash-g"+pad, led)
 	if err != nil || adj.Currency != "USD" || adj.NewValue != "650.00" || adj.ValuationLedgerID != gaap.ID {
 		t.Fatalf("group ledger adjustment = %+v, %v", adj, err)
 	}
@@ -299,6 +314,7 @@ func TestPostgres_ConcurrentAdjustmentsAreSerialised(t *testing.T) {
 	s, _ := setup(t)
 	ctx := scopedCtx(testkit.TenantID(27))
 	le, product, site := ids.New(), ids.New(), ids.New()
+	led := profileLedger(t, s, ctx, le)
 	fr201Stock(t, s, ctx, le, product, site)
 	costs := []string{"2", "3", "4", "5", "6", "7", "8", "9"}
 	errs := make(chan error, len(costs))
@@ -306,7 +322,7 @@ func TestPostgres_ConcurrentAdjustmentsAreSerialised(t *testing.T) {
 	for i, cost := range costs {
 		go func() {
 			<-start
-			_, _, err := s.CreateAdjustment(ctx, onHand(le, product, site, domain.ModeUnitCost, cost), "c-"+cost, fmt.Sprintf("hash-%d", i)+pad)
+			_, _, err := s.CreateAdjustment(ctx, onHand(le, product, site, domain.ModeUnitCost, cost), "c-"+cost, fmt.Sprintf("hash-%d", i)+pad, led)
 			errs <- err
 		}()
 	}

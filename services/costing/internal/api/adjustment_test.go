@@ -10,6 +10,7 @@ import (
 
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 	"github.com/BenjaminSRussell/depot/services/costing/internal/domain"
 	"github.com/BenjaminSRussell/depot/services/costing/internal/store"
 )
@@ -36,7 +37,7 @@ func (f *slice6) PreviewAdjustment(_ context.Context, in store.AdjustmentRequest
 		Delta: "-50.00", OldUnitCost: "12", NewUnitCost: "11"}, nil
 }
 
-func (f *slice6) CreateAdjustment(_ context.Context, in store.AdjustmentRequest, key, hash string) (store.Adjustment, bool, error) {
+func (f *slice6) CreateAdjustment(_ context.Context, in store.AdjustmentRequest, key, hash string, _ ledgerclient.Ledger) (store.Adjustment, bool, error) {
 	if f.postErr != nil {
 		return store.Adjustment{}, false, f.postErr
 	}
@@ -52,7 +53,7 @@ func (f *slice6) CreateAdjustment(_ context.Context, in store.AdjustmentRequest,
 	now := time.Now().UTC()
 	a := store.Adjustment{ID: ids.New(), LegalEntityID: in.LegalEntityID, Kind: in.Kind, Mode: in.Mode, ProductID: in.ProductID,
 		SiteID: in.SiteID, ValuationLedgerID: in.ValuationLedgerID, Reason: in.Reason, Currency: "EUR", FinancialDate: in.FinancialDate,
-		Qty: "50", OldValue: "600.00", NewValue: "550.00", Delta: "-50.00", CostTransactionID: ids.New(), CreatedAt: &now}
+		Qty: "50", OldValue: "600.00", NewValue: "550.00", Delta: "-50.00", CostTransactionID: ids.New(), CreatedAt: &now, Voucher: "POSTED"}
 	f.posted[key], f.postHashes[key] = a, hash
 	return a, true, nil
 }
@@ -134,7 +135,7 @@ func TestAdjustments_PostRequiresKeyDutyAndScope(t *testing.T) {
 
 	rec = call(h, http.MethodPost, "/v1/costing/adjustments", onHandBody(""), adjustDuties, key)
 	m, _ := decodeMap(rec)
-	if rec.Code != http.StatusCreated || m["id"] == nil || m["delta"] != "-50.00" {
+	if rec.Code != http.StatusCreated || m["id"] == nil || m["delta"] != "-50.00" || m["voucher"] != "POSTED" {
 		t.Fatalf("post status %d body %v", rec.Code, m)
 	}
 	got := f.posted["adj-1"]
@@ -156,7 +157,7 @@ func TestAdjustments_PostRequiresKeyDutyAndScope(t *testing.T) {
 	}
 	metrics := httptest.NewRecorder()
 	a.Metrics().ServeHTTP(metrics, httptest.NewRequest(http.MethodGet, "/metrics", nil))
-	if !strings.Contains(metrics.Body.String(), "\ncosting_adjustments_posted_total 1\n") {
+	if !strings.Contains(metrics.Body.String(), "\ncosting_adjustments_posted_total 1\n") || !strings.Contains(metrics.Body.String(), "\ncosting_gl_vouchers_posted_total 1\n") {
 		t.Errorf("metrics do not count exactly the one post (replays are not counted):\n%s", metrics.Body.String())
 	}
 }
@@ -234,6 +235,11 @@ func TestAdjustments_DomainAndStaleRefusals(t *testing.T) {
 	rec = call(h, http.MethodPost, "/v1/costing/adjustments", onHandBody(`,"expectedValue":"600.00"`), adjustDuties, map[string]string{idempotencyKey: "b"})
 	if m, _ := decodeMap(rec); rec.Code != http.StatusConflict || m["code"] != store.CodeAdjustmentStale {
 		t.Errorf("stale preview status %d body %v, want 409 %s", rec.Code, m, store.CodeAdjustmentStale)
+	}
+	f.postErr = httpx.NewProblem(http.StatusConflict, store.CodeNoProfile, "no profile")
+	rec = call(h, http.MethodPost, "/v1/costing/adjustments", onHandBody(""), adjustDuties, map[string]string{idempotencyKey: "c"})
+	if m, _ := decodeMap(rec); rec.Code != http.StatusConflict || m["code"] != store.CodeNoProfile {
+		t.Errorf("no posting profile status %d body %v, want 409 %s", rec.Code, m, store.CodeNoProfile)
 	}
 }
 

@@ -28,6 +28,8 @@ const (
 	glSourceType         = "costing-voucher"
 	invoicePPVPrefix     = "ppv:INVOICE:"
 	revaluationKeyPrefix = "reval:"
+	adjustmentKeyPrefix  = "adj:"
+	voucherPending       = "PENDING"
 	CodeVoucherParked    = "CST-GL-004"
 	CodeLedgerForeign    = "CST-GL-005"
 	CodeUnbalanced       = "CST-GL-006"
@@ -341,6 +343,11 @@ func (s *Postgres) PostCostVouchers(ctx context.Context, ledger ledgerclient.Led
 		res.Booked = append(res.Booked, GLBooked{CostTransactionID: c.id, EntryID: entryID, Lines: len(v.lines)})
 	}
 	booked, failed, err := s.postStaged(ctx, ledger, in.LegalEntityID, revaluationKeyPrefix)
+	if err != nil {
+		return GLPostResult{}, err
+	}
+	res.Booked, res.Failed = append(res.Booked, booked...), append(res.Failed, failed...)
+	booked, failed, err = s.postStaged(ctx, ledger, in.LegalEntityID, adjustmentKeyPrefix)
 	if err != nil {
 		return GLPostResult{}, err
 	}

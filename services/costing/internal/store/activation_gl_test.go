@@ -136,3 +136,23 @@ func TestPostgres_ActivationWithNoRevaluationPostsNothing(t *testing.T) {
 		t.Errorf("result %+v entries %d revaluation row %v (%v, %v); want no voucher and no REVALUATION row", res, len(f.ledger.Entries()), recorded, err, rerr)
 	}
 }
+
+func TestPostgres_ActivationLoweringTheCostCreditsInventoryAndTies(t *testing.T) {
+	f := newGLFixture(t, 46)
+	product, site := ids.New(), ids.New()
+	f.stock(t, "stock-1", f.le, product, site, "100", "1050.00")
+	f.postInventory(t, "1050.00")
+	v := f.draft(t, "STD-LOW", product, site, "10")
+
+	res, err := f.s.ActivateVersion(f.ctx, v.ID, v.Version, f.ledger)
+	if err != nil || res.VouchersPosted != 1 || res.VouchersPending != 0 {
+		t.Fatalf("result %+v, %v; want one posted voucher", res, err)
+	}
+	if got := netOf(f, "1400"); !got.Equal(d("1000")) {
+		t.Errorf("inventory account net %s, want 1050 - 50", got)
+	}
+	rec, err := f.s.ReconcileInventory(f.ctx, f.ledger, f.le, reconcileAsOf)
+	if err != nil || !rec.Difference.IsZero() || !rec.Ties {
+		t.Fatalf("reconciliation %+v, %v; want the ledger and the inventory value to agree", rec, err)
+	}
+}
