@@ -16,11 +16,22 @@ const (
 	reconcileDiffers  = 1
 	reconcileFailed   = 2
 	reconcileBadInput = 3
+	reconcileUsage    = 4
 )
 
+// reconcileArgs runs `search reconcile <report.json>`: anything but exactly one report path is a usage error.
+func reconcileArgs(ctx context.Context, getenv func(string) string, args []string, out io.Writer) int {
+	if len(args) != 1 || args[0] == "" {
+		slog.ErrorContext(ctx, "usage: search reconcile <report.json>")
+		return reconcileUsage
+	}
+	return reconcileCommand(ctx, getenv, args[0], out)
+}
+
 // reconcileCommand compares the index of the report's tenant with the source counts in the report at path (ADR-0013) and
-// writes the result as JSON to out: 0 when every count matches, 1 when one differs, 2 when the index cannot be counted
-// and 3 when the report cannot be read. The report is gathered from the source services outside this command (#213).
+// writes the result as JSON to out: 0 when every count matches and nothing in the index went uncompared, 1 otherwise, 2
+// when the index cannot be counted, 3 when the report cannot be read and 4 for a usage error. Nothing in the repository
+// produces the report yet (the source side is a follow-up issue, to be filed).
 func reconcileCommand(ctx context.Context, getenv func(string) string, path string, out io.Writer) int {
 	f, err := os.Open(path)
 	if err != nil {
@@ -53,8 +64,9 @@ func reconcileReport(ctx context.Context, c reconcile.Counter, src reconcile.Sou
 	if err := enc.Encode(res); err != nil {
 		return reconcileFailed
 	}
-	if len(res.Diffs) > 0 {
-		slog.WarnContext(ctx, "search index counts differ from the sources", "tenantId", res.TenantID, "diffs", len(res.Diffs))
+	if !res.Matches() {
+		slog.WarnContext(ctx, "search index counts differ from the sources", "tenantId", res.TenantID, "diffs", len(res.Diffs),
+			"uncompared", len(res.Uncompared))
 		return reconcileDiffers
 	}
 	return reconcileMatch

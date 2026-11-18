@@ -5,13 +5,21 @@
 //	go -C deploy/ci/eventfields run . -root "$PWD" services/search services/sales
 //
 // Consumers: every map[string]eventing.Handler literal (or m[type] = handler assignment) in code a main package of the
-// module reaches. For each entry, the handler expression is followed through the functions and variables it names, and
-// every json.Unmarshal of the event's data (events.Event.Data, or a json.RawMessage parameter it is passed in) into a
-// concrete type is a decode; a decode into an `any` parameter takes the type of the argument at each call site.
+// module reaches, through functions, variables and interface methods (every module method of that name whose type has
+// the interface's methods). For each entry, the handler expression is followed the same way, and every json.Unmarshal of
+// the event's data into a concrete type is a decode: of events.Event.Data, of a local copy of it, or of a []byte or
+// json.RawMessage parameter it is passed in (statically, or through a func value whose module implementations match). A
+// decode into an `any` parameter takes the type of the argument at each call site, and a second Unmarshal of a field of
+// decoded data adds that field's nested paths. Fail closed: every other use of the data in the code a handler reaches
+// (json.NewDecoder, len, a call the check does not follow) is a problem of that handler, and a decode into a map is
+// reported as open.
 //
 // Producers: every events.New call in the module. The event type is a constant, events.Type of constants, or a parameter
 // or local variable bound to one; the payload is the static type of the data argument, followed through parameters to
-// each call site of the enclosing function (up to maxDepth calls up).
+// each call site of the enclosing function (up to maxDepth calls up). Every outbox.Enqueue call gives (event type,
+// aggregate) routes: the event is traced back to its events.New through local variables, parameters, functions returning
+// it, callbacks the caller passes and struct fields it was stored in. Calls that cannot be resolved are reported with the
+// call that failed to bind them.
 //
 // A field is a JSON path: "lines[].qty" is the qty key of each element of the lines array. A struct field whose type
 // marshals itself (json.Marshaler/Unmarshaler or encoding.Text*: time.Time, decimal types, json.RawMessage), a map or an
@@ -66,6 +74,27 @@ type Handler struct {
 	Type    string   `json:"type"`
 	At      string   `json:"at"`
 	Decodes []Decode `json:"decodes"`
+	// Problems are reads of the event data the check cannot follow: a use of evt.Data other than a json.Unmarshal of it
+	// (directly, through a local copy or a []byte/json.RawMessage parameter it is passed in), such as json.NewDecoder or
+	// len, or a decode into a value whose type cannot be worked out. The caller fails on them.
+	Problems []string `json:"problems"`
+}
+
+// Route is an event type an outbox.Enqueue call writes under an aggregate type: an outbox connector that routes by
+// aggregate_type sends it to depot.<context>.<aggregate>.
+type Route struct {
+	Type      string `json:"type"`
+	Aggregate string `json:"aggregate"`
+	At        string `json:"at"`
+}
+
+// Unresolved is an events.New or outbox.Enqueue call whose event type, payload or aggregate could not be worked out. Via
+// is the call that failed to bind it (when the value comes from a parameter), Func the function that call sits in.
+type Unresolved struct {
+	At     string `json:"at"`
+	Via    string `json:"via,omitempty"`
+	Func   string `json:"func"`
+	Reason string `json:"reason"`
 }
 
 // Emit is one payload an events.New call writes for an event type.
@@ -86,12 +115,14 @@ type Report struct {
 	Module   string    `json:"module"`
 	Handlers []Handler `json:"handlers"`
 	Emits    []Emit    `json:"emits"`
-	// Aggregates are the aggregate types outbox.Enqueue calls write (an outbox connector that routes by aggregate_type
-	// sends each to depot.<context>.<aggregate>), with the calls whose aggregate type could not be worked out.
-	Aggregates           []string `json:"aggregates"`
-	UnresolvedAggregates []string `json:"unresolvedAggregates"`
-	// Unresolved lists events.New calls whose event type or payload could not be worked out, with the reason.
-	Unresolved []string `json:"unresolved"`
+	// Aggregates are the aggregate types outbox.Enqueue calls write, Routes the (event type, aggregate) pairs of the calls
+	// whose event the check traces back to its events.New, and UnresolvedRoutes the calls whose event or aggregate it
+	// cannot.
+	Aggregates       []string     `json:"aggregates"`
+	Routes           []Route      `json:"routes"`
+	UnresolvedRoutes []Unresolved `json:"unresolvedRoutes"`
+	// Unresolved lists events.New calls whose event type or payload could not be worked out.
+	Unresolved []Unresolved `json:"unresolved"`
 	// Problems are consumer-side findings the caller must fail on: a handler key that is not a constant, a decode
 	// whose target type cannot be worked out, a package that does not type-check.
 	Problems []string `json:"problems"`
@@ -122,7 +153,9 @@ type fn struct {
 	decl         *ast.FuncDecl
 	pkg          *pkg
 	params       []*types.Var
-	decodeParams map[int]bool
+	recv         string       // the receiver's named type (path.Name) of a method, "" for a function
+	decodeParams map[int]bool // parameters event data is decoded into (an `any` the caller binds)
+	dataParams   map[int]bool // []byte/json.RawMessage parameters some call passes event data in
 }
 
 type assign struct {
@@ -145,6 +178,9 @@ type analyzer struct {
 	locals  map[types.Object][]assign
 	globals map[string][]assign
 	calls   map[string][]callSite
+	dyn     []callSite                // calls of a func value (no static callee)
+	fields  map[string][]assign       // values stored in a struct field of type events.Event, by "path.Type.Field"
+	methods map[string]map[string]*fn // methods of each named type of the module, by receiver key and name
 	imp     types.Importer
 	deps    map[string]listed // non-standard dependencies, whose package variables are read from source when a key names one
 	depDone map[string]bool
@@ -203,10 +239,10 @@ func analyze(root, dir string) (*Report, error) {
 		return nil, fmt.Errorf("go list in %s: %w: %s", dir, err, stderr.String())
 	}
 	rel, _ := filepath.Rel(root, abs)
-	a := &analyzer{fset: token.NewFileSet(), root: root, report: &Report{Dir: filepath.ToSlash(rel), Handlers: []Handler{}, Emits: []Emit{}, Aggregates: []string{}, UnresolvedAggregates: []string{},
-		Unresolved: []string{}, Problems: []string{}},
+	a := &analyzer{fset: token.NewFileSet(), root: root, report: &Report{Dir: filepath.ToSlash(rel), Handlers: []Handler{}, Emits: []Emit{}, Aggregates: []string{}, Routes: []Route{},
+		UnresolvedRoutes: []Unresolved{}, Unresolved: []Unresolved{}, Problems: []string{}},
 		funcs: map[string]*fn{}, locals: map[types.Object][]assign{}, globals: map[string][]assign{}, calls: map[string][]callSite{},
-		deps: map[string]listed{}, depDone: map[string]bool{}}
+		fields: map[string][]assign{}, methods: map[string]map[string]*fn{}, deps: map[string]listed{}, depDone: map[string]bool{}}
 	exports := map[string]string{}
 	var locals []listed
 	dec := json.NewDecoder(bytes.NewReader(out))
@@ -268,6 +304,7 @@ func analyze(root, dir string) (*Report, error) {
 		a.pkgs = append(a.pkgs, p)
 	}
 	a.index()
+	a.solveDataParams()
 	a.solveDecodeParams()
 	a.consumers()
 	a.producers()
@@ -279,9 +316,13 @@ func analyze(root, dir string) (*Report, error) {
 		ei, ej := a.report.Emits[i], a.report.Emits[j]
 		return ei.Type < ej.Type || ei.Type == ej.Type && ei.At < ej.At
 	})
-	sort.Strings(a.report.Unresolved)
+	sortUnresolved(a.report.Unresolved)
+	sortUnresolved(a.report.UnresolvedRoutes)
 	a.report.Aggregates = dedupe(a.report.Aggregates)
-	sort.Strings(a.report.UnresolvedAggregates)
+	sort.Slice(a.report.Routes, func(i, j int) bool {
+		ri, rj := a.report.Routes[i], a.report.Routes[j]
+		return ri.Type+ri.Aggregate+ri.At < rj.Type+rj.Aggregate+rj.At
+	})
 	sort.Strings(a.report.Problems)
 	return a.report, nil
 }
@@ -326,9 +367,16 @@ func (a *analyzer) index() {
 						continue
 					}
 					sig := obj.Signature()
-					f := &fn{key: funcKey(obj), decl: d, pkg: p, decodeParams: map[int]bool{}}
+					f := &fn{key: funcKey(obj), decl: d, pkg: p, decodeParams: map[int]bool{}, dataParams: map[int]bool{}}
 					for i := range sig.Params().Len() {
 						f.params = append(f.params, sig.Params().At(i))
+					}
+					if r := sig.Recv(); r != nil {
+						f.recv = typeKey(r.Type())
+						if a.methods[f.recv] == nil {
+							a.methods[f.recv] = map[string]*fn{}
+						}
+						a.methods[f.recv][d.Name.Name] = f
 					}
 					a.funcs[f.key] = f
 				case *ast.GenDecl:
@@ -359,14 +407,67 @@ func (a *analyzer) index() {
 				a.valueSpec(n, f.pkg, f)
 			case *ast.CallExpr:
 				if callee := a.callee(f.pkg, n); callee != nil {
-					if _, ok := a.funcs[funcKey(callee)]; ok {
-						a.calls[funcKey(callee)] = append(a.calls[funcKey(callee)], callSite{caller: f, call: n})
+					// A call through an interface (a.store.SetErsVendor) is a call of every module method that implements it.
+					for _, g := range a.implementations(callee) {
+						a.calls[g.key] = append(a.calls[g.key], callSite{caller: f, call: n})
+					}
+				} else if tv, ok := f.pkg.info.Types[n.Fun]; ok && !tv.IsType() {
+					if _, ok := tv.Type.Underlying().(*types.Signature); ok {
+						a.dyn = append(a.dyn, callSite{caller: f, call: n})
+					}
+				}
+			case *ast.CompositeLit:
+				for _, el := range n.Elts {
+					if kv, ok := el.(*ast.KeyValueExpr); ok {
+						if id, ok := kv.Key.(*ast.Ident); ok {
+							if v, ok := f.pkg.info.Uses[id].(*types.Var); ok && v.IsField() {
+								a.storeField(f.pkg.info.TypeOf(n), id.Name, v, kv.Value, f)
+							}
+						}
+					}
+				}
+			}
+			return true
+		})
+		ast.Inspect(f.decl.Body, func(n ast.Node) bool {
+			if as, ok := n.(*ast.AssignStmt); ok && len(as.Lhs) == len(as.Rhs) {
+				for i, lhs := range as.Lhs {
+					if sel, ok := ast.Unparen(lhs).(*ast.SelectorExpr); ok {
+						if s := f.pkg.info.Selections[sel]; s != nil && s.Kind() == types.FieldVal {
+							a.storeField(s.Recv(), sel.Sel.Name, s.Obj().(*types.Var), as.Rhs[i], f)
+						}
 					}
 				}
 			}
 			return true
 		})
 	}
+}
+
+// typeKey names a (pointer to a) named type by its package path and name, the same for source and export data objects.
+func typeKey(t types.Type) string {
+	if p, ok := types.Unalias(t).(*types.Pointer); ok {
+		t = p.Elem()
+	}
+	if n, ok := types.Unalias(t).(*types.Named); ok && n.Obj().Pkg() != nil {
+		return n.Obj().Pkg().Path() + "." + n.Obj().Name()
+	}
+	return ""
+}
+
+// storeField records a value stored in a field of type events.Event (or *events.Event) of a named struct, so an
+// outbox.Enqueue of outcome.Event can be traced to the events.New that built it.
+func (a *analyzer) storeField(owner types.Type, name string, field *types.Var, value ast.Expr, f *fn) {
+	if owner == nil || !namedIs(field.Type(), eventsPkg, "Event") {
+		return
+	}
+	if k := typeKey(owner); k != "" {
+		a.fields[k+"."+name] = append(a.fields[k+"."+name], assign{expr: value, pkg: f.pkg, fn: f})
+	}
+}
+
+func sortUnresolved(u []Unresolved) {
+	sort.Slice(u, func(i, j int) bool { return u[i].At+u[i].Via < u[j].At+u[j].Via })
 }
 
 func (a *analyzer) valueSpec(vs *ast.ValueSpec, p *pkg, f *fn) {
@@ -447,23 +548,126 @@ func paramIndex(f *fn, obj types.Object) int {
 	return -1
 }
 
-// isEventData reports whether e is an event's data: evt.Data of an events.Event, or a json.RawMessage parameter of f.
-func (a *analyzer) isEventData(e ast.Expr, p *pkg, f *fn) bool {
+// isEventDataSel reports whether x is evt.Data of an events.Event.
+func isEventDataSel(x *ast.SelectorExpr, p *pkg) bool {
+	sel := p.info.Selections[x]
+	return sel != nil && x.Sel.Name == "Data" && namedIs(sel.Recv(), eventsPkg, "Event")
+}
+
+// isBytes reports whether t is []byte (json.RawMessage included).
+func isBytes(t types.Type) bool {
+	if t == nil {
+		return false
+	}
+	s, ok := t.Underlying().(*types.Slice)
+	if !ok {
+		return false
+	}
+	b, ok := s.Elem().Underlying().(*types.Basic)
+	return ok && b.Kind() == types.Byte
+}
+
+// dataExpr reports whether e carries an event's data in f: evt.Data, a data parameter of f, a local variable every
+// assignment of which is such an expression (data := evt.Data), or a conversion of one.
+func (a *analyzer) dataExpr(e ast.Expr, p *pkg, f *fn) bool { return a.dataExprDepth(e, p, f, 0) }
+
+func (a *analyzer) dataExprDepth(e ast.Expr, p *pkg, f *fn, depth int) bool {
+	if depth > 8 {
+		return false
+	}
 	e = ast.Unparen(e)
 	switch x := e.(type) {
 	case *ast.SelectorExpr:
-		if sel := p.info.Selections[x]; sel != nil && x.Sel.Name == "Data" {
-			return namedIs(sel.Recv(), eventsPkg, "Event")
-		}
+		return isEventDataSel(x, p)
 	case *ast.Ident:
-		obj := p.info.Uses[x]
-		return obj != nil && paramIndex(f, obj) >= 0 && namedIs(obj.Type(), "encoding/json", "RawMessage")
+		return a.dataIdent(x, p, f, depth)
 	case *ast.CallExpr:
 		if tv, ok := p.info.Types[x.Fun]; ok && tv.IsType() && len(x.Args) == 1 {
-			return a.isEventData(x.Args[0], p, f)
+			return a.dataExprDepth(x.Args[0], p, f, depth+1)
 		}
 	}
 	return false
+}
+
+func (a *analyzer) dataIdent(id *ast.Ident, p *pkg, f *fn, depth int) bool {
+	obj := p.info.Uses[id]
+	if obj == nil {
+		obj = p.info.Defs[id]
+	}
+	v, ok := obj.(*types.Var)
+	if !ok || v.IsField() || isGlobal(v) {
+		return false
+	}
+	if i := paramIndex(f, v); i >= 0 {
+		return f.dataParams[i]
+	}
+	as := a.locals[v]
+	if len(as) == 0 {
+		return false
+	}
+	for _, x := range as {
+		if !a.dataExprDepth(x.expr, x.pkg, x.fn, depth+1) {
+			return false
+		}
+	}
+	return true
+}
+
+// solveDataParams marks the []byte/json.RawMessage parameters that event data is passed in: at a static call of a module
+// function, or at a call of a func value (every module function of the same signature is then marked, as tax's
+// movementOf mappers are).
+func (a *analyzer) solveDataParams() {
+	for changed := true; changed; {
+		changed = false
+		for key, sites := range a.calls {
+			g := a.funcs[key]
+			for _, s := range sites {
+				for i, arg := range s.call.Args {
+					if i < len(g.params) && !g.dataParams[i] && isBytes(g.params[i].Type()) && a.dataExpr(arg, s.caller.pkg, s.caller) {
+						g.dataParams[i] = true
+						changed = true
+					}
+				}
+			}
+		}
+		for _, s := range a.dyn {
+			sig, _ := s.caller.pkg.info.TypeOf(s.call.Fun).Underlying().(*types.Signature)
+			for i, arg := range s.call.Args {
+				if sig == nil || i >= sig.Params().Len() || !isBytes(sig.Params().At(i).Type()) || !a.dataExpr(arg, s.caller.pkg, s.caller) {
+					continue
+				}
+				for _, g := range a.funcs {
+					if g.recv == "" && !g.dataParams[i] && sameSignature(g, sig) {
+						g.dataParams[i] = true
+						changed = true
+					}
+				}
+			}
+		}
+	}
+}
+
+func sameSignature(g *fn, sig *types.Signature) bool {
+	obj, ok := g.pkg.info.Defs[g.decl.Name].(*types.Func)
+	return ok && shape(obj.Signature()) == shape(sig)
+}
+
+// shape is a signature's parameter and result types, without names (a func type and a function declared to match it
+// name their parameters differently).
+func shape(sig *types.Signature) string {
+	q := func(p *types.Package) string { return p.Path() }
+	var b strings.Builder
+	for _, t := range []*types.Tuple{sig.Params(), sig.Results()} {
+		b.WriteString("(")
+		for i := range t.Len() {
+			b.WriteString(types.TypeString(t.At(i).Type(), q) + ",")
+		}
+		b.WriteString(")")
+	}
+	if sig.Variadic() {
+		b.WriteString("...")
+	}
+	return b.String()
 }
 
 // decodeTarget is the type json.Unmarshal(data, e) decodes into, or the index of f's parameter that holds it.
@@ -476,6 +680,9 @@ func (a *analyzer) decodeTarget(e ast.Expr, p *pkg, f *fn) (types.Type, int, boo
 		t = p.info.TypeOf(operand)
 	} else {
 		t = p.info.TypeOf(e)
+		if t == nil {
+			return nil, -1, false
+		}
 		if ptr, ok := t.Underlying().(*types.Pointer); ok {
 			t = ptr.Elem()
 		}
@@ -505,7 +712,7 @@ func (a *analyzer) solveDecodeParams() {
 			continue
 		}
 		ast.Inspect(f.decl.Body, func(n ast.Node) bool {
-			if call, ok := n.(*ast.CallExpr); ok && a.isUnmarshal(f.pkg, call) && a.isEventData(call.Args[0], f.pkg, f) {
+			if call, ok := n.(*ast.CallExpr); ok && a.isUnmarshal(f.pkg, call) && a.dataExpr(call.Args[0], f.pkg, f) {
 				if _, i, ok := a.decodeTarget(call.Args[1], f.pkg, f); ok && i >= 0 {
 					f.decodeParams[i] = true
 				}
@@ -537,45 +744,158 @@ func (a *analyzer) solveDecodeParams() {
 	}
 }
 
-// walker follows an expression through the module functions and variables it names, collecting decodes.
+// walker follows an expression through the module functions and variables it names, collecting decodes and the reads
+// of the event data it cannot follow.
 type walker struct {
-	a       *analyzer
-	record  bool
-	seenFn  map[string]bool
-	seenVar map[types.Object]bool
-	seenGlb map[string]bool
-	decodes map[string]Decode
+	a        *analyzer
+	record   bool
+	seenFn   map[string]bool
+	seenVar  map[types.Object]bool
+	seenGlb  map[string]bool
+	decodes  map[string]*Decode
+	decoded  map[types.Object]decodedVar // local variables a decode filled, for a nested decode of one of their fields
+	problems map[string]bool
+}
+
+type decodedVar struct {
+	key  string // of the Decode in walker.decodes
+	path string // the JSON path the variable holds ("" for the whole data)
 }
 
 func (a *analyzer) newWalker(record bool) *walker {
 	return &walker{a: a, record: record, seenFn: map[string]bool{}, seenVar: map[types.Object]bool{}, seenGlb: map[string]bool{},
-		decodes: map[string]Decode{}}
+		decodes: map[string]*Decode{}, decoded: map[types.Object]decodedVar{}, problems: map[string]bool{}}
+}
+
+func (w *walker) problem(at token.Pos, format string, args ...any) {
+	w.problems[w.a.pos(at)+": "+fmt.Sprintf(format, args...)] = true
 }
 
 func (w *walker) node(n ast.Node, p *pkg, f *fn) {
 	if n == nil {
 		return
 	}
+	var stack []ast.Node
 	ast.Inspect(n, func(x ast.Node) bool {
+		if x == nil {
+			stack = stack[:len(stack)-1]
+			return true
+		}
+		ancestors := stack
+		stack = append(stack, x)
 		switch x := x.(type) {
 		case *ast.CallExpr:
 			if w.record {
 				w.call(x, p, f)
 			}
+		case *ast.SelectorExpr:
+			// A root with no ancestors is a variable's assigned value, walked from a use of the variable; its own
+			// statement is checked where the function body is walked.
+			if w.record && len(ancestors) > 0 && isEventDataSel(x, p) {
+				w.sink(x, ancestors, p, f)
+			}
 		case *ast.Ident:
 			w.ident(x, p)
+			if w.record && len(ancestors) > 0 && p.info.Uses[x] != nil && !isAssigned(x, ancestors) && w.a.dataIdent(x, p, f, 0) {
+				w.sink(x, ancestors, p, f)
+			}
 		}
 		return true
 	})
 }
 
+// isAssigned reports whether id is the left-hand side of the statement it sits in.
+func isAssigned(id *ast.Ident, ancestors []ast.Node) bool {
+	if len(ancestors) == 0 {
+		return false
+	}
+	if as, ok := ancestors[len(ancestors)-1].(*ast.AssignStmt); ok {
+		for _, l := range as.Lhs {
+			if l == ast.Expr(id) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// sink checks where the event data e flows: into json.Unmarshal, into a data parameter of a module function (or of a
+// func value with a []byte parameter), or into a local copy. Anything else is a read the check cannot follow.
+func (w *walker) sink(e ast.Expr, ancestors []ast.Node, p *pkg, f *fn) {
+	var cur ast.Node = e
+	for i := len(ancestors) - 1; i >= 0; i-- {
+		switch par := ancestors[i].(type) {
+		case *ast.ParenExpr:
+			cur = par
+			continue
+		case *ast.CallExpr:
+			if tv, ok := p.info.Types[par.Fun]; ok && tv.IsType() {
+				cur = par
+				continue
+			}
+			idx := -1
+			for j, arg := range par.Args {
+				if ast.Node(arg) == cur {
+					idx = j
+				}
+			}
+			if idx < 0 {
+				break
+			}
+			if w.a.isUnmarshal(p, par) && idx == 0 {
+				return
+			}
+			if callee := w.a.callee(p, par); callee != nil {
+				if g, ok := w.a.funcs[funcKey(callee)]; ok && g.dataParams[idx] {
+					return
+				}
+				w.problem(e.Pos(), "passes the event data to %s, which the check does not follow; decode it with json.Unmarshal", callee.Name())
+				return
+			}
+			if sig, ok := p.info.TypeOf(par.Fun).Underlying().(*types.Signature); ok && idx < sig.Params().Len() && isBytes(sig.Params().At(idx).Type()) {
+				for _, g := range w.a.funcs {
+					if g.dataParams[idx] && sameSignature(g, sig) {
+						return
+					}
+				}
+			}
+			if id, ok := ast.Unparen(par.Fun).(*ast.Ident); ok {
+				if b, ok := p.info.Uses[id].(*types.Builtin); ok {
+					w.problem(e.Pos(), "passes the event data to %s, which the check does not follow; decode it with json.Unmarshal", b.Name())
+					return
+				}
+			}
+			w.problem(e.Pos(), "passes the event data to a function value the check cannot follow")
+			return
+		case *ast.AssignStmt:
+			for j, r := range par.Rhs {
+				if ast.Node(r) == cur && len(par.Lhs) == len(par.Rhs) {
+					if id, ok := par.Lhs[j].(*ast.Ident); ok && w.a.dataIdent(id, p, f, 0) {
+						return
+					}
+				}
+			}
+		case *ast.ValueSpec:
+			for j, v := range par.Values {
+				if ast.Node(v) == cur && j < len(par.Names) && w.a.dataIdent(par.Names[j], p, f, 0) {
+					return
+				}
+			}
+		}
+		break
+	}
+	w.problem(e.Pos(), "reads the event data in a way the check cannot follow (only json.Unmarshal of it, of a local copy "+
+		"or of a []byte/json.RawMessage parameter it is passed in, is checked)")
+}
+
 func (w *walker) ident(id *ast.Ident, p *pkg) {
 	switch obj := p.info.Uses[id].(type) {
 	case *types.Func:
-		g, ok := w.a.funcs[funcKey(obj)]
-		if ok && !w.seenFn[g.key] {
-			w.seenFn[g.key] = true
-			w.node(g.decl.Body, g.pkg, g)
+		for _, g := range w.a.implementations(obj) {
+			if !w.seenFn[g.key] {
+				w.seenFn[g.key] = true
+				w.node(g.decl.Body, g.pkg, g)
+			}
 		}
 	case *types.Var:
 		if obj.IsField() {
@@ -600,14 +920,66 @@ func (w *walker) ident(id *ast.Ident, p *pkg) {
 	}
 }
 
+// implementations are the module declarations a reference to obj may run: its own, or for an interface method every
+// module method of that name whose type has all the interface's methods (handler maps behind an interface).
+func (a *analyzer) implementations(obj *types.Func) []*fn {
+	if g, ok := a.funcs[funcKey(obj)]; ok {
+		return []*fn{g}
+	}
+	recv := obj.Signature().Recv()
+	if recv == nil {
+		return nil
+	}
+	iface, ok := recv.Type().Underlying().(*types.Interface)
+	if !ok {
+		return nil
+	}
+	var out []*fn
+	keys := make([]string, 0, len(a.methods))
+	for k := range a.methods {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		ms := a.methods[k]
+		g, ok := ms[obj.Name()]
+		if !ok {
+			continue
+		}
+		all := true
+		for i := range iface.NumMethods() {
+			if _, ok := ms[iface.Method(i).Name()]; !ok {
+				all = false
+			}
+		}
+		if all {
+			out = append(out, g)
+		}
+	}
+	return out
+}
+
 func (w *walker) call(call *ast.CallExpr, p *pkg, f *fn) {
-	if w.a.isUnmarshal(p, call) && w.a.isEventData(call.Args[0], p, f) {
-		t, i, ok := w.a.decodeTarget(call.Args[1], p, f)
-		switch {
-		case !ok:
-			w.a.problem(call.Pos(), "decodes event data into a value whose type the check cannot work out")
-		case i < 0:
-			w.add(call.Pos(), t)
+	if w.a.isUnmarshal(p, call) {
+		src := call.Args[0]
+		if w.a.dataExpr(src, p, f) {
+			t, i, ok := w.a.decodeTarget(call.Args[1], p, f)
+			switch {
+			case !ok:
+				w.problem(call.Pos(), "decodes event data into a value whose type the check cannot work out")
+			case i < 0:
+				w.add(call.Pos(), t, "", call.Args[1], p)
+			}
+			return
+		}
+		// A second decode of a json.RawMessage field the first one filled: its fields sit under that field's path.
+		if dv, path, ok := w.decodedPath(src, p); ok {
+			t, i, ok := w.a.decodeTarget(call.Args[1], p, f)
+			if !ok || i >= 0 {
+				w.problem(call.Pos(), "decodes a field of the event data into a value whose type the check cannot work out")
+				return
+			}
+			w.nested(dv, joinPath(dv.path, path), t, call.Args[1], p)
 		}
 		return
 	}
@@ -635,18 +1007,123 @@ func (w *walker) call(call *ast.CallExpr, p *pkg, f *fn) {
 			if id, ok := arg.(*ast.Ident); ok && paramIndex(f, p.info.Uses[id]) >= 0 && f.decodeParams[paramIndex(f, p.info.Uses[id])] {
 				continue // the caller of f binds it
 			}
-			w.a.problem(call.Pos(), "passes a value whose type the check cannot work out to %s, which decodes event data into it", g.decl.Name.Name)
+			w.problem(call.Pos(), "passes a value whose type the check cannot work out to %s, which decodes event data into it", g.decl.Name.Name)
 			continue
 		}
-		w.add(call.Pos(), t)
+		w.add(call.Pos(), t, "", arg, p)
 	}
 }
 
-func (w *walker) add(at token.Pos, t types.Type) {
+// decodedPath is the variable a decode filled and the JSON path below it of a field expression such as d.Extra or
+// d.Lines[i].Raw.
+func (w *walker) decodedPath(e ast.Expr, p *pkg) (decodedVar, string, bool) {
+	var segs []string // innermost first once complete
+	e = ast.Unparen(e)
+	for {
+		switch x := e.(type) {
+		case *ast.SelectorExpr:
+			sel := p.info.Selections[x]
+			if sel == nil || sel.Kind() != types.FieldVal {
+				return decodedVar{}, "", false
+			}
+			name, ok := jsonPath(sel)
+			if !ok {
+				return decodedVar{}, "", false
+			}
+			if name != "" {
+				segs = append([]string{name}, segs...)
+			}
+			e = ast.Unparen(x.X)
+		case *ast.IndexExpr:
+			segs = append([]string{"[]"}, segs...)
+			e = ast.Unparen(x.X)
+		case *ast.StarExpr:
+			e = ast.Unparen(x.X)
+		case *ast.Ident:
+			dv, ok := w.decoded[p.info.Uses[x]]
+			if !ok || len(segs) == 0 {
+				return decodedVar{}, "", false
+			}
+			path := ""
+			for _, s := range segs {
+				switch {
+				case s == "[]":
+					path += "[]"
+				case path == "":
+					path = s
+				default:
+					path += "." + s
+				}
+			}
+			return dv, path, true
+		default:
+			return decodedVar{}, "", false
+		}
+	}
+}
+
+// jsonPath is the JSON key path of a field selection, through the embedded structs it is promoted from ("" when every
+// step is an embedded struct encoding/json flattens).
+func jsonPath(sel *types.Selection) (string, bool) {
+	t := sel.Recv()
+	var parts []string
+	for _, i := range sel.Index() {
+		if p, ok := types.Unalias(t).(*types.Pointer); ok {
+			t = p.Elem()
+		}
+		st, ok := t.Underlying().(*types.Struct)
+		if !ok || i >= st.NumFields() {
+			return "", false
+		}
+		f := st.Field(i)
+		name, _, _ := strings.Cut(reflect.StructTag(st.Tag(i)).Get("json"), ",")
+		if name == "-" {
+			return "", false
+		}
+		if !f.Embedded() || name != "" {
+			if name == "" {
+				name = f.Name()
+			}
+			parts = append(parts, name)
+		}
+		t = f.Type()
+	}
+	return strings.Join(parts, "."), true
+}
+
+func (w *walker) add(at token.Pos, t types.Type, prefix string, target ast.Expr, p *pkg) {
 	c := collector{decode: true, seen: map[*types.TypeName]bool{}}
-	c.typ(t, "", false)
-	d := Decode{At: w.a.pos(at), GoType: types.TypeString(t, qualifier), Open: c.open, Fields: c.result()}
-	w.decodes[d.At+"|"+d.GoType] = d
+	c.typ(t, prefix, false)
+	d := &Decode{At: w.a.pos(at), GoType: types.TypeString(t, qualifier), Open: c.open, Fields: c.result()}
+	key := d.At + "|" + d.GoType
+	w.decodes[key] = d
+	w.remember(target, decodedVar{key: key, path: prefix}, p)
+}
+
+// nested adds the fields of a decode of a field of decoded data, under that field's path.
+func (w *walker) nested(dv decodedVar, path string, t types.Type, target ast.Expr, p *pkg) {
+	d := w.decodes[dv.key]
+	c := collector{decode: true, seen: map[*types.TypeName]bool{}}
+	c.typ(t, path, false)
+	switch t.Underlying().(type) {
+	case *types.Map, *types.Interface:
+		d.Open = true // a map (or any) reads keys the check cannot list
+	}
+	d.Fields = append(d.Fields, c.fields...)
+	sortFields(d.Fields)
+	w.remember(target, decodedVar{key: dv.key, path: path}, p)
+}
+
+func (w *walker) remember(target ast.Expr, dv decodedVar, p *pkg) {
+	e := ast.Unparen(target)
+	if u, ok := e.(*ast.UnaryExpr); ok && u.Op == token.AND {
+		e = ast.Unparen(u.X)
+	}
+	if id, ok := e.(*ast.Ident); ok {
+		if v := p.info.Uses[id]; v != nil {
+			w.decoded[v] = dv
+		}
+	}
 }
 
 func qualifier(p *types.Package) string { return p.Name() }
@@ -722,11 +1199,16 @@ func (a *analyzer) consumers() {
 		w.node(value, p, f)
 		decodes := []Decode{}
 		for _, d := range w.decodes {
-			decodes = append(decodes, d)
+			decodes = append(decodes, *d)
 		}
 		sort.Slice(decodes, func(i, j int) bool { return decodes[i].At+decodes[i].GoType < decodes[j].At+decodes[j].GoType })
+		problems := []string{}
+		for p := range w.problems {
+			problems = append(problems, p)
+		}
+		sort.Strings(problems)
 		for _, typ := range dedupe(typs) {
-			a.report.Handlers = append(a.report.Handlers, Handler{Type: typ, At: a.pos(at), Decodes: decodes})
+			a.report.Handlers = append(a.report.Handlers, Handler{Type: typ, At: a.pos(at), Decodes: decodes, Problems: problems})
 		}
 	}
 	scan := func(n ast.Node, p *pkg, f *fn) {
@@ -957,57 +1439,281 @@ func (a *analyzer) evalData(e ast.Expr, p *pkg, fr *frame, depth int) ([]dataVal
 
 type emitSite struct {
 	typ  string
+	agg  string
 	data dataVal
 	via  token.Pos // the outermost call that bound the type or payload, when they come from parameters
 }
 
-// resolve works out the (type, payload) pairs of one events.New call, binding the parameters they come from at each call
-// site of the outermost function, up to maxDepth calls up.
-func (a *analyzer) resolve(fr *frame, typE, dataE ast.Expr, p *pkg, depth int) ([]emitSite, string) {
-	typs, errT := a.evalStr(typE, p, fr, 0)
-	datas, errD := []dataVal{{}}, error(nil)
-	if dataE != nil {
-		datas, errD = a.evalData(dataE, p, fr, 0)
+type failure struct {
+	via    token.Pos
+	fn     *fn
+	reason string
+}
+
+// expand evaluates eval in fr; when the value comes from a parameter of the outermost function, it binds that function's
+// parameters at each of its call sites in turn, up to maxDepth calls up.
+func (a *analyzer) expand(fr *frame, depth int, eval func(*frame) ([]emitSite, error)) ([]emitSite, []failure) {
+	got, err := eval(fr)
+	if err == nil {
+		return got, nil
 	}
-	if errors.Is(errT, errUnbound) || errors.Is(errD, errUnbound) {
-		outer := fr
-		for outer.caller != nil {
-			outer = outer.caller
-		}
-		if depth >= maxDepth {
-			return nil, "bound more than " + fmt.Sprint(maxDepth) + " calls up"
-		}
-		sites := a.calls[outer.fn.key]
-		if len(sites) == 0 {
-			return nil, "comes from a parameter of " + outer.fn.decl.Name.Name + ", which nothing in the module calls directly"
-		}
-		var out []emitSite
-		var why []string
-		for _, s := range sites {
-			nfr := rebind(fr, outer, s)
-			got, reason := a.resolve(nfr, typE, dataE, p, depth+1)
-			for i := range got {
-				if !got[i].via.IsValid() {
-					got[i].via = s.call.Pos()
-				}
-			}
-			out = append(out, got...)
-			if reason != "" {
-				why = append(why, reason)
-			}
-		}
-		return out, strings.Join(dedupe(why), "; ")
+	outer := fr
+	for outer.caller != nil {
+		outer = outer.caller
 	}
-	if errT != nil {
-		return nil, "not a constant the check can evaluate"
+	switch {
+	case !errors.Is(err, errUnbound):
+		return nil, []failure{{fn: outer.fn, reason: err.Error()}}
+	case depth >= maxDepth:
+		return nil, []failure{{fn: outer.fn, reason: fmt.Sprintf("bound more than %d calls up", maxDepth)}}
+	}
+	sites := a.calls[outer.fn.key]
+	if len(sites) == 0 {
+		return nil, []failure{{fn: outer.fn, reason: "comes from a parameter of " + outer.fn.decl.Name.Name + ", which nothing in the module calls directly"}}
 	}
 	var out []emitSite
-	for _, t := range typs {
-		for _, d := range datas {
-			out = append(out, emitSite{typ: t, data: d})
+	var fails []failure
+	for _, s := range sites {
+		g, f := a.expand(rebind(fr, outer, s), depth+1, eval)
+		for i := range g {
+			if !g[i].via.IsValid() {
+				g[i].via = s.call.Pos()
+			}
 		}
+		for i := range f {
+			if !f[i].via.IsValid() {
+				f[i].via, f[i].fn = s.call.Pos(), s.caller
+			}
+		}
+		out = append(out, g...)
+		fails = append(fails, f...)
 	}
-	return out, ""
+	return out, fails
+}
+
+var errNotConstant = errors.New("not a constant the check can evaluate")
+
+// resolve works out the (type, payload) pairs of one events.New call.
+func (a *analyzer) resolve(fr *frame, typE, dataE ast.Expr, p *pkg) ([]emitSite, []failure) {
+	return a.expand(fr, 0, func(fr *frame) ([]emitSite, error) {
+		typs, errT := a.evalStr(typE, p, fr, 0)
+		datas, errD := a.evalData(dataE, p, fr, 0)
+		if errors.Is(errT, errUnbound) || errors.Is(errD, errUnbound) {
+			return nil, errUnbound
+		}
+		if errT != nil {
+			return nil, errNotConstant
+		}
+		var out []emitSite
+		for _, t := range typs {
+			for _, d := range datas {
+				out = append(out, emitSite{typ: t, data: d})
+			}
+		}
+		return out, nil
+	})
+}
+
+// resolveRoute works out the (event type, aggregate type) pairs of one outbox.Enqueue call: the aggregate is evaluated
+// like an event type, and the event is traced back to the events.New that built it, both in the same bound frame.
+func (a *analyzer) resolveRoute(fr *frame, aggE, evtE ast.Expr, p *pkg) ([]emitSite, []failure) {
+	return a.expand(fr, 0, func(fr *frame) ([]emitSite, error) {
+		aggs, errA := a.evalStr(aggE, p, fr, 0)
+		typs, errT := a.evalEvent(evtE, p, fr, 0)
+		if errors.Is(errA, errUnbound) || errors.Is(errT, errUnbound) {
+			return nil, errUnbound
+		}
+		if errA != nil {
+			return nil, errors.New("the aggregate type is " + errNotConstant.Error())
+		}
+		if errT != nil {
+			return nil, errors.New("the event cannot be traced to the events.New that built it")
+		}
+		var out []emitSite
+		for _, t := range dedupe(typs) {
+			for _, g := range dedupe(aggs) {
+				out = append(out, emitSite{typ: t, agg: g})
+			}
+		}
+		return out, nil
+	})
+}
+
+// evalEvent is the event types an events.Event expression may hold: the type of the events.New that built it, through
+// local variables, parameters (errUnbound when unbound), module functions that return it and struct fields it was
+// stored in (outcome.Event).
+func (a *analyzer) evalEvent(e ast.Expr, p *pkg, fr *frame, depth int) ([]string, error) {
+	if depth > 20 {
+		return nil, errNotConstant
+	}
+	e = ast.Unparen(e)
+	switch x := e.(type) {
+	case *ast.UnaryExpr:
+		if x.Op == token.AND {
+			return a.evalEvent(x.X, p, fr, depth+1)
+		}
+	case *ast.StarExpr:
+		return a.evalEvent(x.X, p, fr, depth+1)
+	case *ast.CallExpr:
+		callee := a.callee(p, x)
+		if isPkgFunc(callee, eventsPkg, "New") && len(x.Args) == 5 {
+			return a.evalStr(x.Args[0], p, fr, depth+1)
+		}
+		if callee == nil {
+			// A callback the caller passes (store.SetErsVendor(..., func(old bool) (events.Event, error) {...})).
+			lit, lp, lfr, err := a.funcLit(x.Fun, p, fr, depth)
+			if err != nil {
+				return nil, err
+			}
+			var out []string
+			var bad error
+			inspectShallow(lit.Body, func(n ast.Node) {
+				if r, ok := n.(*ast.ReturnStmt); ok && len(r.Results) > 0 && bad == nil {
+					if _, zero := ast.Unparen(r.Results[0]).(*ast.CompositeLit); zero {
+						return
+					}
+					vals, err := a.evalEvent(r.Results[0], lp, lfr, depth+1)
+					if err != nil {
+						bad = err
+						return
+					}
+					out = append(out, vals...)
+				}
+			})
+			if bad != nil {
+				return nil, bad
+			}
+			if len(out) == 0 {
+				return nil, errNotConstant
+			}
+			return out, nil
+		}
+		g, ok := a.funcs[funcKey(callee)]
+		if !ok || g.decl.Body == nil {
+			return nil, errNotConstant
+		}
+		inner := &frame{fn: g, pkg: g.pkg, args: x.Args, caller: fr}
+		var out []string
+		var bad error
+		inspectShallow(g.decl.Body, func(n ast.Node) {
+			if r, ok := n.(*ast.ReturnStmt); ok && len(r.Results) > 0 {
+				t := g.pkg.info.TypeOf(r.Results[0])
+				if tup, ok := t.(*types.Tuple); ok && tup.Len() > 0 {
+					t = tup.At(0).Type() // return newEvent(...) of a function returning (events.Event, error)
+				}
+				if t == nil || !namedIs(t, eventsPkg, "Event") {
+					return
+				}
+				vals, err := a.evalEvent(r.Results[0], g.pkg, inner, depth+1)
+				if err != nil {
+					// An `events.Event{}` returned with an error is not an event.
+					if _, zero := ast.Unparen(r.Results[0]).(*ast.CompositeLit); !zero && bad == nil {
+						bad = err
+					}
+					return
+				}
+				out = append(out, vals...)
+			}
+		})
+		if bad != nil {
+			return nil, bad
+		}
+		if len(out) == 0 {
+			return nil, errNotConstant
+		}
+		return out, nil
+	case *ast.Ident:
+		if i, ok := a.param(fr, p, x); ok {
+			if fr.args == nil {
+				return nil, errUnbound
+			}
+			if i >= len(fr.args) {
+				return nil, errNotConstant
+			}
+			return a.evalEvent(fr.args[i], fr.caller.pkg, fr.caller, depth+1)
+		}
+		v, ok := p.info.Uses[x].(*types.Var)
+		if !ok || isGlobal(v) || len(a.locals[v]) == 0 {
+			return nil, errNotConstant
+		}
+		var out []string
+		for _, as := range a.locals[v] {
+			vals, err := a.evalEvent(as.expr, as.pkg, fr, depth+1)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, vals...)
+		}
+		return out, nil
+	case *ast.SelectorExpr:
+		sel := p.info.Selections[x]
+		if sel == nil || sel.Kind() != types.FieldVal {
+			return nil, errNotConstant
+		}
+		stores := a.fields[typeKey(sel.Recv())+"."+x.Sel.Name]
+		var out []string
+		for _, as := range stores {
+			// The store sits in another function: resolve it there, binding that function's parameters at its own callers.
+			got, _ := a.expand(&frame{fn: as.fn, pkg: as.pkg}, 0, func(f2 *frame) ([]emitSite, error) {
+				vals, err := a.evalEvent(as.expr, as.pkg, f2, depth+1)
+				var sites []emitSite
+				for _, v := range vals {
+					sites = append(sites, emitSite{typ: v})
+				}
+				return sites, err
+			})
+			for _, s := range got {
+				out = append(out, s.typ)
+			}
+		}
+		if len(out) == 0 {
+			return nil, errNotConstant
+		}
+		return out, nil
+	}
+	return nil, errNotConstant
+}
+
+// funcLit is the function literal a called func value holds: a parameter bound at the call site or a local variable,
+// with the package and frame its body is evaluated in.
+func (a *analyzer) funcLit(e ast.Expr, p *pkg, fr *frame, depth int) (*ast.FuncLit, *pkg, *frame, error) {
+	if depth > 20 {
+		return nil, nil, nil, errNotConstant
+	}
+	e = ast.Unparen(e)
+	if lit, ok := e.(*ast.FuncLit); ok {
+		return lit, p, fr, nil
+	}
+	id, ok := e.(*ast.Ident)
+	if !ok {
+		return nil, nil, nil, errNotConstant
+	}
+	if i, ok := a.param(fr, p, id); ok {
+		if fr.args == nil {
+			return nil, nil, nil, errUnbound
+		}
+		if i >= len(fr.args) {
+			return nil, nil, nil, errNotConstant
+		}
+		return a.funcLit(fr.args[i], fr.caller.pkg, fr.caller, depth+1)
+	}
+	if v, ok := p.info.Uses[id].(*types.Var); ok && !isGlobal(v) && len(a.locals[v]) == 1 {
+		return a.funcLit(a.locals[v][0].expr, p, fr, depth+1)
+	}
+	return nil, nil, nil, errNotConstant
+}
+
+// inspectShallow visits n without descending into function literals.
+func inspectShallow(n ast.Node, visit func(ast.Node)) {
+	ast.Inspect(n, func(x ast.Node) bool {
+		if _, ok := x.(*ast.FuncLit); ok {
+			return false
+		}
+		if x != nil {
+			visit(x)
+		}
+		return true
+	})
 }
 
 func rebind(fr, outer *frame, s callSite) *frame {
@@ -1049,22 +1755,30 @@ func (a *analyzer) producers() {
 		ast.Inspect(f.decl.Body, func(n ast.Node) bool {
 			call, ok := n.(*ast.CallExpr)
 			if ok && isPkgFunc(a.callee(f.pkg, call), outboxPkg, "Enqueue") && len(call.Args) == 5 {
-				sites, reason := a.resolve(&frame{fn: f, pkg: f.pkg}, call.Args[2], nil, f.pkg, 0)
-				if reason != "" {
-					a.report.UnresolvedAggregates = append(a.report.UnresolvedAggregates, a.pos(call.Pos())+": "+reason)
+				routes, fails := a.resolveRoute(&frame{fn: f, pkg: f.pkg}, call.Args[2], call.Args[4], f.pkg)
+				a.report.UnresolvedRoutes = append(a.report.UnresolvedRoutes, a.unresolved(call.Pos(), fails)...)
+				for _, r := range routes {
+					a.report.Aggregates = append(a.report.Aggregates, r.agg)
+					rt := Route{Type: r.typ, Aggregate: r.agg, At: a.pos(call.Pos())}
+					if !seen["route|"+rt.Type+rt.Aggregate+rt.At] {
+						seen["route|"+rt.Type+rt.Aggregate+rt.At] = true
+						a.report.Routes = append(a.report.Routes, rt)
+					}
 				}
-				for _, s := range sites {
-					a.report.Aggregates = append(a.report.Aggregates, s.typ)
+				if len(fails) > 0 {
+					// The aggregate alone (as before) still names a topic the connector writes.
+					aggs, _ := a.resolve(&frame{fn: f, pkg: f.pkg}, call.Args[2], call.Args[2], f.pkg)
+					for _, g := range aggs {
+						a.report.Aggregates = append(a.report.Aggregates, g.typ)
+					}
 				}
 				return true
 			}
 			if !ok || !isPkgFunc(a.callee(f.pkg, call), eventsPkg, "New") || len(call.Args) != 5 {
 				return true
 			}
-			sites, reason := a.resolve(&frame{fn: f, pkg: f.pkg}, call.Args[0], call.Args[4], f.pkg, 0)
-			if reason != "" {
-				a.report.Unresolved = append(a.report.Unresolved, a.pos(call.Pos())+": "+reason)
-			}
+			sites, fails := a.resolve(&frame{fn: f, pkg: f.pkg}, call.Args[0], call.Args[4], f.pkg)
+			a.report.Unresolved = append(a.report.Unresolved, a.unresolved(call.Pos(), fails)...)
 			for _, s := range sites {
 				e := Emit{Type: s.typ, At: a.pos(call.Pos()), Via: a.pos(s.via), Fields: []Field{}}
 				switch {
@@ -1087,6 +1801,22 @@ func (a *analyzer) producers() {
 			return true
 		})
 	}
+}
+
+func (a *analyzer) unresolved(at token.Pos, fails []failure) []Unresolved {
+	var out []Unresolved
+	seen := map[string]bool{}
+	for _, f := range fails {
+		u := Unresolved{At: a.pos(at), Via: a.pos(f.via), Reason: f.reason}
+		if f.fn != nil {
+			u.Func = f.fn.decl.Name.Name
+		}
+		if k := u.Via + u.Func + u.Reason; !seen[k] {
+			seen[k] = true
+			out = append(out, u)
+		}
+	}
+	return out
 }
 
 func mapLiteral(d dataVal) bool {

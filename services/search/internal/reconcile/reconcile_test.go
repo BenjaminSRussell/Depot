@@ -69,6 +69,11 @@ func TestRunComparesEachTypeAndLegalEntityTheReportCounts(t *testing.T) {
 	if res.TenantID != tenantID || res.Compared != 4 || !reflect.DeepEqual(res.Diffs, want) {
 		t.Fatalf("result = %+v, want 4 compared and diffs %+v", res, want)
 	}
+	// The index holds workers and entity A's vendor invoices, which the report does not count: listed, not dropped.
+	uncompared := []store.Count{{Type: store.TypeVendorInvoice, LegalEntityID: entityA, N: 2}, {Type: store.TypeWorker, N: 7}}
+	if !reflect.DeepEqual(res.Uncompared, uncompared) || res.Matches() {
+		t.Fatalf("uncompared = %+v, want %+v and no match", res.Uncompared, uncompared)
+	}
 	// One pass for the tenant-wide types and one per entity, each as the consumer's service principal of that entity alone.
 	var scopes []string
 	for _, p := range idx.principals {
@@ -86,8 +91,8 @@ func TestRunReportsNoDiffWhenTheIndexMatches(t *testing.T) {
 	idx := &fakeIndex{rows: []store.Count{{Type: store.TypeProduct, N: 9}, {Type: store.TypeReceipt, LegalEntityID: entityA, N: 1}}}
 	res, err := Run(context.Background(), idx, Source{TenantID: tenantID, Counts: []store.Count{
 		{Type: store.TypeProduct, N: 9}, {Type: store.TypeReceipt, LegalEntityID: entityA, N: 1}}})
-	if err != nil || res.Compared != 2 || len(res.Diffs) != 0 {
-		t.Fatalf("Run = %+v, %v; want 2 compared, no diff", res, err)
+	if err != nil || res.Compared != 2 || len(res.Diffs) != 0 || len(res.Uncompared) != 0 || !res.Matches() {
+		t.Fatalf("Run = %+v, %v; want 2 compared, no diff, nothing uncompared", res, err)
 	}
 }
 
@@ -115,7 +120,9 @@ func TestReadSourceChecksTheReport(t *testing.T) {
 		"tenant-wide le": `{"tenantId": "` + tenantID + `", "counts": [{"type": "worker", "legalEntityId": "` + entityA + `", "count": 1}]}`,
 		"negative":       `{"tenantId": "` + tenantID + `", "counts": [{"type": "party", "count": -1}]}`,
 		"twice":          `{"tenantId": "` + tenantID + `", "counts": [{"type": "party", "count": 1}, {"type": "party", "count": 2}]}`,
-		"unknown field":  `{"tenantId": "` + tenantID + `", "counts": [], "extra": 1}`,
+		"unknown field":  `{"tenantId": "` + tenantID + `", "counts": [{"type": "party", "count": 1}], "extra": 1}`,
+		"empty":          `{"tenantId": "` + tenantID + `", "counts": []}`,
+		"no counts":      `{"tenantId": "` + tenantID + `"}`,
 	} {
 		if _, err := ReadSource(strings.NewReader(body)); err == nil {
 			t.Errorf("%s: ReadSource accepted %s", name, body)
