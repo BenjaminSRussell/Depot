@@ -1,0 +1,113 @@
+{{- include "session-valkey.clients" . }}
+# One pod and nothing on disk: --save "" and --appendonly no turn persistence off and the data directory is an emptyDir, so
+# sessions live in memory only (ADR-0014). --port 0 closes the plain port; TLS on .Values.port is the only listener.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: session-valkey
+  labels:
+    app.kubernetes.io/name: session-valkey
+    app.kubernetes.io/part-of: depot-portals
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: session-valkey
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: session-valkey
+        app.kubernetes.io/part-of: depot-portals
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: valkey
+          image: {{ .Values.image }}
+          args:
+            - valkey-server
+            - --port
+            - "0"
+            - --tls-port
+            - {{ .Values.port | quote }}
+            - --tls-cert-file
+            - /tls/tls.crt
+            - --tls-key-file
+            - /tls/tls.key
+            - --tls-ca-cert-file
+            - /tls/ca.crt
+            - --tls-auth-clients
+            - "no"
+            - --aclfile
+            - /acl/users.acl
+            - --save
+            - ""
+            - --appendonly
+            - "no"
+            - --maxmemory
+            - {{ .Values.maxmemory | quote }}
+            # Every session key has a TTL: under memory pressure the least recently used session is dropped first.
+            - --maxmemory-policy
+            - volatile-lru
+          env:
+            # valkey-cli reads the probe user's password from REDISCLI_AUTH, so it is never on a command line.
+            - name: REDISCLI_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: session-valkey-acl
+                  key: probe-password
+          ports:
+            - name: rediss
+              containerPort: {{ .Values.port }}
+          readinessProbe:
+            exec:
+              command: ["valkey-cli", "--tls", "--cacert", "/tls/ca.crt", "--sni", "session-valkey", "-h", "localhost", "-p", {{ .Values.port | quote }}, "--user", "probe", "ping"]
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: rediss
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - { name: data, mountPath: /data }
+            - { name: tls, mountPath: /tls, readOnly: true }
+            - { name: acl, mountPath: /acl, readOnly: true }
+      volumes:
+        - name: data
+          emptyDir: { sizeLimit: 64Mi }
+        - name: tls
+          secret:
+            secretName: session-valkey-tls
+        - name: acl
+          secret:
+            secretName: session-valkey-acl
+            items:
+              - { key: users.acl, path: users.acl }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: session-valkey
+  labels:
+    app.kubernetes.io/name: session-valkey
+spec:
+  selector:
+    app.kubernetes.io/name: session-valkey
+  ports:
+    - name: rediss
+      port: {{ .Values.port }}
+      targetPort: rediss

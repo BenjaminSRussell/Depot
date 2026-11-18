@@ -38,10 +38,34 @@ class StageReleaseTests(unittest.TestCase):
         self.assertIn("targetRevision: main", root_app)
         self.assertIn("path: deploy/envs/stage/apps", root_app)
         self.assertIn("name: hello-ledger-stage", stage_app)
-        self.assertIn("targetRevision: main", stage_app)
+        # root-stage tracks main, so a digest change in this manifest reaches Argo CD with the merge; the chart itself is
+        # read at the stage release tag (deploy/envs/stage/release.yaml, B-09b).
+        revision = re.search(r"(?m)^revision: (\S+)$", (repository_root / "deploy/envs/stage/release.yaml").read_text()).group(1)
+        self.assertIn(f"targetRevision: {revision}", stage_app)
+        self.assertNotIn("targetRevision: main", stage_app)
         self.assertIn("path: services/platform-health/charts/hello-ledger", stage_app)
         self.assertIn("name: stage", stage_app)
+        # Not yet promoted: pinned to the release tag, no digest line (never the all-zero placeholder).
+        self.assertNotIn(stage_release.PLACEHOLDER_DIGEST, stage_app)
         self.assertEqual(stage_release.read_digest(stage_app), stage_release.PLACEHOLDER_DIGEST)
+
+    def test_first_promotion_of_a_release_tag_pinned_manifest_adds_the_digest(self):
+        repository_root = Path(__file__).resolve().parents[2]
+        self.manifest.write_text((repository_root / STAGE_MANIFEST).read_text(encoding="utf-8"), encoding="utf-8")
+        self.commit("Stage pinned to its release tag")
+        self.assertEqual(self.digest(), stage_release.PLACEHOLDER_DIGEST)
+        result = stage_release.main(["promote", "--to", "stage", "--digest", PROMOTED_DIGEST], repo_root=self.root)
+        self.assertEqual(result, 0)
+        text = self.manifest.read_text(encoding="utf-8")
+        self.assertEqual(self.digest(), PROMOTED_DIGEST)
+        self.assertIn("          repository: ghcr.io/benjaminsrussell/hello-ledger\n          digest: " + PROMOTED_DIGEST + "\n", text)
+        self.commit("Promote hello-ledger to stage")
+        # The next promotion replaces that digest in place, and a rollback never returns to the unpromoted state.
+        self.assertEqual(stage_release.main(["promote", "--to", "stage", "--digest", INITIAL_DIGEST], repo_root=self.root), 0)
+        self.assertEqual(self.digest(), INITIAL_DIGEST)
+        self.commit("Promote again")
+        self.assertEqual(stage_release.main(["rollback", "--env", "stage"], repo_root=self.root), 0)
+        self.assertEqual(self.digest(), PROMOTED_DIGEST)
 
     def setUp(self):
         self.temporary_directory = tempfile.TemporaryDirectory()

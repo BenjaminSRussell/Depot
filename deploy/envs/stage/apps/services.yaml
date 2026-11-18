@@ -3,6 +3,8 @@
 # Stage Applications for every service chart in the dev ApplicationSet. Services with a hand-written dev Application
 # have a generated <name>-stage.yaml next to this file. Stage values are deploy/envs/stage/values/<name>.yaml (a missing
 # file is ignored); replicas below two there are raised to two except for the singletons stage_apps.py lists.
+# Each element's image pin comes from deploy/envs/stage/release.yaml: image.digest when a signed digest is
+# recorded, else image.tag at the release version.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -17,71 +19,83 @@ spec:
   generators:
   - list:
       elements:
-      - {name: agent-runtime, path: services/agents-ts/charts/agent-runtime, namespace: hello-ledger}
-      - {name: analytics, path: services/analytics/charts/analytics, namespace: hello-ledger}
-      - {name: assets, path: services/assets/charts/assets, namespace: hello-ledger}
-      - {name: audit, path: services/audit/charts/audit, namespace: hello-ledger}
-      - {name: batch, path: services/batch/charts/batch, namespace: batch}
-      - {name: billing, path: services/billing/charts/billing, namespace: hello-ledger}
-      - {name: budgeting, path: services/budgeting/charts/budgeting, namespace: hello-ledger}
-      - {name: carrier-gateway, path: services/carrier-gateway-ts/charts/carrier-gateway, namespace: hello-ledger}
-      - {name: close, path: services/close/charts/close, namespace: hello-ledger}
-      - {name: compliance, path: services/compliance/charts/compliance, namespace: hello-ledger}
-      - {name: configurator, path: services/configurator-py/charts/configurator, namespace: hello-ledger}
-      - {name: consolidation, path: services/consolidation/charts/consolidation, namespace: hello-ledger}
-      - {name: costacct, path: services/costacct/charts/costacct, namespace: hello-ledger}
-      - {name: costing, path: services/costing/charts/costing, namespace: hello-ledger}
-      - {name: customer-portal, path: services/customer-portal-ts/charts/customer-portal, namespace: hello-ledger}
-      - {name: eam, path: services/eam/charts/eam, namespace: hello-ledger}
-      - {name: edi, path: services/edi/charts/edi, namespace: hello-ledger}
-      - {name: engineering, path: services/engineering/charts/engineering, namespace: hello-ledger}
-      - {name: expense, path: services/expense/charts/expense, namespace: hello-ledger}
-      - {name: fieldservice, path: services/fieldservice/charts/fieldservice, namespace: hello-ledger}
-      - {name: finreport, path: services/finreport/charts/finreport, namespace: hello-ledger}
-      - {name: forecast, path: services/forecast-py/charts/forecast, namespace: hello-ledger}
-      - {name: fulfillment, path: services/fulfillment/charts/fulfillment, namespace: hello-ledger}
-      - {name: hr, path: services/hr/charts/hr, namespace: hello-ledger}
-      - {name: integration-hub, path: services/integration-hub-ts/charts/integration-hub, namespace: hello-ledger}
-      - {name: intercompany, path: services/intercompany/charts/intercompany, namespace: hello-ledger}
-      - {name: inventory, path: services/inventory/charts/inventory, namespace: hello-ledger}
-      - {name: iot-edge, path: services/iot-edge/charts/iot-edge, namespace: hello-ledger}
-      - {name: lean, path: services/lean/charts/lean, namespace: hello-ledger}
-      - {name: ledger, path: services/ledger/charts/ledger, namespace: hello-ledger}
-      - {name: localization, path: services/localization/charts/localization, namespace: hello-ledger}
-      - {name: mcp-gateway, path: services/mcp-ts/charts/mcp-gateway, namespace: hello-ledger}
-      - {name: metadata, path: services/metadata/charts/metadata, namespace: metadata}
-      - {name: migration, path: services/migration/charts/migration, namespace: hello-ledger}
-      - {name: mobile, path: services/mobile/charts/mobile, namespace: hello-ledger}
-      - {name: numbering, path: services/numbering/charts/numbering, namespace: hello-ledger}
-      - {name: ops, path: services/ops/charts/ops, namespace: hello-ledger}
-      - {name: party, path: services/party/charts/party, namespace: hello-ledger}
-      - {name: payables, path: services/payables/charts/payables, namespace: hello-ledger}
-      - {name: payroll, path: services/payroll/charts/payroll, namespace: hello-ledger}
-      - {name: planning, path: services/planning/charts/planning, namespace: hello-ledger}
-      - {name: prediction, path: services/prediction-py/charts/prediction, namespace: hello-ledger}
-      - {name: pricing, path: services/pricing/charts/pricing, namespace: hello-ledger}
-      - {name: print, path: services/print/charts/print, namespace: hello-ledger}
-      - {name: processmfg, path: services/processmfg/charts/processmfg, namespace: hello-ledger}
-      - {name: product, path: services/product/charts/product, namespace: hello-ledger}
-      - {name: productcost, path: services/productcost/charts/productcost, namespace: hello-ledger}
-      - {name: production, path: services/production/charts/production, namespace: hello-ledger}
-      - {name: projects, path: services/projects/charts/projects, namespace: hello-ledger}
-      - {name: purchasing, path: services/purchasing/charts/purchasing, namespace: hello-ledger}
-      - {name: quality, path: services/quality/charts/quality, namespace: hello-ledger}
-      - {name: receivables, path: services/receivables/charts/receivables, namespace: hello-ledger}
-      - {name: revrec, path: services/revrec/charts/revrec, namespace: hello-ledger}
-      - {name: sales, path: services/sales/charts/sales, namespace: hello-ledger}
-      - {name: scheduler-opt, path: services/scheduler-py/charts/scheduler-opt, namespace: hello-ledger}
-      - {name: scheduling, path: services/scheduling/charts/scheduling, namespace: hello-ledger}
-      - {name: search, path: services/search/charts/search, namespace: hello-ledger}
-      - {name: shopfloor, path: services/shopfloor/charts/shopfloor, namespace: hello-ledger}
-      - {name: supplier-portal, path: services/supplier-portal-ts/charts/supplier-portal, namespace: hello-ledger}
-      - {name: tax, path: services/tax/charts/tax, namespace: hello-ledger}
-      - {name: transport, path: services/transport/charts/transport, namespace: hello-ledger}
-      - {name: treasury, path: services/treasury/charts/treasury, namespace: hello-ledger}
-      - {name: warehouse, path: services/warehouse/charts/warehouse, namespace: hello-ledger}
-      - {name: workflow, path: services/workflow-ts/charts/workflow, namespace: hello-ledger}
-      - {name: depot-migration-factory, path: tools/migration-factory/charts/depot-migration-factory, namespace: hello-ledger}
+      - {name: agent-runtime, path: services/agents-ts/charts/agent-runtime, namespace: hello-ledger, imageKey: image.tag,
+        image: "0.2.0"}
+      - {name: analytics, path: services/analytics/charts/analytics, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: assets, path: services/assets/charts/assets, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: audit, path: services/audit/charts/audit, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: batch, path: services/batch/charts/batch, namespace: batch, imageKey: image.tag, image: "0.2.0"}
+      - {name: billing, path: services/billing/charts/billing, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: budgeting, path: services/budgeting/charts/budgeting, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: carrier-gateway, path: services/carrier-gateway-ts/charts/carrier-gateway, namespace: hello-ledger, imageKey: image.tag,
+        image: "0.2.0"}
+      - {name: close, path: services/close/charts/close, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: compliance, path: services/compliance/charts/compliance, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: configurator, path: services/configurator-py/charts/configurator, namespace: hello-ledger, imageKey: image.tag,
+        image: "0.2.0"}
+      - {name: consolidation, path: services/consolidation/charts/consolidation, namespace: hello-ledger, imageKey: image.tag,
+        image: "0.2.0"}
+      - {name: costacct, path: services/costacct/charts/costacct, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: costing, path: services/costing/charts/costing, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: customer-portal, path: services/customer-portal-ts/charts/customer-portal, namespace: hello-ledger, imageKey: image.tag,
+        image: "0.2.0"}
+      - {name: eam, path: services/eam/charts/eam, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: edi, path: services/edi/charts/edi, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: engineering, path: services/engineering/charts/engineering, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: expense, path: services/expense/charts/expense, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: fieldservice, path: services/fieldservice/charts/fieldservice, namespace: hello-ledger, imageKey: image.tag,
+        image: "0.2.0"}
+      - {name: finreport, path: services/finreport/charts/finreport, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: forecast, path: services/forecast-py/charts/forecast, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: fulfillment, path: services/fulfillment/charts/fulfillment, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: hr, path: services/hr/charts/hr, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: integration-hub, path: services/integration-hub-ts/charts/integration-hub, namespace: hello-ledger, imageKey: image.tag,
+        image: "0.2.0"}
+      - {name: intercompany, path: services/intercompany/charts/intercompany, namespace: hello-ledger, imageKey: image.tag,
+        image: "0.2.0"}
+      - {name: inventory, path: services/inventory/charts/inventory, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: iot-edge, path: services/iot-edge/charts/iot-edge, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: lean, path: services/lean/charts/lean, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: ledger, path: services/ledger/charts/ledger, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: localization, path: services/localization/charts/localization, namespace: hello-ledger, imageKey: image.tag,
+        image: "0.2.0"}
+      - {name: mcp-gateway, path: services/mcp-ts/charts/mcp-gateway, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: metadata, path: services/metadata/charts/metadata, namespace: metadata, imageKey: image.tag, image: "0.2.0"}
+      - {name: migration, path: services/migration/charts/migration, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: mobile, path: services/mobile/charts/mobile, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: numbering, path: services/numbering/charts/numbering, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: ops, path: services/ops/charts/ops, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: party, path: services/party/charts/party, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: payables, path: services/payables/charts/payables, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: payroll, path: services/payroll/charts/payroll, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: planning, path: services/planning/charts/planning, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: prediction, path: services/prediction-py/charts/prediction, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: pricing, path: services/pricing/charts/pricing, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: print, path: services/print/charts/print, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: processmfg, path: services/processmfg/charts/processmfg, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: product, path: services/product/charts/product, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: productcost, path: services/productcost/charts/productcost, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: production, path: services/production/charts/production, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: projects, path: services/projects/charts/projects, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: purchasing, path: services/purchasing/charts/purchasing, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: quality, path: services/quality/charts/quality, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: receivables, path: services/receivables/charts/receivables, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: revrec, path: services/revrec/charts/revrec, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: sales, path: services/sales/charts/sales, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: scheduler-opt, path: services/scheduler-py/charts/scheduler-opt, namespace: hello-ledger, imageKey: image.tag,
+        image: "0.2.0"}
+      - {name: scheduling, path: services/scheduling/charts/scheduling, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: search, path: services/search/charts/search, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: shopfloor, path: services/shopfloor/charts/shopfloor, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: supplier-portal, path: services/supplier-portal-ts/charts/supplier-portal, namespace: hello-ledger, imageKey: image.tag,
+        image: "0.2.0"}
+      - {name: tax, path: services/tax/charts/tax, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: transport, path: services/transport/charts/transport, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: treasury, path: services/treasury/charts/treasury, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: warehouse, path: services/warehouse/charts/warehouse, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: workflow, path: services/workflow-ts/charts/workflow, namespace: hello-ledger, imageKey: image.tag, image: "0.2.0"}
+      - {name: depot-migration-factory, path: tools/migration-factory/charts/depot-migration-factory, namespace: hello-ledger,
+        imageKey: image.tag, image: "0.2.0"}
   template:
     metadata:
       name: "{{ .name }}-stage"
@@ -92,7 +106,7 @@ spec:
       project: default
       sources:
       - repoURL: https://github.com/BenjaminSRussell/Depot.git
-        targetRevision: main
+        targetRevision: v0.2.0
         path: "{{ .path }}"
         helm:
           releaseName: "{{ .name }}"
@@ -100,10 +114,10 @@ spec:
           valueFiles:
           - $values/deploy/envs/stage/values/{{ .name }}.yaml
           parameters:
-          - name: image.digest
-            value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+          - name: "{{ .imageKey }}"
+            value: "{{ .image }}"
       - repoURL: https://github.com/BenjaminSRussell/Depot.git
-        targetRevision: main
+        targetRevision: v0.2.0
         ref: values
       destination:
         name: stage

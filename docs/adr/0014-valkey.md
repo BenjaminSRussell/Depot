@@ -50,6 +50,6 @@ own decision. The Redis product is not used; the clients speak the Redis protoco
   NetworkPolicy, unlike the counter store.
 - The rate-limit Valkey is a single pod; if it is down, Envoy Gateway's behaviour (fail open or closed) decides
   whether requests pass.
-- Backlog: deploy a session Valkey with auth, TLS (`rediss://`), persistence off and a NetworkPolicy for the portals in stage and prod, and set `sessionStore.url` (D26).
-- Backlog: decide and test the gateway behaviour when the rate-limit Valkey is unavailable, and document it in the runbook (D26).
-- Backlog: add the rate-limit Valkey to stage and prod environments with the gateway (D4).
+- Backlog: deploy a session Valkey with auth, TLS (`rediss://`), persistence off and a NetworkPolicy for the portals in stage and prod, and set `sessionStore.url` (D26). *Stage in B-09 part b:* `deploy/session-valkey` (`session-valkey-stage`, checked by `test_session_valkey.py`); `sessionStore.url` is not set yet, because the portal charts cannot mount the store's CA; prod is part c.
+- Backlog: decide and test the gateway behaviour when the rate-limit Valkey is unavailable, and document it in the runbook (D26). *Done in B-09 part b:* fail open (`failClosed: false`, 20 ms timeout) in dev and stage, tested in `test_argocd_apps.py`; runbook `docs/ops/runbooks/ratelimit-valkey-down.md`.
+- Backlog: add the rate-limit Valkey to stage and prod environments with the gateway (D4). *Stage in B-09 part b* (`envoy-gateway-stage`); prod is part c.

@@ -3,9 +3,11 @@ package numbering
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"sort"
@@ -19,11 +21,17 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
+// Problem codes. Both failures are 503: nothing was created, so the caller may retry. CodeTimeout says numbering did not
+// answer within the client's deadline (DefaultTimeout unless NewWithTimeout says otherwise); CodeUnavailable covers every
+// other failure (not configured, unreachable, an error status, a malformed answer), with the cause in the detail.
 const (
 	CodeUnavailable    = "PTY-NUMBERING-UNAVAILABLE"
+	CodeTimeout        = "PTY-NUMBERING-TIMEOUT"
 	CodeEntityRequired = "PTY-LEGAL-ENTITY-REQUIRED"
-	timeout            = 3 * time.Second
-	maxResponse        = 1 << 20
+	// DefaultTimeout bounds one allocation end to end (connect, request, response body), whatever the caller's deadline.
+	DefaultTimeout = 3 * time.Second
+	maxResponse    = 1 << 20
+	retryHint      = "no party number was given out and nothing was saved; retry the request (with the same Idempotency-Key, if it had one)"
 )
 
 const audience = "numbering"
@@ -32,6 +40,7 @@ type Client struct {
 	baseURL string
 	http    *http.Client
 	signer  *tenant.ServiceSigner
+	timeout time.Duration
 }
 
 func (c *Client) WithSigner(s *tenant.ServiceSigner) *Client {
@@ -39,30 +48,55 @@ func (c *Client) WithSigner(s *tenant.ServiceSigner) *Client {
 	return c
 }
 
-func New(baseURL string) *Client { return NewWithTimeout(baseURL, timeout) }
+func New(baseURL string) *Client { return NewWithTimeout(baseURL, DefaultTimeout) }
 
+// NewWithTimeout bounds each allocation by d (DefaultTimeout when d is not positive).
 func NewWithTimeout(baseURL string, d time.Duration) *Client {
-	return &Client{baseURL: strings.TrimRight(baseURL, "/"), http: &http.Client{Timeout: d}}
+	if d <= 0 {
+		d = DefaultTimeout
+	}
+	return &Client{baseURL: strings.TrimRight(baseURL, "/"), http: &http.Client{Timeout: d}, timeout: d}
 }
 
+// Unavailable is the sequencer when no numbering URL is configured.
 type Unavailable struct{}
 
 func (Unavailable) Next(context.Context, string, string) (string, error) {
-	return "", unavailable()
+	return "", httpx.NewProblem(http.StatusServiceUnavailable, CodeUnavailable,
+		"the numbering service is not configured for party (NUMBERING_URL is empty); "+retryHint+" once it is")
 }
 
-func unavailable() error {
-	return httpx.NewProblem(http.StatusServiceUnavailable, CodeUnavailable, "numbering service unavailable")
+// statusError is a non-2xx answer from numbering.
+type statusError struct{ status int }
+
+func (e statusError) Error() string { return fmt.Sprintf("numbering answered %d", e.status) }
+
+// problem turns an allocation failure into the problem the caller sees: CodeTimeout when the deadline passed, else
+// CodeUnavailable with the cause. Internal details (addresses, bodies) stay in the log.
+func (c *Client) problem(ctx context.Context, err error) error {
+	var netErr net.Error
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) || (errors.As(err, &netErr) && netErr.Timeout()) {
+		return httpx.NewProblem(http.StatusServiceUnavailable, CodeTimeout,
+			fmt.Sprintf("the numbering service did not answer within %s; %s", c.timeout, retryHint))
+	}
+	cause := "could not be reached or gave an unreadable answer"
+	var status statusError
+	if errors.As(err, &status) {
+		cause = fmt.Sprintf("answered HTTP %d", status.status)
+	}
+	return httpx.NewProblem(http.StatusServiceUnavailable, CodeUnavailable, "the numbering service "+cause+"; "+retryHint)
 }
 
 func (c *Client) Next(ctx context.Context, code, idempotencyKey string) (string, error) {
 	if p, _ := tenant.FromContext(ctx); !ids.Valid(p.LegalEntityID) {
 		return "", httpx.NewProblem(http.StatusUnprocessableEntity, CodeEntityRequired, "a single legal entity (X-Depot-Legal-Entity) is required to allocate a party number")
 	}
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
 	formatted, err := c.allocate(ctx, code, idempotencyKey)
 	if err != nil {
-		slog.Error("numbering allocation failed", "err", err, "code", code, "correlationId", middleware.GetReqID(ctx))
-		return "", unavailable()
+		slog.Error("numbering allocation failed", "err", err, "code", code, "timeout", c.timeout, "correlationId", middleware.GetReqID(ctx))
+		return "", c.problem(ctx, err)
 	}
 	return formatted, nil
 }
@@ -94,9 +128,9 @@ func (c *Client) allocate(ctx context.Context, code, idempotencyKey string) (str
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return "", fmt.Errorf("numbering answered %d", resp.StatusCode)
+		return "", statusError{resp.StatusCode}
 	}
 	var issued struct {
 		Formatted string `json:"formatted"`

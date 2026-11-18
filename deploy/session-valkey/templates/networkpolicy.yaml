@@ -1,0 +1,27 @@
+{{- include "session-valkey.clients" . }}
+# Ingress only from the listed clients' pods (by namespace and app.kubernetes.io/name) on the TLS port; no egress at all
+# (no replica, no DNS lookups: the server only answers).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: session-valkey
+  labels:
+    app.kubernetes.io/name: session-valkey
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: session-valkey
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        {{- range .Values.clients }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .namespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ .podName }}
+        {{- end }}
+      ports:
+        - { protocol: TCP, port: {{ .Values.port }} }
+  egress: []

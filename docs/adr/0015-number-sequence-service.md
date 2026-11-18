@@ -48,5 +48,5 @@ designed.
   name overstates it.
 - Backlog: add reserve / confirm / void (with a voided-number log) to `numbering`, or forbid `gap_free` sequences for callers outside the numbering database (D21).
 - Backlog: list every fiscal document number in the code and confirm it is allocated inside its posting transaction (D21).
-- Backlog: provision `depot_numbering` and its Secret in every environment, and give hr and party a timeout and a clear error when numbering is unavailable (D4, D21).
+- Backlog: provision `depot_numbering` and its Secret in every environment, and give hr and party a timeout and a clear error when numbering is unavailable (D4, D21). *B-09 part b:* stage has `depot_numbering` and its Secrets (`deploy/envs/stage/databases`); hr and party give up after 3 s with `*-NUMBERING-TIMEOUT` and name the cause of any other failure; prod is part c.
 - Backlog: remove party's header-forwarding fallback, so the call always uses a service token (D1).

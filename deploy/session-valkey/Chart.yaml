@@ -1,0 +1,6 @@
+apiVersion: v2
+name: depot-session-valkey
+description: Valkey session store for the portal BFFs (ADR-0014, D26) with ACL users, TLS only, no persistence and a NetworkPolicy
+type: application
+version: 0.1.0
+appVersion: "8.1.9"

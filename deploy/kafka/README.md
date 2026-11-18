@@ -75,3 +75,5 @@ as a temporary KafkaUser `consumer-smoke`, and waits for the group's committed o
 that type, so the consumer skips it or dead-letters it: the test shows the event was consumed, not handled. The
 temporary user and pod are deleted afterwards; a produce that fails marks that row FAIL and the run goes on. The test
 needs a dev cluster (#213), is not part of CI and has not been run yet. `--dry-run` prints the plan without touching a cluster.
+
+Stage (B-09 part b) applies this directory as dev does, except `kafka.yaml`: `deploy/envs/stage/platform/kafka/kafka.yaml` is a generated copy without the plain listener, so the stage cluster accepts only TLS with SCRAM-SHA-512 on 9093 (Connect and every consumer use it already). Kafka Connect's CDC Secrets come from `deploy/envs/stage/kafka-secrets` (stage Vault keys). Stage turns no consumer on yet.
