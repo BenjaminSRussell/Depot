@@ -128,8 +128,8 @@ func TestPolicyUnavailableFailsClosedAndIsNotCached(t *testing.T) {
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			f := newFixture(t, c.handler, c.client)
-			asProblem(t, f.client.Check(ctx(), entityID, productID, productblock.PurchaseOrder), http.StatusServiceUnavailable, productblock.CodeUnavailable)
-			asProblem(t, f.client.Check(ctx(), entityID, productID, productblock.PurchaseOrder), http.StatusServiceUnavailable, productblock.CodeUnavailable)
+			_ = asProblem(t, f.client.Check(ctx(), entityID, productID, productblock.PurchaseOrder), http.StatusServiceUnavailable, productblock.CodeUnavailable)
+			_ = asProblem(t, f.client.Check(ctx(), entityID, productID, productblock.PurchaseOrder), http.StatusServiceUnavailable, productblock.CodeUnavailable)
 			if f.calls.Load() != 2 {
 				t.Fatalf("an error must not be cached, product was asked %d times", f.calls.Load())
 			}
@@ -151,7 +151,7 @@ func TestBlockChangeTakesEffectWithinTheCacheWindow(t *testing.T) {
 	clock := time.Date(2026, 1, 1, 9, 0, 0, 0, time.UTC)
 	productblock.SetClock(f.client, func() time.Time { return clock })
 
-	asProblem(t, f.client.Check(ctx(), entityID, productID, productblock.PurchaseOrder), 422, productblock.CodeBlocked)
+	_ = asProblem(t, f.client.Check(ctx(), entityID, productID, productblock.PurchaseOrder), 422, productblock.CodeBlocked)
 	blocked.Store(false)
 
 	clock = clock.Add(productblock.DefaultTTL - time.Second)
