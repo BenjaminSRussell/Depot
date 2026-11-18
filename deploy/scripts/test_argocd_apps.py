@@ -705,7 +705,7 @@ class ArgoApplicationsTest(unittest.TestCase):
         self.assertIn(kafka["username"], users, "deploy/kafka/inventory-consumer.yaml")
         granted = users[kafka["username"]]
         self.assertEqual(source_topics, {"depot.receiving.receipt", "depot.sales.orderprogress", "depot.fulfillment.packingslip",
-                                         "depot.service.workorder.completed"})
+                                         "depot.service.workorder.completed", "depot.receiving.vendorinvoice"})
         subscribed = re.search(r"\[\]string\{(api\.\w+Topic(?:, api\.\w+Topic)*)\}", cmd)
         self.assertIsNotNone(subscribed, "the postings consumer's topic list")
         self.assertEqual(len(source_topics), len(subscribed.group(1).split(",")), "the consumer subscribes to every source topic")
