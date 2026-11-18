@@ -304,7 +304,7 @@ func TestRun_TaxURLStartsTheTaxReporterAgainstTheConfiguredTaxService(t *testing
 
 func TestRun_TaxReporterNeedsASigningKeyAndAValidInterval(t *testing.T) {
 	err := run(context.Background(), runEnv(t, map[string]string{"TAX_URL": "http://tax.invalid", "DEPOT_SERVICE_SIGNING_KEY": ""}))
-	if err == nil || !strings.Contains(err.Error(), "tax client") {
+	if err == nil || !strings.Contains(err.Error(), "DEPOT_SERVICE_SIGNING_KEY") {
 		t.Fatalf("TAX_URL without a signing key: err = %v", err)
 	}
 	err = run(context.Background(), runEnv(t, map[string]string{"TAX_URL": "http://tax.invalid", "BILLING_TAX_REPORT_INTERVAL": "100ms"}))
