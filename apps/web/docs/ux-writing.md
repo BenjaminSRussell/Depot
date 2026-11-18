@@ -111,7 +111,7 @@ Use these words, with these meanings, and the same word for the same thing on ev
 ### When technical terms are acceptable
 
 - **Industry standards the audience uses daily:** SSCC, ASN, EDI, IBAN, BIC, DDMRP, WIP, ATP, UoM, CSV. Spell out an abbreviation the first time on a page when the reader might not know it: "advance ship notice (ASN)".
-- **Identifiers a person must type or paste**, such as "Party id" or "Run id", until a picker replaces the field. Say what the id points to in the hint: "The employee's party record".
+- **Identifiers a person must type or paste** only on admin, integration and migration screens, where the id is the subject. Everywhere else a person chooses a record by name or number with `EntityLookup`, or several with `EntityMultiLookup` (paste of numbers accepted), and tables show the name with `EntityName` or `UserName`. `shell/lookup/rawIdInputs.test.ts` and `idColumns.test.ts` fail on a text input or column that holds an id, apart from the allowlisted screens still to convert.
 - **Under "Details" in `ProblemMessage`:** problem codes, server detail and request ids are for support and may be technical.
 - **Admin, integration and developer screens** (connectors, message logs, metadata) may show field names and raw values when the person needs them to configure or debug. Labels and hints still follow this guide.
 - **Never in user text:** spec ids (FR-, BR-, AC-), waves, slices, sagas, idempotency, ETags, If-Match, HTTP status numbers, stack traces, enum values in upper snake case, internal service names.

@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/base64"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -38,6 +39,24 @@ func badSearchParam(w http.ResponseWriter, r *http.Request, field, rule string) 
 	httpx.Fail(w, r, p)
 }
 
+func encodeSearchCursor(key store.SearchKey) string {
+	score := strconv.FormatFloat(float64(key.Score), 'g', -1, 32)
+	return base64.RawURLEncoding.EncodeToString([]byte(key.Name + "\x00" + key.ID + "\x00" + score))
+}
+
+func decodeSearchCursor(cursor string) (store.SearchKey, bool) {
+	raw, err := base64.RawURLEncoding.DecodeString(cursor)
+	parts := strings.Split(string(raw), "\x00")
+	if err != nil || len(parts) != 3 || !ids.Valid(parts[1]) {
+		return store.SearchKey{}, false
+	}
+	score, err := strconv.ParseFloat(parts[2], 32)
+	if err != nil || math.IsNaN(score) || score < 0 || score > 1 {
+		return store.SearchKey{}, false
+	}
+	return store.SearchKey{Name: parts[0], ID: parts[1], Score: float32(score)}, true
+}
+
 func (a *API) searchRoute(kind store.SearchKind) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !validTenant(w, r) {
@@ -65,13 +84,12 @@ func (a *API) searchRoute(kind store.SearchKind) http.HandlerFunc {
 		}
 		var after store.SearchKey
 		if cursor := query.Get("cursor"); cursor != "" {
-			raw, err := base64.RawURLEncoding.DecodeString(cursor)
-			name, id, ok := strings.Cut(string(raw), "\x00")
-			if err != nil || !ok || !ids.Valid(id) {
+			key, ok := decodeSearchCursor(cursor)
+			if !ok {
 				badSearchParam(w, r, "cursor", "is invalid")
 				return
 			}
-			after = store.SearchKey{Name: name, ID: id}
+			after = key
 		}
 		page, err := a.search.Search(r.Context(), kind, text, legalEntityID, after, limit)
 		if err != nil {
@@ -80,7 +98,7 @@ func (a *API) searchRoute(kind store.SearchKind) http.HandlerFunc {
 		}
 		body := searchResponse{Items: page.Items}
 		if page.Next != nil {
-			body.NextCursor = base64.RawURLEncoding.EncodeToString([]byte(page.Next.Name + "\x00" + page.Next.ID))
+			body.NextCursor = encodeSearchCursor(*page.Next)
 		}
 		httpx.JSON(w, http.StatusOK, body)
 	}

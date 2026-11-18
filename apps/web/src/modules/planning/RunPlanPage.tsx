@@ -6,6 +6,7 @@ import { describeError, PLAN_CODE, usePlanCode, withPlan, type LoadError } from 
 import styles from "./pages.module.css";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityLookup } from "../../shell/lookup/EntityLookup";
+import { EntityMultiLookup } from "../../shell/lookup/EntityMultiLookup";
 
 const UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -48,8 +49,8 @@ interface Draft {
   warehouseScopes?: boolean;
   /** Planning horizon in days (30 to 1095); empty takes the service default. */
   horizonDays?: string;
-  /** Plan scope (FR-22.13): item ids separated by commas or spaces, item groups and planners separated by commas, and the low-level code range. */
-  scopeItemIds?: string;
+  /** Plan scope (FR-22.13): chosen item ids, item groups and planners separated by commas, and the low-level code range. */
+  scopeItemIds?: string[];
   scopeGroups?: string;
   scopePlanners?: string;
   llcMin?: string;
@@ -75,7 +76,6 @@ const MIN_HORIZON = 30;
 const MAX_HORIZON = 1095;
 const MAX_SCOPE_VALUES = 1000;
 
-const words = (v: string | undefined) => (v ?? "").split(/[\s,]+/).filter((x) => x !== "");
 /** Comma-separated values, trimmed; item groups and planners may contain spaces. */
 const listed = (v: string | undefined) => (v ?? "").split(",").map((x) => x.trim()).filter((x) => x !== "");
 
@@ -124,11 +124,10 @@ export function validateRun(d: Draft): {
   if (horizonDays !== undefined && !(horizonDays >= MIN_HORIZON && horizonDays <= MAX_HORIZON)) {
     errors.horizonDays = `Enter ${MIN_HORIZON} to ${MAX_HORIZON} days, or leave empty for the service default.`;
   }
-  const itemIds = words(d.scopeItemIds);
+  const itemIds = Array.isArray(d.scopeItemIds) ? d.scopeItemIds : [];
   const itemGroups = listed(d.scopeGroups);
   const planners = listed(d.scopePlanners);
-  if (itemIds.some((x) => !UUID.test(x))) errors.scopeItemIds = "Enter item ids as UUIDs.";
-  else if (itemIds.length > MAX_SCOPE_VALUES) errors.scopeItemIds = `Enter at most ${MAX_SCOPE_VALUES} ids.`;
+  if (itemIds.length > MAX_SCOPE_VALUES) errors.scopeItemIds = `Choose at most ${MAX_SCOPE_VALUES} items.`;
   if (itemGroups.length > MAX_SCOPE_VALUES || itemGroups.some((x) => x.length > 64)) errors.scopeGroups = "Enter item groups of at most 64 characters.";
   if (planners.length > MAX_SCOPE_VALUES || planners.some((x) => x.length > 64)) errors.scopePlanners = "Enter planners of at most 64 characters.";
   const llcMin = wholeNumber(d.llcMin);
@@ -165,7 +164,7 @@ export function RunPlanPage({ today = new Date().toISOString().slice(0, 10) }: {
     carryForward: false,
     warehouseScopes: false,
     horizonDays: "",
-    scopeItemIds: "",
+    scopeItemIds: [],
     scopeGroups: "",
     scopePlanners: "",
     llcMin: "",
@@ -181,6 +180,10 @@ export function RunPlanPage({ today = new Date().toISOString().slice(0, 10) }: {
   const set = (field: keyof Draft) => (value: string) => {
     key.current = newKey();
     setDraft((d) => ({ ...d, [field]: value }));
+  };
+  const setScopeItems = (ids: string[]) => {
+    key.current = newKey();
+    setDraft((d) => ({ ...d, scopeItemIds: ids }));
   };
   const toggleWeekday = (day: number, closed: boolean) => {
     key.current = newKey();
@@ -375,8 +378,8 @@ export function RunPlanPage({ today = new Date().toISOString().slice(0, 10) }: {
                 {(a11y) => <Input {...a11y} inputMode="numeric" value={draft.llcMax ?? ""} onChange={(e) => set("llcMax")(e.target.value)} />}
               </FormField>
               <div className={styles.wide}>
-                <FormField id="run-scope-items" label="Item ids" optional hint="UUIDs separated by commas or spaces." error={errors.scopeItemIds}>
-                  {(a11y) => <Input {...a11y} value={draft.scopeItemIds ?? ""} onChange={(e) => set("scopeItemIds")(e.target.value)} />}
+                <FormField id="run-scope-items" label="Items in scope" optional hint="Search by name or number, or paste item numbers separated by commas, spaces or new lines." error={errors.scopeItemIds}>
+                  {(a11y) => <EntityMultiLookup {...a11y} entity="product" value={draft.scopeItemIds ?? []} onChange={setScopeItems} />}
                 </FormField>
               </div>
             </div>

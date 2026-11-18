@@ -136,6 +136,7 @@ Backend (stage 5 issues; this slice cannot be declared done without them):
 - Convert in workspace order: order desk (`sales/OrderProgressPages.tsx`, `DeliveryTolerancesPage.tsx`, `ChangePolicyPage.tsx`, `AllocationQuotasPage.tsx`), buyer (`purchasing/OpenSupplyPage.tsx`), planner (`planning/RunPlanPage.tsx` with multi-select paste, `planning/Firming.tsx` columns), tenant admin (`admin/security/RoleAssignmentsPage.tsx`, `fulfillment/WarehouseSettingsPage.tsx`), shop floor (`shopfloor/JobsPage.tsx`), controller (`ledger/JournalBatchPage.tsx`), then the rest (60 input files, 149 columns).
 - `EntityLookup` multi-select with paste; missing entity definitions.
 - **Done when:** both scans pass with an allowlist limited to admin, integration and migration screens; the e2e finds no visible UUID on workspace entry routes.
+- **Status:** first part delivered: both scans (`rawIdInputs.test.ts`, `idColumns.test.ts`) with their `pending` allowlist groups, `EntityMultiLookup` with paste of item numbers, `planning/RunPlanPage.tsx` and `planning/SupplySchedulePage.tsx` converted, party search in similarity order (FR-7.13), `e2e/names-not-ids.demo.spec.ts` for the planner, order desk and buyer entry routes. Left: every screen and table listed in the `pending` groups of `rawIdAllowlist.json` and `rawIdColumnAllowlist.json`, in workspace order; each slice removes its entries, and the groups are empty when the slice is done.
 
 ### Slice 7. Lists: selection, bulk, paste, undo (L, P)
 
