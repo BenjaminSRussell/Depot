@@ -30,6 +30,9 @@ const (
 	codeLastTenantAdmin   = "IDN-LAST-TENANT-ADMIN"
 
 	maxReason = 500
+
+	dutyAuditor    = "audit.auditor"
+	maxAuditorTerm = 90 * 24 * time.Hour
 )
 
 // RoleAssignmentsAPI manages effective-dated role assignments. A role holds a duty name until the role
@@ -118,6 +121,14 @@ func (a *RoleAssignmentsAPI) assign(w http.ResponseWriter, r *http.Request) {
 	}
 	if fields["validTo"] == "" && req.ValidFrom != nil && req.ValidTo != nil && !req.ValidTo.After(*req.ValidFrom) {
 		fields["validTo"] = "must be after validFrom"
+	}
+	if req.Role == dutyAuditor {
+		switch {
+		case req.ValidTo == nil:
+			fields["validTo"] = "is required: an auditor assignment is end-dated"
+		case fields["validTo"] == "" && req.ValidTo.After(now.Add(maxAuditorTerm)):
+			fields["validTo"] = "must be within 90 days: an auditor assignment is end-dated"
+		}
 	}
 	req.Reason = strings.TrimSpace(req.Reason)
 	if utf8.RuneCountInString(req.Reason) > maxReason {

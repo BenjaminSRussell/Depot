@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -25,6 +26,7 @@ const recordedType = "dev.depot.audit.change.recorded.v1"
 // AUD-API-1, whose actor was not checked.
 type Record struct {
 	ID                 string    `json:"id"`
+	Seq                int64     `json:"seq"`
 	Entity             string    `json:"entity"`
 	RecordID           string    `json:"recordId"`
 	Field              string    `json:"field"`
@@ -70,6 +72,8 @@ type AlertRule struct {
 type Store interface {
 	cdc.Consumer
 	Query(ctx context.Context, entity, recordID string) ([]Record, error)
+	ListRecords(ctx context.Context, f RecordFilter) ([]Record, error)
+	ListEntities(ctx context.Context) ([]EntitySummary, error)
 	// VerifyChanges walks the tenant's change chain, or the seq range [fromSeq, toSeq] of it (0 for open), and checks
 	// the daily anchors in it (AUD-API-4, B-07).
 	VerifyChanges(ctx context.Context, fromSeq, toSeq int64) (ChangeChain, error)
@@ -224,25 +228,80 @@ func fireAlerts(ctx context.Context, tx pgx.Tx, tenantID string, change domain.C
 	return nil
 }
 
-// Query returns field changes for one record, oldest first.
-func (s *Postgres) Query(ctx context.Context, entity, recordID string) ([]Record, error) {
+const recordColumns = `id, seq, entity, record_id, field, old_value, new_value, user_id, trace_id, occurred_at, hash,
+	actor_kind, on_behalf_of, reason, change_set_id, event_type, event_id, workflow_instance_id,
+	coalesce(legal_entity_id::text, ''), source, flag`
+
+func scanRecord(rows pgx.Rows) (Record, error) {
+	var rec Record
+	err := rows.Scan(&rec.ID, &rec.Seq, &rec.Entity, &rec.RecordID, &rec.Field, &rec.OldValue, &rec.NewValue, &rec.UserID, &rec.TraceID, &rec.OccurredAt, &rec.Hash,
+		&rec.ActorKind, &rec.OnBehalfOf, &rec.Reason, &rec.ChangeSetID, &rec.EventType, &rec.EventID, &rec.WorkflowInstanceID,
+		&rec.LegalEntityID, &rec.Source, &rec.Flag)
+	return rec, err
+}
+
+type RecordFilter struct {
+	Entity, RecordID, UserID, Field string
+	From, To                        *time.Time
+	AfterSeq                        int64
+	Limit                           int
+}
+
+type EntitySummary struct {
+	Entity       string    `json:"entity"`
+	Changes      int64     `json:"changes"`
+	LastChangeAt time.Time `json:"lastChangeAt"`
+}
+
+func recordWhere(f RecordFilter) (string, []any) {
+	args := []any{}
+	clause := ""
+	add := func(format string, v any) {
+		args = append(args, v)
+		clause += " and " + format + "$" + strconv.Itoa(len(args)+1)
+	}
+	if f.Entity != "" {
+		add("entity = ", f.Entity)
+	}
+	if f.RecordID != "" {
+		add("record_id = ", f.RecordID)
+	}
+	if f.UserID != "" {
+		add("user_id = ", f.UserID)
+	}
+	if f.Field != "" {
+		add("field = ", f.Field)
+	}
+	if f.From != nil {
+		add("occurred_at >= ", *f.From)
+	}
+	if f.To != nil {
+		add("occurred_at < ", *f.To)
+	}
+	if f.AfterSeq > 0 {
+		add("seq > ", f.AfterSeq)
+	}
+	return clause, args
+}
+
+func (s *Postgres) ListRecords(ctx context.Context, f RecordFilter) ([]Record, error) {
 	p, _ := tenant.FromContext(ctx)
-	var out []Record
+	clause, args := recordWhere(f)
+	query := `select ` + recordColumns + ` from audit_entry where tenant_id=$1` + clause + ` order by seq`
+	if f.Limit > 0 {
+		args = append(args, f.Limit)
+		query += ` limit $` + strconv.Itoa(len(args)+1)
+	}
+	out := []Record{}
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `select id, entity, record_id, field, old_value, new_value, user_id, trace_id, occurred_at, hash,
-			actor_kind, on_behalf_of, reason, change_set_id, event_type, event_id, workflow_instance_id,
-			coalesce(legal_entity_id::text, ''), source, flag
-			from audit_entry where tenant_id=$1 and entity=$2 and record_id=$3 order by seq`, p.TenantID, entity, recordID)
+		rows, err := tx.Query(ctx, query, append([]any{p.TenantID}, args...)...)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
-		out = []Record{}
 		for rows.Next() {
-			var rec Record
-			if err := rows.Scan(&rec.ID, &rec.Entity, &rec.RecordID, &rec.Field, &rec.OldValue, &rec.NewValue, &rec.UserID, &rec.TraceID, &rec.OccurredAt, &rec.Hash,
-				&rec.ActorKind, &rec.OnBehalfOf, &rec.Reason, &rec.ChangeSetID, &rec.EventType, &rec.EventID, &rec.WorkflowInstanceID,
-				&rec.LegalEntityID, &rec.Source, &rec.Flag); err != nil {
+			rec, err := scanRecord(rows)
+			if err != nil {
 				return err
 			}
 			out = append(out, rec)
@@ -250,6 +309,32 @@ func (s *Postgres) Query(ctx context.Context, entity, recordID string) ([]Record
 		return rows.Err()
 	})
 	return out, err
+}
+
+func (s *Postgres) ListEntities(ctx context.Context) ([]EntitySummary, error) {
+	p, _ := tenant.FromContext(ctx)
+	out := []EntitySummary{}
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `select entity, count(*), max(occurred_at) from audit_entry where tenant_id=$1 group by entity order by entity`, p.TenantID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var e EntitySummary
+			if err := rows.Scan(&e.Entity, &e.Changes, &e.LastChangeAt); err != nil {
+				return err
+			}
+			out = append(out, e)
+		}
+		return rows.Err()
+	})
+	return out, err
+}
+
+// Query returns field changes for one record, oldest first.
+func (s *Postgres) Query(ctx context.Context, entity, recordID string) ([]Record, error) {
+	return s.ListRecords(ctx, RecordFilter{Entity: entity, RecordID: recordID})
 }
 
 // CreateRule stores an org-wide alert rule.
