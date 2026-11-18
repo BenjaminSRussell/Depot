@@ -30,3 +30,4 @@ deploy/.gateway-schemas/
 .run/
 
 /services/billing/billing
+/services/numbering/numbering
