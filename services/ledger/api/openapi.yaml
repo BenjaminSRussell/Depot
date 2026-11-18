@@ -224,6 +224,13 @@ components:
             422 LEDGER_DIMENSION_INVALID; on a ledger set this is decided per member ledger. Receiving and payables send
             VENDGRP (the vendor group code, #421), so their postings keep working on ledgers that have not added it
             with addDimensionAttributes. The idempotency payload hash leaves out this list and the values of these attributes on the lines (they are best-effort tags), so a retry that tags a line differently replays the first entry instead of 409 LEDGER_IDEMPOTENCY_CONFLICT; a request without optionalDimensions hashes as before.
+        rateOverride:
+          type: object
+          required: [rate, reason]
+          description: Accepted by POST /journal-entries only; the dry run rejects it with 400.
+          properties:
+            rate: { type: string, description: Decimal rate greater than zero from the transaction currency to the ledger currency }
+            reason: { type: string, maxLength: 255 }
     SetEntryRequest:
       type: object
       required: [documentId, postingDate, source]
@@ -307,6 +314,13 @@ components:
         negativePosting: { type: boolean, description: Storno line; the projection reduces the original side (BR-11.16) }
         derivedByStepIds: { type: array, items: { type: string, format: uuid }, description: Derivation steps that filled dimensions on the line (FR-11.22) }
         roundingAdjustment: { type: boolean, description: The line absorbed a currency translation rounding difference (BR-12.4) }
+        transactionCurrency: { type: string, description: Currency of the document line }
+        transactionAmount: { type: string, description: Amount in the document currency }
+        transactionRate: { type: string, description: Rate from the document currency to the ledger currency (scale 12) }
+        reportingCurrency: { type: string, description: Reporting currency; absent on a line posted before the amounts were recorded }
+        reportingAmount: { type: string }
+        reportingRate: { type: string, description: Rate from the ledger currency to the reporting currency (scale 12) }
+        rateOverrideReason: { type: string, description: Present when the transaction rate was overridden }
     LedgerLine:
       type: object
       description: A posted journal line with its entry context (ledger transactions inquiry, FR-11.14).
@@ -2381,8 +2395,18 @@ paths:
         currency and scale, dimension attributes, account structure and dimension value register
         checks, combination interning, balance check, default descriptions (FR-11.17: the
         source.type template fills an omitted description and omitted line texts), sequence
-        assignment, insert, balance upsert, outbox. Fiscal periods and FX are not yet applied
+        assignment, insert, balance upsert, outbox. Fiscal periods are not yet applied
         (NOT-IMPLEMENTED.md). The database re-checks the balance at commit.
+
+        FX stage (FR-11.5, FR-12.5): a line in a currency other than the ledger currency keeps its document amount
+        (transactionAmount, transactionCurrency) and is converted at the spot rate of the posting date from services/fx
+        (accounting amount in amount, transactionRate). Every line also carries reportingAmount, reportingCurrency and
+        reportingRate when the ledger has a reporting currency (equal to the accounting amount otherwise). The foreign
+        lines must balance in their own currency (422 LEDGER_UNBALANCED). A pair without a rate gives 422
+        LEDGER_RATE_MISSING (also without FX_URL), an fx service that refuses the lookup 502 LEDGER_FX_MISCONFIGURED and
+        an unreachable one 503 LEDGER_FX_UNAVAILABLE; nothing is written in any case. rateOverride replaces the looked-up
+        rate for every foreign line and needs duty ledger.journal.rateoverride (403 AUTH-0003 without it) and a reason
+        (422 LEDGER_RATE_OVERRIDE_REASON); the lines then carry rateOverrideReason.
         Retries with the same Idempotency-Key and payload replay the stored response (200 with
         idempotency.replayed = true). Idempotency records are kept LEDGER_IDEMPOTENCY_TTL_DAYS (default 400); after expiry the
         journal entry's own key still answers: the same key and payload return the original entry

@@ -110,30 +110,34 @@ func (s *Postgres) resolveRates(ctx context.Context, setID string, date time.Tim
 }
 
 func rateFor(ctx context.Context, ledger Ledger, from string, date time.Time) (decimal.Decimal, error) {
+	return rateBetween(ctx, ledger, from, ledger.Currency, date)
+}
+
+func rateBetween(ctx context.Context, ledger Ledger, from, to string, date time.Time) (decimal.Decimal, error) {
 	var got resolvedRate
 	if resolved, ok := ctx.Value(resolvedRatesKey{}).(map[string]resolvedRate); ok {
-		if got, ok = resolved[rateKey(from, ledger.Currency, date)]; !ok {
+		if got, ok = resolved[rateKey(from, to, date)]; !ok {
 			got.err = &RateRejected{Code: CodeRateMissing, Detail: "no rate was resolved"}
 		}
 	} else if src, _ := ctx.Value(rateSourceKey{}).(RateSource); src != nil {
-		got.rate, got.err = src.Rate(ctx, ledger.LegalEntityID, from, ledger.Currency, date)
+		got.rate, got.err = src.Rate(ctx, ledger.LegalEntityID, from, to, date)
 	} else {
 		got.err = &RateRejected{Code: CodeRateMissing, Detail: "no exchange rate source is configured"}
 	}
 	if got.err == nil {
 		return got.rate, nil
 	}
-	pair := "ledger " + ledger.Code + ": " + RateTypeSpot + " rate from " + from + " to " + ledger.Currency + " on " + date.Format(time.DateOnly)
+	pair := "ledger " + ledger.Code + ": " + RateTypeSpot + " rate from " + from + " to " + to + " on " + date.Format(time.DateOnly)
 	var rejected *RateRejected
 	var refused *RateRefused
 	switch {
 	case errors.As(got.err, &rejected):
 		return decimal.Decimal{}, httpx.NewProblem(http.StatusUnprocessableEntity, rejected.Code, pair+": "+rejected.Detail)
 	case errors.As(got.err, &refused):
-		slog.ErrorContext(ctx, "exchange rate lookup refused", "status", refused.Status, "from", from, "to", ledger.Currency, "correlationId", middleware.GetReqID(ctx))
+		slog.ErrorContext(ctx, "exchange rate lookup refused", "status", refused.Status, "from", from, "to", to, "correlationId", middleware.GetReqID(ctx))
 		return decimal.Decimal{}, httpx.NewProblem(http.StatusBadGateway, CodeFXMisconfigure, "the exchange rate service refused the lookup; check the ledger's fx grant and request; nothing was posted")
 	}
-	slog.ErrorContext(ctx, "exchange rate lookup failed", "err", got.err, "from", from, "to", ledger.Currency, "correlationId", middleware.GetReqID(ctx))
+	slog.ErrorContext(ctx, "exchange rate lookup failed", "err", got.err, "from", from, "to", to, "correlationId", middleware.GetReqID(ctx))
 	return decimal.Decimal{}, httpx.NewProblem(http.StatusServiceUnavailable, CodeFXUnavailable, "the exchange rate service could not be reached; nothing was posted")
 }
 
