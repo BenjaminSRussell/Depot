@@ -5,21 +5,25 @@ import { App } from "./App";
 import { AcceptInvite, Register } from "./pages/Public";
 import "./app.css";
 
-createRoot(document.getElementById("root") as HTMLElement).render(
-  <StrictMode>
-    <BrowserRouter>
-      <Routes>
-        <Route path="/register" element={<Register />} />
-        <Route path="/accept-invite" element={<AcceptInvite />} />
-        <Route path="*" element={<App />} />
-      </Routes>
-    </BrowserRouter>
-  </StrictMode>,
+const ready = import.meta.env.MODE === "demo" ? import("./demo").then((m) => m.installDemo()) : Promise.resolve();
+
+void ready.then(() =>
+  createRoot(document.getElementById("root") as HTMLElement).render(
+    <StrictMode>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/register" element={<Register />} />
+          <Route path="/accept-invite" element={<AcceptInvite />} />
+          <Route path="*" element={<App />} />
+        </Routes>
+      </BrowserRouter>
+    </StrictMode>,
+  ),
 );
 
 // An installable shell: the worker keeps the app's static files and an offline page, never data (public/sw.js). Production only, so
 // the dev server and the tests never see a worker.
-if (import.meta.env.PROD && "serviceWorker" in navigator) {
+if (import.meta.env.PROD && import.meta.env.MODE !== "demo" && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
   });

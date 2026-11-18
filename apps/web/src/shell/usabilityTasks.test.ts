@@ -1,4 +1,5 @@
 import { matchRoutes, type RouteObject } from "react-router-dom";
+import budgets from "../../e2e/taskBudgets.json";
 import { loadModules } from "../modules/registry";
 import plannedRoutes from "./plannedRoutes.json";
 import tasksJson from "./usabilityTasks.json";
@@ -24,6 +25,11 @@ const sources = import.meta.glob<string>(
   ["../../../customer-portal/src/App.tsx", "../../../supplier-portal/src/App.tsx", "../../../supplier-portal/src/main.tsx"],
   { query: "?raw", import: "default", eager: true },
 );
+
+const taskDocs = import.meta.glob<string>("../../docs/usability-tasks.md", { query: "?raw", import: "default", eager: true });
+const taskDoc = Object.values(taskDocs).join("\n");
+const alignedDocs = import.meta.glob<string>("../../docs/*.md", { query: "?raw", import: "default", eager: true });
+const whatsNew = Object.values(import.meta.glob<string>("../../../../docs/user/whats-new.md", { query: "?raw", import: "default", eager: true })).join("\n");
 
 function appRoutes(app: string): RouteObject[] {
   return Object.entries(sources)
@@ -103,5 +109,54 @@ describe("usability task start routes (G6)", () => {
   it("flags a planned route that now exists", () => {
     const planned = [{ route: "/ledger/open-items", reason: "r", issue: 1, slice: 1 }];
     expect(problems([], planned, serving)).toEqual([expect.stringContaining("exists now")]);
+  });
+
+  it("has a row in usability-tasks.md for every task id", () => {
+    const missing = tasks.filter((t) => !new RegExp(`^\\| ${t.id} \\|`, "m").test(taskDoc)).map((t) => t.id);
+    expect(missing).toEqual([]);
+  });
+
+  it("lists CT4 and WS1 as planned routes", () => {
+    const planned = tasks.filter((t) => ["CT4", "WS1"].includes(t.id)).map((t) => plannedRoutes.some((p) => p.route === t.route));
+    expect(planned).toEqual([true, true]);
+  });
+});
+
+describe("task budgets (G5 data)", () => {
+  const known = new Set(tasks.map((t) => t.id));
+  const entries = Object.entries(budgets as Record<string, { budget: unknown; round0: unknown; script: unknown; reason?: unknown }>);
+
+  it("names only known tasks", () => {
+    expect(entries.map(([id]) => id).filter((id) => !known.has(id))).toEqual([]);
+  });
+
+  it("gives each entry a numeric budget or none, and either a script with a Round 0 count or a reason", () => {
+    const bad = entries
+      .filter(([, e]) => {
+        const budgetOk = e.budget === null || (Number.isInteger(e.budget) && (e.budget as number) >= 0);
+        const scripted = typeof e.script === "string" && e.script !== "" && positive(e.round0);
+        const unscripted = e.script === null && e.round0 === null && typeof e.reason === "string" && e.reason !== "";
+        return !(budgetOk && (scripted || unscripted));
+      })
+      .map(([id]) => id);
+    expect(bad).toEqual([]);
+  });
+});
+
+describe("documentation alignment (rollout slice 0)", () => {
+  const aligned = ["design-system", "forms", "lists", "ux-writing", "accessibility-conformance-report", "usability-tasks", "usability-gate", "usability-baseline-report"];
+
+  it("points each aligned doc to docs/ux on its first line", () => {
+    const without = aligned.filter((name) => !(alignedDocs[`../../docs/${name}.md`] ?? "").split("\n")[2]?.startsWith("Extended by docs/ux/ (UXS-"));
+    expect(without).toEqual([]);
+  });
+
+  it("gives the baseline report the programme's extra columns", () => {
+    const report = alignedDocs["../../docs/usability-baseline-report.md"] ?? "";
+    for (const column of ["Unaided success", "Interactions (median)", "Budget", "SEQ", "Not measured"]) expect(report).toContain(column);
+  });
+
+  it("announces the usability check and the supplier demo in What's new", () => {
+    expect(whatsNew).toContain("## 2026-11-17");
   });
 });

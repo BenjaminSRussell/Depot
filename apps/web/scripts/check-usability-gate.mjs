@@ -7,6 +7,7 @@ const REPORT_COLUMNS = ["pass", "median time", "errors", "interactions"];
 const PROVISIONAL_USES = 3;
 const PROVISIONAL_DAYS = 90;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const REPORT_DIR = "apps/web/docs";
 const REPO_ROOT = realpathSync(resolve(import.meta.dirname, "../../.."));
 
 const LINES = {
@@ -97,7 +98,7 @@ export function checkGate({ notes, scope, tasks, report, previous = [], exists }
       const ids = idList(match[1]);
       cover(ids, "Passed");
       const text = report(match[2]);
-      if (text == null) reasons.push(`Passed: report ${match[2]} was not found inside the repository (G3)`);
+      if (text == null) reasons.push(`Passed: report ${match[2]} was not found inside the repository's committed reports (G3)`);
       else {
         for (const id of ids.filter((i) => known.has(i))) {
           const row = reportRow(text, id);
@@ -161,6 +162,11 @@ function resolveInRepo(link) {
   }
 }
 
+function inside(directory, path) {
+  const rel = relative(directory, path);
+  return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
+}
+
 function readOrNull(path) {
   try {
     return readFileSync(path, "utf8");
@@ -170,11 +176,12 @@ function readOrNull(path) {
 }
 
 function main(argv) {
-  const options = { previous: [] };
+  const options = { previous: [], reportDir: REPORT_DIR };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--notes") options.notes = argv[++i];
     else if (argv[i] === "--range") options.range = argv[++i];
     else if (argv[i] === "--previous") options.previous.push(argv[++i]);
+    else if (argv[i] === "--report-dir") options.reportDir = argv[++i];
     else return usage(`unknown argument ${argv[i]}`);
   }
   if (!options.notes || !options.range) return usage("--notes and --range are required");
@@ -197,9 +204,10 @@ function main(argv) {
   } catch (error) {
     return fail(`cannot work out the scope for ${options.range}: ${error.message}`);
   }
+  const reportDir = resolve(REPO_ROOT, options.reportDir);
   const report = (link) => {
     const path = resolveInRepo(link);
-    return path ? readOrNull(path) : null;
+    return path && inside(reportDir, path) ? readOrNull(path) : null;
   };
   const result = checkGate({ notes, scope, tasks, report, previous, exists: (link) => resolveInRepo(link) !== null });
   for (const notice of result.notices) console.log(notice);
@@ -209,7 +217,7 @@ function main(argv) {
 }
 
 function usage(message) {
-  console.error(`${message}\nusage: node scripts/check-usability-gate.mjs --notes <file> --range <from>..<to> [--previous <file>...]`);
+  console.error(`${message}\nusage: node scripts/check-usability-gate.mjs --notes <file> --range <from>..<to> [--previous <file>...] [--report-dir <dir>]`);
   return 2;
 }
 

@@ -219,9 +219,15 @@ describe("check-usability-gate CLI", () => {
   });
 
   it("passes notes that link a real report inside the repository", () => {
-    const result = run("--notes", passedPath, "--range", "HEAD..HEAD");
+    const result = run("--notes", passedPath, "--range", "HEAD..HEAD", "--report-dir", "apps/web/scripts/fixtures/releases");
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("zero previous releases");
+  });
+
+  it("fails a report that is in the repository but not in apps/web/docs", () => {
+    const result = run("--notes", passedPath, "--range", "HEAD..HEAD");
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("was not found inside the repository's committed reports");
   });
 
   it("fails a report link that leaves the repository", () => {
