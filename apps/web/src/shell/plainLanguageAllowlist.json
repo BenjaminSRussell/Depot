@@ -38,12 +38,7 @@
     "modules/party/TaxRegistrationsPage.tsx:Validation needs party.write",
     "modules/product/ProductForms.tsx:Ask an administrator for the product.write duty to create or edit products.",
     "modules/productcost/VersionsPage.tsx:Standard, planned, simulation and conversion versions per legal entity. A version moves Open ⇄ Blocked, then Open or Blocked → Active, then Active → Closed; simulation versions never activate. Blocking, unblocking and closing need productcost.maintain; activating needs productcost.activate.",
-    "modules/receivables/Deductions.tsx:is above the deduction limit; it needs the receivables.write-off.approve duty.",
-    "modules/sales/NewOrderPage.tsx:Needs the sales.order.approve duty. Accepts lines the product listing denies and logs the reason.",
-    "modules/sales/QuotationDetailPage.tsx:Needs the sales.order.approve duty. Accepts lines the product listing denies and logs the reason.",
-    "modules/sales/QuotationMaintenance.tsx:Needs the sales.order.approve duty. Accepts replaced lines the product listing denies and logs the reason.",
-    "modules/sales/QuotationsPage.tsx:Needs the sales.order.approve duty. Accepts lines the product listing denies and logs the reason.",
-    "modules/scheduling/ParametersPage.tsx:Changing the parameters needs the scheduling.setup.write duty (Maintain scheduling setup)."
+    "modules/sales/QuotationDetailPage.tsx:Needs the sales.order.approve duty. Accepts lines the product listing denies and logs the reason."
   ],
   "ID_PROMPT": [
     "modules/admin/security/EffectivePermissionsPage.tsx:Enter the legal entity id as a UUID.",

@@ -1,10 +1,10 @@
 // @vitest-environment node
 import { loadModules } from "../modules/registry";
-import { axeRoutes, expiredRows, parseAxeAllowlist } from "./axeRoutes";
+import { axeRoutes, expiredRows, parseAxeAllowlist, type AxeAllowlistRow } from "./axeRoutes";
 import navAudit from "./workspaces/navAudit.json";
 import { shellNav } from "./shellNav";
 
-const row = { route: "/sales/orders", rule: "color-contrast", reason: "Tracked in the design system backlog", expires: "2027-03-31" };
+const row: AxeAllowlistRow = { route: "/sales/orders", rule: "color-contrast", viewports: ["desktop"], reason: "Tracked in the design system backlog", expires: "2027-03-31" };
 
 describe("routes scanned by axe", () => {
   it("is the committed list, built from the shell nav and every module nav", async () => {
@@ -34,6 +34,8 @@ describe("axe allowlist", () => {
     ["a row without a rule", { ...row, rule: "" }],
     ["a row without a reason", { ...row, reason: "" }],
     ["an empty route", { ...row, route: "" }],
+    ["no viewport", { ...row, viewports: [] }],
+    ["an unknown viewport", { ...row, viewports: ["tablet"] }],
     ["an unknown field", { ...row, note: "x" }],
   ])("fails closed on %s", (_name, bad) => {
     expect(() => parseAxeAllowlist([bad])).toThrow();

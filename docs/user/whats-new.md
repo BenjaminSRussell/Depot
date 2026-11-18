@@ -5,6 +5,7 @@ Changes to Depot in plain language, newest first. Add an entry here for every ch
 ## 2026-11-17
 
 - On a phone the top bar no longer runs off the side of the screen. A "Context" button opens a panel with the legal entity and site, Help, compact view and your account.
+- Sales order and quotation forms, scheduling parameters and write-off approval now name the permission they need in words instead of a code.
 
 ## 2026-11-10
 

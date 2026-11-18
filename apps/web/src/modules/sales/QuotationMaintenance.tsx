@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { dutyName } from "../../shell/shared/dutyName";
 import { Alert, Button, Card, FormField, Input, Textarea } from "../../shell/ui";
 import { cancelQuotation, changeQuotation, describeProblem, type ChangeQuotationInput, type Problem, type Quotation } from "./api/client";
 import { DECIMAL, today } from "./format";
@@ -181,7 +182,7 @@ export function QuotationMaintenance({ quotation, etag, onDone, onConflict }: Pr
           {draft ? (
             <>
               <LinesEditor lines={values.lines} errors={errors} newLineDate={today()} onChange={(lines) => setValues({ ...values, lines })} legend="Quotation line" idPrefix="change-line" />
-              <FormField id="change-listingOverrideReason" label="Listing override reason" hint="Needs the sales.order.approve duty. Accepts replaced lines the product listing denies and logs the reason." error={errors.listingOverrideReason} optional>
+              <FormField id="change-listingOverrideReason" label="Listing override reason" hint={`Needs the ${dutyName("sales.order.approve")} duty. Accepts replaced lines the product listing denies and logs the reason.`} error={errors.listingOverrideReason} optional>
                 {(control) => <Input {...control} value={values.listingOverrideReason ?? ""} onChange={(e) => setValues({ ...values, listingOverrideReason: e.target.value })} invalid={Boolean(errors.listingOverrideReason)} />}
               </FormField>
             </>

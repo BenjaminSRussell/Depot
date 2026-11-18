@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent } from "react";
+import { dutyName } from "../../shell/shared/dutyName";
 import { EntityLookup } from "../../shell/lookup/EntityLookup";
 import type { LookupEntityKey } from "../../shell/lookup/entities";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -538,7 +539,7 @@ export function DeductionDetailPage() {
             </div>
             <p className={styles.note}>
               {approval
-                ? `Writing off ${money(d.amount, d.currency)} is above the deduction limit; it needs the receivables.write-off.approve duty.`
+                ? `Writing off ${money(d.amount, d.currency)} is above the deduction limit; it needs the ${dutyName("receivables.write-off.approve")} duty.`
                 : `Write-offs up to ${money(WRITE_OFF_LIMIT[d.currency] ?? "0", d.currency)} post Dr 6110 / Cr 1200.`}
             </p>
           </div>

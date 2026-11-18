@@ -14,6 +14,7 @@ const AxeAllowlistSchema = z.array(
   z.strictObject({
     route: z.string().min(1),
     rule: z.string().min(1),
+    viewports: z.array(z.enum(["desktop", "phone"])).min(1),
     reason: z.string().min(1),
     expires: z.string().refine(isCalendarDate, "expires must be a calendar date, YYYY-MM-DD"),
   }),

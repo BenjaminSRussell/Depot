@@ -71,7 +71,7 @@ Rules:
 | `SPEC_REF`, `DELIVERY_REF` | Spec ids, waves and slices | Say what the page does |
 | `UUID_WORD` | "UUID" | Let the person pick the record by name |
 | `ID_PROMPT` | "Enter the vendor id" | A lookup field that shows names |
-| `DUTY_CODE` | A duty code such as `sales.order.approve` | The duty in plain words |
+| `DUTY_CODE` | A duty code such as `sales.order.approve` | The duty in plain words; `dutyName("sales.order.approve")` from `src/shell/shared/dutyName.ts` returns "Approve sales order". `src/shell/shared/` imports nothing outside its own folder (`boundary.test.ts`) |
 | `PROBLEM_CODE` | A code such as `REPORT-0010` in a sentence | `ProblemMessage`, which keeps the code under Details |
 | `RAW_ENUM` | A raw status such as `PENDING_APPROVAL` in a sentence | `StatusPill` or a label from the catalog |
 
