@@ -5,7 +5,7 @@
 // The source counts come from a report, one per tenant (ReadSource): for each record type, and for a legal-entity scoped
 // type each legal entity, the number of records the source would have the index hold. `search reconcile <report.json>`
 // runs the comparison. Only this index side is built: nothing in the repository yet counts the source services' records to
-// produce the report (a follow-up issue, to be filed), so the reconciliation criterion of ADR-0013 is partial.
+// produce the report (#731), so the reconciliation criterion of ADR-0013 is partial.
 package reconcile
 
 import (

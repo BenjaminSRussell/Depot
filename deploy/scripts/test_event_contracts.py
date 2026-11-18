@@ -5,19 +5,24 @@ Consumers are the ones test_kafka_consumers.py finds in the code (Go eventing, k
 reads are found in the code too:
 - Go: deploy/ci/eventfields type-checks the consumer's module. Every map[string]eventing.Handler a main package reaches
   (through functions, variables and interface methods) is followed from each entry's handler to the json.Unmarshal of the
-  event data: of evt.Data itself, of a local copy, or of a []byte/json.RawMessage parameter it is passed in (also through
-  a func value whose module implementations take it). A second Unmarshal of a json.RawMessage field the first decode
-  filled adds that field's nested paths. The decoded types' JSON paths are the fields (Go matches keys
+  event data: of evt.Data itself, of a local copy, or of a []byte/json.RawMessage parameter it is passed in (a func
+  value is resolved to its closure or function first; only one that cannot be resolved matches by signature). A further
+  Unmarshal of a json.RawMessage field the first decode filled (directly, through a local copy or through a helper that
+  takes it) adds that field's nested paths. The decoded types' JSON paths are the fields (Go matches keys
   case-insensitively, so the comparison does). Fail closed: any other use of the data (json.NewDecoder, len, a call the
-  check does not follow) is a problem, and so is a decode into a map or `any` unless OPEN_DECODES names it.
+  check does not follow, json.Marshal of the whole event) is a problem, and so are a decode into a map or `any` and a
+  decoded field with no fixed shape (json.RawMessage, []byte, map, interface) that no followed decode reads, unless
+  OPEN_DECODES names them.
 - TypeScript: each `event as <Stem>Event` cast in the consumer's file, paired with the `<stem>Type`/`<stem>Types`
   constant of the module that declares the interface; the fields are the interface's `data` object type, with member
   types that are interfaces of the same modules expanded. A consumer with no such cast fails unless TS_NO_DATA says why.
 - Python: the module-level set the consumer tests the event type against, every key read from the event's data
   (`data.get("k")`, `data["k"]`; `a or b` reads are alternatives, one of which must be declared) and the keys a
   recursive helper looks for at any depth (a `*_KEYS` tuple: at least one must occur in its events).
-Each Go consumer group must read, through the handlers found, a type relayed to each topic it subscribes to, so a group
-whose handler map the analyser misses fails (GROUP_TOPICS_EXEMPT lists the audit CDC group).
+Each Go consumer group must read, through its own handlers, a type relayed to each topic it subscribes to, so a group
+whose handler map the analyser misses fails (GROUP_TOPICS_EXEMPT lists the audit CDC group). A group's handlers are its
+service's when the service runs one group; otherwise those of the handler maps of the eventing.Config named after the
+group, tied by the analyser through parameters and struct literals.
 
 For every event type a consumer reads, the producer is the service whose AsyncAPI has a `send` operation with that
 message; each field must be a property path of its payload schema ($ref, allOf/anyOf/oneOf followed; an object with no
@@ -27,7 +32,7 @@ every field those calls write is declared by the schema, and the message's chann
 connector routes the type to (by the EventRouter regex, or as depot.<context>.<aggregate> of the aggregate the producer's
 outbox.Enqueue calls write it under, traced from the Enqueue back to the events.New). An events.New or outbox.Enqueue call
 the analyser cannot resolve in a producer module of a consumed type fails unless UNRESOLVED_EMITS / UNRESOLVED_ROUTES
-name it with the reason (stale entries fail too). NOT_OUTBOX, PRODUCER_CODE_UNSEEN and CHANNEL_MISMATCH list the other
+name that call (by its source text) with the reason; stale entries fail too. NOT_OUTBOX, PRODUCER_CODE_UNSEEN and CHANNEL_MISMATCH list the other
 exceptions, each with its reason.
 
 Search: services/search/events/asyncapi.yaml declares a `receive` operation for exactly the topics the consumer
@@ -35,7 +40,7 @@ subscribes to and the types its handlers index (one message per type, under the 
 payload a $ref to the producer's message). Each producer has an outbox-<service> connector in deploy/kafka/connect.yaml
 that relays the type to that topic (for an aggregate-routed producer: the aggregate its code enqueues that type under),
 and the debezium user may write the topic. The index side of the count reconciliation (`search reconcile`) is tested in
-services/search; nothing produces the source counts yet (a follow-up issue, to be filed).
+services/search; nothing produces the source counts yet (#731).
 
 Negative tests mutate schemas, payloads, routes, channels, the unresolved lists and the search AsyncAPI in memory, and
 type-check a synthetic module with each decode form, so each rule is shown to fail. Not covered: whether events really
@@ -97,27 +102,34 @@ GROUP_TOPICS_EXEMPT = {
 }
 
 # events.New calls in a producer module of a consumed type whose event type or payload the analyser cannot work out, by
-# (file of the call, file of the call that fails to bind its parameters or None, function that call sits in) -> why. A new
-# one fails, and so does a stale entry: such a call might write a consumed type the comparison never sees.
+# (file of the call, file of the call that fails to bind its parameters or None, function that call sits in, source text
+# of that call) -> why. A new call fails, even in a function already listed, and so does a stale entry: such a call might
+# write a consumed type the comparison never sees.
 STORE = "services/{}/internal/store/{}.go"
+RMA_CALL = 'enqueue(ctx, tx, "returnorder", id, eventType, p.TenantID, rmaEvent(out, actor))'
+ACK_CALL = 'enqueue(ctx, tx, "purchase_order_ack", id, ackEventType(in.Outcome), ackEvent(out))'
+RMA_WHY = ("the return-order transition picks its event type at run time (rmaEventType(action)); it writes only returnorder "
+           "events, which no consumer reads")
+ACK_WHY = ("the acknowledgement picks its type at run time (ackEventType(outcome)); it writes only poack events, which no "
+           "consumer reads")
 UNRESOLVED_EMITS = {
-    (STORE.format("sales", "store"), STORE.format("sales", "rma"), "moveReturn"): "the return-order transition picks its "
-        "event type at run time (rmaEventType(action)); it writes only returnorder events, which no consumer reads",
-    (STORE.format("purchasing", "store"), STORE.format("purchasing", "po_ack"), "AcknowledgePurchaseOrder"): "the "
-        "acknowledgement picks its type at run time (ackEventType(outcome)); it writes only poack events, which no consumer reads",
+    (STORE.format("sales", "store"), STORE.format("sales", "rma"), "moveReturn", RMA_CALL): RMA_WHY,
+    (STORE.format("purchasing", "store"), STORE.format("purchasing", "po_ack"), "AcknowledgePurchaseOrder", ACK_CALL): ACK_WHY,
 }
 
 # outbox.Enqueue calls of an aggregate-routed producer of a consumed type whose (event type, aggregate) the analyser
 # cannot work out, keyed as UNRESOLVED_EMITS -> (why, {event type: aggregate} the call writes, read from the code). A new
-# one or a stale entry fails; the routes stand in for the analyser's in the channel, group and search checks.
+# call or a stale entry fails; the routes stand in for the analyser's in the channel, group and search checks.
 SELF_BILL = ("the self-bill event is the second result of the SelfBillBuild callback the caller stores in a struct field "
              "(outcome.SelfBill); putSelfBill enqueues it under SelfBillAggregate", {"dev.depot.receiving.ersselfbill.issued.v1": "ersselfbill"})
 UNRESOLVED_ROUTES = {
-    (STORE.format("receiving", "servicesheet"), None, "AcceptSheet"): (
+    (STORE.format("receiving", "servicesheet"), None, "AcceptSheet", "outbox.Enqueue(ctx, tx, aggregate, aggregateID, evt)"): (
         "the accepted sheet's events come from a slice and the aggregate from each event's type at run time",
         {"dev.depot.receiving.receipt.posted.v1": "receipt", "dev.depot.receiving.serviceentrysheet.decided.v1": "serviceentrysheet"}),
-    (STORE.format("receiving", "servicesheet"), STORE.format("receiving", "audit"), "ReleaseInvoice"): SELF_BILL,
-    (STORE.format("receiving", "servicesheet"), STORE.format("receiving", "invoices"), "PostInvoice"): SELF_BILL,
+    (STORE.format("receiving", "servicesheet"), STORE.format("receiving", "audit"), "ReleaseInvoice",
+     "putSelfBill(ctx, tx, tenantID, inv, outcome.SelfBill)"): SELF_BILL,
+    (STORE.format("receiving", "servicesheet"), STORE.format("receiving", "invoices"), "PostInvoice",
+     "putSelfBill(ctx, tx, tenantID, in, outcome.SelfBill)"): SELF_BILL,
 }
 
 # Producer channels whose AsyncAPI address is not the topic outbox-<service> routes the message to: (service, type) -> why.
@@ -367,6 +379,7 @@ class Read:
     fields: list = field(default_factory=list)
     anywhere: tuple = ()
     ci: bool = False
+    site: str = ""  # Go: the handler map the entry belongs to
 
 
 def go_reads(reports, consumers):
@@ -385,31 +398,62 @@ def go_reads(reports, consumers):
             if (service, h["type"]) in NOT_OUTBOX:
                 continue
             problems += [f"{service} {h['type']}: {p}" for p in h.get("problems") or []]
-            r = Read(f"{service} ({groups})", service, h["type"], h["at"], ci=True)
+            r = Read(f"{service} ({groups})", service, h["type"], h["at"], ci=True, site=h.get("map", ""))
             for d in h["decodes"]:
-                if d.get("open") and (service, h["type"]) not in OPEN_DECODES:
-                    problems.append(f"{service} {h['type']}: decodes the event data into {d['goType']} at {d['at']}, whose keys "
-                                    "the check cannot list; decode into a struct (or list it in OPEN_DECODES with the reason)")
+                if (service, h["type"]) not in OPEN_DECODES:
+                    if d.get("open"):
+                        problems.append(f"{service} {h['type']}: decodes the event data into {d['goType']} at {d['at']}, whose "
+                                        "keys the check cannot list; decode into a struct (or list it in OPEN_DECODES with the reason)")
+                    for f in d["fields"]:
+                        if f.get("dynamic"):
+                            problems.append(f"{service} {h['type']}: field {f['path']} of the decode at {d['at']} has no fixed shape "
+                                            "(json.RawMessage, []byte, a map or an interface) and no nested decode the check follows "
+                                            "reads it; decode it into a struct (or list it in OPEN_DECODES with the reason)")
                 r.fields += [(f["path"],) for f in d["fields"]]
             out.append(r)
     return out, problems
 
 
-def group_topic_problems(consumers, reads, topics_of):
-    """Each Go consumer group's subscribed topics are each the topic of at least one type a handler the check found for its
-    service reads, so a group whose handler map the analyser does not reach cannot pass unseen. topics_of(type) is the set
-    of topics the type's producers relay it to."""
+def group_reads(consumer, reads, reports):
+    """The reads of one Go consumer group: every read of its service when the service runs one group; otherwise the reads
+    of the handler maps of the eventing.Config whose Name is the group (multi-group services name each consumer after its
+    group). None when the group cannot be tied to its handler maps."""
+    service_reads = [r for r in reads if r.service == consumer.service]
+    groups_of_service = reports.get("__groups__", {}).get(consumer.service, 1)
+    if groups_of_service == 1:
+        return service_reads
+    report = reports.get(go_module_dir(consumer.service)) or reports.get(consumer.service) or {}
+    group = next(iter(consumer.groups))
+    maps = {m for c in report.get("consumers") or [] if group in c["names"] or group.rstrip("-") in c["names"] for m in c["maps"]}
+    if not maps:
+        return None
+    return [r for r in service_reads if r.site in maps]
+
+
+def group_topic_problems(consumers, reads, topics_of, reports):
+    """Each Go consumer group's subscribed topics are each the topic of at least one type a handler of that group reads (its
+    own handler maps, tied through its eventing.Config), so a group whose handler map the analyser does not reach cannot
+    pass unseen. topics_of(type) is the set of topics the type's producers relay it to."""
     problems = []
-    by_service = defaultdict(set)
-    for r in reads:
-        by_service[r.service] |= topics_of(r.type)
+    counts = defaultdict(int)
+    for c in consumers:
+        counts[c.service] += 1
+    reports = dict(reports, __groups__=counts)
     for c in consumers:
         group = next(iter(c.groups))
         if group.rstrip("-") in GROUP_TOPICS_EXEMPT or group in GROUP_TOPICS_EXEMPT:
             continue
-        for t in sorted(c.topics - by_service[c.service]):
-            problems.append(f"{c.service} group {group} ({c.where}) subscribes to {t}, but no handler the check finds reads a "
-                            "type relayed there; the check cannot see what the group reads")
+        rs = group_reads(c, reads, reports)
+        if rs is None:
+            problems.append(f"{c.service} group {group} ({c.where}): no eventing.Config named {group} whose handler maps the "
+                            "check finds, so it cannot tell what the group reads")
+            continue
+        covered = set()
+        for r in rs:
+            covered |= topics_of(r.type)
+        for t in sorted(c.topics - covered):
+            problems.append(f"{c.service} group {group} ({c.where}) subscribes to {t}, but no handler of the group the check "
+                            "finds reads a type relayed there; the check cannot see what the group reads")
     return problems
 
 
@@ -692,7 +736,7 @@ def routes_by_type(reports):
     for d, r in reports.items():
         for rt in r.get("routes") or []:
             out[(Path(d).name, rt["type"])].add(rt["aggregate"])
-    for (file, _, _), (_, routes) in UNRESOLVED_ROUTES.items():
+    for (file, _, _, _), (_, routes) in UNRESOLVED_ROUTES.items():
         service = file.split("/")[1]
         for typ, agg in routes.items():
             out[(service, typ)].add(agg)
@@ -737,7 +781,7 @@ def unresolved_problems(reports, services, key, allowed):
     dirs = {go_module_dir(s) for s in services} - {None}
     for d in sorted(dirs):
         for u in reports[d].get(key) or []:
-            k = (u["at"].rsplit(":", 1)[0], u["via"].rsplit(":", 1)[0] if u.get("via") else None, u["func"])
+            k = (u["at"].rsplit(":", 1)[0], u["via"].rsplit(":", 1)[0] if u.get("via") else None, u["func"], u.get("text", ""))
             seen.add(k)
             if k not in allowed:
                 problems.append(f"{u['at']}{' via ' + u['via'] if u.get('via') else ''} ({u['func']}): {u['reason']}; the "
@@ -897,7 +941,7 @@ class EventContractsTest(unittest.TestCase):
         self.assertEqual([], producer_problems(self.read_types, self.messages, self.emits))
 
     def test_every_consumer_group_reads_a_type_on_each_of_its_topics(self):
-        self.assertEqual([], group_topic_problems(self.go, self.reads, self.topics_of))
+        self.assertEqual([], group_topic_problems(self.go, self.reads, self.topics_of, self.reports))
 
     def topics_of(self, typ):
         return topics_of(typ, self.messages, self.conns, self.routes)
@@ -913,8 +957,20 @@ class EventContractsTest(unittest.TestCase):
 
     def test_a_group_whose_handlers_are_not_found_fails(self):
         reads = [r for r in self.reads if not (r.service == "production" and "shopfloor" in r.type)]
-        problems = group_topic_problems(self.go, reads, self.topics_of)
+        problems = group_topic_problems(self.go, reads, self.topics_of, self.reports)
         self.assertTrue(any("production-shopfloor" in p and "depot.shopfloor.registration" in p for p in problems), problems)
+        # Per group, not pooled: shopfloor's reads moved to the planning map's site no longer cover the shopfloor group.
+        planning = next(r.site for r in self.reads if r.service == "production" and "plannedorder" in r.type)
+        moved = [copy.copy(r) for r in self.reads]
+        for r in moved:
+            if r.service == "production":
+                r.site = planning
+        problems = group_topic_problems(self.go, moved, self.topics_of, self.reports)
+        self.assertTrue(any("production-shopfloor" in p for p in problems), problems)
+        reports = copy.deepcopy(self.reports)
+        reports["services/production"]["consumers"] = []
+        problems = group_topic_problems(self.go, self.reads, self.topics_of, reports)
+        self.assertTrue(any("no eventing.Config named production-planning" in p for p in problems), problems)
 
     def test_a_channel_that_is_not_the_routed_topic_fails(self):
         messages = copy.deepcopy(self.messages)
@@ -927,10 +983,15 @@ class EventContractsTest(unittest.TestCase):
         reports = copy.deepcopy(self.reports)
         reports["services/sales"]["unresolved"].append(
             {"at": "services/sales/internal/store/store.go:1", "via": "services/sales/internal/store/x.go:2", "func": "newHelper",
-             "reason": "not a constant"})
+             "reason": "not a constant", "text": "enqueue(x)"})
+        # A second unresolved call in a function that is already listed is a new call too.
+        reports["services/sales"]["unresolved"].append(
+            {"at": "services/sales/internal/store/store.go:430", "via": "services/sales/internal/store/rma.go:999",
+             "func": "moveReturn", "reason": "not a constant", "text": "enqueue(ctx, tx, \"returnorder\", id, other, p.TenantID, x)"})
         problems = unresolved_problems(reports, {"sales"}, "unresolved", UNRESOLVED_EMITS)
         self.assertTrue(any("newHelper" in p for p in problems), problems)
-        stale = {**UNRESOLVED_EMITS, ("services/sales/internal/store/gone.go", None, "gone"): "x"}
+        self.assertTrue(any("moveReturn" in p and "other" in p for p in problems), problems)
+        stale = {**UNRESOLVED_EMITS, ("services/sales/internal/store/gone.go", None, "gone", "gone()"): "x"}
         self.assertTrue(any("gone" in p for p in unresolved_problems(self.reports, {"sales"}, "unresolved", stale)))
 
     def test_exemptions_are_still_needed(self):
@@ -1002,7 +1063,19 @@ class EventContractsTest(unittest.TestCase):
             "dev.depot.synth.thing.dispatched.v1": ["id"],
             "dev.depot.synth.thing.mapped.v1": [],
             "dev.depot.synth.thing.streamed.v1": [],
+            "dev.depot.synth.thing.helper.v1": ["extra", "extra.nope", "id"],
+            "dev.depot.synth.thing.copied.v1": ["extra", "extra.nope", "id"],
+            "dev.depot.synth.thing.rebytes.v1": ["extra", "extra.nope", "id"],
+            "dev.depot.synth.thing.asserted.v1": ["id", "kind"],
+            "dev.depot.synth.thing.unread.v1": ["extra", "id"],
+            "dev.depot.synth.thing.closure.v1": ["c"],
+            "dev.depot.synth.thing.remarshalled.v1": [],
         }, got)
+        dynamic = {h["type"]: sorted(f["path"] for d in h["decodes"] for f in d["fields"] if f.get("dynamic")) for h in report["handlers"]}
+        # N1, N2, N6: a RawMessage field decoded through a helper, a local copy or a []byte helper is read; N4b: an `any`
+        # field and an unread RawMessage field stay dynamic, which go_reads fails.
+        self.assertEqual({"dev.depot.synth.thing.asserted.v1": ["kind"], "dev.depot.synth.thing.unread.v1": ["extra"]},
+                         {k: v for k, v in dynamic.items() if v})
         problems = {h["type"]: h["problems"] for h in report["handlers"]}
         self.assertEqual([], problems["dev.depot.synth.thing.aliased.v1"] + problems["dev.depot.synth.thing.bytes.v1"])
         # json.NewDecoder over the data is a read the check cannot follow; a decode into a map has keys it cannot list.
@@ -1013,6 +1086,16 @@ class EventContractsTest(unittest.TestCase):
         reads, read_problems = go_reads({"synth": report}, [kc.Consumer("synth", "synth", groups={"synth"})])
         self.assertTrue(any("mapped" in p and "OPEN_DECODES" in p for p in read_problems), read_problems)
         self.assertTrue(any("streamed" in p for p in read_problems), read_problems)
+        self.assertTrue(any("asserted" in p and "field kind" in p for p in read_problems), read_problems)
+        self.assertTrue(any("unread" in p and "field extra" in p for p in read_problems), read_problems)
+        # N3: a closure taking the data is followed itself, though an unrelated function has its shape. N5: marshalling the
+        # whole event is a problem.
+        self.assertEqual([], problems["dev.depot.synth.thing.closure.v1"])
+        self.assertTrue(any("marshals the whole event" in p for p in problems["dev.depot.synth.thing.remarshalled.v1"]),
+                        problems["dev.depot.synth.thing.remarshalled.v1"])
+        self.assertEqual([{"names": ["synth-main"], "maps": sorted({h["map"] for h in report["handlers"]
+                                                                       if "dispatched" not in h["type"]})}],
+                         [{"names": c["names"], "maps": c["maps"]} for c in report["consumers"]])
         emitted = {(e["type"], e["goType"]): sorted(f["path"] for f in e["fields"]) for e in report["emits"]}
         self.assertEqual({
             ("dev.depot.synth.thing.created.v1", "h.created"): ["id", "lines[].qty", "name"],
@@ -1075,6 +1158,27 @@ func decode(evt events.Event, into any) error { return json.Unmarshal(evt.Data, 
 
 // decodeBytes takes the data as plain bytes.
 func decodeBytes(b []byte, v any) error { return json.Unmarshal(b, v) }
+
+type inner struct {
+	Nope string `json:"nope"`
+}
+
+// parseInner decodes a RawMessage field of decoded data (N1).
+func parseInner(b json.RawMessage) error {
+	var in inner
+	return json.Unmarshal(b, &in)
+}
+
+// reDecode decodes a field as plain bytes into the caller's value (N6).
+func reDecode(b []byte, v any) error { return json.Unmarshal(b, v) }
+
+// sameShape has the shape of the closure below but is not it (N3).
+func sameShape(b []byte) error { return json.Unmarshal(b, new(struct{})) }
+
+type asserted struct {
+	ID   string `json:"id"`
+	Kind any    `json:"kind"`
+}
 
 type wrapped struct {
 	ID    string          `json:"id"`
@@ -1150,7 +1254,69 @@ func Handlers() map[string]eventing.Handler {
 			}
 			return json.NewDecoder(bytes.NewReader(evt.Data)).Decode(&d)
 		}),
+		"dev.depot.synth.thing.helper.v1": eventing.HandlerFunc(func(_ context.Context, _ pgx.Tx, evt events.Event) error {
+			var w wrapped
+			if err := json.Unmarshal(evt.Data, &w); err != nil {
+				return err
+			}
+			return parseInner(w.Extra)
+		}),
+		"dev.depot.synth.thing.copied.v1": eventing.HandlerFunc(func(_ context.Context, _ pgx.Tx, evt events.Event) error {
+			var w wrapped
+			if err := json.Unmarshal(evt.Data, &w); err != nil {
+				return err
+			}
+			raw := w.Extra
+			var in inner
+			return json.Unmarshal(raw, &in)
+		}),
+		"dev.depot.synth.thing.rebytes.v1": eventing.HandlerFunc(func(_ context.Context, _ pgx.Tx, evt events.Event) error {
+			var w wrapped
+			if err := json.Unmarshal(evt.Data, &w); err != nil {
+				return err
+			}
+			var in inner
+			return reDecode(w.Extra, &in)
+		}),
+		"dev.depot.synth.thing.asserted.v1": eventing.HandlerFunc(func(_ context.Context, _ pgx.Tx, evt events.Event) error {
+			var d asserted
+			if err := json.Unmarshal(evt.Data, &d); err != nil {
+				return err
+			}
+			_ = d.Kind.(map[string]any)["nope"]
+			return nil
+		}),
+		"dev.depot.synth.thing.unread.v1": eventing.HandlerFunc(func(_ context.Context, _ pgx.Tx, evt events.Event) error {
+			var w wrapped
+			return json.Unmarshal(evt.Data, &w)
+		}),
+		"dev.depot.synth.thing.closure.v1": eventing.HandlerFunc(func(_ context.Context, _ pgx.Tx, evt events.Event) error {
+			parse := func(b []byte) error {
+				var d struct {
+					C string `json:"c"`
+				}
+				return json.Unmarshal(b, &d)
+			}
+			return parse(evt.Data)
+		}),
+		"dev.depot.synth.thing.remarshalled.v1": eventing.HandlerFunc(func(_ context.Context, _ pgx.Tx, evt events.Event) error {
+			raw, err := json.Marshal(evt)
+			if err != nil {
+				return err
+			}
+			var env struct {
+				Data struct {
+					Nick string `json:"nick"`
+				} `json:"data"`
+			}
+			return json.Unmarshal(raw, &env)
+		}),
 	}
+}
+
+// Run is the consumer config: its Name and handler map are bound at the call in main.
+func Run(h map[string]eventing.Handler) eventing.Config {
+	return eventing.Config{Name: "synth-main", Handlers: h, DeadLetterTopic: "dlq"}
 }
 
 // Unreached is a handler map no main package uses: it is not a consumer.
@@ -1170,6 +1336,7 @@ func Publish(ctx context.Context, tx pgx.Tx) error {
 	if err := emit(ctx, tx, Created, created{}); err != nil {
 		return err
 	}
+	_ = sameShape(nil)
 	return emit(ctx, tx, events.Type("synth", "thing", moved, 1), map[string]any{"id": "x"})
 }
 '''
@@ -1179,7 +1346,7 @@ SYNTH_MAIN = '''package main
 import "example.com/synth/internal/h"
 
 func main() {
-	_ = h.Handlers()
+	_ = h.Run(h.Handlers())
 	var r h.Registry = h.NewRegistry()
 	_ = r.Handlers()
 }

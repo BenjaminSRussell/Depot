@@ -31,7 +31,7 @@ func reconcileArgs(ctx context.Context, getenv func(string) string, args []strin
 // reconcileCommand compares the index of the report's tenant with the source counts in the report at path (ADR-0013) and
 // writes the result as JSON to out: 0 when every count matches and nothing in the index went uncompared, 1 otherwise, 2
 // when the index cannot be counted, 3 when the report cannot be read and 4 for a usage error. Nothing in the repository
-// produces the report yet (the source side is a follow-up issue, to be filed).
+// produces the report yet (the source side is #731).
 func reconcileCommand(ctx context.Context, getenv func(string) string, path string, out io.Writer) int {
 	f, err := os.Open(path)
 	if err != nil {

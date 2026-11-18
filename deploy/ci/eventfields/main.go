@@ -9,10 +9,12 @@
 // the interface's methods). For each entry, the handler expression is followed the same way, and every json.Unmarshal of
 // the event's data into a concrete type is a decode: of events.Event.Data, of a local copy of it, or of a []byte or
 // json.RawMessage parameter it is passed in (statically, or through a func value whose module implementations match). A
-// decode into an `any` parameter takes the type of the argument at each call site, and a second Unmarshal of a field of
-// decoded data adds that field's nested paths. Fail closed: every other use of the data in the code a handler reaches
-// (json.NewDecoder, len, a call the check does not follow) is a problem of that handler, and a decode into a map is
-// reported as open.
+// decode into an `any` parameter takes the type of the argument at each call site, and a further Unmarshal of a field of
+// decoded data (directly, through a local copy or through a helper that takes it) adds that field's nested paths. Fail
+// closed: every other use of the data in the code a handler reaches (json.NewDecoder, len, a call the check does not
+// follow, json.Marshal of the whole event) is a problem of that handler, a decode into a map is reported as open, and a
+// decoded json.RawMessage, []byte, map or interface field no followed decode reads is marked dynamic. Every
+// eventing.Config the main packages reach is reported with its Name and the handler maps its Handlers field holds.
 //
 // Producers: every events.New call in the module. The event type is a constant, events.Type of constants, or a parameter
 // or local variable bound to one; the payload is the static type of the data argument, followed through parameters to
@@ -59,6 +61,9 @@ const (
 type Field struct {
 	Path      string `json:"path"`
 	Omitempty bool   `json:"omitempty,omitempty"`
+	// Dynamic marks a decoded field with no fixed shape (json.RawMessage, []byte, a map or an interface) that no nested
+	// decode the check follows reads: what the handler takes from it is unknown, so the caller fails on it.
+	Dynamic bool `json:"dynamic,omitempty"`
 }
 
 // Decode is a json.Unmarshal of an event's data a handler reaches.
@@ -71,13 +76,23 @@ type Decode struct {
 
 // Handler is one entry of a handler map: the event type and what its handler decodes.
 type Handler struct {
-	Type    string   `json:"type"`
-	At      string   `json:"at"`
+	Type string `json:"type"`
+	At   string `json:"at"`
+	// Map is the position of the handler map literal (or m[type] = h assignment) the entry belongs to.
+	Map     string   `json:"map"`
 	Decodes []Decode `json:"decodes"`
 	// Problems are reads of the event data the check cannot follow: a use of evt.Data other than a json.Unmarshal of it
 	// (directly, through a local copy or a []byte/json.RawMessage parameter it is passed in), such as json.NewDecoder or
 	// len, or a decode into a value whose type cannot be worked out. The caller fails on them.
 	Problems []string `json:"problems"`
+}
+
+// Consumer is an eventing.Config the module's main packages reach: its Name (the consumer group for every multi-group
+// service) and the handler maps its Handlers field holds, bound through parameters and struct literals.
+type Consumer struct {
+	At    string   `json:"at"`
+	Names []string `json:"names"`
+	Maps  []string `json:"maps"`
 }
 
 // Route is an event type an outbox.Enqueue call writes under an aggregate type: an outbox connector that routes by
@@ -95,6 +110,9 @@ type Unresolved struct {
 	Via    string `json:"via,omitempty"`
 	Func   string `json:"func"`
 	Reason string `json:"reason"`
+	// Text is the source of the call that could not be resolved (the binding call when Via is set), so an allowlist names
+	// one call, not every unresolved call of a function.
+	Text string `json:"text"`
 }
 
 // Emit is one payload an events.New call writes for an event type.
@@ -111,10 +129,13 @@ type Emit struct {
 
 // Report is the result for one module.
 type Report struct {
-	Dir      string    `json:"dir"`
-	Module   string    `json:"module"`
-	Handlers []Handler `json:"handlers"`
-	Emits    []Emit    `json:"emits"`
+	Dir       string     `json:"dir"`
+	Module    string     `json:"module"`
+	Handlers  []Handler  `json:"handlers"`
+	Consumers []Consumer `json:"consumers"`
+	// UnresolvedConsumers are eventing.Config literals whose Name or handler maps could not be worked out.
+	UnresolvedConsumers []Unresolved `json:"unresolvedConsumers"`
+	Emits               []Emit       `json:"emits"`
 	// Aggregates are the aggregate types outbox.Enqueue calls write, Routes the (event type, aggregate) pairs of the calls
 	// whose event the check traces back to its events.New, and UnresolvedRoutes the calls whose event or aggregate it
 	// cannot.
@@ -181,9 +202,12 @@ type analyzer struct {
 	dyn     []callSite                // calls of a func value (no static callee)
 	fields  map[string][]assign       // values stored in a struct field of type events.Event, by "path.Type.Field"
 	methods map[string]map[string]*fn // methods of each named type of the module, by receiver key and name
-	imp     types.Importer
-	deps    map[string]listed // non-standard dependencies, whose package variables are read from source when a key names one
-	depDone map[string]bool
+	litData map[types.Object]bool     // []byte parameters of function literals event data is passed in
+	// assignedMaps are the m[type] = handler statements of handler maps, a handler map "site" like a literal.
+	assignedMaps map[token.Pos]bool
+	imp          types.Importer
+	deps         map[string]listed // non-standard dependencies, whose package variables are read from source when a key names one
+	depDone      map[string]bool
 }
 
 func main() {
@@ -239,10 +263,10 @@ func analyze(root, dir string) (*Report, error) {
 		return nil, fmt.Errorf("go list in %s: %w: %s", dir, err, stderr.String())
 	}
 	rel, _ := filepath.Rel(root, abs)
-	a := &analyzer{fset: token.NewFileSet(), root: root, report: &Report{Dir: filepath.ToSlash(rel), Handlers: []Handler{}, Emits: []Emit{}, Aggregates: []string{}, Routes: []Route{},
+	a := &analyzer{fset: token.NewFileSet(), root: root, report: &Report{Dir: filepath.ToSlash(rel), Handlers: []Handler{}, Consumers: []Consumer{}, UnresolvedConsumers: []Unresolved{}, Emits: []Emit{}, Aggregates: []string{}, Routes: []Route{},
 		UnresolvedRoutes: []Unresolved{}, Unresolved: []Unresolved{}, Problems: []string{}},
 		funcs: map[string]*fn{}, locals: map[types.Object][]assign{}, globals: map[string][]assign{}, calls: map[string][]callSite{},
-		fields: map[string][]assign{}, methods: map[string]map[string]*fn{}, deps: map[string]listed{}, depDone: map[string]bool{}}
+		fields: map[string][]assign{}, methods: map[string]map[string]*fn{}, litData: map[types.Object]bool{}, assignedMaps: map[token.Pos]bool{}, deps: map[string]listed{}, depDone: map[string]bool{}}
 	exports := map[string]string{}
 	var locals []listed
 	dec := json.NewDecoder(bytes.NewReader(out))
@@ -316,8 +340,9 @@ func analyze(root, dir string) (*Report, error) {
 		ei, ej := a.report.Emits[i], a.report.Emits[j]
 		return ei.Type < ej.Type || ei.Type == ej.Type && ei.At < ej.At
 	})
-	sortUnresolved(a.report.Unresolved)
-	sortUnresolved(a.report.UnresolvedRoutes)
+	a.report.Unresolved = sortUnresolved(a.report.Unresolved)
+	a.report.UnresolvedRoutes = sortUnresolved(a.report.UnresolvedRoutes)
+	a.report.UnresolvedConsumers = sortUnresolved(a.report.UnresolvedConsumers)
 	a.report.Aggregates = dedupe(a.report.Aggregates)
 	sort.Slice(a.report.Routes, func(i, j int) bool {
 		ri, rj := a.report.Routes[i], a.report.Routes[j]
@@ -466,8 +491,15 @@ func (a *analyzer) storeField(owner types.Type, name string, field *types.Var, v
 	}
 }
 
-func sortUnresolved(u []Unresolved) {
-	sort.Slice(u, func(i, j int) bool { return u[i].At+u[i].Via < u[j].At+u[j].Via })
+func sortUnresolved(u []Unresolved) []Unresolved {
+	sort.Slice(u, func(i, j int) bool { return u[i].At+u[i].Via+u[i].Text < u[j].At+u[j].Via+u[j].Text })
+	out := u[:0]
+	for i, x := range u {
+		if i == 0 || x != u[i-1] {
+			out = append(out, x)
+		}
+	}
+	return out
 }
 
 func (a *analyzer) valueSpec(vs *ast.ValueSpec, p *pkg, f *fn) {
@@ -601,6 +633,9 @@ func (a *analyzer) dataIdent(id *ast.Ident, p *pkg, f *fn, depth int) bool {
 	if i := paramIndex(f, v); i >= 0 {
 		return f.dataParams[i]
 	}
+	if a.litData[v] {
+		return true
+	}
 	as := a.locals[v]
 	if len(as) == 0 {
 		return false
@@ -632,19 +667,90 @@ func (a *analyzer) solveDataParams() {
 		}
 		for _, s := range a.dyn {
 			sig, _ := s.caller.pkg.info.TypeOf(s.call.Fun).Underlying().(*types.Signature)
+			lit, g, resolved := a.funcValue(s.call.Fun, s.caller.pkg, 0)
 			for i, arg := range s.call.Args {
 				if sig == nil || i >= sig.Params().Len() || !isBytes(sig.Params().At(i).Type()) || !a.dataExpr(arg, s.caller.pkg, s.caller) {
 					continue
 				}
-				for _, g := range a.funcs {
-					if g.recv == "" && !g.dataParams[i] && sameSignature(g, sig) {
+				switch {
+				case lit != nil:
+					// The closure's own []byte parameter is the data: its decodes are read where the closure is walked.
+					if obj := litParam(lit, s.caller.pkg, i); obj != nil && !a.litData[obj] {
+						a.litData[obj] = true
+						changed = true
+					}
+				case g != nil:
+					if !g.dataParams[i] {
 						g.dataParams[i] = true
 						changed = true
+					}
+				case !resolved:
+					// A func value the check cannot resolve (a parameter, a struct field): every module function of that
+					// signature may be it.
+					for _, h := range a.funcs {
+						if h.recv == "" && !h.dataParams[i] && sameSignature(h, sig) {
+							h.dataParams[i] = true
+							changed = true
+						}
 					}
 				}
 			}
 		}
 	}
+}
+
+// funcValue resolves a called func value: a function literal (directly or through the single assignment of a local), or
+// a module function or method value. resolved is false when it cannot be worked out (a parameter, a struct field).
+func (a *analyzer) funcValue(e ast.Expr, p *pkg, depth int) (*ast.FuncLit, *fn, bool) {
+	if depth > 8 {
+		return nil, nil, false
+	}
+	e = ast.Unparen(e)
+	if lit, ok := e.(*ast.FuncLit); ok {
+		return lit, nil, true
+	}
+	var id *ast.Ident
+	switch x := e.(type) {
+	case *ast.Ident:
+		id = x
+	case *ast.SelectorExpr:
+		id = x.Sel
+	default:
+		return nil, nil, false
+	}
+	switch obj := p.info.Uses[id].(type) {
+	case *types.Func:
+		if impls := a.implementations(obj); len(impls) == 1 {
+			return nil, impls[0], true
+		}
+	case *types.Var:
+		if obj.IsField() || isGlobal(obj) {
+			return nil, nil, false
+		}
+		if as := a.locals[obj]; len(as) == 1 {
+			return a.funcValue(as[0].expr, as[0].pkg, depth+1)
+		}
+	}
+	return nil, nil, false
+}
+
+// litParam is the object of a function literal's parameter i.
+func litParam(lit *ast.FuncLit, p *pkg, i int) types.Object {
+	n := 0
+	for _, f := range lit.Type.Params.List {
+		names := f.Names
+		if len(names) == 0 {
+			n++
+			continue
+		}
+		for _, name := range names {
+			if n == i {
+				return p.info.Defs[name]
+			}
+			n++
+		}
+	}
+	return nil
 }
 
 func sameSignature(g *fn, sig *types.Signature) bool {
@@ -755,6 +861,7 @@ type walker struct {
 	decodes  map[string]*Decode
 	decoded  map[types.Object]decodedVar // local variables a decode filled, for a nested decode of one of their fields
 	problems map[string]bool
+	maps     map[string]bool // positions of the handler maps the walk meets, when non-nil (handlerSites)
 }
 
 type decodedVar struct {
@@ -784,6 +891,14 @@ func (w *walker) node(n ast.Node, p *pkg, f *fn) {
 		ancestors := stack
 		stack = append(stack, x)
 		switch x := x.(type) {
+		case *ast.CompositeLit:
+			if w.maps != nil && isHandlerMap(p.info.TypeOf(x)) {
+				w.maps[w.a.pos(x.Pos())] = true
+			}
+		case *ast.AssignStmt:
+			if w.maps != nil && w.a.assignedMaps[x.Pos()] {
+				w.maps[w.a.pos(x.Pos())] = true
+			}
 		case *ast.CallExpr:
 			if w.record {
 				w.call(x, p, f)
@@ -853,9 +968,21 @@ func (w *walker) sink(e ast.Expr, ancestors []ast.Node, p *pkg, f *fn) {
 				return
 			}
 			if sig, ok := p.info.TypeOf(par.Fun).Underlying().(*types.Signature); ok && idx < sig.Params().Len() && isBytes(sig.Params().At(idx).Type()) {
-				for _, g := range w.a.funcs {
-					if g.dataParams[idx] && sameSignature(g, sig) {
+				lit, g, resolved := w.a.funcValue(par.Fun, p, 0)
+				switch {
+				case lit != nil:
+					if obj := litParam(lit, p, idx); obj != nil && w.a.litData[obj] {
 						return
+					}
+				case g != nil:
+					if g.dataParams[idx] {
+						return
+					}
+				case !resolved:
+					for _, g := range w.a.funcs {
+						if g.dataParams[idx] && sameSignature(g, sig) {
+							return
+						}
 					}
 				}
 			}
@@ -987,9 +1114,23 @@ func (w *walker) call(call *ast.CallExpr, p *pkg, f *fn) {
 	if callee == nil {
 		return
 	}
+	if callee.Pkg() != nil && callee.Pkg().Path() == "encoding/json" && (callee.Name() == "Marshal" || callee.Name() == "MarshalIndent" ||
+		callee.Name() == "Encode") && len(call.Args) > 0 {
+		if t := p.info.TypeOf(call.Args[0]); t != nil && namedIs(t, eventsPkg, "Event") {
+			w.problem(call.Pos(), "marshals the whole event, whose re-decoded data the check cannot follow; decode evt.Data instead")
+		}
+	}
 	g, ok := w.a.funcs[funcKey(callee)]
 	if !ok {
 		return
+	}
+	// A decoded json.RawMessage/[]byte field passed to a helper that decodes it: a nested decode under that field's path.
+	for i, arg := range call.Args {
+		if i < len(g.params) && isBytes(g.params[i].Type()) {
+			if dv, path, ok := w.decodedPath(arg, p); ok {
+				w.followNested(g, i, dv, joinPath(dv.path, path), call, p, 0)
+			}
+		}
 	}
 	for i := range g.decodeParams {
 		if i >= len(call.Args) {
@@ -1014,12 +1155,93 @@ func (w *walker) call(call *ast.CallExpr, p *pkg, f *fn) {
 	}
 }
 
+// followNested records the decodes helper g makes of its parameter i, which holds the decoded field at path: a
+// json.Unmarshal of it (or of a local copy) into a concrete type, or into an `any` parameter bound at the call, and the
+// same through the module helpers g passes it to.
+func (w *walker) followNested(g *fn, i int, dv decodedVar, path string, call *ast.CallExpr, cp *pkg, depth int) {
+	if depth > 5 || g.decl.Body == nil {
+		return
+	}
+	ast.Inspect(g.decl.Body, func(n ast.Node) bool {
+		c, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		if w.a.isUnmarshal(g.pkg, c) && w.a.paramRef(c.Args[0], g, i, 0) {
+			t, j, ok := w.a.decodeTarget(c.Args[1], g.pkg, g)
+			switch {
+			case ok && j < 0:
+				w.nested(dv, path, t, c.Args[1], g.pkg)
+			case ok && j < len(call.Args):
+				if at := cp.info.TypeOf(call.Args[j]); at != nil {
+					if ptr, isPtr := at.Underlying().(*types.Pointer); isPtr {
+						at = ptr.Elem()
+					}
+					if !types.IsInterface(at) {
+						w.nested(dv, path, at, call.Args[j], cp)
+					}
+				}
+			}
+			return true
+		}
+		if callee := w.a.callee(g.pkg, c); callee != nil {
+			if h, ok := w.a.funcs[funcKey(callee)]; ok {
+				for k, arg := range c.Args {
+					if k < len(h.params) && isBytes(h.params[k].Type()) && w.a.paramRef(arg, g, i, 0) {
+						w.followNested(h, k, dv, path, c, g.pkg, depth+1)
+					}
+				}
+			}
+		}
+		return true
+	})
+}
+
+// paramRef reports whether e is g's parameter i, a conversion of it or a local copy of it.
+func (a *analyzer) paramRef(e ast.Expr, g *fn, i int, depth int) bool {
+	if depth > 8 {
+		return false
+	}
+	e = ast.Unparen(e)
+	if c, ok := e.(*ast.CallExpr); ok {
+		if tv, ok := g.pkg.info.Types[c.Fun]; ok && tv.IsType() && len(c.Args) == 1 {
+			return a.paramRef(c.Args[0], g, i, depth+1)
+		}
+		return false
+	}
+	id, ok := e.(*ast.Ident)
+	if !ok {
+		return false
+	}
+	v, ok := g.pkg.info.Uses[id].(*types.Var)
+	if !ok {
+		return false
+	}
+	if paramIndex(g, v) == i {
+		return true
+	}
+	if as := a.locals[v]; len(as) == 1 && paramIndex(g, v) < 0 && !isGlobal(v) {
+		return a.paramRef(as[0].expr, g, i, depth+1)
+	}
+	return false
+}
+
 // decodedPath is the variable a decode filled and the JSON path below it of a field expression such as d.Extra or
-// d.Lines[i].Raw.
+// d.Lines[i].Raw, also through a local copy (raw := d.Raw) or a conversion ([]byte(d.Raw)).
 func (w *walker) decodedPath(e ast.Expr, p *pkg) (decodedVar, string, bool) {
+	return w.decodedPathDepth(e, p, 0)
+}
+
+func (w *walker) decodedPathDepth(e ast.Expr, p *pkg, depth int) (decodedVar, string, bool) {
 	var segs []string // innermost first once complete
 	e = ast.Unparen(e)
 	for {
+		if c, ok := e.(*ast.CallExpr); ok {
+			if tv, ok := p.info.Types[c.Fun]; ok && tv.IsType() && len(c.Args) == 1 {
+				e = ast.Unparen(c.Args[0])
+				continue
+			}
+		}
 		switch x := e.(type) {
 		case *ast.SelectorExpr:
 			sel := p.info.Selections[x]
@@ -1041,10 +1263,20 @@ func (w *walker) decodedPath(e ast.Expr, p *pkg) (decodedVar, string, bool) {
 			e = ast.Unparen(x.X)
 		case *ast.Ident:
 			dv, ok := w.decoded[p.info.Uses[x]]
-			if !ok || len(segs) == 0 {
+			base := ""
+			if !ok && depth < 8 {
+				// A local copy of a decoded field: raw := d.Raw.
+				if v, isVar := p.info.Uses[x].(*types.Var); isVar && !isGlobal(v) && len(w.a.locals[v]) == 1 {
+					as := w.a.locals[v][0]
+					if adv, apath, aok := w.decodedPathDepth(as.expr, as.pkg, depth+1); aok {
+						dv, base, ok = adv, apath, true
+					}
+				}
+			}
+			if !ok || (len(segs) == 0 && base == "") {
 				return decodedVar{}, "", false
 			}
-			path := ""
+			path := base
 			for _, s := range segs {
 				switch {
 				case s == "[]":
@@ -1103,6 +1335,11 @@ func (w *walker) add(at token.Pos, t types.Type, prefix string, target ast.Expr,
 // nested adds the fields of a decode of a field of decoded data, under that field's path.
 func (w *walker) nested(dv decodedVar, path string, t types.Type, target ast.Expr, p *pkg) {
 	d := w.decodes[dv.key]
+	for i := range d.Fields {
+		if d.Fields[i].Path == path {
+			d.Fields[i].Dynamic = false // read by this nested decode
+		}
+	}
 	c := collector{decode: true, seen: map[*types.TypeName]bool{}}
 	c.typ(t, path, false)
 	switch t.Underlying().(type) {
@@ -1189,7 +1426,7 @@ func (a *analyzer) consumers() {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	entry := func(key, value ast.Expr, at token.Pos, p *pkg, f *fn) {
+	entry := func(key, value ast.Expr, at, mapAt token.Pos, p *pkg, f *fn) {
 		typs, err := a.evalStr(key, p, &frame{fn: f, pkg: p}, 0)
 		if err != nil || len(typs) == 0 {
 			a.problem(at, "a handler map key the check cannot evaluate to a constant event type")
@@ -1208,7 +1445,7 @@ func (a *analyzer) consumers() {
 		}
 		sort.Strings(problems)
 		for _, typ := range dedupe(typs) {
-			a.report.Handlers = append(a.report.Handlers, Handler{Type: typ, At: a.pos(at), Decodes: decodes, Problems: problems})
+			a.report.Handlers = append(a.report.Handlers, Handler{Type: typ, At: a.pos(at), Map: a.pos(mapAt), Decodes: decodes, Problems: problems})
 		}
 	}
 	scan := func(n ast.Node, p *pkg, f *fn) {
@@ -1223,7 +1460,7 @@ func (a *analyzer) consumers() {
 				if isHandlerMap(p.info.TypeOf(x)) {
 					for _, el := range x.Elts {
 						if kv, ok := el.(*ast.KeyValueExpr); ok {
-							entry(kv.Key, kv.Value, kv.Pos(), p, f)
+							entry(kv.Key, kv.Value, kv.Pos(), x.Pos(), p, f)
 						}
 					}
 				}
@@ -1233,7 +1470,10 @@ func (a *analyzer) consumers() {
 						if id, ok := ast.Unparen(ix.Index).(*ast.Ident); ok && copies[p.info.Uses[id]] {
 							continue
 						}
-						entry(ix.Index, x.Rhs[i], x.Pos(), p, f)
+						if f != nil {
+							a.assignedMaps[x.Pos()] = true
+						}
+						entry(ix.Index, x.Rhs[i], x.Pos(), x.Pos(), p, f)
 					}
 				}
 			}
@@ -1257,6 +1497,171 @@ func (a *analyzer) consumers() {
 			}
 		}
 	}
+	for _, k := range keys {
+		f, ok := a.funcs[k]
+		if !ok || f.decl.Body == nil {
+			continue
+		}
+		ast.Inspect(f.decl.Body, func(n ast.Node) bool {
+			cl, ok := n.(*ast.CompositeLit)
+			if !ok || !namedIs(f.pkg.info.TypeOf(cl), eventingPkg, "Config") {
+				return true
+			}
+			var nameE, handlersE ast.Expr
+			for _, el := range cl.Elts {
+				if kv, ok := el.(*ast.KeyValueExpr); ok {
+					if id, ok := kv.Key.(*ast.Ident); ok {
+						switch id.Name {
+						case "Name":
+							nameE = kv.Value
+						case "Handlers":
+							handlersE = kv.Value
+						}
+					}
+				}
+			}
+			if nameE == nil || handlersE == nil {
+				return true
+			}
+			a.consumerConfig(cl, nameE, handlersE, f)
+			return true
+		})
+	}
+	sort.Slice(a.report.Consumers, func(i, j int) bool {
+		return a.report.Consumers[i].At+strings.Join(a.report.Consumers[i].Names, ",") < a.report.Consumers[j].At+strings.Join(a.report.Consumers[j].Names, ",")
+	})
+}
+
+// consumerConfig records the (Name, handler maps) pairs of one eventing.Config literal, binding the parameters both come
+// from at the same call sites.
+func (a *analyzer) consumerConfig(cl *ast.CompositeLit, nameE, handlersE ast.Expr, f *fn) {
+	got, fails := a.expand(&frame{fn: f, pkg: f.pkg}, 0, func(fr *frame) ([]emitSite, error) {
+		names, errN := a.evalStr(nameE, f.pkg, fr, 0)
+		maps, errH := a.handlerSites(handlersE, f.pkg, fr, 0)
+		if errors.Is(errN, errUnbound) || errors.Is(errH, errUnbound) {
+			return nil, errUnbound
+		}
+		if errN != nil {
+			return nil, errors.New("the consumer's Name is " + errNotConstant.Error())
+		}
+		if errH != nil {
+			return nil, errors.New("the consumer's Handlers reach no handler map the check finds")
+		}
+		var out []emitSite
+		for _, n := range names {
+			out = append(out, emitSite{typ: n, agg: strings.Join(maps, "|")})
+		}
+		return out, nil
+	})
+	a.report.UnresolvedConsumers = append(a.report.UnresolvedConsumers, a.unresolved(cl.Pos(), cl, fails)...)
+	byMaps := map[string][]string{}
+	for _, g := range got {
+		byMaps[g.agg] = append(byMaps[g.agg], g.typ)
+	}
+	keys := make([]string, 0, len(byMaps))
+	for k := range byMaps {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		a.report.Consumers = append(a.report.Consumers, Consumer{At: a.pos(cl.Pos()), Names: dedupe(byMaps[k]), Maps: strings.Split(k, "|")})
+	}
+}
+
+// handlerSites are the handler map literals (by position) a Handlers expression reaches: through parameters bound at
+// call sites, struct literal fields (spec.handlers(s) of a package-level consumerSpec) and the functions it calls.
+func (a *analyzer) handlerSites(e ast.Expr, p *pkg, fr *frame, depth int) ([]string, error) {
+	if depth > 20 {
+		return nil, errNotConstant
+	}
+	e = ast.Unparen(e)
+	if id, ok := e.(*ast.Ident); ok {
+		if i, ok := a.param(fr, p, id); ok {
+			if fr.args == nil {
+				return nil, errUnbound
+			}
+			if i >= len(fr.args) {
+				return nil, errNotConstant
+			}
+			return a.handlerSites(fr.args[i], fr.caller.pkg, fr.caller, depth+1)
+		}
+	}
+	root := ast.Node(e)
+	rp, rf := p, fr.fn
+	if c, ok := e.(*ast.CallExpr); ok {
+		if sel, ok := ast.Unparen(c.Fun).(*ast.SelectorExpr); ok {
+			if s := p.info.Selections[sel]; s != nil && s.Kind() == types.FieldVal {
+				v, vp, vfr, err := a.structField(sel.X, sel.Sel.Name, p, fr, depth+1)
+				if err != nil {
+					return nil, err
+				}
+				root, rp, rf = v, vp, vfr.fn
+			}
+		}
+	}
+	w := a.newWalker(false)
+	w.maps = map[string]bool{}
+	w.node(root, rp, rf)
+	var out []string
+	for m := range w.maps {
+		out = append(out, m)
+	}
+	if len(out) == 0 {
+		return nil, errNotConstant
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+// structField is the value a struct literal gives field name, for x a parameter bound at a call site, a variable with one
+// assignment, or the literal itself.
+func (a *analyzer) structField(x ast.Expr, name string, p *pkg, fr *frame, depth int) (ast.Expr, *pkg, *frame, error) {
+	if depth > 20 {
+		return nil, nil, nil, errNotConstant
+	}
+	x = ast.Unparen(x)
+	switch e := x.(type) {
+	case *ast.UnaryExpr:
+		if e.Op == token.AND {
+			return a.structField(e.X, name, p, fr, depth+1)
+		}
+	case *ast.CompositeLit:
+		for _, el := range e.Elts {
+			if kv, ok := el.(*ast.KeyValueExpr); ok {
+				if id, ok := kv.Key.(*ast.Ident); ok && id.Name == name {
+					return kv.Value, p, fr, nil
+				}
+			}
+		}
+	case *ast.Ident:
+		if i, ok := a.param(fr, p, e); ok {
+			if fr.args == nil {
+				return nil, nil, nil, errUnbound
+			}
+			if i >= len(fr.args) {
+				return nil, nil, nil, errNotConstant
+			}
+			return a.structField(fr.args[i], name, fr.caller.pkg, fr.caller, depth+1)
+		}
+		v, ok := p.info.Uses[e].(*types.Var)
+		if !ok {
+			return nil, nil, nil, errNotConstant
+		}
+		var as []assign
+		if isGlobal(v) {
+			as = a.globals[globalKey(v)]
+		} else {
+			as = a.locals[v]
+		}
+		if len(as) == 1 {
+			f2 := fr
+			if as[0].fn == nil {
+				f2 = &frame{pkg: as[0].pkg}
+			}
+			return a.structField(as[0].expr, name, as[0].pkg, f2, depth+1)
+		}
+	}
+	return nil, nil, nil, errNotConstant
 }
 
 // frame binds a function's parameters to the arguments of one call, evaluated in the caller's frame.
@@ -1326,6 +1731,14 @@ func (a *analyzer) evalStr(e ast.Expr, p *pkg, fr *frame, depth int) ([]string, 
 		}
 		return a.evalVar(p.info.Uses[x], fr, depth)
 	case *ast.SelectorExpr:
+		if sel := p.info.Selections[x]; sel != nil && sel.Kind() == types.FieldVal {
+			// spec.name of a struct literal the value is bound to (production's consumerSpec).
+			v, vp, vfr, err := a.structField(x.X, x.Sel.Name, p, fr, depth+1)
+			if err != nil {
+				return nil, err
+			}
+			return a.evalStr(v, vp, vfr, depth+1)
+		}
 		return a.evalVar(p.info.Uses[x.Sel], fr, depth)
 	}
 	return nil, errUnknown
@@ -1448,6 +1861,7 @@ type failure struct {
 	via    token.Pos
 	fn     *fn
 	reason string
+	text   string // the binding call's source, when via is set
 }
 
 // expand evaluates eval in fr; when the value comes from a parameter of the outermost function, it binds that function's
@@ -1482,7 +1896,7 @@ func (a *analyzer) expand(fr *frame, depth int, eval func(*frame) ([]emitSite, e
 		}
 		for i := range f {
 			if !f[i].via.IsValid() {
-				f[i].via, f[i].fn = s.call.Pos(), s.caller
+				f[i].via, f[i].fn, f[i].text = s.call.Pos(), s.caller, types.ExprString(s.call)
 			}
 		}
 		out = append(out, g...)
@@ -1654,7 +2068,7 @@ func (a *analyzer) evalEvent(e ast.Expr, p *pkg, fr *frame, depth int) ([]string
 		var out []string
 		for _, as := range stores {
 			// The store sits in another function: resolve it there, binding that function's parameters at its own callers.
-			got, _ := a.expand(&frame{fn: as.fn, pkg: as.pkg}, 0, func(f2 *frame) ([]emitSite, error) {
+			got, fails := a.expand(&frame{fn: as.fn, pkg: as.pkg}, 0, func(f2 *frame) ([]emitSite, error) {
 				vals, err := a.evalEvent(as.expr, as.pkg, f2, depth+1)
 				var sites []emitSite
 				for _, v := range vals {
@@ -1662,6 +2076,11 @@ func (a *analyzer) evalEvent(e ast.Expr, p *pkg, fr *frame, depth int) ([]string
 				}
 				return sites, err
 			})
+			// A store whose event cannot be traced is reported, though the other stores of the field may resolve.
+			for _, u := range a.unresolved(as.expr.Pos(), as.expr, fails) {
+				u.Reason = "an event stored in field " + x.Sel.Name + ": " + u.Reason
+				a.report.UnresolvedRoutes = append(a.report.UnresolvedRoutes, u)
+			}
 			for _, s := range got {
 				out = append(out, s.typ)
 			}
@@ -1756,7 +2175,7 @@ func (a *analyzer) producers() {
 			call, ok := n.(*ast.CallExpr)
 			if ok && isPkgFunc(a.callee(f.pkg, call), outboxPkg, "Enqueue") && len(call.Args) == 5 {
 				routes, fails := a.resolveRoute(&frame{fn: f, pkg: f.pkg}, call.Args[2], call.Args[4], f.pkg)
-				a.report.UnresolvedRoutes = append(a.report.UnresolvedRoutes, a.unresolved(call.Pos(), fails)...)
+				a.report.UnresolvedRoutes = append(a.report.UnresolvedRoutes, a.unresolved(call.Pos(), call, fails)...)
 				for _, r := range routes {
 					a.report.Aggregates = append(a.report.Aggregates, r.agg)
 					rt := Route{Type: r.typ, Aggregate: r.agg, At: a.pos(call.Pos())}
@@ -1778,7 +2197,7 @@ func (a *analyzer) producers() {
 				return true
 			}
 			sites, fails := a.resolve(&frame{fn: f, pkg: f.pkg}, call.Args[0], call.Args[4], f.pkg)
-			a.report.Unresolved = append(a.report.Unresolved, a.unresolved(call.Pos(), fails)...)
+			a.report.Unresolved = append(a.report.Unresolved, a.unresolved(call.Pos(), call, fails)...)
 			for _, s := range sites {
 				e := Emit{Type: s.typ, At: a.pos(call.Pos()), Via: a.pos(s.via), Fields: []Field{}}
 				switch {
@@ -1803,15 +2222,18 @@ func (a *analyzer) producers() {
 	}
 }
 
-func (a *analyzer) unresolved(at token.Pos, fails []failure) []Unresolved {
+func (a *analyzer) unresolved(at token.Pos, call ast.Expr, fails []failure) []Unresolved {
 	var out []Unresolved
 	seen := map[string]bool{}
 	for _, f := range fails {
-		u := Unresolved{At: a.pos(at), Via: a.pos(f.via), Reason: f.reason}
+		u := Unresolved{At: a.pos(at), Via: a.pos(f.via), Reason: f.reason, Text: f.text}
+		if u.Text == "" {
+			u.Text = types.ExprString(call)
+		}
 		if f.fn != nil {
 			u.Func = f.fn.decl.Name.Name
 		}
-		if k := u.Via + u.Func + u.Reason; !seen[k] {
+		if k := u.Via + u.Func + u.Reason + u.Text; !seen[k] {
 			seen[k] = true
 			out = append(out, u)
 		}
@@ -1923,6 +2345,10 @@ func (c *collector) typ(t types.Type, path string, omit bool) {
 	if ptr, ok := t.(*types.Pointer); ok {
 		t = types.Unalias(ptr.Elem())
 	}
+	if c.decode && path != "" && dynamicType(t) {
+		c.fields = append(c.fields, Field{Path: path, Omitempty: omit, Dynamic: true})
+		return
+	}
 	if path != "" && c.codec(t) {
 		c.leaf(path, omit)
 		return
@@ -1963,6 +2389,25 @@ func (c *collector) typ(t types.Type, path string, omit bool) {
 	default:
 		c.leafOrOpen(path, omit)
 	}
+}
+
+// dynamicType reports whether a decoded value of type t has no fixed shape: json.RawMessage or []byte (decoded again
+// later, if at all), a map without its own UnmarshalJSON, or an interface.
+func dynamicType(t types.Type) bool {
+	if namedIs(t, "encoding/json", "RawMessage") {
+		return true
+	}
+	if _, named := types.Unalias(t).(*types.Named); !named && isBytes(t) {
+		return true
+	}
+	switch t.Underlying().(type) {
+	case *types.Interface:
+		return true
+	case *types.Map:
+		c := collector{decode: true}
+		return !c.codec(t)
+	}
+	return false
 }
 
 func (c *collector) leafOrOpen(path string, omit bool) {
