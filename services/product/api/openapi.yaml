@@ -157,6 +157,20 @@ paths:
       responses:
         '200': { description: 'Allow, or warn with PRD-LC-WARN.' }
         '422': { description: 'PRD-LC-BLOCKED naming the state and process.', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+  /v1/product/products/{productId}/process-policy:
+    get:
+      operationId: processPolicyByProduct
+      summary: Evaluate the process policy of a product in a legal entity
+      x-depot-duty: product.read
+      parameters:
+        - { name: productId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: legalEntityId, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: process, in: query, required: true, schema: { type: string } }
+      responses:
+        '200': { description: 'Allow, or warn with PRD-LC-WARN.' }
+        '400': { description: 'Malformed productId or legalEntityId, or no process.', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+        '404': { description: 'The product is not released in the legal entity, so no block applies.', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+        '422': { description: 'PRD-LC-BLOCKED: the detail names the blocked module and who to ask.', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
   /v1/product/gtins:validate:
     post:
       operationId: validateGTIN

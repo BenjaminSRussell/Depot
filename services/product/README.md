@@ -27,6 +27,7 @@ Run: `DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/product`. T
 | `POST /v1/product/releases` | `product.release` |
 | `PATCH /v1/product/released-products/{id}`, `PUT .../site-defaults/{siteId}` | `product.released.write` |
 | `GET /v1/product/released-products/{id}/process-policy?process=` | `product.read` |
+| `GET /v1/product/products/{productId}/process-policy?legalEntityId=&process=` | `product.read` |
 | `POST /v1/product/gtins:validate`, `GET /v1/product/gtins/{gtin}` | `product.read` |
 | `POST /v1/product/gtins` | `product.gtin.allocate` |
 | `POST /v1/product/configuration-models/{id}:solve` | `product.configure` |

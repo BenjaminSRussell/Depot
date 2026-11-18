@@ -1,6 +1,7 @@
 package domain_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/BenjaminSRussell/depot/services/product/internal/domain"
@@ -59,6 +60,30 @@ func TestProcessPolicyPhaseOutAndBlockFlag(t *testing.T) {
 	blocked := domain.EvaluateProcessPolicy("sales_order", rp, domain.StateActive, states)
 	if blocked.Code != domain.CodeLCBlocked {
 		t.Fatalf("blocked_sales: %+v", blocked)
+	}
+}
+
+func TestFlagBlockNamesTheModuleAndWhoToAsk(t *testing.T) {
+	states := domain.SeededLifecycleStates()
+	cases := []struct {
+		process string
+		rp      domain.ReleasedProduct
+		module  string
+	}{
+		{"purchase_order", domain.ReleasedProduct{BlockedPurchase: true}, "purchasing"},
+		{"sales_quotation", domain.ReleasedProduct{BlockedSales: true}, "sales"},
+		{"transfer_order", domain.ReleasedProduct{BlockedInventory: true}, "inventory"},
+		{"production_order", domain.ReleasedProduct{BlockedProduction: true}, "production"},
+	}
+	for _, c := range cases {
+		c.rp.LifecycleState = domain.StateActive
+		dec := domain.EvaluateProcessPolicy(c.process, c.rp, domain.StateActive, states)
+		if dec.Policy != "block" || !strings.Contains(dec.Detail, "blocked for "+c.module) || !strings.Contains(dec.Detail, "Ask a product data steward") {
+			t.Fatalf("%s: %+v", c.process, dec)
+		}
+		if strings.Contains(dec.Detail, c.process) || strings.Contains(dec.Detail, "PRD-") {
+			t.Fatalf("%s: detail carries a code: %q", c.process, dec.Detail)
+		}
 	}
 }
 

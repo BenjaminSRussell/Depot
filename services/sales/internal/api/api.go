@@ -19,6 +19,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/authz"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/productblock"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/sales/internal/store"
 )
@@ -91,9 +92,27 @@ type API struct {
 	groups     CustomerGroupSource
 	names      ProductNamer
 	pricer     PortalPricer
+	blocks     productblock.Checker
 
 	portalWindowDays int
 	opening          *openingDeps
+}
+
+func (a *API) WithProductBlocks(c productblock.Checker) *API {
+	a.blocks = c
+	return a
+}
+
+func (a *API) checkBlocks(ctx context.Context, legalEntityID, process string, lines []store.Line) error {
+	if a.blocks == nil {
+		return nil
+	}
+	for _, l := range lines {
+		if err := a.blocks.Check(ctx, legalEntityID, l.ProductID, process); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // New returns the API over s.

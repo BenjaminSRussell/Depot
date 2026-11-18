@@ -14,6 +14,7 @@ import (
 
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/productblock"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/sales/internal/domain"
 	"github.com/BenjaminSRussell/depot/services/sales/internal/store"
@@ -251,6 +252,9 @@ func (a *API) submitOrder(ctx context.Context, p tenant.Principal, req createOrd
 	}
 	if !tenant.InLegalEntityScope(p, in.LegalEntityID) {
 		return store.Order{}, false, httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "the order's legal entity is outside the caller's scope")
+	}
+	if err := a.checkBlocks(ctx, in.LegalEntityID, productblock.SalesOrder, in.Lines); err != nil {
+		return store.Order{}, false, err
 	}
 	if err := a.checkConfigurations(ctx, in.LegalEntityID, in.Lines); err != nil {
 		return store.Order{}, false, err

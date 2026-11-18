@@ -12,6 +12,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
 	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/productblock"
 	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
 	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
@@ -98,6 +99,18 @@ func (b orderBody) lineNumbers() []int {
 	return out
 }
 
+func (a *API) checkBlocks(ctx context.Context, legalEntityID, process string, productIDs []string) error {
+	if a.blocks == nil {
+		return nil
+	}
+	for _, id := range productIDs {
+		if err := a.blocks.Check(ctx, legalEntityID, id, process); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (a *API) createOrder(w http.ResponseWriter, r *http.Request) {
 	if _, err := principal(r.Context()); err != nil {
 		fail(w, r, err)
@@ -125,6 +138,14 @@ func (a *API) createOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	po, err := a.buildOrder(r.Context(), body)
 	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	productIDs := make([]string, len(po.Lines))
+	for i, l := range po.Lines {
+		productIDs[i] = l.ProductID
+	}
+	if err := a.checkBlocks(r.Context(), po.LegalEntityID, productblock.PurchaseOrder, productIDs); err != nil {
 		fail(w, r, err)
 		return
 	}

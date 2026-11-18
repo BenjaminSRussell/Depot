@@ -23,6 +23,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/authz"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/productblock"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/purchasing/internal/budget"
 	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
@@ -94,6 +95,7 @@ type API struct {
 	budget      budget.Port
 	opening     *openingDeps
 	budgetQueue budget.Queue
+	blocks      productblock.Checker
 
 	requisitionsCreated       atomic.Int64
 	requisitionsSubmitted     atomic.Int64
@@ -161,6 +163,11 @@ func New(s store.Store) *API {
 // WithMemberships replaces the group membership source.
 func (a *API) WithMemberships(m Memberships) *API {
 	a.memberships = m
+	return a
+}
+
+func (a *API) WithProductBlocks(c productblock.Checker) *API {
+	a.blocks = c
 	return a
 }
 

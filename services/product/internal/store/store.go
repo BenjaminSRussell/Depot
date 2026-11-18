@@ -56,6 +56,7 @@ type Store interface {
 	SetAttributes(ctx context.Context, productID string, values map[string]string) error
 	AddRelation(ctx context.Context, in domain.Relation) ([]domain.Relation, error)
 	EvaluatePolicy(ctx context.Context, releasedID, process string) (domain.ProcessDecision, error)
+	EvaluatePolicyByProduct(ctx context.Context, productID, legalEntityID, process string) (domain.ProcessDecision, error)
 	ConvertUOM(ctx context.Context, productID, from, to, qty string) (string, error)
 	Search(ctx context.Context, q string, limit int) ([]domain.Product, error)
 	SeedLifecycle(ctx context.Context) error
@@ -925,13 +926,33 @@ func (s *Postgres) AddRelation(ctx context.Context, in domain.Relation) ([]domai
 }
 
 func (s *Postgres) EvaluatePolicy(ctx context.Context, releasedID, process string) (domain.ProcessDecision, error) {
+	return s.evaluatePolicy(ctx, process, func(context.Context, pgx.Tx, string) (string, error) { return releasedID, nil })
+}
+
+func (s *Postgres) EvaluatePolicyByProduct(ctx context.Context, productID, legalEntityID, process string) (domain.ProcessDecision, error) {
+	dec, err := s.evaluatePolicy(ctx, process, func(ctx context.Context, tx pgx.Tx, tenantID string) (string, error) {
+		var id string
+		err := tx.QueryRow(ctx, `select id::text from released_product where tenant_id=$1 and product_id=$2 and legal_entity_id=$3`, tenantID, productID, legalEntityID).Scan(&id)
+		return id, err
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return dec, httpx.NewProblem(http.StatusNotFound, "COM-0001", "released product not found")
+	}
+	return dec, err
+}
+
+func (s *Postgres) evaluatePolicy(ctx context.Context, process string, releasedID func(context.Context, pgx.Tx, string) (string, error)) (domain.ProcessDecision, error) {
 	p, err := principal(ctx)
 	if err != nil {
 		return domain.ProcessDecision{}, err
 	}
 	var dec domain.ProcessDecision
 	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		rp, err := s.loadReleased(ctx, tx, p.TenantID, releasedID)
+		id, err := releasedID(ctx, tx, p.TenantID)
+		if err != nil {
+			return err
+		}
+		rp, err := s.loadReleased(ctx, tx, p.TenantID, id)
 		if err != nil {
 			return err
 		}

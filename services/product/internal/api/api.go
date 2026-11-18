@@ -125,6 +125,7 @@ func (a *API) Register(r chi.Router) {
 	r.With(authz.RequireDuty(dutyView)).Get("/v1/product/released-products/{id}/site-defaults/{siteId}", a.getSiteDefault)
 	r.With(authz.RequireDuty(dutyView)).Get("/v1/product/released-products/{id}/process-policy", a.processPolicy)
 	r.With(authz.RequireDuty(dutyGTIN)).Post("/v1/product/gtins", a.allocateGTIN)
+	r.With(authz.RequireDuty(dutyView)).Get("/v1/product/products/{productId}/process-policy", a.processPolicyByProduct)
 	r.With(authz.RequireDuty(dutyView)).Post("/v1/product/gtins:validate", a.validateGTIN)
 	r.With(authz.RequireDuty(dutyView)).Get("/v1/product/gtins/{gtin}", a.getGTIN)
 	r.With(authz.RequireAnyDuty(dutyView, dutyUOMConvert)).Get("/v1/product/uom/convert", a.convert)
@@ -716,6 +717,29 @@ func (a *API) processPolicy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, status, dec)
+}
+
+func (a *API) processPolicyByProduct(w http.ResponseWriter, r *http.Request) {
+	if !validTenant(w, r) {
+		return
+	}
+	productID, legalEntityID, process := chi.URLParam(r, "productId"), r.URL.Query().Get("legalEntityId"), r.URL.Query().Get("process")
+	if !ids.Valid(productID) || !ids.Valid(legalEntityID) || process == "" {
+		p := httpx.NewProblem(http.StatusBadRequest, "COM-0001", "request failed validation")
+		p.Errors = map[string]string{"productId": "must be a UUID", "legalEntityId": "must be a UUID", "process": "is required"}
+		httpx.Fail(w, r, p)
+		return
+	}
+	dec, err := a.store.EvaluatePolicyByProduct(r.Context(), productID, legalEntityID, process)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	if dec.Policy == "block" {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, dec.Code, dec.Detail))
+		return
+	}
+	httpx.JSON(w, http.StatusOK, dec)
 }
 
 func (a *API) allocateGTIN(w http.ResponseWriter, r *http.Request) {

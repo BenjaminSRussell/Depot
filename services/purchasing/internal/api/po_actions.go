@@ -10,6 +10,7 @@ import (
 
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/productblock"
 	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
 	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
@@ -105,6 +106,16 @@ func (a *API) editOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	for i, n := range body.lineNos {
 		next.Lines[i].LineNo = n
+	}
+	var changedProductIDs []string
+	for i, l := range next.Lines {
+		if keep := body.Lines[i].keep; keep == nil || keep.ProductID != l.ProductID {
+			changedProductIDs = append(changedProductIDs, l.ProductID)
+		}
+	}
+	if err := a.checkBlocks(r.Context(), next.LegalEntityID, productblock.PurchaseOrder, changedProductIDs); err != nil {
+		fail(w, r, err)
+		return
 	}
 	// FR-17.20: the vendor of a PO never changes and an existing line keeps its category,
 	// so only the lines this edit adds are checked.

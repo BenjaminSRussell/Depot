@@ -184,6 +184,13 @@ func TestReleaseAndIdentifierAndPolicy(t *testing.T) {
 	if err != nil || dec.Code != domain.CodeLCBlocked {
 		t.Fatalf("policy %+v %v", dec, err)
 	}
+	byProduct, err := s.EvaluatePolicyByProduct(ctx, p.ID, testkit.TenantID(9), "purchase_order")
+	if err != nil || byProduct.Code != domain.CodeLCBlocked {
+		t.Fatalf("policy by product %+v %v", byProduct, err)
+	}
+	if _, err := s.EvaluatePolicyByProduct(ctx, p.ID, testkit.TenantID(8), "purchase_order"); err == nil {
+		t.Fatal("a product not released in the legal entity must answer not found")
+	}
 }
 
 func TestExplodeLimitPagesAndListReleasedIDsKeyset(t *testing.T) {
