@@ -560,6 +560,15 @@ func TestRoleAssignmentRejections(t *testing.T) {
 		if p.Errors["validTo"] == "" {
 			t.Fatalf("errors = %v", p.Errors)
 		}
+		for name, body := range map[string]map[string]any{
+			"no end date":      {"userId": userID, "role": "audit.auditor"},
+			"91 days":          {"userId": userID, "role": "audit.auditor", "validTo": now.Add(91 * 24 * time.Hour)},
+			"end date in past": {"userId": userID, "role": "audit.auditor", "validTo": now.Add(-time.Hour)},
+		} {
+			if p := wantProblem(t, assign(c, body), http.StatusBadRequest, "COM-0001"); p.Errors["validTo"] == "" {
+				t.Fatalf("%s: errors = %v", name, p.Errors)
+			}
+		}
 		wantProblem(t, f.do(c, http.MethodGet, "/v1/authz/assignments", nil), http.StatusBadRequest, "COM-0001")
 		wantProblem(t, f.do(c, http.MethodGet, "/v1/authz/assignments?userId=x", nil), http.StatusBadRequest, "COM-0001")
 		wantProblem(t, f.do(c, http.MethodGet, "/v1/authz/assignments/x", nil), http.StatusBadRequest, "COM-0001")

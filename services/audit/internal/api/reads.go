@@ -107,7 +107,7 @@ func readFilter(w http.ResponseWriter, r *http.Request) (store.ReadFilter, bool)
 		bad["to"] = "must be after from"
 	}
 	if len(bad) > 0 {
-		pr := httpx.NewProblem(http.StatusBadRequest, domain.CodeReadQuery, "the read-log filter is not valid")
+		pr := httpx.NewProblem(http.StatusBadRequest, domain.CodeReadQuery, "the filter is not valid")
 		pr.Errors = bad
 		httpx.Fail(w, r, pr)
 		return f, false
@@ -124,23 +124,9 @@ func (a *API) listReads(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	f.Limit = defaultReadLimit
-	if v := r.URL.Query().Get("limit"); v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 1 || n > maxReadLimit {
-			badQuery(w, r, "limit", "must be a whole number from 1 to "+strconv.Itoa(maxReadLimit))
-			return
-		}
-		f.Limit = n
-	}
-	if v := r.URL.Query().Get("cursor"); v != "" {
-		raw, err := base64.RawURLEncoding.DecodeString(v)
-		seq, perr := strconv.ParseInt(string(raw), 10, 64)
-		if err != nil || perr != nil || seq < 1 {
-			badQuery(w, r, "cursor", "is not a cursor this service issued")
-			return
-		}
-		f.AfterSeq = seq
+	var pageOK bool
+	if f.Limit, f.AfterSeq, pageOK = pageParams(w, r); !pageOK {
+		return
 	}
 	want := f.Limit
 	f.Limit = want + 1
@@ -152,14 +138,41 @@ func (a *API) listReads(w http.ResponseWriter, r *http.Request) {
 	out := map[string]any{}
 	if len(rows) > want {
 		rows = rows[:want]
-		out["nextCursor"] = base64.RawURLEncoding.EncodeToString([]byte(strconv.FormatInt(rows[want-1].Seq, 10)))
+		out["nextCursor"] = nextCursor(rows[want-1].Seq)
 	}
 	out["items"] = rows
 	httpx.JSON(w, http.StatusOK, out)
 }
 
+// pageParams parses limit and cursor; ok is false once a problem was written.
+func pageParams(w http.ResponseWriter, r *http.Request) (limit int, afterSeq int64, ok bool) {
+	limit = defaultReadLimit
+	if v := r.URL.Query().Get("limit"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > maxReadLimit {
+			badQuery(w, r, "limit", "must be a whole number from 1 to "+strconv.Itoa(maxReadLimit))
+			return 0, 0, false
+		}
+		limit = n
+	}
+	if v := r.URL.Query().Get("cursor"); v != "" {
+		raw, err := base64.RawURLEncoding.DecodeString(v)
+		seq, perr := strconv.ParseInt(string(raw), 10, 64)
+		if err != nil || perr != nil || seq < 1 {
+			badQuery(w, r, "cursor", "is not a cursor this service issued")
+			return 0, 0, false
+		}
+		afterSeq = seq
+	}
+	return limit, afterSeq, true
+}
+
+func nextCursor(seq int64) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(strconv.FormatInt(seq, 10)))
+}
+
 func badQuery(w http.ResponseWriter, r *http.Request, name, msg string) {
-	pr := httpx.NewProblem(http.StatusBadRequest, domain.CodeReadQuery, "the read-log filter is not valid")
+	pr := httpx.NewProblem(http.StatusBadRequest, domain.CodeReadQuery, "the filter is not valid")
 	pr.Errors = map[string]string{name: msg}
 	httpx.Fail(w, r, pr)
 }

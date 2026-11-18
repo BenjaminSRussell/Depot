@@ -2416,8 +2416,14 @@
     "fulfillment.returnable-packaging.maintain": {"permissions": [{"resource": "/v1/fulfillment/returnable-packaging:adjust", "methods": ["POST"]}]},
     "audit.read": {"tenant_level": true, "permissions": [
       {"resource": "/v1/audit/alerts", "methods": ["GET"]},
+      {"resource": "/v1/audit/records", "methods": ["GET"]},
+      {"resource": "/v1/audit/entities", "methods": ["GET"]},
       {"resource": "/v1/audit/records/*/*", "methods": ["GET"]}
     ]},
+    "audit.export": {"tenant_level": true, "permissions": [
+      {"resource": "/v1/audit/records/*/*:export", "methods": ["GET"]}
+    ]},
+    "audit.auditor": {"flag": true, "tenant_level": true, "permissions": []},
     "audit.read-log.write": {"tenant_level": true, "service_only": true, "permissions": [
       {"resource": "/v1/audit/reads", "methods": ["POST"]}
     ]},
