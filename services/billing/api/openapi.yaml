@@ -1463,6 +1463,7 @@ components:
         discountPct: { type: string, pattern: "^[0-9]{1,14}(\\.[0-9]{1,6})?$", description: "Percent 0 to 100." }
         revenueAccount: { type: string, pattern: "^[A-Za-z0-9._-]{1,20}$", description: "Ledger account; missing returns the field error ending (BIL-0004)." }
         taxCode: { type: string, pattern: "^[A-Z0-9_-]{1,20}$", description: "Tax code quoted by the tax engine (FR-29.4)." }
+        tax: { type: string, pattern: "^[0-9]+(\\.[0-9]{1,6})?$", description: "Caller-supplied line tax, used when the request has no shipTo; zero when omitted." }
     ShipmentProposalRequest:
       type: object
       required: [legalEntityId, customerId, invoiceAccountId, currency, invoiceDate, paymentTermDays, slips]

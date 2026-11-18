@@ -89,8 +89,8 @@ Invoice tax is the wave-13 tax engine's answer (`POST /v1/tax/calculate` at `TAX
 signed as `billing-tax-calc`). A shipment proposal may carry `shipTo`
 (`country`, `taxGroup`, `taxId`, `certificate`) and each slip line an `itemTaxGroup`; they are
 the engine's `party` and `item_tax_group`, are stored with the proposal, and the post-time
-re-quote repeats them. The line's `taxCode` becomes the engine's code (the largest tax
-when it returns several). With `TAX_URL` unset the engine is `api.UnavailableTax`: every
+re-quote repeats them. Without `shipTo` the engine is not called: the line keeps the caller's `taxCode` and optional `tax` (zero when omitted). The line's `taxCode` becomes the engine's code (the largest tax
+when it returns several). With `shipTo` and `TAX_URL` unset the engine is `api.UnavailableTax`: every
 proposal and post fails closed with `BIL-0001` and nothing is booked with silent zero tax.
 An engine refusal (422) is `BIL-0102`.
 

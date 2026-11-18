@@ -81,7 +81,7 @@ func shipmentBody(consolidate bool, slips ...testSlip) string {
 		ss = append(ss, slip)
 	}
 	raw, _ := json.Marshal(map[string]any{"legalEntityId": leID, "customerId": custID, "invoiceAccountId": acctID, "currency": "EUR",
-		"invoiceDate": "2027-03-10", "paymentTermDays": 30, "consolidate": consolidate, "slips": ss})
+		"invoiceDate": "2027-03-10", "paymentTermDays": 30, "consolidate": consolidate, "shipTo": json.RawMessage(germanShipTo), "slips": ss})
 	return string(raw)
 }
 
@@ -230,7 +230,7 @@ func TestShipmentProposals_Refusals(t *testing.T) {
 const germanShipTo = `{"country":"DE","taxGroup":"B2B","taxId":"DE123456789","certificate":"CERT-1"}`
 
 func withShipTo(body, shipTo string) string {
-	return strings.Replace(body, `"slips":`, `"shipTo":`+shipTo+`,"slips":`, 1)
+	return strings.Replace(body, `"shipTo":`+germanShipTo, `"shipTo":`+shipTo, 1)
 }
 
 func withItemTaxGroup(body, group string) string {
@@ -273,14 +273,14 @@ func TestShipmentProposals_TaxEqualsEngineResult(t *testing.T) {
 	}
 }
 
-func TestShipmentProposals_WithoutShipToKeepsCallersTaxCode(t *testing.T) {
+func TestShipmentProposals_WithoutShipToSkipsTheEngine(t *testing.T) {
 	s := newFakeStore()
 	tax := &fakeTax{perLine: "19.00"}
-	rec := do(setup(t, s, tax), http.MethodPost, "/v1/billing/proposals", "ship-nst", shipmentBody(false, slipA))
+	rec := do(setup(t, s, tax), http.MethodPost, "/v1/billing/proposals", "ship-nst", strings.Replace(shipmentBody(false, slipA), `"shipTo":`+germanShipTo+`,`, "", 1))
 	var got proposalBatchDTO
 	decode(t, rec, &got)
-	if rec.Code != http.StatusCreated || tax.inputs[0].ShipTo != nil || got.Items[0].Lines[0].TaxCode != "DE19" || s.invoices[got.Items[0].ID].ShipTo != nil {
-		t.Fatalf("status %d, engine input %+v, line %+v", rec.Code, tax.inputs[0], got.Items[0].Lines[0])
+	if rec.Code != http.StatusCreated || len(tax.inputs) != 0 || got.Items[0].Lines[0].TaxCode != "DE19" || s.invoices[got.Items[0].ID].ShipTo != nil {
+		t.Fatalf("status %d, engine inputs %+v, line %+v", rec.Code, tax.inputs, got.Items[0].Lines[0])
 	}
 }
 

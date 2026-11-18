@@ -197,6 +197,7 @@ type lineDTO struct {
 	DiscountPct    string `json:"discountPct,omitempty"`
 	RevenueAccount string `json:"revenueAccount"`
 	TaxCode        string `json:"taxCode"`
+	Tax            string `json:"tax,omitempty"`
 }
 
 // installmentTermDTO is one installment of the payment terms: a percentage of
@@ -395,7 +396,7 @@ func (a *API) createProposal(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusOK, toDTO(existing))
 		return
 	}
-	quote, err := a.tax.Quote(r.Context(), QuoteInput{LegalEntityID: inv.LegalEntityID, Currency: inv.Currency, Date: inv.InvoiceDate, Lines: lines})
+	quote, err := a.quote(r.Context(), QuoteInput{LegalEntityID: inv.LegalEntityID, Currency: inv.Currency, Date: inv.InvoiceDate, Lines: lines})
 	if err != nil {
 		httpx.Fail(w, r, taxProblem(err))
 		return
@@ -533,6 +534,9 @@ func toLineAt(prefix string, no int, l lineDTO, fields map[string]string) domain
 	}
 	ok := parse("qty", l.Qty, &out.Qty)
 	ok = parse("unitPrice", l.UnitPrice, &out.UnitPrice) && ok
+	if l.Tax != "" {
+		ok = parse("tax", l.Tax, &out.SuppliedTax) && ok
+	}
 	if l.DiscountPct != "" {
 		ok = parse("discountPct", l.DiscountPct, &out.DiscountPct) && ok
 	}
@@ -689,8 +693,9 @@ func (a *API) postInvoice(w http.ResponseWriter, r *http.Request) {
 	lines := make([]domain.Line, len(inv.Lines))
 	for i, l := range inv.Lines {
 		lines[i] = l.Line
+		lines[i].SuppliedTax = l.Tax
 	}
-	quote, err := a.tax.Quote(r.Context(), QuoteInput{LegalEntityID: inv.LegalEntityID, Currency: inv.Currency, Date: inv.InvoiceDate, ShipTo: inv.ShipTo, Lines: lines})
+	quote, err := a.quote(r.Context(), QuoteInput{LegalEntityID: inv.LegalEntityID, Currency: inv.Currency, Date: inv.InvoiceDate, ShipTo: inv.ShipTo, Lines: lines})
 	if err != nil {
 		a.postsRefused.Add(1)
 		httpx.Fail(w, r, taxProblem(err))

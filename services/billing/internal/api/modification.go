@@ -187,7 +187,7 @@ func (a *API) billModification(w http.ResponseWriter, r *http.Request) {
 				lines = append(lines, domain.Line{No: i + 1, Description: desc, Qty: decimal.NewFromInt(1), UnitPrice: amounts[p], DiscountPct: decimal.Zero,
 					RevenueAccount: src.RevenueAccount, TaxCode: src.TaxCode})
 			}
-			quote, err := a.tax.Quote(r.Context(), QuoteInput{LegalEntityID: req.LegalEntityID, Currency: req.Currency, Date: effective, Lines: lines})
+			quote, err := a.quote(r.Context(), QuoteInput{LegalEntityID: req.LegalEntityID, Currency: req.Currency, Date: effective, Lines: lines})
 			if err != nil {
 				return store.Invoice{}, taxProblem(err)
 			}

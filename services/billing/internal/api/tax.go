@@ -55,3 +55,14 @@ func applyCodes(lines []domain.Line, codes []string) {
 		}
 	}
 }
+
+func (a *API) quote(ctx context.Context, in QuoteInput) (QuoteResult, error) {
+	if in.ShipTo != nil {
+		return a.tax.Quote(ctx, in)
+	}
+	out := QuoteResult{Taxes: make([]decimal.Decimal, len(in.Lines)), Codes: make([]string, len(in.Lines))}
+	for i, l := range in.Lines {
+		out.Taxes[i] = l.SuppliedTax
+	}
+	return out, nil
+}

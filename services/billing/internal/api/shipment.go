@@ -138,7 +138,7 @@ func (a *API) createShipmentProposals(w http.ResponseWriter, r *http.Request) {
 	exp := money.MinorUnits(req.Currency)
 	invs := make([]store.Invoice, 0, len(plans))
 	for i, plan := range plans {
-		quote, err := a.tax.Quote(r.Context(), QuoteInput{LegalEntityID: req.LegalEntityID, Currency: req.Currency, Date: invoiceDate, ShipTo: req.ShipTo, Lines: plan.Lines})
+		quote, err := a.quote(r.Context(), QuoteInput{LegalEntityID: req.LegalEntityID, Currency: req.Currency, Date: invoiceDate, ShipTo: req.ShipTo, Lines: plan.Lines})
 		if err != nil {
 			httpx.Fail(w, r, taxProblem(err))
 			return

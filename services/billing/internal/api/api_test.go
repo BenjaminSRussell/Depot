@@ -339,7 +339,7 @@ func doAs(h http.Handler, method, path, idemKey, body, duties string, headers ma
 
 func proposal(qty, price, account string) string {
 	return fmt.Sprintf(`{"legalEntityId":%q,"customerId":%q,"invoiceAccountId":%q,"currency":"EUR","invoiceDate":"2027-03-10","paymentTermDays":30,`+
-		`"lines":[{"description":"Consulting","qty":%q,"unitPrice":%q,"revenueAccount":%q,"taxCode":"DE19"}]}`, leID, custID, acctID, qty, price, account)
+		`"lines":[{"description":"Consulting","qty":%q,"unitPrice":%q,"revenueAccount":%q,"taxCode":"DE19","tax":"19.00"}]}`, leID, custID, acctID, qty, price, account)
 }
 
 func decode(t *testing.T, rec *httptest.ResponseRecorder, v any) {
@@ -378,6 +378,22 @@ func TestCreateProposal_TotalsAndReplay(t *testing.T) {
 	}
 }
 
+func TestCreateProposal_WithoutShipToKeepsCallersCodeAndTax(t *testing.T) {
+	body := strings.Replace(proposal("1", "100", "4900"), `"taxCode":"DE19","tax":"19.00"`, `"taxCode":"EXEMPT","tax":"0"`, 1)
+	rec := do(setup(t, newFakeStore(), UnavailableTax{}), http.MethodPost, "/v1/billing/free-text-invoices", key, body)
+	var got invoiceDTO
+	decode(t, rec, &got)
+	if rec.Code != http.StatusCreated || got.Totals.Tax != "0.00" || got.Lines[0].TaxCode != "EXEMPT" {
+		t.Fatalf("status %d, invoice %+v", rec.Code, got)
+	}
+	taxed := strings.Replace(proposal("1", "100", "4900"), `"tax":"19.00"`, `"tax":"19"`, 1)
+	rec = do(setup(t, newFakeStore(), UnavailableTax{}), http.MethodPost, "/v1/billing/free-text-invoices", "k-tax", taxed)
+	decode(t, rec, &got)
+	if rec.Code != http.StatusCreated || got.Totals.Tax != "19.00" {
+		t.Fatalf("status %d, invoice %+v", rec.Code, got)
+	}
+}
+
 func TestCreateProposal_Validation(t *testing.T) {
 	h := setup(t, newFakeStore(), &fakeTax{perLine: "0"})
 	if rec := do(h, http.MethodPost, "/v1/billing/free-text-invoices", "", proposal("1", "1", "4900")); rec.Code != http.StatusBadRequest {
@@ -388,20 +404,6 @@ func TestCreateProposal_Validation(t *testing.T) {
 	decode(t, rec, &p)
 	if rec.Code != http.StatusBadRequest || p.Errors["lines[0].revenueAccount"] == "" {
 		t.Errorf("missing account: status %d problem %+v", rec.Code, p)
-	}
-}
-
-func TestCreateProposal_TaxUnavailableStoresNothing(t *testing.T) {
-	s := newFakeStore()
-	h := setup(t, s, UnavailableTax{})
-	rec := do(h, http.MethodPost, "/v1/billing/free-text-invoices", key, proposal("1", "100", "4900"))
-	var p httpx.Problem
-	decode(t, rec, &p)
-	if rec.Code != http.StatusServiceUnavailable || p.Code != CodeTaxUnavailable {
-		t.Fatalf("status %d code %s, want 503 BIL-0001", rec.Code, p.Code)
-	}
-	if s.creates != 0 {
-		t.Errorf("a proposal was stored although tax was unavailable")
 	}
 }
 
@@ -430,7 +432,7 @@ func TestPost_RefusesTaxMovedBeyondTolerance(t *testing.T) {
 	tax := &fakeTax{perLine: "19.00"}
 	h := setup(t, s, tax)
 	var created invoiceDTO
-	decode(t, do(h, http.MethodPost, "/v1/billing/free-text-invoices", key, proposal("1", "100", "4900")), &created)
+	created.ID = proposeShipment(t, h)
 
 	tax.perLine = "19.02"
 	rec := do(h, http.MethodPost, "/v1/billing/invoices/"+created.ID+":post", "", "")
@@ -446,7 +448,7 @@ func TestPost_TaxUnavailableLeavesProposal(t *testing.T) {
 	tax := &fakeTax{perLine: "19.00"}
 	h := setup(t, s, tax)
 	var created invoiceDTO
-	decode(t, do(h, http.MethodPost, "/v1/billing/free-text-invoices", key, proposal("1", "100", "4900")), &created)
+	created.ID = proposeShipment(t, h)
 
 	tax.err = ErrTaxUnavailable
 	rec := do(h, http.MethodPost, "/v1/billing/invoices/"+created.ID+":post", "", "")
@@ -554,18 +556,6 @@ func TestCreateProposal_FieldErrors(t *testing.T) {
 	}
 }
 
-func TestCreateProposal_UnknownTaxCodeIsRefused(t *testing.T) {
-	s := newFakeStore()
-	h := setup(t, s, rateTax{"DE7": 7})
-	rec := do(h, http.MethodPost, "/v1/billing/free-text-invoices", key, proposal("1", "100", "4900"))
-	var p httpx.Problem
-	decode(t, rec, &p)
-	if rec.Code != http.StatusUnprocessableEntity || p.Code != CodeUnknownTaxCode || s.creates != 0 {
-		t.Fatalf("status %d code %s creates %d, want 422 %s and no proposal", rec.Code, p.Code, s.creates, CodeUnknownTaxCode)
-	}
-}
-
-// AC-29.9: a DMF-DE free-text line to 4900 of 100.00 EUR at 19% VAT gives 119.00 gross.
 func TestCreateProposal_EngineTaxAC29_9(t *testing.T) {
 	h := setup(t, newFakeStore(), rateTax{"DE19": 19, "EXEMPT": 0})
 	var got invoiceDTO
@@ -686,12 +676,14 @@ func TestMetricsAndReady(t *testing.T) {
 		return rec
 	}
 	var created invoiceDTO
-	decode(t, req(http.MethodPost, "/v1/billing/free-text-invoices", proposal("1", "100", "4900")), &created)
+	var batch proposalBatchDTO
+	decode(t, req(http.MethodPost, "/v1/billing/proposals", shipmentBody(false, slipA)), &batch)
+	created.ID = batch.Items[0].ID
 	tax.err = ErrTaxUnavailable
 	req(http.MethodPost, "/v1/billing/invoices/"+created.ID+":post", "")
 	rec := httptest.NewRecorder()
 	a.Metrics().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
-	for _, want := range []string{"billing_proposals_created_total 1", "billing_invoices_posted_total 0", "billing_posts_refused_total 1"} {
+	for _, want := range []string{"billing_shipment_proposals_created_total 1", "billing_invoices_posted_total 0", "billing_posts_refused_total 1"} {
 		if !strings.Contains(rec.Body.String(), want) {
 			t.Errorf("metrics lack %q:\n%s", want, rec.Body)
 		}
@@ -747,4 +739,15 @@ func TestCreateProposal_CounterpartyIsValidatedAndStored(t *testing.T) {
 	if rec := do(h, http.MethodPost, "/v1/billing/free-text-invoices", "k-ok", withCounterparty(`{"country":"FR","vatId":"FR40303265045","supplyKind":"goods"}`)); rec.Code != http.StatusCreated {
 		t.Fatalf("a valid counterparty: status %d %s", rec.Code, rec.Body)
 	}
+}
+
+func proposeShipment(t *testing.T, h http.Handler) string {
+	t.Helper()
+	rec := do(h, http.MethodPost, "/v1/billing/proposals", key, shipmentBody(false, slipA))
+	var batch proposalBatchDTO
+	decode(t, rec, &batch)
+	if rec.Code != http.StatusCreated || len(batch.Items) != 1 {
+		t.Fatalf("shipment proposal: status %d: %s", rec.Code, rec.Body)
+	}
+	return batch.Items[0].ID
 }

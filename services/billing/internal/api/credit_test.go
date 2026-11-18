@@ -16,8 +16,8 @@ import (
 func postedInvoice(t *testing.T, h http.Handler) invoiceDTO {
 	t.Helper()
 	body := fmt.Sprintf(`{"legalEntityId":%q,"customerId":%q,"invoiceAccountId":%q,"currency":"EUR","invoiceDate":"2027-03-10","paymentTermDays":30,"chargeAmount":"10",`+
-		`"lines":[{"description":"Consulting","qty":"3","unitPrice":"33.33","revenueAccount":"4900","taxCode":"DE19"},`+
-		`{"description":"Workshop","qty":"1","unitPrice":"100","revenueAccount":"4910","taxCode":"DE19"}]}`, leID, custID, acctID)
+		`"lines":[{"description":"Consulting","qty":"3","unitPrice":"33.33","revenueAccount":"4900","taxCode":"DE19","tax":"19.00"},`+
+		`{"description":"Workshop","qty":"1","unitPrice":"100","revenueAccount":"4910","taxCode":"DE19","tax":"19.00"}]}`, leID, custID, acctID)
 	rec := do(h, http.MethodPost, "/v1/billing/free-text-invoices", "inv-"+t.Name(), body)
 	var created invoiceDTO
 	decode(t, rec, &created)
