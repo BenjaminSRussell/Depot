@@ -176,10 +176,6 @@ func reportingRate(ctx context.Context, ledger Ledger, date time.Time) (decimal.
 
 func applyReporting(ctx context.Context, ledger Ledger, date time.Time, lines []domain.ValidLine) error {
 	rate, ok, err := reportingRate(ctx, ledger, date)
-	if err != nil && !slices.ContainsFunc(lines, func(l domain.ValidLine) bool { return l.CurrencyTxn != "" }) {
-		slog.WarnContext(ctx, "reporting amount left empty: no reporting rate for a domestic entry", "err", err, "ledger", ledger.Code, "correlationId", middleware.GetReqID(ctx))
-		return nil
-	}
 	if err != nil || !ok {
 		return err
 	}

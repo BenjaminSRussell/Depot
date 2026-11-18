@@ -244,22 +244,19 @@ func TestPostgres_DatabaseRejectsEntryUnbalancedInOneTransactionCurrency(t *test
 	}
 }
 
-func TestPostgres_DomesticPostWithoutReportingRateStoresNoReportingAmount(t *testing.T) {
+func TestPostgres_DomesticPostFailsWhenTheReportingRateCannotBeResolved(t *testing.T) {
 	e, _ := setup(t)
 	setReporting(t, e, "GBP")
 	for name, ctx := range map[string]context.Context{
 		"source has no pair": WithRateSource(e.ctx, &stubRates{rates: map[string]string{}}),
 		"fx unreachable":     WithRateSource(e.ctx, &stubRates{err: errors.New("connection refused")}),
 	} {
-		out, err := e.store.PostEntry(ctx, vendorInvoice(e.ledger.ID, "FX-DOM-"+name, "10.00"))
-		if err != nil {
-			t.Fatalf("%s: a domestic post must not need a reporting rate: %v", name, err)
+		if _, err := e.store.PostEntry(ctx, vendorInvoice(e.ledger.ID, "FX-DOM-"+name, "10.00")); err == nil {
+			t.Errorf("%s: an entry without its reporting amount must not be posted", name)
 		}
-		for _, l := range out.Entries[0].Lines {
-			if l.Amount != "10.00" || l.ReportingAmount != "" {
-				t.Errorf("%s: line %s: %+v", name, l.Account, l)
-			}
-		}
+	}
+	if n := entryCountOf(t, e); n != 0 {
+		t.Fatalf("got %d entries", n)
 	}
 }
 
