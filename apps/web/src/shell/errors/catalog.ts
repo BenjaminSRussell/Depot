@@ -791,6 +791,7 @@ const ledgerPostingGaps: Record<string, ProblemCatalogEntry> = {
   LEDGER_PERIOD_CHECK: { message: "The accounting period couldn't be checked for this posting.", action: TRY_LATER },
   LEDGER_PERIOD_LOCK_BUSY: { message: "Postings were still being saved, so the period's status didn't change.", action: TRY_LATER },
   LEDGER_PERIOD_LOCK_STALE: { message: "The ledger already has a newer status for this period.", action: "Reload the page to see the period's current status." },
+  LEDGER_RATE_OVERRIDE_REASON: { message: "A different exchange rate than the stored one needs a reason.", action: "Enter why the rate was changed, then post again." },
   LEDGER_PERIOD_STATUS_UNAVAILABLE: { message: "The accounting period status isn't available right now.", action: TRY_LATER },
   LEDGER_QUANTITY_INVALID: { message: "A line quantity isn't valid.", action: "Enter a quantity the account allows." },
   LEDGER_TRADING_PARTNER_INVALID: { message: "A line names a trading partner that isn't a legal entity of this company group, or is the entity that owns the ledger.", action: "Choose the other legal entity of the intercompany transaction, or leave the trading partner empty." },
@@ -868,6 +869,7 @@ const tax: Record<string, ProblemCatalogEntry> = {
   "TAX-0012": { message: "The ledger data can't be turned into a valid tax audit file.", action: TRY_LATER },
   "TAX-0013": { message: "This tax setup item is still used by something else, so it can't be deleted.", action: "Remove it from the jurisdictions, tax groups or return boxes that use it, then try again." },
   "TAX-0014": { message: "No withholding is waiting to be remitted in this period.", action: "Check the dates, or record the payments that withheld tax first." },
+  "TAX-0015": { message: "One of the tax codes on this document has no ledger account set up, so its tax line was left out.", action: "Add the tax code to the tax ledger configuration, then calculate again." },
 };
 
 const product: Record<string, ProblemCatalogEntry> = {

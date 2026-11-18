@@ -367,11 +367,12 @@ func TestSettleThroughTheRouterReconcilesToTheLedger(t *testing.T) {
 }
 
 type settlementHarness struct {
-	t      *testing.T
-	router http.Handler
-	api    *api.API
-	fake   *ledgerclient.Fake
-	entity string
+	ledgerID string
+	t        *testing.T
+	router   http.Handler
+	api      *api.API
+	fake     *ledgerclient.Fake
+	entity   string
 }
 
 func newSettlementHarness(t *testing.T) settlementHarness {
@@ -383,6 +384,7 @@ func newSettlementHarness(t *testing.T) settlementHarness {
 	h := settlementHarness{t: t, fake: ledgerclient.NewFake(), entity: ids.New()}
 	ledgerID := ids.New()
 	h.fake.AddLedger(ledgerID, h.entity)
+	h.ledgerID = ledgerID
 	for key, lines := range map[string][]ledgerclient.Line{
 		"sale":     {{Account: "1200", Amount: decimal.RequireFromString("19.00")}, {Account: "2200", Credit: true, Amount: decimal.RequireFromString("19.00")}},
 		"purchase": {{Account: "1400", Amount: decimal.RequireFromString("5.00")}, {Account: "2100", Credit: true, Amount: decimal.RequireFromString("5.00")}},
@@ -504,6 +506,11 @@ func TestRunSettlement_StuckRunDoesNotBlockALaterPeriod(t *testing.T) {
 	record := `{"transactions":[{"id":"` + ids.New() + `","code":"VAT19","direction":"output","tax_date":"2026-02-10","amount":"10.00"}]}`
 	if rec := h.call(http.MethodPost, "/v1/tax/transactions", record); rec.Code != http.StatusCreated {
 		t.Fatalf("record: %d %s", rec.Code, rec.Body.String())
+	}
+	// The ledger holds the February tax too, so the settlement's reconciliation to the ledger holds.
+	if _, err := h.fake.Post(context.Background(), ledgerclient.Entry{LegalEntityID: h.entity, LedgerID: h.ledgerID, DocumentID: "feb-sale", PostingDate: "2026-02-10",
+		Currency: "EUR", IdempotencyKey: "feb-sale", Lines: []ledgerclient.Line{{Account: "1200", Amount: decimal.RequireFromString("10.00")}, {Account: "2200", Credit: true, Amount: decimal.RequireFromString("10.00")}}}); err != nil {
+		t.Fatal(err)
 	}
 	if rec := h.call(http.MethodPost, "/v1/tax/settlements:run", `{"period_from":"2026-02-01","period_to":"2026-02-28"}`); rec.Code != http.StatusCreated {
 		t.Fatalf("february blocked by the stuck january run: %d %s", rec.Code, rec.Body.String())
