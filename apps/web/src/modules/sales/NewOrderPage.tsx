@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { dutyName } from "../../shell/shared/dutyName";
 import { Link, useNavigate } from "react-router-dom";
 import { EntityLookup } from "../../shell/lookup/EntityLookup";
 import {
@@ -223,7 +224,7 @@ export function NewOrderPage() {
           {header("requestedShipDate", "Requested ship date", undefined, { type: "date" })}
           {header("externalRef", "Customer reference", "For example the customer's PO number.", { optional: true })}
           <FormSection collapse="advanced">
-            {header("listingOverrideReason", "Listing override reason", "Needs the sales.order.approve duty. Accepts lines the product listing denies and logs the reason.", { optional: true })}
+            {header("listingOverrideReason", "Listing override reason", `Needs the ${dutyName("sales.order.approve")} duty. Accepts lines the product listing denies and logs the reason.`, { optional: true })}
           </FormSection>
           <FormField id="order-oneTime" label="One-time customer" hint="Walk-in buyer sold to the shared one-time account, with the name and address on the invoice." optional>
             {(control) => (

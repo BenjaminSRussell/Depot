@@ -173,7 +173,7 @@ function Form({ initial, onReload }: { initial: SchedulingParameters; onReload: 
               </Alert>
             ) : (
               <Alert tone="danger" title="Could not save the parameters" live="alert">
-                <ProblemMessage problem={failure} /> Changing the parameters needs the scheduling.setup.write duty (Maintain scheduling setup).
+                <ProblemMessage problem={failure} /> Changing the parameters needs the Maintain scheduling setup duty.
               </Alert>
             )}
           </div>

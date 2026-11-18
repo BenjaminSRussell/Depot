@@ -70,6 +70,11 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: [/warehouse-mobile/, /\.demo\.spec/] },
     // Procure-to-pay and order-to-cash flows run against the demo build: a fake backend and every duty held.
     { name: "demo-flows", use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${DEMO_PORT}/Depot/` }, testMatch: /\.demo\.spec/ },
+    {
+      name: "demo-phone",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 }, baseURL: `http://localhost:${DEMO_PORT}/Depot/` },
+      testMatch: /a11y-routes\.demo\.spec/,
+    },
     { name: "warehouse-mobile", use: { ...devices["Pixel 5"] }, testMatch: /warehouse-mobile/ },
   ],
   webServer: [

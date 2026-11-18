@@ -323,6 +323,10 @@
   line-height: var(--text-lg-leading);
 }
 
+.topbar > * {
+  min-inline-size: 0;
+}
+
 .topbarActions {
   display: flex;
   align-items: center;
@@ -432,7 +436,75 @@
   }
 }
 
+.contextButton,
+.sheetClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 44px;
+  min-block-size: 44px;
+  padding-inline: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.sheetClose {
+  border: 0;
+  padding-inline: 0;
+}
+
+.sheetScrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--color-scrim);
+}
+
+.sheet {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: 51;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-block-size: 85vh;
+  overflow-y: auto;
+  padding: var(--space-4);
+  border-start-start-radius: var(--radius-md);
+  border-start-end-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.sheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sheetTitle {
+  margin: 0;
+  font-size: var(--text-lg-size);
+  line-height: var(--text-lg-leading);
+}
+
+.sheetActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 @media (max-width: 639px) {
+  .topbar {
+    padding-inline: var(--space-3);
+  }
+
   .breadcrumb,
   .crumbSeparator,
   .topbarActions .compactToggle {

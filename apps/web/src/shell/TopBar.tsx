@@ -1,6 +1,7 @@
-import type { RefObject } from "react";
+import { useEffect, useState, type RefObject } from "react";
 import { Link } from "react-router-dom";
 import { UserMenu } from "./auth/account";
+import { ContextSheet } from "./ContextSheet";
 import { copy } from "./copy";
 import type { PageMeta } from "./pageMeta";
 import { HelpButton } from "./help/HelpPanel";
@@ -19,7 +20,23 @@ export interface TopBarProps {
   onToggleCompact(): void;
 }
 
+const PHONE_QUERY = "(max-width: 639px)";
+
+function usePhone(): boolean {
+  const supported = typeof window !== "undefined" && typeof window.matchMedia === "function";
+  const [phone, setPhone] = useState(() => supported && window.matchMedia(PHONE_QUERY).matches);
+  useEffect(() => {
+    if (!supported) return;
+    const query = window.matchMedia(PHONE_QUERY);
+    const update = (event: MediaQueryListEvent) => setPhone(event.matches);
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, [supported]);
+  return phone;
+}
+
 export function TopBar({ page, titleRef, menuRef, drawerOpen, compact, showContext = false, onOpenDrawer, onToggleCompact }: TopBarProps) {
+  const phone = usePhone();
   const workspace = page.workspace && page.workspace.title !== page.title ? page.workspace : undefined;
   return (
     <div className={styles.topbar}>
@@ -51,14 +68,20 @@ export function TopBar({ page, titleRef, menuRef, drawerOpen, compact, showConte
       <h1 ref={titleRef} tabIndex={-1} className={styles.title}>
         {page.title}
       </h1>
-      <div className={styles.topbarActions}>
-        {showContext ? <ContextPicker /> : null}
-        <HelpButton />
-        <Button variant="ghost" size="sm" aria-pressed={compact} className={styles.compactToggle} onClick={onToggleCompact}>
-          {copy.buttons.compactView}
-        </Button>
-        <UserMenu />
-      </div>
+      {phone ? (
+        <div className={styles.topbarActions}>
+          <ContextSheet showContext={showContext} compact={compact} onToggleCompact={onToggleCompact} />
+        </div>
+      ) : (
+        <div className={styles.topbarActions}>
+          {showContext ? <ContextPicker /> : null}
+          <HelpButton />
+          <Button variant="ghost" size="sm" aria-pressed={compact} className={styles.compactToggle} onClick={onToggleCompact}>
+            {copy.buttons.compactView}
+          </Button>
+          <UserMenu />
+        </div>
+      )}
     </div>
   );
 }
