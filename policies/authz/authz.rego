@@ -79,6 +79,21 @@ decision := {"allow": false, "duty_missing": missing_duty} if {
 
 default decision := {"allow": false}
 
+data_scope := {"unrestricted": true} if {
+	input.subject.tenant_id != ""
+	input.subject.user_id != ""
+	not data.dimension_scopes[input.subject.tenant_id][input.subject.user_id]
+}
+
+data_scope := {"unrestricted": false, "dimensions": dimensions} if {
+	input.subject.tenant_id != ""
+	input.subject.user_id != ""
+	grants := data.dimension_scopes[input.subject.tenant_id][input.subject.user_id]
+	dimensions := {attribute: sort(values) |
+		some attribute, values in grants
+	}
+}
+
 granting_duties := {duty |
 	some duty, spec in data.duties
 	some permission in spec.permissions

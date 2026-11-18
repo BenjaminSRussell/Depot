@@ -4,6 +4,7 @@
 //
 //	DATABASE_URL       required, Postgres URL for the depot_reporting database
 //	MIGRATE_ON_START   "true" applies migrations at startup (dev only; not in consume mode)
+//	OPA_URL            the OPA sidecar that answers the dimension data-scope decision (unset: dimension security off)
 //	LEDGER_URL, DEPOT_SERVICE_*   balance verification when serving, and the consumer; KAFKA_* consume mode only
 //	HTTP_ADDR          listen address, default :8080
 //	REPORTING_*        tunables, validated at startup (see internal/config)
@@ -30,6 +31,7 @@ import (
 
 	"github.com/BenjaminSRussell/depot/services/finreport/internal/api"
 	"github.com/BenjaminSRussell/depot/services/finreport/internal/config"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/datascope"
 	"github.com/BenjaminSRussell/depot/services/finreport/internal/ledgerbalances"
 	"github.com/BenjaminSRussell/depot/services/finreport/internal/store"
 	"github.com/BenjaminSRussell/depot/services/finreport/internal/verify"
@@ -97,7 +99,7 @@ func runWith(ctx context.Context, getenv func(string) string, consume bool) erro
 		addr = ":8080"
 	}
 	st := store.New(pool)
-	return httpx.ServeWithMetrics(ctx, addr, newHandler(st, cfg, withVerifier(verifier(getenv, st))))
+	return httpx.ServeWithMetrics(ctx, addr, newHandler(st, cfg, withVerifier(verifier(getenv, st)), withDataScope(dataScope(getenv))))
 }
 
 // verifier builds the balance verification service when the ledger can be read
@@ -117,6 +119,22 @@ func verifier(getenv func(string) string, st *store.Postgres) api.Verifier {
 	}
 	slog.Warn("balance verification disabled", "error", err)
 	return nil
+}
+
+func dataScope(getenv func(string) string) datascope.Decider {
+	if getenv("OPA_URL") == "" {
+		slog.Warn("dimension security disabled: OPA_URL is not set")
+		return nil
+	}
+	return datascope.NewOPA(getenv("OPA_URL"))
+}
+
+func withDataScope(d datascope.Decider) func(*api.API) {
+	return func(a *api.API) {
+		if d != nil {
+			a.WithDataScope(d)
+		}
+	}
 }
 
 func withVerifier(v api.Verifier) func(*api.API) {

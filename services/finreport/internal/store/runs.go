@@ -15,6 +15,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/dbx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
 
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/datascope"
 	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
 	"github.com/BenjaminSRussell/depot/services/finreport/internal/events"
 )
@@ -49,7 +50,8 @@ type RunSpec struct {
 	// them and the definition's columns are expanded per ledger. It is
 	// refused with a tree, a hierarchy, a cash flow definition, CALC columns
 	// and any currency type but rpt.
-	Consolidation []domain.LedgerColumn
+	Consolidation  []domain.LedgerColumn
+	DimensionScope datascope.Scope
 }
 
 // TreeRun names the reporting tree and unit a run is limited to. An empty Unit
@@ -112,8 +114,9 @@ type Run struct {
 	Tree *RunTree `json:"tree,omitempty"`
 	// Consolidation lists the ledgers of a consolidated-by-entity run in column
 	// order; LedgerID is the first. Absent for a single-ledger run.
-	Consolidation []domain.LedgerColumn `json:"consolidation,omitempty"`
-	Replayed      bool                  `json:"-"`
+	Consolidation  []domain.LedgerColumn `json:"consolidation,omitempty"`
+	Replayed       bool                  `json:"-"`
+	DimensionScope string                `json:"-"`
 }
 
 // CreateRun evaluates a published definition over the reporting read model and
@@ -125,10 +128,10 @@ func (s *Postgres) CreateRun(ctx context.Context, spec RunSpec) (Run, error) {
 	started := time.Now()
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		if spec.IdempotencyKey != "" {
-			var id, hash string
-			err := tx.QueryRow(ctx, `select id::text, request_hash from statement_run where idempotency_key=$1`, spec.IdempotencyKey).Scan(&id, &hash)
+			var id, hash, scopeKey string
+			err := tx.QueryRow(ctx, `select id::text, request_hash, dimension_scope from statement_run where idempotency_key=$1`, spec.IdempotencyKey).Scan(&id, &hash, &scopeKey)
 			if err == nil {
-				if hash != spec.RequestHash {
+				if hash != spec.RequestHash || scopeKey != spec.DimensionScope.Key() {
 					return problem(422, CodeIdempotencyReuse, "Idempotency-Key was used for a different request")
 				}
 				run, err = getRunTx(ctx, tx, id)
@@ -209,17 +212,23 @@ func (s *Postgres) CreateRun(ctx context.Context, spec RunSpec) (Run, error) {
 			}
 		}
 		var hier *RunHierarchy
+		baseDef := def
+		readable := spec.DimensionScope.Filter(balances)
 		if spec.Hierarchy != nil {
 			// Appended, not assigned: a tree run over a hierarchy keeps REPORT-0041.
 			var hierChecks []domain.Check
-			if def, hier, hierChecks, err = expandRunHierarchyTx(ctx, tx, def, spec, balances); err != nil {
+			if def, hier, hierChecks, err = expandRunHierarchyTx(ctx, tx, def, spec, readable); err != nil {
 				return err
 			}
 			extra = append(extra, hierChecks...)
 		}
 		in := domain.Input{Definition: def, LedgerID: spec.LedgerID, CurrencyType: spec.CurrencyType,
-			IncludeAdjustmentPeriods: spec.IncludeAdjustment, Calendar: cal, At: at, Balances: balances, Consolidated: consolidated}
+			IncludeAdjustmentPeriods: spec.IncludeAdjustment, Calendar: cal, At: at, Balances: readable, Consolidated: consolidated}
 		res, err := domain.Evaluate(in)
+		if err != nil {
+			return err
+		}
+		outside, err := outsideScopeTx(ctx, tx, spec, in, baseDef, balances, res)
 		if err != nil {
 			return err
 		}
@@ -264,7 +273,7 @@ func (s *Postgres) CreateRun(ctx context.Context, spec RunSpec) (Run, error) {
 			ID:        ids.New(), DefinitionCode: def.Code, DefinitionVersion: def.Version, LedgerID: spec.LedgerID,
 			CurrencyType: spec.CurrencyType, PeriodYear: spec.PeriodYear, PeriodNo: spec.PeriodNo, Status: "completed",
 			HWMByLedger: hwm, ResultHash: res.Hash, CellCount: len(res.Cells), RequestedBy: spec.RequestedBy, StartedAt: started,
-			Checks: checks, Tree: tree, Consolidation: spec.Consolidation,
+			Checks: checks, Tree: tree, Consolidation: spec.Consolidation, DimensionScope: spec.DimensionScope.Key(),
 		}
 		var consolidationJSON any
 		var entityIDs any
@@ -279,11 +288,12 @@ func (s *Postgres) CreateRun(ctx context.Context, spec RunSpec) (Run, error) {
 		_, err = tx.Exec(ctx, `insert into statement_run(tenant_id, id, definition_code, definition_version, ledger_id, currency_type,
 			period_year, period_no, include_adjustment, status, hwm, result_hash, cell_count, requested_by, request_hash, idempotency_key,
 			started_at, completed_at, duration_ms, checks, legal_entity_id, hierarchy_code, hierarchy_version, run_definition,
-			tree_code, tree_unit, tree_revision, consolidation, legal_entity_ids)
-			values($1,$2,$3,$4,$5,$6,$7,$8,$9,'completed',$10,$11,$12,$13,$14,$15,$16,now(),$17,$18,nullif($19,'')::uuid,$20,$21,$22,$23,$24,$25,$26,$27::uuid[])`,
+			tree_code, tree_unit, tree_revision, consolidation, legal_entity_ids, dimension_scope)
+			values($1,$2,$3,$4,$5,$6,$7,$8,$9,'completed',$10,$11,$12,$13,$14,$15,$16,now(),$17,$18,nullif($19,'')::uuid,$20,$21,$22,$23,$24,$25,$26,$27::uuid[],$28)`,
 			tenantID(ctx), run.ID, def.Code, def.Version, spec.LedgerID, spec.CurrencyType, spec.PeriodYear, spec.PeriodNo,
 			spec.IncludeAdjustment, hwmJSON, hash, len(res.Cells), spec.RequestedBy, spec.RequestHash, nullable(spec.IdempotencyKey),
-			started, int(time.Since(started).Milliseconds()), checksJSON, entityOf(entity, consolidated), hierCode, hierVersion, runDef, treeCode, treeUnit, treeRev, consolidationJSON, entityIDs)
+			started, int(time.Since(started).Milliseconds()), checksJSON, entityOf(entity, consolidated), hierCode, hierVersion, runDef, treeCode, treeUnit, treeRev, consolidationJSON, entityIDs,
+			run.DimensionScope)
 		if err != nil {
 			return err
 		}
@@ -296,9 +306,10 @@ func (s *Postgres) CreateRun(ctx context.Context, spec RunSpec) (Run, error) {
 			if !c.Blank {
 				value = c.Value.StringFixed(6)
 			}
-			if _, err := tx.Exec(ctx, `insert into statement_cell(tenant_id, run_id, row_code, column_code, value, blank, computed, note, balance_keys, line_count, position)
-				values($1,$2,$3,$4,$5::numeric,$6,$7,$8,$9,$10,$11)`,
-				tenantID(ctx), run.ID, c.Row, c.Column, value, c.Blank, c.Computed, c.Note, keys, len(c.Keys), i); err != nil {
+			if _, err := tx.Exec(ctx, `insert into statement_cell(tenant_id, run_id, row_code, column_code, value, blank, computed, note, balance_keys, line_count, position, filtered_amount)
+				values($1,$2,$3,$4,$5::numeric,$6,$7,$8,$9,$10,$11,$12::numeric)`,
+				tenantID(ctx), run.ID, c.Row, c.Column, value, c.Blank, c.Computed, c.Note, keys, len(c.Keys), i,
+				outside[[2]string{c.Row, c.Column}].StringFixed(6)); err != nil {
 				return err
 			}
 		}
@@ -368,10 +379,11 @@ const (
 // RunQuery narrows the report library of runs. Empty fields do not filter; a
 // period is both PeriodYear and PeriodNo (PeriodYear 0 means any period).
 type RunQuery struct {
-	Definition string
-	LedgerID   string
-	PeriodYear int
-	PeriodNo   int
+	Definition     string
+	LedgerID       string
+	PeriodYear     int
+	PeriodNo       int
+	DimensionScope *string
 }
 
 // RunPage is one keyset page of runs, newest first.
@@ -411,8 +423,9 @@ func (s *Postgres) ListRunsPage(ctx context.Context, q RunQuery, after *domain.A
 			  and ($2 = '' or ledger_id = $2::uuid)
 			  and ($3 = 0 or (period_year = $3 and period_no = $4))
 			  and ($5::timestamptz is null or (started_at, id) < ($5, nullif($6, '')::uuid))
+			and ($8::text is null or dimension_scope = $8)
 			order by started_at desc, id desc limit $7`,
-			q.Definition, q.LedgerID, q.PeriodYear, q.PeriodNo, cursorAt, cursorID, limit+1)
+			q.Definition, q.LedgerID, q.PeriodYear, q.PeriodNo, cursorAt, cursorID, limit+1, q.DimensionScope)
 		if err != nil {
 			return err
 		}
@@ -449,7 +462,7 @@ func (s *Postgres) ListCells(ctx context.Context, runID string) ([]domain.Cell, 
 }
 
 func listCellsTx(ctx context.Context, tx pgx.Tx, runID string) ([]domain.Cell, error) {
-	rows, err := tx.Query(ctx, `select row_code, column_code, value::text, blank, computed, note, balance_keys::text
+	rows, err := tx.Query(ctx, `select `+cellColumns+`
 		from statement_cell where run_id=$1 order by position`, runID)
 	if err != nil {
 		return nil, err
@@ -471,7 +484,7 @@ func (s *Postgres) GetCell(ctx context.Context, runID, row, column string) (doma
 	var cell domain.Cell
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		var err error
-		cell, err = scanCell(tx.QueryRow(ctx, `select row_code, column_code, value::text, blank, computed, note, balance_keys::text
+		cell, err = scanCell(tx.QueryRow(ctx, `select `+cellColumns+`
 			from statement_cell where run_id=$1 and row_code=$2 and column_code=$3`, runID, row, column))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return problem(404, CodeCellNotFound, fmt.Sprintf("cell %s/%s does not exist in run %s", row, column, runID))
@@ -555,8 +568,10 @@ func loadBalancesTx(ctx context.Context, tx pgx.Tx, ledgerID string, currencies 
 	return out, map[string]int64{ledgerID: seq}, nil
 }
 
+const cellColumns = `row_code, column_code, value::text, blank, computed, note, balance_keys::text, filtered_amount::text`
+
 const runColumns = `id::text, definition_code, definition_version, ledger_id::text, currency_type, period_year, period_no,
-	status, hwm, result_hash, cell_count, requested_by, started_at, duration_ms, checks, hierarchy_code, hierarchy_version, tree_code, tree_unit, tree_revision, consolidation`
+	status, hwm, result_hash, cell_count, requested_by, started_at, duration_ms, checks, hierarchy_code, hierarchy_version, tree_code, tree_unit, tree_revision, consolidation, dimension_scope`
 
 func getRunTx(ctx context.Context, tx pgx.Tx, id string) (Run, error) {
 	run, err := scanRun(tx.QueryRow(ctx, `select `+runColumns+` from statement_run where id=$1::uuid`, id))
@@ -573,7 +588,7 @@ func scanRun(r rowScanner) (Run, error) {
 	var hierCode, treeCode, treeUnit *string
 	var consolidation []byte
 	if err := r.Scan(&run.ID, &run.DefinitionCode, &run.DefinitionVersion, &run.LedgerID, &run.CurrencyType, &run.PeriodYear, &run.PeriodNo,
-		&run.Status, &hwm, &hash, &run.CellCount, &run.RequestedBy, &run.StartedAt, &duration, &checks, &hierCode, &hierVersion, &treeCode, &treeUnit, &treeRev, &consolidation); err != nil {
+		&run.Status, &hwm, &hash, &run.CellCount, &run.RequestedBy, &run.StartedAt, &duration, &checks, &hierCode, &hierVersion, &treeCode, &treeUnit, &treeRev, &consolidation, &run.DimensionScope); err != nil {
 		return run, err
 	}
 	if len(consolidation) > 0 {
@@ -607,12 +622,15 @@ type rowScanner interface {
 
 func scanCell(r rowScanner) (domain.Cell, error) {
 	var c domain.Cell
-	var value, keys string
-	if err := r.Scan(&c.Row, &c.Column, &value, &c.Blank, &c.Computed, &c.Note, &keys); err != nil {
+	var value, keys, filtered string
+	if err := r.Scan(&c.Row, &c.Column, &value, &c.Blank, &c.Computed, &c.Note, &keys, &filtered); err != nil {
 		return c, err
 	}
 	var err error
 	if c.Value, err = decimal.NewFromString(value); err != nil {
+		return c, err
+	}
+	if c.FilteredAmount, err = decimal.NewFromString(filtered); err != nil {
 		return c, err
 	}
 	if err := json.Unmarshal([]byte(keys), &c.Keys); err != nil {
@@ -688,4 +706,38 @@ func scopedEntities(entities []string) []string {
 		}
 	}
 	return out
+}
+
+func outsideScopeTx(ctx context.Context, tx pgx.Tx, spec RunSpec, in domain.Input, base domain.Definition, all []domain.Balance, scoped domain.Result) (map[[2]string]decimal.Decimal, error) {
+	if !spec.DimensionScope.Restricted() {
+		return nil, nil
+	}
+	in.Definition, in.Balances = base, all
+	if spec.Hierarchy != nil {
+		var err error
+		if in.Definition, _, _, err = expandRunHierarchyTx(ctx, tx, base, spec, all); err != nil {
+			return nil, err
+		}
+	}
+	full, err := domain.Evaluate(in)
+	if err != nil {
+		return nil, err
+	}
+	visible := map[[2]string]decimal.Decimal{}
+	for _, c := range scoped.Cells {
+		visible[[2]string{c.Row, c.Column}] = shown(c)
+	}
+	outside := map[[2]string]decimal.Decimal{}
+	for _, c := range full.Cells {
+		key := [2]string{c.Row, c.Column}
+		outside[key] = shown(c).Sub(visible[key])
+	}
+	return outside, nil
+}
+
+func shown(c domain.Cell) decimal.Decimal {
+	if c.Blank {
+		return decimal.Zero
+	}
+	return c.Value
 }

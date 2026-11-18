@@ -3961,3 +3961,35 @@ test_ledger_period_lock_is_service_only_and_opens_only_its_route if {
 	not allowed("period.check", "POST", "/v1/close/periods/p1:resync-ledger-lock")
 	not allowed("period.reopen", "POST", "/v1/close/periods/p1:resync-ledger-lock")
 }
+
+scope_input(tenant, user) := {"subject": {"tenant_id": tenant, "user_id": user}}
+
+test_data_scope_is_unrestricted_on_the_committed_seed if {
+	data_scope == {"unrestricted": true} with input as scope_input("tenant-a", "user-a")
+}
+
+test_data_scope_is_unrestricted_for_a_subject_without_an_entry if {
+	data_scope == {"unrestricted": true} with input as scope_input("tenant-a", "user-b")
+		with data.dimension_scopes as {"tenant-a": {"user-a": {"COST_CENTER": ["100"]}}}
+}
+
+test_data_scope_returns_the_sorted_permitted_values if {
+	data_scope == {"unrestricted": false, "dimensions": {"COST_CENTER": ["100", "300"], "DEPARTMENT": ["A"]}} with input as scope_input("tenant-a", "user-a")
+		with data.dimension_scopes as {"tenant-a": {"user-a": {"COST_CENTER": ["300", "100"], "DEPARTMENT": ["A"]}}}
+}
+
+test_data_scope_keeps_an_empty_value_list_empty if {
+	data_scope == {"unrestricted": false, "dimensions": {"COST_CENTER": []}} with input as scope_input("tenant-a", "user-a")
+		with data.dimension_scopes as {"tenant-a": {"user-a": {"COST_CENTER": []}}}
+}
+
+test_data_scope_has_no_decision_without_an_identity if {
+	not data_scope with input as scope_input("", "user-a")
+	not data_scope with input as scope_input("tenant-a", "")
+	not data_scope with input as {}
+}
+
+test_data_scope_does_not_see_another_tenants_grants if {
+	data_scope == {"unrestricted": true} with input as scope_input("tenant-b", "user-a")
+		with data.dimension_scopes as {"tenant-a": {"user-a": {"COST_CENTER": ["100"]}}}
+}

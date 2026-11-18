@@ -122,7 +122,7 @@ func TestServiceTokenRejectedWhenForgedOrMisaddressed(t *testing.T) {
 	stranger, _ := tenant.NewServiceSigner("receiving", strangerKey)
 	forged, _ := stranger.Mint("ledger", endUser(), "")
 	for name, token := range map[string]string{
-		"tampered":     good[:len(good)-3] + "AAA",
+		"tampered":     tamper(good),
 		"wrong key":    forged,
 		"other target": closeToken,
 		"garbage":      "x.y",
@@ -214,4 +214,15 @@ func TestPostedByServiceIsTheVerifiedTokenIssuer(t *testing.T) {
 	if got := rig.store.postedServices; len(got) != 2 || got[0] != "receiving" || got[1] != "" {
 		t.Fatalf("posted_by_service = %q, want [receiving, \"\"]", got)
 	}
+}
+
+// tamper changes one character inside the signature, which is always a real change: the last
+// characters of a base64 signature can carry unused bits, so editing them is not guaranteed to.
+func tamper(token string) string {
+	i := len(token) - 10
+	c := byte('A')
+	if token[i] == c {
+		c = 'B'
+	}
+	return token[:i] + string(c) + token[i+1:]
 }

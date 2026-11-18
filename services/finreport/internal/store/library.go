@@ -55,6 +55,8 @@ type LibraryQuery struct {
 	Format       string
 	PeriodYear   int
 	PeriodNo     int // only with PeriodYear
+
+	DimensionScope *string
 }
 
 // LibraryPage is one keyset page of the library, newest first.
@@ -97,8 +99,9 @@ func (s *Postgres) ListLibrary(ctx context.Context, q LibraryQuery, after *domai
 			  and ($4 = '' or format = $4)
 			  and ($5 = 0 or (period_year = $5 and period_no = $6))
 			  and ($7::timestamptz is null or (created_at, id) < ($7, nullif($8, '')::uuid))
+			and ($10::text is null or exists(select 1 from statement_run r where r.id = report_library_entry.run_id and r.dimension_scope = $10))
 			order by created_at desc, id desc limit $9`,
-			q.Definition, q.LedgerID, q.ScheduleCode, q.Format, q.PeriodYear, q.PeriodNo, cursorAt, cursorID, limit+1)
+			q.Definition, q.LedgerID, q.ScheduleCode, q.Format, q.PeriodYear, q.PeriodNo, cursorAt, cursorID, limit+1, q.DimensionScope)
 		if err != nil {
 			return err
 		}

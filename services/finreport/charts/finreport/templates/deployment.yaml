@@ -64,6 +64,8 @@ spec:
               value: {{ .Values.reporting.opaCacheSeconds | quote }}
             - name: REPORTING_TRACE_URL
               value: {{ .Values.reporting.traceUrl | quote }}
+            - name: OPA_URL
+              value: {{ .Values.opa.url | quote }}
 {{- if .Values.serviceIdentity.signingKeySecret }}
             # Balance verification (FR-15.1) reads the ledger trial balance as the service.
             - name: DEPOT_SERVICE_NAME
