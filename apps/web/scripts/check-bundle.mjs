@@ -4,11 +4,16 @@
 //   npm run build && node scripts/check-bundle.mjs [dist]
 //
 // CI runs it after `npm run build` (.github/workflows/ci.yml, job web). src/shell/honestScreens.test.ts holds the
-// matching source scan, which fails earlier and names the source file.
+// matching source scan, which fails earlier and names the source file. Both read src/shell/demoMarkers.json.
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const MARKERS = ["rows-1m", "400000 / 1000000", "workflow.workitem.escalated", "Cedar Ridge", "cedarridgepumps.example", "Jordan Avery"];
+const MARKERS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../src/shell/demoMarkers.json"), "utf8")).markers;
+if (!Array.isArray(MARKERS) || MARKERS.length === 0) {
+  console.error("check-bundle: src/shell/demoMarkers.json holds no markers");
+  process.exit(2);
+}
 
 const root = process.argv[2] ?? "dist";
 const files = [];

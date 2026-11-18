@@ -233,4 +233,11 @@ func TestPostgresListScopesPagesAndReportsTheNextValueUnderTheAppRole(t *testing
 	if _, err := s.List(scoped(1, ""), "", 100); !errors.As(err, &problem) || problem.Status != http.StatusForbidden {
 		t.Fatalf("caller without a legal entity = %v; want 403", err)
 	}
+
+	// The admin pool (the migrations owner; a superuser here) bypasses RLS, so only the query's own scope filter keeps
+	// entity A's rows from a caller scoped to B. It pins that filter should the service ever run as the owner.
+	owner, err := store.New(admin).List(scoped(1, entityB), "", 100)
+	if err != nil || len(owner.Items) != 1 || owner.Items[0].LegalEntityID != entityB {
+		t.Fatalf("list as the admin pool, scoped to B = %+v, %v; want only B's sequence", owner, err)
+	}
 }
