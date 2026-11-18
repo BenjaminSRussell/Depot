@@ -113,7 +113,7 @@
 }
 
 .toolbarFieldWide {
-  min-inline-size: 20rem;
+  min-inline-size: min(20rem, 100%);
   flex: 1 1 20rem;
   max-inline-size: 28rem;
 }

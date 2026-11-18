@@ -1,0 +1,38 @@
+[
+  {
+    "route": "/lean/board",
+    "rule": "link-in-text-block",
+    "reason": "Card links inside muted text are told apart by colour only",
+    "expires": "2027-03-31"
+  },
+  {
+    "route": "/scheduling/bottlenecks",
+    "rule": "label-content-name-mismatch",
+    "reason": "The link's accessible name does not start with its visible text",
+    "expires": "2027-03-31"
+  },
+  {
+    "route": "/setup/features",
+    "rule": "label-content-name-mismatch",
+    "reason": "Template buttons carry an aria-label that does not start with the visible text",
+    "expires": "2027-03-31"
+  },
+  {
+    "route": "/shopfloor/andon",
+    "rule": "target-size",
+    "reason": "Andon controls are smaller than the 24 px minimum target",
+    "expires": "2027-03-31"
+  },
+  {
+    "route": "/shopfloor/andon-settings",
+    "rule": "link-in-text-block",
+    "reason": "Links inside text are told apart by colour only",
+    "expires": "2027-03-31"
+  },
+  {
+    "route": "/pricing/tenant-parameters",
+    "rule": "target-size",
+    "reason": "Controls are smaller than the 24 px minimum target at 390 px",
+    "expires": "2027-03-31"
+  }
+]

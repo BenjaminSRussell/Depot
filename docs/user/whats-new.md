@@ -2,6 +2,10 @@
 
 Changes to Depot in plain language, newest first. Add an entry here for every change a user will notice. The "What's new" page in the app shows this file.
 
+## 2026-11-17
+
+- On a phone the top bar no longer runs off the side of the screen. A "Context" button opens a panel with the legal entity and site, Help, compact view and your account.
+
 ## 2026-11-10
 
 - The PDF of a purchase order, invoice or packing slip now shows the vendor's or customer's address, prints names in Polish, Czech, Greek, Cyrillic and other European alphabets, numbers every page and repeats the table header on each page.

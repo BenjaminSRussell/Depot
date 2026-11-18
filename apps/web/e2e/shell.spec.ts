@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { ROUTES } from "./routes";
 import { ShellPage } from "./shell.page";
+
+const ROUTES = ["/", "/features", "/whats-new", "/design-system", "/workflow", "/product", "/admin", "/party", "/no-such-page"];
 
 test.describe("landmarks and headings", () => {
   for (const route of ROUTES) {

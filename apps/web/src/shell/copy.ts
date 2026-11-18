@@ -32,6 +32,7 @@ export const copy = {
     browseWorkspaces: "Browse workspaces",
     goHome: "Go to home",
   },
+  contextSheet: { open: "Context", title: "Context and account", close: "Close" },
   account: {
     menuLabel: "Account",
     signedInAs: "Signed in as",

@@ -12,6 +12,7 @@
  * `failure.code`) is fine, and so is the shell's own errors folder.
  */
 import { parseAst } from "vite";
+import allowlist from "../plainLanguageAllowlist.json";
 
 type Node = { type?: unknown; start?: number; end?: number; [key: string]: unknown };
 
@@ -90,7 +91,11 @@ describe("failure codes are not messages", () => {
     const files = Object.entries(sources);
     expect(files.length).toBeGreaterThan(100);
     const findings = files.flatMap(([path, source]) => findBareCodes(source, path.replace(/^\.\.\/\.\.\//, "").replace(/^\.\.\//, "shell/")));
-    const report = findings.map((f) => `${f.file}:${f.line}  ${f.text}`).join("\n");
+    const allowed: string[] = allowlist.BARE_CODE;
+    const key = (f: { file: string; text: string }) => `${f.file}:${f.text}`;
+    const report = findings.filter((f) => !allowed.includes(key(f))).map((f) => `${f.file}:${f.line}  ${f.text}`).join("\n");
     expect(report, "Show the failure with ProblemMessage (or problemSummary for a string); the code belongs under Details").toBe("");
+    const seen = new Set(findings.map(key));
+    expect(allowed.filter((entry) => !seen.has(entry)), "Remove these entries from plainLanguageAllowlist.json").toEqual([]);
   }, 60_000);
 });
