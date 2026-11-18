@@ -28,9 +28,9 @@ type recordingPoster struct {
 	keys []string
 }
 
-func (r *recordingPoster) Post(_ context.Context, key string, _ domain.Settlement) error {
+func (r *recordingPoster) Post(_ context.Context, key string, _ domain.Settlement) (string, error) {
 	r.keys = append(r.keys, key)
-	return nil
+	return "entry-" + key, nil
 }
 
 var january = domain.Period{From: domain.Day("2026-01-01"), To: domain.Day("2026-01-31")}
@@ -75,7 +75,7 @@ func TestSettle_MismatchBlocks(t *testing.T) {
 			poster := &recordingPoster{}
 			s, err := domain.Settle(context.Background(), tc.txns, january, 0, tc.gl)
 			if err == nil {
-				_ = domain.PostSettlement(context.Background(), poster, "s1", s)
+				_, _ = domain.PostSettlement(context.Background(), poster, "s1", s)
 			}
 			var de *domain.Error
 			if !errors.As(err, &de) || de.Code != domain.CodeSettlementMismatch {
@@ -130,7 +130,7 @@ func TestSettle_EmptyIsZeroAndNeverPosts(t *testing.T) {
 	if s.Version != 3 {
 		t.Errorf("version %d, want unchanged 3", s.Version)
 	}
-	if err := domain.PostSettlement(context.Background(), poster, "s1", s); err != nil || len(poster.keys) != 0 {
+	if id, err := domain.PostSettlement(context.Background(), poster, "s1", s); err != nil || id != "" || len(poster.keys) != 0 {
 		t.Fatalf("empty settlement posted: %v %v", err, poster.keys)
 	}
 }
@@ -144,11 +144,44 @@ func TestSettle_GLFailureSurfaces(t *testing.T) {
 
 func TestPostSettlement_UsesIdempotencyKey(t *testing.T) {
 	poster := &recordingPoster{}
-	s := domain.Settlement{TransactionIDs: []string{"t1"}}
-	if err := domain.PostSettlement(context.Background(), poster, "S1", s); err != nil {
+	s := domain.Settlement{TransactionIDs: []string{"t1"}, Lines: []domain.CodeSettlement{{Code: "VAT19", Direction: domain.DirOutput, Amount: domain.D("5.00")}}}
+	id, err := domain.PostSettlement(context.Background(), poster, "S1", s)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if len(poster.keys) != 1 || poster.keys[0] != "post:tax:settlement:S1:settle" {
+	if id != "entry-post:tax:settlement:S1:settle" || len(poster.keys) != 1 || poster.keys[0] != "post:tax:settlement:S1:settle" {
 		t.Fatalf("keys %v", poster.keys)
+	}
+}
+
+func TestPostSettlement_ZeroAmountTransactionsPostNothing(t *testing.T) {
+	poster := &recordingPoster{}
+	s, err := domain.Settle(context.Background(), []domain.Txn{txn("t1", "VAT19", domain.DirOutput, "2026-01-10", "0", "")}, january, 0, fakeGL{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.TransactionIDs) == 0 {
+		t.Fatal("zero-amount transaction should still be settled")
+	}
+	if id, err := domain.PostSettlement(context.Background(), poster, "s1", s); err != nil || id != "" || len(poster.keys) != 0 {
+		t.Fatalf("zero settlement posted: %v %v", err, poster.keys)
+	}
+}
+
+func TestSettle_PostedRunClearedTheLedgerAccount(t *testing.T) {
+	cleared := txn("t1", "VAT19", domain.DirOutput, "2026-01-10", "100.00", "run-1")
+	cleared.Cleared = true
+	txns := []domain.Txn{cleared, txn("t2", "VAT19", domain.DirOutput, "2026-01-28", "7.00", "")}
+	gl := fakeGL{movements: map[string]string{domain.MovementKey("VAT19", domain.DirOutput): "7.00"}}
+	s, err := domain.Settle(context.Background(), txns, january, 1, gl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustEqual(t, "delta", s.NetAmount, "7.00")
+
+	uncleared := cleared
+	uncleared.Cleared = false
+	if _, err := domain.Settle(context.Background(), []domain.Txn{uncleared, txns[1]}, january, 1, gl); err == nil {
+		t.Fatal("an unposted earlier run must still count against the ledger movement")
 	}
 }

@@ -19,6 +19,7 @@ var (
 	ErrRead          = errors.New("general ledger read failed")
 	ErrNotConfigured = errors.New("general ledger is not configured")
 	ErrBadData       = errors.New("general ledger data cannot be exported")
+	ErrPost          = errors.New("general ledger post failed")
 )
 
 type GL struct {

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -48,6 +49,8 @@ type API struct {
 	queueFailures   atomic.Int64
 	recommitted     atomic.Int64
 	settlements     atomic.Int64
+
+	postedSettlements atomic.Int64
 }
 
 type calculateRequest struct {
@@ -155,8 +158,26 @@ func (a *API) calculate(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("tax provider fallback", "provider", notice.Provider, "reason", notice.Reason, "correlationId", middleware.GetReqID(r.Context()))
 		a.queueRecommit(r.Context(), req, notice)
 	}
+	a.attachPostingLines(r.Context(), &res)
 	a.calculations.Add(1)
 	httpx.JSON(w, http.StatusOK, res)
+}
+
+func (a *API) attachPostingLines(ctx context.Context, res *domain.Result) {
+	res.PostingLines = []domain.PostingLine{}
+	if a.store == nil {
+		return
+	}
+	cfg, err := a.store.LedgerConfig(ctx)
+	if err != nil {
+		if !errors.Is(err, store.ErrNoLedgerConfig) && !errors.Is(err, store.ErrNoLegalEntity) {
+			slog.Warn("posting lines unavailable", "err", err, "correlationId", middleware.GetReqID(ctx))
+		}
+		return
+	}
+	lines, warnings := domain.PostingLines(*res, cfg.Accounts)
+	res.PostingLines = lines
+	res.Warnings = append(res.Warnings, warnings...)
 }
 
 func (a *API) useStoredConfig(ctx context.Context, req *calculateRequest) error {
@@ -204,6 +225,14 @@ func (a *API) reject(w http.ResponseWriter, r *http.Request, err error) {
 		err = problem
 	case errors.As(err, &pe):
 		err = httpx.NewProblem(http.StatusUnprocessableEntity, domain.CodeValidation, fmt.Sprintf("provider rejected the document with status %d", pe.Status))
+	case errors.Is(err, ledger.ErrPost):
+		if ledgerclient.Rejected(err) {
+			err = httpx.NewProblem(http.StatusUnprocessableEntity, cmp.Or(ledgerclient.CodeOf(err), codeLedgerUnavailable), "the general ledger refused the settlement entry; the run stays pending")
+		} else {
+			err = httpx.NewProblem(http.StatusBadGateway, codeLedgerUnavailable, "the settlement could not be posted to the general ledger; the run stays pending and is posted on the next run")
+		}
+	case errors.Is(err, store.ErrNoSettlementAccount):
+		err = httpx.NewProblem(http.StatusUnprocessableEntity, codeNotConfigured, "no settlement account is set in the request or the ledger configuration")
 	case errors.Is(err, ledger.ErrNotConfigured):
 		err = httpx.NewProblem(http.StatusServiceUnavailable, codeNotConfigured, "the general ledger is not configured for this service")
 	case errors.Is(err, ledger.ErrBadData):
@@ -263,5 +292,6 @@ func (a *API) Metrics() http.Handler {
 		fmt.Fprintf(w, "# TYPE tax_recommit_queue_failures_total counter\ntax_recommit_queue_failures_total %d\n", a.queueFailures.Load())
 		fmt.Fprintf(w, "# TYPE tax_recommits_completed_total counter\ntax_recommits_completed_total %d\n", a.recommitted.Load())
 		fmt.Fprintf(w, "# TYPE tax_settlement_runs_total counter\ntax_settlement_runs_total %d\n", a.settlements.Load())
+		fmt.Fprintf(w, "# TYPE tax_settlements_posted_total counter\ntax_settlements_posted_total %d\n", a.postedSettlements.Load())
 	})
 }

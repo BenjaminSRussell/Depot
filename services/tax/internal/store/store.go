@@ -33,6 +33,8 @@ const (
 var (
 	ErrNoLegalEntity  = errors.New("tax: the request carries no legal entity")
 	ErrNoLedgerConfig = errors.New("tax: no ledger configuration for this legal entity")
+
+	ErrNoSettlementAccount = errors.New("tax: no settlement account in the request or the ledger configuration")
 )
 
 type Store struct{ pool *pgxpool.Pool }
@@ -105,8 +107,9 @@ func (s *Store) RecordTransactions(ctx context.Context, txns []domain.Txn) (int,
 }
 
 type LedgerConfig struct {
-	LedgerID string            `json:"ledger_id"`
-	Accounts map[string]string `json:"accounts"`
+	LedgerID          string            `json:"ledger_id"`
+	Accounts          map[string]string `json:"accounts"`
+	SettlementAccount string            `json:"settlement_account"`
 }
 
 func (s *Store) SetLedgerConfig(ctx context.Context, cfg LedgerConfig) error {
@@ -119,9 +122,10 @@ func (s *Store) SetLedgerConfig(ctx context.Context, cfg LedgerConfig) error {
 		return err
 	}
 	return dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `insert into tax_ledger_config (tenant_id, legal_entity_id, ledger_id, accounts)
-			values ($1, $2, $3, $4) on conflict (tenant_id, legal_entity_id) do update set ledger_id = excluded.ledger_id, accounts = excluded.accounts, updated_at = now()`,
-			p.TenantID, p.LegalEntityID, cfg.LedgerID, accounts); err != nil {
+		if _, err := tx.Exec(ctx, `insert into tax_ledger_config (tenant_id, legal_entity_id, ledger_id, accounts, settlement_account)
+			values ($1, $2, $3, $4, nullif($5, '')) on conflict (tenant_id, legal_entity_id) do update set ledger_id = excluded.ledger_id,
+				accounts = excluded.accounts, settlement_account = excluded.settlement_account, updated_at = now()`,
+			p.TenantID, p.LegalEntityID, cfg.LedgerID, accounts, cfg.SettlementAccount); err != nil {
 			return fmt.Errorf("save ledger config: %w", err)
 		}
 		return nil
@@ -131,8 +135,8 @@ func (s *Store) SetLedgerConfig(ctx context.Context, cfg LedgerConfig) error {
 func loadLedgerConfig(ctx context.Context, tx pgx.Tx, p tenant.Principal) (LedgerConfig, error) {
 	var cfg LedgerConfig
 	var raw []byte
-	err := tx.QueryRow(ctx, `select ledger_id::text, accounts from tax_ledger_config where tenant_id = $1 and legal_entity_id = $2`,
-		p.TenantID, p.LegalEntityID).Scan(&cfg.LedgerID, &raw)
+	err := tx.QueryRow(ctx, `select ledger_id::text, accounts, coalesce(settlement_account, '') from tax_ledger_config where tenant_id = $1 and legal_entity_id = $2`,
+		p.TenantID, p.LegalEntityID).Scan(&cfg.LedgerID, &raw, &cfg.SettlementAccount)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return cfg, ErrNoLedgerConfig
 	}
@@ -145,13 +149,31 @@ func loadLedgerConfig(ctx context.Context, tx pgx.Tx, p tenant.Principal) (Ledge
 	return cfg, nil
 }
 
-type Run struct {
-	ID       string `json:"id"`
-	LedgerID string `json:"ledger_id"`
-	domain.Settlement
+func (s *Store) LedgerConfig(ctx context.Context) (LedgerConfig, error) {
+	p, err := scope(ctx)
+	if err != nil {
+		return LedgerConfig{}, err
+	}
+	var cfg LedgerConfig
+	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		var err error
+		cfg, err = loadLedgerConfig(ctx, tx, p)
+		return err
+	})
+	return cfg, err
 }
 
-func (s *Store) SettleRun(ctx context.Context, period domain.Period, newGL func(LedgerConfig) domain.GLMovement) (Run, error) {
+type Run struct {
+	ID            string `json:"id"`
+	LedgerID      string `json:"ledger_id"`
+	PostedEntryID string `json:"posted_entry_id"`
+	domain.Settlement
+	Accounts          map[string]string `json:"-"`
+	SettlementAccount string            `json:"-"`
+}
+
+// SettleRun commits the run with its posting pending; settlementAccount overrides the configured one when not empty.
+func (s *Store) SettleRun(ctx context.Context, period domain.Period, settlementAccount string, newGL func(LedgerConfig) domain.GLMovement) (Run, error) {
 	p, err := scope(ctx)
 	if err != nil {
 		return Run{}, err
@@ -161,6 +183,12 @@ func (s *Store) SettleRun(ctx context.Context, period domain.Period, newGL func(
 		cfg, err := loadLedgerConfig(ctx, tx, p)
 		if err != nil {
 			return err
+		}
+		if settlementAccount == "" {
+			settlementAccount = cfg.SettlementAccount
+		}
+		if settlementAccount == "" {
+			return ErrNoSettlementAccount
 		}
 		txns, err := lockTransactions(ctx, tx, p, period)
 		if err != nil {
@@ -192,11 +220,11 @@ func (s *Store) SettleRun(ctx context.Context, period domain.Period, newGL func(
 		if err != nil {
 			return err
 		}
-		out = Run{ID: ids.New(), LedgerID: cfg.LedgerID, Settlement: settlement}
-		if _, err := tx.Exec(ctx, `insert into tax_settlement_run (tenant_id, id, legal_entity_id, period_from, period_to, version, output_tax_total, input_tax_total, net_amount, lines, ledger_id, accounts)
-			values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+		out = Run{ID: ids.New(), LedgerID: cfg.LedgerID, Settlement: settlement, Accounts: cfg.Accounts, SettlementAccount: settlementAccount}
+		if _, err := tx.Exec(ctx, `insert into tax_settlement_run (tenant_id, id, legal_entity_id, period_from, period_to, version, output_tax_total, input_tax_total, net_amount, lines, ledger_id, accounts, posting_account, posting_pending)
+			values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true)`,
 			p.TenantID, out.ID, p.LegalEntityID, period.From.Time, period.To.Time, settlement.Version,
-			settlement.OutputTotal.Decimal, settlement.InputTotal.Decimal, settlement.NetAmount.Decimal, lines, cfg.LedgerID, accounts); err != nil {
+			settlement.OutputTotal.Decimal, settlement.InputTotal.Decimal, settlement.NetAmount.Decimal, lines, cfg.LedgerID, accounts, settlementAccount); err != nil {
 			return fmt.Errorf("insert settlement run: %w", err)
 		}
 		if _, err := tx.Exec(ctx, `update tax_transaction set settlement_run_id = $3 where tenant_id = $1 and legal_entity_id = $4 and id = any($2::uuid[])`,
@@ -208,9 +236,60 @@ func (s *Store) SettleRun(ctx context.Context, period domain.Period, newGL func(
 	return out, err
 }
 
+// UnpostedRuns lists the runs of the caller's legal entity whose ledger entry is not recorded yet, oldest first.
+func (s *Store) UnpostedRuns(ctx context.Context) ([]Run, error) {
+	p, err := scope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var runs []Run
+	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `select r.id, r.ledger_id::text, r.period_from, r.period_to, r.version, r.output_tax_total, r.input_tax_total, r.net_amount, r.lines, r.accounts,
+				coalesce(r.posting_account, ''), coalesce((select array_agg(t.id::text) from tax_transaction t where t.tenant_id = r.tenant_id and t.settlement_run_id = r.id), '{}')
+			from tax_settlement_run r where r.tenant_id = $1 and r.legal_entity_id = $2 and r.posting_pending order by r.created_at, r.id`,
+			p.TenantID, p.LegalEntityID)
+		if err != nil {
+			return fmt.Errorf("list unposted settlement runs: %w", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var r Run
+			var lines, accounts []byte
+			if err := rows.Scan(&r.ID, &r.LedgerID, &r.PeriodFrom.Time, &r.PeriodTo.Time, &r.Version, &r.OutputTotal.Decimal, &r.InputTotal.Decimal,
+				&r.NetAmount.Decimal, &lines, &accounts, &r.SettlementAccount, &r.TransactionIDs); err != nil {
+				return fmt.Errorf("scan unposted settlement run: %w", err)
+			}
+			if err := json.Unmarshal(lines, &r.Lines); err != nil {
+				return fmt.Errorf("decode settlement run lines: %w", err)
+			}
+			if err := json.Unmarshal(accounts, &r.Accounts); err != nil {
+				return fmt.Errorf("decode settlement run accounts: %w", err)
+			}
+			runs = append(runs, r)
+		}
+		return rows.Err()
+	})
+	return runs, err
+}
+
+func (s *Store) MarkRunPosted(ctx context.Context, runID, entryID string) error {
+	p, err := scope(ctx)
+	if err != nil {
+		return err
+	}
+	return dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `update tax_settlement_run set posted_entry_id = $4, posting_pending = false where tenant_id = $1 and legal_entity_id = $2 and id = $3`,
+			p.TenantID, p.LegalEntityID, runID, entryID); err != nil {
+			return fmt.Errorf("mark settlement run posted: %w", err)
+		}
+		return nil
+	})
+}
+
 func lockTransactions(ctx context.Context, tx pgx.Tx, p tenant.Principal, period domain.Period) ([]domain.Txn, error) {
-	rows, err := tx.Query(ctx, `select id, code, direction, tax_date, amount, coalesce(settlement_run_id::text, '') from tax_transaction
-		where tenant_id = $1 and legal_entity_id = $2 and tax_date between $3 and $4 order by tax_date, id for update`,
+	rows, err := tx.Query(ctx, `select t.id, t.code, t.direction, t.tax_date, t.amount, coalesce(t.settlement_run_id::text, ''), r.posted_entry_id is not null
+		from tax_transaction t left join tax_settlement_run r on r.tenant_id = t.tenant_id and r.id = t.settlement_run_id
+		where t.tenant_id = $1 and t.legal_entity_id = $2 and t.tax_date between $3 and $4 order by t.tax_date, t.id for update of t`,
 		p.TenantID, p.LegalEntityID, period.From.Time, period.To.Time)
 	if err != nil {
 		return nil, fmt.Errorf("lock tax transactions: %w", err)
@@ -219,7 +298,7 @@ func lockTransactions(ctx context.Context, tx pgx.Tx, p tenant.Principal, period
 	var txns []domain.Txn
 	for rows.Next() {
 		var t domain.Txn
-		if err := rows.Scan(&t.ID, &t.Code, &t.Direction, &t.TaxDate.Time, &t.Amount.Decimal, &t.SettlementRunID); err != nil {
+		if err := rows.Scan(&t.ID, &t.Code, &t.Direction, &t.TaxDate.Time, &t.Amount.Decimal, &t.SettlementRunID, &t.Cleared); err != nil {
 			return nil, fmt.Errorf("scan tax transaction: %w", err)
 		}
 		txns = append(txns, t)
