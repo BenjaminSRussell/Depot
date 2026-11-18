@@ -99,7 +99,7 @@ func (a *API) createRequisition(w http.ResponseWriter, r *http.Request) {
 	for i, l := range req.Lines {
 		productIDs[i] = l.ProductID
 	}
-	if err := a.checkBlocks(r.Context(), req.LegalEntityID, productblock.PurchaseRequisition, productIDs); err != nil {
+	if err := productblock.CheckAll(r.Context(), a.blocks, req.LegalEntityID, productblock.PurchaseRequisition, productIDs); err != nil {
 		fail(w, r, err)
 		return
 	}

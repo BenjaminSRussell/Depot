@@ -238,3 +238,14 @@ func TestFakeRefusesBlockedProducts(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestCheckAllStopsAtFirstBlockedProductAndAllowsNilChecker(t *testing.T) {
+	fake := &productblock.Fake{BlockedDetail: map[string]string{"b": "blocked"}}
+	err := productblock.CheckAll(ctx(), fake, entityID, productblock.SalesOrder, []string{"a", "b", "c"})
+	if err == nil || len(fake.Calls) != 2 {
+		t.Fatalf("err=%v calls=%v, want a refusal after two checks", err, fake.Calls)
+	}
+	if err := productblock.CheckAll(ctx(), nil, entityID, productblock.SalesOrder, []string{"a"}); err != nil {
+		t.Fatalf("nil checker must allow, got %v", err)
+	}
+}

@@ -157,6 +157,18 @@ func (c *Client) Check(ctx context.Context, legalEntityID, productID, process st
 	return v.result(process)
 }
 
+func CheckAll(ctx context.Context, c Checker, legalEntityID, process string, productIDs []string) error {
+	if c == nil {
+		return nil
+	}
+	for _, id := range productIDs {
+		if err := c.Check(ctx, legalEntityID, id, process); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (v verdict) result(process string) error {
 	if v.blocked {
 		countCheck(process, "blocked")

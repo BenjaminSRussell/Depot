@@ -113,7 +113,7 @@ func (a *API) editOrder(w http.ResponseWriter, r *http.Request) {
 			changedProductIDs = append(changedProductIDs, l.ProductID)
 		}
 	}
-	if err := a.checkBlocks(r.Context(), next.LegalEntityID, productblock.PurchaseOrder, changedProductIDs); err != nil {
+	if err := productblock.CheckAll(r.Context(), a.blocks, next.LegalEntityID, productblock.PurchaseOrder, changedProductIDs); err != nil {
 		fail(w, r, err)
 		return
 	}

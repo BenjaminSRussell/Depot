@@ -104,15 +104,11 @@ func (a *API) WithProductBlocks(c productblock.Checker) *API {
 }
 
 func (a *API) checkBlocks(ctx context.Context, legalEntityID, process string, lines []store.Line) error {
-	if a.blocks == nil {
-		return nil
+	productIDs := make([]string, len(lines))
+	for i, l := range lines {
+		productIDs[i] = l.ProductID
 	}
-	for _, l := range lines {
-		if err := a.blocks.Check(ctx, legalEntityID, l.ProductID, process); err != nil {
-			return err
-		}
-	}
-	return nil
+	return productblock.CheckAll(ctx, a.blocks, legalEntityID, process, productIDs)
 }
 
 // New returns the API over s.
