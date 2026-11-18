@@ -152,17 +152,25 @@ func TestRun_LiveInputs_NoOpenDemandIsRefused(t *testing.T) {
 	}
 }
 
-func TestRun_LiveInputs_RetryReplaysWhateverThePeersSayNow(t *testing.T) {
+func TestRun_LiveInputs_RetryReplaysWithoutCallingThePeers(t *testing.T) {
 	peers := &livePeers{sales: salesBody("120"), inventory: onHandBody("20")}
 	st := &fakeStore{runCovs: map[string]store.RunCoverage{fgID: requirementCoverage()}}
 	a := peers.api(t, st)
 	if rec := runWith(t, a, st, liveBody, "k-retry"); rec.Code != http.StatusCreated {
 		t.Fatalf("first run status %d body %s", rec.Code, rec.Body.String())
 	}
-	peers.sales, peers.inventory = salesBody("500"), onHandBody("0")
+	callsAfterRun := peers.calls.Load()
+	peers.salesStatus = http.StatusServiceUnavailable
 	replay := runWith(t, a, st, liveBody, "k-retry")
 	if replay.Code != http.StatusOK || replay.Header().Get("Idempotent-Replayed") != "true" {
 		t.Fatalf("retry status %d body %s, want 200 replay", replay.Code, replay.Body.String())
+	}
+	if peers.calls.Load() != callsAfterRun {
+		t.Fatalf("retry called the peers %d more times", peers.calls.Load()-callsAfterRun)
+	}
+	other := `{"asOf":"2026-11-03","siteId":"` + siteID + `","legalEntityId":"` + liveEntity + `"}`
+	if reuse := runWith(t, a, st, other, "k-retry"); reuse.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("same key on another request: status %d body %s, want 422", reuse.Code, reuse.Body.String())
 	}
 }
 

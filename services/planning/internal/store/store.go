@@ -53,6 +53,7 @@ const (
 // Store is the persistence contract the API depends on.
 type Store interface {
 	RunPlan(ctx context.Context, req RunRequest) (Version, bool, error)
+	ReplayVersion(ctx context.Context, key, inputHash string) (Version, bool, error)
 	// Asynchronous plan runs (#479), planrun.go.
 	BeginPlanRun(ctx context.Context, req PlanRunStart) (PlanRun, bool, error)
 	ReplayPlanRun(ctx context.Context, key, inputHash string) (PlanRun, bool, error)
@@ -324,6 +325,27 @@ func enqueue(ctx context.Context, tx pgx.Tx, typ, planID, tenantID, subject stri
 // RunPlan persists a finished run as the new current version of its plan, in
 // one transaction: the previous current version is demoted, so the pointer
 // swaps only on success. A repeated Idempotency-Key returns the stored version.
+func (s *Postgres) ReplayVersion(ctx context.Context, key, inputHash string) (Version, bool, error) {
+	p, _ := tenant.FromContext(ctx)
+	var v Version
+	found := false
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		existing, err := scanVersion(tx.QueryRow(ctx, versionSelect+` where v.tenant_id = $1 and v.idempotency_key = $2`, p.TenantID, key))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if existing.inputHash != inputHash {
+			return idempotencyReuse()
+		}
+		v, found = existing, true
+		return nil
+	})
+	return v, found, err
+}
+
 func (s *Postgres) RunPlan(ctx context.Context, req RunRequest) (Version, bool, error) {
 	p, _ := tenant.FromContext(ctx)
 	var v Version

@@ -87,6 +87,29 @@ func (a *API) loadLiveItems(w http.ResponseWriter, r *http.Request, code string,
 	return true
 }
 
+func (a *API) replayedBeforeLoad(w http.ResponseWriter, r *http.Request, key, inputHash string) bool {
+	if prefersAsync(r) {
+		run, found, err := a.store.ReplayPlanRun(r.Context(), key, inputHash)
+		switch {
+		case err != nil:
+			httpx.Fail(w, r, err)
+		case found:
+			w.Header().Set("Idempotent-Replayed", "true")
+			respondRun(w, http.StatusOK, run)
+		}
+		return err != nil || found
+	}
+	v, found, err := a.store.ReplayVersion(r.Context(), key, inputHash)
+	switch {
+	case err != nil:
+		httpx.Fail(w, r, err)
+	case found:
+		w.Header().Set("Idempotent-Replayed", "true")
+		httpx.JSON(w, http.StatusOK, v)
+	}
+	return err != nil || found
+}
+
 func (a *API) liveUnreadable(w http.ResponseWriter, r *http.Request, code string, err error) bool {
 	slog.ErrorContext(r.Context(), "live plan inputs unavailable", "err", err, "planCode", code, "correlationId", middleware.GetReqID(r.Context()))
 	return a.liveRefused(w, r, &a.liveUnavailable, http.StatusServiceUnavailable, codeLiveUnavailable, "open sales demand and on-hand could not be read; no plan was run")

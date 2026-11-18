@@ -646,7 +646,7 @@ func (a *API) runPlan(w http.ResponseWriter, r *http.Request) {
 		Request  runRequest `json:"request"`
 	}{code, req})
 	if live {
-		if !a.loadLiveItems(w, r, code, &req) {
+		if a.replayedBeforeLoad(w, r, key, fmt.Sprintf("%x", sha256.Sum256(body))) || !a.loadLiveItems(w, r, code, &req) {
 			return
 		}
 		if fields := req.validate(); len(fields) > 0 {
