@@ -612,6 +612,22 @@ test_missing_numbering_get_duty_is_least_privileged if {
 	result == {"allow": false, "duty_missing": "numbering.read"}
 }
 
+test_numbering_list_needs_read_duty if {
+	denied := decision with input as {
+		"subject": {"tenant_id": "tenant-a", "user_id": "user-a"},
+		"action": "GET",
+		"resource": "/v1/numbering/sequences",
+	}
+	denied == {"allow": false, "duty_missing": "numbering.read"}
+	granted := decision with input as {
+		"subject": {"tenant_id": "tenant-a", "user_id": "user-a"},
+		"action": "GET",
+		"resource": "/v1/numbering/sequences",
+	}
+		with data.assignments as {"tenant-a": {"user-a": ["numbering.read"]}}
+	granted.allow
+}
+
 test_missing_audit_get_duty_is_least_privileged if {
 	result := decision with input as {
 		"subject": {"tenant_id": "tenant-a", "user_id": "user-a"},

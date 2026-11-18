@@ -1,5 +1,7 @@
 # UX writing style guide
 
+Extended by docs/ux/ (UXS-02); where they differ, docs/ux wins.
+
 How the web app talks to people. It covers every string a person can read or hear: page titles and descriptions, labels, hints, buttons, empty states, notices, error messages and accessible names. The design system's microcopy list (`design-system.md`, section 7) applies these rules to the shell.
 
 ## Voice

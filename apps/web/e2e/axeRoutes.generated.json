@@ -1,9 +1,6 @@
 [
   "/",
   "/admin",
-  "/admin/alerts",
-  "/admin/audit",
-  "/admin/documents",
   "/admin/import",
   "/admin/security/assignments",
   "/admin/security/customer-contacts",
@@ -12,7 +9,6 @@
   "/admin/security/roles",
   "/admin/security/users",
   "/admin/sequences",
-  "/admin/texts",
   "/analytics/archive",
   "/analytics/dashboards",
   "/analytics/data-quality",
@@ -669,8 +665,5 @@
   "/warehouse/work",
   "/whats-new",
   "/workflow",
-  "/workflow/designer",
-  "/workflow/inbox",
-  "/workflow/jobs",
-  "/workflow/templates"
+  "/workflow/inbox"
 ]

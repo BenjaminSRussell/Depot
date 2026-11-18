@@ -1,5 +1,7 @@
 # Depot web app: Accessibility Conformance Report (draft)
 
+Extended by docs/ux/ (UXS-15); where they differ, docs/ux wins.
+
 Based on the VPAT® 2.5 WCAG edition template. **Status: draft, not signed off.** The human screen-reader pass and the sign-off are tracked in #512. This draft records what the automated checks and the code review show today, so the sign-off can start from evidence rather than from a blank template.
 
 | | |

@@ -4,6 +4,7 @@ import type { DepotModule } from "../modules/registry";
 import { CommandPalette, type PaletteEntry } from "./CommandPalette";
 import { copy } from "./copy";
 import { holdsDuty, requiredDuty, visibleModules } from "./dutyGate";
+import { plannedRouteFor } from "./plannedRoutes";
 import { newActions } from "./search/newActions";
 import { InboxProvider } from "./inbox/InboxProvider";
 import { RecentProvider, useRecentPages } from "./recent";
@@ -94,7 +95,8 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
   const toastTimer = useRef<number | undefined>(undefined);
 
   const featureOn = isPathEnabled(settings.features, pathname);
-  const available = featureOn && holdsDuty(principalDuties, requiredDuty(pathname, allModules));
+  const planned = plannedRouteFor(pathname) !== undefined;
+  const available = featureOn && !planned && holdsDuty(principalDuties, requiredDuty(pathname, allModules));
   const page = useMemo(
     () => (available ? resolvePage(pathname, allModules, shellNav) : { title: copy.notAvailable.pageTitle }),
     [available, pathname, allModules],
@@ -331,7 +333,7 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
             <div className={styles.content}>
               <RouteErrorBoundary key={pathname}>
                 <Suspense fallback={<PageSkeleton />}>
-                  {available ? <Outlet /> : <NotAvailablePage featureOff={!featureOn} />}
+                  {available ? <Outlet /> : <NotAvailablePage featureOff={!featureOn} planned={planned} />}
                 </Suspense>
               </RouteErrorBoundary>
             </div>

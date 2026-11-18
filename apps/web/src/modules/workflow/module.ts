@@ -1,25 +1,20 @@
 import { createElement } from "react";
 import type { DepotModule } from "../registry";
 import { InboxPage } from "./InboxPage";
-import { DesignerPage, JobMonitorPage, TemplatesPage, WorkflowHome } from "./pages";
+import { WorkflowHome } from "./pages";
 
+// TODO: B-34 returns /workflow/designer, /workflow/jobs and /workflow/templates.
 const workflow: DepotModule = {
   id: "workflow",
   title: "Workflow and batch",
-  description: "Approvals, batch jobs and message templates.",
+  description: "Approvals and the work waiting for you.",
   routes: [
     { path: "/workflow", element: createElement(WorkflowHome) },
     { path: "/workflow/inbox", element: createElement(InboxPage) },
-    { path: "/workflow/designer", element: createElement(DesignerPage) },
-    { path: "/workflow/jobs", element: createElement(JobMonitorPage) },
-    { path: "/workflow/templates", element: createElement(TemplatesPage) },
   ],
   nav: [
     { label: "Workflow", to: "/workflow", duty: "workflow.read" },
     { label: "Inbox", to: "/workflow/inbox", duty: "inbox.read" },
-    { label: "Designer", to: "/workflow/designer", duty: "workflow.write" },
-    { label: "Job monitor", to: "/workflow/jobs", duty: "batch.read" },
-    { label: "Templates", to: "/workflow/templates", duty: "notify.write" },
   ],
 };
 

@@ -35,6 +35,10 @@ import (
 //   - receiving's receipt.corrected: the quantity delta of a CORRECTION, or
 //     what is left of the line on a CANCELLATION, as a compensating receipt
 //     (RECEIVED) or issue (DEDUCTED) of the booked line, at its booked cost;
+//   - receiving's invoice.posted (on InvoiceTopic): each invoiced receipt line's
+//     booking, stepped from RECEIVED to PURCHASED at the invoice amount with the
+//     invoice's ledger entry id (FR-18.8); a line invoiced for less than it
+//     booked stays RECEIVED;
 //   - sales' orderprogress.recorded of kind DELIVERED (the packing slip
 //     fulfillment reported): an issue at DEDUCTED (origin SALES_LINE), valued
 //     at the row's running average per inventory unit (store.IssueBasis);
@@ -121,6 +125,7 @@ type PostingsStore interface {
 	CreateTransaction(ctx context.Context, in store.CreateTransactionInput) (store.StatusChange, bool, error)
 	IssueBasis(ctx context.Context, legalEntityID, productID string, dims domain.Dimensions) (string, decimal.Decimal, error)
 	LineBookings(ctx context.Context, legalEntityID, sourceType string, lineSourceIDs []string) (map[string][]store.TransactionRow, error)
+	ApplyStatusStep(ctx context.Context, in store.StatusStepInput) (store.StatusChange, bool, error)
 }
 
 // UnitConverter converts a document quantity into the product's inventory
@@ -206,7 +211,7 @@ type packingSlipCancelledData struct {
 }
 
 // PostingsConsumerHandlers handles receipt.posted, receipt.corrected,
-// orderprogress.recorded and packingslip.cancelled. conv converts plain lines
+// invoice.posted, orderprogress.recorded and packingslip.cancelled. conv converts plain lines
 // into the inventory unit; nil parks them. Register it with a consumer named
 // PostingsConsumerName with Idempotent set: each booking commits on its own
 // under its own key, and the inbox records the event once every line is booked.
@@ -217,6 +222,9 @@ func PostingsConsumerHandlers(s PostingsStore, conv UnitConverter, neg domain.Ne
 		}),
 		ReceiptCorrectedType: eventing.HandlerFunc(func(ctx context.Context, _ pgx.Tx, evt events.Event) error {
 			return bookReceiptCorrection(ctx, s, neg, evt)
+		}),
+		InvoicePostedType: eventing.HandlerFunc(func(ctx context.Context, _ pgx.Tx, evt events.Event) error {
+			return bookInvoice(ctx, s, evt)
 		}),
 		OrderProgressRecordedType: eventing.HandlerFunc(func(ctx context.Context, _ pgx.Tx, evt events.Event) error {
 			return bookDelivery(ctx, s, conv, neg, evt)

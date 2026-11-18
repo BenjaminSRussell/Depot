@@ -58,11 +58,13 @@ None
 ## Usability gate
 
 <!--
-One line, see apps/web/docs/usability-gate.md: `Not in scope: no screen on a task path changed.`, or
-`Passed: tasks <ids>, report <link>.`, or `Waived: <measure>, <cause>, <issue>, approved by <name>.`
+Computed from the change by `apps/web/scripts/check-usability-gate.mjs`; an empty section fails (UXS-19, rules G1 to G8 in
+docs/ux/usability-programme.md, section 6). Write one line per group of tasks:
+`Passed: tasks <ids>, report <link>.`
+`Waived: <measure>, <cause>, <issue>, tasks <ids>, approved by <name>, product owner.`
+`Provisional: tasks <ids>, Round 0 <link>, re-walk <link>, signed <name>`
+`Not in scope: <why>.` only when the computed scope is empty. The old default text is never accepted.
 -->
-
-Not in scope: no screen on a task path changed.
 
 ## Rollback
 

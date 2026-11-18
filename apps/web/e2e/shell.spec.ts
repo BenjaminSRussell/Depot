@@ -49,15 +49,15 @@ test.describe("command palette", () => {
     await expect(shell.paletteInput).toBeFocused();
   });
 
-  test("typing 'aud' and Enter opens Audit", async ({ page }) => {
+  test("typing 'seq' and Enter opens Sequences", async ({ page }) => {
     const shell = new ShellPage(page);
     await shell.goto("/");
     await shell.openPaletteWithShortcut();
-    await shell.paletteInput.pressSequentially("aud");
-    await expect(shell.paletteOptions.first()).toContainText("Audit");
+    await shell.paletteInput.pressSequentially("seq");
+    await expect(shell.paletteOptions.first()).toContainText("Sequences");
     await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/\/admin\/audit$/);
-    await expect(shell.title).toHaveText("Audit");
+    await expect(page).toHaveURL(/\/admin\/sequences$/);
+    await expect(shell.title).toHaveText("Sequences");
     await expect(shell.palette).toHaveCount(0);
   });
 

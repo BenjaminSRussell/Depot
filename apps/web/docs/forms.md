@@ -1,5 +1,7 @@
 # Form standard
 
+Extended by docs/ux/ (UXS-08); where they differ, docs/ux wins.
+
 Shared pieces live in `src/shell/ui` and are exported from `src/shell/ui/index.ts`. Use them for every new form; roll existing forms over in the rollout checklist (#505).
 
 ## Layout

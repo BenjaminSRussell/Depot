@@ -28,9 +28,9 @@ const modules: DepotModule[] = [
   {
     id: "admin",
     title: "Admin",
-    description: "Numbering, audit, alerts, imports and documents.",
+    description: "Numbering and imports.",
     routes: [{ path: "/admin", element: <div>Admin home</div> }],
-    nav: [{ label: "Audit", to: "/admin/audit" }],
+    nav: [{ label: "Import", to: "/admin/import" }],
   },
 ];
 
@@ -40,7 +40,7 @@ function renderShell(path = "/", identity?: string) {
       <Routes>
         <Route element={<Shell modules={modules} identity={identity} />}>
           <Route path="/" element={<HomePage />} />
-          <Route path="/admin/audit" element={<p>Audit page</p>} />
+          <Route path="/admin/import" element={<p>Import page</p>} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
@@ -78,8 +78,8 @@ describe("shell a11y and keyboard", () => {
     const user = userEvent.setup();
     renderShell();
     await user.keyboard("{Control>}k{/Control}");
-    await user.type(screen.getByLabelText("Find a page"), "audit{Enter}");
-    expect(screen.getByText("Audit page")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Find a page"), "import{Enter}");
+    expect(screen.getByText("Import page")).toBeInTheDocument();
   });
 
   it("has no demo saved-view button in the top bar", () => {
@@ -93,19 +93,26 @@ describe("pages and navigation", () => {
     const home = renderShell();
     const main = within(screen.getByRole("main"));
     expect(main.getByRole("heading", { level: 3, name: "Administration" })).toBeInTheDocument();
-    expect(main.getByRole("link", { name: /Audit log/ })).toHaveAttribute("href", "/admin/audit");
+    expect(main.getByRole("link", { name: /Import data/ })).toHaveAttribute("href", "/admin/import");
     expect(main.getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
     expect(checkAxeAA(home.container)).toEqual([]);
   });
 
   it("shows the page title as the only h1, a breadcrumb and the current nav item", () => {
-    renderShell("/admin/audit");
-    expect(screen.getByRole("heading", { level: 1, name: "Audit" })).toBeInTheDocument();
+    renderShell("/admin/import");
+    expect(screen.getByRole("heading", { level: 1, name: "Import" })).toBeInTheDocument();
     expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByRole("link", { name: "Admin" })).toBeInTheDocument();
-    expect(within(screen.getByRole("navigation", { name: "Workspaces" })).getByRole("link", { name: "Audit log" })).toHaveAttribute(
+    expect(within(screen.getByRole("navigation", { name: "Workspaces" })).getByRole("link", { name: "Import data" })).toHaveAttribute(
       "aria-current",
       "page",
     );
+  });
+
+  it.each(["/admin/audit", "/admin/audit/42"])("says a planned page is not built yet at %s", (path) => {
+    renderShell(path);
+    expect(screen.getByRole("heading", { level: 1, name: "Page not available" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "This page isn't available yet" })).toBeInTheDocument();
+    expect(screen.getByText(/Nothing is wrong with your account/)).toBeInTheDocument();
   });
 
   it("renders a not-found page for unknown routes", () => {
@@ -119,7 +126,7 @@ describe("pages and navigation", () => {
     renderShell();
     const nav = within(screen.getByRole("navigation", { name: "Workspaces" }));
     expect(nav.getByRole("list", { name: "Administration" })).toBeInTheDocument();
-    expect(nav.getByRole("link", { name: "Audit log" })).toHaveAttribute("href", "/admin/audit");
+    expect(nav.getByRole("link", { name: "Import data" })).toHaveAttribute("href", "/admin/import");
     expect(nav.getByRole("link", { name: "All features" })).toHaveAttribute("href", "/features");
   });
 
@@ -179,7 +186,7 @@ describe("command palette", () => {
     const user = userEvent.setup();
     renderShell();
     await user.keyboard("{Control>}k{/Control}");
-    expect(within(screen.getByRole("group", { name: "Admin" })).getByRole("option", { name: /Audit log/ })).toBeInTheDocument();
+    expect(within(screen.getByRole("group", { name: "Admin" })).getByRole("option", { name: /Import data/ })).toBeInTheDocument();
     await user.type(screen.getByRole("combobox", { name: "Find a page" }), "zzz");
     expect(screen.getByText(/No pages match/)).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Find a page" })).toHaveAttribute("aria-expanded", "false");
@@ -214,7 +221,7 @@ describe("command palette", () => {
     const user = userEvent.setup();
     renderShell();
     await user.keyboard("{Control>}k{/Control}");
-    expect(screen.getByRole("option", { name: "Audit log, Admin" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Import data, Admin" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Home, General" })).toBeInTheDocument();
     await user.type(screen.getByRole("combobox", { name: "Find a page" }), "zzz");
     const listbox = document.getElementById("palette-listbox");

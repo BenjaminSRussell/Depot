@@ -51,11 +51,11 @@ You can also copy an existing legal entity with the copy form on the same page.
 
 ## Numbering
 
-Open **Sequences** under **Admin** to see and change how document numbers are issued.
+Open **Sequences** under **Admin** to see how document numbers are issued for each legal entity. The list is read-only. Changing a sequence is not available yet.
 
 ## Import vendors, customers and products
 
-The **Import your first records** step of the setup guide checks a CSV file before anything is loaded.
+The **Import your first records** step of the setup guide checks a CSV file before anything is loaded. **Import** under **Admin** opens the same step, so you can use it at any time.
 
 1. Under **What to import**, choose **Vendors**, **Customers** or **Products**.
 2. Select **Download the CSV template**, fill in one row for each record and keep the header row as it is.

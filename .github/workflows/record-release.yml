@@ -22,6 +22,33 @@ jobs:
         with:
           fetch-depth: 0
       - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24'
+      - name: Usability gate
+        env:
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          releases=()
+          for file in docs/releases/*.md; do
+            if [ -f "$file" ] && [ "$(basename "$file")" != README.md ]; then releases+=("$file"); fi
+          done
+          if [ "${#releases[@]}" -eq 0 ]; then
+            echo "no release notes: commit docs/releases/<release-id>.md before a release is recorded" >&2
+            exit 1
+          fi
+          newest="${releases[-1]}"
+          unset 'releases[-1]'
+          base=""
+          if [ "${#releases[@]}" -gt 0 ]; then
+            base=$(git log --diff-filter=A --format=%H -1 -- "${releases[-1]}")
+          fi
+          if [ -z "$base" ]; then base=$(git rev-list --max-parents=0 "$HEAD_SHA" | tail -1); fi
+          start=$(( ${#releases[@]} > 5 ? ${#releases[@]} - 5 : 0 ))
+          previous=()
+          for file in "${releases[@]:start}"; do previous+=(--previous "$file"); done
+          node apps/web/scripts/check-usability-gate.mjs --notes "$newest" --range "$base..$HEAD_SHA" "${previous[@]}"
       - env:
           DEPOT_PLATFORM_API_URL: ${{ vars.DEPOT_PLATFORM_API_URL }}
           DEPOT_PLATFORM_API_TOKEN: ${{ secrets.DEPOT_PLATFORM_API_TOKEN }}

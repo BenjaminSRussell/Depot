@@ -1,0 +1,23 @@
+{
+  "invoice_id": "0199f480-0000-7000-8000-000000000021",
+  "legal_entity_id": "0199f480-0000-7000-8000-00000000001a",
+  "vendor_id": "0199f480-0000-7000-8000-000000000013",
+  "invoice_number": "INV-00000010",
+  "source": "MANUAL",
+  "invoice_date": "2026-10-26",
+  "posting_date": "2026-10-26",
+  "currency": "USD",
+  "total": "105",
+  "ledger_entry_id": "0199f480-0000-7000-8000-000000000022",
+  "lines": [
+    {
+      "line_no": 1,
+      "receipt_id": "0199f480-0000-7000-8000-000000000011",
+      "receipt_line_no": 1,
+      "qty": "10",
+      "unit_price": "10.5",
+      "amount": "105",
+      "grir_cleared_amount": "100"
+    }
+  ]
+}

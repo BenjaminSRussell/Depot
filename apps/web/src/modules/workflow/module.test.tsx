@@ -1,8 +1,8 @@
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { loadModules } from "../registry";
 import workflow from "./module";
-import { MemoryRouter } from "react-router-dom";
-import { JobMonitorPage, WorkflowHome } from "./pages";
+import { WorkflowHome } from "./pages";
 
 describe("workflow module", () => {
   it("uses its folder name as id and declares workflow routes", () => {
@@ -15,24 +15,20 @@ describe("workflow module", () => {
     expect(loadModules().map((m) => m.id)).toContain("workflow");
   });
 
-  it("shows workspace tiles and links to My work", () => {
+  it("serves only the home page and My work until the designer, jobs and templates are built", () => {
+    expect(workflow.routes.map((r) => r.path)).toEqual(["/workflow", "/workflow/inbox"]);
+    expect(workflow.nav.map((n) => n.to)).toEqual(["/workflow", "/workflow/inbox"]);
+  });
+
+  it("links to My work and shows no sample data", () => {
     render(
       <MemoryRouter>
         <WorkflowHome />
       </MemoryRouter>,
     );
     expect(screen.getByRole("heading", { name: "Workflow and batch" })).toBeTruthy();
-    expect(screen.getByRole("list", { name: "Workflow tiles" })).toHaveTextContent("Running jobs 1");
     expect(screen.getByRole("link", { name: "Open My work" })).toHaveAttribute("href", "/workflow/inbox");
-  });
-
-  it("lists batch runs", () => {
-    render(<JobMonitorPage />);
-    expect(screen.getByRole("table", { name: "Batch runs" })).toHaveTextContent("rows-1m");
-  });
-
-  it("explains an empty job monitor", () => {
-    render(<JobMonitorPage runs={[]} />);
-    expect(screen.getByText("No batch runs yet")).toBeInTheDocument();
+    expect(screen.queryByText("Sample data")).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Workflow tiles" })).not.toBeInTheDocument();
   });
 });
