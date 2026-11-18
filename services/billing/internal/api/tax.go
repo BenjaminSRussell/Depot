@@ -56,13 +56,23 @@ func applyCodes(lines []domain.Line, codes []string) {
 	}
 }
 
+func allSupplied(lines []domain.Line) bool {
+	for _, l := range lines {
+		if l.SuppliedTax == nil {
+			return false
+		}
+	}
+	return true
+}
+
+// quote takes the caller's tax only when every line carries one and no ship-to was sent; otherwise the engine answers, with an empty party when there is no ship-to.
 func (a *API) quote(ctx context.Context, in QuoteInput) (QuoteResult, error) {
-	if in.ShipTo != nil {
+	if in.ShipTo != nil || !allSupplied(in.Lines) {
 		return a.tax.Quote(ctx, in)
 	}
 	out := QuoteResult{Taxes: make([]decimal.Decimal, len(in.Lines)), Codes: make([]string, len(in.Lines))}
 	for i, l := range in.Lines {
-		out.Taxes[i] = l.SuppliedTax
+		out.Taxes[i] = *l.SuppliedTax
 	}
 	return out, nil
 }

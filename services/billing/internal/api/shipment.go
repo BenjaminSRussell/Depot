@@ -134,11 +134,15 @@ func (a *API) createShipmentProposals(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, problemFrom(err))
 		return
 	}
+	shipTo := req.ShipTo
+	if shipTo == nil {
+		shipTo = &domain.ShipTo{}
+	}
 	batch := store.ProposalBatch{ID: ids.New(), LegalEntityID: req.LegalEntityID, IdempotencyKey: key, RequestHash: hash}
 	exp := money.MinorUnits(req.Currency)
 	invs := make([]store.Invoice, 0, len(plans))
 	for i, plan := range plans {
-		quote, err := a.quote(r.Context(), QuoteInput{LegalEntityID: req.LegalEntityID, Currency: req.Currency, Date: invoiceDate, ShipTo: req.ShipTo, Lines: plan.Lines})
+		quote, err := a.quote(r.Context(), QuoteInput{LegalEntityID: req.LegalEntityID, Currency: req.Currency, Date: invoiceDate, ShipTo: shipTo, Lines: plan.Lines})
 		if err != nil {
 			httpx.Fail(w, r, taxProblem(err))
 			return
@@ -152,7 +156,7 @@ func (a *API) createShipmentProposals(w http.ResponseWriter, r *http.Request) {
 		}
 		inv := store.Invoice{ID: ids.New(), LegalEntityID: req.LegalEntityID, CustomerID: req.CustomerID, InvoiceAccountID: req.InvoiceAccountID,
 			Type: plan.Type, Status: domain.StatusProposal, Currency: req.Currency, InvoiceDate: invoiceDate,
-			DueDate: invoiceDate.AddDate(0, 0, req.PaymentTermDays), PaymentTermDays: req.PaymentTermDays, Totals: totals, ShipTo: req.ShipTo,
+			DueDate: invoiceDate.AddDate(0, 0, req.PaymentTermDays), PaymentTermDays: req.PaymentTermDays, Totals: totals, ShipTo: shipTo,
 			IdempotencyKey: batch.ID + "/" + strconv.Itoa(i+1), RequestHash: hash}
 		for j := range plan.Lines {
 			inv.Lines = append(inv.Lines, store.Line{Line: plan.Lines[j], Net: nets[j], Tax: taxes[j].RoundBank(exp), Source: plan.Sources[j]})

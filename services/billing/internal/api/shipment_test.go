@@ -273,14 +273,39 @@ func TestShipmentProposals_TaxEqualsEngineResult(t *testing.T) {
 	}
 }
 
-func TestShipmentProposals_WithoutShipToSkipsTheEngine(t *testing.T) {
+func TestShipmentProposals_WithoutShipToAsksTheEngineWithAnEmptyParty(t *testing.T) {
 	s := newFakeStore()
 	tax := &fakeTax{perLine: "19.00"}
-	rec := do(setup(t, s, tax), http.MethodPost, "/v1/billing/proposals", "ship-nst", strings.Replace(shipmentBody(false, slipA), `"shipTo":`+germanShipTo+`,`, "", 1))
+	h := setup(t, s, tax)
+	body := strings.Replace(shipmentBody(false, slipA), `"shipTo":`+germanShipTo+`,`, "", 1)
+	rec := do(h, http.MethodPost, "/v1/billing/proposals", "ship-nst", body)
 	var got proposalBatchDTO
 	decode(t, rec, &got)
-	if rec.Code != http.StatusCreated || len(tax.inputs) != 0 || got.Items[0].Lines[0].TaxCode != "DE19" || s.invoices[got.Items[0].ID].ShipTo != nil {
-		t.Fatalf("status %d, engine inputs %+v, line %+v", rec.Code, tax.inputs, got.Items[0].Lines[0])
+	if rec.Code != http.StatusCreated || len(tax.inputs) != 1 || got.Items[0].Totals.Tax != "38.00" {
+		t.Fatalf("status %d, engine inputs %+v, totals %+v", rec.Code, tax.inputs, got.Items[0].Totals)
+	}
+	if in := tax.inputs[0]; in.ShipTo == nil || *in.ShipTo != (domain.ShipTo{}) {
+		t.Errorf("engine asked with ship-to %+v, want an empty party", in.ShipTo)
+	}
+	if stored := s.invoices[got.Items[0].ID]; stored.ShipTo == nil {
+		t.Error("stored invoice lost the empty ship-to, so the post-time re-quote would replay stored tax")
+	}
+
+	tax.perLine = "19.02"
+	post := do(h, http.MethodPost, "/v1/billing/invoices/"+got.Items[0].ID+":post", "", "")
+	var p httpx.Problem
+	decode(t, post, &p)
+	if post.Code != http.StatusConflict || p.Code != CodeTaxMoved {
+		t.Errorf("post status %d code %s, want 409 BIL-0002 from the engine re-quote", post.Code, p.Code)
+	}
+}
+
+func TestShipmentProposals_WithoutShipToFailsClosedWhenTheEngineIsDown(t *testing.T) {
+	s := newFakeStore()
+	body := strings.Replace(shipmentBody(false, slipA), `"shipTo":`+germanShipTo+`,`, "", 1)
+	rec := do(setup(t, s, UnavailableTax{}), http.MethodPost, "/v1/billing/proposals", "ship-nst-down", body)
+	if rec.Code != http.StatusServiceUnavailable || len(s.invoices) != 0 {
+		t.Fatalf("status %d with %d invoices stored, want 503 and none", rec.Code, len(s.invoices))
 	}
 }
 

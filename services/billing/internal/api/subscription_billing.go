@@ -67,7 +67,7 @@ func (a *API) billPeriod(ctx context.Context, sub store.Subscription, periodFrom
 			Description: fmt.Sprintf("%s usage %s to %s", g.meter, g.from.Format(dateLayout), g.to.Format(dateLayout)),
 			Qty:         g.quantity, UnitPrice: g.unitPrice, DiscountPct: decimal.Zero, RevenueAccount: sub.RevenueAccount, TaxCode: sub.TaxCode})
 	}
-	quote, err := a.quote(ctx, QuoteInput{LegalEntityID: sub.LegalEntityID, Currency: sub.Currency, Date: invoiceDate, Lines: lines})
+	quote, err := a.quote(ctx, QuoteInput{LegalEntityID: sub.LegalEntityID, Currency: sub.Currency, Date: invoiceDate, ShipTo: &domain.ShipTo{}, Lines: lines})
 	if err != nil {
 		return store.Invoice{}, false, taxProblem(err)
 	}
@@ -79,7 +79,7 @@ func (a *API) billPeriod(ctx context.Context, sub store.Subscription, periodFrom
 	inv := store.Invoice{ID: ids.New(), LegalEntityID: sub.LegalEntityID, CustomerID: sub.CustomerID, InvoiceAccountID: sub.InvoiceAccountID,
 		Type: domain.TypeSubscription, Status: domain.StatusProposal, Currency: sub.Currency, InvoiceDate: invoiceDate,
 		DueDate: invoiceDate.AddDate(0, 0, sub.PaymentTermDays), PaymentTermDays: sub.PaymentTermDays, Totals: totals,
-		IdempotencyKey: subscriptionKeyPrefix + ids.New(), RequestHash: hash}
+		IdempotencyKey: subscriptionKeyPrefix + ids.New(), RequestHash: hash, ShipTo: &domain.ShipTo{}}
 	for i := range lines {
 		inv.Lines = append(inv.Lines, store.Line{Line: lines[i], Net: nets[i], Tax: taxes[i].RoundBank(money.MinorUnits(sub.Currency))})
 	}

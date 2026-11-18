@@ -394,6 +394,14 @@ func TestCreateProposal_WithoutShipToKeepsCallersCodeAndTax(t *testing.T) {
 	}
 }
 
+func TestCreateProposal_OmittedTaxFailsClosedWithoutTheEngine(t *testing.T) {
+	body := strings.Replace(proposal("1", "100", "4900"), `,"tax":"19.00"`, "", 1)
+	rec := do(setup(t, newFakeStore(), UnavailableTax{}), http.MethodPost, "/v1/billing/free-text-invoices", key, body)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status %d, want 503 BIL-0001 instead of an invoice with silent zero tax", rec.Code)
+	}
+}
+
 func TestCreateProposal_Validation(t *testing.T) {
 	h := setup(t, newFakeStore(), &fakeTax{perLine: "0"})
 	if rec := do(h, http.MethodPost, "/v1/billing/free-text-invoices", "", proposal("1", "1", "4900")); rec.Code != http.StatusBadRequest {

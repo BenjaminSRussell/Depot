@@ -396,7 +396,10 @@ func (a *API) createProposal(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusOK, toDTO(existing))
 		return
 	}
-	quote, err := a.quote(r.Context(), QuoteInput{LegalEntityID: inv.LegalEntityID, Currency: inv.Currency, Date: inv.InvoiceDate, Lines: lines})
+	if !allSupplied(lines) {
+		inv.ShipTo = &domain.ShipTo{}
+	}
+	quote, err := a.quote(r.Context(), QuoteInput{LegalEntityID: inv.LegalEntityID, Currency: inv.Currency, Date: inv.InvoiceDate, ShipTo: inv.ShipTo, Lines: lines})
 	if err != nil {
 		httpx.Fail(w, r, taxProblem(err))
 		return
@@ -535,7 +538,9 @@ func toLineAt(prefix string, no int, l lineDTO, fields map[string]string) domain
 	ok := parse("qty", l.Qty, &out.Qty)
 	ok = parse("unitPrice", l.UnitPrice, &out.UnitPrice) && ok
 	if l.Tax != "" {
-		ok = parse("tax", l.Tax, &out.SuppliedTax) && ok
+		supplied := decimal.Zero
+		ok = parse("tax", l.Tax, &supplied) && ok
+		out.SuppliedTax = &supplied
 	}
 	if l.DiscountPct != "" {
 		ok = parse("discountPct", l.DiscountPct, &out.DiscountPct) && ok
@@ -693,7 +698,10 @@ func (a *API) postInvoice(w http.ResponseWriter, r *http.Request) {
 	lines := make([]domain.Line, len(inv.Lines))
 	for i, l := range inv.Lines {
 		lines[i] = l.Line
-		lines[i].SuppliedTax = l.Tax
+		if inv.ShipTo == nil {
+			supplied := l.Tax
+			lines[i].SuppliedTax = &supplied
+		}
 	}
 	quote, err := a.quote(r.Context(), QuoteInput{LegalEntityID: inv.LegalEntityID, Currency: inv.Currency, Date: inv.InvoiceDate, ShipTo: inv.ShipTo, Lines: lines})
 	if err != nil {

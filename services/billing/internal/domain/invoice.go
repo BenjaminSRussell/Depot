@@ -54,7 +54,7 @@ type Line struct {
 	RevenueAccount string
 	TaxCode        string
 	ItemTaxGroup   string
-	SuppliedTax    decimal.Decimal
+	SuppliedTax    *decimal.Decimal
 }
 
 type ShipTo struct {
