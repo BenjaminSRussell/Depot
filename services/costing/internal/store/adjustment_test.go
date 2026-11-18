@@ -237,6 +237,9 @@ func TestPostgres_GroupLedgerAdjustmentStaysInItsLedger(t *testing.T) {
 	if err != nil || adj.Currency != "USD" || adj.NewValue != "650.00" || adj.ValuationLedgerID != gaap.ID {
 		t.Fatalf("group ledger adjustment = %+v, %v", adj, err)
 	}
+	if adj.Voucher != "" || len(led.Entries()) != 0 {
+		t.Errorf("group ledger adjustment voucher %q, ledger entries %d; want no primary GL posting", adj.Voucher, len(led.Entries()))
+	}
 	primary, _ := s.ValueBalances(ctx, BalanceQuery{LegalEntityID: le, AsOf: "2026-01-31"})
 	group, _ := s.ValueBalances(ctx, BalanceQuery{LegalEntityID: le, ValuationLedgerID: gaap.ID, AsOf: "2026-01-31"})
 	if len(primary) != 1 || primary[0].FinancialValue.String() != "550" || len(group) != 1 || group[0].FinancialValue.String() != "650" {

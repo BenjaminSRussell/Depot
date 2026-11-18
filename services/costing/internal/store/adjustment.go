@@ -319,7 +319,7 @@ func (s *Postgres) CreateAdjustment(ctx context.Context, in AdjustmentRequest, i
 			adj.FinancialDate); err != nil {
 			return err
 		}
-		if !plan.Delta.IsZero() {
+		if !plan.Delta.IsZero() && adj.ValuationLedgerID == "" {
 			profile, err := loadProfile(ctx, tx, p.TenantID, adj.LegalEntityID)
 			if err != nil {
 				return err
