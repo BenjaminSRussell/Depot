@@ -1,0 +1,169 @@
+[
+ {
+  "files": [
+   "services/billing/internal/store/store.go",
+   "services/billing/migrations/0001_billing_init.sql",
+   "services/billing/migrations/0004_grants.sql"
+  ],
+  "kind": "posting_tx",
+  "fiscal": true,
+  "note": "invoice number taken by markPosted on the posting tx, under the counter row lock"
+ },
+ {
+  "files": [
+   "services/ledger/internal/store/description.go",
+   "services/ledger/internal/store/journal.go",
+   "services/ledger/internal/store/store.go",
+   "services/ledger/migrations/0002_chart_ledger.sql"
+  ],
+  "kind": "posting_tx",
+  "fiscal": true,
+  "note": "journal voucher from ledger.next_sequence inside writeEntry on the posting tx; a rolled-back post consumes nothing"
+ },
+ {
+  "files": [
+   "services/tax/internal/store/withholding.go",
+   "services/tax/migrations/0007_withholding_remittance.sql"
+  ],
+  "kind": "posting_tx",
+  "fiscal": true,
+  "note": "withholding certificate and remittance numbers from nextNumber(tx) in the creating tx"
+ },
+ {
+  "files": [
+   "services/receiving/internal/store/servicesheet.go",
+   "services/receiving/migrations/0019_ers_tax_ses_grir.sql"
+  ],
+  "kind": "posting_tx",
+  "fiscal": true,
+  "note": "ERS self-bill number from putSelfBill(tx) in the self-bill insert tx"
+ },
+ {
+  "files": [
+   "services/inventory/migrations/0042_journal_number.sql"
+  ],
+  "kind": "posting_tx",
+  "fiscal": false,
+  "note": "inventory journal number from a BEFORE INSERT trigger under the counter row lock"
+ },
+ {
+  "files": [
+   "services/quality/migrations/0008_order_number.sql"
+  ],
+  "kind": "posting_tx",
+  "fiscal": false,
+  "note": "quality order number from a BEFORE INSERT trigger"
+ },
+ {
+  "files": [
+   "services/transport/migrations/0013_carrier_services_bill_numbers.sql"
+  ],
+  "kind": "posting_tx",
+  "fiscal": false,
+  "note": "freight bill number from a BEFORE INSERT trigger"
+ },
+ {
+  "files": [
+   "services/budgeting/migrations/0012_budget_documents.sql"
+  ],
+  "kind": "posting_tx",
+  "fiscal": false,
+  "note": "budget document number from a BEFORE INSERT trigger"
+ },
+ {
+  "files": [
+   "services/receiving/internal/store/receipts.go",
+   "services/receiving/migrations/0002_receipt_lifecycle.sql"
+  ],
+  "kind": "posting_tx",
+  "fiscal": false,
+  "note": "receipt number from allocateNumber(tx) in the receipt tx"
+ },
+ {
+  "files": [
+   "services/fulfillment/internal/store/store.go",
+   "services/fulfillment/migrations/0001_init.sql",
+   "services/fulfillment/migrations/0006_grants.sql",
+   "services/fulfillment/migrations/0007_revoke_unused_delete.sql"
+  ],
+  "kind": "posting_tx",
+  "fiscal": false,
+  "note": "shipment and packing numbers from nextNumber(tx) in the creating tx"
+ },
+ {
+  "files": [
+   "services/fieldservice/internal/store/store.go",
+   "services/fieldservice/migrations/0001_init.sql",
+   "services/fieldservice/migrations/0002_grants.sql",
+   "services/fieldservice/migrations/0003_revoke_unused_delete.sql",
+   "services/fieldservice/migrations/0006_generic_cases.sql"
+  ],
+  "kind": "posting_tx",
+  "fiscal": false,
+  "note": "service order and case numbers from nextNumber(tx) in the creating tx"
+ },
+ {
+  "files": [
+   "services/hr/internal/store/incidents.go",
+   "services/hr/migrations/0008_incidents_loans_checklists.sql"
+  ],
+  "kind": "posting_tx",
+  "fiscal": false,
+  "note": "incident case number taken inside ReportIncident's tx"
+ },
+ {
+  "files": [
+   "services/projects/internal/store/change_order.go"
+  ],
+  "kind": "posting_tx",
+  "fiscal": false,
+  "note": "change order number computed in the insert statement from a count; not gap-free under concurrency and not a fiscal document"
+ },
+ {
+  "files": [
+   "services/party/internal/numbering/client.go",
+   "services/hr/internal/numbering/client.go"
+  ],
+  "kind": "remote_non_fiscal",
+  "fiscal": false,
+  "note": "party and worker master-data numbers over HTTP; their sequences are not gap_free"
+ },
+ {
+  "files": [
+   "services/edi/internal/store/store.go",
+   "services/edi/migrations/0001_init.sql",
+   "services/edi/migrations/0003_grants.sql"
+  ],
+  "kind": "not_a_document_number",
+  "fiscal": false,
+  "note": "EDI interchange control number"
+ },
+ {
+  "files": [
+   "services/inventory/internal/store/tags.go"
+  ],
+  "kind": "not_a_document_number",
+  "fiscal": false,
+  "note": "count tag labels generated with lpad"
+ },
+ {
+  "files": [
+   "services/product/internal/store/store.go",
+   "services/product/migrations/0001_init.sql"
+  ],
+  "kind": "not_a_document_number",
+  "fiscal": false,
+  "note": "GS1 serial counter for GTINs"
+ },
+ {
+  "files": [
+   "services/scheduling/internal/store/campaign.go",
+   "services/scheduling/internal/store/cleanoutreset.go",
+   "services/scheduling/migrations/0005_campaign_solver_cleanout_counter.sql",
+   "services/scheduling/migrations/0023_cleanout_resets.sql"
+  ],
+  "kind": "not_a_document_number",
+  "fiscal": false,
+  "note": "cleanout batch and minute counter of a resource"
+ }
+]

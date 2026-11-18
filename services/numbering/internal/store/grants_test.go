@@ -26,6 +26,7 @@ func TestGrants_AppRoleCannotRewriteAllocationsOrOutbox(t *testing.T) {
 		`update number_allocation set value = value`,
 		`delete from number_allocation`,
 		`delete from number_sequence`,
+		`delete from number_reservation`,
 		`select count(*) from outbox`,
 		`update outbox set type = type`,
 	} {

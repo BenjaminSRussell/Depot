@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -52,14 +53,26 @@ type Store interface {
 	Get(ctx context.Context, code string) (Sequence, error)
 	List(ctx context.Context, after string, limit int) ([]Sequence, error)
 	Allocate(ctx context.Context, code, idempotencyKey string) (Issued, error)
+	Reserve(ctx context.Context, code, idempotencyKey string, lease time.Duration) (Reservation, error)
+	Confirm(ctx context.Context, id, documentRef string) (Reservation, error)
+	Void(ctx context.Context, id, reason string) (Reservation, error)
+	Voided(ctx context.Context, code, after string, limit int) ([]VoidedNumber, error)
 	Ping(ctx context.Context) error
 }
 
 // Postgres implements Store.
-type Postgres struct{ pool *pgxpool.Pool }
+type Postgres struct {
+	pool  *pgxpool.Pool
+	clock func() time.Time
+}
 
-// New wraps pool.
-func New(pool *pgxpool.Pool) *Postgres { return &Postgres{pool: pool} }
+// New wraps pool and reads time from the wall clock.
+func New(pool *pgxpool.Pool) *Postgres { return NewWithClock(pool, time.Now) }
+
+// NewWithClock wraps pool and reads lease time from clock.
+func NewWithClock(pool *pgxpool.Pool, clock func() time.Time) *Postgres {
+	return &Postgres{pool: pool, clock: clock}
+}
 
 // Ping checks the pool.
 func (s *Postgres) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
@@ -157,12 +170,10 @@ func (s *Postgres) Allocate(ctx context.Context, code, idempotencyKey string) (I
 		if err != nil {
 			return err
 		}
-		var next int64
-		err = tx.QueryRow(ctx, `insert into number_sequence_state (tenant_id, legal_entity_id, sequence_code, next_value)
-			values ($1,$2,$3,$4)
-			on conflict (tenant_id, legal_entity_id, sequence_code)
-			do update set next_value = number_sequence_state.next_value + 1
-			returning next_value`, p.TenantID, seq.LegalEntityID, seq.Code, seq.StartFrom).Scan(&next)
+		if p.Service != "" && seq.Mode == domain.ModeGapFree {
+			return httpx.NewProblem(http.StatusConflict, domain.CodeGapFreeRemote, "a gap-free number cannot be taken over HTTP with next; reserve it, then confirm or void it")
+		}
+		next, err := takeNext(ctx, tx, p, seq)
 		if err != nil {
 			return err
 		}
@@ -196,6 +207,16 @@ func (s *Postgres) Allocate(ctx context.Context, code, idempotencyKey string) (I
 		return Issued{}, httpx.NewProblem(http.StatusConflict, CodeDuplicate, "allocation conflict")
 	}
 	return out, err
+}
+
+func takeNext(ctx context.Context, tx pgx.Tx, p tenant.Principal, seq Sequence) (int64, error) {
+	var next int64
+	err := tx.QueryRow(ctx, `insert into number_sequence_state (tenant_id, legal_entity_id, sequence_code, next_value)
+		values ($1,$2,$3,$4)
+		on conflict (tenant_id, legal_entity_id, sequence_code)
+		do update set next_value = number_sequence_state.next_value + 1
+		returning next_value`, p.TenantID, seq.LegalEntityID, seq.Code, seq.StartFrom).Scan(&next)
+	return next, err
 }
 
 func scopeEntities(p tenant.Principal) ([]string, error) {

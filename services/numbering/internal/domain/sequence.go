@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 )
 
@@ -18,8 +19,21 @@ const (
 	CodeInvalid       = "NUM-0001"
 	CodeExhausted     = "NUM-0002"
 	CodeUnknown       = "NUM-0003"
-	maxName           = 120
-	maxValue          = int64(1_000_000_000_000)
+
+	CodeGapFreeRemote      = "NUM-0004"
+	CodeLeaseExpired       = "NUM-0005"
+	CodeReservationState   = "NUM-0006"
+	CodeReservationUnknown = "NUM-0007"
+
+	StatusReserved  = "reserved"
+	StatusConfirmed = "confirmed"
+	StatusVoided    = "voided"
+
+	VoidLeaseExpired = "lease_expired"
+	DefaultLease     = 300 * time.Second
+	maxLeaseSeconds  = 3600
+	maxName          = 120
+	maxValue         = int64(1_000_000_000_000)
 )
 
 var (
@@ -71,6 +85,17 @@ func Validate(d Definition) map[string]string {
 		fields["legalEntityId"] = "is required"
 	}
 	return fields
+}
+
+// LeaseFor turns a requested lease in seconds into a duration; nil selects DefaultLease.
+func LeaseFor(seconds *int) (time.Duration, bool) {
+	if seconds == nil {
+		return DefaultLease, true
+	}
+	if *seconds < 1 || *seconds > maxLeaseSeconds {
+		return 0, false
+	}
+	return time.Duration(*seconds) * time.Second, true
 }
 
 // FormatValue renders n into format. The token is {######} or {000000}.

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -22,6 +23,8 @@ type fakeStore struct {
 	seq    store.Sequence
 	issued store.Issued
 	items  []store.Sequence
+	res    store.Reservation
+	voided []store.VoidedNumber
 }
 
 func (f *fakeStore) Create(_ context.Context, in store.Sequence, _ string) (store.Sequence, error) {
@@ -49,6 +52,18 @@ func (f *fakeStore) Allocate(context.Context, string, string) (store.Issued, err
 		return store.Issued{}, f.err
 	}
 	return f.issued, nil
+}
+func (f *fakeStore) Reserve(context.Context, string, string, time.Duration) (store.Reservation, error) {
+	return f.res, f.err
+}
+func (f *fakeStore) Confirm(context.Context, string, string) (store.Reservation, error) {
+	return f.res, f.err
+}
+func (f *fakeStore) Void(context.Context, string, string) (store.Reservation, error) {
+	return f.res, f.err
+}
+func (f *fakeStore) Voided(context.Context, string, string, int) ([]store.VoidedNumber, error) {
+	return f.voided, f.err
 }
 func (f *fakeStore) Ping(context.Context) error { return f.ping }
 
