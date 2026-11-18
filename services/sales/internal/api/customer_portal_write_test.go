@@ -123,7 +123,7 @@ type writeHarness struct {
 	s      *portalWriteStore
 }
 
-func newWriteHarness(t *testing.T, s *portalWriteStore, names ProductNamer) *writeHarness {
+func newWriteHarness(t *testing.T, s *portalWriteStore, names ProductNamer, opts ...func(*API) *API) *writeHarness {
 	t.Helper()
 	c := newCustomerHarness(t, s)
 	r := chi.NewRouter()
@@ -131,6 +131,9 @@ func newWriteHarness(t *testing.T, s *portalWriteStore, names ProductNamer) *wri
 	api := New(s).WithCustomerGroups(fixedGroups{})
 	if names != nil {
 		api = api.WithProductNames(names)
+	}
+	for _, opt := range opts {
+		api = opt(api)
 	}
 	api.Register(r)
 	return &writeHarness{h: r, signer: c.signer, s: s}

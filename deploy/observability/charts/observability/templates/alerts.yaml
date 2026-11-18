@@ -87,6 +87,18 @@ spec:
             annotations:
               summary: No depot-authz-opa replica is available, so Envoy refuses every depot-api request
           {{- end }}
+      # Product block checks (B-39): purchasing and sales fail closed with 503 when the product service cannot answer, so
+      # product being down refuses every requisition, PO, quotation and order. depot_product_block_checks_total{process,outcome}
+      # from platform/go/productblock; outcome blocked counts refusals, unavailable counts fail-closed answers.
+      - name: depot.productblock
+        rules:
+          - alert: DepotProductBlockCheckUnavailable
+            expr: sum by (process) (rate(depot_product_block_checks_total{outcome="unavailable"}[5m])) > 0
+            for: 5m
+            labels:
+              severity: {{ .Values.authz.severity | quote }}
+            annotations:
+              summary: The product block check is failing for {{ "{{" }} $labels.process {{ "}}" }}, so those requests are refused with 503
       # A kafkajs consumer (integration-hub-ts) that has not run for 15 minutes keeps retrying its start in the
       # background while the pod stays Ready: a wrong SCRAM password, a missing CA file or ACL, a topic that never came
       # (D34, B-05b). kafka_consumer_start_failures_total and the service's log say why.

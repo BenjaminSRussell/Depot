@@ -65,6 +65,8 @@ ingressPolicy:
     podNames: [migration]
   - name: production
     podNames: [production]
+  - name: purchasing
+    podNames: [purchasing, purchasing-budget-calls-retry]
   - name: receiving
     podNames: [receiving]
   - name: sales

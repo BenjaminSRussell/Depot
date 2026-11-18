@@ -3132,6 +3132,7 @@
         {"method": "POST", "path": "/v1/product/products/{id}/relations", "operationId": "addProductRelation", "duty": "product.write"},
         {"method": "POST", "path": "/v1/product/products/{id}/variants:explode", "operationId": "explodeVariants", "duty": "product.write"},
         {"method": "GET", "path": "/v1/product/products/{id}/variants:lookup", "operationId": "lookupVariant", "duty": "product.read"},
+        {"method": "GET", "path": "/v1/product/products/{productId}/process-policy", "operationId": "processPolicyByProduct", "duty": "product.read"},
         {"method": "GET", "path": "/v1/product/products:customs", "operationId": "productCustoms", "duty": "product.read", "dutyAlternatives": ["product.customs.read"]},
         {"method": "GET", "path": "/v1/product/products:names", "operationId": "productNames", "duty": "product.read"},
         {"method": "GET", "path": "/v1/product/products:search", "operationId": "searchProducts", "duty": "product.read"},

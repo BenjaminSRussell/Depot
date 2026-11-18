@@ -12,6 +12,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
 	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/productblock"
 	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
 	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
@@ -125,6 +126,14 @@ func (a *API) createOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	po, err := a.buildOrder(r.Context(), body)
 	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	productIDs := make([]string, len(po.Lines))
+	for i, l := range po.Lines {
+		productIDs[i] = l.ProductID
+	}
+	if err := productblock.CheckAll(r.Context(), a.blocks, po.LegalEntityID, productblock.PurchaseOrder, productIDs); err != nil {
 		fail(w, r, err)
 		return
 	}

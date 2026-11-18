@@ -97,7 +97,8 @@ paths:
           description: >-
             validation of the lines, SLS-0011 PRODUCT_NOT_LISTED, SLS-0013 allocation, SLS-0016 a one-time order (oneTime)
             whose net total is over the one-time order limit, SLS-0151 a customerGroup that differs from the customer's
-            group in the party service, SLS-0153 the customer is unknown to the party service in the legal entity, or
+            group in the party service, SLS-0153 the customer is unknown to the party service in the legal entity,
+            PRD-LC-BLOCKED a line's product is blocked for sales (the detail names the block and who to ask), or
             idempotency_key_reuse
           content:
             application/problem+json:
@@ -105,7 +106,8 @@ paths:
         "503":
           description: >-
             SLS-0054 a one-time order (oneTime) while the service has no field encryption keys; SLS-0152 the party service
-            is not configured or could not confirm the customer's group (the GROUP listing check needs it); nothing is stored
+            is not configured or could not confirm the customer's group (the GROUP listing check needs it); PRD-POLICY-UNAVAILABLE
+            the product block check could not answer; nothing is stored
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -667,7 +669,7 @@ paths:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
         "503":
-          description: SLS-0152 the party service is not configured or could not confirm the customer's group; nothing is stored, retry
+          description: SLS-0152 the party service is not configured or could not confirm the customer's group, or PRD-POLICY-UNAVAILABLE the product block check could not answer; nothing is stored, retry
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -1917,7 +1919,7 @@ paths:
         "403": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
         "422":
-          description: idempotency_key_reuse - the key was used with a different body; SLS-0011 PRODUCT_NOT_LISTED - a line's product is not listed for the customer or group on the issue date (a caller with sales.order.approve may accept it with listingOverrideReason); SLS-0151 a customerGroup that differs from the customer's group in the party service; SLS-0153 the customer is unknown to the party service in the legal entity
+          description: idempotency_key_reuse - the key was used with a different body; SLS-0011 PRODUCT_NOT_LISTED - a line's product is not listed for the customer or group on the issue date (a caller with sales.order.approve may accept it with listingOverrideReason); SLS-0151 a customerGroup that differs from the customer's group in the party service; SLS-0153 the customer is unknown to the party service in the legal entity; PRD-LC-BLOCKED - a line's product is blocked for sales (the detail names the block and who to ask)
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}

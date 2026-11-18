@@ -4191,7 +4191,8 @@
       "payables": ["payables.inbox.read"]
     },
     "purchasing": {
-      "budgeting": ["budget.encumbrance.convert", "budget.requisition.check"]
+      "budgeting": ["budget.encumbrance.convert", "budget.requisition.check"],
+      "product": ["product.read"]
     },
     "receiving": {
       "ledger": ["ledger.entry.post", "ledger.journal.reverse"],
@@ -4266,7 +4267,7 @@
       "receivables": ["receivables.forecast.read"]
     },
     "sales": {
-      "product": ["product.configuration.read", "product.names.read"],
+      "product": ["product.configuration.read", "product.names.read", "product.read"],
       "production": ["production.order.create-from-sales"],
       "billing": ["billing.invoice.read"],
       "fulfillment": ["fulfillment.packing-slip.read"],

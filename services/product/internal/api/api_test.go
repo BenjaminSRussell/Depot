@@ -235,6 +235,14 @@ func (f *fakeStore) AddRelation(_ context.Context, in domain.Relation) ([]domain
 func (f *fakeStore) EvaluatePolicy(_ context.Context, releasedID, process string) (domain.ProcessDecision, error) {
 	return domain.EvaluateProcessPolicy(process, f.released[releasedID], domain.StateActive, domain.SeededLifecycleStates()), nil
 }
+func (f *fakeStore) EvaluatePolicyByProduct(_ context.Context, productID, legalEntityID, process string) (domain.ProcessDecision, error) {
+	for _, rp := range f.released {
+		if rp.ProductID == productID && rp.LegalEntityID == legalEntityID {
+			return domain.EvaluateProcessPolicy(process, rp, domain.StateActive, domain.SeededLifecycleStates()), nil
+		}
+	}
+	return domain.ProcessDecision{}, httpx.NewProblem(http.StatusNotFound, "COM-0001", "released product not found")
+}
 func (f *fakeStore) ConvertUOM(_ context.Context, _, _, to, _ string) (string, error) {
 	f.convertedTo = to
 	return "1", nil
@@ -314,6 +322,60 @@ func TestDutyRequired(t *testing.T) {
 	rec := do(r, http.MethodPost, "/v1/product/products", `{"productNumber":"A","name":"A","baseUom":"EA"}`, "product.read")
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("missing write duty %d", rec.Code)
+	}
+}
+
+func TestProcessPolicyByProduct(t *testing.T) {
+	productID, legalEntityID := testkit.TenantID(2), testkit.TenantID(3)
+	f := newFake()
+	f.released["rp-1"] = domain.ReleasedProduct{ID: "rp-1", ProductID: productID, LegalEntityID: legalEntityID, LifecycleState: domain.StateActive, BlockedPurchase: true}
+	r := newRouter(f)
+	path := func(id, le, process string) string {
+		return "/v1/product/products/" + id + "/process-policy?legalEntityId=" + le + "&process=" + process
+	}
+	cases := []struct {
+		name   string
+		path   string
+		duties string
+		status int
+		code   string
+	}{
+		{"blocked for purchasing", path(productID, legalEntityID, "purchase_order"), "product.read", 422, domain.CodeLCBlocked},
+		{"allowed for sales", path(productID, legalEntityID, "sales_order"), "product.read", 200, ""},
+		{"unknown pair", path(testkit.TenantID(4), legalEntityID, "purchase_order"), "product.read", 404, "COM-0001"},
+		{"product id not a UUID", path("nope", legalEntityID, "purchase_order"), "product.read", 400, "COM-0001"},
+		{"legal entity missing", "/v1/product/products/" + productID + "/process-policy?process=purchase_order", "product.read", 400, "COM-0001"},
+		{"process missing", path(productID, legalEntityID, ""), "product.read", 400, "COM-0001"},
+		{"duty missing", path(productID, legalEntityID, "purchase_order"), "product.write", 403, ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rec := do(r, http.MethodGet, c.path, "", c.duties)
+			if rec.Code != c.status {
+				t.Fatalf("status %d, want %d: %s", rec.Code, c.status, rec.Body.String())
+			}
+			if c.code == "" {
+				return
+			}
+			var p httpx.Problem
+			_ = json.Unmarshal(rec.Body.Bytes(), &p)
+			if p.Code != c.code {
+				t.Fatalf("code %q, want %q", p.Code, c.code)
+			}
+			if c.status == 422 && (p.Title != "Unprocessable Entity" || !strings.Contains(p.Detail, "blocked for purchasing") || !strings.Contains(p.Detail, "Ask a product data steward")) {
+				t.Fatalf("refusal wording: %+v", p)
+			}
+		})
+	}
+}
+
+func TestProcessPolicyByProductNeedsATenant(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/v1/product/products/"+testkit.TenantID(2)+"/process-policy?legalEntityId="+testkit.TenantID(3)+"&process=purchase_order", nil)
+	req.Header.Set("X-Depot-Duties", "product.read")
+	rec := httptest.NewRecorder()
+	newRouter(newFake()).ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

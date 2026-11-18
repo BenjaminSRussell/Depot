@@ -115,6 +115,7 @@ var serviceGrants = map[string]map[string][]string{
 	// and converts a requisition line's pre-encumbrance when it creates a PO line from it (FR-38.5).
 	"purchasing": {
 		"budgeting": {"budget.encumbrance.convert", "budget.requisition.check"},
+		"product":   {"product.read"},
 	},
 	"receiving": {
 		"ledger":     {"ledger.entry.post", "ledger.journal.reverse"},
@@ -206,7 +207,7 @@ var serviceGrants = map[string]map[string][]string{
 		"receivables": {"receivables.forecast.read"},
 	},
 	"sales": {
-		"product":     {"product.configuration.read", "product.names.read"},
+		"product":     {"product.configuration.read", "product.names.read", "product.read"},
 		"production":  {"production.order.create-from-sales"},
 		"billing":     {"billing.invoice.read"},
 		"fulfillment": {"fulfillment.packing-slip.read"},

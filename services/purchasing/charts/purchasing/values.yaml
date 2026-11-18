@@ -27,6 +27,8 @@ serviceIdentity:
 # requisitions are approved unchecked, nothing is converted and purchasing logs a warning at start.
 serviceUrls:
   budgeting: ""
+  # product answers whether a requisition or PO line's product is blocked for purchasing (FR-8.10); unset, no block is enforced. Needs serviceIdentity.signingKeySecret.
+  product: ""
 
 env:
   httpAddr: ":8080"

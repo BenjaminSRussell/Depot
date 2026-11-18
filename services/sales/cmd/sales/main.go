@@ -15,6 +15,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/dbx"
 	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/productblock"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/sales/internal/api"
 	"github.com/BenjaminSRussell/depot/services/sales/internal/store"
@@ -95,6 +96,15 @@ func run(ctx context.Context, getenv func(string) string) error {
 		a = a.WithPortalPricer(up)
 	} else {
 		slog.Warn("PRICING_URL or the service signing key is unset: a portal order for a product the customer has not bought before is refused (SAL-CUS-002)")
+	}
+	if signer != nil && getenv("PRODUCT_URL") != "" {
+		blocks, err := productblock.New(getenv("PRODUCT_URL"), signer, nil)
+		if err != nil {
+			return err
+		}
+		a = a.WithProductBlocks(blocks)
+	} else {
+		slog.Warn("PRODUCT_URL or the service signing key is unset: product blocks are not enforced on quotations and orders")
 	}
 	router := httpx.NewRouter()
 	a.Register(router)

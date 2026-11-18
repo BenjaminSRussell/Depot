@@ -14,6 +14,7 @@ import (
 
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/productblock"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
 	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
@@ -797,4 +798,120 @@ func (f *fakeStore) ListReleaseRuns(_ context.Context, rf store.ReleaseRunFilter
 		items = append(items, r)
 	}
 	return store.Page[store.ReleaseRun]{Items: items}, nil
+}
+
+const blockedForPurchasing = "This product is blocked for purchasing. Ask a product data steward to lift the block."
+
+func requireBlockedProblem(t *testing.T, rec *httptest.ResponseRecorder) {
+	t.Helper()
+	var p httpx.Problem
+	if err := json.Unmarshal(rec.Body.Bytes(), &p); err != nil {
+		t.Fatalf("body %q is not a problem: %v", rec.Body.String(), err)
+	}
+	if rec.Code != http.StatusUnprocessableEntity || p.Code != productblock.CodeBlocked || p.Title != "Unprocessable Entity" || p.Detail != blockedForPurchasing {
+		t.Fatalf("got %d %+v, want 422 %s with a plain title and the detail naming purchasing", rec.Code, p, productblock.CodeBlocked)
+	}
+}
+
+func TestCreateRequisition_RefusesAProductBlockedForPurchasing(t *testing.T) {
+	blocked, free := ids.New(), ids.New()
+	body := func(product string) string {
+		return `{"legalEntityId":"` + leA + `","currency":"USD","lines":[{"productId":"` + product + `","qty":"3","unit":"EA","estimatedUnitPrice":"2","requestedDate":"2026-03-10"}]}`
+	}
+	h := newHarness(t)
+	fake := &productblock.Fake{BlockedDetail: map[string]string{blocked: blockedForPurchasing}}
+	h.api.WithProductBlocks(fake)
+	create := func(product, key string) *httptest.ResponseRecorder {
+		return h.do(call{method: "POST", path: "/v1/procurement/requisitions", user: userA, duties: []string{dutyRequisitionCreate}, body: body(product), headers: idem(key)})
+	}
+
+	requireBlockedProblem(t, create(blocked, "b1"))
+	if len(h.fake.requisitions) != 0 {
+		t.Fatal("a refused requisition reached the store")
+	}
+	if rec := create(free, "b2"); rec.Code != http.StatusCreated {
+		t.Fatalf("unblocked product: %d %s", rec.Code, rec.Body)
+	}
+	if got := fake.Calls[0]; got != blocked+"|"+productblock.PurchaseRequisition {
+		t.Fatalf("checked %q, want the requisition process", got)
+	}
+	if rec := h.do(call{method: "POST", path: "/v1/procurement/requisitions", user: userA, duties: []string{dutyRequisitionCreate}, body: reqBody, headers: idem("b3")}); rec.Code != http.StatusCreated {
+		t.Fatalf("free text line: %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestPatchRequisition_RefusesAProductBlockedForPurchasing(t *testing.T) {
+	blocked, free := ids.New(), ids.New()
+	lines := func(product string) string {
+		return `{"lines":[{"productId":"` + product + `","qty":"3","unit":"EA","estimatedUnitPrice":"2","requestedDate":"2026-03-10"}]}`
+	}
+	h := newHarness(t)
+	rec := h.do(call{method: "POST", path: "/v1/procurement/requisitions", user: userA, duties: []string{dutyRequisitionCreate},
+		body: `{"legalEntityId":"` + leA + `","currency":"USD",` + lines(free)[1:], headers: idem("p0")})
+	var created store.Requisition
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil || rec.Code != http.StatusCreated {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body)
+	}
+	h.api.WithProductBlocks(&productblock.Fake{BlockedDetail: map[string]string{blocked: blockedForPurchasing}})
+	patch := func(product, key string) *httptest.ResponseRecorder {
+		return h.do(call{method: "PATCH", path: "/v1/procurement/requisitions/" + created.ID, user: userA, duties: []string{dutyRequisitionCreate},
+			body: lines(product), headers: map[string]string{"Idempotency-Key": key, "If-Match": `"1"`}})
+	}
+
+	requireBlockedProblem(t, patch(blocked, "p1"))
+	if got := h.fake.requisitions[created.ID]; got.Version != 1 || got.Lines[0].ProductID != free {
+		t.Fatalf("a refused edit reached the store: %+v", got)
+	}
+	if rec := patch(free, "p2"); rec.Code != http.StatusOK {
+		t.Fatalf("unblocked product: %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestCreateOrder_RefusesAProductBlockedForPurchasingAndFailsClosed(t *testing.T) {
+	blocked, free := ids.New(), ids.New()
+	body := func(product string) string {
+		return `{"legalEntityId":"` + leA + `","vendorId":"` + vendorA + `","currency":"USD","lines":[{"productId":"` + product + `","qty":"1","unit":"EA","unitPrice":"5","deliveryDate":"2026-04-01"}]}`
+	}
+	create := func(h *harness, product string) *httptest.ResponseRecorder {
+		return h.do(call{method: "POST", path: "/v1/procurement/purchase-orders", duties: []string{dutyPurchaseOrderMaintain}, body: body(product), headers: idem("po-b")})
+	}
+
+	h := newHarness(t)
+	h.api.WithProductBlocks(&productblock.Fake{BlockedDetail: map[string]string{blocked: blockedForPurchasing}})
+	requireBlockedProblem(t, create(h, blocked))
+	if len(h.fake.orders) != 0 {
+		t.Fatal("a refused order reached the store")
+	}
+	if rec := create(h, free); rec.Code != http.StatusCreated {
+		t.Fatalf("unblocked product: %d %s", rec.Code, rec.Body)
+	}
+
+	down := newHarness(t)
+	down.api.WithProductBlocks(&productblock.Fake{Err: httpx.NewProblem(http.StatusServiceUnavailable, productblock.CodeUnavailable, "try again")})
+	if rec := create(down, free); rec.Code != http.StatusServiceUnavailable || problemCode(t, rec) != productblock.CodeUnavailable || len(down.fake.orders) != 0 {
+		t.Fatalf("checker unavailable: %d %s, orders %d", rec.Code, rec.Body, len(down.fake.orders))
+	}
+
+	off := newHarness(t)
+	if rec := create(off, blocked); rec.Code != http.StatusCreated {
+		t.Fatalf("no checker configured must enforce nothing: %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestEditOrder_ChecksOnlyNewOrChangedProducts(t *testing.T) {
+	h := newHarness(t)
+	po := storedPO(h, domain.POStatusConfirmed)
+	newProduct := ids.New()
+	fake := &productblock.Fake{BlockedDetail: map[string]string{productA: blockedForPurchasing, newProduct: blockedForPurchasing}}
+	h.api.WithProductBlocks(fake)
+	edit := func(extraLine string) *httptest.ResponseRecorder {
+		body := `{"legalEntityId":"` + leA + `","vendorId":"` + vendorA + `","currency":"USD","lines":[
+		 {"lineNo":1,"productId":"` + productA + `","qty":"12","unit":"EA","deliveryDate":"2026-04-01"}` + extraLine + `]}`
+		return h.do(call{method: "PATCH", path: poPath(po.ID), duties: []string{dutyPurchaseOrderMaintain}, body: body, headers: map[string]string{"If-Match": `"5"`}})
+	}
+
+	if rec := edit(""); rec.Code != http.StatusOK || len(fake.Calls) != 0 {
+		t.Fatalf("an unchanged line is not rechecked: %d %s, checks %v", rec.Code, rec.Body, fake.Calls)
+	}
+	requireBlockedProblem(t, edit(`,{"productId":"`+newProduct+`","qty":"1","unit":"EA","unitPrice":"3","deliveryDate":"2026-04-02"}`))
 }

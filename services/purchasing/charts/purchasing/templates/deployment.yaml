@@ -66,6 +66,10 @@ spec:
             - name: BUDGETING_URL
               value: {{ .Values.serviceUrls.budgeting | quote }}
             {{- end }}
+            {{- if .Values.serviceUrls.product }}
+            - name: PRODUCT_URL
+              value: {{ .Values.serviceUrls.product | quote }}
+            {{- end }}
             {{- if .Values.serviceIdentity.signingKeySecret }}
             - name: DEPOT_SERVICE_SIGNING_KEY_FILE
               value: /var/run/depot/service-identity/signing-key
