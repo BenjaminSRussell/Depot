@@ -65,6 +65,8 @@ data:
     -- Reconciles the roles and databases of this Postgres (gen_databases.py), run by the PostSync Job and the CronJob.
     -- Idempotent. Every role first (NOLOGIN until its password file exists), then the databases, then CONNECT.
     \set ON_ERROR_STOP on
+    -- One run at a time: the PostSync Job and the CronJob may overlap. Released when the session ends.
+    SELECT pg_advisory_lock(7300901) \g /dev/null
     REVOKE CONNECT ON DATABASE postgres FROM PUBLIC;
     REVOKE CONNECT ON DATABASE template1 FROM PUBLIC;
     -- depot_app: the role the migrations grant to and the RLS policies name. No login, CONNECT nowhere; each database's
@@ -83,7 +85,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_agents_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_agents_app')\gexec
     ALTER ROLE depot_agents_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_agents_app;
+    SELECT 'GRANT depot_app TO depot_agents_app' WHERE NOT pg_has_role('depot_agents_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/agents-ts-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/agents-ts-app-password`
@@ -112,7 +114,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_analytics_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_analytics_app')\gexec
     ALTER ROLE depot_analytics_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_analytics_app;
+    SELECT 'GRANT depot_app TO depot_analytics_app' WHERE NOT pg_has_role('depot_analytics_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/analytics-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/analytics-app-password`
@@ -141,7 +143,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_assets_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_assets_app')\gexec
     ALTER ROLE depot_assets_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_assets_app;
+    SELECT 'GRANT depot_app TO depot_assets_app' WHERE NOT pg_has_role('depot_assets_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/assets-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/assets-app-password`
@@ -170,7 +172,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_audit_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_audit_app')\gexec
     ALTER ROLE depot_audit_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_audit_app;
+    SELECT 'GRANT depot_app TO depot_audit_app' WHERE NOT pg_has_role('depot_audit_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/audit-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/audit-app-password`
@@ -199,7 +201,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_billing_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_billing_app')\gexec
     ALTER ROLE depot_billing_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_billing_app;
+    SELECT 'GRANT depot_app TO depot_billing_app' WHERE NOT pg_has_role('depot_billing_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/billing-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/billing-app-password`
@@ -228,7 +230,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_budgeting_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_budgeting_app')\gexec
     ALTER ROLE depot_budgeting_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_budgeting_app;
+    SELECT 'GRANT depot_app TO depot_budgeting_app' WHERE NOT pg_has_role('depot_budgeting_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/budgeting-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/budgeting-app-password`
@@ -257,7 +259,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_close_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_close_app')\gexec
     ALTER ROLE depot_close_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_close_app;
+    SELECT 'GRANT depot_app TO depot_close_app' WHERE NOT pg_has_role('depot_close_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/close-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/close-app-password`
@@ -286,7 +288,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_compliance_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_compliance_app')\gexec
     ALTER ROLE depot_compliance_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_compliance_app;
+    SELECT 'GRANT depot_app TO depot_compliance_app' WHERE NOT pg_has_role('depot_compliance_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/compliance-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/compliance-app-password`
@@ -315,7 +317,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_consolidation_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_consolidation_app')\gexec
     ALTER ROLE depot_consolidation_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_consolidation_app;
+    SELECT 'GRANT depot_app TO depot_consolidation_app' WHERE NOT pg_has_role('depot_consolidation_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/consolidation-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/consolidation-app-password`
@@ -344,7 +346,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_costacct_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_costacct_app')\gexec
     ALTER ROLE depot_costacct_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_costacct_app;
+    SELECT 'GRANT depot_app TO depot_costacct_app' WHERE NOT pg_has_role('depot_costacct_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/costacct-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/costacct-app-password`
@@ -373,7 +375,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_costing_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_costing_app')\gexec
     ALTER ROLE depot_costing_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_costing_app;
+    SELECT 'GRANT depot_app TO depot_costing_app' WHERE NOT pg_has_role('depot_costing_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/costing-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/costing-app-password`
@@ -402,7 +404,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_eam_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_eam_app')\gexec
     ALTER ROLE depot_eam_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_eam_app;
+    SELECT 'GRANT depot_app TO depot_eam_app' WHERE NOT pg_has_role('depot_eam_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/eam-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/eam-app-password`
@@ -431,7 +433,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_edi_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_edi_app')\gexec
     ALTER ROLE depot_edi_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_edi_app;
+    SELECT 'GRANT depot_app TO depot_edi_app' WHERE NOT pg_has_role('depot_edi_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/edi-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/edi-app-password`
@@ -460,7 +462,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_engineering_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_engineering_app')\gexec
     ALTER ROLE depot_engineering_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_engineering_app;
+    SELECT 'GRANT depot_app TO depot_engineering_app' WHERE NOT pg_has_role('depot_engineering_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/engineering-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/engineering-app-password`
@@ -489,7 +491,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_expense_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_expense_app')\gexec
     ALTER ROLE depot_expense_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_expense_app;
+    SELECT 'GRANT depot_app TO depot_expense_app' WHERE NOT pg_has_role('depot_expense_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/expense-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/expense-app-password`
@@ -518,7 +520,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_fieldservice_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_fieldservice_app')\gexec
     ALTER ROLE depot_fieldservice_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_fieldservice_app;
+    SELECT 'GRANT depot_app TO depot_fieldservice_app' WHERE NOT pg_has_role('depot_fieldservice_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/fieldservice-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/fieldservice-app-password`
@@ -547,7 +549,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_finreport_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_finreport_app')\gexec
     ALTER ROLE depot_finreport_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_finreport_app;
+    SELECT 'GRANT depot_app TO depot_finreport_app' WHERE NOT pg_has_role('depot_finreport_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/finreport-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/finreport-app-password`
@@ -576,7 +578,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_fulfillment_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_fulfillment_app')\gexec
     ALTER ROLE depot_fulfillment_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_fulfillment_app;
+    SELECT 'GRANT depot_app TO depot_fulfillment_app' WHERE NOT pg_has_role('depot_fulfillment_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/fulfillment-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/fulfillment-app-password`
@@ -605,7 +607,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_fx_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_fx_app')\gexec
     ALTER ROLE depot_fx_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_fx_app;
+    SELECT 'GRANT depot_app TO depot_fx_app' WHERE NOT pg_has_role('depot_fx_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/fx-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/fx-app-password`
@@ -634,7 +636,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_hr_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_hr_app')\gexec
     ALTER ROLE depot_hr_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_hr_app;
+    SELECT 'GRANT depot_app TO depot_hr_app' WHERE NOT pg_has_role('depot_hr_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/hr-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/hr-app-password`
@@ -663,7 +665,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_identity_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_identity_app')\gexec
     ALTER ROLE depot_identity_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_identity_app;
+    SELECT 'GRANT depot_app TO depot_identity_app' WHERE NOT pg_has_role('depot_identity_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/identity-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/identity-app-password`
@@ -692,7 +694,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_integration_hub_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_integration_hub_app')\gexec
     ALTER ROLE depot_integration_hub_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_integration_hub_app;
+    SELECT 'GRANT depot_app TO depot_integration_hub_app' WHERE NOT pg_has_role('depot_integration_hub_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/integration-hub-ts-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/integration-hub-ts-app-password`
@@ -721,7 +723,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_intercompany_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_intercompany_app')\gexec
     ALTER ROLE depot_intercompany_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_intercompany_app;
+    SELECT 'GRANT depot_app TO depot_intercompany_app' WHERE NOT pg_has_role('depot_intercompany_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/intercompany-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/intercompany-app-password`
@@ -750,7 +752,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_inventory_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_inventory_app')\gexec
     ALTER ROLE depot_inventory_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_inventory_app;
+    SELECT 'GRANT depot_app TO depot_inventory_app' WHERE NOT pg_has_role('depot_inventory_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/inventory-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/inventory-app-password`
@@ -779,7 +781,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_lean_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_lean_app')\gexec
     ALTER ROLE depot_lean_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_lean_app;
+    SELECT 'GRANT depot_app TO depot_lean_app' WHERE NOT pg_has_role('depot_lean_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/lean-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/lean-app-password`
@@ -808,7 +810,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_ledger_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_ledger_app')\gexec
     ALTER ROLE depot_ledger_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_ledger_app;
+    SELECT 'GRANT depot_app TO depot_ledger_app' WHERE NOT pg_has_role('depot_ledger_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/ledger-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/ledger-app-password`
@@ -837,7 +839,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_migration_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_migration_app')\gexec
     ALTER ROLE depot_migration_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_migration_app;
+    SELECT 'GRANT depot_app TO depot_migration_app' WHERE NOT pg_has_role('depot_migration_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/migration-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/migration-app-password`
@@ -866,7 +868,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_migration_factory_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_migration_factory_app')\gexec
     ALTER ROLE depot_migration_factory_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_migration_factory_app;
+    SELECT 'GRANT depot_app TO depot_migration_factory_app' WHERE NOT pg_has_role('depot_migration_factory_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/migration-factory-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/migration-factory-app-password`
@@ -895,7 +897,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_mobile_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_mobile_app')\gexec
     ALTER ROLE depot_mobile_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_mobile_app;
+    SELECT 'GRANT depot_app TO depot_mobile_app' WHERE NOT pg_has_role('depot_mobile_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/mobile-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/mobile-app-password`
@@ -924,7 +926,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_numbering_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_numbering_app')\gexec
     ALTER ROLE depot_numbering_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_numbering_app;
+    SELECT 'GRANT depot_app TO depot_numbering_app' WHERE NOT pg_has_role('depot_numbering_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/numbering-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/numbering-app-password`
@@ -953,7 +955,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_ops_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_ops_app')\gexec
     ALTER ROLE depot_ops_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_ops_app;
+    SELECT 'GRANT depot_app TO depot_ops_app' WHERE NOT pg_has_role('depot_ops_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/ops-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/ops-app-password`
@@ -982,7 +984,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_org_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_org_app')\gexec
     ALTER ROLE depot_org_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_org_app;
+    SELECT 'GRANT depot_app TO depot_org_app' WHERE NOT pg_has_role('depot_org_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/org-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/org-app-password`
@@ -1011,7 +1013,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_party_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_party_app')\gexec
     ALTER ROLE depot_party_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_party_app;
+    SELECT 'GRANT depot_app TO depot_party_app' WHERE NOT pg_has_role('depot_party_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/party-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/party-app-password`
@@ -1040,7 +1042,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_payables_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_payables_app')\gexec
     ALTER ROLE depot_payables_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_payables_app;
+    SELECT 'GRANT depot_app TO depot_payables_app' WHERE NOT pg_has_role('depot_payables_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/payables-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/payables-app-password`
@@ -1069,7 +1071,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_payroll_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_payroll_app')\gexec
     ALTER ROLE depot_payroll_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_payroll_app;
+    SELECT 'GRANT depot_app TO depot_payroll_app' WHERE NOT pg_has_role('depot_payroll_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/payroll-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/payroll-app-password`
@@ -1098,7 +1100,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_planning_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_planning_app')\gexec
     ALTER ROLE depot_planning_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_planning_app;
+    SELECT 'GRANT depot_app TO depot_planning_app' WHERE NOT pg_has_role('depot_planning_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/planning-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/planning-app-password`
@@ -1127,7 +1129,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_platform_health_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_platform_health_app')\gexec
     ALTER ROLE depot_platform_health_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_platform_health_app;
+    SELECT 'GRANT depot_app TO depot_platform_health_app' WHERE NOT pg_has_role('depot_platform_health_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/platform-health-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/platform-health-app-password`
@@ -1156,7 +1158,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_prediction_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_prediction_app')\gexec
     ALTER ROLE depot_prediction_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_prediction_app;
+    SELECT 'GRANT depot_app TO depot_prediction_app' WHERE NOT pg_has_role('depot_prediction_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/prediction-py-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/prediction-py-app-password`
@@ -1185,7 +1187,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_pricing_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_pricing_app')\gexec
     ALTER ROLE depot_pricing_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_pricing_app;
+    SELECT 'GRANT depot_app TO depot_pricing_app' WHERE NOT pg_has_role('depot_pricing_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/pricing-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/pricing-app-password`
@@ -1214,7 +1216,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_print_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_print_app')\gexec
     ALTER ROLE depot_print_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_print_app;
+    SELECT 'GRANT depot_app TO depot_print_app' WHERE NOT pg_has_role('depot_print_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/print-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/print-app-password`
@@ -1243,7 +1245,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_processmfg_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_processmfg_app')\gexec
     ALTER ROLE depot_processmfg_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_processmfg_app;
+    SELECT 'GRANT depot_app TO depot_processmfg_app' WHERE NOT pg_has_role('depot_processmfg_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/processmfg-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/processmfg-app-password`
@@ -1272,7 +1274,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_product_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_product_app')\gexec
     ALTER ROLE depot_product_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_product_app;
+    SELECT 'GRANT depot_app TO depot_product_app' WHERE NOT pg_has_role('depot_product_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/product-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/product-app-password`
@@ -1301,7 +1303,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_productcost_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_productcost_app')\gexec
     ALTER ROLE depot_productcost_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_productcost_app;
+    SELECT 'GRANT depot_app TO depot_productcost_app' WHERE NOT pg_has_role('depot_productcost_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/productcost-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/productcost-app-password`
@@ -1330,7 +1332,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_production_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_production_app')\gexec
     ALTER ROLE depot_production_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_production_app;
+    SELECT 'GRANT depot_app TO depot_production_app' WHERE NOT pg_has_role('depot_production_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/production-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/production-app-password`
@@ -1359,7 +1361,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_projects_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_projects_app')\gexec
     ALTER ROLE depot_projects_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_projects_app;
+    SELECT 'GRANT depot_app TO depot_projects_app' WHERE NOT pg_has_role('depot_projects_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/projects-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/projects-app-password`
@@ -1388,7 +1390,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_purchasing_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_purchasing_app')\gexec
     ALTER ROLE depot_purchasing_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_purchasing_app;
+    SELECT 'GRANT depot_app TO depot_purchasing_app' WHERE NOT pg_has_role('depot_purchasing_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/purchasing-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/purchasing-app-password`
@@ -1417,7 +1419,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_quality_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_quality_app')\gexec
     ALTER ROLE depot_quality_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_quality_app;
+    SELECT 'GRANT depot_app TO depot_quality_app' WHERE NOT pg_has_role('depot_quality_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/quality-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/quality-app-password`
@@ -1446,7 +1448,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_receivables_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_receivables_app')\gexec
     ALTER ROLE depot_receivables_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_receivables_app;
+    SELECT 'GRANT depot_app TO depot_receivables_app' WHERE NOT pg_has_role('depot_receivables_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/receivables-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/receivables-app-password`
@@ -1475,7 +1477,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_receiving_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_receiving_app')\gexec
     ALTER ROLE depot_receiving_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_receiving_app;
+    SELECT 'GRANT depot_app TO depot_receiving_app' WHERE NOT pg_has_role('depot_receiving_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/receiving-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/receiving-app-password`
@@ -1504,7 +1506,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_revrec_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_revrec_app')\gexec
     ALTER ROLE depot_revrec_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_revrec_app;
+    SELECT 'GRANT depot_app TO depot_revrec_app' WHERE NOT pg_has_role('depot_revrec_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/revrec-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/revrec-app-password`
@@ -1533,7 +1535,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_sales_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_sales_app')\gexec
     ALTER ROLE depot_sales_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_sales_app;
+    SELECT 'GRANT depot_app TO depot_sales_app' WHERE NOT pg_has_role('depot_sales_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/sales-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/sales-app-password`
@@ -1562,7 +1564,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_scheduling_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_scheduling_app')\gexec
     ALTER ROLE depot_scheduling_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_scheduling_app;
+    SELECT 'GRANT depot_app TO depot_scheduling_app' WHERE NOT pg_has_role('depot_scheduling_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/scheduling-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/scheduling-app-password`
@@ -1582,7 +1584,7 @@ data:
     -- roles of services/search/charts/search (search)
     SELECT 'CREATE ROLE depot_search_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_search_app')\gexec
     ALTER ROLE depot_search_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_search_app;
+    SELECT 'GRANT depot_app TO depot_search_app' WHERE NOT pg_has_role('depot_search_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/search-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/search-app-password`
@@ -1611,7 +1613,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_shopfloor_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_shopfloor_app')\gexec
     ALTER ROLE depot_shopfloor_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_shopfloor_app;
+    SELECT 'GRANT depot_app TO depot_shopfloor_app' WHERE NOT pg_has_role('depot_shopfloor_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/shopfloor-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/shopfloor-app-password`
@@ -1640,7 +1642,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_tax_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_tax_app')\gexec
     ALTER ROLE depot_tax_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_tax_app;
+    SELECT 'GRANT depot_app TO depot_tax_app' WHERE NOT pg_has_role('depot_tax_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/tax-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/tax-app-password`
@@ -1669,7 +1671,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_transport_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_transport_app')\gexec
     ALTER ROLE depot_transport_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_transport_app;
+    SELECT 'GRANT depot_app TO depot_transport_app' WHERE NOT pg_has_role('depot_transport_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/transport-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/transport-app-password`
@@ -1698,7 +1700,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_treasury_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_treasury_app')\gexec
     ALTER ROLE depot_treasury_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_treasury_app;
+    SELECT 'GRANT depot_app TO depot_treasury_app' WHERE NOT pg_has_role('depot_treasury_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/treasury-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/treasury-app-password`
@@ -1727,7 +1729,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_warehouse_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_warehouse_app')\gexec
     ALTER ROLE depot_warehouse_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_warehouse_app;
+    SELECT 'GRANT depot_app TO depot_warehouse_app' WHERE NOT pg_has_role('depot_warehouse_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/warehouse-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/warehouse-app-password`

@@ -157,7 +157,10 @@ KEYCLOAK_HOSTNAME = ("https://keycloak.depot.example.invalid", "https://idp.stag
 # The stage API: one HTTPS listener (the shell's origin calls /api on its own host) with a certificate from the stage CA,
 # and tokens of the stage Keycloak realm, verified with its published keys (B-09b review B1).
 STAGE_ISSUER = "https://idp.stage.depot.dev/realms/depot"
-STAGE_JWKS = STAGE_ISSUER + "/protocol/openid-connect/certs"
+# Envoy fetches the realm's keys from the in-cluster Keycloak Service (remoteJWKS.backendRefs, B-09b review m-a), which
+# Keycloak's NetworkPolicy admits from the depot-api Envoy pods on 8080; the issuer stays the public realm URL.
+KEYCLOAK_SERVICE = {"group": "", "kind": "Service", "name": "keycloak", "port": 8080}
+STAGE_JWKS = "http://keycloak.hello-ledger.svc.cluster.local:8080/realms/depot/protocol/openid-connect/certs"
 STAGE_API_HOST = "app.stage.depot.dev"
 STAGE_JWT_PROVIDER = "depot-stage-idp"
 # Keycloak reaches its database over TLS and verifies it with the stage CA, mounted from the Postgres certificate's Secret.
@@ -577,7 +580,7 @@ def stage_security_policy(text: str) -> str:
     (provider,) = doc["spec"]["jwt"]["providers"]
     old = provider["name"]
     provider.pop("localJWKS")
-    provider.update({"name": STAGE_JWT_PROVIDER, "issuer": STAGE_ISSUER, "remoteJWKS": {"uri": STAGE_JWKS}})
+    provider.update({"name": STAGE_JWT_PROVIDER, "issuer": STAGE_ISSUER, "remoteJWKS": {"uri": STAGE_JWKS, "backendRefs": [dict(KEYCLOAK_SERVICE)]}})
     order = ["name", "issuer", "audiences", "remoteJWKS"]
     doc["spec"]["jwt"]["providers"] = [{**{k: provider[k] for k in order if k in provider},
                                         **{k: v for k, v in provider.items() if k not in order}}]
@@ -585,8 +588,9 @@ def stage_security_policy(text: str) -> str:
         jwt = (rule.get("principal") or {}).get("jwt") or {}
         if jwt.get("provider") == old:
             jwt["provider"] = STAGE_JWT_PROVIDER
-    return ("# Stage: tokens of the stage realm, verified with the keys Keycloak publishes (Envoy validates that host's certificate\n"
-            "# against its system trust bundle). Authorization is unchanged: ext_authz fails closed.\n" + dump(doc))
+    return ("# Stage: tokens of the stage realm, verified with the keys Keycloak publishes, fetched from the in-cluster Keycloak\n"
+            "# Service (backendRefs; its NetworkPolicy admits the depot-api Envoy pods). Authorization is unchanged: ext_authz\n"
+            "# fails closed.\n" + dump(doc))
 
 
 def stage_keycloak_deployment(text: str) -> str:

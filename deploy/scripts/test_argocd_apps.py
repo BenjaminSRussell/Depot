@@ -2240,7 +2240,22 @@ class StagePlatformTest(unittest.TestCase):
         for provider in policy["spec"]["jwt"]["providers"]:
             self.assertNotIn("localJWKS", provider)
             self.assertEqual(provider["issuer"], "https://idp.stage.depot.dev/realms/depot")
-            self.assertEqual(provider["remoteJWKS"]["uri"], "https://idp.stage.depot.dev/realms/depot/protocol/openid-connect/certs")
+            # m-a (round 2): the keys come from the in-cluster Keycloak Service, which the stage Keycloak copy renders and
+            # whose NetworkPolicy admits the depot-api Envoy pods on that port; nothing outside Git has to serve a host.
+            jwks = provider["remoteJWKS"]
+            self.assertEqual(jwks["uri"], "http://keycloak.hello-ledger.svc.cluster.local:8080/realms/depot/protocol/openid-connect/certs")
+            (backend,) = jwks["backendRefs"]
+            self.assertEqual(backend, {"group": "", "kind": "Service", "name": "keycloak", "port": 8080})
+            kc_root = DEPLOY / "envs/stage/platform/keycloak"
+            kc_docs = [d for res in yaml.safe_load((kc_root / "kustomization.yaml").read_text())["resources"] for d in load_docs(kc_root / res)]
+            (svc,) = [d for d in kc_docs if d["kind"] == "Service" and d["metadata"]["name"] == backend["name"]]
+            self.assertIn(backend["port"], [port["port"] for port in svc["spec"]["ports"]])
+            (kc_policy,) = [d for d in kc_docs if d["kind"] == "NetworkPolicy"]
+            envoy_peer = {"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "envoy-gateway-system"}},
+                          "podSelector": {"matchLabels": {"gateway.envoyproxy.io/owning-gateway-name": "depot-api",
+                                                          "gateway.envoyproxy.io/owning-gateway-namespace": "hello-ledger"}}}
+            self.assertTrue(any(envoy_peer in rule["from"] and {"protocol": "TCP", "port": backend["port"]} in rule["ports"]
+                                for rule in kc_policy["spec"]["ingress"]), "Keycloak does not admit depot-api's Envoy on 8080")
         providers = {p["name"] for p in policy["spec"]["jwt"]["providers"]}
         for rule in policy["spec"]["authorization"]["rules"]:
             self.assertIn(rule["principal"]["jwt"]["provider"], providers)
@@ -2294,7 +2309,8 @@ class StagePlatformTest(unittest.TestCase):
                 self.assertIn(f"REVOKE ALL ON DATABASE {database} FROM depot_app;", sql)
                 # M3: each database has its own login role, a member of depot_app, with CONNECT on that database only.
                 app_role = f"{database}_app"
-                self.assertIn(f"GRANT depot_app TO {app_role};", sql)
+                # n3 (round 2): the membership is granted only when missing, so a run prints no NOTICE.
+                self.assertIn(f"SELECT 'GRANT depot_app TO {app_role}' WHERE NOT pg_has_role('{app_role}', 'depot_app', 'MEMBER')\\gexec", sql)
                 self.assertIn(f"ALTER ROLE {app_role} WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;", sql)
                 self.assertEqual(re.findall(rf"GRANT CONNECT[^;]* TO {app_role};", sql), [f"GRANT CONNECT, TEMPORARY ON DATABASE {database} TO {app_role};"])
                 admitted = {f["podSelector"]["matchLabels"].get("app.kubernetes.io/name")
@@ -2354,17 +2370,23 @@ class StagePlatformTest(unittest.TestCase):
         # B-09b review M4: the server mounts only its own password; the provisioning Job reads each service's role passwords
         # from an optional source and skips a missing one; each service's Secrets are an Application of their own.
         docs, _ = self.stage_databases()
-        appset = load_docs(DEPLOY / "envs/stage/apps/service-secrets.yaml")[0]
-        elements = {e["name"]: e["namespace"] for e in appset["spec"]["generators"][0]["list"]["elements"]}
+        # m-b (round 2): plain Applications, children of root-stage, so its sync waves order them before the services.
+        apps = load_docs(DEPLOY / "envs/stage/apps/service-secrets.yaml")
+        self.assertEqual({a["kind"] for a in apps}, {"Application"})
         dirs = {p.name for p in (DEPLOY / "envs/stage/service-secrets").iterdir() if p.is_dir()}
-        self.assertEqual(set(elements), dirs)
-        self.assertLess(wave(appset), 2, "the Secrets sync before the services")
+        self.assertEqual({a["spec"]["source"]["path"].rsplit("/", 1)[1] for a in apps}, dirs)
+        services = load_docs(DEPLOY / "envs/stage/apps/services.yaml")[0]
+        for a in apps:
+            self.assertLess(wave(a), wave(services), f"{a['metadata']['name']} must sync before the services")
         for ns_doc in [d for d in docs if d["kind"] == "Namespace"]:
             self.assertEqual(ns_doc["metadata"]["annotations"].get("argocd.argoproj.io/sync-options"), "Prune=false,Delete=false")
         for d in docs:
             if d["kind"] == "StatefulSet" and d["metadata"]["name"] == "postgres":
-                secrets = [v["secret"]["secretName"] for v in d["spec"]["template"]["spec"]["volumes"] if "secret" in v]
+                volumes = d["spec"]["template"]["spec"]["volumes"]
+                secrets = [v["secret"]["secretName"] for v in volumes if "secret" in v]
+                secrets += [src["secret"]["name"] for v in volumes if "projected" in v for src in v["projected"]["sources"] if "secret" in src]
                 self.assertEqual(sorted(secrets), ["postgres-superuser", "postgres-tls"])
+                self.assertEqual([e for c in d["spec"]["template"]["spec"]["containers"] for e in c.get("envFrom") or []], [])
             if d["kind"] in ("Job", "CronJob") and d["metadata"]["name"] == "postgres-provision":
                 pod = pod_template(d)["spec"]
                 (roles,) = [v for v in pod["volumes"] if v["name"] == "roles"]
@@ -2377,6 +2399,9 @@ class StagePlatformTest(unittest.TestCase):
                 self.assertNotIn("PGPASSWORD", {e["name"] for e in env.get("env") or []}, "the superuser password goes in a pgpass file")
         for ns_cm in [d for d in docs if d["kind"] == "ConfigMap"]:
             self.assertIn("\\else\n\\echo 'skipped:", ns_cm["data"]["provision.sql"])
+            # m-c (round 2): one provisioning run at a time, the lock taken before anything else.
+            sql = ns_cm["data"]["provision.sql"]
+            self.assertLess(sql.index("SELECT pg_advisory_lock("), sql.index("REVOKE"))
         self.assertIn("CronJob", {d["kind"] for d in docs}, "a key written later is picked up without a sync")
 
     def test_apicurio_and_temporal_postgres_serve_tls_in_stage(self):

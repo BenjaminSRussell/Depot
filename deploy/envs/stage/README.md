@@ -9,7 +9,7 @@ registered as `stage`. Nothing here is written by hand except `release.yaml`, th
 | `release.yaml` | hand | The release tag every stage Application reads, and the signed image digests (B-09 part b) |
 | `apps/` | `deploy/scripts/stage_apps.py` | Every service and platform Application, generated from `deploy/envs/dev/apps` |
 | `apps/namespace-default-deny.yaml` | `deploy/scripts/gen_networkpolicies.py` | Default-deny ingress in every service namespace |
-| `apps/service-secrets.yaml` | `deploy/scripts/gen_databases.py` | One Application per service for its Secrets (`service-secrets/<service>`) |
+| `apps/service-secrets.yaml` | `deploy/scripts/gen_databases.py` | One Application per service for its Secrets (`service-secrets/<service>`), children of root-stage at wave -1, so they sync before the services |
 | `platform/` | `deploy/scripts/stage_apps.py` | Stage copies of dev manifests that name dev: Kafka without its plain listener; the gateway (HTTPS only for `app.stage.depot.dev` with a stage certificate, tokens of the stage realm checked against its published keys, stage hosts and CA, the ext_authz OPA's bundle Secret); Keycloak (stage host, database over verified TLS, database and admin Secrets); the stage CA issuer |
 | `databases/` | `deploy/scripts/gen_databases.py` | A TLS-only Postgres per service namespace with its roles, databases and provisioning Job and CronJob |
 | `service-secrets/` | `deploy/scripts/gen_databases.py` | Per service: owner and serving database Secrets, the role passwords the provisioning reads, and its other Secrets |
@@ -36,7 +36,8 @@ Per database: an owner role `<database>_owner` (the migration Job), a login role
 member of `depot_app`, which the migrations grant to and the RLS policies name, and which itself cannot sign in or connect
 anywhere) with CONNECT on its own database only, and the outbox connector's REPLICATION role with CONNECT on its own database
 only. pg_hba admits TCP only over TLS with SCRAM and has no physical `replication` line. A role signs in once its Vault key
-exists; the provisioning Job and the CronJob (every 15 minutes) report the ones still waiting. Database URLs URL-encode the
+exists; the provisioning Job and the CronJob (every 15 minutes, one run at a time under an advisory lock) report the ones
+still waiting. Rotating a password: `docs/ops/runbooks/database-password-rotation.md`. Database URLs URL-encode the
 password and use `sslmode=require`: the service charts cannot mount the stage CA yet, so they encrypt without verifying the
 server (Keycloak and the provisioning Job verify it with `verify-full`).
 
@@ -49,8 +50,9 @@ server (Keycloak and the provisioning Job verify it with `verify-full`).
   and `keycloak/*`; `session-valkey/*`; `authz-opa-bundle/*`; the extra keys of a serving Secret (hr's field-encryption
   keys); `receiving/audit-sample-seed`; the portals' `customer-portal/*` and `supplier-portal/*` (OIDC client secret and
   service signing key). The release tag.
-- `idp.stage.depot.dev` must serve Keycloak with a certificate in Envoy's system trust bundle: the gateway fetches the realm's
-  keys from it (`remoteJWKS`). Nothing in the repository routes that host yet.
+- Browser sign-in needs `idp.stage.depot.dev` to reach Keycloak; nothing in the repository routes that host yet. The gateway
+  does not depend on it: it fetches the realm's keys from the in-cluster Keycloak Service (`remoteJWKS.backendRefs`,
+  `keycloak:8080`, which Keycloak's NetworkPolicy admits from the depot-api Envoy pods).
 - Not created by stage: `agents-provider` (agent-runtime's model provider credentials, read with envFrom; their keys depend
   on the provider stage chooses). Monitoring (D8), the payment webhook edge and web and portal entries (B-02) are not in
   stage yet.
