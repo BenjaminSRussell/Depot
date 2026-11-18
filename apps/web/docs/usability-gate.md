@@ -1,10 +1,12 @@
 # Usability gate
 
+Extended by docs/ux/ (UXS-19); where they differ, docs/ux wins.
+
 The bar a release has to meet for the flows it changes. It stops a release from making common tasks harder without anyone noticing. The release checklist (`docs/ops/release-notes-template.md`, "Usability gate") points here.
 
 ## Which flows are in scope
 
-A flow is in scope for a release when the release changes a screen, route, label, message or default on the path of any task in `usability-tasks.md`. The release manager lists the in-scope task ids in the release notes. A release that changes none says so and skips the rest of this page.
+A flow is in scope for a release when the release changes a screen, route, label, message or default on the path of any task in `usability-tasks.md`. `apps/web/scripts/usability-scope.mjs` works out the in-scope task ids from the change (rule G1 in `docs/ux/usability-programme.md`, section 6); the release notes cover each of them with a reference. A release with no task in scope says why and skips the rest of this page.
 
 ## The bar
 
@@ -22,7 +24,7 @@ With five participants one person is 20 points of success, so the success rule a
 
 ## How it is checked
 
-1. **Every release.** The release manager lists the in-scope task ids and checks the open findings (issues under #497 labelled for the persona) for blockers. No sessions are needed if the changed flows are covered by the previous round and nothing on their path changed since.
+1. **Every release.** The release manager runs the gate (`apps/web/scripts/check-usability-gate.mjs`, rules G1 to G8) and checks the open findings (issues under #497 labelled for the persona) for blockers. No sessions are needed if the changed flows are covered by the previous round and nothing on their path changed since.
 2. **After each major #497 milestone.** A new round with 5 participants per affected persona, the in-scope tasks only, written up with the template. The report is committed and linked from the release notes.
 3. **Telemetry as a second check.** When the funnel events from #510 are live, the release manager compares each in-scope funnel (drop-off per step, validation errors per field) with the previous release. A step whose drop-off is 5 points worse needs an explanation in the notes. Telemetry never replaces a session round for a milestone.
 
@@ -36,8 +38,9 @@ With five participants one person is 20 points of success, so the success rule a
 
 ## Release checklist entry
 
-The release notes carry a "Usability gate" section with one of:
+The release notes carry a "Usability gate" section, never empty, with these lines (rules G1 to G8 are in `docs/ux/usability-programme.md`, section 6):
 
-- `Not in scope: no screen on a task path changed.`
+- `Not in scope: <why>.`, valid only when the computed scope is empty (the old default text is rejected)
 - `Passed: tasks <ids>, report <link>.`
-- `Waived: <measure>, <cause>, <issue>, approved by <name>.`
+- `Waived: <measure>, <cause>, <issue>, tasks <ids>, approved by <name>, product owner.`
+- `Provisional: tasks <ids>, Round 0 <link>, re-walk <link>, signed <name>`

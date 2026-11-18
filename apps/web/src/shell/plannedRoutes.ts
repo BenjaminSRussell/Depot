@@ -5,10 +5,11 @@ import { z } from "zod";
 import data from "./plannedRoutes.json";
 
 const plannedRouteSchema = z.strictObject({
-  path: z.string().startsWith("/"),
-  issue: z.string().min(1),
+  route: z.string().startsWith("/"),
+  issue: z.number().int().positive(),
   slice: z.number().int().positive(),
-  date: z.iso.date(),
+  // Optional: rows without a date never expire; rows with one fail the expiry test the day after it.
+  date: z.iso.date().optional(),
   reason: z.string().min(1),
 });
 
@@ -17,13 +18,13 @@ export type PlannedRoute = z.infer<typeof plannedRouteSchema>;
 export const plannedRoutes: readonly PlannedRoute[] = z
   .array(plannedRouteSchema)
   .refine(
-    (rows) => new Set(rows.map((row) => row.path)).size === rows.length,
+    (rows) => new Set(rows.map((row) => row.route)).size === rows.length,
     "A planned path is listed twice",
   )
   .parse(data);
 
 export function plannedRouteFor(pathname: string): PlannedRoute | undefined {
   return plannedRoutes.find(
-    (row) => matchPath({ path: row.path, end: false }, pathname) !== null,
+    (row) => matchPath({ path: row.route, end: false }, pathname) !== null,
   );
 }

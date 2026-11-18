@@ -83,7 +83,7 @@ export function plannedPathsServed(paths: string[]): string[] {
   return paths.filter(
     (path) =>
       plannedRouteFor(path) !== undefined ||
-      plannedRoutes.some((p) => matchPath(path, p.path) !== null),
+      plannedRoutes.some((p) => matchPath(path, p.route) !== null),
   );
 }
 
@@ -116,8 +116,8 @@ describe("honest screens scan", () => {
     const today = new Date().toISOString().slice(0, 10);
     expect(plannedRoutes.length).toBeGreaterThan(0);
     const stale = plannedRoutes
-      .filter((row) => row.date < today)
-      .map((row) => `${row.path} (${row.issue}, ${row.date})`);
+      .filter((row) => row.date !== undefined && row.date < today)
+      .map((row) => `${row.route} (#${row.issue}, ${row.date})`);
     expect(
       stale,
       "ship the page or move the date in the same PR that re-plans its slice",
@@ -126,17 +126,19 @@ describe("honest screens scan", () => {
 
   it("keeps each planned route on the issue and date the ticket decided", () => {
     const decided = {
-      "/admin/audit": ["B-23", "2027-03-31"],
-      "/workflow/designer": ["B-34", "2027-06-30"],
-      "/workflow/jobs": ["B-34", "2027-06-30"],
-      "/workflow/templates": ["B-34", "2027-06-30"],
-      "/admin/alerts": ["B-53", "2027-09-30"],
-      "/admin/documents": ["B-53", "2027-09-30"],
-      "/admin/texts": ["B-53", "2027-09-30"],
+      "/admin/audit": [689, "2027-03-31"],
+      "/workflow/designer": [700, "2027-06-30"],
+      "/workflow/jobs": [700, "2027-06-30"],
+      "/workflow/templates": [700, "2027-06-30"],
+      "/admin/alerts": [701, "2027-09-30"],
+      "/admin/documents": [701, "2027-09-30"],
+      "/admin/texts": [701, "2027-09-30"],
     };
     expect(
       Object.fromEntries(
-        plannedRoutes.map((row) => [row.path, [row.issue, row.date]]),
+        plannedRoutes
+          .filter((row) => row.date !== undefined)
+          .map((row) => [row.route, [row.issue, row.date]]),
       ),
     ).toEqual(decided);
   });
@@ -158,8 +160,8 @@ describe("honest screens scan", () => {
   });
 
   it("parses planned routes strictly", () => {
-    expect(plannedRouteFor("/admin/audit")?.issue).toBe("B-23");
-    expect(plannedRouteFor("/admin/audit/42")?.issue).toBe("B-23");
+    expect(plannedRouteFor("/admin/audit")?.issue).toBe(689);
+    expect(plannedRouteFor("/admin/audit/42")?.issue).toBe(689);
     expect(plannedRouteFor("/admin/auditor")).toBeUndefined();
     expect(plannedRouteFor("/admin/sequences")).toBeUndefined();
     expect(plannedRouteFor("")).toBeUndefined();

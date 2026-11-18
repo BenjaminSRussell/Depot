@@ -7,6 +7,8 @@ Changes to Depot in plain language, newest first. Add an entry here for every ch
 - **Sequences** under **Admin** now lists how your documents are numbered, for each legal entity. It is read-only for now.
 - **Import** under **Admin** opens the same step as the setup guide, where you check a file of vendors, customers or products and start the import.
 - Pages that are not built yet no longer appear in the menus, and no page shows made-up rows. If you open one by its address, it says it isn't available yet.
+- Each release now has to show that the screens people use for their daily tasks did not get harder to use. Release notes carry a usability check, and a release that changes a task's screens without a measured reference does not go out.
+- The supplier portal has a demo build that answers with a sample vendor and two purchase orders, so you can try it without signing in. Invoices, shipments and payments are not in the demo yet.
 
 ## 2026-11-10
 

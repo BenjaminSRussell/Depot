@@ -1,51 +1,63 @@
 [
   {
-    "path": "/admin/audit",
-    "issue": "B-23",
+    "route": "/admin/audit",
+    "reason": "The audit page is built in slice 3.",
+    "issue": 689,
     "slice": 3,
-    "date": "2027-03-31",
-    "reason": "The audit page is built in slice 3."
+    "date": "2027-03-31"
   },
   {
-    "path": "/admin/alerts",
-    "issue": "B-53",
+    "route": "/admin/alerts",
+    "reason": "The alerts page is built in slice 17.",
+    "issue": 701,
     "slice": 17,
-    "date": "2027-09-30",
-    "reason": "The alerts page is built in slice 17."
+    "date": "2027-09-30"
   },
   {
-    "path": "/admin/documents",
-    "issue": "B-53",
+    "route": "/admin/documents",
+    "reason": "The documents page is built in slice 17.",
+    "issue": 701,
     "slice": 17,
-    "date": "2027-09-30",
-    "reason": "The documents page is built in slice 17."
+    "date": "2027-09-30"
   },
   {
-    "path": "/admin/texts",
-    "issue": "B-53",
+    "route": "/admin/texts",
+    "reason": "The standard texts page is built in slice 17.",
+    "issue": 701,
     "slice": 17,
-    "date": "2027-09-30",
-    "reason": "The standard texts page is built in slice 17."
+    "date": "2027-09-30"
   },
   {
-    "path": "/workflow/designer",
-    "issue": "B-34",
+    "route": "/workflow/designer",
+    "reason": "The workflow designer is built in slice 16.",
+    "issue": 700,
     "slice": 16,
-    "date": "2027-06-30",
-    "reason": "The workflow designer is built in slice 16."
+    "date": "2027-06-30"
   },
   {
-    "path": "/workflow/templates",
-    "issue": "B-34",
+    "route": "/workflow/templates",
+    "reason": "The message templates page is built in slice 16.",
+    "issue": 700,
     "slice": 16,
-    "date": "2027-06-30",
-    "reason": "The message templates page is built in slice 16."
+    "date": "2027-06-30"
   },
   {
-    "path": "/workflow/jobs",
-    "issue": "B-34",
+    "route": "/workflow/jobs",
+    "reason": "The job monitor is built in slice 16.",
+    "issue": 700,
     "slice": 16,
-    "date": "2027-06-30",
-    "reason": "The job monitor is built in slice 16."
+    "date": "2027-06-30"
+  },
+  {
+    "route": "/close",
+    "reason": "Period close screen is built by the B-25 slice; the CT4 task starts there once it ships",
+    "issue": 691,
+    "slice": 4
+  },
+  {
+    "route": "/mobile-flows/devices",
+    "reason": "Device management screen is built by the B-37 slice; the WS1 task starts there once it ships",
+    "issue": 703,
+    "slice": 12
   }
 ]

@@ -48,7 +48,7 @@ describe("admin module", () => {
 
   it("serves no planned route", () => {
     const served = [...admin.routes.map((r) => r.path), ...admin.nav.map((n) => n.to)];
-    expect(served.filter((path) => plannedRoutes.some((planned) => planned.path === path))).toEqual([]);
+    expect(served.filter((path) => plannedRoutes.some((planned) => planned.route === path))).toEqual([]);
   });
 });
 
@@ -161,6 +161,6 @@ describe("admin home", () => {
     expect(screen.getByRole("link", { name: "Sequences" })).toHaveAttribute("href", "/admin/sequences");
     expect(screen.getByRole("link", { name: "Import" })).toHaveAttribute("href", "/admin/import");
     const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
-    expect(hrefs.filter((href) => plannedRoutes.some((planned) => planned.path === href))).toEqual([]);
+    expect(hrefs.filter((href) => plannedRoutes.some((planned) => planned.route === href))).toEqual([]);
   });
 });

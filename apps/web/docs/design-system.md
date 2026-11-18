@@ -1,5 +1,7 @@
 # Depot web design system and shell redesign
 
+Extended by docs/ux/ (UXS-03); where they differ, docs/ux wins.
+
 Implementation spec for `apps/web`. Follow it as written. No new npm dependencies: plain CSS (global `theme.css` + CSS Modules per component, Vite handles both), inline SVG icons, system-ui fonts. Every visual value comes from a token in section 1. No inline styles, no ID selectors, no `!important`. Use logical properties (`margin-inline-start`, `inset-inline-end`, `padding-block`) everywhere so RTL works.
 
 **Hard rules (each one keeps an existing test or contract working):**
