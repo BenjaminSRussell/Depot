@@ -147,19 +147,24 @@ func TestIssueClaim_ABatchWithoutAHoldCannotReachAnotherBatchsHeldStock(t *testi
 	}
 }
 
-func TestWarehouseIssueCost_AveragesTheWarehouseOverSitesAndIgnoresOthers(t *testing.T) {
+func TestWarehouseIssueCost_ValuesTheDeliveryRowOfTheWarehouseAndIgnoresOthers(t *testing.T) {
 	s, _, _ := setup(t)
 	ctx := entityCtx(1, ids.New())
 	product := ids.New()
 	post(t, ctx, s, domain.JournalOpeningBalance, line(product, "10", "1", dims("site", "S1", "warehouse", "W1")))
-	post(t, ctx, s, domain.JournalOpeningBalance, line(product, "10", "3", dims("site", "S2", "warehouse", "W1")))
-	post(t, ctx, s, domain.JournalOpeningBalance, line(product, "5", "7", dims("warehouse", "W2")))
+	post(t, ctx, s, domain.JournalOpeningBalance, line(product, "10", "9", dims("site", "S1", "warehouse", "W1", "batch", "B1")))
+	post(t, ctx, s, domain.JournalOpeningBalance, line(product, "10", "9", dims("site", "S1", "warehouse", "W1", "location", "L1")))
+	post(t, ctx, s, domain.JournalOpeningBalance, line(product, "5", "7", dims("site", "S1", "warehouse", "W2")))
+	post(t, ctx, s, domain.JournalOpeningBalance, line(product, "5", "4", dims("warehouse", "W4")))
 	currency, cost, err := s.WarehouseIssueCost(ctx, legalEntityOf(ctx), product, "W1")
-	if err != nil || currency == "" || !cost.Equal(dec("2")) {
-		t.Fatalf("W1: %s %s, %v; want the average 2 of both sites", currency, cost, err)
+	if err != nil || currency == "" || !cost.Equal(dec("1")) {
+		t.Fatalf("W1: %s %s, %v; want the delivery row's cost 1, not the batch and location rows", currency, cost, err)
 	}
-	if _, cost, err = s.WarehouseIssueCost(ctx, legalEntityOf(ctx), product, "W2"); err != nil || !cost.Equal(dec("7")) {
-		t.Fatalf("W2: %s, %v; want 7", cost, err)
+	if _, cost, err = s.WarehouseIssueCost(ctx, legalEntityOf(ctx), product, "w2"); err != nil || !cost.Equal(dec("7")) {
+		t.Fatalf("w2: %s, %v; want 7", cost, err)
+	}
+	if currency, cost, err = s.WarehouseIssueCost(ctx, legalEntityOf(ctx), product, "W4"); err != nil || currency != "" || !cost.IsZero() {
+		t.Fatalf("a row with no site is no delivery row: %q %s, %v", currency, cost, err)
 	}
 	if currency, cost, err = s.WarehouseIssueCost(ctx, legalEntityOf(ctx), product, "W3"); err != nil || currency != "" || !cost.IsZero() {
 		t.Fatalf("a warehouse with no stock: %q %s, %v; want no currency and cost 0", currency, cost, err)

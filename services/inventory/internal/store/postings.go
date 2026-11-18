@@ -63,11 +63,12 @@ func (s *Postgres) IssueBasis(ctx context.Context, legalEntityID, productID stri
 	return cur, value.DivRound(qty, issueCostScale), nil
 }
 
-// WarehouseIssueCost is the running average unit cost of a product over every
-// on-hand row of one warehouse (any site, location or batch), the cost a caller
-// that knows no site (fulfillment's packing-slip post) prices an issue at. It
-// values the rows as IssueBasis does and is zero, with an empty currency when no
-// row holds a value.
+// WarehouseIssueCost is the running average unit cost of a product over the
+// on-hand rows a sales delivery books against in one warehouse: the rows whose
+// dimensions are exactly site and warehouse, the set bookDelivery issues from
+// through IssueBasis. Rows split by location, batch or any other dimension are
+// not part of it. It values the rows as IssueBasis does and is zero, with an
+// empty currency, when no row holds a value.
 func (s *Postgres) WarehouseIssueCost(ctx context.Context, legalEntityID, productID, warehouse string) (string, decimal.Decimal, error) {
 	var currency *string
 	var qty, value decimal.Decimal
@@ -81,7 +82,8 @@ func (s *Postgres) WarehouseIssueCost(ctx context.Context, legalEntityID, produc
 					and t.dimension_set_hash = o.dimension_set_hash
 					and (t.receipt_status in ('REGISTERED', 'RECEIVED') or t.issue_status in ('PICKED', 'DEDUCTED'))
 			) p on true
-			where o.legal_entity_id = $1 and o.product_id = $2 and d.dims->>'warehouse' = $3`,
+			where o.legal_entity_id = $1 and o.product_id = $2 and lower(d.dims->>'warehouse') = lower($3)
+					and d.dims ? 'site' and (d.dims - 'site' - 'warehouse') = '{}'::jsonb`,
 			legalEntityID, productID, warehouse).Scan(&currency, &qty, &value)
 	})
 	if err != nil {
