@@ -549,6 +549,7 @@ const fulfillment: Record<string, ProblemCatalogEntry> = {
   "FUL-0079": { message: "A parcel went on another manifest at the same time.", action: "Reload the page and close the manifest again." },
   "FUL-0080": { message: "We couldn't find that sales delivery report.", action: "Go back to the list and open it again." },
   "FUL-0081": { message: "A sales delivery report can only be retried while it is parked or pending.", action: "Reload the page to see the report's status." },
+  "FUL-0082": { message: "Inventory values a shipment line in a different currency than the packing slip uses.", action: "Check the currency on the slip and on the product's cost, then post again." },
 };
 
 const billing: Record<string, ProblemCatalogEntry> = {

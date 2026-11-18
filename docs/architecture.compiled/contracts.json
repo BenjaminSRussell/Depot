@@ -2,7 +2,7 @@
   "version": 3,
   "compiler": "scripts/compile_architecture.py",
   "note": "Generated from the OpenAPI and AsyncAPI specs and scripts/architecture_patterns.json. Do not edit; run python3 scripts/compile_architecture.py --write.",
-  "summary": {"openapiDocuments": 65, "paths": 2623, "operations": 3247, "asyncapiDocuments": 60, "topics": 386, "topicsPublished": 383, "topicsSubscribed": 18, "patterns": 59},
+  "summary": {"openapiDocuments": 65, "paths": 2624, "operations": 3248, "asyncapiDocuments": 60, "topics": 386, "topicsPublished": 383, "topicsSubscribed": 18, "patterns": 59},
   "patterns": [
     {
       "id": "event-envelope",
@@ -2064,6 +2064,7 @@
         {"method": "POST", "path": "/v1/inventory/holds:release-source", "operationId": "releaseInventoryHoldsBySource", "duty": "inventory.hold.write"},
         {"method": "POST", "path": "/v1/inventory/issue-claims", "operationId": "claimInventoryIssue", "duty": "inventory.issue.claim"},
         {"method": "POST", "path": "/v1/inventory/issue-claims:release", "operationId": "releaseInventoryIssueClaim", "duty": "inventory.issue.claim"},
+        {"method": "GET", "path": "/v1/inventory/issue-cost", "operationId": "getInventoryIssueCost", "duty": "inventory.issue.claim"},
         {"method": "GET", "path": "/v1/inventory/journal-names", "operationId": "listInventoryJournalNames", "duty": "inventory.read"},
         {"method": "POST", "path": "/v1/inventory/journal-names", "operationId": "createInventoryJournalName", "duty": "inventory.journal-name.write"},
         {"method": "GET", "path": "/v1/inventory/journal-names/{id}", "operationId": "getInventoryJournalName", "duty": "inventory.read"},
