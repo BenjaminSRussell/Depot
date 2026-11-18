@@ -9,8 +9,10 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
@@ -101,6 +103,31 @@ func unavailable() *httpx.Problem {
 	return httpx.NewProblem(http.StatusServiceUnavailable, CodeUnavailable, "The product block check is not available right now. Try again shortly.")
 }
 
+var counters sync.Map
+
+func init() { httpx.RegisterMetrics(writeMetrics) }
+
+func count(series string) {
+	c, _ := counters.LoadOrStore(series, new(atomic.Int64))
+	c.(*atomic.Int64).Add(1)
+}
+
+func countCheck(process, outcome string) {
+	count(fmt.Sprintf("depot_product_block_checks_total{process=%q,outcome=%q}", process, outcome))
+}
+
+func writeMetrics(w io.Writer) {
+	var lines []string
+	counters.Range(func(k, v any) bool {
+		lines = append(lines, fmt.Sprintf("%s %d\n", k, v.(*atomic.Int64).Load()))
+		return true
+	})
+	sort.Strings(lines)
+	for _, l := range lines {
+		_, _ = io.WriteString(w, l)
+	}
+}
+
 func (c *Client) Check(ctx context.Context, legalEntityID, productID, process string) error {
 	if process == "" {
 		return errors.New("product block check: process is required")
@@ -111,25 +138,31 @@ func (c *Client) Check(ctx context.Context, legalEntityID, productID, process st
 	principal, ok := tenant.FromContext(ctx)
 	if !ok {
 		slog.ErrorContext(ctx, "product block check without a principal", "correlationId", middleware.GetReqID(ctx))
+		countCheck(process, "unavailable")
 		return unavailable()
 	}
 	key := strings.Join([]string{principal.TenantID, legalEntityID, productID, process}, "|")
 	if v, hit := c.cached(key); hit {
-		return v.err()
+		count(`depot_product_block_cache_total{result="hit"}`)
+		return v.result(process)
 	}
+	count(`depot_product_block_cache_total{result="miss"}`)
 	v, err := c.ask(ctx, principal, legalEntityID, productID, process)
 	if err != nil {
 		slog.ErrorContext(ctx, "product block check failed", "err", err, "productId", productID, "process", process, "correlationId", middleware.GetReqID(ctx))
+		countCheck(process, "unavailable")
 		return unavailable()
 	}
 	c.store(key, v)
-	return v.err()
+	return v.result(process)
 }
 
-func (v verdict) err() error {
+func (v verdict) result(process string) error {
 	if v.blocked {
+		countCheck(process, "blocked")
 		return Blocked(v.blockedDetail)
 	}
+	countCheck(process, "allowed")
 	return nil
 }
 

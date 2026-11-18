@@ -1,6 +1,7 @@
 package productblock_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -195,6 +196,25 @@ func TestInputsThatAreNotCheckable(t *testing.T) {
 		t.Fatalf("an empty process must not look like a refusal: %v", err)
 	}
 	asProblem(t, f.client.Check(context.Background(), entityID, productID, productblock.PurchaseOrder), 503, productblock.CodeUnavailable)
+}
+
+func TestOutcomesAreCounted(t *testing.T) {
+	blocked := newFixture(t, status(http.StatusUnprocessableEntity, blockedBody), nil)
+	_ = blocked.client.Check(ctx(), entityID, productID, "counted_block")
+	_ = blocked.client.Check(ctx(), entityID, productID, "counted_block")
+	down := newFixture(t, status(http.StatusInternalServerError, ``), nil)
+	_ = down.client.Check(ctx(), entityID, productID, "counted_down")
+	var out bytes.Buffer
+	httpx.WriteMetrics(&out)
+	for _, want := range []string{
+		`depot_product_block_checks_total{process="counted_block",outcome="blocked"} 2`,
+		`depot_product_block_checks_total{process="counted_down",outcome="unavailable"} 1`,
+		`depot_product_block_cache_total{result="hit"}`,
+	} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("metrics lack %s:\n%s", want, out.String())
+		}
+	}
 }
 
 func TestFromEnv(t *testing.T) {
