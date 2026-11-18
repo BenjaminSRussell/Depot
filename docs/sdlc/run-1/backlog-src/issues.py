@@ -2674,7 +2674,8 @@ ADR_BULLETS = {('0004', 1): 'B-48',
  ('0015', 1): 'B-35',
  ('0015', 2): 'B-35',
  ('0015', 3): 'B-09',
- ('0015', 4): 'B-01'}
+ ('0015', 4): 'B-01',
+ ('0016', 1): 'B-11'}
 
 # Specific reasons for uncovered Must Partial FRs (others get a reason class from their Gap text).
 DEFER_REASONS = {'FR-1.10': 'depth: stage/prod rollback exists; dev rollback and a `depot rollback` command in run 2',
