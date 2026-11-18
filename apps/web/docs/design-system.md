@@ -279,7 +279,7 @@ The full writing rules (voice, task verbs, error messages, glossary) are in [ux-
 - `MetadataForm`: label "Account manager", fetch URL + headers, option "preferred", "Code" required.
 - `product`: heading "Product information management", list "PIM tiles" contains "Masters 50" and "Products 500", table "Products" contains SHIRT.
 - `workflow` (UXS-01 replaced the fake-data assertions): heading "Workflow", link "Open My work", no "Workflow tiles"; the job monitor, designer and templates show "This page isn't available yet", no table and no sample rows, and make no request. Table "Work items" contains PR-1042 (inbox tests).
-- `honestScreens` (`src/shell/honestScreens.test.ts`): the UXS-01 source scan with its mutation fixtures, the planned-route checks (dates, rendering, no workspace, sidebar, All features, home, palette or admin card links them) and a source scan for the production build. The production build itself is checked in CI by `node scripts/check-bundle.mjs dist` after `npm run build`: no workflow sample rows and no demo company in the bundle.
+- `honestScreens` (`src/shell/honestScreens.test.ts`): the UXS-01 source scan with its mutation fixtures, the planned-route checks (dates, rendering, no workspace, sidebar, All features, home, palette or admin card links them) and a source scan for the production build. The production build itself is checked in CI by `node scripts/check-bundle.mjs dist` after `npm run build`: no workflow sample rows and no demo company in the bundle. The scan and the script read one marker list, `src/shell/demoMarkers.json`.
 - `registry`: unique ids, sorted titles, routes and nav non-empty.
 - `metadata`, `telemetry`, `vite-federation`: untouched.
 
