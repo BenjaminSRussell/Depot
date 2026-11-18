@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { DepotModule, NavItem } from "../modules/registry";
 
-const EXTRA_ROUTES = ["/design-system", "/no-such-page"];
+const EXTRA_ROUTES = ["/whats-new", "/design-system", "/product/released", "/product/BOLT", "/no-such-page"];
 
 export function axeRoutes(modules: readonly DepotModule[], shell: readonly NavItem[]): string[] {
   const routes = [...shell.map((item) => item.to), ...modules.flatMap((module) => module.nav.map((item) => item.to)), ...EXTRA_ROUTES];

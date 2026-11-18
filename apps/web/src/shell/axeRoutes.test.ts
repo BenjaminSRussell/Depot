@@ -16,6 +16,7 @@ describe("routes scanned by axe", () => {
     const routes = axeRoutes(loadModules(), shellNav);
     expect(routes).toContain("/design-system");
     expect(routes).toContain("/no-such-page");
+    expect(routes).toEqual(expect.arrayContaining(["/whats-new", "/product/released", "/product/BOLT"]));
     expect(navAudit.entries.map((entry) => entry.to).filter((to) => !routes.includes(to))).toEqual([]);
   });
 });
