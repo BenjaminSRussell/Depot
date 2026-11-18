@@ -616,6 +616,7 @@ func (s *Postgres) PostBatch(ctx context.Context, in PostBatchInput) (EntryResul
 	}
 	var out EntryResult
 	attempted := false
+	ctx = s.resolveBatchRates(ctx, p.TenantID, in.ID)
 	s.warmPeriods(ctx, warmBatchQuery, in.ID, domain.ManualSourceSystem)
 	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		cur, err := getBatchTx(ctx, tx, p.TenantID, in.ID, true)
@@ -694,6 +695,28 @@ func (s *Postgres) PostBatch(ctx context.Context, in PostBatchInput) (EntryResul
 		s.recordPostFailure(ctx, p.TenantID, in.ID, err)
 	}
 	return out, err
+}
+
+func (s *Postgres) resolveBatchRates(ctx context.Context, tenantID, id string) context.Context {
+	if src, _ := ctx.Value(rateSourceKey{}).(RateSource); src == nil {
+		return ctx
+	}
+	var post PostInput
+	if err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		cur, err := getBatchTx(ctx, tx, tenantID, id, false)
+		if err != nil {
+			return err
+		}
+		name, err := loadJournalNameTx(ctx, tx, tenantID, cur.JournalName)
+		if err != nil {
+			return err
+		}
+		post, err = batchPostInput(cur, name)
+		return err
+	}); err != nil {
+		return ctx
+	}
+	return s.resolveLineRates(ctx, post)
 }
 
 // DutyPostDirect is "Post ledger journals without approval" (§2.11.17).

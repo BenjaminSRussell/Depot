@@ -329,6 +329,7 @@ func (s *Postgres) ClearItems(ctx context.Context, in ClearingInput) (ClearingDo
 	}
 	var out ClearingDocument
 	var created bool
+	ctx = s.resolveLineRates(ctx, PostInput{LedgerID: in.LedgerID, PostingDate: in.ClearingDate})
 	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		out, created, err = clearInTx(ctx, tx, p, in, "manual")
 		return err

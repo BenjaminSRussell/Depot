@@ -476,6 +476,7 @@ func (s *Postgres) RunAutoClearing(ctx context.Context, in AutoClearingInput) (A
 				ci.ItemIDs = append(ci.ItemIDs, it.ID)
 			}
 			var doc ClearingDocument
+			ctx := s.resolveLineRates(ctx, PostInput{LedgerID: ledger.ID, PostingDate: date})
 			cerr := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 				key, err := autoGroupKey(ctx, tx, p.TenantID, ledger.ID, "auto:"+pg.rule.ID+":"+pg.group.Hash)
 				if err != nil {
