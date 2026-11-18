@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -133,6 +134,59 @@ func TestCatchWeightFlow_CorrectionsAndCancellationsOffsetTheBookings(t *testing
 	}))
 	if err := handle(unbooked); !eventing.IsPermanent(err) || !strings.Contains(err.Error(), api.CodePostingOriginalMissing) {
 		t.Fatalf("correction of an unbooked receipt: %v, want permanent %s", err, api.CodePostingOriginalMissing)
+	}
+}
+
+func receiptFlowEvent(t *testing.T, typ, name string) events.Event {
+	t.Helper()
+	raw, err := os.ReadFile("../../testdata/receipt-flow/" + name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return flowEvent(t, typ, api.ReceiptSource, raw)
+}
+
+func TestReceiptFlow_InvoiceStepsTheReceivedLineToPurchasedWithTheLedgerEntry(t *testing.T) {
+	s, _, admin := setup(t)
+	handlers := api.PostingsConsumerHandlers(s, flowUnits{}, domain.NegativePolicy{})
+	consumer := flowConsumerCtx(t)
+	handle := func(evt events.Event) error { return handlers[evt.Type].Handle(consumer, nil, evt) }
+	receipt := receiptFlowEvent(t, api.ReceiptPostedType, "receipt-posted.json")
+	invoice := receiptFlowEvent(t, api.InvoicePostedType, "invoice-posted.json")
+	const product, entity, ledgerEntry = "0199f480-0000-7000-8000-000000000015", "0199f480-0000-7000-8000-00000000001a", "0199f480-0000-7000-8000-000000000022"
+	read := entityCtx(1, entity)
+
+	if err := handle(receipt); err != nil {
+		t.Fatal(err)
+	}
+	if phys, _ := onHandFor(t, s, read, product); !phys.Equal(dec("10")) {
+		t.Fatalf("on hand %s after the receipt, want 10", phys)
+	}
+	booked := flowTransactions(t, s, read, product, "RECEIPT_LINE")
+	if len(booked) != 1 || booked[0].ReceiptStatus != string(domain.StatusReceived) {
+		t.Fatalf("receipt bookings %+v, want one at RECEIVED", booked)
+	}
+	bad := store.StatusStepInput{TransactionID: booked[0].ID, Command: domain.CommandStep, From: domain.StatusReceived, To: domain.StatusPurchased,
+		LedgerEntryID: "entry-1", IdempotencyKey: "bad-ledger-entry"}
+	if _, _, err := s.ApplyStatusStep(read, bad); problemCode(err) != domain.CodeInvalid {
+		t.Fatalf("step with a ledger entry that is not an id: %v, want %s", err, domain.CodeInvalid)
+	}
+
+	for _, evt := range []events.Event{invoice, invoice} {
+		if err := handle(evt); err != nil {
+			t.Fatalf("invoice.posted: %v", err)
+		}
+	}
+	got := flowTransactions(t, s, read, product, "RECEIPT_LINE")
+	if len(got) != 1 || got[0].ReceiptStatus != string(domain.StatusPurchased) || got[0].CostAmountPosted == nil || !got[0].CostAmountPosted.Equal(dec("105")) || got[0].FinancialDate != "2026-10-26" {
+		t.Fatalf("after the invoice %+v, want PURCHASED at 105 on 2026-10-26", got)
+	}
+	var linked string
+	if err := admin.QueryRow(context.Background(), `select coalesce(ledger_entry_id::text, '') from inventory_transaction where id = $1`, got[0].ID).Scan(&linked); err != nil || linked != ledgerEntry {
+		t.Fatalf("ledger_entry_id %q (%v), want %s", linked, err, ledgerEntry)
+	}
+	if phys, _ := onHandFor(t, s, read, product); !phys.Equal(dec("10")) {
+		t.Fatalf("on hand %s after the invoice, want 10", phys)
 	}
 }
 

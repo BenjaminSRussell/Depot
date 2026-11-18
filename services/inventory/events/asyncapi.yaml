@@ -94,6 +94,11 @@ channels:
         $ref: '#/components/messages/ReceiptPostedConsumed'
       receiptCorrected:
         $ref: '#/components/messages/ReceiptCorrectedConsumed'
+  receivingVendorInvoice:
+    address: depot.receiving.vendorinvoice
+    messages:
+      invoicePosted:
+        $ref: '#/components/messages/InvoicePostedConsumed'
   salesOrderProgress:
     address: depot.sales.orderprogress
     messages:
@@ -122,6 +127,12 @@ operations:
     messages:
       - $ref: '#/channels/receivingReceipt/messages/receiptCorrected'
     summary: Offset the booked receipt line by the correction delta, or by what it holds on a cancellation
+  receiveInvoicePosted:
+    action: receive
+    channel: { $ref: '#/channels/receivingVendorInvoice' }
+    messages:
+      - $ref: '#/channels/receivingVendorInvoice/messages/invoicePosted'
+    summary: Step each invoiced receipt line's RECEIVED booking to PURCHASED at the invoice line amount, with the invoice's ledger entry id (FR-18.8)
   receiveOrderProgressRecorded:
     action: receive
     channel: { $ref: '#/channels/salesOrderProgress' }
@@ -207,6 +218,16 @@ components:
         Receiving corrected (CORRECTION) or cancelled (CANCELLATION) a posted receipt. Read: receipt_id, receipt_number,
         legal_entity_id, posting_date, kind, correction_seq and per line line_no, product_id, qty_delta, cw_qty_delta. The
         booked line gives product, dimensions, unit factor and cost (INV-PST-003 not booked, INV-PST-004 mismatch).
+      contentType: application/cloudevents+json
+      payload: { $ref: '#/components/schemas/ConsumedPayload' }
+    InvoicePostedConsumed:
+      name: dev.depot.payables.invoice.posted.v1
+      title: Vendor invoice posted (consumed)
+      summary: >-
+        Receiving posted a vendor invoice. Read: invoice_id, legal_entity_id, posting_date, currency, ledger_entry_id and per
+        line line_no, receipt_id, receipt_line_no, qty, amount. A line whose qty covers what its receipt line booked is
+        stepped to PURCHASED at amount; a smaller qty leaves it at RECEIVED. INV-PST-003 receipt line not booked (retried),
+        INV-PST-006 booking not at RECEIVED.
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/ConsumedPayload' }
     OrderProgressRecordedConsumed:
