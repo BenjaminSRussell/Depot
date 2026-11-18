@@ -340,7 +340,7 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
-        "409": { $ref: "#/components/responses/Problem", description: CST-VER-NOT-DRAFT (ARCHIVED) or CST-ACT-008 concurrent activation }
+        "409": { $ref: "#/components/responses/Problem", description: CST-VER-NOT-DRAFT (ARCHIVED), CST-ACT-008 concurrent activation, or CST-GL-002 the legal entity has no posting profile for the revaluation voucher }
         "412": { $ref: "#/components/responses/Problem", description: conflict_version, the version changed since the preview }
         "422": { $ref: "#/components/responses/ActivationRefused" }
         "428": { $ref: "#/components/responses/Problem", description: COM-0428 If-Match missing }
@@ -1484,25 +1484,13 @@ components:
         percentChange: { $ref: "#/components/schemas/Decimal", description: "Percent applied to every copied cost, e.g. 2.5 or -1; greater than -100. Results round half-even to 6 places." }
     ActivationRequest:
       type: object
-      properties:
-        onHand:
-          type: array
-          maxItems: 50000
-          description: >-
-            Physical on-hand per product and site at activation time (BR-20.7). A pending cost
-            whose pair is missing revalues zero quantity. Where the pair has no active standard
-            yet and its quantity is not zero, bookValue is required (CST-ACT-007).
-          items:
-            type: object
-            required: [productId, siteId, qty]
-            properties:
-              productId: { type: string, format: uuid }
-              siteId: { type: string, format: uuid }
-              qty: { $ref: "#/components/schemas/Decimal", description: "At most 22 integer digits and 6 decimals; negative stock is allowed." }
-              bookValue: { $ref: "#/components/schemas/Decimal", description: Current inventory value of that on-hand in the version currency. }
+      additionalProperties: false
+      description: >-
+        Empty. The on-hand quantity and book value are read from the inventory-fed cost
+        transactions of the legal entity's primary valuation; a body carrying onHand is refused (400).
     ActivationResponse:
       type: object
-      required: [versionId, versionCode, version, status, currency, lineCount, revaluationTotal, sites, topDeltas]
+      required: [versionId, versionCode, version, status, currency, lineCount, revaluationTotal, sites, topDeltas, vouchers]
       properties:
         versionId: { type: string, format: uuid }
         versionCode: { type: string }
@@ -1520,6 +1508,15 @@ components:
             properties:
               siteId: { type: string, format: uuid }
               revaluation: { $ref: "#/components/schemas/Decimal" }
+        vouchers:
+          type: object
+          required: [posted, pending]
+          description: >-
+            Revaluation vouchers of this activation: posted are confirmed by the ledger, pending are staged
+            and retried by POST /v1/costing/gl-postings.
+          properties:
+            posted: { type: integer }
+            pending: { type: integer }
         topDeltas:
           type: array
           maxItems: 20
