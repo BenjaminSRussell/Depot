@@ -8,6 +8,9 @@ channels:
     messages:
       allocated:
         $ref: '#/components/messages/allocated'
+  depot.numbering.reservation:
+    address: depot.numbering.reservation
+    messages:
       confirmed:
         $ref: '#/components/messages/confirmed'
       voided:
@@ -22,15 +25,15 @@ operations:
   onConfirmed:
     action: send
     channel:
-      $ref: '#/channels/depot.numbering.sequence'
+      $ref: '#/channels/depot.numbering.reservation'
     messages:
-      - $ref: '#/channels/depot.numbering.sequence/messages/confirmed'
+      - $ref: '#/channels/depot.numbering.reservation/messages/confirmed'
   onVoided:
     action: send
     channel:
-      $ref: '#/channels/depot.numbering.sequence'
+      $ref: '#/channels/depot.numbering.reservation'
     messages:
-      - $ref: '#/channels/depot.numbering.sequence/messages/voided'
+      - $ref: '#/channels/depot.numbering.reservation/messages/voided'
 components:
   messages:
     allocated:
