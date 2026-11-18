@@ -89,6 +89,11 @@
   line-height: var(--text-sm-leading);
 }
 
+/* A link inside muted text is told apart by more than colour (WCAG 1.4.1). */
+.muted a {
+  text-decoration: underline;
+}
+
 .more {
   display: flex;
   justify-content: center;
