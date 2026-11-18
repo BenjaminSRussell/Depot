@@ -10,6 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/productblock"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/sales/internal/store"
 )
@@ -143,6 +144,21 @@ func (a *API) patchOrder(w http.ResponseWriter, r *http.Request) {
 		if len(fields) > 0 {
 			validationFailed(w, r, fields)
 			return
+		}
+		if len(in.AddLines) > 0 && a.blocks != nil {
+			current, err := a.store.GetOrder(r.Context(), id)
+			if err != nil {
+				a.fail(w, r, "get order", err)
+				return
+			}
+			added := make([]store.Line, len(in.AddLines))
+			for i, l := range in.AddLines {
+				added[i].ProductID = l.ProductID
+			}
+			if err := a.checkBlocks(r.Context(), current.LegalEntityID, productblock.SalesOrder, added); err != nil {
+				a.fail(w, r, "change order", err)
+				return
+			}
 		}
 		p, _ := tenant.FromContext(r.Context())
 		in.Approver = p.HasDuty(dutyOrderApprove)

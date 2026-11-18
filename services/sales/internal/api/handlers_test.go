@@ -395,6 +395,31 @@ func TestConvertQuotation_RefusesAProductBlockedForSalesAfterTheQuote(t *testing
 	}
 }
 
+func TestPatchOrder_RefusesAnAddedLineBlockedForSales(t *testing.T) {
+	blocked, free := ids.New(), ids.New()
+	body := func(product string) string {
+		return `{"reason":"add","addLines":[{"productId":"` + product + `","quantity":"3","unit":"EA","siteId":"` + ids.New() + `","warehouseId":"` + ids.New() +
+			`","unitPrice":"2","requestedShipDate":"2027-03-04"}]}`
+	}
+	c := &changeStore{}
+	c.order = store.Order{ID: ids.New(), LegalEntityID: testLE}
+	fake := &productblock.Fake{BlockedDetail: map[string]string{blocked: blockedForSales}}
+	patch := func(product string, opts ...func(*API) *API) *httptest.ResponseRecorder {
+		return serveBody(t, c, http.MethodPatch, orders+"/"+c.order.ID, body(product), principal(dutyWrite), map[string]string{"If-Match": `"3"`}, opts...)
+	}
+
+	requireBlockedForSales(t, patch(blocked, withBlocks(fake)))
+	if c.change != nil {
+		t.Fatal("a refused change reached the store")
+	}
+	if got := fake.Calls[0]; got != blocked+"|"+productblock.SalesOrder {
+		t.Fatalf("checked %q, want the sales order process", got)
+	}
+	if rec := patch(free, withBlocks(&productblock.Fake{})); rec.Code != http.StatusOK || c.change == nil {
+		t.Fatalf("unblocked product: %d %s", rec.Code, rec.Body)
+	}
+}
+
 type convertStore struct {
 	slice4Store
 	quote store.Quotation

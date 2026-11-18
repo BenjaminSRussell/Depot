@@ -840,6 +840,33 @@ func TestCreateRequisition_RefusesAProductBlockedForPurchasing(t *testing.T) {
 	}
 }
 
+func TestPatchRequisition_RefusesAProductBlockedForPurchasing(t *testing.T) {
+	blocked, free := ids.New(), ids.New()
+	lines := func(product string) string {
+		return `{"lines":[{"productId":"` + product + `","qty":"3","unit":"EA","estimatedUnitPrice":"2","requestedDate":"2026-03-10"}]}`
+	}
+	h := newHarness(t)
+	rec := h.do(call{method: "POST", path: "/v1/procurement/requisitions", user: userA, duties: []string{dutyRequisitionCreate},
+		body: `{"legalEntityId":"` + leA + `","currency":"USD",` + lines(free)[1:], headers: idem("p0")})
+	var created store.Requisition
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil || rec.Code != http.StatusCreated {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body)
+	}
+	h.api.WithProductBlocks(&productblock.Fake{BlockedDetail: map[string]string{blocked: blockedForPurchasing}})
+	patch := func(product, key string) *httptest.ResponseRecorder {
+		return h.do(call{method: "PATCH", path: "/v1/procurement/requisitions/" + created.ID, user: userA, duties: []string{dutyRequisitionCreate},
+			body: lines(product), headers: map[string]string{"Idempotency-Key": key, "If-Match": `"1"`}})
+	}
+
+	requireBlockedProblem(t, patch(blocked, "p1"))
+	if got := h.fake.requisitions[created.ID]; got.Version != 1 || got.Lines[0].ProductID != free {
+		t.Fatalf("a refused edit reached the store: %+v", got)
+	}
+	if rec := patch(free, "p2"); rec.Code != http.StatusOK {
+		t.Fatalf("unblocked product: %d %s", rec.Code, rec.Body)
+	}
+}
+
 func TestCreateOrder_RefusesAProductBlockedForPurchasingAndFailsClosed(t *testing.T) {
 	blocked, free := ids.New(), ids.New()
 	body := func(product string) string {
