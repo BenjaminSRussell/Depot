@@ -179,7 +179,7 @@ func (a *API) billModification(w http.ResponseWriter, r *http.Request) {
 			inv := store.Invoice{ID: ids.New(), LegalEntityID: req.LegalEntityID, CustomerID: first.CustomerID, InvoiceAccountID: first.InvoiceAccountID,
 				Type: domain.TypeFreeText, Status: domain.StatusProposal, Currency: req.Currency, InvoiceDate: effective,
 				DueDate: effective.AddDate(0, 0, first.PaymentTermDays), PaymentTermDays: first.PaymentTermDays, IdempotencyKey: key, RequestHash: hash,
-				CounterpartyCountry: first.CounterpartyCountry, CounterpartyVATID: first.CounterpartyVATID, SupplyKind: first.SupplyKind}
+				CounterpartyCountry: first.CounterpartyCountry, CounterpartyVATID: first.CounterpartyVATID, SupplyKind: first.SupplyKind, ShipTo: &domain.ShipTo{}}
 			lines := make([]domain.Line, 0, len(up))
 			for i, p := range up {
 				src := where[p].line
@@ -187,10 +187,11 @@ func (a *API) billModification(w http.ResponseWriter, r *http.Request) {
 				lines = append(lines, domain.Line{No: i + 1, Description: desc, Qty: decimal.NewFromInt(1), UnitPrice: amounts[p], DiscountPct: decimal.Zero,
 					RevenueAccount: src.RevenueAccount, TaxCode: src.TaxCode})
 			}
-			taxes, err := a.tax.Quote(r.Context(), req.Currency, lines)
+			quote, err := a.quote(r.Context(), QuoteInput{LegalEntityID: req.LegalEntityID, Currency: req.Currency, Date: effective, ShipTo: &domain.ShipTo{}, Lines: lines})
 			if err != nil {
 				return store.Invoice{}, taxProblem(err)
 			}
+			taxes := quote.Taxes
 			nets, totals, err := domain.Compute(req.Currency, lines, taxes, decimal.Zero)
 			if err != nil {
 				return store.Invoice{}, problemFrom(err)

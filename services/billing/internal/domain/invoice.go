@@ -53,6 +53,15 @@ type Line struct {
 	DiscountPct    decimal.Decimal
 	RevenueAccount string
 	TaxCode        string
+	ItemTaxGroup   string
+	SuppliedTax    *decimal.Decimal
+}
+
+type ShipTo struct {
+	Country     string `json:"country"`
+	TaxGroup    string `json:"taxGroup,omitempty"`
+	TaxID       string `json:"taxId,omitempty"`
+	Certificate string `json:"certificate,omitempty"`
 }
 
 // MaxDescription bounds a line description in runes.
