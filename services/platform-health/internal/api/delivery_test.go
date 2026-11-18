@@ -1,12 +1,17 @@
 package api_test
 
 import (
+	"errors"
+	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 const repoRoot = "../../../.."
@@ -60,7 +65,8 @@ func TestEnvOverlaysArePinnedByDigestAndHoldNoSecrets(t *testing.T) {
 		// A connection URL is allowed only when its password is an ExternalSecret template placeholder
 		// (eam-database, transport-db); a literal DSN would carry the secret.
 		for _, line := range strings.Split(string(b), "\n") {
-			if strings.Contains(line, "postgres://") && !strings.Contains(line, "{{ .password }}@") {
+			// The stage URLs URL-encode the placeholder: {{ .password | urlquery | ... }}@.
+			if strings.Contains(line, "postgres://") && !regexp.MustCompile(`\{\{ \.password( \|[^}]*)? \}\}@`).MatchString(line) {
 				t.Errorf("%s contains a literal postgres:// URL: overlays hold no secret values", path)
 			}
 		}
@@ -75,20 +81,86 @@ func TestEnvOverlaysArePinnedByDigestAndHoldNoSecrets(t *testing.T) {
 }
 
 // Stage (FR-1.3, FR-1.4, B-09 part b): every stage Application reads this repository at the release tag of
-// deploy/envs/stage/release.yaml, never a branch, and pins its image to a signed digest or, until one is recorded, to the
-// release version tag. No file under deploy/envs/stage carries the all-zero placeholder digest.
+// deploy/envs/stage/release.yaml, never a branch, and pins each service image exactly once, to a signed digest or, until
+// one is recorded, to the release version tag. No file under deploy/envs/stage carries the all-zero placeholder digest.
+// The manifests are parsed, not scanned line by line, so a comment cannot hide a source from the check.
 func TestStageApplicationsArePinnedToTheRelease(t *testing.T) {
-	release := readRepoFile(t, "deploy/envs/stage/release.yaml")
-	m := regexp.MustCompile(`(?m)^revision: v(\d+\.\d+\.\d+)\s*$`).FindStringSubmatch(release)
-	if m == nil {
-		t.Fatal("deploy/envs/stage/release.yaml: revision is not a release tag vX.Y.Z")
+	var release struct {
+		Revision string            `yaml:"revision"`
+		Digests  map[string]string `yaml:"digests"`
 	}
-	revision, version := "v"+m[1], m[1]
+	if err := yaml.Unmarshal([]byte(readRepoFile(t, "deploy/envs/stage/release.yaml")), &release); err != nil {
+		t.Fatal(err)
+	}
+	m := regexp.MustCompile(`^v(\d+\.\d+\.\d+)$`).FindStringSubmatch(release.Revision)
+	if m == nil {
+		t.Fatalf("deploy/envs/stage/release.yaml: revision %q is not a release tag vX.Y.Z", release.Revision)
+	}
+	version := m[1]
 	zero := "sha256:" + strings.Repeat("0", 64)
-	revisionLine := regexp.MustCompile(`^\s*targetRevision:\s*["']?([^"'\s]+)`)
+	digest := regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 	semver := regexp.MustCompile(`^v?\d+\.\d+\.\d+$`)
-	tagParam := regexp.MustCompile(`(?m)- name: ["']?image\.tag["']?\n\s+value: ["']?([^"'\n]+?)["']?\s*$`)
-	repoSources := 0
+	for name, d := range release.Digests {
+		if !digest.MatchString(d) || d == zero {
+			t.Errorf("release.yaml digests.%s = %q is not a signed digest", name, d)
+		}
+	}
+	repoSources, services := 0, 0
+	checkSource := func(where string, src map[string]any, elements []map[string]any) {
+		if repo, _ := src["repoURL"].(string); repo == "https://github.com/BenjaminSRussell/Depot.git" {
+			repoSources++
+			if rev, _ := src["targetRevision"].(string); rev != release.Revision {
+				t.Errorf("%s: this repository at %q, want the release tag %s", where, rev, release.Revision)
+			}
+		} else if rev := fmt.Sprint(src["targetRevision"]); !semver.MatchString(rev) {
+			t.Errorf("%s: chart %v at %q, want an exact version", where, src["chart"], rev)
+		}
+		path, _ := src["path"].(string)
+		if !strings.HasPrefix(path, "services/") && !strings.HasPrefix(path, "tools/") && path != "{{ .path }}" {
+			return
+		}
+		services++
+		helm, _ := src["helm"].(map[string]any)
+		var pins [][2]string
+		params, _ := helm["parameters"].([]any)
+		for _, raw := range params {
+			p, _ := raw.(map[string]any)
+			name, value := fmt.Sprint(p["name"]), fmt.Sprint(p["value"])
+			if name == "{{ .imageKey }}" {
+				for _, e := range elements {
+					pins = append(pins, [2]string{fmt.Sprint(e["imageKey"]), fmt.Sprint(e["image"])})
+				}
+				continue
+			}
+			if name == "image.tag" || name == "image.digest" {
+				pins = append(pins, [2]string{name, value})
+			}
+		}
+		values, _ := helm["valuesObject"].(map[string]any)
+		image, _ := values["image"].(map[string]any)
+		for _, k := range []string{"tag", "digest"} {
+			if v, ok := image[k]; ok {
+				pins = append(pins, [2]string{"image." + k, fmt.Sprint(v)})
+			}
+		}
+		if len(pins) == 0 {
+			t.Errorf("%s: a service source with no image pin", where)
+		}
+		for _, pin := range pins {
+			switch pin[0] {
+			case "image.tag":
+				if pin[1] != version {
+					t.Errorf("%s: image.tag %q is not the release version %s", where, pin[1], version)
+				}
+			case "image.digest":
+				if !digest.MatchString(pin[1]) || pin[1] == zero {
+					t.Errorf("%s: image.digest %q is not a signed digest", where, pin[1])
+				}
+			default:
+				t.Errorf("%s: unknown image pin %q", where, pin[0])
+			}
+		}
+	}
 	err := filepath.WalkDir(filepath.Join(repoRoot, "deploy/envs/stage"), func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -97,40 +169,56 @@ func TestStageApplicationsArePinnedToTheRelease(t *testing.T) {
 		if readErr != nil {
 			return readErr
 		}
-		body := string(b)
-		if strings.Contains(body, zero) {
+		if strings.Contains(string(b), zero) {
 			t.Errorf("%s pins the all-zero placeholder digest", path)
 		}
-		lines := strings.Split(body, "\n")
-		for i, line := range lines {
-			rm := revisionLine.FindStringSubmatch(line)
-			if rm == nil {
+		if !strings.HasSuffix(path, ".yaml") {
+			return nil
+		}
+		dec := yaml.NewDecoder(strings.NewReader(string(b)))
+		for {
+			var doc map[string]any
+			if err := dec.Decode(&doc); err != nil {
+				if errors.Is(err, io.EOF) {
+					return nil
+				}
+				return fmt.Errorf("%s: %w", path, err)
+			}
+			kind, _ := doc["kind"].(string)
+			spec, _ := doc["spec"].(map[string]any)
+			var elements []map[string]any
+			if kind == "ApplicationSet" {
+				gens, _ := spec["generators"].([]any)
+				for _, g := range gens {
+					list, _ := g.(map[string]any)["list"].(map[string]any)
+					els, _ := list["elements"].([]any)
+					for _, e := range els {
+						em, _ := e.(map[string]any)
+						elements = append(elements, em)
+					}
+				}
+				tpl, _ := spec["template"].(map[string]any)
+				spec, _ = tpl["spec"].(map[string]any)
+			} else if kind != "Application" {
 				continue
 			}
-			if !semver.MatchString(rm[1]) {
-				t.Errorf("%s:%d: targetRevision %q is not a pinned version (never main or a branch)", path, i+1, rm[1])
+			var srcs []any
+			if one, ok := spec["source"]; ok {
+				srcs = append(srcs, one)
 			}
-			// A source of this repository reads the release tag; its repoURL is within two lines.
-			near := strings.Join(lines[max(0, i-2):min(len(lines), i+3)], "\n")
-			if strings.Contains(near, "github.com/BenjaminSRussell/Depot.git") {
-				repoSources++
-				if rm[1] != revision {
-					t.Errorf("%s:%d: this repository at %q, want the release tag %s", path, i+1, rm[1], revision)
-				}
-			}
-		}
-		for _, tm := range tagParam.FindAllStringSubmatch(body, -1) {
-			if tm[1] != version && tm[1] != "{{ .image }}" {
-				t.Errorf("%s: image.tag %q is not the release version %s", path, tm[1], version)
+			many, _ := spec["sources"].([]any)
+			srcs = append(srcs, many...)
+			for i, raw := range srcs {
+				src, _ := raw.(map[string]any)
+				checkSource(fmt.Sprintf("%s: %s source %d", path, kind, i), src, elements)
 			}
 		}
-		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if repoSources < 20 {
-		t.Errorf("found %d stage sources of this repository; the scan no longer sees the Applications", repoSources)
+	if repoSources < 20 || services < 5 {
+		t.Errorf("found %d stage sources of this repository and %d service sources; the walk no longer sees the Applications", repoSources, services)
 	}
 }
 

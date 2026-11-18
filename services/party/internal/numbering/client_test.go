@@ -210,3 +210,18 @@ func TestNext_ErrorStatusIsNamedInTheDetail(t *testing.T) {
 		t.Fatalf("detail %q", p.Detail)
 	}
 }
+
+// A caller whose own deadline is earlier than the client's timeout gets the timeout problem without a claim about the
+// client's timeout.
+func TestNext_CallerDeadlineFirstIsNamedAsSuch(t *testing.T) {
+	ctx, cancel := context.WithTimeout(principalContext(), 100*time.Millisecond)
+	defer cancel()
+	_, err := numbering.NewWithTimeout(hanging(t).URL, time.Second).Next(ctx, "PARTY", "k")
+	p := problemOf(t, err)
+	if p.Code != numbering.CodeTimeout || !strings.Contains(p.Detail, "request's deadline passed") || strings.Contains(p.Detail, "within") {
+		t.Fatalf("got %s %q", p.Code, p.Detail)
+	}
+	if strings.Contains(p.Detail, "number was given out") {
+		t.Fatalf("detail %q claims no number was issued, which a timeout does not show", p.Detail)
+	}
+}

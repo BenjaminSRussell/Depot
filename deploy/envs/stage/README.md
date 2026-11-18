@@ -9,8 +9,10 @@ registered as `stage`. Nothing here is written by hand except `release.yaml`, th
 | `release.yaml` | hand | The release tag every stage Application reads, and the signed image digests (B-09 part b) |
 | `apps/` | `deploy/scripts/stage_apps.py` | Every service and platform Application, generated from `deploy/envs/dev/apps` |
 | `apps/namespace-default-deny.yaml` | `deploy/scripts/gen_networkpolicies.py` | Default-deny ingress in every service namespace |
-| `platform/` | `deploy/scripts/stage_apps.py` | Stage copies of dev manifests that name dev: Kafka without its plain listener, the gateway (stage hosts, CA and issuer, the ext_authz OPA's bundle Secret), Keycloak (stage host, database and admin Secrets), the stage CA issuer |
-| `databases/` | `deploy/scripts/gen_databases.py` | A TLS-only Postgres per service namespace, every service database with its owner role, and the owner and serving Secrets as ExternalSecrets |
+| `apps/service-secrets.yaml` | `deploy/scripts/gen_databases.py` | One Application per service for its Secrets (`service-secrets/<service>`) |
+| `platform/` | `deploy/scripts/stage_apps.py` | Stage copies of dev manifests that name dev: Kafka without its plain listener; the gateway (HTTPS only for `app.stage.depot.dev` with a stage certificate, tokens of the stage realm checked against its published keys, stage hosts and CA, the ext_authz OPA's bundle Secret); Keycloak (stage host, database over verified TLS, database and admin Secrets); the stage CA issuer |
+| `databases/` | `deploy/scripts/gen_databases.py` | A TLS-only Postgres per service namespace with its roles, databases and provisioning Job and CronJob |
+| `service-secrets/` | `deploy/scripts/gen_databases.py` | Per service: owner and serving database Secrets, the role passwords the provisioning reads, and its other Secrets |
 | `kafka-secrets/` | `deploy/scripts/gen_databases.py` | Kafka Connect's CDC Secrets and Apicurio's database Secret, from the stage Vault keys |
 
 Run `python3 deploy/scripts/stage_apps.py` and `python3 deploy/scripts/gen_databases.py` after changing dev, a chart or
@@ -23,15 +25,32 @@ Run `python3 deploy/scripts/stage_apps.py` and `python3 deploy/scripts/gen_datab
   regenerate and merge. Until the tag exists, Argo CD cannot resolve the stage revision (v0.2.0 is not cut yet).
 - **Images.** A service with a digest under `digests` in `release.yaml` is pinned to it (copy it from the CI image job's
   "Record the signed digest" line). Any other is pinned to the release version tag. Kyverno's `verify-signed-images`
-  refuses a tag in stage, so a service without a recorded digest does not start. As built no digest is recorded and CI
-  builds only four images (hello-ledger, fx, receiving, org): no Depot service can run in stage yet. No stage file carries
-  the all-zero placeholder digest (`test_argocd_apps.py`, `services/platform-health/internal/api/delivery_test.go`).
+  refuses a tag in every service namespace (hello-ledger, batch, metadata), so a service without a recorded digest does not
+  start. As built no digest is recorded and CI builds only four images (hello-ledger, fx, receiving, org): no Depot service
+  can run in stage yet. No stage file carries the all-zero placeholder digest (`test_argocd_apps.py`,
+  `services/platform-health/internal/api/delivery_test.go`).
+
+## Databases
+
+Per database: an owner role `<database>_owner` (the migration Job), a login role `<database>_app` (the serving pods; a
+member of `depot_app`, which the migrations grant to and the RLS policies name, and which itself cannot sign in or connect
+anywhere) with CONNECT on its own database only, and the outbox connector's REPLICATION role with CONNECT on its own database
+only. pg_hba admits TCP only over TLS with SCRAM and has no physical `replication` line. A role signs in once its Vault key
+exists; the provisioning Job and the CronJob (every 15 minutes) report the ones still waiting. Database URLs URL-encode the
+password and use `sslmode=require`: the service charts cannot mount the stage CA yet, so they encrypt without verifying the
+server (Keycloak and the provisioning Job verify it with `verify-full`).
 
 ## Prerequisites outside Git (#213)
 
-cert-manager, the External Secrets Operator and a ClusterSecretStore named `depot` on the stage cluster (on Azure,
-`deploy/secret-store`); the Vault keys the ExternalSecrets read under `depot/stage/` (each service's
-`<service>-postgres/owner-password` and `cdc-password`, each namespace's `<namespace>-postgres/postgres-password` and
-`app-password`, `session-valkey/*`, `keycloak/*`, `authz-opa-bundle/*`, and the extra keys a serving Secret needs, such as
-hr's field-encryption keys); the release tag. Monitoring (D8), the payment webhook edge and web and portal entries (B-02)
-are not in stage yet.
+- cert-manager, the External Secrets Operator and a ClusterSecretStore named `depot` on the stage cluster (on Azure,
+  `deploy/secret-store`).
+- The Vault keys under `depot/stage/`: per namespace `<namespace>-postgres/postgres-password`; per service
+  `<service>-postgres/owner-password`, `app-password` and, for an outbox, `cdc-password`; `keycloak-postgres/owner-password`
+  and `keycloak/*`; `session-valkey/*`; `authz-opa-bundle/*`; the extra keys of a serving Secret (hr's field-encryption
+  keys); `receiving/audit-sample-seed`; the portals' `customer-portal/*` and `supplier-portal/*` (OIDC client secret and
+  service signing key). The release tag.
+- `idp.stage.depot.dev` must serve Keycloak with a certificate in Envoy's system trust bundle: the gateway fetches the realm's
+  keys from it (`remoteJWKS`). Nothing in the repository routes that host yet.
+- Not created by stage: `agents-provider` (agent-runtime's model provider credentials, read with envFrom; their keys depend
+  on the provider stage chooses). Monitoring (D8), the payment webhook edge and web and portal entries (B-02) are not in
+  stage yet.

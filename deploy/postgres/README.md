@@ -12,4 +12,6 @@ Ingress: Kafka Connect (with `cdc.enabled`), the pods of each `clientApps` entry
 
 Service migrations `metadata/0006` and `batch/0011` grant SELECT on `outbox` to `debezium_cdc` only if the role exists when they run. If a service migrated before this database existed, delete that row from `schema_migrations` and restart (or run the GRANT by hand).
 
-Stage (B-09 part b) uses this chart only for Apicurio (`apicurio-postgres-stage`). Stage's service databases, metadata's and batch's included, are in the generated Postgres of each namespace under `deploy/envs/stage/databases` (`deploy/scripts/gen_databases.py`), which also gives every service an owner role and its `<chart>-db-owner` Secret; this chart has no owner role.
+`tls.enabled` (with `tls.issuer`, a cert-manager ClusterIssuer) serves TLS only: a certificate for `postgres.<namespace>.svc` and a pg_hba that admits TCP only over TLS with SCRAM, without a physical `replication` line (pgoutput connections are logical). Off in dev.
+
+Stage (B-09 part b) uses this chart only for Apicurio (`apicurio-postgres-stage`, with `tls.enabled`; its JDBC URL has `sslmode=require`). Stage's service databases, metadata's and batch's included, are in the generated Postgres of each namespace under `deploy/envs/stage/databases` (`deploy/scripts/gen_databases.py`), which also gives every service an owner role and its `<chart>-db-owner` Secret; this chart has no owner role.

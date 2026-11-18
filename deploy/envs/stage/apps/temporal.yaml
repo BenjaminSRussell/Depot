@@ -12,14 +12,43 @@ spec:
   sources:
   - repoURL: https://go.temporal.io/helm-charts
     chart: temporal
-    targetRevision: "0.74.0"
+    targetRevision: 0.74.0
     helm:
       releaseName: temporal
       valueFiles:
       - $values/deploy/temporal/values.yaml
+      valuesObject:
+        server:
+          config:
+            persistence:
+              default:
+                sql:
+                  tls:
+                    enabled: true
+                    enableHostVerification: false
+              visibility:
+                sql:
+                  tls:
+                    enabled: true
+                    enableHostVerification: false
   - repoURL: https://github.com/BenjaminSRussell/Depot.git
     targetRevision: v0.2.0
     ref: values
+    helm:
+      valuesObject:
+        server:
+          config:
+            persistence:
+              default:
+                sql:
+                  tls:
+                    enabled: true
+                    enableHostVerification: false
+              visibility:
+                sql:
+                  tls:
+                    enabled: true
+                    enableHostVerification: false
   destination:
     name: stage
     namespace: temporal
@@ -53,6 +82,9 @@ spec:
       valuesObject:
         externalSecret:
           environment: stage
+        tls:
+          enabled: true
+          issuer: depot-stage-ca
   destination:
     name: stage
     namespace: temporal

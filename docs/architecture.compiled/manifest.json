@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "source": {"path": "docs/architecture.md", "sha256": "14cffb0d1c31a3450d53a279c1854f7c0cb6a958f2922358c21f72f82f21a9e9", "lines": 8457},
+  "source": {"path": "docs/architecture.md", "sha256": "e08696d06d775b6029b452dabeb09b98489b36eb9fbb36bf6f8132de0aec3503", "lines": 8457},
   "plugin_version": null,
   "compiler": "scripts/compile_architecture.py",
   "created": "2026-11-17",

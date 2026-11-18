@@ -25,6 +25,10 @@ spec:
       containers:
         - name: postgres
           image: {{ include "depot.mirrorImage" (dict "root" $ "ref" .Values.image) | quote }}
+          {{- if .Values.tls.enabled }}
+          args: [-c, ssl=on, -c, ssl_cert_file=/tls/tls.crt, -c, ssl_key_file=/tls/tls.key, -c, ssl_min_protocol_version=TLSv1.2,
+                 -c, hba_file=/etc/postgresql/pg_hba.conf]
+          {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -58,7 +62,17 @@ spec:
             - { name: run, mountPath: /var/run/postgresql }
             - { name: tmp, mountPath: /tmp }
             - { name: credentials, mountPath: /run/secrets/temporal-database, readOnly: true }
+            {{- if .Values.tls.enabled }}
+            - { name: tls, mountPath: /tls, readOnly: true }
+            - { name: hba, mountPath: /etc/postgresql, readOnly: true }
+            {{- end }}
       volumes:
+        {{- if .Values.tls.enabled }}
+        - name: tls
+          secret: { secretName: temporal-postgres-tls, defaultMode: 0440 }
+        - name: hba
+          configMap: { name: temporal-postgres-hba }
+        {{- end }}
         - { name: run, emptyDir: {} }
         - { name: tmp, emptyDir: {} }
         - name: credentials

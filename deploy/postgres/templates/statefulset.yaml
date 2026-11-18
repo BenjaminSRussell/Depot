@@ -26,14 +26,28 @@ spec:
       containers:
         - name: postgres
           image: {{ include "depot.mirrorImage" (dict "root" $ "ref" .Values.image) | quote }}
-          {{- if .Values.cdc.enabled }}
+          {{- if or .Values.cdc.enabled .Values.tls.enabled }}
           args:
+            {{- if .Values.cdc.enabled }}
             - -c
             - wal_level=logical
             - -c
             - max_wal_senders=10
             - -c
             - max_replication_slots=10
+            {{- end }}
+            {{- if .Values.tls.enabled }}
+            - -c
+            - ssl=on
+            - -c
+            - ssl_cert_file=/tls/tls.crt
+            - -c
+            - ssl_key_file=/tls/tls.key
+            - -c
+            - ssl_min_protocol_version=TLSv1.2
+            - -c
+            - hba_file=/etc/postgresql/pg_hba.conf
+            {{- end }}
           {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
@@ -55,7 +69,17 @@ spec:
             - { name: data, mountPath: /var/lib/postgresql/data }
             - { name: init, mountPath: /docker-entrypoint-initdb.d }
             - { name: credentials, mountPath: /run/secrets/outbox-postgres, readOnly: true }
+            {{- if .Values.tls.enabled }}
+            - { name: tls, mountPath: /tls, readOnly: true }
+            - { name: hba, mountPath: /etc/postgresql, readOnly: true }
+            {{- end }}
       volumes:
+        {{- if .Values.tls.enabled }}
+        - name: tls
+          secret: { secretName: {{ .Release.Name }}-postgres-tls, defaultMode: 0440 }
+        - name: hba
+          configMap: { name: {{ .Release.Name }}-postgres-hba }
+        {{- end }}
         - name: credentials
           secret: { secretName: {{ $secret }}, defaultMode: 0440 }
         - name: init

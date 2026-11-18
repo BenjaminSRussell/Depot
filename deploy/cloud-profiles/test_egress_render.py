@@ -33,6 +33,9 @@ REQUIRED_VALUES = {
     "deploy/secret-store": ["azureKeyVault.name=kv-depot", "azureKeyVault.tenantId=00000000-0000-0000-0000-000000000002"],
     "deploy/postgres": ["database=outbox", "externalSecret.environment=dev"],
     "deploy/temporal-postgres": ["externalSecret.environment=dev"],
+    "deploy/session-valkey": ["externalSecret.environment=stage", "tls.issuer=depot-stage-ca", "clients[0].name=customer-portal",
+                              "clients[0].namespace=hello-ledger", "clients[0].podName=customer-portal",
+                              "clients[0].keyPrefix=customer-portal:"],
     "services/supplier-portal-ts/charts/supplier-portal": [
         "oidc.issuer=https://keycloak.dev.depot.dev/realms/depot",
         "oidc.redirectUri=https://supplier.dev.depot.dev/bff/callback",

@@ -77,7 +77,7 @@ class SessionValkeyTests(unittest.TestCase):
         for client in self.values["clients"]:
             (line,) = [ln for ln in lines if ln.startswith(f"user {client['name']} ")]
             var = client["name"].replace("-", "_")
-            self.assertIn(f" on >{{{{ .{var} }}}} ", line)
+            self.assertIn(f" on #{{{{ .{var} | sha256sum }}}} ", line, "the ACL file holds the password's hash, never the password")
             self.assertIn(f" ~{client['keyPrefix']}* ", line + " ")
             self.assertIn(" -@all ", line)
             for dangerous in ("+@all", "+keys", "+flushall", "+config", "+debug", "+eval"):
@@ -85,6 +85,8 @@ class SessionValkeyTests(unittest.TestCase):
             self.assertEqual(vault[var], f"depot/stage/session-valkey/{client['name']}-password")
         (probe,) = [ln for ln in lines if ln.startswith("user probe ")]
         self.assertTrue(probe.endswith("-@all +ping"), probe)
+        self.assertIn(" on #{{ .probe | sha256sum }} ", probe)
+        self.assertNotRegex(text, r" on >", "no clear-text password in the ACL file")
         self.assertEqual(flag(self.args, "--aclfile"), "/acl/users.acl")
         self.assertNotIn("--requirepass", self.args, "a password on the command line is visible in the process list")
         env = {e["name"]: e for e in self.container["env"]}

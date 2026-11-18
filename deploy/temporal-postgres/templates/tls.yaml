@@ -1,0 +1,33 @@
+{{- if .Values.tls.enabled }}
+# TLS only (stage and prod): the server presents a cert-manager certificate and pg_hba admits TCP connections only over TLS
+# with SCRAM; Temporal's SQL client connects with tls.enabled (deploy/envs/stage/apps/temporal.yaml).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: temporal-postgres-tls
+  labels:
+    app.kubernetes.io/name: temporal-postgres
+spec:
+  secretName: temporal-postgres-tls
+  dnsNames:
+    - temporal-postgres-rw
+    - temporal-postgres-rw.{{ .Release.Namespace }}.svc
+    - temporal-postgres-rw.{{ .Release.Namespace }}.svc.cluster.local
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ required "tls.issuer is required with tls.enabled" .Values.tls.issuer }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: temporal-postgres-hba
+  labels:
+    app.kubernetes.io/name: temporal-postgres
+data:
+  pg_hba.conf: |
+    local all all scram-sha-256
+    hostssl all all all scram-sha-256
+{{- end }}

@@ -2199,17 +2199,70 @@ class StagePlatformTest(unittest.TestCase):
         for path in sorted(root.rglob("*")):
             if path.is_file():
                 text = path.read_text()
-                for dev in (".dev.depot.dev", "depot-local-ca", "/realms/dev\n", "keycloak.depot.example.invalid"):
+                for dev in (".dev.depot.dev", "depot-local-ca", "/realms/dev\n", "keycloak.depot.example.invalid",
+                            "auth.depot.example.invalid", "depot-dev-idp", "depot-dev-jwks"):
                     self.assertNotIn(dev, text, path.relative_to(REPO))
-        policy = (root / "gateway/securitypolicy.yaml").read_text()
-        self.assertIn("issuer: https://idp.stage.depot.dev/realms/depot", policy)
-        self.assertIn('value: "https://idp.stage.depot.dev"', (root / "keycloak/deployment.yaml").read_text())
+        (kc,) = load_docs(root / "keycloak/deployment.yaml")
+        (container,) = pod_containers(kc)
+        env = {e["name"]: e.get("value") for e in container["env"]}
+        self.assertEqual(env["KC_HOSTNAME"], "https://idp.stage.depot.dev")
+        # m9: Keycloak verifies the database server with the stage CA it mounts.
+        mounts = {m["name"]: m["mountPath"] for m in container["volumeMounts"]}
+        volumes = {v["name"]: v for v in kc["spec"]["template"]["spec"]["volumes"]}
+        self.assertEqual(volumes["postgres-ca"]["secret"]["secretName"], "postgres-tls")
+        db = [d for d in load_docs(root / "keycloak/externalsecrets.yaml") if d["metadata"]["name"] == "keycloak-db"][0]
+        self.assertTrue(db["spec"]["target"]["template"]["data"]["url"].endswith(
+            f"?sslmode=verify-full&sslrootcert={mounts['postgres-ca']}/ca.crt"))
         written = {es_output(d)[:2] for f in ("gateway/authz-opa-bundle.yaml", "keycloak/externalsecrets.yaml") for d in load_docs(root / f)}
         for secret in (("hello-ledger", "depot-authz-opa-bundle"), ("hello-ledger", "keycloak-db"), ("hello-ledger", "keycloak-admin")):
             self.assertIn(secret, written, "stage creates no Secret by hand")
 
+    def test_the_stage_api_is_https_only_and_trusts_the_stage_realm(self):
+        # B-09b review B1: no plain HTTP listener, every HTTPS listener's certificate issued in stage, tokens verified with
+        # the stage realm's published keys (never dev's placeholder key).
+        root = DEPLOY / "envs/stage/platform/gateway"
+        kustomization = yaml.safe_load((root / "kustomization.yaml").read_text())
+        docs = [d for res in kustomization["resources"] for d in load_docs(root / res)]
+        issued = {(d["metadata"]["namespace"], d["spec"]["secretName"]) for d in docs if d["kind"] == "Certificate"}
+        for issuer in {d["spec"]["issuerRef"]["name"] for d in docs if d["kind"] == "Certificate"}:
+            self.assertEqual(issuer, "depot-stage-ca")
+        gateways = [d for d in docs if d["kind"] == "Gateway"]
+        self.assertIn("depot-api", {g["metadata"]["name"] for g in gateways})
+        for gw in gateways:
+            for lst in gw["spec"]["listeners"]:
+                with self.subTest(gateway=gw["metadata"]["name"], listener=lst["name"]):
+                    self.assertNotIn(lst["protocol"], ("HTTP", "TCP"), "a listener without TLS")
+                    self.assertTrue(lst.get("hostname"), "a stage listener names its host")
+                    for ref in (lst.get("tls") or {}).get("certificateRefs") or []:
+                        self.assertIn((gw["metadata"]["namespace"], ref["name"]), issued, "no stage Certificate issues this listener's Secret")
+        self.assertNotIn("jwks-configmap.yaml", kustomization["resources"])
+        (policy,) = [d for d in docs if d["kind"] == "SecurityPolicy" and d["metadata"]["name"] == "depot-api-jwt"]
+        for provider in policy["spec"]["jwt"]["providers"]:
+            self.assertNotIn("localJWKS", provider)
+            self.assertEqual(provider["issuer"], "https://idp.stage.depot.dev/realms/depot")
+            self.assertEqual(provider["remoteJWKS"]["uri"], "https://idp.stage.depot.dev/realms/depot/protocol/openid-connect/certs")
+        providers = {p["name"] for p in policy["spec"]["jwt"]["providers"]}
+        for rule in policy["spec"]["authorization"]["rules"]:
+            self.assertIn(rule["principal"]["jwt"]["provider"], providers)
+        self.assertIs(policy["spec"]["extAuth"]["failOpen"], False)
+
+    def test_kyverno_verifies_images_in_every_stage_service_namespace(self):
+        # B-09b review M1: the tag-pinned images of a service without a recorded digest must be refused wherever it runs.
+        namespaces = {app["spec"]["destination"]["namespace"] for app in self.stage.values() if service_chart_sources(app)}
+        namespaces |= {app["spec"]["destination"]["namespace"] for env, _, app in self.apps if env == "dev" and service_chart_sources(app)}
+        self.assertLessEqual({"hello-ledger", "batch", "metadata"}, namespaces)
+        for policy_file in ("deploy/policies/admission/verify-signed-images.yaml", "deploy/policies/admission-offline/verify-signed-images.yaml"):
+            (policy,) = load_docs(REPO / policy_file)
+            for rule in policy["spec"]["rules"]:
+                matched = [ns for r in rule["match"]["any"] for ns in r["resources"].get("namespaces") or []]
+                with self.subTest(policy=policy_file, rule=rule["name"]):
+                    for ns in sorted(namespaces):
+                        self.assertTrue(any(fnmatch.fnmatchcase(ns, m) for m in matched), f"{ns} is not covered by {rule['name']}")
+        self.assertIn("admission-policies-stage", self.stage)
+
     def stage_databases(self):
         docs = [d for f in sorted((DEPLOY / "envs/stage/databases").glob("*.yaml")) for d in load_docs(f)]
+        docs += [d for f in sorted((DEPLOY / "envs/stage/service-secrets").glob("*/secrets.yaml")) for d in load_docs(f)]
         secrets = {es_output(d)[:2]: d for d in docs if d["kind"] == "ExternalSecret"}
         return docs, secrets
 
@@ -2221,6 +2274,7 @@ class StagePlatformTest(unittest.TestCase):
         stage_ns = {s["path"]: app["spec"]["destination"]["namespace"] for app in self.stage.values() for s in service_chart_sources(app)}
         charts = gen_migrate_jobs.charts()
         self.assertGreaterEqual(len(charts), 60)
+        url = re.compile(r'postgres://(\w+):\{\{ \.password \| urlquery \| replace "\+" "%20" \}\}@postgres\.([a-z-]+)\.svc:5432/(\w+)\?sslmode=require')
         for _, chart in charts:
             rel = chart.relative_to(REPO).as_posix()
             name = yaml.safe_load((chart / "Chart.yaml").read_text())["name"]
@@ -2228,29 +2282,38 @@ class StagePlatformTest(unittest.TestCase):
                 ns = stage_ns[rel]
                 es = secrets.get((ns, f"{name}-db-owner"))
                 self.assertIsNotNone(es, f"no ExternalSecret writes {ns}/{name}-db-owner")
-                url = es["spec"]["target"]["template"]["data"]["DATABASE_URL"]
-                m = re.fullmatch(r"postgres://(\w+):\{\{ \.password \}\}@postgres\.([a-z-]+)\.svc:5432/(\w+)\?sslmode=require", url)
-                self.assertIsNotNone(m, url)
+                m = url.fullmatch(es["spec"]["target"]["template"]["data"]["DATABASE_URL"])
+                self.assertIsNotNone(m, "the owner URL with the URL-encoded password")
                 role, host_ns, database = m.groups()
                 self.assertEqual(host_ns, ns)
-                self.assertEqual(role, f"{database}_owner", "the Job signs in as the database's owner role, never depot_app")
+                self.assertEqual(role, f"{database}_owner", "the Job signs in as the database's owner role, never an app role")
                 sql = configs[ns]
                 self.assertIn(f"CREATE DATABASE {database} OWNER {role}", sql)
-                self.assertIn(f"ALTER ROLE {role} WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD", sql)
+                self.assertIn(f"ALTER ROLE {role} WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;", sql)
                 self.assertIn(f"REVOKE ALL ON DATABASE {database} FROM PUBLIC;", sql)
-                self.assertIn(f"GRANT CONNECT, TEMPORARY ON DATABASE {database} TO depot_app;", sql)
+                self.assertIn(f"REVOKE ALL ON DATABASE {database} FROM depot_app;", sql)
+                # M3: each database has its own login role, a member of depot_app, with CONNECT on that database only.
+                app_role = f"{database}_app"
+                self.assertIn(f"GRANT depot_app TO {app_role};", sql)
+                self.assertIn(f"ALTER ROLE {app_role} WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;", sql)
+                self.assertEqual(re.findall(rf"GRANT CONNECT[^;]* TO {app_role};", sql), [f"GRANT CONNECT, TEMPORARY ON DATABASE {database} TO {app_role};"])
                 admitted = {f["podSelector"]["matchLabels"].get("app.kubernetes.io/name")
                             for rule in policies[ns]["spec"]["ingress"] for f in rule["from"] if "namespaceSelector" not in f}
                 self.assertIn(f"{gen_migrate_jobs.pod_name(chart)}-migrate", admitted)
                 self.assertIn(gen_migrate_jobs.pod_name(chart), admitted)
         for sql in configs.values():
-            self.assertIn("ALTER ROLE depot_app WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD", sql)
+            self.assertIn("ALTER ROLE depot_app WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD NULL;", sql)
+            self.assertNotRegex(sql, r"GRANT [^;]*ON DATABASE \w+ TO depot_app;", "depot_app has CONNECT on no database")
+            self.assertIn("REVOKE CONNECT ON DATABASE postgres FROM PUBLIC;", sql)
+            # m3: every role exists before the first database, so a migration finds the CDC role it grants to.
+            self.assertLess(sql.rindex("CREATE ROLE"), sql.index("CREATE DATABASE"))
 
     def test_every_outbox_connector_has_its_stage_cdc_role_and_secret(self):
-        docs, _ = self.stage_databases()
+        docs, secrets = self.stage_databases()
         configs = {d["metadata"]["namespace"]: d["data"]["provision.sql"] for d in docs if d["kind"] == "ConfigMap"}
         kafka = {es_output(d)[1]: d for f in (DEPLOY / "envs/stage/kafka-secrets").glob("*.yaml") for d in load_docs(f)
                  if d["kind"] == "ExternalSecret"}
+        role_keys = {e["remoteRef"]["key"] for (_, name), es in secrets.items() if name.startswith("postgres-role-") for e in es["spec"]["data"]}
         for d in load_docs(DEPLOY / "kafka/connect.yaml"):
             if not is_outbox_connector(d):
                 continue
@@ -2262,20 +2325,21 @@ class StagePlatformTest(unittest.TestCase):
                 user = es["spec"]["target"]["template"]["data"]["username"]
                 key = es["spec"]["data"][0]["remoteRef"]["key"]
                 self.assertTrue(key.startswith("depot/stage/"), key)
-                self.assertIn(f"ALTER ROLE {user} WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE REPLICATION", configs[ns])
+                self.assertIn(f"ALTER ROLE {user} WITH NOSUPERUSER NOCREATEDB NOCREATEROLE REPLICATION", configs[ns])
                 self.assertIn(f"GRANT CONNECT ON DATABASE {db} TO {user};", configs[ns])
-                (creds,) = [x for x in docs if x["kind"] == "ExternalSecret" and x["metadata"]["name"] == "postgres-credentials"
-                            and x["metadata"]["namespace"] == ns]
-                self.assertIn(key, {e["remoteRef"]["key"] for e in creds["spec"]["data"]}, "one Vault key for both sides")
+                self.assertIn(key, role_keys, "one Vault key for both sides")
 
-    def test_stage_postgres_serves_tls_only(self):
+    def test_stage_postgres_serves_tls_only_without_physical_replication(self):
         docs, secrets = self.stage_databases()
         for d in docs:
-            if d["kind"] == "ConfigMap":
-                hba = [ln for ln in d["data"]["pg_hba.conf"].splitlines() if ln.strip()]
+            if d["kind"] == "ConfigMap" and "pg_hba.conf" in d["data"]:
+                hba = [ln.split() for ln in d["data"]["pg_hba.conf"].splitlines() if ln.strip() and not ln.startswith("#")]
                 with self.subTest(ns=d["metadata"]["namespace"]):
-                    self.assertTrue(all(ln.split()[0] in ("local", "hostssl") for ln in hba), hba)
-                    self.assertTrue(all(ln.split()[-1] == "scram-sha-256" for ln in hba), hba)
+                    self.assertTrue(all(ln[0] in ("local", "hostssl") for ln in hba), hba)
+                    self.assertTrue(all(ln[-1] == "scram-sha-256" for ln in hba), hba)
+                    # B-09b review M2: pgoutput is logical replication (database lines); a `replication` line would let any
+                    # REPLICATION role take a physical copy of the whole cluster.
+                    self.assertEqual([ln for ln in hba if ln[1] == "replication"], [])
             if d["kind"] == "StatefulSet":
                 args = d["spec"]["template"]["spec"]["containers"][0]["args"]
                 self.assertIn("ssl=on", args)
@@ -2284,6 +2348,47 @@ class StagePlatformTest(unittest.TestCase):
                 if str(v).startswith("postgres://")]
         self.assertGreater(len(urls), 100)
         self.assertEqual([u for u in urls if not u.endswith("sslmode=require")], [])
+        self.assertEqual([u for u in urls if "| urlquery" not in u], [], "every password is URL-encoded in its URL")
+
+    def test_one_missing_vault_key_stops_only_its_own_service(self):
+        # B-09b review M4: the server mounts only its own password; the provisioning Job reads each service's role passwords
+        # from an optional source and skips a missing one; each service's Secrets are an Application of their own.
+        docs, _ = self.stage_databases()
+        appset = load_docs(DEPLOY / "envs/stage/apps/service-secrets.yaml")[0]
+        elements = {e["name"]: e["namespace"] for e in appset["spec"]["generators"][0]["list"]["elements"]}
+        dirs = {p.name for p in (DEPLOY / "envs/stage/service-secrets").iterdir() if p.is_dir()}
+        self.assertEqual(set(elements), dirs)
+        self.assertLess(wave(appset), 2, "the Secrets sync before the services")
+        for ns_doc in [d for d in docs if d["kind"] == "Namespace"]:
+            self.assertEqual(ns_doc["metadata"]["annotations"].get("argocd.argoproj.io/sync-options"), "Prune=false,Delete=false")
+        for d in docs:
+            if d["kind"] == "StatefulSet" and d["metadata"]["name"] == "postgres":
+                secrets = [v["secret"]["secretName"] for v in d["spec"]["template"]["spec"]["volumes"] if "secret" in v]
+                self.assertEqual(sorted(secrets), ["postgres-superuser", "postgres-tls"])
+            if d["kind"] in ("Job", "CronJob") and d["metadata"]["name"] == "postgres-provision":
+                pod = pod_template(d)["spec"]
+                (roles,) = [v for v in pod["volumes"] if v["name"] == "roles"]
+                sources = roles["projected"]["sources"]
+                self.assertTrue(sources)
+                for src in sources:
+                    self.assertIs(src["secret"]["optional"], True)
+                    self.assertTrue(src["secret"]["name"].startswith("postgres-role-"))
+                (env,) = [c for c in pod["containers"]]
+                self.assertNotIn("PGPASSWORD", {e["name"] for e in env.get("env") or []}, "the superuser password goes in a pgpass file")
+        for ns_cm in [d for d in docs if d["kind"] == "ConfigMap"]:
+            self.assertIn("\\else\n\\echo 'skipped:", ns_cm["data"]["provision.sql"])
+        self.assertIn("CronJob", {d["kind"] for d in docs}, "a key written later is picked up without a sync")
+
+    def test_apicurio_and_temporal_postgres_serve_tls_in_stage(self):
+        for name in ("apicurio-postgres-stage", "temporal-postgres-stage"):
+            (src,) = sources(self.stage[name])
+            self.assertEqual(src["helm"]["valuesObject"]["tls"], {"enabled": True, "issuer": "depot-stage-ca"}, name)
+        (chart,) = [s for s in sources(self.stage["temporal-stage"]) if s.get("chart") == "temporal"]
+        persistence = chart["helm"]["valuesObject"]["server"]["config"]["persistence"]
+        for store in ("default", "visibility"):
+            self.assertIs(persistence[store]["sql"]["tls"]["enabled"], True)
+        apicurio = load_docs(DEPLOY / "envs/stage/kafka-secrets/apicurio-database.yaml")[0]
+        self.assertTrue(apicurio["spec"]["target"]["template"]["data"]["JDBC_URL"].endswith("?sslmode=require"))
 
     @unittest.skipUnless(shutil.which("helm"), "helm not on PATH")
     def test_stage_databases_are_generated(self):
@@ -2298,10 +2403,27 @@ class StagePlatformTest(unittest.TestCase):
             name, key = s["app_secret"]
             with self.subTest(chart=s["chart"]):
                 template = secrets[(s["namespace"], name)]["spec"]["target"]["template"]["data"]
-                self.assertEqual(template[key], f"postgres://depot_app:{{{{ .password }}}}@postgres.{s['namespace']}.svc:5432/"
+                self.assertEqual(template[key], f"postgres://{s['database']}_app:{gen_databases.URL_PASSWORD}@postgres.{s['namespace']}.svc:5432/"
                                                 f"{s['database']}?sslmode=require")
                 self.assertEqual(set(template) - {key}, set(s["extra"]))
                 self.assertNotEqual(name, s["owner_secret"][0], "serving pods and the Job must not share a Secret")
+
+    @unittest.skipUnless(shutil.which("helm"), "helm not on PATH")
+    def test_every_secret_a_stage_service_reads_is_created_or_explained(self):
+        # B-09b review m8: a Secret a stage pod needs is an ExternalSecret in deploy/envs/stage, created by its own chart, or
+        # listed in gen_databases.UNMANAGED with the reason.
+        import gen_databases
+        declared = {es_output(d)[:2] for f in (DEPLOY / "envs/stage").rglob("*.yaml") for d in load_docs(f) if d.get("kind") == "ExternalSecret"}
+        for service_dir, path, release, ns, docs in gen_databases.stage_services():
+            _, keys, _ = gen_databases.secret_refs(docs, f"{release}-migrate")
+            own = {es_output(d)[1] for d in docs if d["kind"] == "ExternalSecret"} | {d["metadata"]["name"] for d in docs if d["kind"] == "Secret"}
+            for secret in keys:
+                with self.subTest(service=release, secret=secret):
+                    self.assertTrue((ns, secret) in declared or secret in own or (ns, secret) in gen_databases.UNMANAGED,
+                                    f"{release} reads Secret {ns}/{secret}, which nothing in stage creates")
+        for (ns, secret), why in gen_databases.UNMANAGED.items():
+            self.assertNotIn((ns, secret), declared, f"stale UNMANAGED entry {secret}")
+            self.assertTrue(why)
 
 if __name__ == "__main__":
     unittest.main()

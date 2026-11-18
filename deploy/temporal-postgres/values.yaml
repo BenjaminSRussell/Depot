@@ -12,3 +12,7 @@ externalSecret:
   environment: ""
   pathPrefix: depot/{env}
   refreshInterval: 1h
+# TLS only (stage, prod): a cert-manager certificate from tls.issuer and a pg_hba that admits TCP only over TLS with SCRAM.
+tls:
+  enabled: false
+  issuer: ""

@@ -21,7 +21,7 @@ spec:
       releaseName: identity
       parameters:
       - name: image.tag
-        value: "0.2.0"
+        value: 0.2.0
   destination:
     name: stage
     namespace: hello-ledger

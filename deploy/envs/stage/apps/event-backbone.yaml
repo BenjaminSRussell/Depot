@@ -12,7 +12,7 @@ spec:
   source:
     repoURL: https://strimzi.io/charts/
     chart: strimzi-kafka-operator
-    targetRevision: "0.46.0"
+    targetRevision: 0.46.0
   destination:
     name: stage
     namespace: kafka
@@ -111,6 +111,9 @@ spec:
           enabled: false
         externalSecret:
           environment: stage
+        tls:
+          enabled: true
+          issuer: depot-stage-ca
   destination:
     name: stage
     namespace: kafka

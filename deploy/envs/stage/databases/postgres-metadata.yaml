@@ -7,11 +7,12 @@ metadata:
   name: metadata
   annotations:
     argocd.argoproj.io/sync-wave: "-2"
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
 ---
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
-  name: postgres-credentials
+  name: postgres-superuser
   namespace: metadata
   annotations:
     argocd.argoproj.io/sync-wave: "-2"
@@ -21,24 +22,12 @@ spec:
     kind: ClusterSecretStore
     name: depot
   target:
-    name: postgres-credentials
+    name: postgres-superuser
     creationPolicy: Owner
   data:
   - secretKey: postgres-password
     remoteRef:
       key: depot/stage/metadata-postgres/postgres-password
-      property: value
-  - secretKey: app-password
-    remoteRef:
-      key: depot/stage/metadata-postgres/app-password
-      property: value
-  - secretKey: metadata-owner-password
-    remoteRef:
-      key: depot/stage/metadata-postgres/owner-password
-      property: value
-  - secretKey: metadata-cdc-password
-    remoteRef:
-      key: depot/stage/metadata-postgres/cdc-password
       property: value
 ---
 apiVersion: cert-manager.io/v1
@@ -72,26 +61,59 @@ data:
   pg_hba.conf: |
     local all all scram-sha-256
     hostssl all all all scram-sha-256
-    hostssl replication all all scram-sha-256
   provision.sql: |
-    -- Reconciles the roles and databases of this Postgres on every sync (gen_databases.py). Idempotent: a missing role or
-    -- database is created, every password is set from the secret store, so rotating a Vault key and syncing rotates it.
+    -- Reconciles the roles and databases of this Postgres (gen_databases.py), run by the PostSync Job and the CronJob.
+    -- Idempotent. Every role first (NOLOGIN until its password file exists), then the databases, then CONNECT.
     \set ON_ERROR_STOP on
-    \set pw `cat /run/secrets/postgres/app-password`
-    SELECT 'CREATE ROLE depot_app' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_app')\gexec
-    ALTER ROLE depot_app WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'pw';
-    -- services/metadata/charts/metadata (metadata)
-    \set pw `cat /run/secrets/postgres/metadata-owner-password`
-    SELECT 'CREATE ROLE depot_metadata_owner' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_metadata_owner')\gexec
-    ALTER ROLE depot_metadata_owner WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'pw';
+    REVOKE CONNECT ON DATABASE postgres FROM PUBLIC;
+    REVOKE CONNECT ON DATABASE template1 FROM PUBLIC;
+    -- depot_app: the role the migrations grant to and the RLS policies name. No login, CONNECT nowhere; each database's
+    -- <database>_app login role is a member and inherits its privileges.
+    SELECT 'CREATE ROLE depot_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_app')\gexec
+    ALTER ROLE depot_app WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD NULL;
+    -- roles of services/metadata/charts/metadata (metadata)
+    SELECT 'CREATE ROLE debezium_cdc NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'debezium_cdc')\gexec
+    ALTER ROLE debezium_cdc WITH NOSUPERUSER NOCREATEDB NOCREATEROLE REPLICATION BYPASSRLS;
+    \set ok `test -s /run/secrets/roles/metadata-cdc-password && echo true || echo false`
+    \if :ok
+    \set pw `cat /run/secrets/roles/metadata-cdc-password`
+    ALTER ROLE debezium_cdc WITH LOGIN PASSWORD :'pw';
+    \else
+    \echo 'skipped: debezium_cdc cannot sign in yet, its password is not in the secret store (depot/stage/metadata-postgres/cdc-password)'
+    \endif
+    SELECT 'CREATE ROLE depot_metadata_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_metadata_app')\gexec
+    ALTER ROLE depot_metadata_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+    GRANT depot_app TO depot_metadata_app;
+    \set ok `test -s /run/secrets/roles/metadata-app-password && echo true || echo false`
+    \if :ok
+    \set pw `cat /run/secrets/roles/metadata-app-password`
+    ALTER ROLE depot_metadata_app WITH LOGIN PASSWORD :'pw';
+    \else
+    \echo 'skipped: depot_metadata_app cannot sign in yet, its password is not in the secret store (depot/stage/metadata-postgres/app-password)'
+    \endif
+    SELECT 'CREATE ROLE depot_metadata_owner NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_metadata_owner')\gexec
+    ALTER ROLE depot_metadata_owner WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+    \set ok `test -s /run/secrets/roles/metadata-owner-password && echo true || echo false`
+    \if :ok
+    \set pw `cat /run/secrets/roles/metadata-owner-password`
+    ALTER ROLE depot_metadata_owner WITH LOGIN PASSWORD :'pw';
+    \else
+    \echo 'skipped: depot_metadata_owner cannot sign in yet, its password is not in the secret store (depot/stage/metadata-postgres/owner-password)'
+    \endif
+    -- database of services/metadata/charts/metadata (metadata)
     SELECT 'CREATE DATABASE depot_metadata OWNER depot_metadata_owner' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_metadata')\gexec
     ALTER DATABASE depot_metadata OWNER TO depot_metadata_owner;
     REVOKE ALL ON DATABASE depot_metadata FROM PUBLIC;
-    GRANT CONNECT, TEMPORARY ON DATABASE depot_metadata TO depot_app;
-    \set pw `cat /run/secrets/postgres/metadata-cdc-password`
-    SELECT 'CREATE ROLE debezium_cdc' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'debezium_cdc')\gexec
-    ALTER ROLE debezium_cdc WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE REPLICATION BYPASSRLS PASSWORD :'pw';
+    REVOKE ALL ON DATABASE depot_metadata FROM depot_app;
+    GRANT CONNECT, TEMPORARY ON DATABASE depot_metadata TO depot_metadata_app;
     GRANT CONNECT ON DATABASE depot_metadata TO debezium_cdc;
+  provision.sh: |
+    set -eu
+    umask 077
+    # The superuser's password goes into a pgpass file in the pod's /tmp, not the environment (pgpass escapes : and \).
+    printf 'postgres.%s.svc:5432:postgres:depot:%s\n' "$NAMESPACE" "$(sed 's/[\\:]/\\&/g' /run/secrets/superuser/postgres-password)" > /tmp/pgpass
+    export PGPASSFILE=/tmp/pgpass
+    exec psql "host=postgres.$NAMESPACE.svc port=5432 dbname=postgres user=depot sslmode=verify-full sslrootcert=/tls/ca.crt" -X -q -f /provision/provision.sql
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -153,7 +175,7 @@ spec:
         - name: POSTGRES_DB
           value: postgres
         - name: POSTGRES_PASSWORD_FILE
-          value: /run/secrets/postgres/postgres-password
+          value: /run/secrets/superuser/postgres-password
         - name: PGDATA
           value: /var/lib/postgresql/data/pgdata
         ports:
@@ -193,8 +215,8 @@ spec:
         - name: tls
           mountPath: /tls
           readOnly: true
-        - name: credentials
-          mountPath: /run/secrets/postgres
+        - name: superuser
+          mountPath: /run/secrets/superuser
           readOnly: true
       volumes:
       - name: run
@@ -209,9 +231,9 @@ spec:
         secret:
           secretName: postgres-tls
           defaultMode: 288
-      - name: credentials
+      - name: superuser
         secret:
-          secretName: postgres-credentials
+          secretName: postgres-superuser
           defaultMode: 288
   volumeClaimTemplates:
   - metadata:
@@ -306,12 +328,12 @@ spec:
         image: postgres:17-alpine@sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb
         command:
         - sh
-        - "-c"
-        - PGPASSWORD="$(cat /run/secrets/postgres/postgres-password)" exec psql "host=postgres.metadata.svc port=5432 dbname=postgres
-          user=depot sslmode=verify-full sslrootcert=/tls/ca.crt" -X -q -f /provision/provision.sql
+        - /provision/provision.sh
         env:
         - name: HOME
           value: /tmp
+        - name: NAMESPACE
+          value: metadata
         resources:
           requests:
             cpu: 10m
@@ -334,8 +356,11 @@ spec:
         - name: tls
           mountPath: /tls
           readOnly: true
-        - name: credentials
-          mountPath: /run/secrets/postgres
+        - name: superuser
+          mountPath: /run/secrets/superuser
+          readOnly: true
+        - name: roles
+          mountPath: /run/secrets/roles
           readOnly: true
       volumes:
       - name: provision
@@ -344,6 +369,8 @@ spec:
           items:
           - key: provision.sql
             path: provision.sql
+          - key: provision.sh
+            path: provision.sh
       - name: tmp
         emptyDir: {}
       - name: tls
@@ -352,7 +379,127 @@ spec:
           items:
           - key: ca.crt
             path: ca.crt
-      - name: credentials
+      - name: superuser
         secret:
-          secretName: postgres-credentials
+          secretName: postgres-superuser
           defaultMode: 288
+      - name: roles
+        projected:
+          defaultMode: 288
+          sources:
+          - secret:
+              name: postgres-role-metadata
+              optional: true
+              items:
+              - key: owner-password
+                path: metadata-owner-password
+              - key: app-password
+                path: metadata-app-password
+              - key: cdc-password
+                path: metadata-cdc-password
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-provision
+  namespace: metadata
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: postgres-provision
+            app.kubernetes.io/part-of: depot-databases
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 70
+            runAsGroup: 70
+            fsGroup: 70
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: provision
+            image: postgres:17-alpine@sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb
+            command:
+            - sh
+            - /provision/provision.sh
+            env:
+            - name: HOME
+              value: /tmp
+            - name: NAMESPACE
+              value: metadata
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                cpu: 200m
+                memory: 128Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            volumeMounts:
+            - name: provision
+              mountPath: /provision
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            - name: tls
+              mountPath: /tls
+              readOnly: true
+            - name: superuser
+              mountPath: /run/secrets/superuser
+              readOnly: true
+            - name: roles
+              mountPath: /run/secrets/roles
+              readOnly: true
+          volumes:
+          - name: provision
+            configMap:
+              name: postgres-config
+              items:
+              - key: provision.sql
+                path: provision.sql
+              - key: provision.sh
+                path: provision.sh
+          - name: tmp
+            emptyDir: {}
+          - name: tls
+            secret:
+              secretName: postgres-tls
+              items:
+              - key: ca.crt
+                path: ca.crt
+          - name: superuser
+            secret:
+              secretName: postgres-superuser
+              defaultMode: 288
+          - name: roles
+            projected:
+              defaultMode: 288
+              sources:
+              - secret:
+                  name: postgres-role-metadata
+                  optional: true
+                  items:
+                  - key: owner-password
+                    path: metadata-owner-password
+                  - key: app-password
+                    path: metadata-app-password
+                  - key: cdc-password
+                    path: metadata-cdc-password
