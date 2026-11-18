@@ -110,7 +110,7 @@ func TestMigrationsApplyWithRLS(t *testing.T) {
 	if metadataErr != nil || currentUser != "depot_app" || roleSuper || roleBypass {
 		t.Fatalf("RLS test must use non-bypass depot_app role: user=%q super=%v bypass=%v err=%v", currentUser, roleSuper, roleBypass, metadataErr)
 	}
-	for _, table := range []string{"number_sequence", "number_sequence_state", "number_allocation", "outbox"} {
+	for _, table := range []string{"number_sequence", "number_sequence_state", "number_allocation", "number_reservation", "outbox"} {
 		var enabled, forced bool
 		err := pool.QueryRow(ctx, `select relrowsecurity, relforcerowsecurity from pg_class where relname = $1 and relnamespace = current_schema()::regnamespace`, table).Scan(&enabled, &forced)
 		if err != nil || !enabled || !forced {
