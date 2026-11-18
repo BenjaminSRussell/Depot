@@ -577,6 +577,8 @@ spec:
       # numbering: one literal per AsyncAPI channel of services/numbering/events/asyncapi.yaml (outbox-numbering routes by event type).
       - resource: {type: topic, name: depot.numbering.sequence, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.numbering.reservation, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
       # org: one literal per AsyncAPI channel of services/org/events/asyncapi.yaml (outbox-org routes by event type).
       - resource: {type: topic, name: depot.org.legalentity, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]

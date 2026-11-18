@@ -2,7 +2,7 @@
   "version": 3,
   "compiler": "scripts/compile_architecture.py",
   "note": "Generated from the OpenAPI and AsyncAPI specs and scripts/architecture_patterns.json. Do not edit; run python3 scripts/compile_architecture.py --write.",
-  "summary": {"openapiDocuments": 65, "paths": 2630, "operations": 3254, "asyncapiDocuments": 60, "topics": 387, "topicsPublished": 384, "topicsSubscribed": 18, "patterns": 59},
+  "summary": {"openapiDocuments": 65, "paths": 2630, "operations": 3254, "asyncapiDocuments": 60, "topics": 388, "topicsPublished": 385, "topicsSubscribed": 18, "patterns": 59},
   "patterns": [
     {
       "id": "event-envelope",
@@ -5005,7 +5005,8 @@
       "asyncapi": "3.0.0",
       "title": "numbering",
       "publishes": [
-        {"topic": "depot.numbering.sequence", "types": ["dev.depot.numbering.reservation.confirmed.v1", "dev.depot.numbering.reservation.voided.v1", "dev.depot.numbering.sequence.allocated.v1"]}
+        {"topic": "depot.numbering.reservation", "types": ["dev.depot.numbering.reservation.confirmed.v1", "dev.depot.numbering.reservation.voided.v1"]},
+        {"topic": "depot.numbering.sequence", "types": ["dev.depot.numbering.sequence.allocated.v1"]}
       ],
       "subscribes": []
     },
@@ -5736,6 +5737,7 @@
     {"topic": "depot.mobile.offline", "publishers": ["services/mobile"], "subscribers": []},
     {"topic": "depot.mobile.session", "publishers": ["services/mobile"], "subscribers": []},
     {"topic": "depot.notify.message", "publishers": ["services/batch"], "subscribers": []},
+    {"topic": "depot.numbering.reservation", "publishers": ["services/numbering"], "subscribers": []},
     {"topic": "depot.numbering.sequence", "publishers": ["services/numbering"], "subscribers": []},
     {"topic": "depot.ops.failover", "publishers": ["services/ops"], "subscribers": []},
     {"topic": "depot.ops.license", "publishers": ["services/ops"], "subscribers": []},
