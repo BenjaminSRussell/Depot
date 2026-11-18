@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -25,6 +26,9 @@ const (
 	dutyRead       = "numbering.read"
 	dutyWrite      = "numbering.write"
 	dutyAllocate   = "numbering.sequence.allocate"
+	defaultPage    = 50
+	maxPage        = 200
+	zeroCursor     = "00000000-0000-0000-0000-000000000000"
 )
 
 // API is the numbering HTTP surface.
@@ -50,6 +54,7 @@ func New(s store.Store) *API { return &API{store: s} }
 func (a *API) Register(r chi.Router) {
 	r.Get("/readyz", a.ready)
 	r.With(authz.RequireDuty(dutyWrite)).Post("/v1/numbering/sequences", a.create)
+	r.With(authz.RequireDuty(dutyRead)).Get("/v1/numbering/sequences", a.list)
 	r.With(authz.RequireDuty(dutyRead)).Get("/v1/numbering/sequences/{code}", a.get)
 	r.With(authz.RequireAnyDuty(dutyWrite, dutyAllocate)).Post("/v1/numbering/sequences/{code}/next", a.allocate)
 }
@@ -108,6 +113,49 @@ func (a *API) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusCreated, entity)
+}
+
+func (a *API) list(w http.ResponseWriter, r *http.Request) {
+	if !validTenant(w, r) {
+		return
+	}
+	q := r.URL.Query()
+	fields := map[string]string{}
+	limit := defaultPage
+	if raw := q.Get("limit"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 1 || n > maxPage {
+			fields["limit"] = fmt.Sprintf("must be 1 to %d", maxPage)
+		} else {
+			limit = n
+		}
+	}
+	after := q.Get("after")
+	if after == "" {
+		after = zeroCursor
+	} else if !ids.Valid(after) {
+		fields["after"] = "must be a cursor from a previous page"
+	}
+	if len(fields) > 0 {
+		p := httpx.NewProblem(http.StatusBadRequest, "COM-0001", "request failed validation")
+		p.Errors = fields
+		httpx.Fail(w, r, p)
+		return
+	}
+	items, err := a.store.List(r.Context(), after, limit)
+	if err != nil {
+		slog.Error("list sequences failed", "err", err, "correlationId", middleware.GetReqID(r.Context()))
+		httpx.Fail(w, r, err)
+		return
+	}
+	if items == nil {
+		items = []store.Sequence{}
+	}
+	next := ""
+	if len(items) == limit {
+		next = items[len(items)-1].ID
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": items, "next": next})
 }
 
 func (a *API) get(w http.ResponseWriter, r *http.Request) {

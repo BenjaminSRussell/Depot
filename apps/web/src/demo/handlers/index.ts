@@ -25,3 +25,4 @@ import "./ops";
 import "./transport";
 import "./party";
 import "./migration";
+import "./workflow";

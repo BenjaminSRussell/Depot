@@ -43,7 +43,13 @@ route("GET", `${ORG}/currencies`, () => ({ items: currencies }));
 
 // The setup checklist only asks whether each of these lists has a row; the demo company is fully set up.
 route("GET", "/api/v1/ledger/ledgers", () => ({ items: [{ id: "ledger-crp", legalEntityId: LEGAL_ENTITY.id, name: `${LEGAL_ENTITY.name} general ledger`, currency: LEGAL_ENTITY.currency }] }));
-route("GET", "/api/v1/numbering/sequences", () => ({ items: [{ code: "SO", name: "Sales orders", nextValue: "SO-024190" }, { code: "PO", name: "Purchase orders", nextValue: "PO-048214" }] }));
+route("GET", "/api/v1/numbering/sequences", () => ({
+  items: [
+    { id: "00000000-0000-0000-0000-00000000a001", code: "SO", name: "Sales orders", format: "SO-{######}", legalEntityId: LEGAL_ENTITY.id, mode: "gap_free", startFrom: 1 },
+    { id: "00000000-0000-0000-0000-00000000a002", code: "PO", name: "Purchase orders", format: "PO-{######}", legalEntityId: LEGAL_ENTITY.id, mode: "gap_free", startFrom: 1 },
+    { id: "00000000-0000-0000-0000-00000000a003", code: "ITM", name: "Products", format: "ITM-{######}", legalEntityId: LEGAL_ENTITY.id, mode: "non_continuous", startFrom: 1000 },
+  ],
+}));
 
 // Customer and vendor roles share the party's id in the demo, so a role id resolves straight to its party.
 function role(p: Party, kind: "customer" | "vendor") {

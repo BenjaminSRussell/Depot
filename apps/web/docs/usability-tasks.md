@@ -119,7 +119,7 @@ Each row gives the scenario, where the participant starts, and what counts as do
 | TA2 | Add a new user who can approve purchase orders but not post invoices. | Users | `/admin/security/users` | The user exists with exactly those permissions. |
 | TA3 | Find who changed a setting last week. | Audit | `/admin/audit` | The participant names the person and the change. |
 | TA4 | Add a warehouse to a site. | Warehouses | `/org/warehouses` | The warehouse exists under the right site. |
-| TA5 | Import a list of products from a file. | Import / export | `/admin/import` | The import finishes and the participant can state how many rows loaded and how many failed. |
+| TA5 | Import a list of products from a file. | Import | `/admin/import` | The import finishes and the participant can state how many rows loaded and how many failed. |
 
 ### Shop-floor operator (`operator`)
 

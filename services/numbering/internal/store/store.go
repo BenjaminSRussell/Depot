@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -49,6 +50,7 @@ type Issued struct {
 type Store interface {
 	Create(ctx context.Context, in Sequence, idempotencyKey string) (Sequence, error)
 	Get(ctx context.Context, code string) (Sequence, error)
+	List(ctx context.Context, after string, limit int) ([]Sequence, error)
 	Allocate(ctx context.Context, code, idempotencyKey string) (Issued, error)
 	Ping(ctx context.Context) error
 }
@@ -106,6 +108,32 @@ func (s *Postgres) Get(ctx context.Context, code string) (Sequence, error) {
 		return err
 	})
 	return e, err
+}
+
+// List returns sequences in the caller's legal-entity scope in id order after the cursor.
+func (s *Postgres) List(ctx context.Context, after string, limit int) ([]Sequence, error) {
+	p, _ := tenant.FromContext(ctx)
+	items := []Sequence{}
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		entities, err := scopeEntities(p)
+		if err != nil {
+			return err
+		}
+		q := `select id, code, name, format, legal_entity_id, mode, start_from from number_sequence
+			where tenant_id=$1 and id > $2`
+		args := []any{p.TenantID, after}
+		if entities != nil {
+			q += ` and legal_entity_id = any($3::uuid[])`
+			args = append(args, entities)
+		}
+		rows, err := tx.Query(ctx, q+` order by id limit `+strconv.Itoa(limit), args...)
+		if err != nil {
+			return err
+		}
+		items, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (Sequence, error) { return scanSeq(row) })
+		return err
+	})
+	return items, err
 }
 
 // Allocate issues the next gap-free value under a row lock.
