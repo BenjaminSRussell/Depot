@@ -1,10 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { ShellPage } from "./shell.page";
-
-const ROUTES = ["/", "/features", "/whats-new", "/design-system", "/workflow", "/product", "/admin", "/party", "/no-such-page"];
+import routes from "./axeRoutes.generated.json" with { type: "json" };
 
 test.describe("landmarks and headings", () => {
-  for (const route of ROUTES) {
+  for (const route of routes) {
     test(`${route} has exactly one h1 and the shell landmarks`, async ({ page }) => {
       const shell = new ShellPage(page);
       await shell.goto(route);
