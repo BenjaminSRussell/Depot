@@ -43,6 +43,7 @@ func globRegexp(pattern string) *regexp.Regexp {
 	}
 	expr := regexp.QuoteMeta(pattern)
 	expr = strings.ReplaceAll(expr, `\{,/\*\*\}`, `(/.*)?`)
+	expr = strings.ReplaceAll(expr, `\{,/\*\}`, `(/[^/:]*)?`)
 	expr = strings.ReplaceAll(expr, `\*`, `[^/:]*`)
 	compiled := regexp.MustCompile("^" + expr + "$")
 	globRegexps.Store(pattern, compiled)
@@ -52,6 +53,9 @@ func globRegexp(pattern string) *regexp.Regexp {
 func concreteResource(pattern string) string {
 	if base, ok := strings.CutSuffix(pattern, "{,/**}"); ok {
 		return base + "/item-1"
+	}
+	if base, ok := strings.CutSuffix(pattern, "{,/*}"); ok {
+		return strings.ReplaceAll(base, "*", "item-1") + "/item-1"
 	}
 	return strings.ReplaceAll(pattern, "*", "item-1")
 }

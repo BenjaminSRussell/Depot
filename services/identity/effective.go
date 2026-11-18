@@ -9,7 +9,10 @@ import (
 	"strings"
 )
 
-const recursiveSuffix = "{,/**}"
+const (
+	recursiveSuffix = "{,/**}"
+	childSuffix     = "{,/*}"
+)
 
 type compiledPermission struct {
 	pattern *regexp.Regexp
@@ -79,6 +82,10 @@ type catalogueFile struct {
 
 func compileGlob(pattern string) (*regexp.Regexp, error) {
 	base, recursive := strings.CutSuffix(pattern, recursiveSuffix)
+	child := false
+	if !recursive {
+		base, child = strings.CutSuffix(base, childSuffix)
+	}
 	if strings.ContainsAny(base, "?[]{}\\") || strings.Contains(base, "**") {
 		return nil, fmt.Errorf("unsupported glob %q", pattern)
 	}
@@ -87,14 +94,17 @@ func compileGlob(pattern string) (*regexp.Regexp, error) {
 		parts[i] = regexp.QuoteMeta(part)
 	}
 	expr := "(?s)^" + strings.Join(parts, `[^/:]*`)
-	if recursive {
+	switch {
+	case recursive:
 		expr += `(/.*)?`
+	case child:
+		expr += `(/[^/:]*)?`
 	}
 	return regexp.Compile(expr + "$")
 }
 
 // LoadCatalogue parses the policy data file. A glob outside the supported
-// subset (literal text, "*", and a trailing "{,/**}") is an error so the engine
+// subset (literal text, "*", and a trailing "{,/**}" or "{,/*}") is an error so the engine
 // can never disagree with the policy silently.
 func LoadCatalogue(raw []byte) (*Catalogue, error) {
 	var file catalogueFile
@@ -211,6 +221,9 @@ func (c *Catalogue) Routes() []Route { return slices.Clone(c.routes) }
 func SampleResource(pattern string) string {
 	if base, ok := strings.CutSuffix(pattern, recursiveSuffix); ok {
 		return base + "/item-1"
+	}
+	if base, ok := strings.CutSuffix(pattern, childSuffix); ok {
+		return strings.ReplaceAll(base, "*", "item-1") + "/item-1"
 	}
 	return strings.ReplaceAll(pattern, "*", "item-1")
 }

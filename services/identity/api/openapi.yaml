@@ -1078,7 +1078,7 @@ components:
       type: object
       required: [resource, method, allow]
       properties:
-        resource: { type: string, description: 'Catalogue resource pattern; "*" matches one path segment and a trailing "{,/**}" matches the path and everything below it.' }
+        resource: { type: string, description: 'Catalogue resource pattern; "*" matches one path segment, a trailing "{,/**}" matches the path and everything below it, and a trailing "{,/*}" matches the path and one segment below it.' }
         method: { type: string, enum: [GET, POST, PUT, PATCH, DELETE] }
         allow: { type: boolean }
         duty: { type: string, description: Held duty that grants the route; present when allow is true. }

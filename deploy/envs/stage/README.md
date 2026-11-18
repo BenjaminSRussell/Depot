@@ -37,7 +37,7 @@ member of `depot_app`, which the migrations grant to and the RLS policies name, 
 anywhere) with CONNECT on its own database only, and the outbox connector's REPLICATION role with CONNECT on its own database
 only. pg_hba admits TCP only over TLS with SCRAM and has no physical `replication` line. A role signs in once its Vault key
 exists; the provisioning Job and the CronJob (every 15 minutes, one run at a time under an advisory lock) report the ones
-still waiting. Rotating a password: `docs/ops/runbooks/database-password-rotation.md`. Database URLs URL-encode the
+still waiting. To rotate a password, follow `docs/ops/runbooks/database-password-rotation.md`. Database URLs URL-encode the
 password and use `sslmode=require`: the service charts cannot mount the stage CA yet, so they encrypt without verifying the
 server (Keycloak and the provisioning Job verify it with `verify-full`).
 

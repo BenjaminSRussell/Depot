@@ -177,11 +177,29 @@ func TestEffectiveReportEqualsOPAForEveryRoute(t *testing.T) {
 }
 
 func TestCatalogueRejectsGlobsOutsideTheSupportedSubset(t *testing.T) {
-	for _, resource := range []string{"/v1/a/**", "/v1/a/?", "/v1/a/[x]", "/v1/{a,b}", "/v1/a{,/**}/b"} {
+	for _, resource := range []string{"/v1/a/**", "/v1/a/?", "/v1/a/[x]", "/v1/{a,b}", "/v1/a{,/**}/b", "/v1/a{,/*}/b", "/v1/a{,/*}{,/**}", "/v1/a{,/**}{,/*}"} {
 		raw := fmt.Sprintf(`{"duties":{"d":{"permissions":[{"resource":%q,"methods":["GET"]}]}}}`, resource)
 		if _, err := LoadCatalogue([]byte(raw)); err == nil {
 			t.Errorf("%s: want error", resource)
 		}
+	}
+}
+
+func TestCatalogueChildGlobMatchesThePathAndOneSegmentBelow(t *testing.T) {
+	c, err := LoadCatalogue([]byte(`{"duties":{"Read":{"permissions":[{"resource":"/v1/x{,/*}","methods":["GET"]}]}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, allow := range map[string]bool{
+		"/v1/x": true, "/v1/x/1": true, "/v1/x/": true,
+		"/v1/x/1/2": false, "/v1/x/a:b": false, "/v1/xy": false, "/v1": false,
+	} {
+		if got := c.Evaluate([]string{"Read"}, "GET", path); got.Allow != allow {
+			t.Errorf("%s: allow=%v, want %v", path, got.Allow, allow)
+		}
+	}
+	if got := SampleResource("/v1/x{,/*}"); got != "/v1/x/item-1" {
+		t.Errorf("SampleResource = %q", got)
 	}
 }
 
