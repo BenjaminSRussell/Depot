@@ -86,6 +86,12 @@ func TestReserveConfirmVoidLog(t *testing.T) {
 	if err != nil || len(log) != 1 || log[0].Value != 2 || log[0].Reason != "posting rolled back" {
 		t.Fatalf("voided log = %+v, %v; want only value 2", log, err)
 	}
+	if again, err := s.Confirm(ctx, first.ID, "INV-2026-1"); err != nil || again.Status != domain.StatusConfirmed {
+		t.Fatalf("confirm replay = %+v, %v; want the committed confirmation", again, err)
+	}
+	if again, err := s.Void(ctx, second.ID, "posting rolled back"); err != nil || again.Status != domain.StatusVoided {
+		t.Fatalf("void replay = %+v, %v; want the committed void", again, err)
+	}
 	_, err = s.Confirm(ctx, first.ID, "again")
 	wantProblem(t, err, http.StatusConflict, domain.CodeReservationState)
 	_, err = s.Void(ctx, first.ID, "too late")

@@ -157,7 +157,7 @@ func (s *Postgres) Confirm(ctx context.Context, id, documentRef string) (Reserva
 		}
 		r.Status, r.DocumentRef = domain.StatusConfirmed, documentRef
 		return r, enqueueReservationEvent(ctx, tx, p, confirmedType, r, map[string]any{"documentRef": documentRef})
-	}, true)
+	}, true, func(r Reservation) bool { return r.Status == domain.StatusConfirmed && r.DocumentRef == documentRef })
 }
 
 // Void releases a live reservation and records the reason; the number is never offered again.
@@ -169,12 +169,12 @@ func (s *Postgres) Void(ctx context.Context, id, reason string) (Reservation, er
 		}
 		r.Status, r.VoidReason = domain.StatusVoided, reason
 		return r, enqueueReservationEvent(ctx, tx, p, voidedType, r, map[string]any{"reason": reason})
-	}, false)
+	}, false, func(r Reservation) bool { return r.Status == domain.StatusVoided && r.VoidReason == reason })
 }
 
 type settleFunc func(ctx context.Context, tx pgx.Tx, p tenant.Principal, r Reservation, now time.Time) (Reservation, error)
 
-func (s *Postgres) settle(ctx context.Context, id string, apply settleFunc, leaseDistinct bool) (Reservation, error) {
+func (s *Postgres) settle(ctx context.Context, id string, apply settleFunc, leaseDistinct bool, isReplay func(Reservation) bool) (Reservation, error) {
 	p, _ := tenant.FromContext(ctx)
 	now := s.clock()
 	var out Reservation
@@ -190,6 +190,10 @@ func (s *Postgres) settle(ctx context.Context, id string, apply settleFunc, leas
 		}
 		if err != nil {
 			return err
+		}
+		if isReplay(r) {
+			out = r
+			return nil
 		}
 		if r.Status != domain.StatusReserved {
 			refusal = httpx.NewProblem(http.StatusConflict, domain.CodeReservationState, "the reservation is already "+r.Status)
