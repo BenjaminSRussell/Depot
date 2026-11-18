@@ -2,7 +2,7 @@
 // the entity lookups that turn ids into names (shell/lookup/entities.ts). Imported after the area handlers, so an
 // area file that serves one of these paths more specifically wins.
 import type { InboxPage } from "../../shell/inbox/inbox";
-import { CUSTOMERS, ITEMS, LEGAL_ENTITY, SITES, VENDORS, WAREHOUSES, type Item, type Party } from "../company";
+import { CUSTOMERS, ITEMS, LEGAL_ENTITY, LEGAL_ENTITY_DE, SITES, VENDORS, WAREHOUSES, type Item, type Party } from "../company";
 import { rankBySearch } from "../../shell/search/match";
 import { reply, route } from "../backend";
 import { at, day } from "../store";
@@ -43,7 +43,25 @@ route("GET", `${ORG}/currencies`, () => ({ items: currencies }));
 
 // The setup checklist only asks whether each of these lists has a row; the demo company is fully set up.
 route("GET", "/api/v1/ledger/ledgers", () => ({ items: [{ id: "ledger-crp", legalEntityId: LEGAL_ENTITY.id, name: `${LEGAL_ENTITY.name} general ledger`, currency: LEGAL_ENTITY.currency }] }));
-route("GET", "/api/v1/numbering/sequences", () => ({ items: [{ code: "SO", name: "Sales orders", nextValue: "SO-024190" }, { code: "PO", name: "Purchase orders", nextValue: "PO-048214" }] }));
+// Shaped like the numbering service's Sequence (services/numbering/api/openapi.yaml); /admin/sequences lists them.
+const sequence = (n: number, code: string, name: string, format: string, mode: string, legalEntityId = LEGAL_ENTITY.id) => ({
+  id: `00000000-0000-0000-0000-00000000050${n}`,
+  code,
+  name,
+  format,
+  legalEntityId,
+  mode,
+  startFrom: 1,
+});
+route("GET", "/api/v1/numbering/sequences", () => ({
+  items: [
+    sequence(1, "SO", "Sales orders", "SO-{000000}", "continuous"),
+    sequence(2, "PO", "Purchase orders", "PO-{000000}", "continuous"),
+    sequence(3, "INV", "Customer invoices", "INV-{000000}", "gap_free"),
+    sequence(4, "JE", "Journal entries", "JE-{000000}", "gap_free"),
+    sequence(5, "INV", "Customer invoices", "RE-{000000}", "gap_free", LEGAL_ENTITY_DE.id),
+  ],
+}));
 
 // Customer and vendor roles share the party's id in the demo, so a role id resolves straight to its party.
 function role(p: Party, kind: "customer" | "vendor") {

@@ -1,8 +1,13 @@
 import { render, screen } from "@testing-library/react";
+import { createElement } from "react";
+import { MemoryRouter } from "react-router-dom";
+import { renderRoutes, server, useFakeServer } from "../../shell/testing/fakeServer";
+import { plannedRoutes } from "../admin/PlannedPage";
 import { loadModules } from "../registry";
 import workflow from "./module";
-import { MemoryRouter } from "react-router-dom";
-import { JobMonitorPage, WorkflowHome } from "./pages";
+import { WorkflowHome } from "./pages";
+
+useFakeServer();
 
 describe("workflow module", () => {
   it("uses its folder name as id and declares workflow routes", () => {
@@ -15,24 +20,24 @@ describe("workflow module", () => {
     expect(loadModules().map((m) => m.id)).toContain("workflow");
   });
 
-  it("shows workspace tiles and links to My work", () => {
+  it("links to My work and shows no invented job counts", () => {
     render(
       <MemoryRouter>
         <WorkflowHome />
       </MemoryRouter>,
     );
-    expect(screen.getByRole("heading", { name: "Workflow and batch" })).toBeTruthy();
-    expect(screen.getByRole("list", { name: "Workflow tiles" })).toHaveTextContent("Running jobs 1");
+    expect(screen.getByRole("heading", { name: "Workflow and batch" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open My work" })).toHaveAttribute("href", "/workflow/inbox");
+    expect(screen.queryByRole("list", { name: "Workflow tiles" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sample data|Running jobs|Failed runs/)).not.toBeInTheDocument();
   });
 
-  it("lists batch runs", () => {
-    render(<JobMonitorPage />);
-    expect(screen.getByRole("table", { name: "Batch runs" })).toHaveTextContent("rows-1m");
-  });
-
-  it("explains an empty job monitor", () => {
-    render(<JobMonitorPage runs={[]} />);
-    expect(screen.getByText("No batch runs yet")).toBeInTheDocument();
+  it.each(["/workflow/jobs", "/workflow/designer", "/workflow/templates"])("%s says it isn't available yet instead of showing sample rows", (path) => {
+    renderRoutes(workflow.routes.map((r) => ({ path: r.path, element: r.element ?? createElement("p") })), path);
+    expect(screen.getByRole("heading", { level: 2, name: "This page isn't available yet" })).toBeInTheDocument();
+    expect(screen.getByText(plannedRoutes.find((r) => r.path === path)?.description ?? "missing")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.queryByText(/rows-1m|outbox\.sweep|workflow\.workitem|Manager role/)).not.toBeInTheDocument();
+    expect(server.calls).toEqual([]);
   });
 });

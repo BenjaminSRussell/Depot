@@ -30,7 +30,11 @@ const modules: DepotModule[] = [
     title: "Admin",
     description: "Numbering, audit, alerts, imports and documents.",
     routes: [{ path: "/admin", element: <div>Admin home</div> }],
-    nav: [{ label: "Audit", to: "/admin/audit" }],
+    // Audit is a planned route (shell/plannedRoutes.json), so no workspace lists it; Import keeps the admin workspace.
+    nav: [
+      { label: "Audit", to: "/admin/audit" },
+      { label: "Import / export", to: "/admin/import" },
+    ],
   },
 ];
 
@@ -93,7 +97,7 @@ describe("pages and navigation", () => {
     const home = renderShell();
     const main = within(screen.getByRole("main"));
     expect(main.getByRole("heading", { level: 3, name: "Administration" })).toBeInTheDocument();
-    expect(main.getByRole("link", { name: /Audit log/ })).toHaveAttribute("href", "/admin/audit");
+    expect(main.getByRole("link", { name: /Import and export data/ })).toHaveAttribute("href", "/admin/import");
     expect(main.getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
     expect(checkAxeAA(home.container)).toEqual([]);
   });
@@ -119,7 +123,7 @@ describe("pages and navigation", () => {
     renderShell();
     const nav = within(screen.getByRole("navigation", { name: "Workspaces" }));
     expect(nav.getByRole("list", { name: "Administration" })).toBeInTheDocument();
-    expect(nav.getByRole("link", { name: "Audit log" })).toHaveAttribute("href", "/admin/audit");
+    expect(nav.getByRole("link", { name: "Import and export data" })).toHaveAttribute("href", "/admin/import");
     expect(nav.getByRole("link", { name: "All features" })).toHaveAttribute("href", "/features");
   });
 

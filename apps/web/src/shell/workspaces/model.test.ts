@@ -103,7 +103,8 @@ describe("loadWorkspaceConfig tenant override", () => {
   it("resolves an overridden workspace against the visible entries", () => {
     const merged = loadWorkspaceConfig({ workspaces: [extra] });
     const resolved = resolveWorkspaces(merged, resolveNavEntries(modules, areas));
-    expect(resolved.map((w) => w.id)).toEqual(expect.arrayContaining(["custom", "tenant-admin"]));
+    // A tenant may list any entry; the shipped workspaces list none of these (/admin/audit is in shell/plannedRoutes.json).
+    expect(resolved.map((w) => w.id)).toEqual(["custom"]);
     expect(resolved.find((w) => w.id === "custom")?.entries.map((e) => e.to)).toEqual(["/admin/audit"]);
   });
 });

@@ -1,19 +1,22 @@
 import { createElement } from "react";
 import type { DepotModule } from "../registry";
+import { plannedRoute } from "../admin/PlannedPage";
 import { InboxPage } from "./InboxPage";
-import { DesignerPage, JobMonitorPage, TemplatesPage, WorkflowHome } from "./pages";
+import { WorkflowHome } from "./pages";
 
 const workflow: DepotModule = {
   id: "workflow",
   title: "Workflow and batch",
-  description: "Approvals, batch jobs and message templates.",
+  description: "Approvals and other work waiting for you.",
   routes: [
     { path: "/workflow", element: createElement(WorkflowHome) },
     { path: "/workflow/inbox", element: createElement(InboxPage) },
-    { path: "/workflow/designer", element: createElement(DesignerPage) },
-    { path: "/workflow/jobs", element: createElement(JobMonitorPage) },
-    { path: "/workflow/templates", element: createElement(TemplatesPage) },
+    plannedRoute("/workflow/designer"),
+    plannedRoute("/workflow/jobs"),
+    plannedRoute("/workflow/templates"),
   ],
+  // Planned routes keep their nav entries so bookmarks and the palette land on an honest "isn't available yet" page;
+  // no workspace links them (shell/honestScreens.test.ts).
   nav: [
     { label: "Workflow", to: "/workflow", duty: "workflow.read" },
     { label: "Inbox", to: "/workflow/inbox", duty: "inbox.read" },

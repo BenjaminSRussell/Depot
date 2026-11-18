@@ -35,6 +35,8 @@ const modules: DepotModule[] = [
     nav: [
       { label: "Audit", to: "/admin/audit" },
       { label: "Sequences", to: "/admin/sequences" },
+      // Audit is a planned route (shell/plannedRoutes.json), so no workspace lists it; Import keeps the admin workspace.
+      { label: "Import / export", to: "/admin/import" },
     ],
   },
 ];

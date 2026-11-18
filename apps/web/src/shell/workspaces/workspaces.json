@@ -223,7 +223,6 @@
       "/org/fiscal-calendars",
       "/org/teams",
       "/admin/import",
-      "/admin/audit",
       "/compliance",
       "/compliance/sod/conflicts",
       "/migration",
