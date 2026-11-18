@@ -202,7 +202,7 @@ jobs:
       matrix:
         # excluded until clean: services/close engineering fx migration org party payables tax,
         # tools/connectors.
-        module: [platform/go, services/audit, services/batch, services/identity, services/metadata, services/mobile, services/numbering, services/ops, services/platform-health, services/product, services/receiving, services/search, tools/importexport, tools/rlscheck, tools/tenant-restore, tools/e2e, tools/depot-server, tools/signoff-packets]
+        module: [platform/go, services/audit, services/batch, services/identity, services/metadata, services/mobile, services/numbering, services/ops, services/platform-health, services/product, services/receiving, services/search, deploy/ci/eventfields, tools/importexport, tools/rlscheck, tools/tenant-restore, tools/e2e, tools/depot-server, tools/signoff-packets]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
@@ -546,6 +546,25 @@ jobs:
       - run: python -m unittest discover -s docs/ops/tools -p 'test_*.py'
       - run: python -m unittest discover -s scripts -p 'test_compile_architecture.py'
       - run: python scripts/compile_architecture.py --check
+
+  # Event payload contracts (D6, B-05c): every Kafka consumer the code holds (Go eventing, kafkajs, kafka-python) reads only
+  # fields its producer's AsyncAPI schema declares and its producer's code writes, the producers write only declared fields,
+  # and the search index reads each type it indexes from a topic its producer's outbox connector relays (ADR-0013).
+  # deploy/ci/eventfields type-checks each consumer and producer module (go list -export), so the job needs the Go
+  # toolchain and module cache. It runs on every change: a producer, a consumer or a schema can each break a contract.
+  event-contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.26'
+          cache-dependency-path: '**/go.sum'
+      - run: pip install pyyaml==6.0.2
+      - run: python -m unittest deploy/scripts/test_event_contracts.py -v
 
   deploy-release:
     runs-on: ubuntu-24.04
