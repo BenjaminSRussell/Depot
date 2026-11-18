@@ -202,7 +202,7 @@ func loadCatalogue(path string) (*identity.Catalogue, error) {
 	return identity.LoadCatalogue(raw)
 }
 
-func newRouter(pool *pgxpool.Pool, catalogue *identity.Catalogue, operatorTenantID string, profile *cloudprofile.Profile, scim *identity.SCIMAPI, contacts *identity.CustomerContactsAPI) chi.Router {
+func newRouter(pool *pgxpool.Pool, catalogue *identity.Catalogue, operatorTenantID string, profile *cloudprofile.Profile, scim *identity.SCIMAPI, contacts *identity.CustomerContactsAPI, keycloak *identity.KeycloakAdmin) chi.Router {
 	router := httpx.NewRouterWithoutTenant()
 	router.Group(func(admin chi.Router) {
 		admin.Use(tenant.Middleware)
@@ -214,6 +214,7 @@ func newRouter(pool *pgxpool.Pool, catalogue *identity.Catalogue, operatorTenant
 		identity.NewEffectivePermissionsAPI(pool, catalogue).WithOperatorTenant(operatorTenantID).Register(admin)
 		identity.NewUsersAPI(pool).Register(admin)
 		identity.NewKeycloakDeprovisionsAPI(pool).Register(admin)
+		identity.NewSessionRevocationsAPI(pool, keycloak).Register(admin)
 		if contacts != nil {
 			contacts.Register(admin)
 		}
@@ -381,7 +382,7 @@ func run(ctx context.Context, getenv func(string) string) error {
 	if err != nil {
 		return err
 	}
-	router := newRouter(pool, catalogue, cfg.operatorTenantID, cfg.cloudProfile, scim, newContactsAPI(pool, cfg, keycloakAdmin))
+	router := newRouter(pool, catalogue, cfg.operatorTenantID, cfg.cloudProfile, scim, newContactsAPI(pool, cfg, keycloakAdmin), keycloakAdmin)
 	ctx, stop := context.WithCancel(ctx)
 	defer stop()
 	if deprovisioner != nil {
