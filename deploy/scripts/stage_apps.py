@@ -1,25 +1,33 @@
 #!/usr/bin/env python3
-"""Generate the stage Argo CD Applications of the services from their dev ones (#213).
+"""Generate the stage Argo CD Applications from the dev ones, pinned to the stage release (#213, B-09 part b).
 
     python3 deploy/scripts/stage_apps.py           # write the stage files
     python3 deploy/scripts/stage_apps.py --check   # exit 1 when a committed stage file differs from the generated one
 
-Every service Application in deploy/envs/dev/apps gets a stage counterpart in deploy/envs/stage/apps:
+Every Application stage runs is written here from deploy/envs/dev/apps and deploy/envs/stage/release.yaml:
 - the `services` ApplicationSet becomes `services-stage`, with the same element list;
 - each hand-written service Application (a single Application whose source is a chart under services/ or tools/) becomes
-  `<name>-stage` in a file of the same name. hello-ledger is left alone: its stage file is the one stage_release.py
-  promotes and rolls back.
+  `<name>-stage` in a file of the same name. hello-ledger's stage file is the one stage_release.py promotes and rolls
+  back: only its revision and release tag lines are kept in step here, never its digest;
+- the platform (PLATFORM): Kyverno, the event backbone (Strimzi, the Kafka cluster, the CDC Secrets, Apicurio, the
+  consumer KafkaUsers, Kafka Connect), Temporal and its database, Keycloak, Envoy Gateway with the rate-limit Valkey and
+  the gateway with its ext_authz OPA, each `<dev name>-stage`; plus the stage-only Applications STAGE_ONLY (the stage CA
+  issuer, the service databases of gen_databases.py, the portal session Valkey). Where a dev manifest names dev, a
+  stage copy is generated under deploy/envs/stage/platform (PLATFORM_COPIES) and the Application points at it.
 
 What changes for stage: the Application name gets `-stage` (all environments share one Argo CD, so names are global) while
 the Helm release keeps the dev name, so Service names and in-cluster URLs are the same; the destination is the cluster
-registered as `stage`; value files are read from deploy/envs/stage/values; dev hostnames and the dev issuer become the stage
-ones; a service that runs one replica in dev runs at least two, unless it is in SINGLETONS. The image digest stays the zero
-placeholder, as in dev, until a signed image is pinned. Sync stays automated with prune and selfHeal, like
-hello-ledger-stage: the reviewed merge to main is the promotion gate (docs/runbooks/delivery/deploy-local.md).
+registered as `stage`; every git source reads the release tag (release.yaml `revision`), never main; value files are read
+from deploy/envs/stage/values; dev hostnames and the dev issuer become the stage ones; a service that runs one replica in
+dev runs at least two, unless it is in SINGLETONS. Images: a service whose digest release.yaml records is pinned to it;
+any other is pinned to the release version tag (the revision without its v), which Kyverno refuses in stage until the
+digest is recorded (all-zero placeholder digests are gone from stage). Sync stays automated with prune and selfHeal:
+root-stage tracks main, so the reviewed merge that changes release.yaml is the promotion gate.
 """
 
 import argparse
 import copy
+import re
 import sys
 from pathlib import Path
 
@@ -28,8 +36,15 @@ import yaml
 DEPLOY = Path(__file__).resolve().parents[1]
 REPO = DEPLOY.parent
 DEV = DEPLOY / "envs" / "dev" / "apps"
-STAGE = DEPLOY / "envs" / "stage" / "apps"
+STAGE_ENV = DEPLOY / "envs" / "stage"
+STAGE = STAGE_ENV / "apps"
+RELEASE = STAGE_ENV / "release.yaml"
+PLATFORM_DIR = STAGE_ENV / "platform"
+REPO_URL = "https://github.com/BenjaminSRussell/Depot.git"
 STAGE_CLUSTER = "stage"
+RELEASE_TAG = re.compile(r"^v(\d+\.\d+\.\d+)$")
+DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+ZERO_DIGEST = "sha256:" + "0" * 64
 # Stage files kept by another tool: stage_release.py edits the digest of hello-ledger's.
 NOT_GENERATED = {"hello-ledger"}
 # Services that stay at one replica in stage, with the reason their chart gives.
@@ -45,8 +60,9 @@ SINGLETONS = {
 DEV_MIGRATION_VALUES = ("migrateJob", "migrateOnStart", "migrateDatabaseSecret")
 DEV_ONLY_VALUE_FILES = {"$values/deploy/envs/dev/migrate-jobs.yaml"}
 # Dev-only event consumer switches (D34, B-05b): the brokers and credentials Secret under a `kafka` mapping and the
-# `enabled` of the mapping that holds it. Stage has no Kafka cluster or KafkaUser credentials yet (#213), so a consumer dev
-# turns on stays at its chart default (off) in stage.
+# `enabled` of the mapping that holds it. Stage runs the Kafka cluster and every consumer's KafkaUser, but copies no
+# consumer credentials into the service namespaces yet (dev's kafka-consumer-credentials), so a consumer dev turns on stays
+# at its chart default (off) in stage.
 DEV_CONSUMER_KEYS = ("brokers", "secret")
 # Literal dev values that name the dev environment, and their stage counterparts.
 STAGE_STRINGS = [
@@ -56,6 +72,82 @@ STAGE_STRINGS = [
 HEADER = """# GENERATED by deploy/scripts/stage_apps.py from deploy/envs/dev/apps/{source}. Do not edit: change the dev file or the
 # script and run `python3 deploy/scripts/stage_apps.py` (test_argocd_apps.py fails when this file is stale).
 """
+COPY_HEADER = "# GENERATED by deploy/scripts/stage_apps.py from {source} for stage. Do not edit: change the source or the script.\n"
+
+# Dev platform Applications mirrored in stage: stage file -> [(dev file, dev Application, overrides)]. Overrides: `path`
+# (the stage copy of a directory source), `values` (merged into the Helm valuesObject).
+PLATFORM = {
+    "kyverno.yaml": [
+        ("kyverno.yaml", "kyverno", {}),
+        ("kyverno.yaml", "admission-policies", {}),
+    ],
+    "event-backbone.yaml": [
+        ("event-backbone.yaml", "strimzi-operator", {}),
+        # TLS and SCRAM only: the stage copy drops the plain listener (nothing in the repository uses it).
+        ("event-backbone.yaml", "kafka-cluster", {"path": "deploy/envs/stage/platform/kafka"}),
+        # Kafka Connect's CDC Secrets and Apicurio's database Secret, from stage Vault keys (gen_databases.py).
+        ("outbox-databases.yaml", "debezium-cdc-secrets", {"path": "deploy/envs/stage/kafka-secrets"}),
+        ("event-backbone.yaml", "apicurio-postgres", {"values": {"externalSecret": {"environment": "stage"}}}),
+        ("event-backbone.yaml", "apicurio-registry", {}),
+        ("event-backbone.yaml", "kafka-consumer-users", {}),
+        ("event-backbone.yaml", "debezium-connect", {}),
+    ],
+    "temporal.yaml": [
+        ("temporal.yaml", "temporal", {}),
+        ("temporal.yaml", "temporal-postgres", {"values": {"externalSecret": {"environment": "stage"}}}),
+    ],
+    "keycloak.yaml": [
+        ("keycloak.yaml", "keycloak", {"path": "deploy/envs/stage/platform/keycloak"}),
+    ],
+    "envoy-gateway.yaml": [
+        ("envoy-gateway.yaml", "envoy-gateway", {}),
+    ],
+    "gateway.yaml": [
+        ("gateway.yaml", "gateway", {"path": "deploy/envs/stage/platform/gateway"}),
+    ],
+}
+# Dev Applications (not services) that stage does not mirror, and why. test_argocd_apps.py fails on a dev platform
+# Application that is in neither PLATFORM nor here.
+NOT_MIRRORED = {
+    "kafka-consumer-credentials": "copies the KafkaUser Secrets of the consumers dev turns on into hello-ledger; stage keeps "
+                                  "every consumer off (DEV_CONSUMER_KEYS) until each has its credentials there",
+    "metadata-postgres": "stage's metadata database is in the generated Postgres of namespace metadata (gen_databases.py)",
+    "batch-postgres": "stage's batch database is in the generated Postgres of namespace batch (gen_databases.py)",
+    "observability": "monitoring is not part of B-09 part b (D8)",
+    "kube-prometheus-stack": "monitoring is not part of B-09 part b (D8)",
+    "prometheus-operator-crds": "monitoring is not part of B-09 part b (D8)",
+    "payments-webhook-gateway": "the payment provider webhook edge needs the provider's stage endpoint and secrets (B-04 follow-up)",
+}
+# Stage-only Applications: name -> (file, wave, path, destination namespace, Helm valuesObject or None, sync options).
+STAGE_ONLY = {
+    # The stage CA the Certificates of the databases, the session store and the gateway listeners are issued by.
+    "cert-issuer-stage": ("cert-issuer.yaml", "-3", "deploy/envs/stage/platform/cert-issuer", "cert-manager", None,
+                          ["SkipDryRunOnMissingResource=true"]),
+    # Every service database, its owner and app roles, their Secrets and the three Postgres instances (gen_databases.py).
+    "service-databases-stage": ("service-databases.yaml", "-2", "deploy/envs/stage/databases", "hello-ledger", None,
+                                ["SkipDryRunOnMissingResource=true"]),
+    # The portal BFFs' session store (ADR-0014, D26).
+    "session-valkey-stage": ("session-valkey.yaml", "0", "deploy/session-valkey", "valkey", {
+        "externalSecret": {"environment": "stage"},
+        "tls": {"issuer": "depot-stage-ca"},
+        "clients": [
+            {"name": "customer-portal", "namespace": "hello-ledger", "podName": "customer-portal", "keyPrefix": "customer-portal:"},
+            {"name": "supplier-portal", "namespace": "hello-ledger", "podName": "supplier-portal", "keyPrefix": "supplier-portal:"},
+        ],
+    }, ["SkipDryRunOnMissingResource=true"]),
+}
+STAGE_ONLY_COMMENTS = {
+    "cert-issuer.yaml": "# The stage CA (cert-manager must be installed on the stage cluster, as on dev).\n",
+    "service-databases.yaml": "# Every service database and Secret in stage (D4, B-09 part b): generated by deploy/scripts/gen_databases.py.\n",
+    "session-valkey.yaml": "# Portal session store (ADR-0014, D26): auth, TLS only, no persistence, NetworkPolicy (deploy/session-valkey).\n",
+}
+# Gateway resources the stage copy leaves out, and why.
+GATEWAY_EXCLUDED = {
+    "envoy-podmonitor.yaml": "a PodMonitor needs the prometheus-operator CRDs, and stage runs no monitoring yet (NOT_MIRRORED, D8)",
+}
+# Keycloak's stage hostname (dev's deployment names a placeholder) and the realm the portals and the gateway trust.
+KEYCLOAK_HOSTNAME = ("https://keycloak.depot.example.invalid", "https://idp.stage.depot.dev")
+GATEWAY_ISSUER = ("https://idp.stage.depot.dev/realms/dev", "https://idp.stage.depot.dev/realms/depot")
 
 
 class Dumper(yaml.SafeDumper):
@@ -63,7 +155,8 @@ class Dumper(yaml.SafeDumper):
 
 
 def _str(dumper, value):
-    style = '"' if value in ("", "true", "false") or value.isdigit() or ": " in value or value.startswith(("{", "*", "&", "!")) else None
+    style = '"' if value in ("", "true", "false") or value.isdigit() or ": " in value or value.startswith(("{", "*", "&", "!")) \
+        or re.fullmatch(r"\d+\.\d+(\.\d+)?", value) else None
     return dumper.represent_scalar("tag:yaml.org,2002:str", value, style=style)
 
 
@@ -72,6 +165,30 @@ Dumper.add_representer(str, _str)
 
 def dump(doc: dict) -> str:
     return yaml.dump(doc, Dumper=Dumper, sort_keys=False, default_flow_style=False, width=120)
+
+
+def dump_all(docs: list) -> str:
+    return yaml.dump_all(docs, Dumper=Dumper, sort_keys=False, default_flow_style=False, width=120)
+
+
+def release(path: Path | None = None) -> dict:
+    """The stage release pin: {"revision": "vX.Y.Z", "version": "X.Y.Z", "digests": {release name: digest}}."""
+    data = yaml.safe_load((path or RELEASE).read_text()) or {}
+    revision = str(data.get("revision") or "")
+    m = RELEASE_TAG.fullmatch(revision)
+    if not m:
+        raise SystemExit(f"{RELEASE.relative_to(REPO)}: revision {revision!r} is not a release tag vX.Y.Z (never a branch)")
+    digests = data.get("digests") or {}
+    for name, digest in digests.items():
+        if not DIGEST.fullmatch(str(digest)) or digest == ZERO_DIGEST:
+            raise SystemExit(f"{RELEASE.relative_to(REPO)}: digests.{name} is not a signed sha256 digest: {digest!r}")
+    return {"revision": revision, "version": m.group(1), "digests": dict(digests)}
+
+
+def image_pin(name: str, pin: dict) -> tuple[str, str]:
+    """(Helm parameter, value) pinning the image of release `name`: its recorded digest, else the release version tag."""
+    digest = pin["digests"].get(name)
+    return ("image.digest", digest) if digest else ("image.tag", pin["version"])
 
 
 def stage_strings(value):
@@ -83,6 +200,13 @@ def stage_strings(value):
         for old, new in STAGE_STRINGS:
             value = value.replace(old, new)
     return value
+
+
+def merge(base: dict, extra: dict) -> dict:
+    out = dict(base)
+    for k, v in extra.items():
+        out[k] = merge(out.get(k) or {}, v) if isinstance(v, dict) else v
+    return out
 
 
 def drop_dev_consumers(values: dict) -> dict:
@@ -105,6 +229,10 @@ def chart_replicas(chart: str) -> int | None:
     return values.get("replicaCount")
 
 
+def dev_docs(name: str) -> list[dict]:
+    return [d for d in yaml.safe_load_all((DEV / name).read_text()) if d]
+
+
 def service_apps() -> list[tuple[Path, dict]]:
     """(file, Application) for each hand-written dev service Application."""
     out = []
@@ -119,10 +247,22 @@ def service_apps() -> list[tuple[Path, dict]]:
     return out
 
 
-def stage_application(app: dict) -> dict:
+def pin_git(src: dict, pin: dict) -> dict:
+    if src.get("repoURL") == REPO_URL:
+        src["targetRevision"] = pin["revision"]
+    return src
+
+
+def stage_sync(spec: dict) -> dict:
+    sync = dict(spec["syncPolicy"])
+    sync["syncOptions"] = sorted(set(sync.get("syncOptions", [])) | {"CreateNamespace=true"})
+    return sync
+
+
+def stage_application(app: dict, pin: dict) -> dict:
     name = app["metadata"]["name"]
     spec = app["spec"]
-    src = stage_strings(spec["source"])
+    src = pin_git(stage_strings(spec["source"]), pin)
     helm = src.setdefault("helm", {})
     # Keep the dev release name, so the chart's Service and every in-cluster URL that names it are the same in stage.
     helm.setdefault("releaseName", name)
@@ -133,11 +273,18 @@ def stage_application(app: dict) -> dict:
     for key in DEV_MIGRATION_VALUES:
         values.pop(key, None)
     helm["valuesObject"] = values = drop_dev_consumers(values)
+    # The image: dev's placeholder digest is dropped, the release pin set (a recorded digest, else the release version tag).
+    image = {k: v for k, v in (values.get("image") or {}).items() if k not in ("digest", "tag")}
+    if image:
+        values["image"] = image
+    else:
+        values.pop("image", None)
+    key, value = image_pin(name, pin)
+    helm["parameters"] = [p for p in helm.get("parameters", []) if p["name"] not in ("image.digest", "image.tag")] + \
+        [{"name": key, "value": value}]
     replicas = values.get("replicaCount", chart_replicas(src["path"]))
     if name not in SINGLETONS and (replicas or 1) < 2:
         values["replicaCount"] = 2
-    sync = dict(spec["syncPolicy"])
-    sync["syncOptions"] = sorted(set(sync.get("syncOptions", [])) | {"CreateNamespace=true"})
     return {
         "apiVersion": app["apiVersion"],
         "kind": "Application",
@@ -146,7 +293,7 @@ def stage_application(app: dict) -> dict:
             "project": spec["project"],
             "source": src,
             "destination": {"name": STAGE_CLUSTER, "namespace": spec["destination"]["namespace"]},
-            "syncPolicy": sync,
+            "syncPolicy": stage_sync(spec),
         },
     }
 
@@ -158,37 +305,258 @@ class FlowMap(dict):
 Dumper.add_representer(FlowMap, lambda d, v: d.represent_mapping("tag:yaml.org,2002:map", v.items(), flow_style=True))
 
 
-def services_appset() -> str:
+def services_appset(pin: dict | None = None) -> str:
     """The stage ApplicationSet: a copy of the dev one in which only the stage fields are changed, so a later change to the dev
     template reaches stage (and --check reports the stage file as stale until it is regenerated)."""
+    pin = pin or release()
     appset = copy.deepcopy(yaml.safe_load((DEV / "services.yaml").read_text()))
     appset["metadata"]["name"] = "services-stage"
     gen = appset["spec"]["generators"][0]["list"]
-    gen["elements"] = [FlowMap(e) for e in gen["elements"]]
+    elements = []
+    for e in gen["elements"]:
+        key, value = image_pin(e["name"], pin)
+        elements.append(FlowMap({**e, "imageKey": key, "image": value}))
+    gen["elements"] = elements
     template = appset["spec"]["template"]
     template["metadata"]["name"] = "{{ .name }}-stage"
     spec = template["spec"] = stage_strings(template["spec"])
     for src in spec["sources"]:
-        helm = src.get("helm") or {}
+        pin_git(src, pin)
+        helm = src.get("helm")
+        if helm is None:
+            continue
         helm["valueFiles"] = [vf.replace("/deploy/envs/dev/values/", "/deploy/envs/stage/values/") for vf in helm.get("valueFiles", [])
                               if vf not in DEV_ONLY_VALUE_FILES]
         if not helm["valueFiles"]:
             del helm["valueFiles"]
+        helm["parameters"] = [p for p in helm.get("parameters", []) if p["name"] not in ("image.digest", "image.tag")] + \
+            [{"name": "{{ .imageKey }}", "value": "{{ .image }}"}]
     spec["destination"] = {"name": STAGE_CLUSTER, "namespace": spec["destination"]["namespace"]}
     sync = spec["syncPolicy"]
     sync["syncOptions"] = sorted(set(sync.get("syncOptions", [])) | {"CreateNamespace=true"})
     comment = ("# Stage Applications for every service chart in the dev ApplicationSet. Services with a hand-written dev Application\n"
                "# have a generated <name>-stage.yaml next to this file. Stage values are deploy/envs/stage/values/<name>.yaml (a missing\n"
-               "# file is ignored); replicas below two there are raised to two except for the singletons stage_apps.py lists.\n")
+               "# file is ignored); replicas below two there are raised to two except for the singletons stage_apps.py lists.\n"
+               "# Each element's image pin comes from deploy/envs/stage/release.yaml: image.digest when a signed digest is\n"
+               "# recorded, else image.tag at the release version.\n")
     return HEADER.format(source="services.yaml") + comment + dump(appset)
 
 
+def platform_application(dev: dict, overrides: dict, pin: dict) -> dict:
+    """The stage twin of a dev platform Application: renamed, on the stage cluster, every git source at the release tag."""
+    app = copy.deepcopy(dev)
+    spec = app["spec"]
+    multi = "sources" in spec
+    srcs = spec["sources"] if multi else [spec["source"]]
+    out = []
+    for src in srcs:
+        src = pin_git(stage_strings(src), pin)
+        if overrides.get("path") and "path" in src:
+            src["path"] = overrides["path"]
+        if overrides.get("values"):
+            helm = src.setdefault("helm", {})
+            helm["valuesObject"] = merge(helm.get("valuesObject") or {}, overrides["values"])
+        out.append(src)
+    if multi:
+        spec["sources"] = out
+    else:
+        spec["source"] = out[0]
+    meta = {"name": f"{app['metadata']['name']}-stage", "namespace": "argocd"}
+    if app["metadata"].get("annotations"):
+        meta["annotations"] = dict(app["metadata"]["annotations"])
+    if app["metadata"].get("finalizers"):
+        meta["finalizers"] = app["metadata"]["finalizers"]
+    return {
+        "apiVersion": app["apiVersion"],
+        "kind": "Application",
+        "metadata": meta,
+        "spec": {
+            "project": spec["project"],
+            **({"sources": out} if multi else {"source": out[0]}),
+            "destination": {"name": STAGE_CLUSTER, "namespace": spec["destination"]["namespace"]},
+            "syncPolicy": stage_sync(spec),
+        },
+    }
+
+
+def stage_only_application(name: str, pin: dict) -> dict:
+    _, wave, path, namespace, values, options = STAGE_ONLY[name]
+    src = {"repoURL": REPO_URL, "targetRevision": pin["revision"], "path": path}
+    if values is not None:
+        src["helm"] = {"valuesObject": values}
+    return {
+        "apiVersion": "argoproj.io/v1alpha1",
+        "kind": "Application",
+        "metadata": {"name": name, "namespace": "argocd", "annotations": {"argocd.argoproj.io/sync-wave": wave}},
+        "spec": {
+            "project": "default",
+            "source": src,
+            "destination": {"name": STAGE_CLUSTER, "namespace": namespace},
+            "syncPolicy": {
+                "automated": {"prune": True, "selfHeal": True},
+                "retry": {"limit": 5, "backoff": {"duration": "30s", "factor": 2, "maxDuration": "5m"}},
+                "syncOptions": sorted(set(options) | {"CreateNamespace=true"}),
+            },
+        },
+    }
+
+
+def platform_files(pin: dict) -> dict[Path, str]:
+    out = {}
+    for stage_file, entries in PLATFORM.items():
+        docs = []
+        sources = sorted({f for f, _, _ in entries})
+        for dev_file, dev_name, overrides in entries:
+            (dev,) = [d for d in dev_docs(dev_file) if d.get("kind") == "Application" and d["metadata"]["name"] == dev_name]
+            docs.append(platform_application(dev, overrides, pin))
+        out[STAGE / stage_file] = HEADER.format(source=", ".join(sources)) + dump_all(docs)
+    by_file = {}
+    for name, (stage_file, *_rest) in STAGE_ONLY.items():
+        by_file.setdefault(stage_file, []).append(stage_only_application(name, pin))
+    for stage_file, docs in by_file.items():
+        out[STAGE / stage_file] = (COPY_HEADER.format(source="STAGE_ONLY") + STAGE_ONLY_COMMENTS.get(stage_file, "") + dump_all(docs))
+    return out
+
+
+def _text_copy(src: Path, transform=None) -> str:
+    text = src.read_text()
+    for old, new in STAGE_STRINGS:
+        text = text.replace(old, new)
+    if transform:
+        text = transform(text)
+    return text
+
+
+def _replace_once(text: str, old: str, new: str, where: str) -> str:
+    if text.count(old) != 1:
+        raise SystemExit(f"{where}: expected {old!r} exactly once; teach stage_apps.py the new form")
+    return text.replace(old, new)
+
+
+EXTERNAL_SECRET = """apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: {name}
+  namespace: {namespace}
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: {name}
+    creationPolicy: Owner
+{template}  data:
+{data}"""
+
+
+def external_secret(name: str, namespace: str, keys: dict[str, str], template: dict[str, str] | None = None) -> str:
+    """An ExternalSecret writing Secret `name` from stage Vault keys ({secret key: Vault key}), optionally through a template."""
+    data = "".join(f"    - secretKey: {k}\n      remoteRef:\n        key: {v}\n        property: value\n" for k, v in keys.items())
+    tpl = ""
+    if template:
+        tpl = "    template:\n      data:\n" + "".join(f"        {k}: {v}\n" for k, v in template.items())
+    return EXTERNAL_SECRET.format(name=name, namespace=namespace, template=tpl, data=data)
+
+
+def platform_copies() -> dict[Path, str]:
+    """Stage copies of the dev platform manifests that name dev (PLATFORM `path` overrides point at these)."""
+    out = {}
+    # Kafka: the dev cluster with the plain (unauthenticated, unencrypted) listener removed.
+    docs = [d for d in yaml.safe_load_all((DEPLOY / "kafka/kafka.yaml").read_text()) if d]
+    for d in docs:
+        if d["kind"] == "Kafka":
+            listeners = d["spec"]["kafka"]["listeners"]
+            d["spec"]["kafka"]["listeners"] = [lst for lst in listeners if lst.get("tls") and lst.get("authentication")]
+            if len(d["spec"]["kafka"]["listeners"]) != len(listeners) - 1:
+                raise SystemExit("deploy/kafka/kafka.yaml: expected exactly one listener without TLS and authentication")
+    out[PLATFORM_DIR / "kafka/kafka.yaml"] = (COPY_HEADER.format(source="deploy/kafka/kafka.yaml")
+                                             + "# Only the TLS listener with SCRAM-SHA-512 authentication: stage has no plain listener.\n"
+                                             + dump_all(docs))
+
+    # Gateway: every resource of deploy/gateway with the stage hostnames, CA and issuer, plus the ext_authz OPA's bundle
+    # Secret from the secret store (dev creates it by hand).
+    gw = DEPLOY / "gateway"
+    kustomization = yaml.safe_load((gw / "kustomization.yaml").read_text())
+    kustomization["resources"] = [r for r in kustomization["resources"] if r not in GATEWAY_EXCLUDED]
+    for res in kustomization["resources"]:
+        text = _text_copy(gw / res)
+        if res == "securitypolicy.yaml":
+            text = _replace_once(text, *GATEWAY_ISSUER, f"deploy/gateway/{res}")
+        out[PLATFORM_DIR / "gateway" / res] = COPY_HEADER.format(source=f"deploy/gateway/{res}") + text
+    bundle = "authz-opa-bundle.yaml"
+    out[PLATFORM_DIR / "gateway" / bundle] = (
+        COPY_HEADER.format(source="stage_apps.py") +
+        "# The ext_authz OPA's copy of identity's bundle credentials (deploy/gateway/authz-opa.yaml), from the secret store.\n" +
+        external_secret("depot-authz-opa-bundle", "hello-ledger", {
+            "public-key-oneline": "depot/stage/authz-opa-bundle/public-key-oneline",
+            "token": "depot/stage/authz-opa-bundle/token",
+            "ca.pem": "depot/stage/authz-opa-bundle/ca-pem",
+        }))
+    kustomization["resources"] = list(kustomization["resources"]) + [bundle]
+    out[PLATFORM_DIR / "gateway/kustomization.yaml"] = COPY_HEADER.format(source="deploy/gateway/kustomization.yaml") + dump(kustomization)
+
+    # Keycloak: the stage hostname, and its database and admin Secrets from the secret store (dev creates them by hand, #80).
+    kc = DEPLOY / "keycloak"
+    kustomization = yaml.safe_load((kc / "kustomization.yaml").read_text())
+    for res in kustomization["resources"]:
+        text = _text_copy(kc / res)
+        if res == "deployment.yaml":
+            text = _replace_once(text, *KEYCLOAK_HOSTNAME, f"deploy/keycloak/{res}")
+        out[PLATFORM_DIR / "keycloak" / res] = COPY_HEADER.format(source=f"deploy/keycloak/{res}") + text
+    for gen in kustomization.get("configMapGenerator") or []:
+        for f in gen.get("files") or []:
+            # The realm's placeholder hosts become the stage ones (redirect URIs, WebAuthn relying party).
+            text = (kc / f).read_text().replace("keycloak.depot.example.invalid", "idp.stage.depot.dev")
+            out[PLATFORM_DIR / "keycloak" / f] = text.replace(".depot.example.invalid", ".stage.depot.dev")
+    secrets = "externalsecrets.yaml"
+    out[PLATFORM_DIR / "keycloak" / secrets] = (
+        COPY_HEADER.format(source="stage_apps.py") +
+        "# Keycloak's database (the keycloak database and role of the stage hello-ledger Postgres, gen_databases.py) and its\n"
+        "# bootstrap admin, from the secret store.\n" +
+        external_secret("keycloak-db", "hello-ledger", {"password": "depot/stage/keycloak-postgres/owner-password"}, {
+            "url": "jdbc:postgresql://postgres.hello-ledger.svc:5432/keycloak?sslmode=require",
+            "username": "keycloak",
+            "password": '"{{ .password }}"',
+        }) + "---\n" +
+        external_secret("keycloak-admin", "hello-ledger", {
+            "username": "depot/stage/keycloak/admin-username",
+            "password": "depot/stage/keycloak/admin-password",
+        }))
+    kustomization["resources"] = list(kustomization["resources"]) + [secrets]
+    out[PLATFORM_DIR / "keycloak/kustomization.yaml"] = COPY_HEADER.format(source="deploy/keycloak/kustomization.yaml") + dump(kustomization)
+
+    # The stage CA: dev's self-signed issuer chain, named for stage.
+    out[PLATFORM_DIR / "cert-issuer/cert-issuer.yaml"] = (COPY_HEADER.format(source="deploy/envs/dev/apps/cert-issuer.yaml")
+                                                         + _text_copy(DEV / "cert-issuer.yaml"))
+    return out
+
+
+RELEASE_TAG_PARAM = re.compile(r'(- name: image\.tag\n\s+value: )"[^"\n]*"')
+TARGET_REVISION = re.compile(r"(?m)^(\s+targetRevision: )\S+$")
+
+
+def hello_ledger(pin: dict) -> str:
+    """hello-ledger-stage with its revision and release tag in step with release.yaml; its digest is stage_release.py's."""
+    path = STAGE / "hello-ledger.yaml"
+    text = path.read_text()
+    text, n = TARGET_REVISION.subn(lambda m: m.group(1) + pin["revision"], text)
+    if n != 1:
+        raise SystemExit(f"{path.relative_to(REPO)}: expected one targetRevision line, found {n}")
+    text = RELEASE_TAG_PARAM.sub(lambda m: f'{m.group(1)}"{pin["version"]}"', text)
+    return text
+
+
 def generated() -> dict[Path, str]:
-    out = {STAGE / "services.yaml": services_appset()}
+    pin = release()
+    out = {STAGE / "services.yaml": services_appset(pin)}
     for path, app in service_apps():
         if app["metadata"]["name"] in NOT_GENERATED:
             continue
-        out[STAGE / path.name] = HEADER.format(source=path.name) + dump(stage_application(app))
+        out[STAGE / path.name] = HEADER.format(source=path.name) + dump(stage_application(app, pin))
+    out[STAGE / "hello-ledger.yaml"] = hello_ledger(pin)
+    out.update(platform_files(pin))
+    out.update(platform_copies())
     return out
 
 
@@ -197,15 +565,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check", action="store_true", help="report stale stage files instead of writing them")
     args = parser.parse_args(argv)
     stale = []
-    for path, text in generated().items():
+    files = generated()
+    for path, text in files.items():
         current = path.read_text() if path.exists() else None
         if current == text:
             continue
         if args.check:
             stale.append(path.relative_to(REPO).as_posix())
         else:
+            path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(text)
             print(f"wrote {path.relative_to(REPO)}")
+    # A file under platform/ that the script no longer writes is stale too.
+    for path in sorted(PLATFORM_DIR.rglob("*")) if PLATFORM_DIR.is_dir() else []:
+        if path.is_file() and path not in files:
+            if args.check:
+                stale.append(path.relative_to(REPO).as_posix() + " (not generated)")
+            else:
+                path.unlink()
+                print(f"removed {path.relative_to(REPO)}")
     if stale:
         print("stale (run python3 deploy/scripts/stage_apps.py): " + ", ".join(stale), file=sys.stderr)
         return 1

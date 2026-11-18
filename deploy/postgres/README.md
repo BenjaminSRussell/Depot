@@ -11,3 +11,5 @@ initdb runs only on an empty data volume. Rotating a password later: update Vaul
 Ingress: Kafka Connect (with `cdc.enabled`), the pods of each `clientApps` entry and, with `admitMigrateJobs` (default true), that entry's owner-role migration Job pod (`<entry>-migrate`, `app.kubernetes.io/component: migrate`; D28). The Job signs in with the service's owner Secret, `<chart>-db-owner`.
 
 Service migrations `metadata/0006` and `batch/0011` grant SELECT on `outbox` to `debezium_cdc` only if the role exists when they run. If a service migrated before this database existed, delete that row from `schema_migrations` and restart (or run the GRANT by hand).
+
+Stage (B-09 part b) uses this chart only for Apicurio (`apicurio-postgres-stage`). Stage's service databases, metadata's and batch's included, are in the generated Postgres of each namespace under `deploy/envs/stage/databases` (`deploy/scripts/gen_databases.py`), which also gives every service an owner role and its `<chart>-db-owner` Secret; this chart has no owner role.

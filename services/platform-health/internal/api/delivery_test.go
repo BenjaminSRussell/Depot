@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -70,6 +71,66 @@ func TestEnvOverlaysArePinnedByDigestAndHoldNoSecrets(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Stage (FR-1.3, FR-1.4, B-09 part b): every stage Application reads this repository at the release tag of
+// deploy/envs/stage/release.yaml, never a branch, and pins its image to a signed digest or, until one is recorded, to the
+// release version tag. No file under deploy/envs/stage carries the all-zero placeholder digest.
+func TestStageApplicationsArePinnedToTheRelease(t *testing.T) {
+	release := readRepoFile(t, "deploy/envs/stage/release.yaml")
+	m := regexp.MustCompile(`(?m)^revision: v(\d+\.\d+\.\d+)\s*$`).FindStringSubmatch(release)
+	if m == nil {
+		t.Fatal("deploy/envs/stage/release.yaml: revision is not a release tag vX.Y.Z")
+	}
+	revision, version := "v"+m[1], m[1]
+	zero := "sha256:" + strings.Repeat("0", 64)
+	revisionLine := regexp.MustCompile(`^\s*targetRevision:\s*["']?([^"'\s]+)`)
+	semver := regexp.MustCompile(`^v?\d+\.\d+\.\d+$`)
+	tagParam := regexp.MustCompile(`(?m)- name: ["']?image\.tag["']?\n\s+value: ["']?([^"'\n]+?)["']?\s*$`)
+	repoSources := 0
+	err := filepath.WalkDir(filepath.Join(repoRoot, "deploy/envs/stage"), func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		b, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+		body := string(b)
+		if strings.Contains(body, zero) {
+			t.Errorf("%s pins the all-zero placeholder digest", path)
+		}
+		lines := strings.Split(body, "\n")
+		for i, line := range lines {
+			rm := revisionLine.FindStringSubmatch(line)
+			if rm == nil {
+				continue
+			}
+			if !semver.MatchString(rm[1]) {
+				t.Errorf("%s:%d: targetRevision %q is not a pinned version (never main or a branch)", path, i+1, rm[1])
+			}
+			// A source of this repository reads the release tag; its repoURL is within two lines.
+			near := strings.Join(lines[max(0, i-2):min(len(lines), i+3)], "\n")
+			if strings.Contains(near, "github.com/BenjaminSRussell/Depot.git") {
+				repoSources++
+				if rm[1] != revision {
+					t.Errorf("%s:%d: this repository at %q, want the release tag %s", path, i+1, rm[1], revision)
+				}
+			}
+		}
+		for _, tm := range tagParam.FindAllStringSubmatch(body, -1) {
+			if tm[1] != version && tm[1] != "{{ .image }}" {
+				t.Errorf("%s: image.tag %q is not the release version %s", path, tm[1], version)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if repoSources < 20 {
+		t.Errorf("found %d stage sources of this repository; the scan no longer sees the Applications", repoSources)
 	}
 }
 
