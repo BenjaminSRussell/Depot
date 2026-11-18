@@ -263,7 +263,7 @@ func TestPostgres_DomesticPostFailsWhenTheReportingRateCannotBeResolved(t *testi
 func TestPostgres_PostBatchLooksRatesUpOncePerPairBeforeTheTransaction(t *testing.T) {
 	e, _ := setup(t)
 	setReporting(t, e, "GBP")
-	putName(t, e, "FXB", JournalName{})
+	putName(t, e, "FXB", JournalName{Active: true})
 	in := batchOf(e, "FXB", "100.00")
 	for i := range in.Lines {
 		in.Lines[i].Currency = "EUR"
@@ -273,7 +273,12 @@ func TestPostgres_PostBatchLooksRatesUpOncePerPairBeforeTheTransaction(t *testin
 		t.Fatalf("create: %v", err)
 	}
 	rates := &stubRates{rates: map[string]string{"EURUSD": "1.085", "USDGBP": "0.79"}}
-	out, err := postBatch(e, WithRateSource(e.ctx, rates), b, "FX-BATCH", true)
+	ctx := WithRateSource(e.ctx, rates)
+	if b, err = e.store.SubmitBatch(ctx, b.ID, b.Version, testToday); err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	rates.calls = 0 // the contract is one lookup per pair for the post itself
+	out, err := postBatch(e, ctx, b, "FX-BATCH", true)
 	if err != nil {
 		t.Fatalf("post batch: %v", err)
 	}

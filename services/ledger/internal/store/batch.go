@@ -480,6 +480,9 @@ func (s *Postgres) UpdateBatch(ctx context.Context, id string, version int, in B
 // (422). A valid batch moves to validated, and on to in_approval when its
 // journal name has a workflow.
 func (s *Postgres) SubmitBatch(ctx context.Context, id string, version int, today time.Time) (Batch, error) {
+	if p, err := principalOf(ctx); err == nil {
+		ctx = s.resolveBatchRates(ctx, p.TenantID, id) // foreign-currency lines are checked as they will post
+	}
 	return s.withBatchTx(ctx, id, version, func(tx pgx.Tx, p tenant.Principal, cur *Batch) error {
 		name, err := usableJournalName(ctx, tx, p.TenantID, cur.JournalName)
 		if err != nil {
@@ -500,9 +503,13 @@ func (s *Postgres) SubmitBatch(ctx context.Context, id string, version int, toda
 		if err != nil {
 			return err
 		}
+		fxLines, err := applyFXStage(ctx, ledger, in)
+		if err != nil {
+			return err
+		}
 		// The same stages as posting: derivation (FR-11.22) runs before structure validation,
 		// so a dimension the active strategy fills is not reported missing.
-		lines, _, err := applyDerivation(ctx, tx, p.TenantID, ledger, accounts, in.PostingDate, in.Lines)
+		lines, _, err := applyDerivation(ctx, tx, p.TenantID, ledger, accounts, in.PostingDate, fxLines)
 		if err != nil {
 			return err
 		}
