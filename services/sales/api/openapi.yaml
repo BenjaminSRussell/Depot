@@ -1309,6 +1309,37 @@ paths:
                     items: {$ref: "#/components/schemas/OrderLineSummary"}
         "400": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
+  /v1/sales/open-order-lines:
+    get:
+      summary: Open sales demand for planning, oldest due date first
+      description: >-
+        Lines of ORDER sales orders that are open, confirmed or partly shipped, with quantity still to deliver (FR-22.3, FR-22.8).
+        Service-only: planning reads it with its service token. A line is due on its confirmed ship date, else its requested one.
+        legalEntityId must lie in the caller's scope. next is the cursor of the following page and empty on the last.
+      operationId: listOpenOrderLines
+      x-depot-duty: sales.order.open-lines
+      parameters:
+        - {name: legalEntityId, in: query, schema: {type: string, format: uuid}}
+        - {name: siteId, in: query, schema: {type: string, format: uuid}}
+        - {name: dueTo, in: query, description: "only lines due on or before this day", schema: {type: string, format: date}}
+        - {name: cursor, in: query, description: "the next value of the previous page", schema: {type: string}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      responses:
+        "200":
+          description: a page of open order lines
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next]
+                properties:
+                  items:
+                    type: array
+                    items: {$ref: "#/components/schemas/OpenOrderLine"}
+                  next: {type: string}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
   /v1/sales/order-lines/{id}:
     get:
       summary: One order line by id (the line lookup's resolve)
@@ -4601,6 +4632,19 @@ components:
         quantity: {type: string}
         unit: {type: string}
         lineStatus: {type: string, enum: [OPEN, RESERVED, PICKED, DELIVERED, INVOICED, CANCELLED]}
+    OpenOrderLine:
+      type: object
+      required: [lineId, orderId, orderNumber, lineNo, productId, siteId, warehouseId, openQty, dueDate]
+      properties:
+        lineId: {type: string, format: uuid}
+        orderId: {type: string, format: uuid}
+        orderNumber: {type: string}
+        lineNo: {type: integer, minimum: 1}
+        productId: {type: string, format: uuid}
+        siteId: {type: string, format: uuid}
+        warehouseId: {type: string, format: uuid}
+        openQty: {type: string, description: "quantity still to deliver, a decimal"}
+        dueDate: {type: string, format: date}
     OrderSummary:
       type: object
       required: [id, legalEntityId, orderNumber, customerId, orderType, status, currency, netTotal, lineCount, activeHolds, version]

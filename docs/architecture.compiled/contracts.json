@@ -3837,6 +3837,7 @@
         {"method": "POST", "path": "/v1/sales/intake-errors/{id}:replay", "operationId": "replayIntakeError", "duty": "sales.order.write"},
         {"method": "POST", "path": "/v1/sales/intake-errors/{id}:resolve", "operationId": "resolveIntakeError", "duty": "sales.order.write"},
         {"method": "POST", "path": "/v1/sales/intake-errors:replay", "operationId": "replayIntakeErrors", "duty": "sales.order.write"},
+        {"method": "GET", "path": "/v1/sales/open-order-lines", "operationId": "listOpenOrderLines", "duty": "sales.order.open-lines"},
         {"method": "GET", "path": "/v1/sales/opening-orders", "operationId": "listOpeningSalesOrders", "duty": "sales.opening-order.read"},
         {"method": "POST", "path": "/v1/sales/opening-orders", "operationId": "importOpeningSalesOrder", "duty": "sales.opening-order.import"},
         {"method": "GET", "path": "/v1/sales/order-lines", "operationId": "listOrderLines", "duty": "sales.order.read"},

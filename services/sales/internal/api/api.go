@@ -137,6 +137,7 @@ func (a *API) Register(r chi.Router) {
 	a.registerOpening(r)
 	r.With(requireAny(dutyWrite, dutyIntake)).Post(orders, a.createOrder)
 	r.With(authz.RequireDuty(dutyRead)).Get(orders, a.listOrders)
+	r.With(authz.RequireDuty(dutyOpenLines)).Get("/v1/sales/open-order-lines", a.listOpenOrderLines)
 	r.With(authz.RequireAnyDuty(dutyRead, "sales.order.lookup")).Get("/v1/sales/order-lines", a.listOrderLines)
 	r.With(authz.RequireAnyDuty(dutyRead, "sales.order.lookup")).Get("/v1/sales/order-lines/{id}", a.getOrderLine)
 	r.With(authz.RequireAnyDuty(dutyRead, "sales.order.lookup")).Get(orders+"/{id}", a.getOrder)

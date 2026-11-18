@@ -48,6 +48,20 @@ func TestBillingTaxCalcHoldsOnlyTheCalculateDuty(t *testing.T) {
 	}
 }
 
+func TestPlanningOpenInputsHoldsOnlyTheTwoReadDuties(t *testing.T) {
+	p, err := tenant.ServicePrincipal("planning-open-inputs", spTenant, spEntity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Duties) != 2 || !p.HasDuty("sales.order.open-lines") || !p.HasDuty("inventory.read") {
+		t.Fatalf("duties = %v, want only sales.order.open-lines and inventory.read", p.Duties)
+	}
+	grants := tenant.ServiceGrantTable()["planning"]
+	if !reflect.DeepEqual(grants, map[string][]string{"sales": {"sales.order.open-lines"}, "inventory": {"inventory.read"}}) {
+		t.Fatalf("planning grants = %v", grants)
+	}
+}
+
 func TestServicePrincipalRefusals(t *testing.T) {
 	if _, err := tenant.ServicePrincipal("nobody", spTenant, ""); !errors.Is(err, tenant.ErrUnknownServicePrincipal) {
 		t.Fatalf("unknown name err = %v", err)

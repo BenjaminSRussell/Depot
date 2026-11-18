@@ -17,6 +17,7 @@ import (
 	"github.com/BenjaminSRussell/depot/services/planning/internal/api"
 	"github.com/BenjaminSRussell/depot/services/planning/internal/domain"
 	"github.com/BenjaminSRussell/depot/services/planning/internal/forecastclient"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/openinputs"
 	"github.com/BenjaminSRussell/depot/services/planning/internal/store"
 	"github.com/BenjaminSRussell/depot/services/planning/migrations"
 )
@@ -91,6 +92,10 @@ func run(ctx context.Context, getenv func(string) string) error {
 			return fmt.Errorf("FORECAST_URL: %w", err)
 		}
 	}
+	inputs, err := openinputs.FromEnv(getenv)
+	if err != nil {
+		return fmt.Errorf("live plan inputs: %w", err)
+	}
 	pool, err := dbx.Connect(ctx, databaseURL)
 	if err != nil {
 		return fmt.Errorf("connect database: %w", err)
@@ -104,6 +109,9 @@ func run(ctx context.Context, getenv func(string) string) error {
 	a := api.New(store.New(pool).WithMaxVersions(maxVersions)).WithHorizon(horizon).WithRunLimits(concurrentRuns, time.Duration(runTimeout)*time.Minute)
 	if forecaster != nil {
 		a = a.WithStatisticalForecast(forecaster)
+	}
+	if inputs != nil {
+		a = a.WithOpenInputs(inputs)
 	}
 	router := httpx.NewRouter()
 	a.Register(router)
