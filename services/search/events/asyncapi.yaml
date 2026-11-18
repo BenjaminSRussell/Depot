@@ -12,9 +12,6 @@ info:
     consumer subscribes to, that the messages are exactly the types its handlers index, that each producer has an
     outbox connector relaying the type to that channel (by event type, or by the aggregate type its code enqueues), and
     that every field a handler decodes is declared by the producer's schema and written by its code.
-
-    Receiving routes by aggregate type: its vendor invoice events land on depot.receiving.vendorinvoice although
-    services/receiving/events/asyncapi.yaml names the channel depot.payables.invoice.
 defaultContentType: application/cloudevents+json
 channels:
   party:

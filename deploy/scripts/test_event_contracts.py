@@ -4,40 +4,50 @@ B-05c), and the search index reads every type it indexes from a relayed topic (A
 Consumers are the ones test_kafka_consumers.py finds in the code (Go eventing, kafkajs, kafka-python); the fields each
 reads are found in the code too:
 - Go: deploy/ci/eventfields type-checks the consumer's module. Every map[string]eventing.Handler a main package reaches
-  is followed from each entry's handler through the functions and variables it names to the json.Unmarshal of the event
-  data, and the decoded type's JSON paths are the fields (Go matches keys case-insensitively, so the comparison does).
+  (through functions, variables and interface methods) is followed from each entry's handler to the json.Unmarshal of the
+  event data: of evt.Data itself, of a local copy, or of a []byte/json.RawMessage parameter it is passed in (also through
+  a func value whose module implementations take it). A second Unmarshal of a json.RawMessage field the first decode
+  filled adds that field's nested paths. The decoded types' JSON paths are the fields (Go matches keys
+  case-insensitively, so the comparison does). Fail closed: any other use of the data (json.NewDecoder, len, a call the
+  check does not follow) is a problem, and so is a decode into a map or `any` unless OPEN_DECODES names it.
 - TypeScript: each `event as <Stem>Event` cast in the consumer's file, paired with the `<stem>Type`/`<stem>Types`
-  constant of the module that declares the interface (the dispatch compares the event type with it); the fields are the
-  interface's `data` object type.
+  constant of the module that declares the interface; the fields are the interface's `data` object type, with member
+  types that are interfaces of the same modules expanded. A consumer with no such cast fails unless TS_NO_DATA says why.
 - Python: the module-level set the consumer tests the event type against, every key read from the event's data
   (`data.get("k")`, `data["k"]`; `a or b` reads are alternatives, one of which must be declared) and the keys a
-  recursive helper looks for at any depth (a `*_KEYS` tuple: at least one must occur in the payload).
+  recursive helper looks for at any depth (a `*_KEYS` tuple: at least one must occur in its events).
+Each Go consumer group must read, through the handlers found, a type relayed to each topic it subscribes to, so a group
+whose handler map the analyser misses fails (GROUP_TOPICS_EXEMPT lists the audit CDC group).
+
 For every event type a consumer reads, the producer is the service whose AsyncAPI has a `send` operation with that
 message; each field must be a property path of its payload schema ($ref, allOf/anyOf/oneOf followed; an object with no
 declared properties accepts any key), and each events.New call of the producer's code that writes the type (followed
 through helpers to the call that names the type and payload) must write it. The producer side is also checked on its own:
-every field those calls write is declared by the schema (the payload matches the schema). NOT_OUTBOX lists handler types
-that are not outbox CloudEvents and PRODUCER_CODE_UNSEEN the producers whose payload the analyser cannot see, each with
-the reason; anything else fails. An events.New call whose type the analyser cannot evaluate (sales' return-order helper
-picks the type at run time) is listed in its report but not checked; a consumed type written only there fails as unwritten.
+every field those calls write is declared by the schema, and the message's channel address is the topic its outbox
+connector routes the type to (by the EventRouter regex, or as depot.<context>.<aggregate> of the aggregate the producer's
+outbox.Enqueue calls write it under, traced from the Enqueue back to the events.New). An events.New or outbox.Enqueue call
+the analyser cannot resolve in a producer module of a consumed type fails unless UNRESOLVED_EMITS / UNRESOLVED_ROUTES
+name it with the reason (stale entries fail too). NOT_OUTBOX, PRODUCER_CODE_UNSEEN and CHANNEL_MISMATCH list the other
+exceptions, each with its reason.
 
 Search: services/search/events/asyncapi.yaml declares a `receive` operation for exactly the topics the consumer
 subscribes to and the types its handlers index (one message per type, under the channel of the topic it arrives on, its
 payload a $ref to the producer's message). Each producer has an outbox-<service> connector in deploy/kafka/connect.yaml
-that relays the type to that topic: through the EventRouter regex for a connector that routes by event type, or, for one
-that routes by aggregate_type, as an aggregate type the producer's outbox.Enqueue calls write; the debezium user may
-write the topic. The index-count reconciliation (`search reconcile`) is tested in services/search; running it against
-live source counts is #213.
+that relays the type to that topic (for an aggregate-routed producer: the aggregate its code enqueues that type under),
+and the debezium user may write the topic. The index side of the count reconciliation (`search reconcile`) is tested in
+services/search; nothing produces the source counts yet (a follow-up issue, to be filed).
 
-Negative tests mutate a schema, a payload and the search AsyncAPI in memory and type-check a synthetic module, so each
-rule is shown to fail. Not covered: whether events really flow on a cluster (#213), and the meaning of a field (a
-consumer that reads `qty` as a count where the producer writes a decimal string passes).
+Negative tests mutate schemas, payloads, routes, channels, the unresolved lists and the search AsyncAPI in memory, and
+type-check a synthetic module with each decode form, so each rule is shown to fail. Not covered: whether events really
+flow on a cluster (#213), and the meaning of a field (a consumer that reads `qty` as a count where the producer writes a
+decimal string passes).
 """
 
 import ast
 import copy
 import functools
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -70,6 +80,48 @@ NOT_OUTBOX = {
 # Producers whose events.New calls the analyser cannot tie to an event type or payload: (service, type) -> why. The schema
 # check still applies to the consumer's fields; only the code comparison is skipped.
 PRODUCER_CODE_UNSEEN = {}
+
+# Go decodes of event data into a map or `any`, whose keys the check cannot list: (service, type) -> why. Any other is a
+# problem.
+OPEN_DECODES = {}
+
+# kafkajs consumers that cast the event to no `<Stem>Event` interface, so the check finds no field they read: service -> why.
+TS_NO_DATA = {
+    "integration-hub-ts": "forwards each whole event to the subscriptions whose type filter matches it and reads no data "
+                          "field (src/consumer.ts copies e.data as is)",
+}
+
+# Consumer groups whose subscribed topics no outbox CloudEvent handler covers: group -> why.
+GROUP_TOPICS_EXEMPT = {
+    "audit-cdc": "reads Debezium change records of tables (depot.cdc.*), turned into the synthetic types NOT_OUTBOX lists",
+}
+
+# events.New calls in a producer module of a consumed type whose event type or payload the analyser cannot work out, by
+# (file of the call, file of the call that fails to bind its parameters or None, function that call sits in) -> why. A new
+# one fails, and so does a stale entry: such a call might write a consumed type the comparison never sees.
+STORE = "services/{}/internal/store/{}.go"
+UNRESOLVED_EMITS = {
+    (STORE.format("sales", "store"), STORE.format("sales", "rma"), "moveReturn"): "the return-order transition picks its "
+        "event type at run time (rmaEventType(action)); it writes only returnorder events, which no consumer reads",
+    (STORE.format("purchasing", "store"), STORE.format("purchasing", "po_ack"), "AcknowledgePurchaseOrder"): "the "
+        "acknowledgement picks its type at run time (ackEventType(outcome)); it writes only poack events, which no consumer reads",
+}
+
+# outbox.Enqueue calls of an aggregate-routed producer of a consumed type whose (event type, aggregate) the analyser
+# cannot work out, keyed as UNRESOLVED_EMITS -> (why, {event type: aggregate} the call writes, read from the code). A new
+# one or a stale entry fails; the routes stand in for the analyser's in the channel, group and search checks.
+SELF_BILL = ("the self-bill event is the second result of the SelfBillBuild callback the caller stores in a struct field "
+             "(outcome.SelfBill); putSelfBill enqueues it under SelfBillAggregate", {"dev.depot.receiving.ersselfbill.issued.v1": "ersselfbill"})
+UNRESOLVED_ROUTES = {
+    (STORE.format("receiving", "servicesheet"), None, "AcceptSheet"): (
+        "the accepted sheet's events come from a slice and the aggregate from each event's type at run time",
+        {"dev.depot.receiving.receipt.posted.v1": "receipt", "dev.depot.receiving.serviceentrysheet.decided.v1": "serviceentrysheet"}),
+    (STORE.format("receiving", "servicesheet"), STORE.format("receiving", "audit"), "ReleaseInvoice"): SELF_BILL,
+    (STORE.format("receiving", "servicesheet"), STORE.format("receiving", "invoices"), "PostInvoice"): SELF_BILL,
+}
+
+# Producer channels whose AsyncAPI address is not the topic outbox-<service> routes the message to: (service, type) -> why.
+CHANNEL_MISMATCH = {}
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -279,9 +331,21 @@ def eventfields(dirs):
     """The analyser's report per module directory (repo-relative), for a tuple of directories."""
     if not dirs:
         return {}
-    out = subprocess.run([go_command(), "run", ".", "-root", str(REPO)] + [str(REPO / d) for d in dirs], cwd=EVENTFIELDS,
-                         check=True, capture_output=True, text=True)
-    return {r["dir"]: r for r in json.loads(out.stdout)}
+    return {r["dir"]: r for r in run_eventfields(str(REPO), [str(REPO / d) for d in dirs])}
+
+
+def run_eventfields(root, dirs):
+    out = subprocess.run([go_command(), "run", ".", "-root", root] + dirs, cwd=EVENTFIELDS, capture_output=True, text=True)
+    if out.returncode != 0:
+        raise AssertionError(f"deploy/ci/eventfields failed (exit {out.returncode}):\n{out.stderr}")
+    return json.loads(out.stdout)
+
+
+def needs_go(cls):
+    """Skip without Go only outside CI: in CI a missing toolchain fails the job instead of passing it empty."""
+    if go_command() or os.environ.get("CI"):
+        return cls
+    return unittest.skip("go not on PATH")(cls)
 
 
 def go_module_dir(service):
@@ -312,17 +376,41 @@ def go_reads(reports, consumers):
     for c in consumers:
         by_service[c.service].append(c)
     for service, cs in sorted(by_service.items()):
-        report = reports[go_module_dir(service)]
+        report = reports.get(go_module_dir(service)) or reports[service]
         problems += [f"{service}: {p}" for p in report["problems"]]
         groups = ", ".join(sorted(g for c in cs for g in c.groups))
         if not report["handlers"]:
             problems.append(f"{service}: a consumer ({groups}) whose handler map the analyser does not find")
         for h in report["handlers"]:
+            if (service, h["type"]) in NOT_OUTBOX:
+                continue
+            problems += [f"{service} {h['type']}: {p}" for p in h.get("problems") or []]
             r = Read(f"{service} ({groups})", service, h["type"], h["at"], ci=True)
             for d in h["decodes"]:
+                if d.get("open") and (service, h["type"]) not in OPEN_DECODES:
+                    problems.append(f"{service} {h['type']}: decodes the event data into {d['goType']} at {d['at']}, whose keys "
+                                    "the check cannot list; decode into a struct (or list it in OPEN_DECODES with the reason)")
                 r.fields += [(f["path"],) for f in d["fields"]]
             out.append(r)
     return out, problems
+
+
+def group_topic_problems(consumers, reads, topics_of):
+    """Each Go consumer group's subscribed topics are each the topic of at least one type a handler the check found for its
+    service reads, so a group whose handler map the analyser does not reach cannot pass unseen. topics_of(type) is the set
+    of topics the type's producers relay it to."""
+    problems = []
+    by_service = defaultdict(set)
+    for r in reads:
+        by_service[r.service] |= topics_of(r.type)
+    for c in consumers:
+        group = next(iter(c.groups))
+        if group.rstrip("-") in GROUP_TOPICS_EXEMPT or group in GROUP_TOPICS_EXEMPT:
+            continue
+        for t in sorted(c.topics - by_service[c.service]):
+            problems.append(f"{c.service} group {group} ({c.where}) subscribes to {t}, but no handler the check finds reads a "
+                            "type relayed there; the check cannot see what the group reads")
+    return problems
 
 
 TS_CAST = re.compile(r"\bas\s+([A-Z]\w*Event)\b")
@@ -344,8 +432,9 @@ def ts_members(body):
     return [m.strip() for m in out if m.strip()]
 
 
-def ts_fields(body, prefix=""):
-    """JSON paths of a TypeScript object type literal's body."""
+def ts_fields(body, prefix="", file=None, depth=0):
+    """JSON paths of a TypeScript object type literal's body; a member typed by an interface declared in file (or a module
+    it imports from) is expanded."""
     out = []
     for member in ts_members(body):
         m = re.match(r"^(?:readonly\s+)?[\"']?(\w+)[\"']?\??\s*:\s*(.*)$", member, re.S)
@@ -362,9 +451,14 @@ def ts_fields(body, prefix=""):
             else:
                 break
         if typ.startswith("{") and typ.endswith("}") and typ[1:-1].strip():
-            out += ts_fields(typ[1:-1], path + arrays)
-        else:
-            out.append(path + arrays)
+            out += ts_fields(typ[1:-1], path + arrays, file, depth + 1)
+            continue
+        if file is not None and depth < 8 and re.fullmatch(r"[A-Z]\w*", typ):
+            nfile, nbody = ts_interface(typ, file)
+            if nbody is not None and nbody.strip():
+                out += ts_fields(nbody, path + arrays, nfile, depth + 1)
+                continue
+        out.append(path + arrays)
     return out
 
 
@@ -392,6 +486,9 @@ def ts_reads(consumers):
         file = REPO / where
         text = kc.strip_comments(file.read_text())
         casts = sorted(set(TS_CAST.findall(text)))
+        if not casts and service not in TS_NO_DATA:
+            problems.append(f"{where}: a kafkajs consumer that casts the event to no <Stem>Event interface, so the check finds "
+                            "no field it reads (list it in TS_NO_DATA with the reason if it reads none)")
         for iface in casts:
             ifile, body = ts_interface(iface, file)
             if body is None:
@@ -409,7 +506,7 @@ def ts_reads(consumers):
                 problems.append(f"{rel(ifile)}: {iface} has no {stem}Type or {stem}Types constant naming the event types it reads")
                 continue
             types = re.findall(r"""["']([^"']+)["']""", const)
-            fields = ts_fields(data[1:-1])
+            fields = ts_fields(data[1:-1], file=ifile)
             for typ in types:
                 out.append(Read(f"{service} ({iface})", service, typ, rel(ifile), [(f,) for f in fields]))
     return out, problems
@@ -588,6 +685,78 @@ def emits_by_type(reports):
     return out
 
 
+def routes_by_type(reports):
+    """(service, event type) -> the aggregate types its outbox.Enqueue calls write it under: the analyser's, and those
+    UNRESOLVED_ROUTES states for the calls it cannot trace."""
+    out = defaultdict(set)
+    for d, r in reports.items():
+        for rt in r.get("routes") or []:
+            out[(Path(d).name, rt["type"])].add(rt["aggregate"])
+    for (file, _, _), (_, routes) in UNRESOLVED_ROUTES.items():
+        service = file.split("/")[1]
+        for typ, agg in routes.items():
+            out[(service, typ)].add(agg)
+    return out
+
+
+def routed_topics(service, typ, conns, routes):
+    """The topics outbox-<service> relays events of type typ to: through the EventRouter regex for a connector that routes by
+    event type, as depot.<context>.<aggregate> for each aggregate the code enqueues the type under for one that routes by
+    aggregate_type. None when the service has no outbox connector."""
+    cfg = conns.get(service)
+    if cfg is None:
+        return None
+    if cfg.get("transforms.outbox.route.by.field") == "type":
+        matched, topic = argo.outbox_route(cfg, typ)
+        return {topic} if matched else set()
+    prefix = cfg["transforms.outbox.route.topic.replacement"].split("${", 1)[0]
+    return {prefix + agg for agg in routes.get((service, typ), ())}
+
+
+def channel_problems(types, messages, conns, routes):
+    """Each producer's AsyncAPI channel for a consumed type is the topic its outbox connector routes the type to."""
+    problems = []
+    for typ in sorted(types):
+        for m in messages.get(typ, []):
+            topics = routed_topics(m.service, typ, conns, routes)
+            if topics is None or (m.service, typ) in CHANNEL_MISMATCH:
+                continue
+            if not topics:
+                problems.append(f"{typ}: the check cannot tell where outbox-{m.service} routes it (no outbox.Enqueue of the "
+                                "type traced to an aggregate)")
+            elif m.channel not in topics:
+                problems.append(f"{typ}: {rel(m.file)} declares channel {m.channel}, but outbox-{m.service} routes it to "
+                                f"{', '.join(sorted(topics))}")
+    return problems
+
+
+def unresolved_problems(reports, services, key, allowed):
+    """The analyser's unresolved calls (report[key]) in the given services' modules, against the allowlist keyed (file of the
+    call, file of the call that failed to bind it or None, its function): a new one and a stale entry are problems."""
+    problems, seen = [], set()
+    dirs = {go_module_dir(s) for s in services} - {None}
+    for d in sorted(dirs):
+        for u in reports[d].get(key) or []:
+            k = (u["at"].rsplit(":", 1)[0], u["via"].rsplit(":", 1)[0] if u.get("via") else None, u["func"])
+            seen.add(k)
+            if k not in allowed:
+                problems.append(f"{u['at']}{' via ' + u['via'] if u.get('via') else ''} ({u['func']}): {u['reason']}; the "
+                                f"check cannot see what this call writes (list {k!r} with the reason if it writes no consumed type)")
+    for k in sorted(allowed, key=str):
+        if any(k[0].startswith(d + "/") for d in dirs) and k not in seen:
+            problems.append(f"{k}: listed as unresolved, but the analyser resolves it now (or it is gone); drop the entry")
+    return problems
+
+
+def topics_of(typ, messages, conns, routes):
+    """Where events of type typ arrive: the routed topics of each producer, its declared channel when it has no connector."""
+    out = set()
+    for m in messages.get(typ, []):
+        topics = routed_topics(m.service, typ, conns, routes)
+        out |= topics if topics is not None else {m.channel}
+    return out
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 # Search sources (ADR-0013)
 
@@ -622,7 +791,7 @@ def search_receives(spec, file=SEARCH_ASYNCAPI):
     return out, problems
 
 
-def search_source_problems(spec, handled, topics, messages, conns, writable, aggregates):
+def search_source_problems(spec, handled, topics, messages, conns, writable, routes):
     """The search AsyncAPI against the consumer's code and the connectors (see the module docstring)."""
     receives, problems = search_receives(spec)
     declared_topics = {t for t, _, _, _ in receives}
@@ -660,11 +829,13 @@ def search_source_problems(spec, handled, topics, messages, conns, writable, agg
                     problems.append(f"{typ}: outbox-{m.service} routes it to {routed if matched else 'no topic'}, the index reads {topic}")
             else:
                 prefix = cfg["transforms.outbox.route.topic.replacement"].split("${", 1)[0]
-                agg = topic.removeprefix(prefix) if topic.startswith(prefix) else None
-                if agg is None or agg not in aggregates.get(m.service, ()):
-                    problems.append(f"{typ}: outbox-{m.service} routes by aggregate type to {prefix}<aggregate>, and {m.service}'s "
-                                    f"code enqueues no aggregate type that lands on {topic} "
-                                    f"(it enqueues {sorted(aggregates.get(m.service, ()))})")
+                aggs = sorted(routes.get((m.service, typ), ()))
+                if not aggs:
+                    problems.append(f"{typ}: outbox-{m.service} routes by aggregate type, and no outbox.Enqueue of {m.service}'s "
+                                    "code is traced to this type, so the check cannot tell which topic it lands on")
+                elif topic not in {prefix + a for a in aggs}:
+                    problems.append(f"{typ}: {m.service} enqueues it under aggregate {', '.join(aggs)}, so outbox-{m.service} "
+                                    f"routes it to {', '.join(prefix + a for a in aggs)}; the index reads {topic}")
             if not writable(topic):
                 problems.append(f"{typ}: the debezium user may not write {topic}")
     return problems
@@ -672,7 +843,7 @@ def search_source_problems(spec, handled, topics, messages, conns, writable, agg
 
 # ---------------------------------------------------------------------------------------------------------------------
 
-@unittest.skipUnless(go_command(), "go not on PATH")
+@needs_go
 class EventContractsTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -699,6 +870,9 @@ class EventContractsTest(unittest.TestCase):
             for t in cls.read_types:
                 if go_module_dir(s) is not None:
                     cls.emits[(s, t)] = found.get((s, t), [])
+        cls.producer_services = producer_services
+        cls.conns = connectors()
+        cls.routes = routes_by_type(cls.reports)
 
     def test_consumers_are_found_and_their_reads_worked_out(self):
         self.assertEqual([], self.discovery_problems)
@@ -722,8 +896,45 @@ class EventContractsTest(unittest.TestCase):
     def test_producers_write_only_fields_their_schema_declares(self):
         self.assertEqual([], producer_problems(self.read_types, self.messages, self.emits))
 
+    def test_every_consumer_group_reads_a_type_on_each_of_its_topics(self):
+        self.assertEqual([], group_topic_problems(self.go, self.reads, self.topics_of))
+
+    def topics_of(self, typ):
+        return topics_of(typ, self.messages, self.conns, self.routes)
+
+    def test_producer_channels_are_the_topics_their_connector_routes_to(self):
+        self.assertEqual([], channel_problems(self.read_types, self.messages, self.conns, self.routes))
+
+    def test_unresolved_producer_calls_are_listed(self):
+        aggregate_routed = {s for s in self.producer_services
+                            if (self.conns.get(s) or {}).get("transforms.outbox.route.by.field") == "aggregate_type"}
+        self.assertEqual([], unresolved_problems(self.reports, self.producer_services, "unresolved", UNRESOLVED_EMITS))
+        self.assertEqual([], unresolved_problems(self.reports, aggregate_routed, "unresolvedRoutes", UNRESOLVED_ROUTES))
+
+    def test_a_group_whose_handlers_are_not_found_fails(self):
+        reads = [r for r in self.reads if not (r.service == "production" and "shopfloor" in r.type)]
+        problems = group_topic_problems(self.go, reads, self.topics_of)
+        self.assertTrue(any("production-shopfloor" in p and "depot.shopfloor.registration" in p for p in problems), problems)
+
+    def test_a_channel_that_is_not_the_routed_topic_fails(self):
+        messages = copy.deepcopy(self.messages)
+        for m in messages["dev.depot.payables.invoice.posted.v1"]:
+            m.channel = "depot.payables.invoice"
+        problems = channel_problems({"dev.depot.payables.invoice.posted.v1"}, messages, self.conns, self.routes)
+        self.assertTrue(any("depot.payables.invoice" in p and "routes it to depot.receiving.vendorinvoice" in p for p in problems), problems)
+
+    def test_a_new_or_stale_unresolved_call_fails(self):
+        reports = copy.deepcopy(self.reports)
+        reports["services/sales"]["unresolved"].append(
+            {"at": "services/sales/internal/store/store.go:1", "via": "services/sales/internal/store/x.go:2", "func": "newHelper",
+             "reason": "not a constant"})
+        problems = unresolved_problems(reports, {"sales"}, "unresolved", UNRESOLVED_EMITS)
+        self.assertTrue(any("newHelper" in p for p in problems), problems)
+        stale = {**UNRESOLVED_EMITS, ("services/sales/internal/store/gone.go", None, "gone"): "x"}
+        self.assertTrue(any("gone" in p for p in unresolved_problems(self.reports, {"sales"}, "unresolved", stale)))
+
     def test_exemptions_are_still_needed(self):
-        handled = {(r.service, r.type) for r in self.reads}
+        handled = {(Path(d).name, h["type"]) for d, r in self.reports.items() for h in r["handlers"]}
         self.assertEqual([], sorted(set(NOT_OUTBOX) - handled), "NOT_OUTBOX entries no consumer handles any more")
         for key in PRODUCER_CODE_UNSEEN:
             self.assertEqual([], self.emits.get(key, []), f"{key}: the analyser now sees the producer; drop the exemption")
@@ -779,36 +990,58 @@ class EventContractsTest(unittest.TestCase):
         # A synthetic module: a handler map in code main reaches, a decode through a helper taking `any`, a json.RawMessage
         # passed to a mapper, an unreached map, and producers that name the type and payload through a helper.
         with tempfile.TemporaryDirectory() as tmp:
-            mod = Path(tmp) / "synth"
-            (mod / "cmd/synth").mkdir(parents=True)
-            (mod / "internal/h").mkdir(parents=True)
-            gomod = (REPO / "services/search/go.mod").read_text()
-            gomod = gomod.replace("module github.com/BenjaminSRussell/depot/services/search", "module example.com/synth")
-            gomod = gomod.replace("=> ../../platform/go", f"=> {REPO / 'platform/go'}")
-            (mod / "go.mod").write_text(gomod)
-            shutil.copy(REPO / "services/search/go.sum", mod / "go.sum")
-            (mod / "internal/h/h.go").write_text(SYNTH_HANDLERS)
-            (mod / "cmd/synth/main.go").write_text(SYNTH_MAIN)
-            out = subprocess.run([go_command(), "run", ".", "-root", tmp, str(mod)], cwd=EVENTFIELDS, check=True,
-                                 capture_output=True, text=True)
-        (report,) = json.loads(out.stdout)
+            report = self.synth(tmp)
         self.assertEqual([], report["problems"])
         got = {h["type"]: sorted(f["path"] for d in h["decodes"] for f in d["fields"]) for h in report["handlers"]}
         self.assertEqual({
             "dev.depot.synth.thing.created.v1": ["id", "lines[].qty", "name"],
             "dev.depot.synth.thing.moved.v1": ["Where", "id"],
+            "dev.depot.synth.thing.aliased.v1": ["a"],
+            "dev.depot.synth.thing.bytes.v1": ["b"],
+            "dev.depot.synth.thing.nested.v1": ["extra", "extra.nope", "id"],
+            "dev.depot.synth.thing.dispatched.v1": ["id"],
+            "dev.depot.synth.thing.mapped.v1": [],
+            "dev.depot.synth.thing.streamed.v1": [],
         }, got)
+        problems = {h["type"]: h["problems"] for h in report["handlers"]}
+        self.assertEqual([], problems["dev.depot.synth.thing.aliased.v1"] + problems["dev.depot.synth.thing.bytes.v1"])
+        # json.NewDecoder over the data is a read the check cannot follow; a decode into a map has keys it cannot list.
+        self.assertTrue(any("does not follow" in p for p in problems["dev.depot.synth.thing.streamed.v1"]),
+                        problems["dev.depot.synth.thing.streamed.v1"])
+        (mapped,) = [h for h in report["handlers"] if h["type"] == "dev.depot.synth.thing.mapped.v1"]
+        self.assertTrue(mapped["decodes"] and mapped["decodes"][0].get("open"), mapped)
+        reads, read_problems = go_reads({"synth": report}, [kc.Consumer("synth", "synth", groups={"synth"})])
+        self.assertTrue(any("mapped" in p and "OPEN_DECODES" in p for p in read_problems), read_problems)
+        self.assertTrue(any("streamed" in p for p in read_problems), read_problems)
         emitted = {(e["type"], e["goType"]): sorted(f["path"] for f in e["fields"]) for e in report["emits"]}
         self.assertEqual({
             ("dev.depot.synth.thing.created.v1", "h.created"): ["id", "lines[].qty", "name"],
             ("dev.depot.synth.thing.moved.v1", "map[string]any"): ["id"],
         }, emitted)
         self.assertEqual(["thing"], report["aggregates"])
+        self.assertEqual({("dev.depot.synth.thing.created.v1", "thing"), ("dev.depot.synth.thing.moved.v1", "thing")},
+                         {(r["type"], r["aggregate"]) for r in report["routes"]})
+
+    def synth(self, tmp):
+        """Type-check the synthetic module SYNTH_HANDLERS/SYNTH_MAIN in tmp and return its report."""
+        mod = Path(tmp) / "synth"
+        (mod / "cmd/synth").mkdir(parents=True)
+        (mod / "internal/h").mkdir(parents=True)
+        gomod = (REPO / "services/search/go.mod").read_text()
+        gomod = gomod.replace("module github.com/BenjaminSRussell/depot/services/search", "module example.com/synth")
+        gomod = gomod.replace("=> ../../platform/go", f"=> {REPO / 'platform/go'}")
+        (mod / "go.mod").write_text(gomod)
+        shutil.copy(REPO / "services/search/go.sum", mod / "go.sum")
+        (mod / "internal/h/h.go").write_text(SYNTH_HANDLERS)
+        (mod / "cmd/synth/main.go").write_text(SYNTH_MAIN)
+        (report,) = run_eventfields(tmp, [str(mod)])
+        return report
 
 
 SYNTH_HANDLERS = '''package h
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 
@@ -840,6 +1073,32 @@ type movedData struct {
 
 func decode(evt events.Event, into any) error { return json.Unmarshal(evt.Data, into) }
 
+// decodeBytes takes the data as plain bytes.
+func decodeBytes(b []byte, v any) error { return json.Unmarshal(b, v) }
+
+type wrapped struct {
+	ID    string          `json:"id"`
+	Extra json.RawMessage `json:"extra"`
+}
+
+// Registry hands out a handler map behind an interface; main reaches it only through the interface.
+type Registry interface{ Handlers() map[string]eventing.Handler }
+
+type registry struct{}
+
+func NewRegistry() Registry { return registry{} }
+
+func (registry) Handlers() map[string]eventing.Handler {
+	return map[string]eventing.Handler{
+		"dev.depot.synth.thing.dispatched.v1": eventing.HandlerFunc(func(_ context.Context, _ pgx.Tx, evt events.Event) error {
+			var d struct {
+				ID string `json:"id"`
+			}
+			return json.Unmarshal(evt.Data, &d)
+		}),
+	}
+}
+
 func fromRaw(data json.RawMessage) (movedData, error) {
 	var m movedData
 	return m, json.Unmarshal(data, &m)
@@ -857,6 +1116,39 @@ func Handlers() map[string]eventing.Handler {
 		events.Type("synth", "thing", moved, 1): eventing.HandlerFunc(func(_ context.Context, _ pgx.Tx, evt events.Event) error {
 			_, err := fromRaw(evt.Data)
 			return err
+		}),
+		"dev.depot.synth.thing.aliased.v1": eventing.HandlerFunc(func(_ context.Context, _ pgx.Tx, evt events.Event) error {
+			data := evt.Data
+			var d struct {
+				A string `json:"a"`
+			}
+			return json.Unmarshal(data, &d)
+		}),
+		"dev.depot.synth.thing.bytes.v1": eventing.HandlerFunc(func(_ context.Context, _ pgx.Tx, evt events.Event) error {
+			var d struct {
+				B string `json:"b"`
+			}
+			return decodeBytes(evt.Data, &d)
+		}),
+		"dev.depot.synth.thing.nested.v1": eventing.HandlerFunc(func(_ context.Context, _ pgx.Tx, evt events.Event) error {
+			var w wrapped
+			if err := json.Unmarshal(evt.Data, &w); err != nil {
+				return err
+			}
+			var inner struct {
+				Nope string `json:"nope"`
+			}
+			return json.Unmarshal(w.Extra, &inner)
+		}),
+		"dev.depot.synth.thing.mapped.v1": eventing.HandlerFunc(func(_ context.Context, _ pgx.Tx, evt events.Event) error {
+			var m map[string]any
+			return json.Unmarshal(evt.Data, &m)
+		}),
+		"dev.depot.synth.thing.streamed.v1": eventing.HandlerFunc(func(_ context.Context, _ pgx.Tx, evt events.Event) error {
+			var d struct {
+				S string `json:"s"`
+			}
+			return json.NewDecoder(bytes.NewReader(evt.Data)).Decode(&d)
 		}),
 	}
 }
@@ -886,11 +1178,15 @@ SYNTH_MAIN = '''package main
 
 import "example.com/synth/internal/h"
 
-func main() { _ = h.Handlers() }
+func main() {
+	_ = h.Handlers()
+	var r h.Registry = h.NewRegistry()
+	_ = r.Handlers()
+}
 '''
 
 
-@unittest.skipUnless(go_command(), "go not on PATH")
+@needs_go
 class SearchSourcesTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -901,14 +1197,14 @@ class SearchSourcesTest(unittest.TestCase):
         cls.messages = producer_messages()
         producers = sorted({m.service for t in cls.handled for m in cls.messages.get(t, [])})
         reports = eventfields(tuple(d for d in (go_module_dir(s) for s in producers) if d))
-        cls.aggregates = {Path(d).name: set(r["aggregates"]) for d, r in reports.items()}
+        cls.routes = routes_by_type(reports)
         cls.spec = yaml.safe_load(SEARCH_ASYNCAPI.read_text())
         cls.conns = connectors()
         cls.writable = staticmethod(debezium_writable())
 
-    def problems(self, spec=None, conns=None, aggregates=None):
+    def problems(self, spec=None, conns=None, routes=None):
         return search_source_problems(spec or self.spec, self.handled, self.consumer.topics, self.messages,
-                                      conns or self.conns, self.writable, aggregates or self.aggregates)
+                                      conns or self.conns, self.writable, routes or self.routes)
 
     def test_every_indexed_type_arrives_on_a_topic_its_producers_connector_relays(self):
         self.assertGreaterEqual(len(self.handled), 18)
@@ -926,10 +1222,15 @@ class SearchSourcesTest(unittest.TestCase):
         problems = self.problems(spec=spec)
         self.assertTrue(any("routes it to depot.fulfillment.packingslip" in p for p in problems), problems)
 
-    def test_an_aggregate_the_producer_does_not_enqueue_fails(self):
-        aggregates = {k: (v - {"vendorinvoice"} if k == "receiving" else v) for k, v in self.aggregates.items()}
-        problems = self.problems(aggregates=aggregates)
-        self.assertTrue(any("depot.receiving.vendorinvoice" in p and "enqueues no aggregate type" in p for p in problems), problems)
+    def test_a_type_enqueued_under_another_aggregate_fails(self):
+        # Billing moving credit notes to aggregate creditnote would send them to depot.billing.creditnote.
+        routes = copy.deepcopy(self.routes)
+        routes[("billing", "dev.depot.billing.creditnote.posted.v1")] = {"creditnote"}
+        problems = self.problems(routes=routes)
+        self.assertTrue(any("creditnote.posted" in p and "depot.billing.creditnote" in p and "reads depot.billing.invoice" in p
+                            for p in problems), problems)
+        routes[("receiving", "dev.depot.payables.invoice.posted.v1")] = set()
+        self.assertTrue(any("payables.invoice.posted" in p and "no outbox.Enqueue" in p for p in self.problems(routes=routes)))
 
     def test_an_undeclared_topic_or_type_fails(self):
         spec = copy.deepcopy(self.spec)

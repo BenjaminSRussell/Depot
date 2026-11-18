@@ -2,7 +2,7 @@
   "version": 3,
   "compiler": "scripts/compile_architecture.py",
   "note": "Generated from the OpenAPI and AsyncAPI specs and scripts/architecture_patterns.json. Do not edit; run python3 scripts/compile_architecture.py --write.",
-  "summary": {"openapiDocuments": 65, "paths": 2623, "operations": 3246, "asyncapiDocuments": 61, "topics": 386, "topicsPublished": 383, "topicsSubscribed": 23, "patterns": 59},
+  "summary": {"openapiDocuments": 65, "paths": 2623, "operations": 3246, "asyncapiDocuments": 61, "topics": 388, "topicsPublished": 386, "topicsSubscribed": 23, "patterns": 59},
   "patterns": [
     {
       "id": "event-envelope",
@@ -5346,15 +5346,15 @@
       "asyncapi": "3.0.0",
       "title": "Depot Receiving Events",
       "publishes": [
-        {
-          "topic": "depot.payables.invoice",
-          "types": ["dev.depot.payables.invoice.adjusted.v1", "dev.depot.payables.invoice.posted.v1", "dev.depot.payables.invoice.rejected.v1", "dev.depot.payables.invoice.sampled.v1"]
-        },
-        {"topic": "depot.payables.settlement", "types": ["dev.depot.payables.settlement.posted.v1"]},
+        {"topic": "depot.receiving.auditpolicy", "types": ["dev.depot.receiving.auditpolicy.changed.v1"]},
+        {"topic": "depot.receiving.erspriceconfirmation", "types": ["dev.depot.receiving.erspriceconfirmation.confirmed.v1"]},
         {"topic": "depot.receiving.ersselfbill", "types": ["dev.depot.receiving.ersselfbill.issued.v1"]},
-        {"topic": "depot.receiving.policy", "types": ["dev.depot.receiving.auditpolicy.changed.v1", "dev.depot.receiving.erspriceconfirmation.confirmed.v1", "dev.depot.receiving.ersvendor.changed.v1"]},
+        {"topic": "depot.receiving.ersvendor", "types": ["dev.depot.receiving.ersvendor.changed.v1"]},
+        {"topic": "depot.receiving.invoiceadjustment", "types": ["dev.depot.payables.invoice.adjusted.v1"]},
         {"topic": "depot.receiving.receipt", "types": ["dev.depot.receiving.receipt.corrected.v1", "dev.depot.receiving.receipt.posted.v1"]},
-        {"topic": "depot.receiving.serviceentrysheet", "types": ["dev.depot.receiving.serviceentrysheet.decided.v1"]}
+        {"topic": "depot.receiving.serviceentrysheet", "types": ["dev.depot.receiving.serviceentrysheet.decided.v1"]},
+        {"topic": "depot.receiving.settlement", "types": ["dev.depot.payables.settlement.posted.v1"]},
+        {"topic": "depot.receiving.vendorinvoice", "types": ["dev.depot.payables.invoice.posted.v1", "dev.depot.payables.invoice.rejected.v1", "dev.depot.payables.invoice.sampled.v1"]}
       ],
       "subscribes": []
     },
@@ -5769,10 +5769,8 @@
     {"topic": "depot.party.vendorbank", "publishers": ["services/party"], "subscribers": []},
     {"topic": "depot.party.vendorgroup", "publishers": ["services/party"], "subscribers": []},
     {"topic": "depot.party.vendorinvite", "publishers": ["services/party"], "subscribers": []},
-    {"topic": "depot.payables.invoice", "publishers": ["services/receiving"], "subscribers": []},
     {"topic": "depot.payables.openitem", "publishers": ["services/payables"], "subscribers": []},
     {"topic": "depot.payables.paymentproposal", "publishers": ["services/payables"], "subscribers": []},
-    {"topic": "depot.payables.settlement", "publishers": ["services/receiving"], "subscribers": []},
     {"topic": "depot.payables.vendor", "publishers": ["services/payables"], "subscribers": []},
     {"topic": "depot.planning.forecast", "publishers": ["services/planning"], "subscribers": []},
     {"topic": "depot.planning.plan", "publishers": ["services/planning"], "subscribers": ["services/purchasing"]},
@@ -5875,11 +5873,15 @@
     {"topic": "depot.receivables.dunningletter", "publishers": ["services/receivables"], "subscribers": []},
     {"topic": "depot.receivables.openitem", "publishers": ["services/receivables"], "subscribers": []},
     {"topic": "depot.receivables.payment", "publishers": ["services/receivables"], "subscribers": []},
+    {"topic": "depot.receiving.auditpolicy", "publishers": ["services/receiving"], "subscribers": []},
+    {"topic": "depot.receiving.erspriceconfirmation", "publishers": ["services/receiving"], "subscribers": []},
     {"topic": "depot.receiving.ersselfbill", "publishers": ["services/receiving"], "subscribers": []},
-    {"topic": "depot.receiving.policy", "publishers": ["services/receiving"], "subscribers": []},
+    {"topic": "depot.receiving.ersvendor", "publishers": ["services/receiving"], "subscribers": []},
+    {"topic": "depot.receiving.invoiceadjustment", "publishers": ["services/receiving"], "subscribers": []},
     {"topic": "depot.receiving.receipt", "publishers": ["services/receiving"], "subscribers": ["services/inventory", "services/search"]},
     {"topic": "depot.receiving.serviceentrysheet", "publishers": ["services/receiving"], "subscribers": []},
-    {"topic": "depot.receiving.vendorinvoice", "publishers": [], "subscribers": ["services/search"]},
+    {"topic": "depot.receiving.settlement", "publishers": ["services/receiving"], "subscribers": []},
+    {"topic": "depot.receiving.vendorinvoice", "publishers": ["services/receiving"], "subscribers": ["services/search"]},
     {"topic": "depot.reporting.balance", "publishers": ["services/finreport"], "subscribers": []},
     {"topic": "depot.reporting.definition", "publishers": ["services/finreport"], "subscribers": []},
     {"topic": "depot.reporting.distribution", "publishers": ["services/finreport"], "subscribers": []},

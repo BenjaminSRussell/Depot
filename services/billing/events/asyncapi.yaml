@@ -146,10 +146,10 @@ components:
                 tax: { type: string, description: "Decimal string at the currency's minor unit." }
                 tax_code: { type: string }
                 revenue_account: { type: string }
-                order_id: { type: string, format: uuid, description: "Copied from the credited invoice line: the sales order of a shipment or consolidated line; absent otherwise." }
-                order_line_id: { type: string, format: uuid, description: "Copied from the credited invoice line: the sales order line; absent otherwise." }
-                product: { type: string, format: uuid, description: "Copied from the credited invoice line: the product of a shipment or consolidated line; absent otherwise." }
-                packing_slip_line_id: { type: string, format: uuid, description: "Copied from the credited invoice line: the packing slip line it invoiced; absent otherwise." }
+                order_id: { type: string, format: uuid, description: "Not set today: credit-note lines carry no source references; read them from the credited invoice line (original_line_no). Declared because the payload shares the invoice line shape, which can write it." }
+                order_line_id: { type: string, format: uuid, description: "Not set today: credit-note lines carry no source references; read them from the credited invoice line (original_line_no). Declared because the payload shares the invoice line shape, which can write it." }
+                product: { type: string, format: uuid, description: "Not set today: credit-note lines carry no source references; read them from the credited invoice line (original_line_no). Declared because the payload shares the invoice line shape, which can write it." }
+                packing_slip_line_id: { type: string, format: uuid, description: "Not set today: credit-note lines carry no source references; read them from the credited invoice line (original_line_no). Declared because the payload shares the invoice line shape, which can write it." }
           totals:
             type: object
             required: [net, charges, tax, gross]

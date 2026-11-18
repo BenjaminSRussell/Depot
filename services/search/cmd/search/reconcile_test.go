@@ -36,6 +36,26 @@ func TestReconcileExitsOneOnADifferenceAndPrintsIt(t *testing.T) {
 	if code := reconcileReport(context.Background(), idx, src, &bytes.Buffer{}); code != reconcileMatch {
 		t.Fatalf("exit %d on matching counts, want %d", code, reconcileMatch)
 	}
+	// Index rows the report does not count make the report incomplete: no match.
+	more := countsFunc(func(context.Context) ([]store.Count, error) {
+		return []store.Count{{Type: store.TypeParty, N: 2}, {Type: store.TypeProduct, N: 5}}, nil
+	})
+	out.Reset()
+	if code := reconcileReport(context.Background(), more, src, &out); code != reconcileDiffers {
+		t.Fatalf("exit %d with an uncompared type, want %d", code, reconcileDiffers)
+	}
+	if err := json.Unmarshal(out.Bytes(), &res); err != nil || len(res.Uncompared) != 1 || res.Uncompared[0].Type != store.TypeProduct {
+		t.Fatalf("printed %s", out.String())
+	}
+}
+
+func TestReconcileUsageErrorsHaveTheirOwnExitCode(t *testing.T) {
+	none := func(string) string { return "" }
+	for _, args := range [][]string{nil, {""}, {"a.json", "b.json"}} {
+		if code := reconcileArgs(context.Background(), none, args, &bytes.Buffer{}); code != reconcileUsage {
+			t.Errorf("reconcile %q: exit %d, want %d", args, code, reconcileUsage)
+		}
+	}
 }
 
 func TestReconcileRefusesABadReportAndAMissingDatabase(t *testing.T) {
@@ -54,6 +74,7 @@ func TestReconcileRefusesABadReportAndAMissingDatabase(t *testing.T) {
 	}{
 		"missing file": {filepath.Join(dir, "absent.json"), reconcileBadInput},
 		"bad report":   {write("bad.json", `{"tenantId": "x"}`), reconcileBadInput},
+		"empty report": {write("empty.json", `{"tenantId": "`+reconcileTenant+`", "counts": []}`), reconcileBadInput},
 		"no database":  {write("ok.json", `{"tenantId": "`+reconcileTenant+`", "counts": [{"type": "party", "count": 1}]}`), reconcileFailed},
 	} {
 		if code := reconcileCommand(context.Background(), none, tc.path, &bytes.Buffer{}); code != tc.want {
