@@ -75,6 +75,7 @@ Naming: the PRD calls the chart `depot-tax`; existing charts are named after the
 | TAX-0009 | 422 | no open tax transaction in the settlement period |
 | TAX-0013 | 422 | a jurisdiction, tax code or group is still used and cannot be deleted |
 | TAX-0014 | 422 | no withholding is waiting to be remitted in the period |
+| TAX-0015 | warning | a tax code has no GL account in the ledger configuration, so calculate returned no posting line for it |
 | COM-0404 | 404 | no such configuration row or journal |
 | COM-0502 | 502 | the general ledger could not be read |
 | COM-0503 | 503 | the store or the ledger is not configured |

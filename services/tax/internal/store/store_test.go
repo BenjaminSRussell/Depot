@@ -34,7 +34,7 @@ var (
 	outputKey = domain.MovementKey("VAT19", domain.DirOutput)
 	inputKey  = domain.MovementKey("VAT19", domain.DirInput)
 	january   = domain.Period{From: domain.Day("2026-01-01"), To: domain.Day("2026-01-31")}
-	config    = store.LedgerConfig{LedgerID: "7c1f6a52-0000-4000-8000-000000000001", Accounts: map[string]string{outputKey: "2200", inputKey: "1400"}}
+	config    = store.LedgerConfig{LedgerID: "7c1f6a52-0000-4000-8000-000000000001", Accounts: map[string]string{outputKey: "2200", inputKey: "1400"}, SettlementAccount: "2900"}
 )
 
 func gl(m glMovements) func(store.LedgerConfig) domain.GLMovement {
@@ -80,7 +80,7 @@ func TestSettleRun_ReconcilesMarksAndDeltas(t *testing.T) {
 		t.Fatalf("re-recording a transaction inserted %d rows (%v)", n, err)
 	}
 
-	run, err := s.SettleRun(ctx, january, gl(glMovements{outputKey: "150.50", inputKey: "30.25"}))
+	run, err := s.SettleRun(ctx, january, "", gl(glMovements{outputKey: "150.50", inputKey: "30.25"}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,14 +98,14 @@ func TestSettleRun_ReconcilesMarksAndDeltas(t *testing.T) {
 		t.Fatalf("marked %d transactions (%v), want 3", marked, err)
 	}
 
-	if _, err := s.SettleRun(ctx, january, gl(glMovements{outputKey: "150.50", inputKey: "30.25"})); settlementCode(err) != domain.CodeNothingToSettle {
+	if _, err := s.SettleRun(ctx, january, "", gl(glMovements{outputKey: "150.50", inputKey: "30.25"})); settlementCode(err) != domain.CodeNothingToSettle {
 		t.Fatalf("repeat run: %v, want %s", err, domain.CodeNothingToSettle)
 	}
 
 	if _, err := s.RecordTransactions(ctx, []domain.Txn{txn("2026-01-28", "VAT19", domain.DirOutput, "7.00")}); err != nil {
 		t.Fatal(err)
 	}
-	delta, err := s.SettleRun(ctx, january, gl(glMovements{outputKey: "157.50", inputKey: "30.25"}))
+	delta, err := s.SettleRun(ctx, january, "", gl(glMovements{outputKey: "157.50", inputKey: "30.25"}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestSettleRun_MismatchRollsBackAndLeavesTransactionsOpen(t *testing.T) {
 	if _, err := s.RecordTransactions(ctx, []domain.Txn{txn("2026-01-10", "VAT19", domain.DirOutput, "100.00")}); err != nil {
 		t.Fatal(err)
 	}
-	_, err := s.SettleRun(ctx, january, gl(glMovements{outputKey: "100.01"}))
+	_, err := s.SettleRun(ctx, january, "", gl(glMovements{outputKey: "100.01"}))
 	if settlementCode(err) != domain.CodeSettlementMismatch {
 		t.Fatalf("got %v, want %s", err, domain.CodeSettlementMismatch)
 	}
@@ -135,16 +135,16 @@ func TestSettleRun_RefusesUnmappedCodeMissingConfigAndMissingEntity(t *testing.T
 	if _, err := s.RecordTransactions(ctx, []domain.Txn{txn("2026-01-10", "VAT19", domain.DirOutput, "1.00"), txn("2026-01-10", "VAT7", domain.DirOutput, "1.00")}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.SettleRun(ctx, january, gl(glMovements{})); settlementCode(err) != domain.CodeValidation {
+	if _, err := s.SettleRun(ctx, january, "", gl(glMovements{})); settlementCode(err) != domain.CodeValidation {
 		t.Fatalf("unmapped code: %v, want %s", err, domain.CodeValidation)
 	}
 	p, _ := tenant.FromContext(ctx)
 	p.LegalEntityID = ids.New()
-	if _, err := s.SettleRun(tenant.With(ctx, p), january, gl(glMovements{})); !errors.Is(err, store.ErrNoLedgerConfig) {
+	if _, err := s.SettleRun(tenant.With(ctx, p), january, "", gl(glMovements{})); !errors.Is(err, store.ErrNoLedgerConfig) {
 		t.Fatalf("entity without config: %v", err)
 	}
 	p.LegalEntityID = ""
-	if _, err := s.SettleRun(tenant.With(ctx, p), january, gl(glMovements{})); !errors.Is(err, store.ErrNoLegalEntity) {
+	if _, err := s.SettleRun(tenant.With(ctx, p), january, "", gl(glMovements{})); !errors.Is(err, store.ErrNoLegalEntity) {
 		t.Fatalf("no legal entity: %v", err)
 	}
 }
@@ -334,4 +334,75 @@ func TestAppRole_CrossTenantRLS(t *testing.T) {
 			LegalEntity: true,
 		},
 	})
+}
+
+func TestSettleRun_PostingLifecycle(t *testing.T) {
+	s, admin, ctx := setup(t)
+	if _, err := s.RecordTransactions(ctx, []domain.Txn{txn("2026-01-10", "VAT19", domain.DirOutput, "100.00"), txn("2026-01-12", "VAT19", domain.DirInput, "30.00")}); err != nil {
+		t.Fatal(err)
+	}
+	me := mustPrincipal(ctx)
+	if _, err := admin.Exec(context.Background(), `insert into tax_settlement_run (tenant_id, id, legal_entity_id, period_from, period_to, version, output_tax_total, input_tax_total, net_amount, lines, ledger_id, accounts)
+		values ($1, $2, $3, '2025-01-01', '2025-01-31', 1, 0, 0, 0, '[]', $4, '{}')`, me.TenantID, ids.New(), me.LegalEntityID, config.LedgerID); err != nil {
+		t.Fatal(err)
+	}
+	if runs, err := s.UnpostedRuns(ctx); err != nil || len(runs) != 0 {
+		t.Fatalf("a run created before the posting columns is listed: %v %v", runs, err)
+	}
+
+	run, err := s.SettleRun(ctx, january, "", gl(glMovements{outputKey: "100.00", inputKey: "30.00"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run.SettlementAccount != "2900" {
+		t.Fatalf("run settlement account %q, want the configured 2900", run.SettlementAccount)
+	}
+	runs, err := s.UnpostedRuns(ctx)
+	if err != nil || len(runs) != 1 || runs[0].ID != run.ID || runs[0].SettlementAccount != "2900" || runs[0].Accounts[outputKey] != "2200" ||
+		len(runs[0].Lines) != 2 || len(runs[0].TransactionIDs) != 2 || runs[0].NetAmount.String() != "70" {
+		t.Fatalf("unposted runs %+v (%v)", runs, err)
+	}
+
+	stranger := me
+	stranger.LegalEntityID = ids.New()
+	other := tenant.With(ctx, stranger)
+	if runs, err := s.UnpostedRuns(other); err != nil || len(runs) != 0 {
+		t.Fatalf("another legal entity sees the run: %v %v", runs, err)
+	}
+
+	if err := s.MarkRunPosted(ctx, run.ID, "entry-1"); err != nil {
+		t.Fatal(err)
+	}
+	if runs, err := s.UnpostedRuns(ctx); err != nil || len(runs) != 0 {
+		t.Fatalf("posted run still pending: %v %v", runs, err)
+	}
+}
+
+func TestSettleRun_RequiresASettlementAccountAndLetsTheRequestOverrideIt(t *testing.T) {
+	s, admin, ctx := setup(t)
+	if _, err := s.RecordTransactions(ctx, []domain.Txn{txn("2026-01-10", "VAT19", domain.DirOutput, "100.00")}); err != nil {
+		t.Fatal(err)
+	}
+	bare := config
+	bare.SettlementAccount = ""
+	if err := s.SetLedgerConfig(ctx, bare); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SettleRun(ctx, january, "", gl(glMovements{outputKey: "100.00"})); !errors.Is(err, store.ErrNoSettlementAccount) {
+		t.Fatalf("got %v, want ErrNoSettlementAccount", err)
+	}
+	var runs int
+	_ = admin.QueryRow(context.Background(), `select count(*) from tax_settlement_run`).Scan(&runs)
+	if runs != 0 {
+		t.Fatalf("%d runs created without a settlement account", runs)
+	}
+	run, err := s.SettleRun(ctx, january, "2950", gl(glMovements{outputKey: "100.00"}))
+	if err != nil || run.SettlementAccount != "2950" {
+		t.Fatalf("override: %+v %v", run, err)
+	}
+}
+
+func mustPrincipal(ctx context.Context) tenant.Principal {
+	p, _ := tenant.FromContext(ctx)
+	return p
 }
