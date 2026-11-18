@@ -35,6 +35,19 @@ func TestServicePrincipal(t *testing.T) {
 	}
 }
 
+func TestBillingTaxCalcHoldsOnlyTheCalculateDuty(t *testing.T) {
+	p, err := tenant.ServicePrincipal("billing-tax-calc", spTenant, spEntity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Duties) != 1 || !p.HasDuty("tax.tax.calculate") || p.HasDuty("tax.transaction.record") {
+		t.Fatalf("duties = %v, want only tax.tax.calculate", p.Duties)
+	}
+	if got := tenant.ServiceGrantTable()["billing"]["tax"]; !reflect.DeepEqual(got, []string{"tax.transaction.record", "tax.tax.calculate"}) {
+		t.Fatalf("billing -> tax grant = %v", got)
+	}
+}
+
 func TestServicePrincipalRefusals(t *testing.T) {
 	if _, err := tenant.ServicePrincipal("nobody", spTenant, ""); !errors.Is(err, tenant.ErrUnknownServicePrincipal) {
 		t.Fatalf("unknown name err = %v", err)

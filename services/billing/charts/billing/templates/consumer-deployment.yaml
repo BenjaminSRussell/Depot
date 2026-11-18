@@ -57,8 +57,6 @@ spec:
                   key: DATABASE_URL
             - name: ADMIN_ADDR
               value: ":9090"
-            - name: BILLING_TAX_RATES
-              value: {{ .Values.taxRates | quote }}
             - name: BILLING_IC_REVENUE_ACCOUNT
               value: {{ required "consumer.icCharge.revenueAccount is required with the consumer" .Values.consumer.icCharge.revenueAccount | quote }}
             - name: BILLING_IC_TAX_CODE

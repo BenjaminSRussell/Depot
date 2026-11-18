@@ -924,6 +924,14 @@ test_billing_tax_report_holds_only_the_tax_transaction_duty if {
 	not allowed("tax.transaction.record", "POST", "/v1/tax/settlements:run")
 }
 
+test_billing_tax_calc_holds_only_the_tax_calculate_duty if {
+	data.service_principals["billing-tax-calc"] == ["tax.tax.calculate"]
+	"tax.tax.calculate" in data.service_grants.billing.tax
+	allowed("tax.tax.calculate", "POST", "/v1/tax/calculate")
+	not allowed("tax.tax.calculate", "POST", "/v1/tax/settlements:run")
+	not allowed("tax.tax.calculate", "POST", "/v1/tax/transactions")
+}
+
 test_billing_tax_report_operator_routes_split_view_and_post if {
 	allowed("billing.invoice.view", "GET", "/v1/billing/tax-reports")
 	allowed("billing.invoice.post", "POST", "/v1/billing/tax-reports/r1:retry")

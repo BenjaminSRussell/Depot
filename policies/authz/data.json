@@ -4152,7 +4152,7 @@
       "ledger": ["ledger.entry.post", "ledger.ledger.lookup"],
       "revrec": ["revrec.allocation.read"],
       "sales": ["sales.order.record-invoice", "sales.order.record-delivery"],
-      "tax": ["tax.transaction.record"]
+      "tax": ["tax.transaction.record", "tax.tax.calculate"]
     },
     "fulfillment": {
       "sales": ["sales.order.record-delivery"],
@@ -4393,6 +4393,7 @@
     "fulfillment-order": ["fulfillment.order.sync"],
     "billing-sales-report": ["sales.order.record-invoice"],
     "billing-tax-report": ["tax.transaction.record"],
+    "billing-tax-calc": ["tax.tax.calculate"],
     "fulfillment-sales-report": ["sales.order.record-delivery"],
     "integration-hub": ["migration.outbound.render", "migration.xref.record"],
     "inventory-postings": ["inventory.transaction.apply"],
