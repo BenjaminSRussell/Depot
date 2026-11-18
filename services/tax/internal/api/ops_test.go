@@ -495,6 +495,24 @@ func TestRunSettlement_ClosedPeriodRefusalIsSurfaced(t *testing.T) {
 	}
 }
 
+func TestRunSettlement_StuckRunDoesNotBlockALaterPeriod(t *testing.T) {
+	h := newSettlementHarness(t)
+	h.fake.RefuseClosedThrough("2026-01-31")
+	if rec := h.call(http.MethodPost, "/v1/tax/settlements:run", settleJanuary); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("january: %d %s", rec.Code, rec.Body.String())
+	}
+	record := `{"transactions":[{"id":"` + ids.New() + `","code":"VAT19","direction":"output","tax_date":"2026-02-10","amount":"10.00"}]}`
+	if rec := h.call(http.MethodPost, "/v1/tax/transactions", record); rec.Code != http.StatusCreated {
+		t.Fatalf("record: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := h.call(http.MethodPost, "/v1/tax/settlements:run", `{"period_from":"2026-02-01","period_to":"2026-02-28"}`); rec.Code != http.StatusCreated {
+		t.Fatalf("february blocked by the stuck january run: %d %s", rec.Code, rec.Body.String())
+	}
+	if n := len(h.settlementEntries()); n != 1 {
+		t.Fatalf("got %d settlement entries, want only february", n)
+	}
+}
+
 func TestCalculate_ReturnsPostingLines(t *testing.T) {
 	type response struct {
 		PostingLines []struct {

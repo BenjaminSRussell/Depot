@@ -236,8 +236,9 @@ func (a *API) RunSettlement(ctx context.Context, period domain.Period) (store.Ru
 	return a.settleAndPost(ctx, period, "")
 }
 
-// settleAndPost first posts the runs an earlier call committed but could not post, then settles the period and posts that run; a
-// failed post leaves the run pending for the next call, which posts it again under the same key.
+// settleAndPost first retries the runs an earlier call committed but could not post, then settles the period and posts that run; a
+// failed post leaves its run pending for the next call, which posts it again under the same key, and never blocks the settlement of
+// another period.
 func (a *API) settleAndPost(ctx context.Context, period domain.Period, settlementAccount string) (store.Run, error) {
 	if a.store == nil || a.ledger == nil {
 		return store.Run{}, errors.New("tax: the store or the general ledger is not configured")
@@ -247,9 +248,7 @@ func (a *API) settleAndPost(ctx context.Context, period domain.Period, settlemen
 		return store.Run{}, err
 	}
 	for _, earlier := range pending {
-		if _, err := a.postRun(ctx, earlier); err != nil {
-			return store.Run{}, err
-		}
+		_, _ = a.postRun(ctx, earlier)
 	}
 	p, _ := tenant.FromContext(ctx)
 	newGL := func(cfg store.LedgerConfig) domain.GLMovement {
