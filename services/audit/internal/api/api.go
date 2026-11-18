@@ -31,10 +31,12 @@ type API struct {
 	applied atomic.Int64
 	failed  atomic.Int64
 	// Read-log counters (#606).
-	reads       atomic.Int64
-	readsFailed atomic.Int64
-	exports     atomic.Int64
-	reviews     atomic.Int64
+	reads         atomic.Int64
+	readsFailed   atomic.Int64
+	exports       atomic.Int64
+	reviews       atomic.Int64
+	queries       atomic.Int64
+	queriesFailed atomic.Int64
 }
 
 // ingestRequest is the body of POST /v1/audit/changes. UserID exists only so a request that names the actor is
@@ -76,7 +78,9 @@ func New(s store.Store) *API { return &API{store: s} }
 func (a *API) Register(r chi.Router) {
 	r.Get("/readyz", a.ready)
 	r.With(authz.RequireDuty(dutyWrite)).Post("/v1/audit/changes", a.ingest)
-	r.With(authz.RequireDuty(dutyRead)).Get("/v1/audit/records/{entity}/{recordId}", a.query)
+	r.With(authz.RequireDuty(dutyRead)).Get("/v1/audit/records", a.listRecords)
+	r.With(authz.RequireDuty(dutyRead)).Get("/v1/audit/entities", a.listEntities)
+	r.Get("/v1/audit/records/{entity}/{recordId}", a.query)
 	r.With(authz.RequireDuty(dutyVerify)).Get("/v1/audit/records:verify", a.verifyChanges)
 	r.With(authz.RequireDuty(dutyWrite)).Post("/v1/audit/alert-rules", a.createRule)
 	r.With(authz.RequireDuty(dutyRead)).Get("/v1/audit/alerts", a.listAlerts)
@@ -97,6 +101,8 @@ func (a *API) Metrics() http.Handler {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 		_, _ = fmt.Fprintf(w, "# HELP audit_changes_applied_total Field changes appended.\n# TYPE audit_changes_applied_total counter\naudit_changes_applied_total %d\n", a.applied.Load())
 		_, _ = fmt.Fprintf(w, "# HELP audit_changes_failed_total Failed ingest calls.\n# TYPE audit_changes_failed_total counter\naudit_changes_failed_total %d\n", a.failed.Load())
+		_, _ = fmt.Fprintf(w, "# HELP audit_record_queries_total Change-history queries answered.\n# TYPE audit_record_queries_total counter\naudit_record_queries_total %d\n", a.queries.Load())
+		_, _ = fmt.Fprintf(w, "# HELP audit_record_queries_failed_total Change-history queries that failed in the store.\n# TYPE audit_record_queries_failed_total counter\naudit_record_queries_failed_total %d\n", a.queriesFailed.Load())
 		_, _ = fmt.Fprintf(w, "# HELP audit_phi_reads_recorded_total PHI reads appended to the read log.\n# TYPE audit_phi_reads_recorded_total counter\naudit_phi_reads_recorded_total %d\n", a.reads.Load())
 		_, _ = fmt.Fprintf(w, "# HELP audit_phi_reads_failed_total PHI read records that were not stored.\n# TYPE audit_phi_reads_failed_total counter\naudit_phi_reads_failed_total %d\n", a.readsFailed.Load())
 		_, _ = fmt.Fprintf(w, "# HELP audit_phi_read_exports_total Read-log exports delivered.\n# TYPE audit_phi_read_exports_total counter\naudit_phi_read_exports_total %d\n", a.exports.Load())
@@ -166,18 +172,6 @@ func (a *API) ingest(w http.ResponseWriter, r *http.Request) {
 	}
 	a.applied.Add(1)
 	httpx.JSON(w, http.StatusAccepted, map[string]string{"status": "recorded"})
-}
-
-func (a *API) query(w http.ResponseWriter, r *http.Request) {
-	if !validTenant(w, r) {
-		return
-	}
-	rows, err := a.store.Query(r.Context(), chi.URLParam(r, "entity"), chi.URLParam(r, "recordId"))
-	if err != nil {
-		httpx.Fail(w, r, err)
-		return
-	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"items": rows})
 }
 
 func (a *API) createRule(w http.ResponseWriter, r *http.Request) {

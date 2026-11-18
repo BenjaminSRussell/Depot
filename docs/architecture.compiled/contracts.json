@@ -2,7 +2,7 @@
   "version": 3,
   "compiler": "scripts/compile_architecture.py",
   "note": "Generated from the OpenAPI and AsyncAPI specs and scripts/architecture_patterns.json. Do not edit; run python3 scripts/compile_architecture.py --write.",
-  "summary": {"openapiDocuments": 65, "paths": 2624, "operations": 3248, "asyncapiDocuments": 60, "topics": 386, "topicsPublished": 383, "topicsSubscribed": 18, "patterns": 59},
+  "summary": {"openapiDocuments": 65, "paths": 2626, "operations": 3250, "asyncapiDocuments": 60, "topics": 386, "topicsPublished": 383, "topicsSubscribed": 18, "patterns": 59},
   "patterns": [
     {
       "id": "event-envelope",
@@ -732,12 +732,14 @@
         {"method": "POST", "path": "/v1/audit/alert-rules", "operationId": "createAlertRule", "duty": "audit.write"},
         {"method": "GET", "path": "/v1/audit/alerts", "operationId": "listAlerts", "duty": "audit.read"},
         {"method": "POST", "path": "/v1/audit/changes", "operationId": "ingestChange", "duty": "audit.write"},
+        {"method": "GET", "path": "/v1/audit/entities", "operationId": "listEntities", "duty": "audit.read"},
         {"method": "GET", "path": "/v1/audit/reads", "operationId": "listPhiReads", "duty": "audit.read-log.view"},
         {"method": "POST", "path": "/v1/audit/reads", "operationId": "recordPhiRead", "duty": "audit.read-log.write"},
         {"method": "POST", "path": "/v1/audit/reads/{id}:review", "operationId": "reviewBreakGlassRead", "duty": "audit.read-log.review"},
         {"method": "GET", "path": "/v1/audit/reads:break-glass", "operationId": "listBreakGlassReads", "duty": "audit.read-log.review"},
         {"method": "GET", "path": "/v1/audit/reads:export", "operationId": "exportPhiReads", "duty": "audit.read-log.export"},
         {"method": "GET", "path": "/v1/audit/reads:verify", "operationId": "verifyPhiReads", "duty": "audit.read-log.export"},
+        {"method": "GET", "path": "/v1/audit/records", "operationId": "listRecords", "duty": "audit.read"},
         {"method": "GET", "path": "/v1/audit/records/{entity}/{recordId}", "operationId": "queryRecord", "duty": "audit.read"},
         {"method": "GET", "path": "/v1/audit/records:verify", "operationId": "verifyChangeChain", "duty": "audit.verify"},
         {"method": "POST", "path": "/v1/audit/texts/expand", "operationId": "expandText", "duty": "authenticated"}

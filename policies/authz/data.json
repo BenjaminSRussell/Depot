@@ -114,6 +114,7 @@
       {"resource": "/v1/ledger/ledgers/*/open-item-accounts/*", "methods": ["PUT"]}
     ]},
     "ledger.journal.read": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/ledger/ledgers/*", "methods": ["GET"]},
       {"resource": "/v1/ledger/charts/*/accounts", "methods": ["GET"]},
       {"resource": "/v1/ledger/journal-entries/*", "methods": ["GET"]},
@@ -652,6 +653,7 @@
       {"resource": "/v1/procurement/agreement-lines/*", "methods": ["GET"]}
     ]},
     "procurement.purchase-order.inquire": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/procurement/purchase-orders", "methods": ["GET"]},
       {"resource": "/v1/procurement/purchase-orders/*", "methods": ["GET"]},
@@ -801,6 +803,7 @@
       {"resource": "/v1/receiving/ers-vendors/*", "methods": ["PUT"]}
     ]},
     "receiving.receipt.maintain": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/receiving/arrivals", "methods": ["POST"]},
       {"resource": "/v1/receiving/receipts", "methods": ["GET", "POST"]},
@@ -866,6 +869,7 @@
       {"resource": "/v1/receiving/related-documents", "methods": ["GET"]}
     ]},
     "receiving.ap.inquire": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/receiving/grir", "methods": ["GET"]},
       {"resource": "/v1/receiving/invoices", "methods": ["GET"]},
@@ -972,6 +976,7 @@
       {"resource": "/v1/party/partners:tax-registrations", "methods": ["GET"]}
     ]},
     "party.read": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/party/partners:tax-registrations", "methods": ["GET"]},
       {"resource": "/v1/party/parties/*", "methods": ["GET"]},
@@ -1765,6 +1770,7 @@
       {"resource": "/v1/hr/skills", "methods": ["POST"]}
     ]},
     "hr.worker.inquire": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/hr/certifications/expiring", "methods": ["GET"]},
       {"resource": "/v1/hr/checklists/*", "methods": ["GET"]},
@@ -2416,8 +2422,14 @@
     "fulfillment.returnable-packaging.maintain": {"permissions": [{"resource": "/v1/fulfillment/returnable-packaging:adjust", "methods": ["POST"]}]},
     "audit.read": {"tenant_level": true, "permissions": [
       {"resource": "/v1/audit/alerts", "methods": ["GET"]},
+      {"resource": "/v1/audit/records", "methods": ["GET"]},
+      {"resource": "/v1/audit/entities", "methods": ["GET"]},
       {"resource": "/v1/audit/records/*/*", "methods": ["GET"]}
     ]},
+    "audit.export": {"tenant_level": true, "permissions": [
+      {"resource": "/v1/audit/records/*/*:export", "methods": ["GET"]}
+    ]},
+    "audit.auditor": {"flag": true, "tenant_level": true, "permissions": []},
     "audit.read-log.write": {"tenant_level": true, "service_only": true, "permissions": [
       {"resource": "/v1/audit/reads", "methods": ["POST"]}
     ]},
@@ -2471,6 +2483,7 @@
       {"resource": "/v1/billing/tax-reports:backfill", "methods": ["POST"]}
     ]},
     "billing.invoice.view": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/billing/customers/*/billing-rule", "methods": ["GET"]},
       {"resource": "/v1/billing/invoices", "methods": ["GET"]},
@@ -3294,6 +3307,7 @@
     "product.configure": {"permissions":[{"resource": "/v1/product/configuration-models/*:solve", "methods": ["POST"]}]},
     "product.gtin.allocate": {"permissions": [{"resource": "/v1/product/gtins", "methods": ["POST"]}]},
     "product.read": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/product/products:customs", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/product/barcodes/*", "methods": ["GET"]},
@@ -3469,6 +3483,7 @@
       {"resource": "/v1/production/orders:auto-end", "methods": ["POST"]}
     ]},
     "production.order.read": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/production/as-built", "methods": ["GET"]},
       {"resource": "/v1/production/journals", "methods": ["GET"]},
@@ -3615,6 +3630,7 @@
       {"resource": "/v1/sales/orders/*/holds/*:release", "methods": ["POST"]}
     ]},
     "sales.order.read": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/sales/agreements", "methods": ["GET"]},
       {"resource": "/v1/sales/agreements/*", "methods": ["GET"]},
