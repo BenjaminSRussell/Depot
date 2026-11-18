@@ -144,13 +144,27 @@ func TestSettle_GLFailureSurfaces(t *testing.T) {
 
 func TestPostSettlement_UsesIdempotencyKey(t *testing.T) {
 	poster := &recordingPoster{}
-	s := domain.Settlement{TransactionIDs: []string{"t1"}}
+	s := domain.Settlement{TransactionIDs: []string{"t1"}, Lines: []domain.CodeSettlement{{Code: "VAT19", Direction: domain.DirOutput, Amount: domain.D("5.00")}}}
 	id, err := domain.PostSettlement(context.Background(), poster, "S1", s)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if id != "entry-post:tax:settlement:S1:settle" || len(poster.keys) != 1 || poster.keys[0] != "post:tax:settlement:S1:settle" {
 		t.Fatalf("keys %v", poster.keys)
+	}
+}
+
+func TestPostSettlement_ZeroAmountTransactionsPostNothing(t *testing.T) {
+	poster := &recordingPoster{}
+	s, err := domain.Settle(context.Background(), []domain.Txn{txn("t1", "VAT19", domain.DirOutput, "2026-01-10", "0", "")}, january, 0, fakeGL{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.TransactionIDs) == 0 {
+		t.Fatal("zero-amount transaction should still be settled")
+	}
+	if id, err := domain.PostSettlement(context.Background(), poster, "s1", s); err != nil || id != "" || len(poster.keys) != 0 {
+		t.Fatalf("zero settlement posted: %v %v", err, poster.keys)
 	}
 }
 

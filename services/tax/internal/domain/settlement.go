@@ -139,8 +139,17 @@ func sortedKeys(set map[string]bool) []string {
 }
 
 func PostSettlement(ctx context.Context, p Poster, settlementID string, s Settlement) (string, error) {
-	if len(s.TransactionIDs) == 0 {
+	if len(s.TransactionIDs) == 0 || !hasAmount(s) {
 		return "", nil
 	}
 	return p.Post(ctx, PostingKey(settlementID), s)
+}
+
+func hasAmount(s Settlement) bool {
+	for _, l := range s.Lines {
+		if !l.Amount.IsZero() {
+			return true
+		}
+	}
+	return false
 }
