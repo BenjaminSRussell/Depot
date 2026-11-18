@@ -36,7 +36,8 @@ var servicePrincipals = map[string][]string{
 	"billing-tax-report": {"tax.transaction.record"},
 	// The invoice tax quote (B-15): billing asks the tax engine for the tax of a proposal or a post-time re-quote with only
 	// POST /v1/tax/calculate.
-	"billing-tax-calc": {"tax.tax.calculate"},
+	"billing-tax-calc":     {"tax.tax.calculate"},
+	"planning-open-inputs": {"sales.order.open-lines", "inventory.read"},
 	// The consumers of intercompany's chargeinvoice.requested (#40): billing raises the lender's invoice proposal and payables takes
 	// the borrower's vendor invoice into its intake. Each holds one flag duty and reaches no route.
 	"billing-iccharge":  {"billing.iccharge.from-event"},
@@ -94,6 +95,7 @@ var servicePrincipalIssuers = map[string][]string{
 	"billing-sales-report":     {"billing"},
 	"billing-tax-report":       {"billing"},
 	"billing-tax-calc":         {"billing"},
+	"planning-open-inputs":     {"planning"},
 	"billing-iccharge":         {"billing"},
 	"payables-iccharge":        {"payables"},
 	"intercompany-charges":     {"intercompany"},

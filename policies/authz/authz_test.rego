@@ -932,6 +932,16 @@ test_billing_tax_calc_holds_only_the_tax_calculate_duty if {
 	not allowed("tax.tax.calculate", "POST", "/v1/tax/transactions")
 }
 
+test_planning_open_inputs_read_open_lines_and_on_hand_only if {
+	data.service_principals["planning-open-inputs"] == ["sales.order.open-lines", "inventory.read"]
+	data.duties["sales.order.open-lines"].service_only
+	"sales.order.open-lines" in data.service_grants.planning.sales
+	"inventory.read" in data.service_grants.planning.inventory
+	allowed("sales.order.open-lines", "GET", "/v1/sales/open-order-lines")
+	not allowed("sales.order.open-lines", "GET", "/v1/sales/order-lines")
+	not allowed("sales.order.open-lines", "POST", "/v1/sales/open-order-lines")
+}
+
 test_billing_tax_report_operator_routes_split_view_and_post if {
 	allowed("billing.invoice.view", "GET", "/v1/billing/tax-reports")
 	allowed("billing.invoice.post", "POST", "/v1/billing/tax-reports/r1:retry")
