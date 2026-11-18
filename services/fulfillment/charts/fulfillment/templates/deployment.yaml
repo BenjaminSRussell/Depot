@@ -92,6 +92,18 @@ spec:
             - name: SALES_REPORT_INTERVAL
               value: {{ .Values.salesReportInterval | quote }}
             {{- end }}
+            {{- if .Values.ledgerUrl }}
+            {{- if not .Values.serviceIdentity.signingKeySecret }}
+            {{- fail "ledgerUrl needs serviceIdentity.signingKeySecret: fulfillment signs its journal posts" }}
+            {{- end }}
+            {{- if not .Values.config.glLedgers }}
+            {{- fail "ledgerUrl needs config.glLedgers, a JSON object of legal entity id to ledger id" }}
+            {{- end }}
+            - name: LEDGER_URL
+              value: {{ .Values.ledgerUrl | quote }}
+            - name: FULFILLMENT_GL_LEDGERS
+              value: {{ .Values.config.glLedgers | quote }}
+            {{- end }}
             {{- if .Values.serviceIdentity.signingKeySecret }}
             - name: DEPOT_SERVICE_SIGNING_KEY_FILE
               value: /var/run/depot/service-identity/signing-key

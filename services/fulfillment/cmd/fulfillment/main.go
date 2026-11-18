@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -15,7 +16,9 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/customsdata"
 	"github.com/BenjaminSRussell/depot/platform/dbx"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 	"github.com/BenjaminSRussell/depot/platform/issueclaim"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/api"
 	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/carrier"
@@ -110,6 +113,24 @@ func run() error {
 	} else {
 		slog.Warn("SALES_URL is unset: posted packing slips are queued for sales but not reported")
 	}
+	gl, err := ledgerclient.FromEnv(os.Getenv, "fulfillment")
+	if err != nil {
+		return fmt.Errorf("ledger client: %w", err)
+	}
+	ledgers, err := parseLedgers("FULFILLMENT_GL_LEDGERS", os.Getenv("FULFILLMENT_GL_LEDGERS"))
+	if err != nil {
+		return err
+	}
+	switch {
+	case gl == nil:
+		slog.Warn("LEDGER_URL is unset: posted packing slips are queued for the ledger but their journals are not posted")
+	case len(ledgers) == 0:
+		return errors.New("LEDGER_URL needs FULFILLMENT_GL_LEDGERS, a JSON object of legal entity id to ledger id")
+	default:
+		s.WithLedger(gl, ledgers)
+		go s.RunSlipGL(ctx)
+		slog.Info("packing slip ledger poster running", "legalEntities", len(ledgers))
+	}
 	if err := tenant.ShareReplayCache(ctx, pool); err != nil {
 		return err
 	}
@@ -132,6 +153,22 @@ func run() error {
 	}
 	slog.Info("fulfillment listening", "addr", addr)
 	return httpx.ServeWithMetrics(ctx, addr, r)
+}
+
+func parseLedgers(name, raw string) (map[string]string, error) {
+	out := map[string]string{}
+	if raw == "" {
+		return out, nil
+	}
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil, fmt.Errorf("%s must be a JSON object of legal entity id to ledger id: %w", name, err)
+	}
+	for le, ledger := range out {
+		if !ids.Valid(le) || !ids.Valid(ledger) {
+			return nil, fmt.Errorf("%s entry %q needs UUID legal entity and ledger ids", name, le)
+		}
+	}
+	return out, nil
 }
 
 func intEnv(name string, def, lo, hi int) (int, error) {

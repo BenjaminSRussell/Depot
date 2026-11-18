@@ -63,6 +63,42 @@ func (s *Postgres) IssueBasis(ctx context.Context, legalEntityID, productID stri
 	return cur, value.DivRound(qty, issueCostScale), nil
 }
 
+// WarehouseIssueCost is the running average unit cost of a product over the
+// on-hand rows a sales delivery books against in one warehouse: the rows whose
+// dimensions are exactly site and warehouse, the set bookDelivery issues from
+// through IssueBasis. Rows split by location, batch or any other dimension are
+// not part of it. It values the rows as IssueBasis does and is zero, with an
+// empty currency, when no row holds a value.
+func (s *Postgres) WarehouseIssueCost(ctx context.Context, legalEntityID, productID, warehouse string) (string, decimal.Decimal, error) {
+	var currency *string
+	var qty, value decimal.Decimal
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `select max(o.currency::text), coalesce(sum(o.posted_qty + coalesce(p.qty, 0)), 0), coalesce(sum(o.posted_value + coalesce(p.value, 0)), 0)
+			from on_hand o
+			join dimension_set d on d.tenant_id = o.tenant_id and d.hash = o.dimension_set_hash
+			left join lateral (
+				select sum(t.qty) as qty, sum(t.cost_amount_physical) as value from inventory_transaction t
+				where t.tenant_id = o.tenant_id and t.legal_entity_id = o.legal_entity_id and t.product_id = o.product_id
+					and t.dimension_set_hash = o.dimension_set_hash
+					and (t.receipt_status in ('REGISTERED', 'RECEIVED') or t.issue_status in ('PICKED', 'DEDUCTED'))
+			) p on true
+			where o.legal_entity_id = $1 and o.product_id = $2 and lower(d.dims->>'warehouse') = lower($3)
+					and d.dims ? 'site' and (d.dims - 'site' - 'warehouse') = '{}'::jsonb`,
+			legalEntityID, productID, warehouse).Scan(&currency, &qty, &value)
+	})
+	if err != nil {
+		return "", decimal.Zero, err
+	}
+	cur := ""
+	if currency != nil {
+		cur = *currency
+	}
+	if !qty.IsPositive() || value.IsNegative() {
+		return cur, decimal.Zero, nil
+	}
+	return cur, value.DivRound(qty, issueCostScale), nil
+}
+
 // OriginBookings returns the transactions registered for the given origins of
 // one source type in a legal entity, keyed by source id: what the postings
 // consumer booked for a receipt line or a delivery line, read back so a

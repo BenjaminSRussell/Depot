@@ -13,6 +13,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -30,6 +31,7 @@ const (
 	dutyClaim       = "inventory.issue.claim"
 	claimsPath      = "/v1/inventory/issue-claims"
 	releasePath     = claimsPath + ":release"
+	costPath        = "/v1/inventory/issue-cost"
 	codeHold        = "QUALITY_HOLD"
 	maxResponseSize = 1 << 20
 )
@@ -257,6 +259,60 @@ func (c *Client) Release(ctx context.Context, cl Claim) {
 	if err != nil || status != http.StatusNoContent {
 		slog.ErrorContext(ctx, "inventory issue claim was not released", "status", status, "err", err, "correlationId", middleware.GetReqID(ctx))
 	}
+}
+
+// Valuer reads what inventory values an issue of a product from a warehouse
+// at, so a document is costed from inventory valuation and not from its
+// request. Client implements it beside Claimer; a nil Valuer prices nothing.
+type Valuer interface {
+	IssueCost(ctx context.Context, legalEntityID, productID, warehouse string) (currency string, unitCost decimal.Decimal, err error)
+}
+
+// IssueCost returns the running average unit cost of the product in the
+// warehouse and the currency it is valued in; the currency is empty and the
+// cost zero when the warehouse holds no valued stock.
+func (c *Client) IssueCost(ctx context.Context, legalEntityID, productID, warehouse string) (string, decimal.Decimal, error) {
+	principal, ok := tenant.FromContext(ctx)
+	if !ok {
+		return "", decimal.Zero, errors.New("inventory issue cost: no principal in context")
+	}
+	if !ids.Valid(productID) {
+		return "", decimal.Zero, ErrNotProduct
+	}
+	query := url.Values{"legalEntityId": {legalEntityID}, "productId": {productID}, "warehouse": {warehouse}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+costPath+"?"+query.Encode(), nil)
+	if err != nil {
+		return "", decimal.Zero, fmt.Errorf("inventory issue cost: %w", err)
+	}
+	if _, err := c.signer.ApplyDuties(req, principal, audience, legalEntityID, []string{dutyClaim}); err != nil {
+		return "", decimal.Zero, fmt.Errorf("inventory issue cost: %w", err)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		slog.ErrorContext(ctx, "inventory issue cost failed", "err", err, "correlationId", middleware.GetReqID(ctx))
+		return "", decimal.Zero, fmt.Errorf("inventory issue cost: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
+	if err != nil {
+		return "", decimal.Zero, fmt.Errorf("inventory issue cost: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		slog.ErrorContext(ctx, "inventory refused the issue cost", "status", resp.StatusCode, "correlationId", middleware.GetReqID(ctx))
+		return "", decimal.Zero, fmt.Errorf("inventory issue cost: status %d", resp.StatusCode)
+	}
+	var body struct {
+		Currency string `json:"currency"`
+		UnitCost string `json:"unitCost"`
+	}
+	if err := json.Unmarshal(raw, &body); err != nil {
+		return "", decimal.Zero, fmt.Errorf("inventory issue cost: %w", err)
+	}
+	cost, err := decimal.NewFromString(body.UnitCost)
+	if err != nil || cost.IsNegative() {
+		return "", decimal.Zero, errors.New("inventory issue cost: unitCost is not a non-negative decimal")
+	}
+	return body.Currency, cost, nil
 }
 
 func (c *Client) post(ctx context.Context, path string, cl Claim, body any) (int, []byte, error) {

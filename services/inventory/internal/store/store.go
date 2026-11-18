@@ -74,6 +74,7 @@ type Store interface {
 	ListHolds(ctx context.Context, f HoldFilter) ([]domain.Hold, error)
 	ClaimIssue(ctx context.Context, in IssueClaimInput) (bool, error)
 	ReleaseIssueClaim(ctx context.Context, key string) error
+	WarehouseIssueCost(ctx context.Context, legalEntityID, productID, warehouse string) (string, decimal.Decimal, error)
 	CreateCountPlan(ctx context.Context, key string, p domain.CountPlan) (domain.CountPlan, bool, error)
 	ListCountPlans(ctx context.Context) ([]domain.CountPlan, error)
 	GenerateCountSheet(ctx context.Context, planID, key string) (domain.CountSheet, bool, error)

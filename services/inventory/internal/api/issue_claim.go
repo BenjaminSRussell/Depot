@@ -26,6 +26,7 @@ func (a *API) registerIssueClaims(r chi.Router) {
 	claim := r.With(authz.RequireDuty(dutyIssueClaim))
 	claim.Post(issueClaimsPath, a.claimIssue)
 	claim.Post(issueClaimsPath+":release", a.releaseIssueClaim)
+	claim.Get(issueCostPath, a.getIssueCost)
 }
 
 type issueClaimRequest struct {
