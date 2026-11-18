@@ -8,7 +8,7 @@ import { RoleDetailPage, RolesPage } from "./security/RolesPage";
 import { UserDetailPage, UsersPage } from "./security/UsersPage";
 import { ImportPage } from "./ImportPage";
 import { AdminHome } from "./pages";
-import { plannedRoute } from "./PlannedPage";
+import { plannedRoute } from "../../shell/pages/PlannedPage";
 import { SequencesPage } from "./SequencesPage";
 
 const admin: DepotModule = {
@@ -32,14 +32,14 @@ const admin: DepotModule = {
     { path: "/admin/security/roles", element: createElement(RolesPage), handle: { title: "Role catalogue" } },
     { path: "/admin/security/roles/:name", element: createElement(RoleDetailPage), handle: { title: "Role" } },
   ],
-  // Planned routes keep their nav entries so bookmarks and the palette land on an honest "isn't available yet" page;
-  // no workspace links them (shell/honestScreens.test.ts).
+  // Entries for routes in shell/plannedRoutes.json stay here for the nav audit and the page title, but the shell drops
+  // them from the sidebar, workspaces, All features and the palette (shell/pages/PlannedPage.tsx, withoutPlannedNav).
   nav: [
     { label: "Overview", to: "/admin", duty: "audit.read" },
     { label: "Audit", to: "/admin/audit", duty: "audit.read" },
-    { label: "Sequences", to: "/admin/sequences", duty: "numbering.write" },
+    { label: "Number sequences", to: "/admin/sequences", duty: "numbering.read" },
     { label: "Alerts", to: "/admin/alerts", duty: "audit.read" },
-    { label: "Import / export", to: "/admin/import" },
+    { label: "Import records", to: "/admin/import" },
     { label: "Documents", to: "/admin/documents" },
     { label: "Standard texts", to: "/admin/texts" },
     { label: "Effective permissions", to: "/admin/security/permissions", duty: "identity.effective-permission.view" },

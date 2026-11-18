@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/BenjaminSRussell/depot/platform/dbx"
@@ -16,7 +17,7 @@ import (
 	"github.com/BenjaminSRussell/depot/services/numbering/migrations"
 )
 
-func TestAllocateOverHTTPUnderAppRole(t *testing.T) {
+func TestAllocateAndListOverHTTPUnderAppRole(t *testing.T) {
 	admin, app := testkit.DBWithApp(t)
 	entity := testkit.TenantID(9)
 	seeder := tenant.With(context.Background(), tenant.Principal{TenantID: testkit.TenantID(1), LegalEntityID: entity})
@@ -64,6 +65,35 @@ func TestAllocateOverHTTPUnderAppRole(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := allocate(tc.headers); got != tc.want {
 				t.Fatalf("status %d, want %d", got, tc.want)
+			}
+		})
+	}
+
+	list := func(headers map[string]string) (int, string) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/numbering/sequences", nil)
+		req.Header.Set(tenant.HeaderTenant, testkit.TenantID(1))
+		req.Header.Set(tenant.HeaderDuties, "numbering.read")
+		for k, v := range headers {
+			req.Header.Set(k, v)
+		}
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		return rec.Code, rec.Body.String()
+	}
+	lists := []struct {
+		name    string
+		headers map[string]string
+		want    int
+		body    string
+	}{
+		{"list for a scoped caller shows the next number", map[string]string{tenant.HeaderLegalEntity: entity}, http.StatusOK, `"code":"PARTY"`},
+		{"list for a caller scoped to another entity is empty", map[string]string{tenant.HeaderLegalEntity: testkit.TenantID(8)}, http.StatusOK, `"items":[]`},
+		{"list for a caller without an entity", nil, http.StatusForbidden, "AUTH-0003"},
+	}
+	for _, tc := range lists {
+		t.Run(tc.name, func(t *testing.T) {
+			if got, body := list(tc.headers); got != tc.want || !strings.Contains(body, tc.body) {
+				t.Fatalf("status %d %s, want %d containing %s", got, body, tc.want, tc.body)
 			}
 		})
 	}

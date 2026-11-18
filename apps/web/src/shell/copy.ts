@@ -223,6 +223,9 @@ export const copy = {
     description: "Check the address, or search for the page you need.",
     pageTitle: "Page not found",
   },
+  planned: {
+    title: "This page isn't available yet",
+  },
   notAvailable: {
     title: "This page isn't available to you",
     description: "Your account doesn't have the duty this page needs. Ask an administrator if you should have access.",

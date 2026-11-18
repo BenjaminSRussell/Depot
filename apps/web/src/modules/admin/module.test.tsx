@@ -3,14 +3,14 @@ import userEvent from "@testing-library/user-event";
 import { createElement } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { setLookupFetcher } from "../../shell/lookup/entities";
+import { plannedRoutes } from "../../shell/pages/PlannedPage";
 import { PrincipalProvider } from "../../shell/principal";
 import { json, pageViolations, renderRoutes, server, useFakeServer } from "../../shell/testing/fakeServer";
 import { findTable } from "../../test-utils";
 import { loadModules } from "../registry";
 import admin from "./module";
 import { AdminHome } from "./pages";
-import { plannedRoutes } from "./PlannedPage";
-import { explainFailure, modeLabel, SEQUENCES_PATH } from "./SequencesPage";
+import { listRouteMissing, modeLabel, nextNumber, PAGE_SIZE, SEQUENCES_PATH, type Sequence } from "./SequencesPage";
 
 useFakeServer();
 
@@ -23,20 +23,23 @@ function renderAt(path: string, duties: string[] = []) {
   );
 }
 
-const sequence = (code: string, name: string, mode: string) => ({
-  id: `00000000-0000-4000-8000-0000000000${code.length}${mode.length}`,
+let serial = 0;
+const sequence = (code: string, name: string, mode: string, nextValue = 1): Sequence => ({
+  id: `00000000-0000-4000-8000-${String((serial += 1)).padStart(12, "0")}`,
   code,
   name,
   format: `${code}-{000000}`,
   legalEntityId: ENTITY,
   mode,
   startFrom: 1,
+  nextValue,
+  nextFormatted: `${code}-${String(nextValue).padStart(6, "0")}`,
 });
 
-function answerSequences(reply: ReturnType<typeof json>) {
+function answerSequences(reply: ReturnType<typeof json> | ((url: URL) => ReturnType<typeof json>)) {
   server.handler = (url) => {
     if (url.pathname === `/api/v1/org/legal-entities/${ENTITY}`) return json(200, { id: ENTITY, code: "DE01", name: "Depot GmbH" });
-    if (url.pathname === SEQUENCES_PATH) return reply;
+    if (url.pathname === SEQUENCES_PATH) return typeof reply === "function" ? reply(url) : reply;
     return undefined;
   };
 }
@@ -52,6 +55,10 @@ describe("admin module", () => {
     expect(loadModules().map((m) => m.id)).toContain("admin");
   });
 
+  it("gates the read-only sequences page on reading sequences", () => {
+    expect(admin.nav.find((n) => n.to === "/admin/sequences")).toEqual({ label: "Number sequences", to: "/admin/sequences", duty: "numbering.read" });
+  });
+
   it("links the admin home only to pages that work", () => {
     render(
       <MemoryRouter>
@@ -59,8 +66,8 @@ describe("admin module", () => {
       </MemoryRouter>,
     );
     const cards = within(screen.getByRole("list", { name: "Admin pages" }));
-    expect(cards.getByRole("link", { name: "Sequences" })).toHaveAttribute("href", "/admin/sequences");
-    expect(cards.getByRole("link", { name: "Import / export" })).toHaveAttribute("href", "/admin/import");
+    expect(cards.getByRole("link", { name: "Number sequences" })).toHaveAttribute("href", "/admin/sequences");
+    expect(cards.getByRole("link", { name: "Import records" })).toHaveAttribute("href", "/admin/import");
     for (const name of ["Audit", "Alerts", "Documents", "Standard texts"]) expect(cards.queryByRole("link", { name })).not.toBeInTheDocument();
   });
 });
@@ -78,18 +85,21 @@ describe("planned admin pages", () => {
 });
 
 describe("number sequences", () => {
-  it("lists the sequences the numbering service returns, read-only", async () => {
-    answerSequences(json(200, { items: [sequence("INV", "Customer invoices", "gap_free"), sequence("SO", "Sales orders", "continuous")] }));
+  it("lists the sequences the numbering service returns, with the next number each will give", async () => {
+    answerSequences(json(200, { items: [sequence("INV", "Customer invoices", "gap_free", 31877), sequence("SO", "Sales orders", "continuous", 12)] }));
     // test-setup.ts answers every name lookup with nothing; this test reads the legal entity's name from the fake server.
     setLookupFetcher((url, init) => fetch(url, init));
-    const { container } = renderAt("/admin/sequences");
+    const { container } = renderAt("/admin/sequences", ["numbering.read"]);
     const table = await findTable({ name: "Number sequences" });
-    expect(server.calls.filter((c) => c.url.pathname === SEQUENCES_PATH).map((c) => c.method)).toEqual(["GET"]);
-    expect(table).toHaveTextContent("INV");
+    const calls = server.calls.filter((c) => c.url.pathname === SEQUENCES_PATH);
+    expect(calls.map((c) => `${c.method} ${c.url.search}`)).toEqual([`GET ?limit=${PAGE_SIZE}`]);
     expect(table).toHaveTextContent("Customer invoices");
     expect(table).toHaveTextContent("INV-{000000}");
     expect(table).toHaveTextContent("Gap-free");
     expect(table).toHaveTextContent("Continuous");
+    expect(table).toHaveTextContent("INV-031877");
+    expect(table).toHaveTextContent("SO-000012");
+    expect(within(table).getByRole("columnheader", { name: /Next number/ })).toBeInTheDocument();
     await waitFor(() => expect(table).toHaveTextContent("Depot GmbH"));
     expect(table).not.toHaveTextContent(ENTITY);
     expect(screen.getByText(/You can't create or change sequences on this page yet/)).toBeInTheDocument();
@@ -97,17 +107,25 @@ describe("number sequences", () => {
     expect(pageViolations(container)).toEqual([]);
   });
 
-  it("accepts a bare array as well as an items page", async () => {
-    answerSequences(json(200, [sequence("PO", "Purchase orders", "non_continuous")]));
+  it("pages with the cursor the service returns", async () => {
+    answerSequences((url) =>
+      url.searchParams.get("cursor") === "c-1"
+        ? json(200, { items: [sequence("PO", "Purchase orders", "non_continuous")] })
+        : json(200, { items: [sequence("SO", "Sales orders", "continuous")], nextCursor: "c-1" }),
+    );
     renderAt("/admin/sequences");
+    await findTable({ name: "Number sequences" });
+    await userEvent.setup().click(await screen.findByRole("button", { name: /Load more/ }));
     expect(await findTable({ name: "Number sequences" })).toHaveTextContent("Non-continuous");
+    expect(server.calls.filter((c) => c.url.pathname === SEQUENCES_PATH).map((c) => c.url.searchParams.get("cursor"))).toEqual([null, "c-1"]);
   });
 
-  it("says what the list is for when the service has no sequences", async () => {
+  it("says what the list is for when there are no sequences, and where to go next", async () => {
     answerSequences(json(200, { items: [] }));
     renderAt("/admin/sequences");
     expect(await screen.findByText("No number sequences yet")).toBeInTheDocument();
-    expect(screen.getByText(/Creating them on this page isn't available yet/)).toBeInTheDocument();
+    expect(screen.getByText(/Creating them here isn't available yet/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open the setup checklist" })).toHaveAttribute("href", "/setup/checklist");
   });
 
   it("says plainly when the account may not read sequences", async () => {
@@ -127,26 +145,33 @@ describe("number sequences", () => {
     expect(await findTable({ name: "Number sequences" })).toHaveTextContent("Sales orders");
   });
 
-  it("does not tell people to try again when the service cannot list sequences at all", async () => {
+  it("explains a numbering service without the list route, with no retry, search, views or export", async () => {
     answerSequences({ status: 405, body: "Method Not Allowed" });
-    renderAt("/admin/sequences");
-    expect(await screen.findByText("Could not load number sequences")).toBeInTheDocument();
-    expect(screen.getByText(/Depot can't list number sequences yet/)).toBeInTheDocument();
-    expect(screen.queryByText(/Something went wrong on our side/)).not.toBeInTheDocument();
+    const { container } = renderAt("/admin/sequences");
+    expect(await screen.findByRole("heading", { name: "Number sequences can't be listed yet" })).toBeInTheDocument();
+    expect(screen.getByText(/Documents are still numbered as before/)).toBeInTheDocument();
+    for (const name of ["Try again", "Export CSV", "Views", "Columns"]) expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+    expect(screen.queryByRole("search")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Could not load|Something went wrong on our side/)).not.toBeInTheDocument();
+    expect(pageViolations(container)).toEqual([]);
   });
 
-  it("keeps the catalog message for a 404 that names its own problem", () => {
-    const problem = { status: 404, code: "COM-0404", message: "x" };
-    expect(explainFailure(problem)).toBe(problem);
-    expect(explainFailure({ status: 500, code: "COM-0500" })).toEqual({ status: 500, code: "COM-0500" });
+  it("treats only a bodiless 404 or 405 as a missing list route", () => {
+    expect(listRouteMissing({ status: 405, code: "COM-0500" })).toBe(true);
+    expect(listRouteMissing({ status: 404 })).toBe(true);
+    expect(listRouteMissing({ status: 404, code: "COM-0404" })).toBe(false);
+    expect(listRouteMissing({ status: 500, code: "COM-0500" })).toBe(false);
+    expect(listRouteMissing(undefined)).toBe(false);
   });
 
-  it("labels every numbering mode in sentence case", () => {
+  it("labels every numbering mode in sentence case and falls back to the plain next value", () => {
     expect(["gap_free", "continuous", "non_continuous", "per_period"].map(modeLabel)).toEqual(["Gap-free", "Continuous", "Non-continuous", "Per period"]);
+    const { nextFormatted: _formatted, ...exhausted } = sequence("BIG", "Exhausted", "gap_free", 1000000);
+    expect(nextNumber(exhausted)).toBe("1000000");
   });
 });
 
-describe("import", () => {
+describe("import records", () => {
   it("opens the setup guide's working import instead of a stub", () => {
     renderAt("/admin/import");
     expect(screen.getByRole("heading", { name: "Import records" })).toBeInTheDocument();

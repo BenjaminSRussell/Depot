@@ -43,8 +43,8 @@ route("GET", `${ORG}/currencies`, () => ({ items: currencies }));
 
 // The setup checklist only asks whether each of these lists has a row; the demo company is fully set up.
 route("GET", "/api/v1/ledger/ledgers", () => ({ items: [{ id: "ledger-crp", legalEntityId: LEGAL_ENTITY.id, name: `${LEGAL_ENTITY.name} general ledger`, currency: LEGAL_ENTITY.currency }] }));
-// Shaped like the numbering service's Sequence (services/numbering/api/openapi.yaml); /admin/sequences lists them.
-const sequence = (n: number, code: string, name: string, format: string, mode: string, legalEntityId = LEGAL_ENTITY.id) => ({
+// Shaped like the numbering service's list (services/numbering/api/openapi.yaml, SequencePage); /admin/sequences shows it.
+const sequence = (n: number, code: string, name: string, format: string, mode: string, nextValue: number, legalEntityId = LEGAL_ENTITY.id) => ({
   id: `00000000-0000-0000-0000-00000000050${n}`,
   code,
   name,
@@ -52,14 +52,16 @@ const sequence = (n: number, code: string, name: string, format: string, mode: s
   legalEntityId,
   mode,
   startFrom: 1,
+  nextValue,
+  nextFormatted: format.replace(/\{([0#]+)\}/, (_, token: string) => String(nextValue).padStart(token.length, "0")),
 });
 route("GET", "/api/v1/numbering/sequences", () => ({
   items: [
-    sequence(1, "SO", "Sales orders", "SO-{000000}", "continuous"),
-    sequence(2, "PO", "Purchase orders", "PO-{000000}", "continuous"),
-    sequence(3, "INV", "Customer invoices", "INV-{000000}", "gap_free"),
-    sequence(4, "JE", "Journal entries", "JE-{000000}", "gap_free"),
-    sequence(5, "INV", "Customer invoices", "RE-{000000}", "gap_free", LEGAL_ENTITY_DE.id),
+    sequence(1, "SO", "Sales orders", "SO-{000000}", "continuous", 24190),
+    sequence(2, "PO", "Purchase orders", "PO-{000000}", "continuous", 48214),
+    sequence(3, "INV", "Customer invoices", "INV-{000000}", "gap_free", 31877),
+    sequence(4, "JE", "Journal entries", "JE-{000000}", "gap_free", 9102),
+    sequence(5, "INV", "Customer invoices", "RE-{000000}", "gap_free", 1406, LEGAL_ENTITY_DE.id),
   ],
 }));
 

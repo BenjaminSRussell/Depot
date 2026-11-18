@@ -49,16 +49,28 @@ test.describe("command palette", () => {
     await expect(shell.paletteInput).toBeFocused();
   });
 
-  test("typing 'aud' and Enter opens Audit", async ({ page }) => {
+  test("typing 'number seq' and Enter opens Number sequences", async ({ page }) => {
     const shell = new ShellPage(page);
     await shell.goto("/");
     await shell.openPaletteWithShortcut();
-    await shell.paletteInput.pressSequentially("aud");
-    await expect(shell.paletteOptions.first()).toContainText("Audit");
+    await shell.paletteInput.pressSequentially("number seq");
+    await expect(shell.paletteOptions.first()).toContainText("Number sequences");
     await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/\/admin\/audit$/);
-    await expect(shell.title).toHaveText("Audit");
+    await expect(page).toHaveURL(/\/admin\/sequences$/);
+    await expect(shell.title).toHaveText("Number sequences");
     await expect(shell.palette).toHaveCount(0);
+  });
+
+  test("offers no planned page, which still opens from a bookmark", async ({ page }) => {
+    const shell = new ShellPage(page);
+    await shell.goto("/");
+    await shell.openPaletteWithShortcut();
+    await shell.paletteInput.pressSequentially("audit log");
+    await expect(page.getByRole("option", { name: "Audit log, Admin" })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await shell.goto("/admin/audit");
+    await expect(shell.title).toHaveText("Audit");
+    await expect(page.getByRole("heading", { level: 2, name: "This page isn't available yet" })).toBeVisible();
   });
 
   test("Escape closes it and returns focus to the opener", async ({ page }) => {

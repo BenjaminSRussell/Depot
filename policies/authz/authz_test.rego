@@ -2,7 +2,7 @@ package authz
 
 import rego.v1
 
-concrete(resource) := replace(replace(resource, "{,/**}", "/item-1"), "*", "item-1")
+concrete(resource) := replace(replace(replace(resource, "{,/**}", "/item-1"), "{,/*}", "/item-1"), "*", "item-1")
 
 allowed(duty, method, resource) if {
 	result := decision with input as {
@@ -601,6 +601,18 @@ test_record_audit_changes_can_post_ingest_and_alert_rules if {
 	}
 		with data.assignments as {"tenant-a": {"user-a": ["audit.change.record"]}}
 	rules.allow
+}
+
+# B-21: numbering.read lists the sequences and reads one, and nothing below a sequence.
+test_numbering_read_lists_and_reads_sequences_only if {
+	allowed("numbering.read", "GET", "/v1/numbering/sequences")
+	allowed("numbering.read", "GET", "/v1/numbering/sequences/INV")
+	not allowed("numbering.read", "GET", "/v1/numbering/sequences/INV/next")
+	not allowed("numbering.read", "POST", "/v1/numbering/sequences")
+	not allowed("numbering.read", "GET", "/v1/numbering/sequencesX")
+	not allowed("numbering.write", "GET", "/v1/numbering/sequences")
+	result := decision with input as {"subject": {"tenant_id": "tenant-a", "user_id": "user-a"}, "action": "GET", "resource": "/v1/numbering/sequences"}
+	result == {"allow": false, "duty_missing": "numbering.read"}
 }
 
 test_missing_numbering_get_duty_is_least_privileged if {

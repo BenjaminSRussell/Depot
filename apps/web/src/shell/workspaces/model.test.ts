@@ -63,7 +63,7 @@ describe("groupByArea", () => {
 
 describe("loadWorkspaceConfig tenant override", () => {
   const replacement = { id: "buyer", label: "Purchasing desk", persona: "Buyer", description: "Custom.", entries: ["/purchasing/purchase-orders"] };
-  const extra = { id: "custom", label: "Custom", persona: "Custom role", description: "Added by a tenant.", entries: ["/admin/audit"] };
+  const extra = { id: "custom", label: "Custom", persona: "Custom role", description: "Added by a tenant.", entries: ["/admin/sequences"] };
   const shipped = loadWorkspaceConfig();
 
   function rejected(override: unknown) {
@@ -103,9 +103,9 @@ describe("loadWorkspaceConfig tenant override", () => {
   it("resolves an overridden workspace against the visible entries", () => {
     const merged = loadWorkspaceConfig({ workspaces: [extra] });
     const resolved = resolveWorkspaces(merged, resolveNavEntries(modules, areas));
-    // A tenant may list any entry; the shipped workspaces list none of these (/admin/audit is in shell/plannedRoutes.json).
+    // The shipped workspaces list none of these entries (/admin/audit is planned and stays out of every workspace).
     expect(resolved.map((w) => w.id)).toEqual(["custom"]);
-    expect(resolved.find((w) => w.id === "custom")?.entries.map((e) => e.to)).toEqual(["/admin/audit"]);
+    expect(resolved.find((w) => w.id === "custom")?.entries.map((e) => e.to)).toEqual(["/admin/sequences"]);
   });
 });
 

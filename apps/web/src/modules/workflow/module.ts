@@ -1,12 +1,12 @@
 import { createElement } from "react";
 import type { DepotModule } from "../registry";
-import { plannedRoute } from "../admin/PlannedPage";
+import { plannedRoute } from "../../shell/pages/PlannedPage";
 import { InboxPage } from "./InboxPage";
 import { WorkflowHome } from "./pages";
 
 const workflow: DepotModule = {
   id: "workflow",
-  title: "Workflow and batch",
+  title: "Workflow",
   description: "Approvals and other work waiting for you.",
   routes: [
     { path: "/workflow", element: createElement(WorkflowHome) },
@@ -15,8 +15,8 @@ const workflow: DepotModule = {
     plannedRoute("/workflow/jobs"),
     plannedRoute("/workflow/templates"),
   ],
-  // Planned routes keep their nav entries so bookmarks and the palette land on an honest "isn't available yet" page;
-  // no workspace links them (shell/honestScreens.test.ts).
+  // Entries for routes in shell/plannedRoutes.json stay here for the nav audit and the page title, but the shell drops
+  // them from the sidebar, workspaces, All features and the palette (shell/pages/PlannedPage.tsx, withoutPlannedNav).
   nav: [
     { label: "Workflow", to: "/workflow", duty: "workflow.read" },
     { label: "Inbox", to: "/workflow/inbox", duty: "inbox.read" },
