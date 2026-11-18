@@ -494,6 +494,8 @@ spec:
         operations: [Create, Describe, Write, DescribeConfigs]
       - resource: {type: topic, name: depot.identity.legalentity, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.identity.session, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
       - resource: {type: topic, name: depot.identity.tenantfeatures, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       - resource: {type: topic, name: depot.identity.tenantsetup, patternType: literal}

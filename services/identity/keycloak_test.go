@@ -150,7 +150,6 @@ func TestKeycloakRealmMatchesIdentityExpectations(t *testing.T) {
 	if realm.AccessTokenLifespan <= 0 || time.Duration(realm.AccessTokenLifespan)*time.Second > 10*time.Minute {
 		t.Fatalf("accessTokenLifespan %d must be within identity's 10 minute token limit", realm.AccessTokenLifespan)
 	}
-	wantClaims := map[string]string{"tid": "tenant_id", "le": "legal_entity_id", "duties": "duties", "tier": "tier"}
 	for _, name := range []string{"depot-web", "depot-services"} {
 		client := findClient(realm, name)
 		if client == nil {
@@ -159,27 +158,9 @@ func TestKeycloakRealmMatchesIdentityExpectations(t *testing.T) {
 		if client.DirectGrants {
 			t.Errorf("client %s must not enable direct access grants in the exported realm", name)
 		}
-		var audience bool
-		gotClaims := map[string]string{}
-		for _, mapper := range client.ProtocolMapper {
-			switch mapper.ProtocolMapper {
-			case "oidc-audience-mapper":
-				audience = mapper.Config["included.custom.audience"] == realmAudience && mapper.Config["access.token.claim"] == "true"
-			case "oidc-usermodel-attribute-mapper":
-				if mapper.Config["jsonType.label"] != "String" || mapper.Config["multivalued"] != "false" || mapper.Config["access.token.claim"] != "true" {
-					t.Errorf("client %s mapper %s must emit a single string access-token claim", name, mapper.Name)
-				}
-				gotClaims[mapper.Config["claim.name"]] = mapper.Config["user.attribute"]
-			}
-		}
-		if !audience {
-			t.Errorf("client %s does not add audience %s to the access token", name, realmAudience)
-		}
-		for claim, attribute := range wantClaims {
-			if gotClaims[claim] != attribute {
-				t.Errorf("client %s maps claim %s from %q, want %q", name, claim, gotClaims[claim], attribute)
-			}
-		}
+	}
+	for _, problem := range realmProblems(realm) {
+		t.Error(problem)
 	}
 	web := findClient(realm, "depot-web")
 	if web == nil || !web.PublicClient || web.Attributes["pkce.code.challenge.method"] != "S256" {
@@ -238,25 +219,66 @@ func TestKeycloakRealmRequiresMFAAndHoldsNoSecrets(t *testing.T) {
 }
 
 func TestKeycloakRealmUserProfileLocksTokenAttributesToAdmins(t *testing.T) {
-	realm := loadRealm(t)
-	var config string
+	for _, problem := range realmProblems(loadRealm(t)) {
+		t.Error(problem)
+	}
+}
+
+var tokenAttributes = []string{"tenant_id", "legal_entity_id", "customer_id", "vendor_id", "duties", "tier"}
+
+func userProfileConfig(realm realmExport) string {
 	for _, components := range realm.Components {
 		for _, component := range components {
 			if values := component.Config["kc.user.profile.config"]; len(values) == 1 {
-				config = values[0]
+				return values[0]
+			}
+		}
+	}
+	return ""
+}
+
+func realmProblems(realm realmExport) []string {
+	var problems []string
+	wantClaims := map[string]string{"tid": "tenant_id", "le": "legal_entity_id", "duties": "duties", "tier": "tier"}
+	for _, name := range []string{"depot-web", "depot-services"} {
+		client := findClient(realm, name)
+		if client == nil {
+			problems = append(problems, "client "+name+" is missing")
+			continue
+		}
+		var audience bool
+		gotClaims := map[string]string{}
+		for _, mapper := range client.ProtocolMapper {
+			switch mapper.ProtocolMapper {
+			case "oidc-audience-mapper":
+				audience = audience || (mapper.Config["included.custom.audience"] == realmAudience && mapper.Config["access.token.claim"] == "true")
+			case "oidc-usermodel-attribute-mapper":
+				if mapper.Config["jsonType.label"] != "String" || mapper.Config["multivalued"] != "false" || mapper.Config["access.token.claim"] != "true" {
+					problems = append(problems, "client "+name+" mapper "+mapper.Name+" must emit a single string access-token claim")
+				}
+				gotClaims[mapper.Config["claim.name"]] = mapper.Config["user.attribute"]
+			}
+		}
+		if !audience {
+			problems = append(problems, "client "+name+" does not add audience "+realmAudience+" to the access token")
+		}
+		for claim, attribute := range wantClaims {
+			if gotClaims[claim] != attribute {
+				problems = append(problems, "client "+name+" maps claim "+claim+" from \""+gotClaims[claim]+"\", want \""+attribute+"\"")
 			}
 		}
 	}
 	var profile struct {
-		Attributes []struct {
+		UnmanagedAttributePolicy string `json:"unmanagedAttributePolicy"`
+		Attributes               []struct {
 			Name        string `json:"name"`
 			Permissions struct {
 				Edit []string `json:"edit"`
 			} `json:"permissions"`
 		} `json:"attributes"`
 	}
-	if err := json.Unmarshal([]byte(config), &profile); err != nil {
-		t.Fatalf("user profile config: %v", err)
+	if err := json.Unmarshal([]byte(userProfileConfig(realm)), &profile); err != nil {
+		return append(problems, "user profile config is missing or unreadable: "+err.Error())
 	}
 	locked := map[string]bool{}
 	for _, attribute := range profile.Attributes {
@@ -264,10 +286,109 @@ func TestKeycloakRealmUserProfileLocksTokenAttributesToAdmins(t *testing.T) {
 			locked[attribute.Name] = true
 		}
 	}
-	for _, name := range []string{"tenant_id", "legal_entity_id", "customer_id", "vendor_id", "duties", "tier"} {
+	for _, name := range tokenAttributes {
 		if !locked[name] {
-			t.Errorf("user attribute %s feeds a token claim and must be admin-edit only", name)
+			problems = append(problems, "user attribute "+name+" feeds a token claim and must be admin-edit only")
 		}
+	}
+	if profile.UnmanagedAttributePolicy == "ENABLED" {
+		problems = append(problems, "unmanagedAttributePolicy ENABLED lets users write attributes the profile does not manage")
+	}
+	return problems
+}
+
+func badRealm(t *testing.T, mutate func(realm *realmExport, profile map[string]any)) realmExport {
+	t.Helper()
+	raw, err := json.Marshal(loadRealm(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var realm realmExport
+	if err := json.Unmarshal(raw, &realm); err != nil {
+		t.Fatal(err)
+	}
+	var profile map[string]any
+	if err := json.Unmarshal([]byte(userProfileConfig(realm)), &profile); err != nil {
+		t.Fatal(err)
+	}
+	mutate(&realm, profile)
+	edited, err := json.Marshal(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, components := range realm.Components {
+		for _, component := range components {
+			if values := component.Config["kc.user.profile.config"]; len(values) == 1 {
+				values[0] = string(edited)
+			}
+		}
+	}
+	return realm
+}
+
+func setProfileAttribute(profile map[string]any, name string, edit []string) {
+	for _, raw := range profile["attributes"].([]any) {
+		if attribute := raw.(map[string]any); attribute["name"] == name {
+			attribute["permissions"] = map[string]any{"edit": edit}
+		}
+	}
+}
+
+func dropAudienceMapper(realm *realmExport, clientID string) {
+	client := findClient(*realm, clientID)
+	client.ProtocolMapper = slices.DeleteFunc(client.ProtocolMapper, func(m realmMapper) bool { return m.ProtocolMapper == "oidc-audience-mapper" })
+}
+
+func TestGuidesStateTheRevocationWindowAndTheRevocationAction(t *testing.T) {
+	for _, guide := range []string{"administrator-guide.md", "tenant-administrator-guide.md"} {
+		raw, err := os.ReadFile("../../docs/ops/" + guide)
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := strings.Join(strings.Fields(string(raw)), " ")
+		if !strings.Contains(text, "300 seconds") || !strings.Contains(text, "/api/v1/identity/users/{id}/session-revocations") {
+			t.Errorf("%s must state the 300 second window and name the session-revocations action", guide)
+		}
+	}
+}
+
+func setAudience(realm *realmExport, clientID, audience string) {
+	for _, mapper := range findClient(*realm, clientID).ProtocolMapper {
+		if mapper.ProtocolMapper == "oidc-audience-mapper" {
+			mapper.Config["included.custom.audience"] = audience
+		}
+	}
+}
+
+func TestKeycloakRealmChecksFailOnABadRealm(t *testing.T) {
+	if problems := realmProblems(badRealm(t, func(*realmExport, map[string]any) {})); len(problems) != 0 {
+		t.Fatalf("the committed realm has problems: %v", problems)
+	}
+	cases := map[string]struct {
+		mutate func(realm *realmExport, profile map[string]any)
+		want   string
+	}{
+		"duties editable by the user":    {func(_ *realmExport, p map[string]any) { setProfileAttribute(p, "duties", []string{"admin", "user"}) }, "user attribute duties"},
+		"tenant_id editable by the user": {func(_ *realmExport, p map[string]any) { setProfileAttribute(p, "tenant_id", []string{"user"}) }, "user attribute tenant_id"},
+		"legal_entity_id editable": {func(_ *realmExport, p map[string]any) {
+			setProfileAttribute(p, "legal_entity_id", []string{"admin", "user"})
+		}, "user attribute legal_entity_id"},
+		"tier without edit permission":    {func(_ *realmExport, p map[string]any) { setProfileAttribute(p, "tier", nil) }, "user attribute tier"},
+		"depot-web audience mapper gone":  {func(r *realmExport, _ map[string]any) { dropAudienceMapper(r, "depot-web") }, "client depot-web does not add audience"},
+		"depot-services audience missing": {func(r *realmExport, _ map[string]any) { dropAudienceMapper(r, "depot-services") }, "client depot-services does not add audience"},
+		"depot-web audience is another":   {func(r *realmExport, _ map[string]any) { setAudience(r, "depot-web", "other-api") }, "client depot-web does not add audience"},
+		"unmanaged attributes enabled":    {func(_ *realmExport, p map[string]any) { p["unmanagedAttributePolicy"] = "ENABLED" }, "unmanagedAttributePolicy"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			problems := realmProblems(badRealm(t, tc.mutate))
+			if !slices.ContainsFunc(problems, func(p string) bool { return strings.Contains(p, tc.want) }) {
+				t.Fatalf("problems = %v, want one containing %q", problems, tc.want)
+			}
+		})
+	}
+	if problems := realmProblems(realmExport{}); len(problems) == 0 {
+		t.Fatal("an empty realm has no problems")
 	}
 }
 

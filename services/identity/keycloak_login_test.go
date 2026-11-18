@@ -337,6 +337,25 @@ func TestKeycloakOIDCLoginWithOTPThenDeprovision(t *testing.T) {
 	}
 
 	deprovisioner := deprovisionClient(t, admin, base, client)
+	revoked, err := deprovisioner.RevokeSessions(context.Background(), realmName, KeycloakTarget{TenantID: loginTenantID, Subject: principal.UserID})
+	if err != nil || revoked != (KeycloakOutcome{Result: "revoked", UserID: principal.UserID}) {
+		t.Fatalf("revoke sessions = %+v, %v; want revoked %s", revoked, err, principal.UserID)
+	}
+	if status, refused := again.token(url.Values{"grant_type": {"refresh_token"}, "refresh_token": {tokens.RefreshToken}}); status != http.StatusBadRequest || refused.Error != "invalid_grant" {
+		t.Fatalf("refresh after revoking sessions: status %d error %q, want 400 invalid_grant", status, refused.Error)
+	}
+	var stillEnabled struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.Unmarshal(admin.do(http.MethodGet, "/admin/realms/"+realmName+"/users/"+principal.UserID, nil, http.StatusOK), &stillEnabled); err != nil || !stillEnabled.Enabled {
+		t.Fatalf("revoking sessions disabled the user (enabled %v, %v)", stillEnabled.Enabled, err)
+	}
+	relogin := newBrowserLogin(t, base)
+	callback, verifier = relogin.login(user, "")
+	if callback == nil {
+		t.Fatal("the user could not log in again after its sessions were revoked")
+	}
+	tokens = relogin.exchange(callback, verifier)
 	outcome, err := deprovisioner.DeprovisionUser(context.Background(), realmName, KeycloakTarget{TenantID: loginTenantID, Subject: principal.UserID})
 	if err != nil || outcome != (KeycloakOutcome{Result: "disabled", UserID: principal.UserID}) {
 		t.Fatalf("deprovision = %+v, %v; want disabled %s", outcome, err, principal.UserID)

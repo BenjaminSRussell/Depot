@@ -140,7 +140,7 @@ func testRouter(t *testing.T, withSCIM bool) http.Handler {
 		}
 		scim = identity.NewSCIMAPI(nil, verifiers, opa)
 	}
-	return newRouter(nil, cat, operatorID, nil, scim, identity.NewCustomerContactsAPI(nil, nil, identity.Invitation{}))
+	return newRouter(nil, cat, operatorID, nil, scim, identity.NewCustomerContactsAPI(nil, nil, identity.Invitation{}), nil)
 }
 
 func get(router http.Handler, path string, headers map[string]string) *httptest.ResponseRecorder {
@@ -175,6 +175,34 @@ func TestRouterServesHealthAndGuardsAdminRoutes(t *testing.T) {
 	}
 	if err := json.NewDecoder(bytes.NewReader(rec.Body.Bytes())).Decode(&body); err != nil || rec.Code != http.StatusOK || len(body.Items) != 1 || body.Items[0].Name != "identity.security-role.maintain" {
 		t.Fatalf("roles = %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestSessionRevocationRouteIsGuardedAndAnswers503WithoutKeycloak(t *testing.T) {
+	router := testRouter(t, false)
+	path := "/v1/identity/users/" + operatorID + "/session-revocations"
+	post := func(headers map[string]string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		for k, v := range headers {
+			req.Header.Set(k, v)
+		}
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec
+	}
+	if rec := post(nil); rec.Code != http.StatusUnauthorized {
+		t.Errorf("no tenant = %d, want 401", rec.Code)
+	}
+	if rec := post(map[string]string{"X-Depot-Tenant": operatorID, "X-Depot-User": "u"}); rec.Code != http.StatusForbidden {
+		t.Errorf("without a duty = %d, want 403", rec.Code)
+	}
+	scoped := map[string]string{"X-Depot-Tenant": operatorID, "X-Depot-User": "u", "X-Depot-Duties": "identity.user.maintain"}
+	if rec := post(scoped); rec.Code != http.StatusForbidden {
+		t.Errorf("without tenant.administer = %d, want 403", rec.Code)
+	}
+	admin := map[string]string{"X-Depot-Tenant": operatorID, "X-Depot-User": "u", "X-Depot-Duties": "identity.user.maintain,tenant.administer"}
+	if rec := post(admin); rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "IDN-SESSION-REVOKE-OFF") {
+		t.Errorf("Keycloak administration off = %d %s, want 503 IDN-SESSION-REVOKE-OFF", rec.Code, rec.Body.String())
 	}
 }
 
