@@ -104,6 +104,7 @@ type invoicePostedLineData struct {
 	UnitPrice     string `json:"unit_price"`
 	Amount        string `json:"amount"`
 	GrirCleared   string `json:"grir_cleared_amount"`
+	Service       bool   `json:"service,omitempty"`
 }
 
 type invoicePostedData struct {
@@ -329,7 +330,7 @@ func invoicePostedEvent(tenantID string, in store.Invoice, group domain.VendorGr
 	}
 	for i, l := range in.Lines {
 		data.Lines = append(data.Lines, invoicePostedLineData{
-			LineNo: i + 1, ReceiptID: l.ReceiptID, ReceiptLineNo: l.ReceiptLineNo, Qty: l.Qty.String(), UnitPrice: l.UnitPrice.String(), Amount: l.Amount.String(), GrirCleared: cleared[i].String(),
+			LineNo: i + 1, ReceiptID: l.ReceiptID, ReceiptLineNo: l.ReceiptLineNo, Qty: l.Qty.String(), UnitPrice: l.UnitPrice.String(), Amount: l.Amount.String(), GrirCleared: cleared[i].String(), Service: l.Service,
 		})
 	}
 	return newEvent("payables", "invoice", "posted", in.ID, tenantID, data)

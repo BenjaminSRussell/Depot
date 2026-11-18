@@ -186,6 +186,41 @@ func TestReceiptCorrection_BooksMirrorTransactionAndReducesOnHand(t *testing.T) 
 	}
 }
 
+func TestInvoicePosted_AfterAReceiptCorrectionStepsTheLineAtTheNetQuantity(t *testing.T) {
+	b, ctx := newStockBooks(), postingsCtx(t)
+	h := flowHandlers(b)
+	for _, name := range []struct{ typ, file string }{{ReceiptPostedType, "receipt-posted.json"}, {ReceiptCorrectedType, "receipt-corrected.json"}} {
+		if err := h[name.typ].Handle(ctx, nil, flowEvent(t, name.typ, ReceiptSource, name.file)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := h[InvoicePostedType].Handle(ctx, nil, postingEvent(t, InvoicePostedType, ReceiptSource, invoiceWith(flowLedger, invoiceLine("1", "8", "84")))); err != nil {
+		t.Fatal(err)
+	}
+	row := b.status(t, flowReceipt, 1)
+	if row.ReceiptStatus != "PURCHASED" || b.ledgerIDs[row.ID] != flowLedger || len(b.steps) != 1 {
+		t.Fatalf("line at %s with ledger %q after %d steps, want PURCHASED with %s after one", row.ReceiptStatus, b.ledgerIDs[row.ID], len(b.steps), flowLedger)
+	}
+	if err := h[InvoicePostedType].Handle(ctx, nil, postingEvent(t, InvoicePostedType, ReceiptSource, invoiceWith(flowLedger, invoiceLine("1", "5", "50")))); err != nil || len(b.steps) != 1 {
+		t.Fatalf("a part invoice after the correction: %v, %d steps, want acked and no new step", err, len(b.steps))
+	}
+}
+
+func TestInvoicePosted_ServiceLineWithoutStockIsAckedAndStockLineStillStepped(t *testing.T) {
+	b, ctx := newStockBooks(), postingsCtx(t)
+	h := flowHandlers(b)
+	if err := h[ReceiptPostedType].Handle(ctx, nil, flowEvent(t, ReceiptPostedType, ReceiptSource, "receipt-posted.json")); err != nil {
+		t.Fatal(err)
+	}
+	service := `{"line_no":2,"receipt_id":"` + postReceipt + `","receipt_line_no":1,"qty":"1","unit_price":"50","amount":"50","service":true}`
+	if err := h[InvoicePostedType].Handle(ctx, nil, postingEvent(t, InvoicePostedType, ReceiptSource, invoiceWith(flowLedger, invoiceLine("1", "10", "105"), service))); err != nil {
+		t.Fatalf("service line: %v, want the event acked", err)
+	}
+	if row := b.status(t, flowReceipt, 1); row.ReceiptStatus != "PURCHASED" || len(b.steps) != 1 {
+		t.Fatalf("stock line at %s after %d steps, want PURCHASED after one", row.ReceiptStatus, len(b.steps))
+	}
+}
+
 func TestInvoicePosted_ThousandLineReceiptMovesEveryLineToPurchased(t *testing.T) {
 	const lines = 1000
 	var receipt, invoice strings.Builder
