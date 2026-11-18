@@ -694,8 +694,9 @@ class ArgoApplicationsTest(unittest.TestCase):
         # to and writes the dead-letter topic the code parks on.
         api = (REPO / "services/inventory/internal/api/postings_consumer.go").read_text()
         truck = (REPO / "services/inventory/internal/api/truck_consumer.go").read_text()
+        invoice = (REPO / "services/inventory/internal/api/postings_invoice.go").read_text()
         cmd = (REPO / "services/inventory/cmd/inventory/consumer.go").read_text()
-        source_topics = set(re.findall(r'^\s+\w+Topic\s+=\s+"([^"]+)"', api + truck, re.M))
+        source_topics = set(re.findall(r'^\s+\w+Topic\s+=\s+"([^"]+)"', api + truck + invoice, re.M))
         (group,) = re.findall(r'PostingsConsumerName\s+=\s+"([^"]+)"', api)
         (dlq,) = re.findall(r'postingsDeadLetterTopic\s+=\s+"([^"]+)"', cmd)
         values = yaml.safe_load((REPO / "services/inventory/charts/inventory/values.yaml").read_text())
