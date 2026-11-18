@@ -28,7 +28,6 @@ type entityItem struct {
 	Recorded     bool       `json:"recorded"`
 }
 
-// listRecords is GET /v1/audit/records (AUD-API-2): the tenant's changes in chain order, filtered, a page at a time.
 func (a *API) listRecords(w http.ResponseWriter, r *http.Request) {
 	if !validTenant(w, r) {
 		return
@@ -65,7 +64,6 @@ func (a *API) listRecords(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, out)
 }
 
-// listEntities is GET /v1/audit/entities (AUD-API-5): every entity the audit covers, with the ones that have no change yet.
 func (a *API) listEntities(w http.ResponseWriter, r *http.Request) {
 	if !validTenant(w, r) {
 		return
@@ -92,8 +90,6 @@ func (a *API) listEntities(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
-// query is GET /v1/audit/records/{entity}/{recordId} (AUD-API-6): one record's history for audit.read, or for the
-// record's own read duty within the caller's legal-entity scope. Sensitive values are masked without audit.export.
 func (a *API) query(w http.ResponseWriter, r *http.Request) {
 	if !validTenant(w, r) {
 		return

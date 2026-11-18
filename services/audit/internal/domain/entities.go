@@ -2,8 +2,6 @@ package domain
 
 import "sort"
 
-// readDuties maps an audit entity to the duty that lets a person read that record (AUD-API-6). An entity that is
-// not here is readable only with audit.read.
 var readDuties = map[string]string{
 	"party.party":         "party.read",
 	"party.vendor":        "party.read",
@@ -29,13 +27,11 @@ var sensitiveFields = map[string]bool{
 	"product.product/cost":               true,
 }
 
-// ReadDuty is the duty that reads entity's records.
 func ReadDuty(entity string) (string, bool) {
 	d, ok := readDuties[entity]
 	return d, ok
 }
 
-// KnownEntities lists the entities this service maps to a read duty, sorted.
 func KnownEntities() []string {
 	out := make([]string, 0, len(readDuties))
 	for e := range readDuties {
@@ -45,10 +41,8 @@ func KnownEntities() []string {
 	return out
 }
 
-// IsSensitive reports whether values of entity's field are masked for a caller without audit.export.
 func IsSensitive(entity, field string) bool { return sensitiveFields[entity+"/"+field] }
 
-// Mask hides all but the last four characters of a value of 8 or more characters, and all of a shorter one.
 func Mask(value string) string {
 	if value == "" {
 		return ""

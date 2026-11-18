@@ -85,12 +85,6 @@ type assignRequest struct {
 	Reason        string     `json:"reason"`
 }
 
-func auditorTermProblem(field, message string) error {
-	problem := httpx.NewProblem(http.StatusBadRequest, codeInvalid, "invalid role assignment")
-	problem.Errors = map[string]string{field: message}
-	return problem
-}
-
 func (a *RoleAssignmentsAPI) assign(w http.ResponseWriter, r *http.Request) {
 	p, ok := actingPrincipal(w, r)
 	if !ok {
@@ -179,23 +173,6 @@ func (a *RoleAssignmentsAPI) assign(w http.ResponseWriter, r *http.Request) {
 		}
 		if status != "active" {
 			return httpx.NewProblem(http.StatusConflict, codeUserDeprovisioned, "user is deprovisioned")
-		}
-		var conflict bool
-		if req.Role == dutyAuditor {
-			err = tx.QueryRow(r.Context(), `select exists (select 1 from identity_role_assignments where tenant_id = $1 and user_id = $2 and role <> $3
-  and valid_from <= now() and (valid_to is null or valid_to > $4::timestamptz))`, p.TenantID, req.UserID, dutyAuditor, now.Add(maxAuditorTerm)).Scan(&conflict)
-			if err == nil && conflict {
-				return auditorTermProblem("role", "the user holds assignments that do not end within 90 days: end them or give them an end date first")
-			}
-		} else {
-			err = tx.QueryRow(r.Context(), `select exists (select 1 from identity_role_assignments where tenant_id = $1 and user_id = $2 and role = $3
-  and valid_from <= now() and (valid_to is null or valid_to > now()))`, p.TenantID, req.UserID, dutyAuditor).Scan(&conflict)
-			if err == nil && conflict && (req.ValidTo == nil || req.ValidTo.After(now.Add(maxAuditorTerm))) {
-				return auditorTermProblem("validTo", "is required within 90 days: the user holds an auditor assignment, so every assignment is end-dated")
-			}
-		}
-		if err != nil {
-			return err
 		}
 		if req.LegalEntityID != "" {
 			var entityStatus string

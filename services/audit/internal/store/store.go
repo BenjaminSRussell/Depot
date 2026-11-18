@@ -72,9 +72,7 @@ type AlertRule struct {
 type Store interface {
 	cdc.Consumer
 	Query(ctx context.Context, entity, recordID string) ([]Record, error)
-	// ListRecords is AUD-API-2: the tenant's changes in chain order, filtered, a page at a time.
 	ListRecords(ctx context.Context, f RecordFilter) ([]Record, error)
-	// ListEntities is AUD-API-5: every entity with changes in the chain.
 	ListEntities(ctx context.Context) ([]EntitySummary, error)
 	// VerifyChanges walks the tenant's change chain, or the seq range [fromSeq, toSeq] of it (0 for open), and checks
 	// the daily anchors in it (AUD-API-4, B-07).
@@ -242,7 +240,6 @@ func scanRecord(rows pgx.Rows) (Record, error) {
 	return rec, err
 }
 
-// RecordFilter narrows ListRecords. From is inclusive, To exclusive; AfterSeq resumes after a cursor.
 type RecordFilter struct {
 	Entity, RecordID, UserID, Field string
 	From, To                        *time.Time
@@ -250,7 +247,6 @@ type RecordFilter struct {
 	Limit                           int
 }
 
-// EntitySummary is one entity of the chain with its change count and latest change.
 type EntitySummary struct {
 	Entity       string    `json:"entity"`
 	Changes      int64     `json:"changes"`
@@ -288,7 +284,6 @@ func recordWhere(f RecordFilter) (string, []any) {
 	return clause, args
 }
 
-// ListRecords returns the changes the caller's legal-entity scope can see, in chain order.
 func (s *Postgres) ListRecords(ctx context.Context, f RecordFilter) ([]Record, error) {
 	p, _ := tenant.FromContext(ctx)
 	clause, args := recordWhere(f)
@@ -316,7 +311,6 @@ func (s *Postgres) ListRecords(ctx context.Context, f RecordFilter) ([]Record, e
 	return out, err
 }
 
-// ListEntities returns the distinct entities the caller's legal-entity scope can see.
 func (s *Postgres) ListEntities(ctx context.Context) ([]EntitySummary, error) {
 	p, _ := tenant.FromContext(ctx)
 	out := []EntitySummary{}

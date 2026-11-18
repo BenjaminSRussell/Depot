@@ -31,11 +31,10 @@ type API struct {
 	applied atomic.Int64
 	failed  atomic.Int64
 	// Read-log counters (#606).
-	reads       atomic.Int64
-	readsFailed atomic.Int64
-	exports     atomic.Int64
-	reviews     atomic.Int64
-	// Change-history query counters (AUD-API-2, 5, 6).
+	reads         atomic.Int64
+	readsFailed   atomic.Int64
+	exports       atomic.Int64
+	reviews       atomic.Int64
 	queries       atomic.Int64
 	queriesFailed atomic.Int64
 }

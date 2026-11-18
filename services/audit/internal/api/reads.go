@@ -144,7 +144,6 @@ func (a *API) listReads(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, out)
 }
 
-// pageParams parses limit and cursor; ok is false once a problem was written.
 func pageParams(w http.ResponseWriter, r *http.Request) (limit int, afterSeq int64, ok bool) {
 	limit = defaultReadLimit
 	if v := r.URL.Query().Get("limit"); v != "" {
