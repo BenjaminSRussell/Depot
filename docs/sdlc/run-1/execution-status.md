@@ -14,6 +14,7 @@ this file covers the work in between.
 | B-02a | #722 |
 | B-01a | #724 |
 | B-03b, B-07a, B-09a | #726 |
+| B-05b, B-04, B-03b follow-ups | #727 |
 
 ## Merged in #726 (kept for the review trail)
 
@@ -40,7 +41,7 @@ The B-03b follow-up is issue #725, covering the 9 tables whose D17 reason is int
 
 ## Not started
 
-- B-05c, B-07b and B-07c, B-09b and B-09c, B-10, B-01b, B-02b and B-02c, and the P1 waves in [execution-plan.md](execution-plan.md).
+- B-07b and B-07c, B-09c, B-10, B-01b, B-02b and B-02c, and the P1 waves in [execution-plan.md](execution-plan.md).
 
 ## After #726
 
@@ -61,3 +62,19 @@ B-04 follow-ups: wire Secret `depot-log-pseudonym` into the service charts (fres
 a per-installation pseudonym key for depot-server; R3 (OPA's loopback query API can read the key; a supervisor
 `FIELDCRYPT_KEYS_FILE` overrides a child's own `FIELDCRYPT_KEYS`); a live Envoy and Prometheus check (#213, including
 early `X-Request-Id` removal); owner decision on machine callers at Envoy (#512).
+
+## Wave 3c (#730)
+
+| Item | Commits | Review | State |
+|---|---|---|---|
+| B-21: honest screens, real sequences and import pages, numbering list endpoint | 11c9a6b1, 6672a576, 98b4b41e | [round 1](reviews/b21-review-1.md) (4 Major), [round 2](reviews/b21-review-2.md) (1 Major: optional prop dodged the scan), [round 3](reviews/b21-review-3.md): approved | Merge with #730 |
+| B-05c: event payload contracts per consumer, search receive operations and reconcile (index side) | 46ad2ed1, 78abe4d3, 70efe589 | [round 1](reviews/b05c-review-1.md) (4 Major), [round 2](reviews/b05c-review-2.md) (1 Major: not fail-closed after the first decode), [round 3](reviews/b05c-review-3.md): approved | Merge with #730 |
+| B-09b: stage platform, databases and Secrets, session Valkey, numbering timeout, release pins | fe2eb629, c16d2d7e, e8330ed8 | [round 1](reviews/b09b-review-1.md) (1 Blocker: stage gateway; 4 Major), [round 2](reviews/b09b-review-2.md): approved; its 4 Minors fixed in e8330ed8 | Merge with #730 |
+| CI fix: identity catalogue accepts the `{,/*}` glob; stage README wording | e74a24b1 | checked in B-21 round 3 | Merge with #730 |
+
+Follow-ups from wave 3c:
+- #731: source-count side of the search reconciliation (nine services).
+- B-05c R3-m1/R3-m2: the contract analyzer does not follow module types with their own `UnmarshalJSON`, and a field's mark clears after its first followed decode.
+- B-21 r3-m1/r3-m2: a route passing one harmless prop, or a wrapper in its own `.tsx`, can still slip a fake page past the scan. Planned-route target dates (2027-02-26, 2027-05-28, 2027-06-30) need owner confirmation. `at-pass-template.md` has no owner.
+- B-09b: v0.2.0 not cut and no image digests recorded, so no Depot service starts in stage yet; nothing serves `idp.stage.depot.dev` for browser sign-in; a role keeps LOGIN if its Vault key is removed; stage consumers, monitoring and Temporal mTLS are off. Prod is B-09c.
+- The six `deploy/multi-region/test_chart.py` schema tests fail locally with helm 3.16's error wording (also on main).
