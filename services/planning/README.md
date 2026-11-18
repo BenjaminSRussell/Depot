@@ -41,6 +41,7 @@ internal/store/        Postgres repository (pgx); a plan run is one transaction 
 internal/api/          HTTP handlers under /v1/planning, RFC 9457 problems, /readyz with a database ping
 internal/events/       plan.started.v1, plan.completed.v1, message.raised.v1, message.applied.v1, message.dismissed.v1, plannedorder.firmed.v1 and forecast.published.v1 types and payloads
 internal/forecastclient/ HTTP client of forecast-py for POST /forecasts/{modelCode}:generate (slice 28, FORECAST_URL, flag planning.statistical-forecast); forecast.generated.v1
+internal/openinputs/   signed client of sales (GET /v1/sales/open-order-lines) and inventory (GET /v1/inventory/onhand) for a run that sends no items (B-16, SALES_URL, INVENTORY_URL)
 migrations/            0001_init.sql (plan, plan_version, planned_order, pegging, action_message, outbox; RLS on all)
                        0002_forecast_and_maintenance.sql (planned_order version/vendor/deleted, forecast_model, forecast_line; RLS)
                        0003_firming.sql (firming_batch with RLS, firmed target on planned_order, cancel/decrease actions)

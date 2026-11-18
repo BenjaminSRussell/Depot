@@ -142,6 +142,17 @@ func (f *fakeStore) RunPlan(ctx context.Context, req store.RunRequest) (store.Ve
 	return v, false, nil
 }
 
+func (f *fakeStore) ReplayVersion(_ context.Context, key, hash string) (store.Version, bool, error) {
+	v, ok := f.runs[key]
+	if !ok {
+		return store.Version{}, false, nil
+	}
+	if f.inputs[key] != hash {
+		return store.Version{}, false, httpx.NewProblem(http.StatusUnprocessableEntity, store.CodeIdempotencyReuse, "reuse")
+	}
+	return v, true, nil
+}
+
 func (f *fakeStore) GetVersion(_ context.Context, code string, number int) (store.Version, error) {
 	for _, v := range f.runs {
 		if v.PlanCode == code && v.Number == number {

@@ -232,6 +232,7 @@
     "production.jobcard.shopfloor": {"flag": true, "permissions": []},
     "sales.order.record-delivery": {"service_only": true, "permissions": [{"resource": "/v1/sales/orders/*:record-progress", "methods": ["POST"]}]},
     "sales.order.record-invoice": {"service_only": true, "permissions": [{"resource": "/v1/sales/orders/*:record-progress", "methods": ["POST"]}]},
+    "sales.order.open-lines": {"service_only": true, "permissions": [{"resource": "/v1/sales/open-order-lines", "methods": ["GET"]}]},
     "tax.transaction.record": {"service_only": true, "permissions": [{"resource": "/v1/tax/transactions", "methods": ["POST"]}]},
     "tax.settlement.run": {"permissions": [{"resource": "/v1/tax/settlements:run", "methods": ["POST"]}]},
     "tax.recommit.run": {"permissions": [{"resource": "/v1/tax/recommit:run", "methods": ["POST"]}]},
@@ -4225,6 +4226,10 @@
     "costing": {
       "ledger": ["ledger.entry.post", "ledger.balance.read", "ledger.ledger.lookup"]
     },
+    "planning": {
+      "sales": ["sales.order.open-lines"],
+      "inventory": ["inventory.read"]
+    },
     "inventory": {
       "ledger": ["ledger.entry.post", "ledger.ledger.lookup"],
       "product": ["product.uom.convert"]
@@ -4410,6 +4415,7 @@
     "billing-sales-report": ["sales.order.record-invoice"],
     "billing-tax-report": ["tax.transaction.record"],
     "billing-tax-calc": ["tax.tax.calculate"],
+    "planning-open-inputs": ["sales.order.open-lines", "inventory.read"],
     "fulfillment-sales-report": ["sales.order.record-delivery"],
     "integration-hub": ["migration.outbound.render", "migration.xref.record"],
     "inventory-postings": ["inventory.transaction.apply"],
