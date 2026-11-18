@@ -217,6 +217,7 @@ jobs:
   web:
     if: inputs.web
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: apps/web
@@ -252,6 +253,11 @@ jobs:
   web-demo-flows:
     if: inputs.web
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['1/4', '2/4', '3/4', '4/4']
     defaults:
       run:
         working-directory: apps/web
@@ -275,7 +281,7 @@ jobs:
             fi
             sleep $((attempt * 20))
           done
-      - run: npx playwright test --project=demo-flows --project=demo-phone
+      - run: npx playwright test --project=demo-flows --project=demo-phone --shard=${{ matrix.shard }}
 
   warehouse-mobile:
     if: inputs.warehouse
