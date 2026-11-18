@@ -1,0 +1,40 @@
+# The integration hub's CloudEvents consumer (FR-35.9, group integration-hub) matches the configured topics' events to
+# webhook subscriptions and parks a record that is not a usable CloudEvent on depot.hub.consumer.dlq. The topics are
+# chart configuration (kafka.topics, HUB_TOPICS), so these Read ACLs follow the chart default: a topic added there needs
+# an ACL here (deploy/scripts/test_kafka_consumers.py compares them). outbox-sales and outbox-billing in connect.yaml
+# write both topics. The chart's kafka.username names this user (B-05b, D34).
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: integration-hub-consumer
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot
+spec:
+  authentication:
+    type: scram-sha-512
+  authorization:
+    type: simple
+    acls:
+      - resource: {type: topic, name: depot.sales.order, patternType: literal}
+        operations: [Read, Describe]
+      - resource: {type: topic, name: depot.billing.invoice, patternType: literal}
+        operations: [Read, Describe]
+      - resource: {type: topic, name: depot.hub.consumer.dlq, patternType: literal}
+        operations: [Write, Describe]
+      - resource: {type: group, name: integration-hub, patternType: literal}
+        operations: [Read, Describe]
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: depot-hub-consumer-dlq
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot
+spec:
+  topicName: depot.hub.consumer.dlq
+  partitions: 3
+  replicas: 3
+  config:
+    retention.ms: 2592000000

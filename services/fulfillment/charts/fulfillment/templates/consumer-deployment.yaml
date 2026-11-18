@@ -20,6 +20,9 @@ spec:
         app.kubernetes.io/name: {{ .Chart.Name }}
         app.kubernetes.io/component: consumer
     spec:
+      securityContext:
+        # The Kafka credentials are mounted 0440: the nonroot user reads them through this group (D34).
+        fsGroup: 65532
       volumes:
         - name: kafka
           secret:

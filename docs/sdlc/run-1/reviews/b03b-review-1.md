@@ -451,3 +451,137 @@ All runs used a fresh database `rev_b03b_<n>`, prepared like CI (`pg_trgm` and `
 | Probe: `opa eval` with the head policy (Blocker exploits) | All tenant-level requests denied; per-legal-entity duties still granted. |
 | Probe: Go test `TestProbe2BulkTypoFreezesLegacyWorkersWithHistory` in a scratch copy of the module | Confirms R1: a bulk typo assigns everything, and the worker with time cannot be corrected (SF-0200). Confirms the actor appears in the events, and that a scoped `A,B` caller is refused. |
 | Probe: SQL as `depot_app` on a database with shop floor migrations 0001-0041 applied | Confirms R2: a cross-company `pay_export_line` insert under scope A is accepted, and B's later insert fails on the primary key. The 0040 index is present. |
+
+---
+
+# Re-review 2: fix commit f9dc81c5 (on top of 358c3682), R1-R5 only
+
+## Verdict: APPROVE
+
+R1 to R5 are resolved, and I found no new Blocker or Major. Two new Minors and one Nit are listed below. None of them blocks merge.
+
+Note on R1: until an environment sets `identityUrl` and `serviceIdentity`, and identity trusts the shop floor's key, the assign routes answer 503 SF-0202. Nothing can be assigned in that state, which is closed but non-functional. The backfill runbook therefore depends on that deploy step.
+
+## Outcome per finding
+
+| # | Outcome | Evidence |
+|---|---|---|
+| R1 Major (a typo freezes legacy workers) | **Resolved** | See below. |
+| R2 Minor (`pay_export_line` WITH CHECK) | **Resolved** | See "Is 0042 correct?" below. |
+| R3 Minor (effective report vs OPA) | **Resolved** | `effective_api.go` now reads, per row, whether it is scoped and whether its legal entity is active. A scoped row counts only if its legal entity is active and its duty is not `TenantLevel`, which matches the compiler. A role is reported if any row grants it. `effective_api_test.go` covers it. |
+| R4 Minor (`allUnassigned` unbounded) | **Resolved** | See below. |
+| R5 Nit (README reasoning) | **Resolved** | `shopfloor.setup.maintain` is now listed under the tenant-wide reference tables rule. |
+| Optional | Done | rlscheck rejects `OR <n> = <n>`, with fixture `child_tautology`. The pattern also matches `OR 1 = 2`, but a false positive there is harmless. |
+
+### R1: the legal entity is now confirmed with identity before anything is written
+
+- Both assign routes call `legalEntityUsable` before the store:
+  - a caller who is not `dbx.TenantWide` gets 403;
+  - an unknown or inactive legal entity gets 422 SF-0201;
+  - no checker configured, or any other error, gets 503 SF-0202.
+- The bulk route has `dryRun`.
+- The runbook now says that legacy workers freeze on their first assignment, and requires a dry run first.
+
+### R4: `allUnassigned` is bounded
+
+- `allUnassigned` takes at most 1,000 workers per call (`limit $2 for update`).
+- The response gives `assignedCount` and `remaining`, and lists ids only for a call that named its workers, so the stored idempotent response stays small.
+- The runbook says to repeat with a new Idempotency-Key until `remaining` is 0. That matters: reusing a key would replay the first response.
+
+## Answers to the coordinator's questions
+
+1. **Can the identity route leak anything beyond existence and active status?** No.
+   - `lookup` (`legal_entities_api.go`) reads `status` only, for `tenant_id = p.TenantID`, and returns `{legalEntityId (the canonical id from the path), active}` or 404.
+   - Another tenant's legal entity returns 404 (test `TestLegalEntityLookupForServices`).
+   - It reads in scope `'*'`, so a caller limited to one legal entity could learn whether a *sibling* legal entity of its own tenant exists. That is the intended answer and is not sensitive.
+
+2. **Is it callable only by service tokens with that duty?** Partly, and not by the handler itself. See R6.
+   - The duty is `service_only` and `tenant_level` (`data.json:69`).
+   - Identity refuses to assign `service_only` duties to people, and the bundle compiler drops them (`PersonAssignable`). So OPA denies people on devgateway and depot-server; a rego test pins this alongside the grant.
+   - The tenant kernel enforces the grant table for service tokens (`service.go:776`).
+   - But the route is under `requireAnyDuty(identity.legal-entity.lookup)`, which accepts *any* principal holding the duty, including a header principal. The new test `TestLegalEntityLookupForServices` passes with a non-service principal (`caller{duties: [lookup]}`).
+   - `/v1/identity` is exposed through Envoy (`deploy/gateway/httproutes.yaml:901-914`), and Envoy does not call OPA (ADR-0006 rule 3). So a person whose token `duties` claim contains the duty can call it.
+   - The impact is negligible (existence and active flag in their own tenant), and identity never puts a service-only duty in a person's assignments.
+
+3. **Is the actor binding correct, with no confused-deputy path?** Yes.
+   - `registry.LegalEntities.Active` signs with `ApplyDuties(req, p, "identity", "", [lookup])`.
+   - `MintDuties` restricts the token to the grant ∩ `only`. Because the lookup duty is tenant-level, it sets `le` to empty and mints only when `IsTenantAdmin(p)` (`service.go:525-527`); a scoped caller cannot mint (registry test).
+   - `tid` is `p.TenantID` and `act` is `p.UserID`, the calling tenant admin. The shop floor checks `dbx.TenantWide(p, shopfloor.setup.maintain)` before calling.
+   - The only question asked is a yes/no about the caller's own tenant, and the answer is bound to the id asked: a mismatched `legalEntityId` is an error. There is no parameter by which the caller could steer the call to another tenant or another duty.
+
+4. **Is 503 fail-closed on every error path?** Yes.
+   - No checker configured → 503.
+   - Sign error, transport error, read error, any status other than 200 or 404, an undecodable or mismatched body → error → 503.
+   - 404 → 422, and `active: false` → 422.
+   - No path continues to the store on an error.
+   - One wrinkle: a misrouted `IDENTITY_URL` that answers 404 (for example "no route") is reported as 422 "unknown legal entity" rather than 503. That is still closed, but misleading for an operator. Folded into R7.
+
+5. **Is the dry run truly write-free?** Yes.
+   - The API skips `replayed` for a dry run. `replayed` is read-only in any case: `LookupReplay`.
+   - The store returns inside the dry-run branch before the `UPDATE`, `publishWorkerAssigned` (outbox), `backfillExportBatches` and `remember` (idempotency). The transaction commits with no writes.
+   - It does take `FOR UPDATE` row locks on up to 1,000 workers for the length of the transaction: brief, and not a write.
+   - The store test checks no events and no batch changes. The API test checks the worker is not assigned.
+
+6. **Is 0042 correct?** Yes.
+   - USING is unchanged from 0041.
+   - WITH CHECK requires the batch's legal entity in scope **and** the pay line's worker in scope. Verified with SQL as `depot_app` on migrations 0001-0042:
+
+     | Scope | Insert | Result |
+     |---|---|---|
+     | A | B's pay line into A's batch (the R2 exploit) | **refused** |
+     | A | its own line into A's batch | accepted |
+     | A | its own line into a NULL batch | refused |
+     | A,B | B's line into A's batch | accepted (entitled to both; `ExportPay` never does this) |
+
+     A NULL-batch line of a NULL-legal-entity worker stays invisible to A, and `'*'` sees everything.
+
+7. **Does the chart render?** Yes. Helm v3.16, `helm template` of `services/shopfloor/charts/shopfloor`:
+
+   | Values | Result |
+   |---|---|
+   | defaults | NetworkPolicy, Service, Deployment; no `IDENTITY_URL` or `service-identity` |
+   | `identityUrl=http://identity:8080`, `serviceIdentity.signingKeySecret=shopfloor-svc`, `serviceIdentity.keyId=k1` | renders `IDENTITY_URL`, `DEPOT_SERVICE_NAME=shopfloor`, `DEPOT_SERVICE_SIGNING_KEY_FILE`, `DEPOT_SERVICE_KEY_ID`, the read-only mount and the secret volume (mode 0440) |
+   | `identityUrl` without the secret | fails with "serviceIdentity.signingKeySecret is required with identityUrl", as intended |
+   | `identityUrl` with `edgeCa.secret` | renders both volumes |
+
+   The YAML parses. See R8 for the mount permission.
+
+## New findings
+
+### R6. Minor: the identity lookup handler does not require a service principal
+
+- **Where:** `services/identity/legal_entities_api.go:45`
+- **What:** The route is guarded by `requireAnyDuty(dutyLookupLegalEntity)`, which checks `p.HasDuty` only. A header principal whose `X-Depot-Duties` contains the duty passes (the identity test itself does this). Via Envoy that header is the token's `duties` claim, and Envoy never consults OPA. Impact: existence and active flag of legal entities in the caller's own tenant.
+- **Suggested fix:** Also require `p.Service == "shopfloor"` (or `p.Service != ""`) in `lookup`, and add a test with a header principal expecting 403.
+
+### R7. Nit: the identity client follows redirects and reads every 404 as "unknown"
+
+- **Where:** `services/shopfloor/internal/registry/legalentity.go`
+- **What:**
+  - The `http.Client` follows redirects and forwards custom headers, including `X-Depot-Service-Token`, to the redirect target. The token is audience-bound and replay-checked, and `IDENTITY_URL` is operator-set.
+  - A 404 from a wrong base URL becomes 422 SF-0201 instead of 503.
+- **Suggested fix:** Set `CheckRedirect` to return `http.ErrUseLastResponse`. Treat a 404 whose body is not a problem with code `IDN-LEGAL-ENTITY-NOT-FOUND` as unavailable.
+
+### R8. Minor (uncertain, needs a cluster to confirm): the service-identity secret is mounted 0440, with no pod `fsGroup`
+
+- **Where:** `services/shopfloor/charts/shopfloor/templates/deployment.yaml` (volume `service-identity`)
+- **What:** Secret volume files are owned by root, and by the root group unless the pod sets `fsGroup`. The shop floor pod has no `securityContext`.
+- **Failure scenario:** If the image runs as a non-root uid, `DEPOT_SERVICE_SIGNING_KEY_FILE` is unreadable, `ServiceSignerFromEnv` fails, and `main` exits, so the pod crash-loops as soon as `identityUrl` is set. The same 0440 pattern already exists for the shop floor's `edge-ca` mount and for assets, so this may already be handled by the image's uid. I could not verify it without a cluster.
+- **Suggested fix:** Set `podSecurityContext.fsGroup` (65532, as analytics and batch do), or confirm the image's uid, before the first environment sets `identityUrl`.
+
+## Tests run (re-review 2)
+
+Each run used a fresh database `rev_b03b_<n>` prepared like CI. The `depot_app` password worked without a reset.
+
+| Command | Result |
+|---|---|
+| `go vet ./...` and `go test -count=1 -p 1 ./...` in `services/shopfloor` (includes the new registry, API and store tests) | All ok |
+| `go test ./...` in `tools/rlscheck` (includes `child_tautology`) | ok |
+| `go test ./tenant/...` in `platform/go` (grant table change) | ok |
+| `opa test --timeout 600s policies/authz` | **300/300 pass**, 177 s |
+| `go vet` and `go test -run 'Bundle\|OPA\|JWT\|Verifier\|Revision\|Policy\|LegalEntit\|RoleAssignment\|Effective\|DutyContract\|Catalogue\|DataJSON\|Admin' .` in `services/identity` | ok (606 s). 70 pass, including `TestLegalEntityLookupForServices`, `TestEffectiveReportEqualsOPAForEveryRoute`, `TestEffectivePermissionsEndpoint` and `TestRoleAssignmentGuards`. The Keycloak live test is skipped. |
+| `go test ./cmd/...` in `services/identity` (devgateway, identity) | ok |
+| Probe: SQL as `depot_app` on shop floor migrations 0001-0042 | See question 6: the R2 exploit is refused, a legitimate insert is accepted. |
+| `helm template` (Helm v3.16), shop floor chart, defaults / with the new values / with `identityUrl` but no secret / with `edgeCa` | See question 7. |
+
+All re-review 2 suites finished before the container restart. The coordinator reports CI on PR #726 at efa129c4 fully green; I did not check that myself.

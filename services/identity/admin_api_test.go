@@ -35,6 +35,8 @@ const (
 type caller struct {
 	tenantID, legalEntity, user string
 	duties                      []string
+	// service is the issuer of a verified service token; empty for a header identity.
+	service string
 }
 
 type adminFixture struct {
@@ -95,7 +97,7 @@ func (f *adminFixture) do(c caller, method, path string, body any) *httptest.Res
 	for _, d := range c.duties {
 		held[d] = struct{}{}
 	}
-	req = req.WithContext(tenant.With(req.Context(), tenant.Principal{TenantID: c.tenantID, LegalEntityID: c.legalEntity, UserID: c.user, Duties: held}))
+	req = req.WithContext(tenant.With(req.Context(), tenant.Principal{TenantID: c.tenantID, LegalEntityID: c.legalEntity, UserID: c.user, Duties: held, Service: c.service}))
 	rec := httptest.NewRecorder()
 	f.router.ServeHTTP(rec, req)
 	return rec
@@ -315,7 +317,7 @@ func TestLegalEntityLookupForServices(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	svc := caller{tenantID: f.tenantA, user: "admin-1", duties: []string{"identity.legal-entity.lookup"}}
+	svc := caller{tenantID: f.tenantA, user: "admin-1", duties: []string{"identity.legal-entity.lookup"}, service: "shopfloor"}
 	type lookup struct {
 		LegalEntityID string `json:"legalEntityId"`
 		Active        bool   `json:"active"`
@@ -330,6 +332,12 @@ func TestLegalEntityLookupForServices(t *testing.T) {
 		wantProblem(t, f.do(svc, http.MethodGet, "/v1/identity/legal-entities/"+id, nil), http.StatusNotFound, "IDN-LEGAL-ENTITY-NOT-FOUND")
 	}
 	wantProblem(t, f.do(f.adminOf(f.tenantA, dutyLegalEntities), http.MethodGet, "/v1/identity/legal-entities/"+legalA, nil), http.StatusForbidden, "AUTH-0003")
+	// B-03b re-review 2 R6: the duty alone is not enough. A header identity that carries it (the token's duties claim
+	// through Envoy) and a service the grant table does not give it are refused.
+	header := caller{tenantID: f.tenantA, user: "admin-1", duties: []string{"identity.legal-entity.lookup"}}
+	wantProblem(t, f.do(header, http.MethodGet, "/v1/identity/legal-entities/"+legalA, nil), http.StatusForbidden, "AUTH-0003")
+	ungranted := caller{tenantID: f.tenantA, user: "admin-1", duties: []string{"identity.legal-entity.lookup"}, service: "processmfg"}
+	wantProblem(t, f.do(ungranted, http.MethodGet, "/v1/identity/legal-entities/"+legalA, nil), http.StatusForbidden, "AUTH-0003")
 }
 
 func TestLegalEntities(t *testing.T) {

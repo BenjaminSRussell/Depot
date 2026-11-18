@@ -51,3 +51,5 @@ quay.io/kiwigrid/k8s-sidecar:2.14.1
 registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0
 # The rate-limit counter store deploy/envoy-gateway/ratelimit-valkey.yaml runs (valkey 8.1.9-alpine, pinned there by digest).
 docker.io/valkey/valkey@sha256:4934d214fd7e091d4ee77b398945b3fd62c6dd0ac71d8b79e2e3cbad8364f3b1
+# The OPA that answers Envoy's ext_authz checks, deploy/gateway/authz-opa.yaml (opa 1.21.2-envoy-6, pinned there by digest).
+docker.io/openpolicyagent/opa@sha256:c4cb1e0c15da527916521307ff0bd367bf70ec10d0b3e42f577d0f30f4e6ca2d

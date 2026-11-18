@@ -407,8 +407,9 @@ writes `condition-record` and `rebate-accrual`. Naming is a handoff to the kerne
 `PRICING_CACHE_TTL` (60s; a duration or whole seconds, 10s to 600s, 0 turns the record snapshot
 cache off). Optional replica cache consumer (chart `cacheConsumer`): `KAFKA_BROKERS` starts it
 when the service principal `pricing-cache` holds `pricing.cache.invalidate`; `KAFKA_USERNAME`,
-`KAFKA_PASSWORD` (or `KAFKA_PASSWORD_FILE`) and `KAFKA_TLS_CA_FILE` as for every consumer. Each
-replica reads under the group `pricing-cache-<HOSTNAME>`; `KAFKA_GROUP` is ignored.
+`KAFKA_PASSWORD_FILE` and `KAFKA_TLS_CA_FILE` as for every consumer (the chart mounts the KafkaUser
+`pricing-consumer`'s Secret, `deploy/kafka/pricing-consumer.yaml`). Each replica reads under the group
+`pricing-cache-<HOSTNAME>`; `KAFKA_GROUP` is ignored.
 
 ## Run and test
 

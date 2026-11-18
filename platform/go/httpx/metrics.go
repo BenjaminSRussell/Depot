@@ -155,8 +155,30 @@ func recordMetrics(next http.Handler) http.Handler {
 	})
 }
 
-// WriteMetrics writes the shared HTTP series in Prometheus text format.
-func WriteMetrics(w io.Writer) { shared.write(w) }
+var (
+	extraMu      sync.RWMutex
+	extraWriters []func(io.Writer)
+)
+
+// RegisterMetrics adds a writer of further shared series (Prometheus text format) to WriteMetrics, so every service's
+// /metrics carries them with no change of its own. platform/go/authz registers depot_authz_denied_total this way.
+func RegisterMetrics(write func(io.Writer)) {
+	extraMu.Lock()
+	defer extraMu.Unlock()
+	extraWriters = append(extraWriters, write)
+}
+
+// WriteMetrics writes the shared HTTP series, and the series registered with RegisterMetrics, in Prometheus text format.
+func WriteMetrics(w io.Writer) {
+	shared.write(w)
+	extraMu.RLock()
+	writers := make([]func(io.Writer), len(extraWriters))
+	copy(writers, extraWriters)
+	extraMu.RUnlock()
+	for _, write := range writers {
+		write(w)
+	}
+}
 
 // WithMetrics serves h (a service's own /metrics output) followed by the shared HTTP series.
 func WithMetrics(h http.Handler) http.Handler {

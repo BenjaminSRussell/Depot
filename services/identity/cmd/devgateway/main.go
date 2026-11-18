@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/BenjaminSRussell/depot/platform/logpseudo"
 	"github.com/BenjaminSRussell/depot/services/identity"
 )
 
@@ -62,6 +63,11 @@ func buildHandler(getenv func(string) string, environ []string) (http.Handler, e
 	opa, err := identity.NewOPAClient(getenv("DEVGATEWAY_OPA_URL"), nil)
 	if err != nil {
 		return nil, fmt.Errorf("opa client: %w", err)
+	}
+	// The authorization records pseudonymize their subject under fieldcrypt's key (FIELDCRYPT_KEYS); without one every
+	// subject is redacted.
+	if err := logpseudo.LoadSubjectKey(getenv); err != nil {
+		slog.Warn("authorization records will carry no subject pseudonym", "err", err)
 	}
 	upstreams, err := upstreamsFrom(environ)
 	if err != nil {

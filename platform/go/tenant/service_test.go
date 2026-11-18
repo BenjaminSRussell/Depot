@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tracectx"
 )
 
 var epoch = time.Date(2026, 10, 29, 12, 0, 0, 0, time.UTC)
@@ -248,6 +249,23 @@ func TestApplyNilSignerLeavesRequestUntouched(t *testing.T) {
 	signed, err := s.Apply(req, tenant.Principal{}, "ledger", "")
 	if signed || err != nil || req.Header.Get(tenant.HeaderServiceToken) != "" {
 		t.Fatalf("signed=%v err=%v headers=%v", signed, err, req.Header)
+	}
+}
+
+func TestApplyForwardsAChildTraceparentOnlyWhenASpanIsInContext(t *testing.T) {
+	f := newFixture(t)
+	req := httptest.NewRequest(http.MethodPost, "/x", nil)
+	if _, err := f.signer.Apply(req, f.principal, "ledger", ""); err != nil || req.Header.Get("traceparent") != "" {
+		t.Fatalf("err=%v traceparent=%q", err, req.Header.Get("traceparent"))
+	}
+	root, _ := tracectx.Parse("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
+	req = httptest.NewRequest(http.MethodPost, "/x", nil).WithContext(tracectx.With(req.Context(), root))
+	if _, err := f.signer.Apply(req, f.principal, "ledger", ""); err != nil {
+		t.Fatal(err)
+	}
+	child, ok := tracectx.Parse(req.Header.Get("traceparent"))
+	if !ok || child.TraceID != root.TraceID || child.SpanID == root.SpanID {
+		t.Fatalf("traceparent %q", req.Header.Get("traceparent"))
 	}
 }
 

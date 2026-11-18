@@ -9,7 +9,7 @@ Secrets and keys, supplied per environment (not in git):
 
 Transport and exposure: the bundle is served over TLS (`https://`, verified against `ca.pem`), never plain http, because it carries a bearer token and every tenant's role assignments. It is served by a dedicated listener (`IDENTITY_BUNDLE_ADDR`, refused if equal to `HTTP_ADDR`) that serves only this route, exposed by its own cluster-internal Service `identity-bundle`; the public listener does not serve the route at all and `deploy/gateway/httproutes.yaml` has no identity route. Add a NetworkPolicy allowing only the sidecar pods to reach it when the identity chart lands.
 
-No `decision_logs` are configured: console decision logging would write every input (subject and tenant) to pod logs. If decision logs are wanted later, add a `system.log.mask` policy that erases `/input/subject` first.
+No `decision_logs` are configured in this sidecar: console decision logging would write every input (subject and tenant) to pod logs. To turn them on, load a local mask policy beside the bundle, as the Envoy ext_authz OPA does (`deploy/gateway/authz-opa.yaml`, B-04, ADR-0017): `package system.log` with `mask contains "/input"`, from the sidecar's ConfigMap, and `decision_logs: {console: true, mask_decision: /system/log/mask}`. The mask must not come from the bundle, so a bundle that lacks it cannot turn masking off; identity's bundle roots never claim `data.system`. The services and gateways write their own `authz.decision` record with a pseudonymized subject (`platform/go/README.md`).
 
 Sidecar container fragment (add to every service pod that calls `RequireOPA`; the service's `IDENTITY_OPA_URL` stays `http://127.0.0.1:8181`):
 

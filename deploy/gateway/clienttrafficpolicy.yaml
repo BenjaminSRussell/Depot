@@ -20,3 +20,9 @@ spec:
         - X-Depot-LegalEntity
         - X-Depot-Service-Token
         - X-Depot-Gateway-Secret
+        # The request id goes into the authorization records of the ext_authz OPA and the service (B-04): a client must not
+        # choose it. requestID Generate ignores a client value only on a request Envoy treats as edge, and a source behind
+        # an SNAT load balancer or inside the cluster can count as internal, so the client's copy is removed here and Envoy
+        # always generates the id.
+        - X-Request-Id
+    requestID: Generate

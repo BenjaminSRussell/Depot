@@ -170,6 +170,8 @@ export function createMessageHandler(options: HandlerOptions): (message: KafkaMe
 
 export interface RunningConsumer {
   stop(): Promise<void>;
+  /** Resolves with the error when kafkajs's consumer crashes and will not restart itself (CRASH with restart=false). */
+  failed: Promise<unknown>;
 }
 
 /** Connects to Kafka and feeds every message of the configured topics to the handler. */
@@ -195,11 +197,6 @@ export async function startConsumer(
   });
   const producer: Producer = kafka.producer();
   const consumer: Consumer = kafka.consumer({ groupId: config.group });
-  await producer.connect();
-  await consumer.connect();
-  for (const topic of config.topics) {
-    await consumer.subscribe({ topic, fromBeginning: false });
-  }
   const handle = createMessageHandler({
     store,
     dlqTopic: config.dlqTopic,
@@ -212,12 +209,33 @@ export async function startConsumer(
       });
     },
   });
-  await consumer.run({
-    eachMessage: async ({ topic, partition, message }) => {
-      await handle({ topic, partition, offset: message.offset, key: message.key, value: message.value });
-    },
+  // A failure after run() resolved (GROUP_AUTHORIZATION_FAILED at group join, say) surfaces only as this event. With
+  // restart=false kafkajs has given up, so it goes back to startInBackground's retry loop.
+  let crashed: (err: unknown) => void = () => undefined;
+  const failed = new Promise<unknown>((resolve) => (crashed = resolve));
+  consumer.on(consumer.events.CRASH, ({ payload }) => {
+    if (!payload.restart) {
+      crashed(payload.error);
+    }
   });
+  try {
+    await producer.connect();
+    await consumer.connect();
+    for (const topic of config.topics) {
+      await consumer.subscribe({ topic, fromBeginning: false });
+    }
+    await consumer.run({
+      eachMessage: async ({ topic, partition, message }) => {
+        await handle({ topic, partition, offset: message.offset, key: message.key, value: message.value });
+      },
+    });
+  } catch (err) {
+    // A topic Debezium has not created yet, or a broker that is down: let go of the connections before the caller retries.
+    await Promise.allSettled([consumer.disconnect(), producer.disconnect()]);
+    throw err;
+  }
   return {
+    failed,
     async stop() {
       await consumer.disconnect();
       await producer.disconnect();

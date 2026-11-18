@@ -7,7 +7,8 @@ import pg from "pg";
 
 import { FieldKeys } from "./crypt.ts";
 import { CoexistenceStore, CoexistenceSweeper, coexistenceRecorder } from "./coexistence.ts";
-import { consumerConfigFromEnv, startConsumer, type RunningConsumer } from "./consumer.ts";
+import { consumerConfigFromEnv, startConsumer } from "./consumer.ts";
+import { startInBackground, type Stoppable } from "./backgroundStart.ts";
 import { httpTransport } from "./dispatcher.ts";
 import { httpMigrationClient } from "./migrationClient.ts";
 import { Maintenance, usageRetentionDaysFromEnv } from "./maintenance.ts";
@@ -103,10 +104,35 @@ const coexistence = new CoexistenceSweeper({
 });
 coexistence.start(Number(env["HUB_COEXISTENCE_INTERVAL_MS"] ?? 15_000));
 
-let consumer: RunningConsumer | null = null;
+// The consumer starts in the background and retries (5 s doubling to 2 min) until its topics exist and the brokers answer,
+// so a topic Debezium has not created yet never stops the API and the poller (D34). A crash kafkajs does not restart from
+// goes back into the same loop. kafka_consumer_running (0 or 1) and kafka_consumer_start_failures_total make a permanent
+// misconfiguration visible (the observability chart's DepotKafkaConsumerNotRunning alert), and after ten consecutive
+// failures, about 10 minutes, the log line turns from warn to error.
+let consumer: Stoppable | null = null;
 const consumerConfig = consumerConfigFromEnv(env);
 if (consumerConfig !== null) {
-  consumer = await startConsumer(consumerConfig, store, metrics, coexistenceRecorder(coexistenceStore, metrics));
+  const runningHelp = "1 while the Kafka consumer runs, 0 while its start is being retried";
+  const failuresHelp = "Failed Kafka consumer starts, and crashes after a start that kafkajs does not restart from";
+  metrics.set("kafka_consumer_running", runningHelp, 0);
+  metrics.inc("kafka_consumer_start_failures_total", failuresHelp, {}, 0);
+  consumer = startInBackground(() => startConsumer(consumerConfig, store, metrics, coexistenceRecorder(coexistenceStore, metrics)), {
+    onRunning: (running) => {
+      metrics.set("kafka_consumer_running", runningHelp, running ? 1 : 0);
+      logLine({ level: "info", msg: running ? "kafka consumer running" : "kafka consumer stopped", topics: consumerConfig.topics.join(",") });
+    },
+    onError: (err, retryInMs, failures) => {
+      metrics.inc("kafka_consumer_start_failures_total", failuresHelp);
+      logLine({
+        level: failures >= 10 ? "error" : "warn",
+        msg: "kafka consumer not running; retrying",
+        error: err instanceof Error ? err.message : String(err),
+        failures,
+        retryInMs,
+        topics: consumerConfig.topics.join(","),
+      });
+    },
+  });
 }
 
 const shutdown = async () => {

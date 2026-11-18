@@ -25,6 +25,8 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
+        # The Kafka credentials are mounted 0440: the nonroot user reads them through this group (D34).
+        fsGroup: 65532
         seccompProfile:
           type: RuntimeDefault
       volumes:

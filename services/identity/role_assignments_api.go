@@ -26,8 +26,8 @@ const (
 	codeLegalEntityInactive = "IDN-LEGAL-ENTITY-INACTIVE"
 	// codeTenantLevelScoped: a role whose duty acts on the tenant as a whole cannot be scoped to a legal entity (B-03b).
 	codeTenantLevelScoped = "IDN-ROLE-TENANT-LEVEL"
-	codeSelfGrant           = "IAM-0416"
-	codeLastTenantAdmin     = "IDN-LAST-TENANT-ADMIN"
+	codeSelfGrant         = "IAM-0416"
+	codeLastTenantAdmin   = "IDN-LAST-TENANT-ADMIN"
 
 	maxReason = 500
 )

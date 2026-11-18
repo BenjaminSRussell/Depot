@@ -16,6 +16,9 @@ import (
 // LookupDuty is the service-only identity duty of the legal-entity existence check (grant shopfloor -> identity).
 const LookupDuty = "identity.legal-entity.lookup"
 
+// legalEntityNotFoundCode is identity's problem code for a legal entity the tenant does not have.
+const legalEntityNotFoundCode = "IDN-LEGAL-ENTITY-NOT-FOUND"
+
 // ErrLegalEntityUnknown is a legal entity identity does not know in the tenant.
 var ErrLegalEntityUnknown = errors.New("the tenant has no such legal entity")
 
@@ -39,7 +42,11 @@ func NewLegalEntities(baseURL string, signer *tenant.ServiceSigner, client *http
 	if client == nil {
 		client = &http.Client{Timeout: reqTimout}
 	}
-	return &LegalEntities{BaseURL: strings.TrimRight(baseURL, "/"), Signer: signer, Client: client}, nil
+	// Never follow a redirect: the request carries a service token, which must reach identity and nothing else. A
+	// redirect is answered as it is, and Active reports it as unavailable.
+	noRedirect := *client
+	noRedirect.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	return &LegalEntities{BaseURL: strings.TrimRight(baseURL, "/"), Signer: signer, Client: &noRedirect}, nil
 }
 
 // Active reports whether legalEntityID is an active legal entity of the caller's tenant. ErrLegalEntityUnknown when
@@ -68,7 +75,15 @@ func (l *LegalEntities) Active(ctx context.Context, legalEntityID string) (bool,
 	switch res.StatusCode {
 	case http.StatusOK:
 	case http.StatusNotFound:
-		return false, ErrLegalEntityUnknown
+		// Only identity's own answer means unknown; any other 404 (a wrong IDENTITY_URL, a proxy's "no route") is an
+		// unavailable check.
+		var problem struct {
+			Code string `json:"code"`
+		}
+		if json.Unmarshal(body, &problem) == nil && problem.Code == legalEntityNotFoundCode {
+			return false, ErrLegalEntityUnknown
+		}
+		return false, fmt.Errorf("identity answered 404 without %s to the legal-entity check", legalEntityNotFoundCode)
 	default:
 		return false, fmt.Errorf("identity answered %d to the legal-entity check", res.StatusCode)
 	}

@@ -171,6 +171,23 @@ class EventRouterChainTest {
     }
 
     @Test
+    void traceparentSequenceAndDataschemaFromTheGoOutboxSurviveTheChain() throws Exception {
+        String traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+        String dataschema = "https://schemas.depot.dev/dev.depot.receiving.receipt.posted.v1.json";
+        String payload = goEvent("{\"legalEntityId\":\"" + LE + "\"}")
+                .replace("\"tenantid\":\"\"", "\"tenantid\":\"" + TENANT + "\",\"traceparent\":\"" + traceparent
+                        + "\",\"sequence\":1763417000123456,\"dataschema\":\"" + dataschema + "\"");
+        SourceRecord out = chain(outboxInsert(payload));
+        JsonNode v = wireValue(out);
+        assertEquals(traceparent, v.get("traceparent").asText());
+        assertEquals(1763417000123456L, v.get("sequence").asLong());
+        assertEquals(dataschema, v.get("dataschema").asText());
+        assertEquals(traceparent, wireHeader(out, "ce_traceparent"));
+        assertEquals("1763417000123456", wireHeader(out, "ce_sequence"));
+        assertEquals(dataschema, wireHeader(out, "ce_dataschema"));
+    }
+
+    @Test
     void schemaIsReusedForTheSameShape() {
         SourceRecord a = chain(outboxInsert(goEvent("{\"legalEntityId\":\"" + LE + "\"}")));
         SourceRecord b = chain(outboxInsert(goEvent("{\"legalEntityId\":\"" + LE + "\"}")));

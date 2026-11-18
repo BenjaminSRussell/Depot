@@ -34,6 +34,15 @@ spec:
           vendorControlAccount: "2000"
           expenseAccount: "6000"
           inputTaxAccount: "1570"
+        # The consumer (`receiving consume`: ERS on depot.receiving.receipt, ERS tax on depot.receiving.ersselfbill, erasure on
+        # depot.privacy.erasure; outbox-receiving and outbox-compliance relay them) is on in dev (D34, B-05b). It reads the
+        # receiving-db Secret like the API and signs in to Kafka as receiving-consumer with the copy of its credentials
+        # deploy/envs/dev/kafka-consumer-credentials writes. stage_apps.py leaves these Kafka values out of stage.
+        consumer:
+          enabled: true
+          kafka:
+            brokers: depot-kafka-bootstrap.kafka.svc:9093
+            secret: receiving-consumer-kafka
   destination:
     server: https://kubernetes.default.svc
     namespace: hello-ledger

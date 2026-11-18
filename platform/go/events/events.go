@@ -30,7 +30,12 @@ type Event struct {
 	// legal_entity_id so consumers that act per legal entity (the integration
 	// hub's REST push) can route without knowing every payload shape.
 	LegalEntityID string `json:"legalentityid,omitempty"`
+	DataSchema    string `json:"dataschema,omitempty"`
+	Traceparent   string `json:"traceparent,omitempty"`
+	Sequence      int64  `json:"sequence,omitempty"`
 }
+
+func DataSchema(typ string) string { return "https://schemas.depot.dev/" + typ + ".json" }
 
 var typeRe = regexp.MustCompile(`^dev\.depot\.[a-z][a-z0-9]*\.[a-z][a-z0-9]*\.[a-z][a-z0-9]*\.v[0-9]+$`)
 

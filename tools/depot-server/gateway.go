@@ -12,6 +12,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-chi/chi/v5/middleware"
+
+	"github.com/BenjaminSRussell/depot/platform/authz"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
@@ -23,6 +26,8 @@ import (
 const (
 	headerTier       = "X-Depot-Tier"
 	identityHdrStart = "X-Depot-"
+	// gatewayName is the source of this gateway's authorization decision records.
+	gatewayName = "depot-server"
 )
 
 type tokenClaims struct {
@@ -37,7 +42,7 @@ type selectionKey struct{}
 
 type selection struct{ legalEntity, scope string }
 
-// Guard authenticates and authorizes a request. In production it is verifier.Middleware(RequireOPAForRequest(opa)).
+// Guard authenticates and authorizes a request. In production it is verifier.Middleware(RequireOPAForGateway(opa, gatewayName)).
 type Guard func(http.Handler) http.Handler
 
 // HealthFunc reports aggregated supervisor health.
@@ -69,6 +74,8 @@ func NewGateway(guard Guard, upstreams map[string]*url.URL, web fs.FS, health He
 		}
 		selected, _ := r.Context().Value(selectionKey{}).(selection)
 		if selected.legalEntity != "" && selected.legalEntity != claimsOf(r.Header.Get("Authorization")).LegalEntity {
+			principal, _ := tenant.FromContext(r.Context())
+			recordGateway(r, principal, authz.ReasonLegalEntitySelected)
 			httpx.Fail(w, r, httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "legal entity selection is outside the token's scope"))
 			return
 		}
@@ -105,13 +112,15 @@ func NewGateway(guard Guard, upstreams map[string]*url.URL, web fs.FS, health He
 			return
 		}
 		selected := selection{legalEntity: r.Header.Get(tenant.HeaderWebLegalEntity), scope: r.Header.Get(tenant.HeaderLegalEntityScopeAll)}
-		forwarded := r.Clone(context.WithValue(r.Context(), selectionKey{}, selected))
+		ctx := authz.WithGatewayRoutes(context.WithValue(r.Context(), selectionKey{}, selected), func(p string) bool { return upstreams[p] != nil })
+		forwarded := r.Clone(ctx)
 		stripIdentity(forwarded.Header)
 		forwarded.URL.Path = trimmed
 		guarded.ServeHTTP(w, forwarded)
 	}))
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return withRequestID(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !canonicalPath(r) {
+			recordGateway(r, tenant.Principal{}, authz.ReasonNotCanonical)
 			httpx.Fail(w, r, httpx.NewProblem(http.StatusBadRequest, "GW-0400", "request path is not canonical"))
 			return
 		}
@@ -123,7 +132,7 @@ func NewGateway(guard Guard, upstreams map[string]*url.URL, web fs.FS, health He
 			h.Set("Strict-Transport-Security", "max-age=31536000")
 		}
 		mux.ServeHTTP(w, r)
-	})
+	}))
 }
 
 // optionalFeatures are the MSI features the installation reports; every one is listed, on or off.
@@ -171,9 +180,35 @@ func staticHandler(web fs.FS) http.Handler {
 	})
 }
 
+// withRequestID gives every request an id of the gateway's own (a client's X-Request-Id is dropped, so it cannot steer the
+// id of a decision record) and forwards it to the service as X-Request-Id, where httpx's router takes it: the gateway's
+// record and the service's record of one request carry the same request_id.
+func withRequestID(next http.Handler) http.Handler {
+	ids := middleware.RequestID(next)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Header.Del(middleware.RequestIDHeader)
+		ids.ServeHTTP(w, r)
+	})
+}
+
+// recordGateway writes the allow/deny record of a decision the gateway takes itself (identity's RequireOPAForGateway
+// records the policy decision): always a deny.
+func recordGateway(r *http.Request, principal tenant.Principal, reason string) {
+	route := "unmatched"
+	if reason != authz.ReasonNotCanonical {
+		route = authz.GatewayRouteOf(r)
+	}
+	authz.Record(r.Context(), authz.Decision{
+		Source: gatewayName, TenantID: principal.TenantID, Subject: principal.UserID, Method: r.Method,
+		Route: route, Reason: reason, RequestID: authz.RequestID(r),
+	})
+}
+
+// canonicalPath refuses any percent-encoded path, like data.authz.envoy's canonical_path: an escape the router decodes
+// (%3A to ':', the glob's segment delimiter) could be decided on one path and served on another (B-04).
 func canonicalPath(r *http.Request) bool {
 	p := r.URL.Path
-	return r.URL.RawPath == "" && strings.HasPrefix(p, "/") && path.Clean(p) == p
+	return r.URL.RawPath == "" && !strings.Contains(r.URL.EscapedPath(), "%") && strings.HasPrefix(p, "/") && path.Clean(p) == p
 }
 
 func serviceOf(p string) string {
@@ -197,6 +232,9 @@ func stripIdentity(h http.Header) {
 // header cannot name an identity header and have it dropped on the way to the service.
 func setIdentity(pr *httputil.ProxyRequest, secret string, forwardAuth bool) {
 	stripIdentity(pr.Out.Header)
+	if id := middleware.GetReqID(pr.In.Context()); id != "" {
+		pr.Out.Header.Set(middleware.RequestIDHeader, id)
+	}
 	if !forwardAuth {
 		pr.Out.Header.Del("Authorization")
 	}

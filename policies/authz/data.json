@@ -1400,7 +1400,7 @@
     "mcp.copilot.use": {"permissions": [
       {"resource": "/api/v1/copilot/chat", "methods": ["POST"]},
       {"resource": "/api/v1/knowledge/search", "methods": ["POST"]},
-      {"resource": "/api/v1/mcp", "methods": ["GET", "POST"]}
+      {"resource": "/mcp", "methods": ["POST"]}
     ]},
     "productcost.activate": {"permissions": [
       {"resource": "/v1/product-costing/activations:preview", "methods": ["POST"]},

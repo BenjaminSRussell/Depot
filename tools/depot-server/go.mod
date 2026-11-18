@@ -5,13 +5,13 @@ go 1.26.0
 require (
 	github.com/BenjaminSRussell/depot/platform v0.0.0
 	github.com/BenjaminSRussell/depot/services/identity v0.0.0
+	github.com/go-chi/chi/v5 v5.5.0
 	github.com/jackc/pgx/v5 v5.12.0
 	golang.org/x/sys v0.50.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
-	github.com/go-chi/chi/v5 v5.5.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect

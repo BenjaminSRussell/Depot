@@ -7,6 +7,11 @@ resources:
   - httproutes.yaml
   - clienttrafficpolicy.yaml
   - securitypolicy.yaml
+  # One authorization enforcement model (B-04, ADR-0017): the OPA Envoy's ext_authz asks, and ext_authz after jwt_authn.
+  - authz-opa.yaml
+  - envoyproxy.yaml
+  # Envoy-path deny counters (ext_authz stats) for the depot.authz alerts.
+  - envoy-podmonitor.yaml
   - backendtrafficpolicy.yaml
   # AS2 edge for trading partners (#483): a Gateway of its own, outside the JWT SecurityPolicy.
   - as2-gateway.yaml

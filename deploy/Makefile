@@ -9,7 +9,7 @@ PYTHON ?= python3
 IMAGE_DIGEST ?=
 SKIP_VERIFY ?=
 
-.PHONY: test-tofu test-cloud-profiles test-offline offline-bundle deploy-local destroy-local promote-stage rollback-stage promote-prod rollback-prod test-stage-release test-policies test-gateway validate-gateway-schema test-argocd test-migrate-k3d
+.PHONY: test-tofu test-cloud-profiles test-offline offline-bundle deploy-local destroy-local promote-stage rollback-stage promote-prod rollback-prod test-stage-release test-policies test-gateway validate-gateway-schema test-argocd test-migrate-k3d smoke-consumers
 
 deploy-local:
 	tofu -chdir=tofu/cluster init -input=false
@@ -69,11 +69,12 @@ GATEWAY_SCHEMAS ?= $(CURDIR)/.gateway-schemas
 
 # cert-manager's CRDs are not vendored: the AS2 edge Certificate is skipped here and its fields are checked by
 # scripts/test_gateway.py instead. So is ReferenceGrant (Gateway API standard channel, installed by the Envoy Gateway chart but
-# not in the vendored file), which lets the generated routes reach the batch and metadata Services in their own namespaces.
+# not in the vendored file), which lets the generated routes reach the batch and metadata Services in their own namespaces, and
+# PodMonitor (prometheus-operator, installed by kube-prometheus-stack): its fields are checked by scripts/test_gateway.py.
 validate-gateway-schema:
 	@which kubeconform >/dev/null || { echo "kubeconform not installed; run: go install github.com/yannh/kubeconform/cmd/kubeconform@v0.6.7" >&2; exit 2; }
 	$(PYTHON) scripts/crd_schemas.py $(GATEWAY_CRDS) $(GATEWAY_SCHEMAS)
-	kubectl kustomize gateway | kubeconform -strict -summary -skip Certificate,ReferenceGrant -schema-location default -schema-location '$(GATEWAY_SCHEMAS)/{{.ResourceKind}}-{{.Group}}-{{.ResourceAPIVersion}}.json' -
+	kubectl kustomize gateway | kubeconform -strict -summary -skip Certificate,ReferenceGrant,PodMonitor -schema-location default -schema-location '$(GATEWAY_SCHEMAS)/{{.ResourceKind}}-{{.Group}}-{{.ResourceAPIVersion}}.json' -
 
 # The API routes are generated (D31, B-02a): scripts/gen_httproutes.py --check fails when httproutes.yaml or the rate limit's
 # targetRefs differ from what the shell's API clients, the OpenAPI documents, the charts and the dev Applications give.
@@ -83,11 +84,21 @@ test-gateway: validate-gateway-schema
 	$(PYTHON) -m unittest scripts/test_payments_webhook_gateway.py -v
 
 # Argo CD Applications: structure, sync policy, chart coverage, event backbone and Temporal order, directory manifest
-# coverage and Secret references; renders every dev chart when helm is on PATH.
+# coverage and Secret references; renders every dev chart when helm is on PATH. test_kafka_consumers.py (D34, B-05b): every
+# consumer in the code has a KafkaUser whose ACLs are exactly its topics, groups and dead-letter topics, and dev runs the
+# consumers it can start.
 test-argocd:
 	$(PYTHON) -m unittest scripts/test_argocd_apps.py -v
+	$(PYTHON) -m unittest scripts/test_kafka_consumers.py -v
 	$(PYTHON) scripts/gen_migrate_jobs.py --check
 	$(PYTHON) -m unittest scripts/test_migrate_jobs.py -v
+
+# Live check of D34 on the dev cluster (#213): produces one event to a topic of each consumer group dev turns on, as a
+# temporary KafkaUser, and waits for the group's committed offset to move past it. Needs kubectl with a context on the dev
+# cluster (CONTEXT, default the current one). Not run in CI; `scripts/smoke_consumers.py --dry-run` prints the plan.
+CONTEXT ?=
+smoke-consumers:
+	$(PYTHON) scripts/smoke_consumers.py $(if $(CONTEXT),--context $(CONTEXT))
 
 # Owner-role migration Jobs on a throwaway k3d cluster (D28): builds each service image in SERVICES, helm-installs its chart
 # against an empty database and checks the Job applied every migration as the owner role. Needs docker, k3d, kubectl, helm.

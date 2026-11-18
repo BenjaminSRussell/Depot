@@ -21,6 +21,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
 	"github.com/BenjaminSRussell/depot/platform/logpseudo"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tracectx"
 )
 
 const RequestTimeout = 30 * time.Second
@@ -28,14 +29,15 @@ const RequestTimeout = 30 * time.Second
 // Problem is an RFC 9457 problem-details body. Code is the stable, documented
 // Depot error code (e.g. "LED-0001"); Errors carries field-level detail.
 type Problem struct {
-	Type     string            `json:"type"`
-	Title    string            `json:"title"`
-	Status   int               `json:"status"`
-	Detail   string            `json:"detail,omitempty"`
-	Instance string            `json:"instance,omitempty"`
-	Code     string            `json:"code,omitempty"`
-	TraceID  string            `json:"traceId,omitempty"`
-	Errors   map[string]string `json:"errors,omitempty"`
+	Type        string            `json:"type"`
+	Title       string            `json:"title"`
+	Status      int               `json:"status"`
+	Detail      string            `json:"detail,omitempty"`
+	Instance    string            `json:"instance,omitempty"`
+	Code        string            `json:"code,omitempty"`
+	ServiceCode string            `json:"serviceCode,omitempty"`
+	TraceID     string            `json:"traceId,omitempty"`
+	Errors      map[string]string `json:"errors,omitempty"`
 	// RowErrors is the structured form of Errors for batch imports: which row, which field and why, so a caller never parses text.
 	RowErrors []RowError `json:"rowErrors,omitempty"`
 }
@@ -82,7 +84,7 @@ func newRouter(extra ...func(http.Handler) http.Handler) *chi.Mux {
 	r := chi.NewRouter()
 	// auditctx.Capture keeps the reason a person gave (X-Depot-Reason) and the W3C trace id for the depot.ctx message a
 	// service writes with the changes of an audited table (B-07).
-	r.Use(middleware.RequestID, auditctx.Capture, recordMetrics, TrustedRealIP(trustedProxiesFromEnv()), middleware.Recoverer, middleware.Timeout(RequestTimeout))
+	r.Use(middleware.RequestID, tracectx.Middleware, auditctx.Capture, recordMetrics, TrustedRealIP(trustedProxiesFromEnv()), middleware.Recoverer, middleware.Timeout(RequestTimeout))
 	r.Use(logRequests)
 	// The fence comes after metrics and logging, so a fenced 503 is counted and logged, and before tenant extraction, so a
 	// fenced region refuses before authentication does any work.
@@ -103,7 +105,8 @@ func logRequests(next http.Handler) http.Handler {
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		next.ServeHTTP(ww, r)
 		slog.Info("http", "method", r.Method, "path", r.URL.Path, "status", ww.Status(), "bytes", ww.BytesWritten(),
-			"durationMs", time.Since(start).Milliseconds(), "requestId", middleware.GetReqID(r.Context()))
+			"durationMs", time.Since(start).Milliseconds(), "requestId", middleware.GetReqID(r.Context()),
+			"traceId", tracectx.TraceID(r.Context()))
 	})
 }
 
@@ -147,7 +150,7 @@ func Fail(w http.ResponseWriter, r *http.Request, err error) {
 		p = NewProblem(http.StatusInternalServerError, "COM-0500", "internal error")
 	}
 	p.Instance = r.URL.Path
-	p.TraceID = middleware.GetReqID(r.Context())
+	p.TraceID = tracectx.TraceID(r.Context())
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(p.Status)
 	_ = json.NewEncoder(w).Encode(p)
@@ -162,7 +165,8 @@ func Fail(w http.ResponseWriter, r *http.Request, err error) {
 //
 // Under the eu-data-boundary overlay, or with LOG_PSEUDONYMIZE=true, Serve also wraps the default slog handler so
 // user and person identifiers and email addresses are replaced by tenant-keyed pseudonyms before logs are exported
-// (platform/go/logpseudo, #605); a bad profile or key configuration stops the service rather than log raw values.
+// (platform/go/logpseudo, #605); a bad profile or key configuration stops the service rather than log raw values. It
+// always loads the key the authorization decision record pseudonymizes its subject under (logpseudo.LoadSubjectKey).
 func Serve(ctx context.Context, addr string, h http.Handler) error {
 	if err := cloudprofile.CheckFIPS(os.Getenv); err != nil {
 		return err
@@ -170,6 +174,11 @@ func Serve(ctx context.Context, addr string, h http.Handler) error {
 	defer stopProcessFence()
 	if _, err := logpseudo.Install(os.Getenv); err != nil {
 		return err
+	}
+	// The authorization decision record (platform/go/authz) pseudonymizes its subject under fieldcrypt's key whatever the
+	// profile says; a key that cannot be read leaves every subject redacted rather than stopping the service.
+	if err := logpseudo.LoadSubjectKey(os.Getenv); err != nil {
+		slog.Warn("authorization records will carry no subject pseudonym", "err", err)
 	}
 	srv := &http.Server{Addr: addr, Handler: h, ReadHeaderTimeout: 10 * time.Second}
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)

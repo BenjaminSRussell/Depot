@@ -25,6 +25,10 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: sweeper
     spec:
+{{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+{{- end }}
 {{- if eq .Values.sweeper.tenantSource "identity" }}
       volumes:
         - name: service-identity
