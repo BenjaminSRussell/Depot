@@ -4159,6 +4159,7 @@
       "product": ["product.customs.read"],
       "party": ["party.tax-registration.read"],
       "inventory": ["inventory.issue.claim"],
+      "ledger": ["ledger.entry.post", "ledger.ledger.lookup", "ledger.balance.read"],
       "carrier-gateway": ["carrier.rate.quote", "carrier.label.create", "carrier.tracking.read"]
     },
     "transport": {

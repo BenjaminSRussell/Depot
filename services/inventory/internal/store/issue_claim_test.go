@@ -146,3 +146,22 @@ func TestIssueClaim_ABatchWithoutAHoldCannotReachAnotherBatchsHeldStock(t *testi
 		t.Fatalf("the 4 left free: %v", err)
 	}
 }
+
+func TestWarehouseIssueCost_AveragesTheWarehouseOverSitesAndIgnoresOthers(t *testing.T) {
+	s, _, _ := setup(t)
+	ctx := entityCtx(1, ids.New())
+	product := ids.New()
+	post(t, ctx, s, domain.JournalOpeningBalance, line(product, "10", "1", dims("site", "S1", "warehouse", "W1")))
+	post(t, ctx, s, domain.JournalOpeningBalance, line(product, "10", "3", dims("site", "S2", "warehouse", "W1")))
+	post(t, ctx, s, domain.JournalOpeningBalance, line(product, "5", "7", dims("warehouse", "W2")))
+	currency, cost, err := s.WarehouseIssueCost(ctx, legalEntityOf(ctx), product, "W1")
+	if err != nil || currency == "" || !cost.Equal(dec("2")) {
+		t.Fatalf("W1: %s %s, %v; want the average 2 of both sites", currency, cost, err)
+	}
+	if _, cost, err = s.WarehouseIssueCost(ctx, legalEntityOf(ctx), product, "W2"); err != nil || !cost.Equal(dec("7")) {
+		t.Fatalf("W2: %s, %v; want 7", cost, err)
+	}
+	if currency, cost, err = s.WarehouseIssueCost(ctx, legalEntityOf(ctx), product, "W3"); err != nil || currency != "" || !cost.IsZero() {
+		t.Fatalf("a warehouse with no stock: %q %s, %v; want no currency and cost 0", currency, cost, err)
+	}
+}

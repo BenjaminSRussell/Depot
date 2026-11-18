@@ -65,7 +65,8 @@ exits non-zero on an invalid value.
 | `HTTP_ADDR` | no | `:8080` | listen address |
 | `SALES_URL` | no | | Sales base URL: posted packing slips are reported to its `:record-progress` (#496). Needs the service signing key. Unset, the reports queue (PENDING) and go out once it is set |
 | `SALES_REPORT_INTERVAL` | no | `30s` | How often the reporter looks for due reports (at least `1s`) |
-| `DEPOT_SERVICE_SIGNING_KEY` / `_FILE`, `DEPOT_SERVICE_NAME`, `DEPOT_SERVICE_KEY_ID` | with `INVENTORY_URL`, `CARRIER_GATEWAY_URL` or `SALES_URL` | | fulfillment's Ed25519 service key; the callee must list its public key |
+| `LEDGER_URL`, `FULFILLMENT_GL_LEDGERS` | no, together | | The ledger the slip journals (and their cancel mirrors) are posted to, and a JSON object of legal entity id to ledger id; unset leaves them queued |
+| `DEPOT_SERVICE_SIGNING_KEY` / `_FILE`, `DEPOT_SERVICE_NAME`, `DEPOT_SERVICE_KEY_ID` | with `INVENTORY_URL`, `CARRIER_GATEWAY_URL`, `SALES_URL` or `LEDGER_URL` | | fulfillment's Ed25519 service key; the callee must list its public key |
 
 ```
 cd services/fulfillment
@@ -359,6 +360,7 @@ Codes raised in this slice:
 | `FUL-0062` | The order line is on a warehouse shipment that is not cancelled, so it cannot be drop-shipped (409) |
 | `FUL-0080` | Sales delivery report not found (404) |
 | `FUL-0081` | Sales delivery report is REPORTED or WITHDRAWN, so it cannot be retried (409) |
+| `FUL-0082` | Inventory values a shipment line in another currency than the slip's (422) |
 | `COM-0001` | Malformed JSON body (kernel code) |
 | `precondition_required` | `If-Match` (shipment version) missing (428) |
 | `conflict_version` | `If-Match` does not match the current version (412) |

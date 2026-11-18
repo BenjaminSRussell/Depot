@@ -22,6 +22,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
 	"github.com/BenjaminSRussell/depot/platform/issueclaim"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 	"github.com/BenjaminSRussell/depot/platform/money"
 	"github.com/BenjaminSRussell/depot/platform/outbox"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
@@ -439,6 +440,9 @@ type Postgres struct {
 	// releaseDefaults is what a warehouse without a saved release rule reads.
 	releaseDefaults ReleaseRuleInput
 	claims          issueclaim.Claimer
+	// ledger and ledgers post the slip journals (WithLedger): the ledger of each legal entity.
+	ledger  ledgerclient.Ledger
+	ledgers map[string]string
 }
 
 // New returns a Postgres store that issues SSCCs under gs1Prefix.
@@ -1373,6 +1377,10 @@ func (s *Postgres) PostPackingSlip(ctx context.Context, id string, version int, 
 				}
 				in.PostingDate = date
 			}
+			costs, err := s.valuedCosts(ctx, sh, in.Currency, in.PostingDate, in.Costs)
+			if err != nil {
+				return PackingSlip{}, err
+			}
 			var postLines []domain.PostingLine
 			slip := PackingSlip{ID: ids.New(), ShipmentID: sh.ID, OrderID: sh.OrderID,
 				Status: "POSTED", PostingDate: in.PostingDate, Currency: in.Currency, Lines: []PackingSlipLine{}, PackagingFees: []PackagingFeeLine{},
@@ -1382,7 +1390,7 @@ func (s *Postgres) PostPackingSlip(ctx context.Context, id string, version int, 
 				if !q.IsPositive() {
 					continue
 				}
-				cost, ok := in.Costs[l.ID]
+				cost, ok := costs[l.ID]
 				if !ok {
 					return PackingSlip{}, httpx.NewProblem(http.StatusUnprocessableEntity, CodeCostMissing, "unit cost missing for shipment line "+l.ID)
 				}
@@ -1420,6 +1428,9 @@ func (s *Postgres) PostPackingSlip(ctx context.Context, id string, version int, 
 				slip.TotalCost = slip.TotalCost.Add(slip.Lines[i].CostAmount)
 			}
 			if err := insertSlip(ctx, tx, p.TenantID, sh.LegalEntityID, slip); err != nil {
+				return PackingSlip{}, err
+			}
+			if err := queueSlipGL(ctx, tx, p.TenantID, sh.LegalEntityID, slip); err != nil {
 				return PackingSlip{}, err
 			}
 			tracked, err := stampTracking(ctx, tx, p.TenantID, slip.ID, sh, slip.Lines)
@@ -1563,6 +1574,9 @@ func (s *Postgres) CancelPackingSlip(ctx context.Context, slipID string, idem Id
 				}
 			}
 			if err := insertSlip(ctx, tx, p.TenantID, sh.LegalEntityID, rev); err != nil {
+				return PackingSlip{}, err
+			}
+			if err := queueSlipGL(ctx, tx, p.TenantID, sh.LegalEntityID, rev); err != nil {
 				return PackingSlip{}, err
 			}
 			if rev.PackagingFees, err = mirrorFeeLines(ctx, tx, p.TenantID, sh.LegalEntityID, orig, rev); err != nil {
