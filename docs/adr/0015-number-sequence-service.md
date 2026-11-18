@@ -20,7 +20,7 @@ What is built:
   `X-Depot-*` headers only as a fallback when no key is set; hr uses the service grant `numbering.sequence.allocate`.
 - There is no `platform/go/sequence` package. Other services number documents themselves (for example inventory's
   journal numbers in `services/inventory/migrations/0042_journal_number.sql`).
-- The service has no reserve, confirm or void step, and no database or Secret is provisioned for it in any
+- The service now offers reserve, confirm and void with a voided-number log, and refuses `next` on `gap_free` for service callers (B-35). No database or Secret is provisioned for it in any
   environment (`services/numbering/NOT-IMPLEMENTED.md`).
 
 ## Decision
@@ -46,7 +46,7 @@ designed.
 - One place to define and administer sequences, and one more synchronous dependency (and network hop) for hr and party.
 - `gap_free` in `numbering` currently means "no gaps inside the counter", not "no gaps in issued documents"; the mode
   name overstates it.
-- Backlog: add reserve / confirm / void (with a voided-number log) to `numbering`, or forbid `gap_free` sequences for callers outside the numbering database (D21).
-- Backlog: list every fiscal document number in the code and confirm it is allocated inside its posting transaction (D21).
+- Done (B-35): reserve / confirm / void with a voided-number log in `numbering`, and `gap_free` `next` refused for service callers (D21).
+- Done (B-35): every fiscal document number allocation is listed in `services/numbering/internal/store/fiscal_numbers.json` and `TestFiscalNumberInventory` fails on an unclassified one (D21).
 - Backlog: provision `depot_numbering` and its Secret in every environment, and give hr and party a timeout and a clear error when numbering is unavailable (D4, D21).
 - Backlog: remove party's header-forwarding fallback, so the call always uses a service token (D1).
