@@ -17,6 +17,13 @@ featureFlags: ""
 # FORECAST_URL: base URL of the forecast service (services/forecast-py); required while
 # planning.statistical-forecast is enabled.
 forecastUrl: ""
+# SALES_URL and INVENTORY_URL (set together; need serviceIdentity.signingKeySecret, and sales and inventory must list
+# planning's public key): a run that sends no items reads open sales order lines and on-hand from them. Unset, such a run is 503.
+salesUrl: ""
+inventoryUrl: ""
+serviceIdentity:
+  signingKeySecret: ""
+  keyId: ""
 replicaCount: 2
 resources:
   requests: { cpu: 500m, memory: 1Gi }

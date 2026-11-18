@@ -50,6 +50,30 @@ spec:
             - name: FORECAST_URL
               value: {{ .Values.forecastUrl | quote }}
             {{- end }}
+            {{- if or .Values.salesUrl .Values.inventoryUrl }}
+            {{- if not (and .Values.salesUrl .Values.inventoryUrl) }}
+            {{- fail "salesUrl and inventoryUrl are set together: a live run reads open sales demand and on-hand" }}
+            {{- end }}
+            {{- if not .Values.serviceIdentity.signingKeySecret }}
+            {{- fail "salesUrl and inventoryUrl need serviceIdentity.signingKeySecret: planning signs its reads" }}
+            {{- end }}
+            - name: SALES_URL
+              value: {{ .Values.salesUrl | quote }}
+            - name: INVENTORY_URL
+              value: {{ .Values.inventoryUrl | quote }}
+            - name: DEPOT_SERVICE_NAME
+              value: planning
+            - name: DEPOT_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/depot/service-identity/signing-key
+            {{- if .Values.serviceIdentity.keyId }}
+            - name: DEPOT_SERVICE_KEY_ID
+              value: {{ .Values.serviceIdentity.keyId | quote }}
+            {{- end }}
+            {{- end }}
+          {{- if .Values.serviceIdentity.signingKeySecret }}
+          volumeMounts:
+            - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
+          {{- end }}
           ports:
             - { name: http, containerPort: 8080 }
             - { name: admin, containerPort: 9090 }
@@ -63,3 +87,9 @@ spec:
             httpGet: { path: /readyz, port: http }
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      {{- if .Values.serviceIdentity.signingKeySecret }}
+      volumes:
+        - name: service-identity
+          secret:
+            secretName: {{ .Values.serviceIdentity.signingKeySecret }}
+      {{- end }}

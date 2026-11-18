@@ -125,6 +125,8 @@ ingressPolicy:
     podNames: [edi]
   - name: fulfillment
     podNames: [fulfillment]
+  - name: planning
+    podNames: [planning]
   metricsPorts: [9090]
   prometheus:
     namespace: observability
