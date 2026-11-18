@@ -263,8 +263,9 @@ type DNIReconciliation struct {
 	Reconciled    bool            `json:"reconciled"`
 }
 
-// ReconcileDNI sums the DNI report of the legal entity as of asOf in currency and
-// the ledger's 1405 balance up to asOf's period. It is reconciled only when the
+// ReconcileDNI sums the DNI report of the legal entity in currency and the
+// ledger's 1405 balance, both cut at the end of asOf's month (the ledger reads
+// whole periods). It is reconciled only when the
 // two are equal and no slip journal is still waiting or parked, as the ledger
 // would otherwise lack what the report already counts.
 func (s *Postgres) ReconcileDNI(ctx context.Context, legalEntityID, currency string, asOf time.Time) (DNIReconciliation, error) {
@@ -272,8 +273,9 @@ func (s *Postgres) ReconcileDNI(ctx context.Context, legalEntityID, currency str
 	if s.ledger == nil || ledgerID == "" {
 		return DNIReconciliation{}, httpx.NewProblem(http.StatusServiceUnavailable, codeUnavailable, "the ledger or the legal entity's ledger is not configured")
 	}
-	out := DNIReconciliation{LegalEntityID: legalEntityID, AsOf: asOf.Format(dateLayout), Currency: currency}
-	rows, err := s.DeliveredNotInvoiced(ctx, DNIFilter{LegalEntityID: legalEntityID, AsOf: asOf})
+	cutoff := time.Date(asOf.Year(), asOf.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+	out := DNIReconciliation{LegalEntityID: legalEntityID, AsOf: cutoff.Format(dateLayout), Currency: currency}
+	rows, err := s.DeliveredNotInvoiced(ctx, DNIFilter{LegalEntityID: legalEntityID, AsOf: cutoff})
 	if err != nil {
 		return DNIReconciliation{}, err
 	}
@@ -288,7 +290,7 @@ func (s *Postgres) ReconcileDNI(ctx context.Context, legalEntityID, currency str
 	}); err != nil {
 		return DNIReconciliation{}, err
 	}
-	bal, err := s.ledger.Balance(ctx, ledgerclient.BalanceQuery{LegalEntityID: legalEntityID, LedgerID: ledgerID, Account: domain.AccountDeliveredNotInvoiced, PeriodTo: asOf.Format("2006-01")})
+	bal, err := s.ledger.Balance(ctx, ledgerclient.BalanceQuery{LegalEntityID: legalEntityID, LedgerID: ledgerID, Account: domain.AccountDeliveredNotInvoiced, PeriodTo: cutoff.Format("2006-01")})
 	if err != nil {
 		slog.ErrorContext(ctx, "ledger 1405 balance not read", "legalEntity", legalEntityID, "err", err, "correlationId", middleware.GetReqID(ctx))
 		return DNIReconciliation{}, httpx.NewProblem(http.StatusServiceUnavailable, codeUnavailable, "the ledger balance could not be read; retry later")

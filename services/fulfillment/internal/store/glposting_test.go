@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
@@ -12,7 +13,6 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/ids"
 	"github.com/BenjaminSRussell/depot/platform/issueclaim"
 	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
-	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/domain"
 	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
@@ -231,4 +231,15 @@ func TestSlipGL_ACancelOfAnInvoicedSlipQueuesNothing(t *testing.T) {
 	}
 }
 
-var _ = domain.StatusPacked
+func TestSlipGL_ReconcileCutsTheReportAtTheMonthTheLedgerIsReadTo(t *testing.T) {
+	g := newSlipGL(t, 37)
+	g.post(t, "")
+	if n, err := g.s.PostSlipsToGL(context.Background()); err != nil || n != 1 {
+		t.Fatalf("PostSlipsToGL = %d, %v; want 1", n, err)
+	}
+	monthStart := time.Date(today().Year(), today().Month(), 1, 0, 0, 0, 0, time.UTC)
+	rec, err := g.s.ReconcileDNI(g.ctx, g.f.legalEntity, "USD", monthStart)
+	if err != nil || !rec.Reconciled || !rec.ReportNet.Equal(dq("37.5")) || !rec.LedgerNet.Equal(dq("37.5")) {
+		t.Fatalf("asOf the first of the month: %+v, %v; want the report and the ledger cut at the month's end", rec, err)
+	}
+}
