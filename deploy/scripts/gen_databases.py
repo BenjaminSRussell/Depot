@@ -16,9 +16,9 @@ Writes:
   database column; a physical replication line would let any REPLICATION role copy the whole cluster). The server mounts
   only its own superuser password. A provisioning Job (PostSync, and a CronJob every 15 minutes, so a Vault key written
   later is picked up without a sync) reconciles roles and databases. Production topology (replicas, PITR) is B-48.
-- deploy/envs/stage/service-secrets/<service>/secrets.yaml, one Application per service (ApplicationSet
-  service-secrets-stage, wave -1, in deploy/envs/stage/apps/service-secrets.yaml), so a Vault key that is missing degrades
-  only its own service: the owner Secret `<chart>-db-owner` (the migration Job's DATABASE_URL), the serving Secret (the key
+- deploy/envs/stage/service-secrets/<service>/secrets.yaml, one Application per service (`<service>-secrets-stage`, wave -1,
+  plain children of root-stage in deploy/envs/stage/apps/service-secrets.yaml, so the root's sync waves order them before the
+  services), so a Vault key that is missing degrades only its own service: the owner Secret `<chart>-db-owner` (the migration Job's DATABASE_URL), the serving Secret (the key
   the chart reads DATABASE_URL from plus the other required keys its pods read from that Secret, each from Vault
   <prefix>/<service>/<key>), the role passwords the provisioning Job reads (`postgres-role-<service>`), and the other
   Secrets the service reads (EXTRA_SECRETS). They sync before the services (wave 2), never as ordinary resources of the
@@ -65,6 +65,8 @@ ISSUER = "depot-stage-ca"
 SUPERUSER = "depot"
 IDENT = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
 ROLES_DIR = "/run/secrets/roles"
+# The advisory lock key that serializes provisioning runs on one server.
+PROVISION_LOCK = 7_300_901
 # Databases of platform components in a service Postgres: namespace -> [(key, database, owner role, client pod names)].
 # The owner password is Vault <prefix>/<key>-postgres/owner-password, delivered as postgres-role-<key>.
 PLATFORM_DATABASES = {
@@ -302,7 +304,7 @@ def sql_role(role, attrs, password_file, vault_key, member_of=None):
         f"ALTER ROLE {role} WITH NOSUPERUSER NOCREATEDB NOCREATEROLE {attrs};",
     ]
     if member_of:
-        lines.append(f"GRANT {member_of} TO {role};")
+        lines.append(f"SELECT 'GRANT {member_of} TO {role}' WHERE NOT pg_has_role('{role}', '{member_of}', 'MEMBER')\\gexec")
     lines += [
         f"\\set ok `test -s {password_file} && echo true || echo false`",
         "\\if :ok",
@@ -320,6 +322,8 @@ def provision_sql(entries):
         "-- Reconciles the roles and databases of this Postgres (gen_databases.py), run by the PostSync Job and the CronJob.",
         "-- Idempotent. Every role first (NOLOGIN until its password file exists), then the databases, then CONNECT.",
         "\\set ON_ERROR_STOP on",
+        "-- One run at a time: the PostSync Job and the CronJob may overlap. Released when the session ends.",
+        f"SELECT pg_advisory_lock({PROVISION_LOCK}) \\g /dev/null",
         "REVOKE CONNECT ON DATABASE postgres FROM PUBLIC;",
         "REVOKE CONNECT ON DATABASE template1 FROM PUBLIC;",
         "-- depot_app: the role the migrations grant to and the RLS policies name. No login, CONNECT nowhere; each database's",
@@ -518,32 +522,28 @@ def extra_secrets(rendered):
     return out
 
 
-def secrets_appset(dirs):
+def secrets_apps(dirs):
+    """One plain Application per service for its Secrets, a child of root-stage at wave -1: root-stage's sync waves order
+    its own children, so every service's Secrets are synced before the services (wave 2) and their PreSync Jobs. (The
+    Applications an ApplicationSet generates are not ordered by the waves.)"""
     import stage_apps  # deploy/scripts
     pin = stage_apps.release()
-    appset = {
-        "apiVersion": "argoproj.io/v1alpha1", "kind": "ApplicationSet",
-        "metadata": {"name": "service-secrets-stage", "namespace": "argocd", "annotations": {"argocd.argoproj.io/sync-wave": "-1"}},
+    apps = [{
+        "apiVersion": "argoproj.io/v1alpha1", "kind": "Application",
+        "metadata": {"name": f"{d}-secrets-stage", "namespace": "argocd", "annotations": {"argocd.argoproj.io/sync-wave": "-1"},
+                     "finalizers": ["resources-finalizer.argocd.argoproj.io"]},
         "spec": {
-            "goTemplate": True, "goTemplateOptions": ["missingkey=error"],
-            "generators": [{"list": {"elements": [FlowMap({"name": d, "namespace": ns}) for d, ns in sorted(dirs.items())]}}],
-            "template": {
-                "metadata": {"name": "{{ .name }}-secrets-stage", "namespace": "argocd",
-                             "finalizers": ["resources-finalizer.argocd.argoproj.io"]},
-                "spec": {
-                    "project": "default",
-                    "source": {"repoURL": stage_apps.REPO_URL, "targetRevision": pin["revision"],
-                               "path": "deploy/envs/stage/service-secrets/{{ .name }}"},
-                    "destination": {"name": "stage", "namespace": "{{ .namespace }}"},
-                    "syncPolicy": {"automated": {"prune": True, "selfHeal": True},
-                                   "retry": {"limit": 5, "backoff": {"duration": "30s", "factor": 2, "maxDuration": "5m"}},
-                                   "syncOptions": ["CreateNamespace=true", "SkipDryRunOnMissingResource=true"]},
-                },
-            },
+            "project": "default",
+            "source": {"repoURL": stage_apps.REPO_URL, "targetRevision": pin["revision"], "path": f"deploy/envs/stage/service-secrets/{d}"},
+            "destination": {"name": "stage", "namespace": ns},
+            "syncPolicy": {"automated": {"prune": True, "selfHeal": True},
+                           "retry": {"limit": 5, "backoff": {"duration": "30s", "factor": 2, "maxDuration": "5m"}},
+                           "syncOptions": ["CreateNamespace=true", "SkipDryRunOnMissingResource=true"]},
         },
-    }
+    } for d, ns in sorted(dirs.items())]
     return (HEADER + "# One Application per service with that service's Secrets (deploy/envs/stage/service-secrets/<service>), so a\n"
-            "# missing Vault key degrades only its own service. Synced before the services (wave 2).\n" + dump_all([appset]))
+            "# missing Vault key degrades only its own service. Children of root-stage at wave -1, before the services (wave 2).\n"
+            + dump_all(apps))
 
 
 def outputs():
@@ -570,7 +570,7 @@ def outputs():
     for key, docs in sorted(per_service.items()):
         files[SECRETS_OUT / key / "secrets.yaml"] = (HEADER + f"# The Secrets of {key} in stage: database owner and serving Secrets, the role "
                                                      "passwords the provisioning Job reads, and any other Secret it reads.\n" + dump_all(docs))
-    files[APPSET] = secrets_appset(dirs)
+    files[APPSET] = secrets_apps(dirs)
     for name in KAFKA_SECRET_FILES:
         text = (DEV_KAFKA_SECRETS / name).read_text()
         if "depot/dev/" not in text:

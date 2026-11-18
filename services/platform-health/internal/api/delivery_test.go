@@ -107,7 +107,9 @@ func TestStageApplicationsArePinnedToTheRelease(t *testing.T) {
 	}
 	repoSources, services := 0, 0
 	checkSource := func(where string, src map[string]any, elements []map[string]any) {
-		if repo, _ := src["repoURL"].(string); repo == "https://github.com/BenjaminSRussell/Depot.git" {
+		// This repository with or without ".git", in any letter case (GitHub accepts every form).
+		repo, _ := src["repoURL"].(string)
+		if strings.EqualFold(strings.TrimSuffix(strings.TrimSuffix(repo, "/"), ".git"), "https://github.com/BenjaminSRussell/Depot") {
 			repoSources++
 			if rev, _ := src["targetRevision"].(string); rev != release.Revision {
 				t.Errorf("%s: this repository at %q, want the release tag %s", where, rev, release.Revision)

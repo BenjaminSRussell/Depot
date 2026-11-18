@@ -65,6 +65,8 @@ data:
     -- Reconciles the roles and databases of this Postgres (gen_databases.py), run by the PostSync Job and the CronJob.
     -- Idempotent. Every role first (NOLOGIN until its password file exists), then the databases, then CONNECT.
     \set ON_ERROR_STOP on
+    -- One run at a time: the PostSync Job and the CronJob may overlap. Released when the session ends.
+    SELECT pg_advisory_lock(7300901) \g /dev/null
     REVOKE CONNECT ON DATABASE postgres FROM PUBLIC;
     REVOKE CONNECT ON DATABASE template1 FROM PUBLIC;
     -- depot_app: the role the migrations grant to and the RLS policies name. No login, CONNECT nowhere; each database's
@@ -83,7 +85,7 @@ data:
     \endif
     SELECT 'CREATE ROLE depot_metadata_app NOLOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'depot_metadata_app')\gexec
     ALTER ROLE depot_metadata_app WITH NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    GRANT depot_app TO depot_metadata_app;
+    SELECT 'GRANT depot_app TO depot_metadata_app' WHERE NOT pg_has_role('depot_metadata_app', 'depot_app', 'MEMBER')\gexec
     \set ok `test -s /run/secrets/roles/metadata-app-password && echo true || echo false`
     \if :ok
     \set pw `cat /run/secrets/roles/metadata-app-password`
