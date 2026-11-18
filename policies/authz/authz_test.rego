@@ -3549,6 +3549,14 @@ test_audit_read_log_review_opens_only_the_break_glass_queue if {
 
 # B-07 (AUD-API-4): change-chain verification is its own duty; reading records does not verify and verifying reads no
 # record. The CDC consumer and the nightly chain job hold one flag duty each and reach no route.
+test_record_read_duty_opens_the_per_record_history_route if {
+	allowed("party.read", "GET", "/v1/audit/records/vendor_bank_account/b-1")
+	allowed("sales.order.read", "GET", "/v1/audit/records/sales_order/s-1")
+	not allowed("party.read", "GET", "/v1/audit/records")
+	not allowed("party.read", "GET", "/v1/audit/entities")
+	not allowed("party.read", "GET", "/v1/audit/records/vendor_bank_account/b-1:export")
+}
+
 test_audit_verify_opens_only_the_change_chain_verification if {
 	allowed("audit.verify", "GET", "/v1/audit/records:verify")
 	not allowed("audit.verify", "GET", "/v1/audit/records/vendor_bank_account/b1")

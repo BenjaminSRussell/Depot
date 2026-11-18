@@ -429,6 +429,7 @@ var dynamicDutyArguments = map[string]string{
 	"assets/internal/api/ops.go duty":                       "requireAny loops over caller-listed duty constants",
 	"assets/internal/api/ops.go duties":                     "requireAny forwards the duty constants its callers list",
 	"sales/internal/api/api.go duties":                      "requireAny forwards the duty constants its callers list",
+	"audit/internal/api/records.go duty":                    "the per-record read duty comes from the readDuties table of string literals in domain/entities.go",
 	"batch/internal/inbox/inbox.go s.Duty(":                 "the inbox sources are built from the Duty constants in sources.go",
 	"search/internal/api/api.go duties":                     "RequireAnyDuty over the duties of the sources table, all string literals",
 	"batch/internal/jobs/productclient.go duty":             "loops over the product duties the handler declares",

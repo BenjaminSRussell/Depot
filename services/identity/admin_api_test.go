@@ -698,6 +698,45 @@ values ($1, gen_random_uuid(), $2, 'party.vendor.maintain', now() - interval '1 
 	})
 }
 
+func TestAuditorEveryAssignmentIsEndDated(t *testing.T) {
+	f := newAdminFixture(t)
+	c := f.adminOf(f.tenantA, dutyRoles)
+	assign := func(body map[string]any) *httptest.ResponseRecorder {
+		return f.do(c, http.MethodPost, "/v1/authz/assignments", body)
+	}
+	exec := func(role, validTo string) {
+		t.Helper()
+		if _, err := f.admin.Exec(context.Background(), `insert into identity_role_assignments (tenant_id, assignment_id, user_id, role, valid_from, valid_to)
+values ($1, gen_random_uuid(), $2, $3, now() - interval '1 hour', nullif($4, '')::timestamptz)`, f.tenantA, userID, role, validTo); err != nil {
+			t.Fatal(err)
+		}
+	}
+	now := time.Now().UTC()
+
+	exec("audit.auditor", now.Add(30*24*time.Hour).Format(time.RFC3339))
+
+	if p := wantProblem(t, assign(map[string]any{"userId": userID, "role": "audit.read"}), http.StatusBadRequest, "COM-0001"); p.Errors["validTo"] == "" {
+		t.Fatalf("no end date: errors = %v", p.Errors)
+	}
+	if p := wantProblem(t, assign(map[string]any{"userId": userID, "role": "audit.read", "validTo": now.Add(91 * 24 * time.Hour)}), http.StatusBadRequest, "COM-0001"); p.Errors["validTo"] == "" {
+		t.Fatalf("91 days: errors = %v", p.Errors)
+	}
+	decode[assignmentRow](t, assign(map[string]any{"userId": userID, "role": "audit.read", "validTo": now.Add(30 * 24 * time.Hour)}), http.StatusCreated)
+
+	t.Run("an auditor assignment is refused while the user holds an assignment with no end date", func(t *testing.T) {
+		f := newAdminFixture(t)
+		c := f.adminOf(f.tenantA, dutyRoles)
+		if _, err := f.admin.Exec(context.Background(), `insert into identity_role_assignments (tenant_id, assignment_id, user_id, role, valid_from)
+values ($1, gen_random_uuid(), $2, 'audit.read', now() - interval '1 hour')`, f.tenantA, userID); err != nil {
+			t.Fatal(err)
+		}
+		body := map[string]any{"userId": userID, "role": "audit.auditor", "validTo": now.Add(30 * 24 * time.Hour)}
+		if p := wantProblem(t, f.do(c, http.MethodPost, "/v1/authz/assignments", body), http.StatusBadRequest, "COM-0001"); p.Errors["role"] == "" {
+			t.Fatalf("errors = %v", p.Errors)
+		}
+	})
+}
+
 func TestRoleAssignmentGuards(t *testing.T) {
 	f := newAdminFixture(t)
 	c := f.adminOf(f.tenantA, dutyRoles)

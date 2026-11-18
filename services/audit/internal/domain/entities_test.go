@@ -3,6 +3,7 @@ package domain_test
 import (
 	"encoding/json"
 	"os"
+	"slices"
 	"testing"
 
 	"github.com/BenjaminSRussell/depot/services/audit/internal/domain"
@@ -14,15 +15,29 @@ func TestEveryMappedReadDutyIsSeeded(t *testing.T) {
 		t.Fatal(err)
 	}
 	var seed struct {
-		Duties map[string]json.RawMessage `json:"duties"`
+		Duties map[string]struct {
+			Permissions []struct {
+				Resource string   `json:"resource"`
+				Methods  []string `json:"methods"`
+			} `json:"permissions"`
+		} `json:"duties"`
 	}
 	if err := json.Unmarshal(raw, &seed); err != nil {
 		t.Fatal(err)
 	}
 	for _, entity := range domain.KnownEntities() {
 		duty, _ := domain.ReadDuty(entity)
-		if _, ok := seed.Duties[duty]; !ok {
+		def, ok := seed.Duties[duty]
+		if !ok {
 			t.Errorf("entity %s maps to duty %q, which data.json does not seed", entity, duty)
+			continue
+		}
+		listed := false
+		for _, perm := range def.Permissions {
+			listed = listed || (perm.Resource == "/v1/audit/records/*/*" && slices.Contains(perm.Methods, "GET"))
+		}
+		if !listed {
+			t.Errorf("duty %q reads %s but does not list GET /v1/audit/records/*/*, so the gateway refuses its holder", duty, entity)
 		}
 	}
 	for _, duty := range []string{"audit.export", "audit.auditor"} {
