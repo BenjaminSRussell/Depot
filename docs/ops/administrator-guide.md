@@ -90,6 +90,11 @@ license, in 15 minutes or less (AC-50.6). Steps and retries: [tenant-provisionin
   retention period comes from the tenant's country packs (BR-50.9). Schemas are dropped only after the export
   is verified.
 - Sandboxes are provisioned from masked production through the same path with a lower tier (DEV, TEST, UAT).
+- Access changes reach a signed-in user through the next access token, so up to 300 seconds (the realm's access
+  token life) after a duty or role is removed. To cut a person off at once, a tenant administrator ends their
+  sessions with `POST /api/v1/identity/users/{id}/session-revocations`: Keycloak sessions and refresh tokens end
+  immediately and the user stays enabled; an access token already issued still works until it expires, at most
+  300 seconds. Every revocation is in the audit trail (`session.revoked`).
 
 ## 5. Licenses
 

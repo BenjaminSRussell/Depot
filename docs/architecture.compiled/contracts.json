@@ -2,7 +2,7 @@
   "version": 3,
   "compiler": "scripts/compile_architecture.py",
   "note": "Generated from the OpenAPI and AsyncAPI specs and scripts/architecture_patterns.json. Do not edit; run python3 scripts/compile_architecture.py --write.",
-  "summary": {"openapiDocuments": 65, "paths": 2625, "operations": 3249, "asyncapiDocuments": 60, "topics": 386, "topicsPublished": 383, "topicsSubscribed": 18, "patterns": 59},
+  "summary": {"openapiDocuments": 65, "paths": 2626, "operations": 3250, "asyncapiDocuments": 60, "topics": 387, "topicsPublished": 384, "topicsSubscribed": 18, "patterns": 59},
   "patterns": [
     {
       "id": "event-envelope",
@@ -1922,6 +1922,7 @@
         {"method": "GET", "path": "/v1/identity/users/{id}/effective-permissions", "operationId": "getUserEffectivePermissions", "duty": "identity.effective-permission.view"},
         {"method": "GET", "path": "/v1/identity/users/{id}/keycloak-deprovisions", "operationId": "listKeycloakDeprovisions", "duty": "identity.user.maintain"},
         {"method": "POST", "path": "/v1/identity/users/{id}/keycloak-deprovisions/{deprovisionId}:retry", "operationId": "retryKeycloakDeprovision", "duty": "identity.user.maintain"},
+        {"method": "POST", "path": "/v1/identity/users/{id}/session-revocations", "operationId": "revokeUserSessions", "duty": "identity.user.maintain"},
         {"method": "GET", "path": "/v1/legal-entities", "operationId": "listLegalEntities", "duty": "identity.legal-entity.maintain"},
         {"method": "POST", "path": "/v1/legal-entities", "operationId": "createLegalEntity", "duty": "identity.legal-entity.maintain"},
         {"method": "GET", "path": "/v1/legal-entities/{id}", "operationId": "getLegalEntity", "duty": "identity.legal-entity.maintain"},
@@ -4851,6 +4852,7 @@
         {"topic": "depot.identity.legalentity", "types": ["dev.depot.identity.legalentity.created.v1"]},
         {"topic": "depot.identity.roleassignment", "types": ["dev.depot.identity.roleassignment.assigned.v1", "dev.depot.identity.roleassignment.ended.v1"]},
         {"topic": "depot.identity.scimgroup", "types": ["dev.depot.identity.scimgroup.created.v1", "dev.depot.identity.scimgroup.deleted.v1", "dev.depot.identity.scimgroup.updated.v1"]},
+        {"topic": "depot.identity.session", "types": ["dev.depot.identity.session.revoked.v1"]},
         {"topic": "depot.identity.tenant", "types": ["dev.depot.identity.tenant.created.v1"]},
         {"topic": "depot.identity.tenantfeatures", "types": ["dev.depot.identity.tenantfeatures.updated.v1"]},
         {"topic": "depot.identity.tenantsetup", "types": ["dev.depot.identity.tenantsetup.updated.v1"]},
@@ -5684,6 +5686,7 @@
     {"topic": "depot.identity.legalentity", "publishers": ["services/identity"], "subscribers": []},
     {"topic": "depot.identity.roleassignment", "publishers": ["services/identity"], "subscribers": []},
     {"topic": "depot.identity.scimgroup", "publishers": ["services/identity"], "subscribers": []},
+    {"topic": "depot.identity.session", "publishers": ["services/identity"], "subscribers": []},
     {"topic": "depot.identity.tenant", "publishers": ["services/identity"], "subscribers": []},
     {"topic": "depot.identity.tenantfeatures", "publishers": ["services/identity"], "subscribers": []},
     {"topic": "depot.identity.tenantsetup", "publishers": ["services/identity"], "subscribers": []},

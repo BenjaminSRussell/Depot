@@ -70,6 +70,10 @@ operator; nobody edits a licence file.
 4. Review the user list every month and remove leavers on their last day. The licence inquiry shows the
    active users per type against the licence.
 5. Keep at least two people with TenantAdmin, so that one absence does not stop administration.
+6. Removing a duty or role takes effect when the person's next access token is issued, at most 300 seconds
+   later. To end it at once, end the person's sessions (`POST /api/v1/identity/users/{id}/session-revocations`,
+   TenantAdmin only): their refresh token stops working and they must sign in again. A token already issued
+   still works until it expires, at most 300 seconds. The action is recorded in the audit trail.
 
 Lab 3.1 in the training curriculum walks through an assignment and the resulting licence usage line.
 

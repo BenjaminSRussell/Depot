@@ -61,6 +61,12 @@ channels:
     messages:
       keycloakDeprovisionRetried:
         $ref: "#/components/messages/KeycloakDeprovisionRetried"
+  session:
+    address: depot.identity.session
+    description: Outbox relay topic for revoked user sessions, keyed by user id.
+    messages:
+      sessionRevoked:
+        $ref: "#/components/messages/SessionRevoked"
   legalEntity:
     address: depot.identity.legalentity
     description: Outbox relay topic for the tenant's legal entities, keyed by legal entity id.
@@ -135,6 +141,13 @@ operations:
     summary: A tenant administrator retries a failed Keycloak deprovisioning.
     messages:
       - $ref: "#/channels/keycloakDeprovision/messages/keycloakDeprovisionRetried"
+  publishSession:
+    action: send
+    channel:
+      $ref: "#/channels/session"
+    summary: A tenant administrator ends a user's Keycloak sessions.
+    messages:
+      - $ref: "#/channels/session/messages/sessionRevoked"
   publishLegalEntity:
     action: send
     channel:
@@ -246,6 +259,19 @@ components:
           previousState: { type: string }
           previousAttempts: { type: integer, minimum: 0 }
           lastError: { type: string, description: "Empty when the last attempt recorded no error." }
+    SessionRevoked:
+      name: dev.depot.identity.session.revoked.v1
+      summary: A user's Keycloak sessions and refresh tokens were ended
+      contentType: application/cloudevents+json
+      payload:
+        type: object
+        required: [userId, outcome, keycloakUserId, reason]
+        additionalProperties: false
+        properties:
+          userId: { type: string, format: uuid }
+          outcome: { type: string, enum: [revoked, not_found] }
+          keycloakUserId: { type: string, description: "Empty when no Keycloak user matched." }
+          reason: { type: string, description: "Empty when the administrator gave none." }
     LegalEntityCreated:
       name: dev.depot.identity.legalentity.created.v1
       summary: A legal entity was created
