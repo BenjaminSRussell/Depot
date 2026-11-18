@@ -25,6 +25,7 @@ const (
 	maxSlips = 200
 	// maxExplainRef bounds a price explanation reference (w26 explain id).
 	maxExplainRef = 200
+	maxTaxText    = 64
 )
 
 // slipLineDTO is one posted packing slip line offered for billing (FR-29.1):
@@ -42,6 +43,7 @@ type slipLineDTO struct {
 	RevenueAccount  string `json:"revenueAccount"`
 	TaxCode         string `json:"taxCode"`
 	PriceExplainRef string `json:"priceExplainRef,omitempty"`
+	ItemTaxGroup    string `json:"itemTaxGroup,omitempty"`
 }
 
 // slipDTO is one posted packing slip with its order, posting date and charges.
@@ -57,14 +59,15 @@ type slipDTO struct {
 // invoice account, currency and terms: one invoice per order, or one
 // consolidated invoice with consolidate (FR-29.1, FR-29.2, BR-29.5).
 type shipmentProposalRequest struct {
-	LegalEntityID    string    `json:"legalEntityId"`
-	CustomerID       string    `json:"customerId"`
-	InvoiceAccountID string    `json:"invoiceAccountId"`
-	Currency         string    `json:"currency"`
-	InvoiceDate      string    `json:"invoiceDate"`
-	PaymentTermDays  int       `json:"paymentTermDays"`
-	Consolidate      bool      `json:"consolidate"`
-	Slips            []slipDTO `json:"slips"`
+	LegalEntityID    string         `json:"legalEntityId"`
+	CustomerID       string         `json:"customerId"`
+	InvoiceAccountID string         `json:"invoiceAccountId"`
+	Currency         string         `json:"currency"`
+	InvoiceDate      string         `json:"invoiceDate"`
+	PaymentTermDays  int            `json:"paymentTermDays"`
+	Consolidate      bool           `json:"consolidate"`
+	Slips            []slipDTO      `json:"slips"`
+	ShipTo           *domain.ShipTo `json:"shipTo,omitempty"`
 }
 
 // proposalBatchDTO lists the invoices one POST /proposals request created.
@@ -135,11 +138,13 @@ func (a *API) createShipmentProposals(w http.ResponseWriter, r *http.Request) {
 	exp := money.MinorUnits(req.Currency)
 	invs := make([]store.Invoice, 0, len(plans))
 	for i, plan := range plans {
-		taxes, err := a.tax.Quote(r.Context(), req.Currency, plan.Lines)
+		quote, err := a.tax.Quote(r.Context(), QuoteInput{LegalEntityID: req.LegalEntityID, Currency: req.Currency, Date: invoiceDate, ShipTo: req.ShipTo, Lines: plan.Lines})
 		if err != nil {
 			httpx.Fail(w, r, taxProblem(err))
 			return
 		}
+		applyCodes(plan.Lines, quote.Codes)
+		taxes := quote.Taxes
 		nets, totals, err := domain.Compute(req.Currency, plan.Lines, taxes, plan.Charges)
 		if err != nil {
 			httpx.Fail(w, r, problemFrom(err))
@@ -147,7 +152,7 @@ func (a *API) createShipmentProposals(w http.ResponseWriter, r *http.Request) {
 		}
 		inv := store.Invoice{ID: ids.New(), LegalEntityID: req.LegalEntityID, CustomerID: req.CustomerID, InvoiceAccountID: req.InvoiceAccountID,
 			Type: plan.Type, Status: domain.StatusProposal, Currency: req.Currency, InvoiceDate: invoiceDate,
-			DueDate: invoiceDate.AddDate(0, 0, req.PaymentTermDays), PaymentTermDays: req.PaymentTermDays, Totals: totals,
+			DueDate: invoiceDate.AddDate(0, 0, req.PaymentTermDays), PaymentTermDays: req.PaymentTermDays, Totals: totals, ShipTo: req.ShipTo,
 			IdempotencyKey: batch.ID + "/" + strconv.Itoa(i+1), RequestHash: hash}
 		for j := range plan.Lines {
 			inv.Lines = append(inv.Lines, store.Line{Line: plan.Lines[j], Net: nets[j], Tax: taxes[j].RoundBank(exp), Source: plan.Sources[j]})
@@ -181,6 +186,16 @@ func validateSlips(req shipmentProposalRequest) ([]domain.Slip, time.Time, map[s
 	}
 	if req.PaymentTermDays < 0 || req.PaymentTermDays > 365 {
 		fields["paymentTermDays"] = "must be 0 to 365"
+	}
+	if s := req.ShipTo; s != nil {
+		if !countryCode.MatchString(s.Country) {
+			fields["shipTo.country"] = "must be an ISO 3166 alpha-2 code in capitals"
+		}
+		for name, v := range map[string]string{"taxGroup": s.TaxGroup, "taxId": s.TaxID, "certificate": s.Certificate} {
+			if len(v) > maxTaxText {
+				fields["shipTo."+name] = fmt.Sprintf("must be at most %d characters", maxTaxText)
+			}
+		}
 	}
 	if n := len(req.Slips); n == 0 || n > maxSlips {
 		fields["slips"] = fmt.Sprintf("must hold 1 to %d packing slips", maxSlips)
@@ -223,11 +238,15 @@ func validateSlips(req shipmentProposalRequest) ([]domain.Slip, time.Time, map[s
 					fields[prefix+"."+name] = "must be a UUID"
 				}
 			}
+			if len(l.ItemTaxGroup) > maxTaxText {
+				fields[prefix+".itemTaxGroup"] = fmt.Sprintf("must be at most %d characters", maxTaxText)
+			}
 			if len(l.PriceExplainRef) > maxExplainRef {
 				fields[prefix+".priceExplainRef"] = fmt.Sprintf("must be at most %d characters", maxExplainRef)
 			}
 			line := toLineAt(prefix, j+1, lineDTO{Description: l.Description, Qty: l.Qty, UnitPrice: l.UnitPrice,
 				DiscountPct: l.DiscountPct, RevenueAccount: l.RevenueAccount, TaxCode: l.TaxCode}, fields)
+			line.ItemTaxGroup = l.ItemTaxGroup
 			ds.Lines = append(ds.Lines, domain.SlipLine{Line: line, Source: domain.Source{PackingSlipLineID: l.ID,
 				OrderLineID: l.OrderLineID, ProductID: l.ProductID, PriceExplainRef: l.PriceExplainRef}})
 		}

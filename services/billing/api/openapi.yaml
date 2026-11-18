@@ -1475,6 +1475,18 @@ components:
         invoiceDate: { type: string, format: date, description: "Not before any slip's date (BIL-0006)." }
         paymentTermDays: { type: integer, minimum: 0, maximum: 365 }
         consolidate: { type: boolean, default: false, description: "One invoice for all slips instead of one per order." }
+        shipTo:
+          type: object
+          required: [country]
+          additionalProperties: false
+          description: >
+            The ship-to tax data the tax engine taxes the invoices with (its party). Stored with each invoice so the
+            post-time re-quote repeats it. Omitted, the engine is asked with an empty party.
+          properties:
+            country: { type: string, pattern: "^[A-Z]{2}$" }
+            taxGroup: { type: string, maxLength: 64 }
+            taxId: { type: string, maxLength: 64 }
+            certificate: { type: string, maxLength: 64 }
         slips:
           type: array
           minItems: 1
@@ -1511,6 +1523,7 @@ components:
         revenueAccount: { type: string, pattern: "^[A-Za-z0-9._-]{1,20}$", description: "Missing returns the field error ending (BIL-0004)." }
         taxCode: { type: string, pattern: "^[A-Z0-9_-]{1,20}$" }
         priceExplainRef: { type: string, maxLength: 200, description: "The pricing explanation (wave 26) behind the price." }
+        itemTaxGroup: { type: string, maxLength: 64, description: "The product's tax group, sent to the tax engine as item_tax_group. The line's taxCode becomes the engine's code." }
     ProposalBatch:
       type: object
       required: [items]

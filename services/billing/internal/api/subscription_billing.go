@@ -67,10 +67,11 @@ func (a *API) billPeriod(ctx context.Context, sub store.Subscription, periodFrom
 			Description: fmt.Sprintf("%s usage %s to %s", g.meter, g.from.Format(dateLayout), g.to.Format(dateLayout)),
 			Qty:         g.quantity, UnitPrice: g.unitPrice, DiscountPct: decimal.Zero, RevenueAccount: sub.RevenueAccount, TaxCode: sub.TaxCode})
 	}
-	taxes, err := a.tax.Quote(ctx, sub.Currency, lines)
+	quote, err := a.tax.Quote(ctx, QuoteInput{LegalEntityID: sub.LegalEntityID, Currency: sub.Currency, Date: invoiceDate, Lines: lines})
 	if err != nil {
 		return store.Invoice{}, false, taxProblem(err)
 	}
+	taxes := quote.Taxes
 	nets, totals, err := domain.Compute(sub.Currency, lines, taxes, decimal.Zero)
 	if err != nil {
 		return store.Invoice{}, false, problemFrom(err)

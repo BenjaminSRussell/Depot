@@ -395,11 +395,13 @@ func (a *API) createProposal(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusOK, toDTO(existing))
 		return
 	}
-	taxes, err := a.tax.Quote(r.Context(), inv.Currency, lines)
+	quote, err := a.tax.Quote(r.Context(), QuoteInput{LegalEntityID: inv.LegalEntityID, Currency: inv.Currency, Date: inv.InvoiceDate, Lines: lines})
 	if err != nil {
 		httpx.Fail(w, r, taxProblem(err))
 		return
 	}
+	applyCodes(lines, quote.Codes)
+	taxes := quote.Taxes
 	nets, totals, err := domain.Compute(inv.Currency, lines, taxes, charges)
 	if err != nil {
 		httpx.Fail(w, r, problemFrom(err))
@@ -688,14 +690,14 @@ func (a *API) postInvoice(w http.ResponseWriter, r *http.Request) {
 	for i, l := range inv.Lines {
 		lines[i] = l.Line
 	}
-	taxes, err := a.tax.Quote(r.Context(), inv.Currency, lines)
+	quote, err := a.tax.Quote(r.Context(), QuoteInput{LegalEntityID: inv.LegalEntityID, Currency: inv.Currency, Date: inv.InvoiceDate, ShipTo: inv.ShipTo, Lines: lines})
 	if err != nil {
 		a.postsRefused.Add(1)
 		httpx.Fail(w, r, taxProblem(err))
 		return
 	}
 	requoted := decimal.Zero
-	for _, t := range taxes {
+	for _, t := range quote.Taxes {
 		requoted = requoted.Add(t.RoundBank(money.MinorUnits(inv.Currency)))
 	}
 	if domain.TaxMoved(inv.Totals.Tax, requoted) {

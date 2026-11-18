@@ -34,6 +34,9 @@ var servicePrincipals = map[string][]string{
 	"billing-sales-report": {"sales.order.record-invoice"},
 	// The reporter of booked invoices and credit notes to the tax service (#29): it signs POST /v1/tax/transactions only.
 	"billing-tax-report": {"tax.transaction.record"},
+	// The invoice tax quote (B-15): billing asks the tax engine for the tax of a proposal or a post-time re-quote with only
+	// POST /v1/tax/calculate.
+	"billing-tax-calc": {"tax.tax.calculate"},
 	// The consumers of intercompany's chargeinvoice.requested (#40): billing raises the lender's invoice proposal and payables takes
 	// the borrower's vendor invoice into its intake. Each holds one flag duty and reaches no route.
 	"billing-iccharge":  {"billing.iccharge.from-event"},
@@ -90,6 +93,7 @@ var servicePrincipals = map[string][]string{
 var servicePrincipalIssuers = map[string][]string{
 	"billing-sales-report":     {"billing"},
 	"billing-tax-report":       {"billing"},
+	"billing-tax-calc":         {"billing"},
 	"billing-iccharge":         {"billing"},
 	"payables-iccharge":        {"payables"},
 	"intercompany-charges":     {"intercompany"},

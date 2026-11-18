@@ -260,19 +260,38 @@ func (f *fakeStore) PostProposal(_ context.Context, id string, postingDate time.
 	return inv, nil
 }
 
-// fakeTax quotes the same tax on every line, or fails.
+// fakeTax quotes the same tax on every line, or fails. code, when set, is the tax code it answers for every line; inputs holds every quote asked.
 type fakeTax struct {
 	perLine string
 	err     error
+	code    string
+	inputs  []QuoteInput
 }
 
-func (f *fakeTax) Quote(_ context.Context, _ string, lines []domain.Line) ([]decimal.Decimal, error) {
+func (f *fakeTax) Quote(_ context.Context, in QuoteInput) (QuoteResult, error) {
+	f.inputs = append(f.inputs, in)
 	if f.err != nil {
-		return nil, f.err
+		return QuoteResult{}, f.err
 	}
-	out := make([]decimal.Decimal, len(lines))
-	for i := range out {
-		out[i] = decimal.RequireFromString(f.perLine)
+	out := QuoteResult{Taxes: make([]decimal.Decimal, len(in.Lines)), Codes: make([]string, len(in.Lines))}
+	for i := range in.Lines {
+		out.Taxes[i] = decimal.RequireFromString(f.perLine)
+		out.Codes[i] = f.code
+	}
+	return out, nil
+}
+
+// rateTax is a fixed percentage per tax code; a code it does not list is refused.
+type rateTax map[string]int64
+
+func (t rateTax) Quote(_ context.Context, in QuoteInput) (QuoteResult, error) {
+	out := QuoteResult{Taxes: make([]decimal.Decimal, len(in.Lines)), Codes: make([]string, len(in.Lines))}
+	for i, l := range in.Lines {
+		pct, ok := t[l.TaxCode]
+		if !ok {
+			return QuoteResult{}, &UnknownTaxCodeError{Code: l.TaxCode}
+		}
+		out.Taxes[i] = l.Net(in.Currency).Mul(decimal.NewFromInt(pct)).Div(decimal.NewFromInt(100))
 	}
 	return out, nil
 }
@@ -537,11 +556,7 @@ func TestCreateProposal_FieldErrors(t *testing.T) {
 
 func TestCreateProposal_UnknownTaxCodeIsRefused(t *testing.T) {
 	s := newFakeStore()
-	tax, err := ParseTaxRates("DE7=7")
-	if err != nil {
-		t.Fatal(err)
-	}
-	h := setup(t, s, tax)
+	h := setup(t, s, rateTax{"DE7": 7})
 	rec := do(h, http.MethodPost, "/v1/billing/free-text-invoices", key, proposal("1", "100", "4900"))
 	var p httpx.Problem
 	decode(t, rec, &p)
@@ -551,12 +566,8 @@ func TestCreateProposal_UnknownTaxCodeIsRefused(t *testing.T) {
 }
 
 // AC-29.9: a DMF-DE free-text line to 4900 of 100.00 EUR at 19% VAT gives 119.00 gross.
-func TestRateTableTax_AC29_9(t *testing.T) {
-	tax, err := ParseTaxRates("DE19=19, EXEMPT=0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	h := setup(t, newFakeStore(), tax)
+func TestCreateProposal_EngineTaxAC29_9(t *testing.T) {
+	h := setup(t, newFakeStore(), rateTax{"DE19": 19, "EXEMPT": 0})
 	var got invoiceDTO
 	rec := do(h, http.MethodPost, "/v1/billing/free-text-invoices", key, proposal("1", "100.00", "4900"))
 	decode(t, rec, &got)
@@ -565,17 +576,6 @@ func TestRateTableTax_AC29_9(t *testing.T) {
 	}
 	if got.Lines[0].TaxCode != "DE19" || got.Lines[0].Tax != "19.00" || got.Lines[0].RevenueAccount != "4900" {
 		t.Errorf("line %+v", got.Lines[0])
-	}
-}
-
-func TestParseTaxRates(t *testing.T) {
-	if e, err := ParseTaxRates(" "); err != nil || e != (UnavailableTax{}) {
-		t.Errorf("empty setting: %v %v, want UnavailableTax", e, err)
-	}
-	for _, bad := range []string{"DE19", "DE19=abc", "DE19=101", "DE19=-1", "de19=19", "DE19=19,DE19=7"} {
-		if _, err := ParseTaxRates(bad); err == nil {
-			t.Errorf("%q accepted", bad)
-		}
 	}
 }
 
