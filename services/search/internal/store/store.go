@@ -207,6 +207,46 @@ func (s *Store) Search(ctx context.Context, q Query) ([]Hit, error) {
 	return hits, err
 }
 
+// Count is the number of live (not removed) index rows of one record type, in
+// one legal entity for a legal-entity scoped type and with LegalEntityID ""
+// for a tenant-wide one.
+type Count struct {
+	Type          string `json:"type"`
+	LegalEntityID string `json:"legalEntityId,omitempty"`
+	N             int64  `json:"count"`
+}
+
+// Counts returns the live rows of the caller's tenant per record type and
+// legal entity, as row-level security lets the caller see them: the scoped
+// types only in the caller's legal entities. Removed rows (tombstones of
+// merged parties, say) are not counted. The order is by type, then entity.
+func (s *Store) Counts(ctx context.Context) ([]Count, error) {
+	if _, ok := tenant.FromContext(ctx); !ok {
+		return nil, errNoPrincipal
+	}
+	var out []Count
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `select record_type, legal_entity_id, n from (
+				select record_type, legal_entity_id::text as legal_entity_id, count(*) as n from search_record where not removed group by 1, 2
+				union all
+				select record_type, '', count(*) from search_record_tenant where not removed group by 1) c
+			order by record_type collate "C", legal_entity_id collate "C"`)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var c Count
+			if err := rows.Scan(&c.Type, &c.LegalEntityID, &c.N); err != nil {
+				return err
+			}
+			out = append(out, c)
+		}
+		return rows.Err()
+	})
+	return out, err
+}
+
 var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
 const (

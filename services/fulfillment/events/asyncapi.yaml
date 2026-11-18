@@ -453,6 +453,7 @@ components:
           packing_slip_number: { type: string, example: "PS-0000001" }
           shipment_id: { type: string, format: uuid }
           order_id: { type: string, format: uuid }
+          legal_entity_id: { type: string, format: uuid, description: "The shipment's legal entity. The search index and the tax Intrastat feed scope the slip by it (#506, B-05c); omitted only for a shipment written before the column existed." }
           packaging_fee_billable: { type: boolean, description: "The legal entity packaging_fee_billable when the slip posted; billing (wave 29) charges the packaging_fees when true (BR-28.12)." }
           customer_id: { type: string, format: uuid }
           partner_country: { type: string, description: "Intrastat (#13): the member state the goods were dispatched to, the post's countryCode (ship-to), not the country of the customer's VAT registration; absent when the post named none." }

@@ -115,14 +115,25 @@ type productData struct {
 	Version        int    `json:"version"`
 }
 
+// purchaseOrderData is what po.confirmed and po.cancelled both carry. Each
+// handler decodes only the fields its event type declares
+// (deploy/scripts/test_event_contracts.py compares them with the producer).
 type purchaseOrderData struct {
 	POID          string `json:"po_id"`
 	Number        string `json:"number"`
 	LegalEntityID string `json:"legal_entity_id"`
-	Currency      string `json:"currency"`
-	Total         string `json:"total"`
 	VersionNo     int    `json:"version_no"`
-	PriorStatus   string `json:"prior_status"`
+}
+
+type purchaseOrderConfirmedData struct {
+	purchaseOrderData
+	Currency string `json:"currency"`
+	Total    string `json:"total"`
+}
+
+type purchaseOrderCancelledData struct {
+	purchaseOrderData
+	PriorStatus string `json:"prior_status"`
 }
 
 // Handlers indexes the events of every searchable record type. Register them
@@ -138,19 +149,19 @@ func Handlers(s Applier) map[string]eventing.Handler {
 		PartyMergedType:           h(removeMergedParties),
 		ProductCreatedType:        h(indexProduct),
 		ProductUpdatedType:        h(indexProduct),
-		PurchaseOrderConfirmed:    h(indexPurchaseOrder),
-		PurchaseOrderCancelled:    h(indexPurchaseOrder),
+		PurchaseOrderConfirmed:    h(indexPurchaseOrderConfirmed),
+		PurchaseOrderCancelled:    h(indexPurchaseOrderCancelled),
 		ReceiptPostedType:         h(indexReceiptPosted),
 		ReceiptCorrectedType:      h(indexReceiptCorrected),
 		VendorInvoicePostedType:   h(indexVendorInvoice),
 		SalesOrderConfirmedType:   h(indexSalesOrder),
 		PackingSlipPostedType:     h(indexPackingSlipPosted),
 		PackingSlipCancelledType:  h(indexPackingSlipCancelled),
-		CustomerInvoicePostedType: h(indexBillingDocument),
-		CreditNotePostedType:      h(indexBillingDocument),
+		CustomerInvoicePostedType: h(indexCustomerInvoice),
+		CreditNotePostedType:      h(indexCreditNote),
 
-		ProductionOrderCreatedType:       h(indexProductionOrder),
-		ProductionOrderStatusChangedType: h(indexProductionOrder),
+		ProductionOrderCreatedType:       h(indexProductionOrderCreated),
+		ProductionOrderStatusChangedType: h(indexProductionOrderStatus),
 		WorkerCreatedType:                h(indexWorker),
 	}
 }
@@ -232,24 +243,41 @@ func indexProduct(ctx context.Context, s Applier, evt events.Event) error {
 	return apply(ctx, s, evt, store.Record{Type: store.TypeProduct, ID: d.ProductID, Number: d.ProductNumber, Title: d.Name, Subtitle: d.ProductType, Status: d.LifecycleState, Version: d.Version})
 }
 
-func indexPurchaseOrder(ctx context.Context, s Applier, evt events.Event) error {
-	var d purchaseOrderData
+func indexPurchaseOrderConfirmed(ctx context.Context, s Applier, evt events.Event) error {
+	var d purchaseOrderConfirmedData
 	if err := decode(evt, purchasingSource, &d); err != nil {
 		return err
 	}
-	if !ids.Valid(d.POID) || !ids.Valid(d.LegalEntityID) || d.Number == "" {
+	r := d.record(statusPOConfirmed)
+	if d.Currency != "" {
+		r.Subtitle = d.Currency + " " + d.Total
+	}
+	return indexPurchaseOrder(ctx, s, evt, r)
+}
+
+// indexPurchaseOrderCancelled marks the order cancelled; an order cancelled
+// before it was ever confirmed is only updated, never added.
+func indexPurchaseOrderCancelled(ctx context.Context, s Applier, evt events.Event) error {
+	var d purchaseOrderCancelledData
+	if err := decode(evt, purchasingSource, &d); err != nil {
+		return err
+	}
+	r := d.record(statusPOCancelled)
+	r.UpdateOnly = !confirmedBefore[d.PriorStatus]
+	return indexPurchaseOrder(ctx, s, evt, r)
+}
+
+func (d purchaseOrderData) record(status string) store.Record {
+	return store.Record{Type: store.TypePurchaseOrder, ID: d.POID, LegalEntityID: d.LegalEntityID, Number: d.Number, Title: d.Number, Status: status, Version: d.VersionNo}
+}
+
+func indexPurchaseOrder(ctx context.Context, s Applier, evt events.Event, r store.Record) error {
+	if !ids.Valid(r.ID) || !ids.Valid(r.LegalEntityID) || r.Number == "" {
 		return eventing.Permanent(fmt.Errorf("%s needs po_id, legal_entity_id and number", evt.Type))
 	}
-	scoped, err := tenant.ServicePrincipal(ConsumerName, evt.TenantID, d.LegalEntityID)
+	scoped, err := tenant.ServicePrincipal(ConsumerName, evt.TenantID, r.LegalEntityID)
 	if err != nil {
 		return eventing.Permanent(err)
-	}
-	r := store.Record{Type: store.TypePurchaseOrder, ID: d.POID, LegalEntityID: d.LegalEntityID, Number: d.Number, Title: d.Number, Status: statusPOConfirmed, Version: d.VersionNo}
-	if evt.Type == PurchaseOrderCancelled {
-		r.Status = statusPOCancelled
-		r.UpdateOnly = !confirmedBefore[d.PriorStatus]
-	} else if d.Currency != "" {
-		r.Subtitle = d.Currency + " " + d.Total
 	}
 	return apply(tenant.With(ctx, scoped), s, evt, r)
 }
@@ -364,29 +392,44 @@ func indexPackingSlipCancelled(ctx context.Context, s Applier, evt events.Event)
 		Status: statusCancelled, UpdateOnly: true})
 }
 
-// indexBillingDocument indexes a posted customer invoice or credit note. A
-// credit note carries credit_note_id and its own number; both are customer
-// documents opened on the invoice page.
-func indexBillingDocument(ctx context.Context, s Applier, evt events.Event) error {
+// billingDocumentData is what a posted customer invoice and a posted credit
+// note both carry; each adds its own id. Both are customer documents opened
+// on the invoice page.
+type billingDocumentData struct {
+	Number        string `json:"number"`
+	LegalEntityID string `json:"legal_entity_id"`
+	Currency      string `json:"currency"`
+	Totals        struct {
+		Gross string `json:"gross"`
+	} `json:"totals"`
+}
+
+func (d billingDocumentData) record(id string) store.Record {
+	return store.Record{Type: store.TypeCustomerInvoice, ID: id, LegalEntityID: d.LegalEntityID, Number: d.Number,
+		Title: d.Number, Subtitle: subtitle(d.Currency, d.Totals.Gross), Status: statusPosted}
+}
+
+func indexCustomerInvoice(ctx context.Context, s Applier, evt events.Event) error {
 	var d struct {
-		InvoiceID     string `json:"invoice_id"`
-		CreditNoteID  string `json:"credit_note_id"`
-		Number        string `json:"number"`
-		LegalEntityID string `json:"legal_entity_id"`
-		Currency      string `json:"currency"`
-		Totals        struct {
-			Gross string `json:"gross"`
-		} `json:"totals"`
+		InvoiceID string `json:"invoice_id"`
+		billingDocumentData
 	}
 	if err := decode(evt, billingSource, &d); err != nil {
 		return err
 	}
-	id := d.InvoiceID
-	if id == "" {
-		id = d.CreditNoteID
+	return scoped(ctx, s, evt, d.record(d.InvoiceID))
+}
+
+// indexCreditNote indexes a posted credit note under its own id and number.
+func indexCreditNote(ctx context.Context, s Applier, evt events.Event) error {
+	var d struct {
+		CreditNoteID string `json:"credit_note_id"`
+		billingDocumentData
 	}
-	return scoped(ctx, s, evt, store.Record{Type: store.TypeCustomerInvoice, ID: id, LegalEntityID: d.LegalEntityID, Number: d.Number,
-		Title: d.Number, Subtitle: subtitle(d.Currency, d.Totals.Gross), Status: statusPosted})
+	if err := decode(evt, billingSource, &d); err != nil {
+		return err
+	}
+	return scoped(ctx, s, evt, d.record(d.CreditNoteID))
 }
 
 // statusCode turns a CamelCase status (production's ReportedAsFinished) into
@@ -402,27 +445,41 @@ func statusCode(status string) string {
 	return b.String()
 }
 
+// productionOrderData is what order.created and order.statuschanged both
+// carry: each names the order, so a status event never needs the create first.
 type productionOrderData struct {
 	OrderID       string `json:"orderId"`
 	OrderNumber   string `json:"orderNumber"`
 	LegalEntityID string `json:"legalEntityId"`
-	Status        string `json:"status"`
-	To            string `json:"to"`
 }
 
-// indexProductionOrder indexes a production order from order.created and keeps
-// its status from order.statuschanged, which names the order too, so a status
-// event never needs the create first. The record has no subtitle: the delivery
-// date and quantity change with order.updated, which the index does not read.
-func indexProductionOrder(ctx context.Context, s Applier, evt events.Event) error {
-	var d productionOrderData
+// indexProductionOrderCreated indexes a production order from order.created.
+// The record has no subtitle: the delivery date and quantity change with
+// order.updated, which the index does not read.
+func indexProductionOrderCreated(ctx context.Context, s Applier, evt events.Event) error {
+	var d struct {
+		productionOrderData
+		Status string `json:"status"`
+	}
 	if err := decode(evt, productionSource, &d); err != nil {
 		return err
 	}
-	status := d.Status
-	if evt.Type == ProductionOrderStatusChangedType {
-		status = d.To
+	return indexProductionOrder(ctx, s, evt, d.productionOrderData, d.Status)
+}
+
+// indexProductionOrderStatus keeps the order's status from order.statuschanged.
+func indexProductionOrderStatus(ctx context.Context, s Applier, evt events.Event) error {
+	var d struct {
+		productionOrderData
+		To string `json:"to"`
 	}
+	if err := decode(evt, productionSource, &d); err != nil {
+		return err
+	}
+	return indexProductionOrder(ctx, s, evt, d.productionOrderData, d.To)
+}
+
+func indexProductionOrder(ctx context.Context, s Applier, evt events.Event, d productionOrderData, status string) error {
 	return scoped(ctx, s, evt, store.Record{Type: store.TypeProductionOrder, ID: d.OrderID, LegalEntityID: d.LegalEntityID, Number: d.OrderNumber,
 		Title: d.OrderNumber, Status: statusCode(status)})
 }
