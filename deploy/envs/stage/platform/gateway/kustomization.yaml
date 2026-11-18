@@ -4,7 +4,6 @@ kind: Kustomization
 resources:
 - gatewayclass.yaml
 - gateway.yaml
-- jwks-configmap.yaml
 - httproutes.yaml
 - clienttrafficpolicy.yaml
 - securitypolicy.yaml
@@ -22,4 +21,5 @@ resources:
 - edge-httproute.yaml
 - edge-clienttrafficpolicy.yaml
 - portal-gateway.yaml
+- api-certificate.yaml
 - authz-opa-bundle.yaml

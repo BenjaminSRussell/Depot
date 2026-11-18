@@ -521,7 +521,7 @@
       "linkOnly": false,
       "config": {
         "singleSignOnServiceUrl": "https://idp.example.invalid/saml/sso",
-        "entityId": "https://auth.stage.depot.dev/realms/depot",
+        "entityId": "https://idp.stage.depot.dev/realms/depot",
         "idpEntityId": "https://idp.example.invalid/saml",
         "nameIDPolicyFormat": "urn:oasis:names:tc:SAML:1.1:nameid-format:persistent",
         "wantAssertionsSigned": "true",

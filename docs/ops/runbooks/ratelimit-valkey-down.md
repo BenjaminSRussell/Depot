@@ -23,7 +23,7 @@ Why fail open (B-09 part b):
 - Losing the counters is already accepted (ADR-0014): the limits restart from zero when the pod restarts.
 - The cost is bounded: each request waits at most the 20 ms timeout while the service is down, and the outage is visible
   (below). Brute-force protection on sign-in is Keycloak's own (brute-force detection), not these limits, and the portal
-  BFFs keep their own per-session limit in their session store (`deploy/session-valkey`).
+  BFFs keep their own per-session limit (today per pod and in memory: they do not use `deploy/session-valkey` yet).
 
 What fails open with it: the per-tenant tier limits, and the per-address limits of the AS2 edge (edi keeps its own token
 bucket per AS2 endpoint behind it), the region health edge and the portal edge.

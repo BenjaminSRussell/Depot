@@ -1,0 +1,33 @@
+{{- if .Values.tls.enabled }}
+# TLS only (stage and prod): the server presents a cert-manager certificate and pg_hba admits TCP connections only over TLS
+# with SCRAM. No `replication` line: Debezium's pgoutput connections are logical and match the database column.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Release.Name }}-postgres-tls
+  labels:
+    app.kubernetes.io/name: postgres
+spec:
+  secretName: {{ .Release.Name }}-postgres-tls
+  dnsNames:
+    - postgres
+    - postgres.{{ .Release.Namespace }}.svc
+    - postgres.{{ .Release.Namespace }}.svc.cluster.local
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ required "tls.issuer is required with tls.enabled" .Values.tls.issuer }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-postgres-hba
+  labels:
+    app.kubernetes.io/name: postgres
+data:
+  pg_hba.conf: |
+    local all all scram-sha-256
+    hostssl all all all scram-sha-256
+{{- end }}

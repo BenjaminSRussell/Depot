@@ -16,13 +16,15 @@ spec:
   failurePolicy: Fail
   background: false
   webhookTimeoutSeconds: 30
+  # Both rules match every namespace a Depot service runs in (hello-ledger, batch, metadata; deploy/scripts/test_argocd_apps.py
+  # checks the list against the dev and stage service Applications, B-09b).
   rules:
     - name: require-digest-pinned-images
       match:
         any:
           - resources:
               kinds: [Pod, Pod/ephemeralcontainers]
-              namespaces: [hello-ledger, depot-*]
+              namespaces: [hello-ledger, batch, metadata, depot-*]
       validate:
         failureAction: Enforce
         message: Images under REGISTRY_HOST/ must be referenced by @sha256 digest, not a mutable tag.
@@ -68,7 +70,7 @@ spec:
         any:
           - resources:
               kinds: [Pod, Pod/ephemeralcontainers]
-              namespaces: [hello-ledger, depot-*]
+              namespaces: [hello-ledger, batch, metadata, depot-*]
       verifyImages:
         - type: Cosign
           failureAction: Enforce

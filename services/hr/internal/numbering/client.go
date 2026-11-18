@@ -33,7 +33,9 @@ const (
 	maxResponse    = 1 << 20
 	audience       = "numbering"
 	allocateDuty   = "numbering.sequence.allocate"
-	retryHint      = "no requisition number was given out and nothing was saved; retry the request (with the same Idempotency-Key, if it had one)"
+	// A timeout does not tell whether numbering issued a number: only that nothing was saved here. The same Idempotency-Key
+	// makes a retry reuse a number numbering may already have issued.
+	retryHint = "nothing was saved; retry the request with the same Idempotency-Key, if it had one"
 )
 
 type Client struct {
@@ -73,11 +75,16 @@ func (e statusError) Error() string { return fmt.Sprintf("numbering answered %d"
 
 var errNoSigner = errors.New("no service signing key configured")
 
-// problem turns an allocation failure into the problem the caller sees: CodeTimeout when the deadline passed, else
-// CodeUnavailable with the cause. Internal details (addresses, bodies) stay in the log.
-func (c *Client) problem(ctx context.Context, err error) error {
+// problem turns an allocation failure into the problem the caller sees: CodeTimeout when a deadline passed, else
+// CodeUnavailable with the cause. callerFirst says the caller's own deadline was the earlier one, so the detail does not
+// claim the client's timeout. Internal details (addresses, bodies) stay in the log.
+func (c *Client) problem(ctx context.Context, err error, callerFirst bool) error {
 	var netErr net.Error
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) || (errors.As(err, &netErr) && netErr.Timeout()) {
+		if callerFirst {
+			return httpx.NewProblem(http.StatusServiceUnavailable, CodeTimeout,
+				"the request's deadline passed before the numbering service answered; "+retryHint)
+		}
 		return httpx.NewProblem(http.StatusServiceUnavailable, CodeTimeout,
 			fmt.Sprintf("the numbering service did not answer within %s; %s", c.timeout, retryHint))
 	}
@@ -96,12 +103,14 @@ func (c *Client) Next(ctx context.Context, code, idempotencyKey string) (string,
 	if p, _ := tenant.FromContext(ctx); !ids.Valid(p.LegalEntityID) {
 		return "", httpx.NewProblem(http.StatusUnprocessableEntity, CodeEntityRequired, "a single legal entity (X-Depot-Legal-Entity) is required to allocate a requisition number")
 	}
+	deadline, hasDeadline := ctx.Deadline()
+	callerFirst := hasDeadline && time.Until(deadline) < c.timeout
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 	formatted, err := c.allocate(ctx, code, idempotencyKey)
 	if err != nil {
 		slog.Error("numbering allocation failed", "err", err, "code", code, "timeout", c.timeout, "correlationId", middleware.GetReqID(ctx))
-		return "", c.problem(ctx, err)
+		return "", c.problem(ctx, err, callerFirst)
 	}
 	return formatted, nil
 }

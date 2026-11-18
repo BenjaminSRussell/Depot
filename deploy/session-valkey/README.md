@@ -7,7 +7,7 @@ store in `deploy/envoy-gateway`:
 - **Auth:** the default user is off. Each client signs in as its own ACL user, limited to its key prefix and to the
   commands its store sends (`values.yaml` `commands`). Passwords come from the ClusterSecretStore (`<prefix>/session-valkey/<client>-password`);
   each client gets a Secret `<client>-session-store` in its namespace with `password` and its `rediss://` URL. The ACL file
-  is mounted from a Secret, never passed on the command line.
+  is mounted from a Secret, never passed on the command line, and holds only SHA-256 hashes of the passwords (`#<hex>`).
 - **TLS only:** `--port 0` closes the plain port; the server presents a cert-manager certificate from `tls.issuer`.
 - **No persistence:** `--save ""`, `--appendonly no`, an emptyDir and no volume claim. A restart signs everyone out.
 - **NetworkPolicy:** ingress only from the listed clients' pods on the TLS port, no egress.
