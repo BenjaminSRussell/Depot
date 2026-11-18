@@ -12,12 +12,12 @@ export function ImportPage() {
     <div className={styles.stack}>
       <PageHeader
         title="Import records"
-        description="Check a CSV file of vendors, customers or products, then import it. It is the same import as the Import your first records step of the setup guide."
+        description="Check a CSV file of vendors, customers or products, then import it. It is the same import as the “Import your first records” step of the setup guide."
       />
       <Card>
         <ImportStep />
       </Card>
-      <p className={styles.muted}>Lists that can be exported, such as purchase orders and vendor invoices, have their own Export CSV button.</p>
+      <p className={styles.muted}>To export records, use Export CSV on the list you need, such as purchase orders or vendor invoices.</p>
     </div>
   );
 }

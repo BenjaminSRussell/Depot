@@ -52,7 +52,7 @@ Words used here:
 5. An empty state, when it shows, names what the list is for and gives the next step (`lists.md`, "first-run empty").
 
 **Enforcement**
-- New source scan `shell/honestScreens.test.ts`: checks 1 to 3 over `modules/**/*.tsx` (allowlist `shell/honestScreensAllowlist.json`, shrinking).
+- New source scan `shell/honestScreens.test.ts`: checks 1 to 3 over `modules/**/*.tsx` (the shrinking allowlists sit at the top of the test file, each entry with its reason). It also covers check 4: the shell drops `plannedRoutes.json` paths from the sidebar, workspaces, All features, home and palette (`shell/pages/PlannedPage.tsx`, `withoutPlannedNav`).
 - Extend `modules/registry.test.ts` and `shell/workspaces/workspaces.test.tsx`: check 4, and every `plannedRoutes.json` entry has an issue, a slice and a target date that has not passed (the test fails on the day after the date, so a planned route cannot sit there by default; moving the date is a reviewed change).
 - Change the tests that today assert fake data: `modules/admin/module.test.tsx` ("Audit entries" contains `user-1`) and `modules/workflow/module.test.tsx` ("Batch runs" contains `rows-1m`) must assert a fetch and its result instead. `apps/web/docs/design-system.md` section 8 lists both as "preserve"; this standard supersedes those two lines.
 - Review checklist: "Does any number, status or empty message on this page come from somewhere other than a fetch?"

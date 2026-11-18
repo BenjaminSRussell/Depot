@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -25,6 +26,9 @@ const (
 	dutyRead       = "numbering.read"
 	dutyWrite      = "numbering.write"
 	dutyAllocate   = "numbering.sequence.allocate"
+
+	defaultListLimit = 100
+	maxListLimit     = 500
 )
 
 // API is the numbering HTTP surface.
@@ -50,6 +54,7 @@ func New(s store.Store) *API { return &API{store: s} }
 func (a *API) Register(r chi.Router) {
 	r.Get("/readyz", a.ready)
 	r.With(authz.RequireDuty(dutyWrite)).Post("/v1/numbering/sequences", a.create)
+	r.With(authz.RequireDuty(dutyRead)).Get("/v1/numbering/sequences", a.list)
 	r.With(authz.RequireDuty(dutyRead)).Get("/v1/numbering/sequences/{code}", a.get)
 	r.With(authz.RequireAnyDuty(dutyWrite, dutyAllocate)).Post("/v1/numbering/sequences/{code}/next", a.allocate)
 }
@@ -120,6 +125,36 @@ func (a *API) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, entity)
+}
+
+func (a *API) list(w http.ResponseWriter, r *http.Request) {
+	if !validTenant(w, r) {
+		return
+	}
+	limit := defaultListLimit
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 1 || n > maxListLimit {
+			p := httpx.NewProblem(http.StatusBadRequest, "COM-0001", "request failed validation")
+			p.Errors = map[string]string{"limit": fmt.Sprintf("must be a whole number from 1 to %d", maxListLimit)}
+			httpx.Fail(w, r, p)
+			return
+		}
+		limit = n
+	}
+	cursor := r.URL.Query().Get("cursor")
+	if cursor != "" && !ids.Valid(cursor) {
+		p := httpx.NewProblem(http.StatusBadRequest, "COM-0001", "request failed validation")
+		p.Errors = map[string]string{"cursor": "must be the nextCursor of the previous page"}
+		httpx.Fail(w, r, p)
+		return
+	}
+	page, err := a.store.List(r.Context(), cursor, limit)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, page)
 }
 
 func (a *API) allocate(w http.ResponseWriter, r *http.Request) {

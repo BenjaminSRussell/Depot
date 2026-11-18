@@ -45,10 +45,26 @@ type Issued struct {
 	LegalEntityID string `json:"legalEntityId"`
 }
 
+// Listed is a sequence as the list shows it: the definition plus the number the next allocation will issue.
+type Listed struct {
+	Sequence
+	// NextValue is the value the next allocation issues: one past the last issued value, or StartFrom before the first.
+	NextValue int64 `json:"nextValue"`
+	// NextFormatted is NextValue in the sequence's format; empty when the padded width is exhausted.
+	NextFormatted string `json:"nextFormatted,omitempty"`
+}
+
+// Page is one page of the sequence list. NextCursor is empty on the last page.
+type Page struct {
+	Items      []Listed `json:"items"`
+	NextCursor string   `json:"nextCursor,omitempty"`
+}
+
 // Store is the numbering persistence port.
 type Store interface {
 	Create(ctx context.Context, in Sequence, idempotencyKey string) (Sequence, error)
 	Get(ctx context.Context, code string) (Sequence, error)
+	List(ctx context.Context, cursor string, limit int) (Page, error)
 	Allocate(ctx context.Context, code, idempotencyKey string) (Issued, error)
 	Ping(ctx context.Context) error
 }
@@ -106,6 +122,61 @@ func (s *Postgres) Get(ctx context.Context, code string) (Sequence, error) {
 		return err
 	})
 	return e, err
+}
+
+// List pages through the sequences of the caller's legal-entity scope in id order, after cursor (a sequence id), with
+// the next value each would issue. It reads under the same tenant and legal-entity RLS as every other query; the
+// explicit scope filter repeats it so an all-scope caller sees every legal entity and a scoped caller only its own.
+func (s *Postgres) List(ctx context.Context, cursor string, limit int) (Page, error) {
+	p, _ := tenant.FromContext(ctx)
+	entities, err := scopeEntities(p)
+	if err != nil {
+		return Page{}, err
+	}
+	// A nil scope (all-scope caller) or an empty cursor turns its filter off.
+	var after *string
+	if cursor != "" {
+		after = &cursor
+	}
+	var items []Listed
+	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `select s.id, s.code, s.name, s.format, s.legal_entity_id, s.mode, s.start_from,
+				coalesce(st.next_value + 1, s.start_from)
+			from number_sequence s
+			left join number_sequence_state st
+				on st.tenant_id = s.tenant_id and st.legal_entity_id = s.legal_entity_id and st.sequence_code = s.code
+			where s.tenant_id = $1
+				and ($2::uuid[] is null or s.legal_entity_id = any($2::uuid[]))
+				and ($3::uuid is null or s.id > $3::uuid)
+			order by s.id
+			limit $4`, p.TenantID, entities, after, limit+1)
+		if err != nil {
+			return err
+		}
+		items, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (Listed, error) {
+			var l Listed
+			err := row.Scan(&l.ID, &l.Code, &l.Name, &l.Format, &l.LegalEntityID, &l.Mode, &l.StartFrom, &l.NextValue)
+			return l, err
+		})
+		return err
+	})
+	if err != nil {
+		return Page{}, err
+	}
+	page := Page{Items: items}
+	if len(items) > limit {
+		page.Items = items[:limit]
+		page.NextCursor = page.Items[limit-1].ID
+	}
+	if page.Items == nil {
+		page.Items = []Listed{}
+	}
+	for i := range page.Items {
+		if formatted, err := domain.FormatValue(page.Items[i].Format, page.Items[i].NextValue); err == nil {
+			page.Items[i].NextFormatted = formatted
+		}
+	}
+	return page, nil
 }
 
 // Allocate issues the next gap-free value under a row lock.

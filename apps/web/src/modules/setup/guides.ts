@@ -49,7 +49,7 @@ export const stepGuides: Record<string, StepGuide> = {
   "number-sequences": {
     to: "/admin/sequences",
     linkLabel: "Open number sequences",
-    help: ["Each document type has a default number sequence. Check the prefixes suit you.", "Change a sequence before the first document is numbered with it."],
+    help: ["Check that the number sequences of each legal entity have the formats and next numbers you want.", "Sequences can't be changed on that page yet. If one must change, ask support before the first document is numbered with it."],
   },
   "users-roles": {
     to: "/admin/security/users",

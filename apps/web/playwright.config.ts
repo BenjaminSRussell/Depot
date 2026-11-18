@@ -20,6 +20,7 @@ const E2E_DUTIES = [
   "tax.code.maintain",
   "metadata.read",
   "notify.write",
+  "numbering.read",
   "numbering.write",
   "open-item.read",
   "sales.order.read",

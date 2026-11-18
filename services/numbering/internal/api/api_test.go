@@ -21,6 +21,8 @@ type fakeStore struct {
 	ping   error
 	seq    store.Sequence
 	issued store.Issued
+	cursor string
+	limit  int
 }
 
 func (f *fakeStore) Create(_ context.Context, in store.Sequence, _ string) (store.Sequence, error) {
@@ -42,6 +44,13 @@ func (f *fakeStore) Allocate(context.Context, string, string) (store.Issued, err
 		return store.Issued{}, f.err
 	}
 	return f.issued, nil
+}
+func (f *fakeStore) List(_ context.Context, cursor string, limit int) (store.Page, error) {
+	if f.err != nil {
+		return store.Page{}, f.err
+	}
+	f.cursor, f.limit = cursor, limit
+	return store.Page{Items: []store.Listed{{Sequence: store.Sequence{Code: "INV", Format: "INV-{######}"}, NextValue: 3, NextFormatted: "INV-000003"}}}, nil
 }
 func (f *fakeStore) Ping(context.Context) error { return f.ping }
 
@@ -97,6 +106,14 @@ func TestSequences(t *testing.T) {
 		{"allocate with the narrow service duty", http.MethodPost, nextPath, "", "numbering.sequence.allocate", ok, true, http.StatusOK, `"formatted":"INV-000001"`},
 		{"create with the narrow service duty", http.MethodPost, createPath, validBody, "numbering.sequence.allocate", ok, true, http.StatusForbidden, "AUTH-0003"},
 		{"allocate without duty", http.MethodPost, nextPath, "", "numbering.read", ok, true, http.StatusForbidden, "AUTH-0003"},
+		{"list ok", http.MethodGet, createPath, "", "numbering.read", ok, true, http.StatusOK, `"nextFormatted":"INV-000003"`},
+		{"list with a limit and cursor", http.MethodGet, createPath + "?limit=500&cursor=00000000-0000-0000-0000-000000000001", "", "numbering.read", ok, true, http.StatusOK, `"items":[`},
+		{"list without duty", http.MethodGet, createPath, "", "numbering.write", ok, true, http.StatusForbidden, "AUTH-0003"},
+		{"list without tenant", http.MethodGet, createPath, "", "", ok, false, http.StatusUnauthorized, "AUTH-0001"},
+		{"list with a zero limit", http.MethodGet, createPath + "?limit=0", "", "numbering.read", ok, true, http.StatusBadRequest, `"limit"`},
+		{"list with a limit over the cap", http.MethodGet, createPath + "?limit=501", "", "numbering.read", ok, true, http.StatusBadRequest, `"limit"`},
+		{"list with a malformed cursor", http.MethodGet, createPath + "?cursor=INV", "", "numbering.read", ok, true, http.StatusBadRequest, `"cursor"`},
+		{"list store error", http.MethodGet, createPath, "", "numbering.read", &fakeStore{err: errors.New("pg secret")}, true, http.StatusInternalServerError, "COM-0500"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -106,6 +123,18 @@ func TestSequences(t *testing.T) {
 				t.Fatalf("got %d %s; want %d containing %s", rec.Code, rec.Body.String(), tc.wantStatus, tc.wantBody)
 			}
 		})
+	}
+}
+
+func TestListPassesTheDefaultLimitAndCursor(t *testing.T) {
+	f := &fakeStore{}
+	r, _ := newRouter(f)
+	if rec := do(r, http.MethodGet, createPath, "", "numbering.read", true); rec.Code != http.StatusOK || f.limit != 100 || f.cursor != "" {
+		t.Fatalf("default: %d limit=%d cursor=%q", rec.Code, f.limit, f.cursor)
+	}
+	cursor := testkit.TenantID(5)
+	if rec := do(r, http.MethodGet, createPath+"?limit=2&cursor="+cursor, "", "numbering.read", true); rec.Code != http.StatusOK || f.limit != 2 || f.cursor != cursor {
+		t.Fatalf("explicit: %d limit=%d cursor=%q", rec.Code, f.limit, f.cursor)
 	}
 }
 

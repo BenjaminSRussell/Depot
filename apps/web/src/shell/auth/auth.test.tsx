@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import admin from "../../modules/admin/module";
 import { visibleModules } from "../dutyGate";
 import { AllFeaturesPage } from "../pages/AllFeaturesPage";
+import { withoutPlannedNav } from "../pages/PlannedPage";
 import { PrincipalProvider } from "../principal";
 import { WorkspaceNavProvider } from "../workspaces/WorkspaceNav";
 import { loadWorkspaceConfig, resolveNavEntries } from "../workspaces/model";
@@ -22,7 +23,7 @@ function jwt(claims: Record<string, unknown>): string {
   return `${encode({ alg: "RS256", kid: "k" })}.${encode(claims)}.signature`;
 }
 
-const ADMIN_DUTIES = "audit.read,numbering.write,identity.user.maintain,identity.effective-permission.view,identity.security-role.maintain,identity.legal-entity.maintain";
+const ADMIN_DUTIES = "audit.read,numbering.read,identity.user.maintain,identity.effective-permission.view,identity.security-role.maintain,identity.legal-entity.maintain";
 const CLERK_DUTIES = "receiving.receipt.maintain,ledger.journal.read";
 
 function tokenFor(sub: string, duties: string): string {
@@ -90,7 +91,7 @@ describe("session", () => {
     const session = sessionFrom({ access_token: tokenFor("user-1", ADMIN_DUTIES), expires_in: 300 }, 1000);
     expect(session.subject).toBe("user-1");
     expect(session.tenantId).toBe("tenant-1");
-    expect(session.duties).toContain("numbering.write");
+    expect(session.duties).toContain("numbering.read");
     expect(session.expiresAt).toBe(301_000);
   });
 
@@ -212,7 +213,8 @@ describe("bearer fetch", () => {
 
 function adminNavAs(duties: readonly string[]) {
   const config = loadWorkspaceConfig();
-  const entries = resolveNavEntries(visibleModules([admin], duties), config.areas);
+  // As the shell builds it: duty-gated, without planned routes.
+  const entries = resolveNavEntries(withoutPlannedNav(visibleModules([admin], duties)), config.areas);
   return render(
     <MemoryRouter>
       <PrincipalProvider duties={duties}>
@@ -229,11 +231,13 @@ function navLink(label: string) {
 }
 
 describe("admin navigation follows the token's duties", () => {
-  const gated = ["Audit log", "Sequences", "Alerts", "Check what a user can do", "Assign roles", "Company access", "Users", "Roles"];
+  const gated = ["Number sequences", "Check what a user can do", "Assign roles", "Company access", "Users", "Roles"];
 
   it("renders every duty-gated admin entry for an admin token", () => {
     adminNavAs(sessionFrom({ access_token: tokenFor("admin", ADMIN_DUTIES), expires_in: 300 }, 0).duties);
     for (const label of gated) expect(screen.getByRole("link", navLink(label))).toBeInTheDocument();
+    // Audit and Alerts need audit.read, which the admin holds, but they are planned pages and stay out of All features.
+    for (const label of ["Audit log", "Alerts"]) expect(screen.queryByRole("link", navLink(label))).not.toBeInTheDocument();
   });
 
   it("renders no duty-gated admin entry for a clerk token", () => {

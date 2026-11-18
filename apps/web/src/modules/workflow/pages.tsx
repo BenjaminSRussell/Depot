@@ -8,7 +8,7 @@ import { PageHeader } from "../../shell/ui";
 export function WorkflowHome() {
   return (
     <>
-      <PageHeader title="Workflow and batch" description="Approvals and other work waiting for you." />
+      <PageHeader title="Workflow" description="Approvals and other work waiting for you." />
       <p>
         <Link to="/workflow/inbox">Open My work</Link>
       </p>

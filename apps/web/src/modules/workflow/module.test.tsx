@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { renderRoutes, server, useFakeServer } from "../../shell/testing/fakeServer";
-import { plannedRoutes } from "../admin/PlannedPage";
+import { plannedRoutes } from "../../shell/pages/PlannedPage";
 import { loadModules } from "../registry";
 import workflow from "./module";
 import { WorkflowHome } from "./pages";
@@ -26,7 +26,7 @@ describe("workflow module", () => {
         <WorkflowHome />
       </MemoryRouter>,
     );
-    expect(screen.getByRole("heading", { name: "Workflow and batch" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Workflow" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open My work" })).toHaveAttribute("href", "/workflow/inbox");
     expect(screen.queryByRole("list", { name: "Workflow tiles" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Sample data|Running jobs|Failed runs/)).not.toBeInTheDocument();

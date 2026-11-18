@@ -231,6 +231,8 @@ jobs:
       - run: npx vitest --run
       - run: npx tsc --noEmit
       - run: npm run build
+      # B-21 AC3: no demo-only data (sample rows, the demo company) in the production bundle.
+      - run: node scripts/check-bundle.mjs dist
       - run: |
           for attempt in 1 2 3; do
             "$GITHUB_WORKSPACE/.github/scripts/apt-direct-mirror.sh"

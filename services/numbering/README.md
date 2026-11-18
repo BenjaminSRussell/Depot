@@ -17,6 +17,7 @@ Run: `DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/numbering`.
 | Operation | Duty |
 |---|---|
 | `POST /v1/numbering/sequences` (optional `Idempotency-Key`) | `numbering.write` |
+| `GET /v1/numbering/sequences` (`limit` 1 to 500, default 100; `cursor`): the sequences of the caller's legal-entity scope with the next number each will issue, as `{items, nextCursor}` | `numbering.read` |
 | `GET /v1/numbering/sequences/{code}` | `numbering.read` |
 | `POST /v1/numbering/sequences/{code}/next` (optional `Idempotency-Key`) | `numbering.write` or `numbering.sequence.allocate` |
 | `GET /healthz`, `GET /readyz`, `GET /metrics` on the admin port | public |

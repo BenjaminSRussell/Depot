@@ -3,6 +3,8 @@
   "tenant": "00000000-0000-0000-0000-000000000001",
   "cases": [
     {"name": "read a number sequence with numbering.read", "method": "GET", "path": "/api/v1/numbering/sequences/s1", "duties": ["numbering.read"], "allow": true},
+    {"name": "list number sequences with numbering.read", "method": "GET", "path": "/api/v1/numbering/sequences", "duties": ["numbering.read"], "allow": true},
+    {"name": "list number sequences with only numbering.write", "method": "GET", "path": "/api/v1/numbering/sequences", "duties": ["numbering.write"], "allow": false},
     {"name": "create a sequence with only numbering.read", "method": "POST", "path": "/api/v1/numbering/sequences", "duties": ["numbering.read"], "allow": false},
     {"name": "create a sequence with numbering.sequence.maintain", "method": "POST", "path": "/api/v1/numbering/sequences", "duties": ["numbering.sequence.maintain"], "allow": true},
     {"name": "no duty at all", "method": "GET", "path": "/api/v1/fx/rates", "duties": [], "allow": false},

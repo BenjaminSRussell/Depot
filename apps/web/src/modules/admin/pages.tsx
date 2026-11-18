@@ -1,15 +1,15 @@
 import { Link } from "react-router-dom";
+import { isPlanned } from "../../shell/pages/PlannedPage";
 import { Card, CardGrid, PageHeader } from "../../shell/ui";
-import { isPlanned } from "./PlannedPage";
 import styles from "./pages.module.css";
 
 // The audit page returns here when it reads the audit service (B-23). Until then /admin/audit, like the other routes in
-// shell/plannedRoutes.json, renders PlannedPage and has no card.
+// shell/plannedRoutes.json, renders PlannedPage and its card is left out.
 export const adminCards = [
   { to: "/admin/audit", title: "Audit", description: "See who changed what, and when." },
-  { to: "/admin/sequences", title: "Sequences", description: "See the number sequences of each legal entity." },
+  { to: "/admin/sequences", title: "Number sequences", description: "See the number sequences of each legal entity and the next number each will give." },
   { to: "/admin/alerts", title: "Alerts", description: "Review failures and overdue approvals." },
-  { to: "/admin/import", title: "Import / export", description: "Import vendors, customers and products from a CSV file. Export from the list itself." },
+  { to: "/admin/import", title: "Import records", description: "Check and import vendors, customers and products from a CSV file." },
   {
     to: "/admin/documents",
     title: "Documents",

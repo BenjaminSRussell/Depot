@@ -7,6 +7,19 @@ servers:
   - url: https://app.local.depot.dev
 paths:
   /v1/numbering/sequences:
+    get:
+      operationId: listSequences
+      summary: "List the number sequences in the caller's legal-entity scope"
+      description: Sequences of every legal entity the caller's claim covers (all of the tenant's for an all-scope caller), in id order, each with the number its next allocation issues. A caller with no legal-entity scope gets 403 AUTH-0003.
+      x-depot-duty: numbering.read
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+        - { name: cursor, in: query, description: The nextCursor of the previous page., schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: One page of sequences.
+          content: { application/json: { schema: { $ref: '#/components/schemas/SequencePage' } } }
+        default: { $ref: '#/components/responses/Problem' }
     post:
       operationId: createSequence
       summary: "Create a number sequence for a legal entity"
@@ -83,6 +96,20 @@ components:
         legalEntityId: { type: string, format: uuid }
         mode: { type: string, enum: [gap_free, continuous, non_continuous] }
         startFrom: { type: integer }
+    ListedSequence:
+      allOf:
+        - $ref: '#/components/schemas/Sequence'
+        - type: object
+          required: [nextValue]
+          properties:
+            nextValue: { type: integer, description: The value the next allocation issues; startFrom before the first. }
+            nextFormatted: { type: string, description: nextValue in the sequence's format; absent when the padded width is exhausted. }
+    SequencePage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ListedSequence' } }
+        nextCursor: { type: string, description: Absent on the last page. }
     Issued:
       type: object
       required: [value, formatted, sequence, legalEntityId]

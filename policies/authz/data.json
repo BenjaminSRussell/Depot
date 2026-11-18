@@ -2947,7 +2947,7 @@
       {"resource": "/v1/notify/preferences/me", "methods": ["PUT"]},
       {"resource": "/v1/notify/templates", "methods": ["POST"]}
     ]},
-    "numbering.read": {"permissions": [{"resource": "/v1/numbering/sequences/*", "methods": ["GET"]}]},
+    "numbering.read": {"permissions": [{"resource": "/v1/numbering/sequences{,/*}", "methods": ["GET"]}]},
     "org.address.write": {"permissions": [
       {"resource": "/v1/org/addresses", "methods": ["POST"]},
       {"resource": "/v1/org/addresses/*", "methods": ["PATCH"]}

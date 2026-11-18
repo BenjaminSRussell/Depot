@@ -1,6 +1,6 @@
+import { lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
 import { copy } from "../copy";
-import { DemoTour } from "../../demo/DemoTour";
 import { useRecentPages } from "../recent";
 import { useTenantSettings } from "../tenant/TenantSettings";
 import { Alert, Badge, Button, Card, CardGrid, EmptyState, Icon, PageHeader } from "../ui";
@@ -11,6 +11,10 @@ import { useWorkspaceNav } from "../workspaces/WorkspaceNav";
 import styles from "./pages.module.css";
 
 const SETUP_PATH = "/setup";
+
+// Loaded only in the demo build, like the banner in main.tsx: a static import would put the demo company and its tour
+// in every production bundle even though nothing renders them there (UXS-01).
+const DemoTour = import.meta.env.MODE === "demo" ? lazy(() => import("../../demo/DemoTour").then((m) => ({ default: m.DemoTour }))) : null;
 
 function SetupBanner() {
   const { setup } = useTenantSettings();
@@ -63,7 +67,11 @@ export function HomePage() {
   return (
     <>
       <PageHeader title={copy.home.pageTitle} description={copy.home.description} />
-      {import.meta.env.MODE === "demo" ? <DemoTour /> : null}
+      {DemoTour ? (
+        <Suspense fallback={null}>
+          <DemoTour />
+        </Suspense>
+      ) : null}
       <SetupBanner />
       <MyWorkSummary />
       <WorkspaceKpis workspace={active} />

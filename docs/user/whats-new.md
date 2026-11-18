@@ -4,9 +4,9 @@ Changes to Depot in plain language, newest first. Add an entry here for every ch
 
 ## 2026-11-18
 
-- Admin, then Sequences lists the number sequences of each legal entity, with their format and whether their numbers are gap-free. You can't create or change sequences there yet.
-- Admin, then Import / export opens the same import as the setup guide: download a template, preview the rows with what to fix in each, then start the import.
-- Pages that aren't built yet, such as Audit, Alerts, Documents, Standard texts, the job monitor, the workflow designer and message templates, now say so instead of showing an empty list or made-up rows. Audit is no longer in the Administration workspace.
+- Admin, then Number sequences lists the number sequences of each legal entity: the code, the format, whether numbers are gap-free and the next number each will give. The setup checklist's number sequences check now reads the same list. You can't create or change sequences there yet.
+- Admin, then Import records (until now Import / export) opens the same import as the setup guide: download a template, preview the rows with what to fix in each, then start the import. To export, use Export CSV on the list you need.
+- Pages that aren't built yet, such as Audit, Alerts, Documents, Standard texts, the job monitor, the workflow designer and message templates, now say so instead of showing an empty list or made-up rows. Menus, workspaces, All features and search no longer offer them; a saved link still opens the page. The Workflow and batch area is now called Workflow.
 
 ## 2026-11-10
 

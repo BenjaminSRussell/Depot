@@ -9,6 +9,7 @@ import { InboxProvider } from "./inbox/InboxProvider";
 import { RecentProvider, useRecentPages } from "./recent";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { NotAvailablePage } from "./pages/NotAvailablePage";
+import { withoutPlannedNav } from "./pages/PlannedPage";
 import { resolvePage } from "./pageMeta";
 import { WorkContextProvider } from "./lookup/workContext";
 import { devDuties, devIdentity, PrincipalProvider } from "./principal";
@@ -69,8 +70,10 @@ function PageSkeleton() {
 export function Shell({ modules: allModules, duties, identity, workspaceConfig, features: fixedFeatures }: ShellProps) {
   const principalDuties = useMemo(() => duties ?? devDuties(), [duties]);
   const settings = useTenantSettingsLoader(principalDuties, fixedFeatures);
+  // Planned routes (plannedRoutes.json) leave the sidebar, workspaces, All features, home and palette (UXS-01); their
+  // routes, titles and duties still come from allModules, so a bookmark opens the planned page.
   const modules = useMemo(
-    () => filterModulesByFeatures(visibleModules(allModules, principalDuties), settings.features),
+    () => withoutPlannedNav(filterModulesByFeatures(visibleModules(allModules, principalDuties), settings.features)),
     [allModules, principalDuties, settings.features],
   );
   const navigate = useNavigate();
