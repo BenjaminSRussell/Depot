@@ -8,46 +8,90 @@ import { shellNav } from "./shellNav";
 import { loadWorkspaceConfig } from "./workspaces/model";
 
 const sources = import.meta.glob<string>(
-  ["../modules/**/*.{ts,tsx}", "./**/*.{ts,tsx}", "!../modules/**/*.test.*", "!./**/*.test.*", "!../modules/**/*.d.ts", "!./**/*.d.ts"],
+  [
+    "../modules/**/*.{ts,tsx}",
+    "./**/*.{ts,tsx}",
+    "!../modules/**/*.test.*",
+    "!./**/*.test.*",
+    "!../modules/**/*.d.ts",
+    "!./**/*.d.ts",
+  ],
   { query: "?raw", import: "default", eager: true },
 );
-const demoWorkflow = import.meta.glob<string>("../demo/handlers/workflow.ts", { query: "?raw", import: "default", eager: true });
+const demoWorkflow = import.meta.glob<string>("../demo/handlers/workflow.ts", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
 
 const SAMPLE_STRINGS = ["Sample data", "Coming soon"];
 const SAMPLE_ROWS = ["rows-1m", "outbox.sweep", "workflow.workitem.assigned"];
 const SIGNATURE = /function\s+[A-Z]\w*\(\s*\{[\s\S]{0,400}?\}\s*:/g;
 const LITERAL_DEFAULT = /=\s*(?:\[\s*\{|\{\s*\w+\s*:\s*\d)/;
 const RENDERS_EMPTY = /<StatTile|<EmptyState|\bempty=/;
-const FETCHES = /\buse(?:Infinite)?Query\(|\buseLoad\(|\buseInbox\(|\buseMutation\(|\busePagedRows\(|\buseRows\(/;
+const FETCHES =
+  /\buse(?:Infinite)?Query\(|\buseLoad\(|\buseInbox\(|\buseMutation\(|\busePagedRows\(|\buseRows\(/;
 
 type Source = Record<string, string>;
-type Rule = "sample-string" | "default-rows" | "unfetched-empty" | "sample-literal";
+type Rule =
+  "sample-string" | "default-rows" | "unfetched-empty" | "sample-literal";
 
-const listed = allowlist.allow as { file: string; rule: Rule; reason: string }[];
+const listed = allowlist.allow as {
+  file: string;
+  rule: Rule;
+  reason: string;
+}[];
 const fileOf = (path: string) => path.replace(/^(\.\.\/|\.\/)/, "");
-const live = (files: Source) => Object.entries(files).filter(([path]) => !listed.some((a) => path.endsWith(a.file)));
+const live = (files: Source) =>
+  Object.entries(files).filter(
+    ([path]) => !listed.some((a) => path.endsWith(a.file)),
+  );
 
 export function findSampleStrings(files: Source): string[] {
-  return live(files).flatMap(([path, text]) => SAMPLE_STRINGS.filter((s) => text.includes(s)).map((s) => `${fileOf(path)}: "${s}"`));
+  return live(files).flatMap(([path, text]) =>
+    SAMPLE_STRINGS.filter((s) => text.includes(s)).map(
+      (s) => `${fileOf(path)}: "${s}"`,
+    ),
+  );
 }
 
 export function findDefaultRows(files: Source): string[] {
-  return live(files).filter(([, text]) => (text.match(SIGNATURE) ?? []).some((signature) => LITERAL_DEFAULT.test(signature))).map(([path]) => fileOf(path));
+  return live(files)
+    .filter(([, text]) =>
+      (text.match(SIGNATURE) ?? []).some((signature) =>
+        LITERAL_DEFAULT.test(signature),
+      ),
+    )
+    .map(([path]) => fileOf(path));
 }
 
 export function findUnfetchedEmptyStates(files: Source): string[] {
-  return live(files).filter(([, text]) => RENDERS_EMPTY.test(text) && !FETCHES.test(text)).map(([path]) => fileOf(path));
+  return live(files)
+    .filter(([, text]) => RENDERS_EMPTY.test(text) && !FETCHES.test(text))
+    .map(([path]) => fileOf(path));
 }
 
 export function findSampleLiterals(texts: Source): string[] {
-  return live(texts).flatMap(([path, text]) => SAMPLE_ROWS.filter((s) => text.includes(s)).map((s) => `${fileOf(path)}: ${s}`));
+  return live(texts).flatMap(([path, text]) =>
+    SAMPLE_ROWS.filter((s) => text.includes(s)).map(
+      (s) => `${fileOf(path)}: ${s}`,
+    ),
+  );
 }
 
 export function plannedPathsServed(paths: string[]): string[] {
-  return paths.filter((path) => plannedRouteFor(path) !== undefined || plannedRoutes.some((p) => matchPath(path, p.path) !== null));
+  return paths.filter(
+    (path) =>
+      plannedRouteFor(path) !== undefined ||
+      plannedRoutes.some((p) => matchPath(path, p.path) !== null),
+  );
 }
 
-const pageSources = Object.fromEntries(Object.entries(sources).filter(([path]) => /^\.\.\/modules\/(?:admin|workflow)\/[^/]+\.tsx$/.test(path)));
+const pageSources = Object.fromEntries(
+  Object.entries(sources).filter(([path]) =>
+    /^\.\.\/modules\/(?:admin|workflow)\/[^/]+\.tsx$/.test(path),
+  ),
+);
 
 describe("honest screens scan", () => {
   it("lists no sample data or coming soon text in a module or the shell", () => {
@@ -71,16 +115,45 @@ describe("honest screens scan", () => {
   it("gives every planned route an issue, a slice and a date that has not passed", () => {
     const today = new Date().toISOString().slice(0, 10);
     expect(plannedRoutes.length).toBeGreaterThan(0);
-    const stale = plannedRoutes.filter((row) => row.date < today).map((row) => `${row.path} (${row.issue}, ${row.date})`);
-    expect(stale, "move the date in a reviewed change or ship the page").toEqual([]);
+    const stale = plannedRoutes
+      .filter((row) => row.date < today)
+      .map((row) => `${row.path} (${row.issue}, ${row.date})`);
+    expect(
+      stale,
+      "ship the page or move the date in the same PR that re-plans its slice",
+    ).toEqual([]);
+  });
+
+  it("keeps each planned route on the issue and date the ticket decided", () => {
+    const decided = {
+      "/admin/audit": ["B-23", "2027-03-31"],
+      "/workflow/designer": ["B-34", "2027-06-30"],
+      "/workflow/jobs": ["B-34", "2027-06-30"],
+      "/workflow/templates": ["B-34", "2027-06-30"],
+      "/admin/alerts": ["B-53", "2027-09-30"],
+      "/admin/documents": ["B-53", "2027-09-30"],
+      "/admin/texts": ["B-53", "2027-09-30"],
+    };
+    expect(
+      Object.fromEntries(
+        plannedRoutes.map((row) => [row.path, [row.issue, row.date]]),
+      ),
+    ).toEqual(decided);
   });
 
   it("serves no planned route from a module and links none from a menu or workspace", () => {
     const modules = loadModules();
     const routes = modules.flatMap((m) => m.routes.map((r) => r.path ?? ""));
-    const nav = [...modules.flatMap((m) => m.nav.map((n) => n.to)), ...shellNav.map((n) => n.to)];
-    const workspaces = loadWorkspaceConfig().workspaces.flatMap((w) => w.entries);
-    expect(plannedPathsServed(routes.filter((route) => route !== ""))).toEqual([]);
+    const nav = [
+      ...modules.flatMap((m) => m.nav.map((n) => n.to)),
+      ...shellNav.map((n) => n.to),
+    ];
+    const workspaces = loadWorkspaceConfig().workspaces.flatMap(
+      (w) => w.entries,
+    );
+    expect(plannedPathsServed(routes.filter((route) => route !== ""))).toEqual(
+      [],
+    );
     expect(plannedPathsServed([...nav, ...workspaces])).toEqual([]);
   });
 
@@ -95,50 +168,108 @@ describe("honest screens scan", () => {
 
 describe("honest screens scan negative controls", () => {
   it("flags sample strings", () => {
-    expect(findSampleStrings({ "../modules/x/A.tsx": '<Badge>Sample data</Badge>', "../modules/x/B.tsx": "Coming soon" })).toHaveLength(2);
-    expect(findSampleStrings({ "../modules/x/C.tsx": "<Badge>Shipped</Badge>" })).toEqual([]);
+    expect(
+      findSampleStrings({
+        "../modules/x/A.tsx": "<Badge>Sample data</Badge>",
+        "../modules/x/B.tsx": "Coming soon",
+      }),
+    ).toHaveLength(2);
+    expect(
+      findSampleStrings({ "../modules/x/C.tsx": "<Badge>Shipped</Badge>" }),
+    ).toEqual([]);
   });
 
   it("flags a default prop that holds rows or counts", () => {
-    const rows = 'export function JobMonitorPage({ runs = [{ code: "a" }] }: { runs?: Run[] }) {';
-    const counts = "export function Home({ counts = { running: 1, failed: 0 } }: { counts?: Counts }) {";
-    const empty = "export function Page({ items = [] }: { items?: Row[] }) { return cond ? { a: 1 } : null; }";
-    expect(findDefaultRows({ "../modules/x/A.tsx": rows, "../modules/x/B.tsx": counts })).toHaveLength(2);
+    const rows =
+      'export function JobMonitorPage({ runs = [{ code: "a" }] }: { runs?: Run[] }) {';
+    const counts =
+      "export function Home({ counts = { running: 1, failed: 0 } }: { counts?: Counts }) {";
+    const empty =
+      "export function Page({ items = [] }: { items?: Row[] }) { return cond ? { a: 1 } : null; }";
+    expect(
+      findDefaultRows({
+        "../modules/x/A.tsx": rows,
+        "../modules/x/B.tsx": counts,
+      }),
+    ).toHaveLength(2);
     expect(findDefaultRows({ "../modules/x/C.tsx": empty })).toEqual([]);
   });
 
   it("flags an empty state or tiles with no fetch behind them", () => {
-    expect(findUnfetchedEmptyStates({ "../modules/admin/A.tsx": "<EmptyState title='x' />" })).toHaveLength(1);
-    expect(findUnfetchedEmptyStates({ "../modules/admin/B.tsx": "<StatTile />" })).toHaveLength(1);
-    expect(findUnfetchedEmptyStates({ "../modules/admin/C.tsx": "const q = useInfiniteQuery({}); <DataTable empty={x} />" })).toEqual([]);
+    expect(
+      findUnfetchedEmptyStates({
+        "../modules/admin/A.tsx": "<EmptyState title='x' />",
+      }),
+    ).toHaveLength(1);
+    expect(
+      findUnfetchedEmptyStates({ "../modules/admin/B.tsx": "<StatTile />" }),
+    ).toHaveLength(1);
+    expect(
+      findUnfetchedEmptyStates({
+        "../modules/admin/C.tsx":
+          "const q = useInfiniteQuery({}); <DataTable empty={x} />",
+      }),
+    ).toEqual([]);
   });
 
   it("flags sample row literals", () => {
-    expect(findSampleLiterals({ "bundle.js": 'code:"rows-1m"' })).toEqual(["bundle.js: rows-1m"]);
+    expect(findSampleLiterals({ "bundle.js": 'code:"rows-1m"' })).toEqual([
+      "bundle.js: rows-1m",
+    ]);
     expect(findSampleLiterals({ "bundle.js": "nothing here" })).toEqual([]);
   });
 
   it("flags a served planned path", () => {
-    expect(plannedPathsServed(["/admin/audit", "/admin/audit/:id", "/admin/sequences"])).toEqual(["/admin/audit", "/admin/audit/:id"]);
+    expect(
+      plannedPathsServed([
+        "/admin/audit",
+        "/admin/audit/:id",
+        "/admin/sequences",
+      ]),
+    ).toEqual(["/admin/audit", "/admin/audit/:id"]);
   });
 
   it("keeps an allowlist entry only while its file still exists", () => {
-    expect(listed.filter((entry) => !Object.keys(sources).some((path) => path.endsWith(entry.file)))).toEqual([]);
+    expect(
+      listed.filter(
+        (entry) =>
+          !Object.keys(sources).some((path) => path.endsWith(entry.file)),
+      ),
+    ).toEqual([]);
   });
 });
 
 describe("production build", () => {
   it("holds none of the workflow sample rows", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    let outputs: { output: ({ type: string; code?: string; source?: string | Uint8Array })[] }[];
+    let outputs: {
+      output: { type: string; code?: string; source?: string | Uint8Array }[];
+    }[];
     try {
-      const built = await build({ mode: "production", logLevel: "silent", build: { write: false } });
-      outputs = (Array.isArray(built) ? built : [built]) as unknown as typeof outputs;
+      const built = await build({
+        mode: "production",
+        logLevel: "silent",
+        build: { write: false },
+      });
+      outputs = (Array.isArray(built)
+        ? built
+        : [built]) as unknown as typeof outputs;
     } finally {
       vi.unstubAllEnvs();
     }
-    const chunks = outputs.flatMap((o) => o.output.map((file, index) => [`output ${index}`, file.code ?? (typeof file.source === "string" ? file.source : "")] as const));
-    expect(chunks.map(([, text]) => text).join("\n"), "the build holds the app").toContain("No number sequences yet");
+    const chunks = outputs.flatMap((o) =>
+      o.output.map(
+        (file, index) =>
+          [
+            `output ${index}`,
+            file.code ?? (typeof file.source === "string" ? file.source : ""),
+          ] as const,
+      ),
+    );
+    expect(
+      chunks.map(([, text]) => text).join("\n"),
+      "the build holds the app",
+    ).toContain("No number sequences yet");
     expect(findSampleLiterals(Object.fromEntries(chunks))).toEqual([]);
   }, 600_000);
 });
