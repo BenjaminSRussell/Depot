@@ -36,6 +36,9 @@ type API struct {
 	store     store.Store
 	allocated atomic.Int64
 	failed    atomic.Int64
+	reserved  atomic.Int64
+	confirmed atomic.Int64
+	voided    atomic.Int64
 }
 
 type createRequest struct {
@@ -57,6 +60,7 @@ func (a *API) Register(r chi.Router) {
 	r.With(authz.RequireDuty(dutyRead)).Get("/v1/numbering/sequences", a.list)
 	r.With(authz.RequireDuty(dutyRead)).Get("/v1/numbering/sequences/{code}", a.get)
 	r.With(authz.RequireAnyDuty(dutyWrite, dutyAllocate)).Post("/v1/numbering/sequences/{code}/next", a.allocate)
+	a.RegisterReservations(r)
 }
 
 // Metrics renders Prometheus text.
@@ -66,6 +70,9 @@ func (a *API) Metrics() http.Handler {
 		tenant.WriteReplayMetrics(w)
 		_, _ = fmt.Fprintf(w, "# HELP numbering_allocated_total Numbers issued.\n# TYPE numbering_allocated_total counter\nnumbering_allocated_total %d\n", a.allocated.Load())
 		_, _ = fmt.Fprintf(w, "# HELP numbering_failed_total Failed allocations or creates.\n# TYPE numbering_failed_total counter\nnumbering_failed_total %d\n", a.failed.Load())
+		_, _ = fmt.Fprintf(w, "# HELP numbering_reserved_total Numbers reserved.\n# TYPE numbering_reserved_total counter\nnumbering_reserved_total %d\n", a.reserved.Load())
+		_, _ = fmt.Fprintf(w, "# HELP numbering_confirmed_total Reservations confirmed.\n# TYPE numbering_confirmed_total counter\nnumbering_confirmed_total %d\n", a.confirmed.Load())
+		_, _ = fmt.Fprintf(w, "# HELP numbering_voided_total Reservations voided by a caller.\n# TYPE numbering_voided_total counter\nnumbering_voided_total %d\n", a.voided.Load())
 	})
 }
 

@@ -2,7 +2,7 @@
   "version": 3,
   "compiler": "scripts/compile_architecture.py",
   "note": "Generated from the OpenAPI and AsyncAPI specs and scripts/architecture_patterns.json. Do not edit; run python3 scripts/compile_architecture.py --write.",
-  "summary": {"openapiDocuments": 65, "paths": 2627, "operations": 3251, "asyncapiDocuments": 60, "topics": 387, "topicsPublished": 384, "topicsSubscribed": 18, "patterns": 59},
+  "summary": {"openapiDocuments": 65, "paths": 2631, "operations": 3255, "asyncapiDocuments": 60, "topics": 387, "topicsPublished": 384, "topicsSubscribed": 18, "patterns": 59},
   "patterns": [
     {
       "id": "event-envelope",
@@ -2421,10 +2421,14 @@
       "operations": [
         {"method": "GET", "path": "/healthz", "operationId": "liveness", "duty": "public"},
         {"method": "GET", "path": "/readyz", "operationId": "readiness", "duty": "public"},
+        {"method": "POST", "path": "/v1/numbering/reservations/{id}/confirm", "operationId": "confirmReservation", "duty": "numbering.write"},
+        {"method": "POST", "path": "/v1/numbering/reservations/{id}/void", "operationId": "voidReservation", "duty": "numbering.write"},
         {"method": "GET", "path": "/v1/numbering/sequences", "operationId": "listSequences", "duty": "numbering.read"},
         {"method": "POST", "path": "/v1/numbering/sequences", "operationId": "createSequence", "duty": "numbering.write"},
         {"method": "GET", "path": "/v1/numbering/sequences/{code}", "operationId": "getSequence", "duty": "numbering.read"},
-        {"method": "POST", "path": "/v1/numbering/sequences/{code}/next", "operationId": "allocateNext", "duty": "numbering.write"}
+        {"method": "POST", "path": "/v1/numbering/sequences/{code}/next", "operationId": "allocateNext", "duty": "numbering.write"},
+        {"method": "POST", "path": "/v1/numbering/sequences/{code}/reserve", "operationId": "reserveNumber", "duty": "numbering.write"},
+        {"method": "GET", "path": "/v1/numbering/sequences/{code}/voided", "operationId": "listVoidedNumbers", "duty": "numbering.read"}
       ]
     },
     {
@@ -5002,7 +5006,7 @@
       "asyncapi": "3.0.0",
       "title": "numbering",
       "publishes": [
-        {"topic": "depot.numbering.sequence", "types": ["dev.depot.numbering.sequence.allocated.v1"]}
+        {"topic": "depot.numbering.sequence", "types": ["dev.depot.numbering.reservation.confirmed.v1", "dev.depot.numbering.reservation.voided.v1", "dev.depot.numbering.sequence.allocated.v1"]}
       ],
       "subscribes": []
     },
