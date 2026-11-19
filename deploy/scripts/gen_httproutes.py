@@ -430,6 +430,9 @@ def _rule(public, upstream, b):
     return rule
 
 
+STREAMING_ROUTES = {"agents"}
+
+
 def route_doc(r: Route):
     rules = [_rule(pub, up, r.backend) for pub, up in r.matches()]
     if r.elements:  # /v1 pass-through (or rewrite) for the same elements in one rule when the bases agree
@@ -439,6 +442,9 @@ def route_doc(r: Route):
                           "backendRefs": _backend_ref(r.backend)})
         else:
             rules += [_rule(pub, up, r.backend) for pub, up in v1]
+    if r.name in STREAMING_ROUTES:
+        for rule in rules:
+            rule["timeouts"] = {"request": "0s"}
     if len(rules) > MAX_RULES:
         raise GenError(f"HTTPRoute {r.name}: {len(rules)} rules, more than {MAX_RULES}")
     return {"apiVersion": "gateway.networking.k8s.io/v1", "kind": "HTTPRoute",

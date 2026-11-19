@@ -3362,6 +3362,19 @@ test_agent_run_duties_open_only_their_routes if {
 	not allowed("knowledge.write", "POST", "/api/v1/copilot/chat")
 }
 
+test_copilot_use_opens_the_streamed_conversation_routes_and_nothing_else_under_agents if {
+	allowed("mcp.copilot.use", "POST", "/api/v1/agents/copilot/conversations")
+	allowed("mcp.copilot.use", "POST", "/api/v1/agents/copilot/conversations/c1/messages")
+	not allowed("mcp.copilot.use", "GET", "/api/v1/agents/copilot/conversations")
+	not allowed("mcp.copilot.use", "GET", "/api/v1/agents/copilot/conversations/c1/messages")
+	not allowed("mcp.copilot.use", "POST", "/api/v1/agents/copilot/conversations/c1/x/messages")
+	not allowed("mcp.copilot.use", "POST", "/api/v1/agents/copilot/conversations/c1/messages:cancel")
+	not allowed("mcp.copilot.use", "POST", "/api/v1/agents/runs/r1/actions/a1/decision")
+	not allowed("agents.run.read", "POST", "/api/v1/agents/copilot/conversations")
+	not allowed("agents.invoke", "POST", "/api/v1/agents/copilot/conversations/c1/messages")
+	not allowed("knowledge.write", "POST", "/api/v1/agents/copilot/conversations")
+}
+
 test_opening_stock_and_bank_import_duties_are_service_only_and_cover_only_their_route if {
 	data.duties["inventory.import.write"].service_only
 	data.duties["inventory.import.read"].service_only
