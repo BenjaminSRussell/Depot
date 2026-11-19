@@ -48,6 +48,13 @@ func appliedSetup(t *testing.T) appliedFixture {
 	return appliedFixture{s: s, ctx: ctx, ledger: fake, pay: pay, applied: applied, first: first, second: second}
 }
 
+const originalPostingDate = "2020-03-10"
+
+func (f appliedFixture) backdate(t *testing.T) {
+	t.Helper()
+	execAdmin(t, f.s, `update payment_application set posting_date = $2 where id = $1`, f.applied.ApplicationID, originalPostingDate)
+}
+
 func (f appliedFixture) reverse(key string, version int) (ReverseApplicationResult, error) {
 	return f.s.ReverseApplication(f.ctx, f.pay.ID, version, ReverseApplicationRequest{ApplicationID: f.applied.ApplicationID, Reason: "wrong invoice"}, key)
 }
@@ -99,6 +106,7 @@ func TestReverseApplication_ReopensItemsMirrorsTheJournalAndDeletesNothing(t *te
 	if !ids.Valid(f.applied.ApplicationID) {
 		t.Fatalf("apply returned application id %q", f.applied.ApplicationID)
 	}
+	f.backdate(t)
 	out, err := f.reverse("ra-1", f.applied.Payment.Version)
 	if err != nil {
 		t.Fatal(err)
@@ -117,7 +125,7 @@ func TestReverseApplication_ReopensItemsMirrorsTheJournalAndDeletesNothing(t *te
 		t.Fatalf("ledger entries %d", len(entries))
 	}
 	e := entries[0]
-	if e.ID != out.ReversalJournalEntryID || e.IdempotencyKey != "post:receivables:paymentapplication:"+f.applied.ApplicationID+":reversal" || e.PostingDate != today() {
+	if e.ID != out.ReversalJournalEntryID || e.IdempotencyKey != "post:receivables:paymentapplication:"+f.applied.ApplicationID+":reversal" || e.PostingDate != originalPostingDate || e.PostingDate == today() {
 		t.Fatalf("entry %+v", e.Entry)
 	}
 	want := map[string]string{"1200/D": "500.00", "1205/C": "499.50", domain.AccountWriteOff + "/C": "0.50"}
@@ -193,7 +201,8 @@ func TestReverseApplication_RefusalsChangeNothing(t *testing.T) {
 			execAdmin(t, f.s, `alter table payment drop column bank_reconciled_at`)
 		}},
 		{name: "posting period closed", code: CodeReversalPeriodClosed, arrange: func(t *testing.T, f appliedFixture) {
-			f.ledger.RefuseClosedThrough("2999-12-31")
+			f.backdate(t)
+			f.ledger.RefuseClosedThrough("2020-03-31")
 		}},
 		{name: "ledger down", code: CodeReversalLedgerUnavailable, arrange: func(t *testing.T, f appliedFixture) {
 			f.ledger.FailPosts(errors.New("connection refused"))
