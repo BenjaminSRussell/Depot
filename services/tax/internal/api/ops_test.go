@@ -687,3 +687,20 @@ func TestSAFTExportRefusesAnUnbalancedLedgerAndSurfacesLedgerOutages(t *testing.
 		t.Fatalf("ledger outage: got %d %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestRunSettlement_AccountOverrideNeedsTheLedgerConfigDuty(t *testing.T) {
+	h := newSettlementHarness(t)
+	body := `{"period_from":"2026-01-01","period_to":"2026-01-31","settlement_account":"9999"}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/tax/settlements:run", strings.NewReader(body))
+	req.Header.Set(tenant.HeaderTenant, testkit.TenantID(7))
+	req.Header.Set(tenant.HeaderLegalEntity, h.entity)
+	req.Header.Set(tenant.HeaderDuties, "tax.settlement.run")
+	rec := httptest.NewRecorder()
+	h.router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "AUTH-0003") {
+		t.Fatalf("override without the ledger-config duty: %d %s", rec.Code, rec.Body.String())
+	}
+	if n := len(h.settlementEntries()); n != 0 {
+		t.Fatalf("a refused override posted %d settlement entries", n)
+	}
+}

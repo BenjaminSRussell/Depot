@@ -222,6 +222,12 @@ func (a *API) settle(w http.ResponseWriter, r *http.Request) {
 		a.reject(w, r, err)
 		return
 	}
+	// The settlement account is governed by the ledger configuration; naming another one in the request
+	// redirects the whole net liability posting, so it needs the configuration duty, not only the run duty.
+	if caller, _ := tenant.FromContext(r.Context()); req.SettlementAccount != "" && !caller.HasDuty(dutyLedgerConfig) {
+		fail(w, r, httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "overriding the settlement account needs duty "+dutyLedgerConfig))
+		return
+	}
 	run, err := a.settleAndPost(r.Context(), domain.Period{From: req.PeriodFrom, To: req.PeriodTo}, req.SettlementAccount)
 	if err != nil {
 		a.reject(w, r, err)
