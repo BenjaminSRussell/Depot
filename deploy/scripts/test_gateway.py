@@ -1099,7 +1099,7 @@ class AgentsApiRoute(unittest.TestCase):
 
     def test_nothing_on_the_agents_route_buffers_or_bounds_a_stream(self):
         for rule in self.route["spec"]["rules"]:
-            self.assertNotIn("timeouts", rule)
+            self.assertEqual(rule["timeouts"], {"request": "0s"})
             for f in rule.get("filters", []):
                 self.assertEqual(f["type"], "URLRewrite")
         forbidden = {"requestBuffer", "compression", "timeout", "responseOverride", "httpUpgrade"}
