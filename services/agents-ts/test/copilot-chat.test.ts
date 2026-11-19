@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import { tokenFrames } from "../src/api/copilot.js";
 import { CopilotAnswerCache } from "../src/domain/copilot.js";
 import { createCopilotService, TYPED_REPLACED_NOTICE } from "../src/runtime/copilot.js";
-import { createEgressGuard, EGRESS_GUARD_TOOL, GUARD_REFUSAL_MESSAGE, type EgressGuard } from "../src/runtime/egressGuard.js";
+import { EGRESS_GUARD_TOOL, GUARD_REFUSAL_MESSAGE, type EgressGuard } from "../src/runtime/egressGuard.js";
 import { createOutputGuard, OUTPUT_GUARD_MESSAGE, OUTPUT_GUARD_TOOL, type OutputGuard } from "../src/runtime/outputGuard.js";
 import type { ModelResponse } from "../src/runtime/engine.js";
-import { openRouter, REAL_IBAN, ScriptedProvider } from "./fakes.js";
+import { openRouter, REAL_IBAN, ScriptedProvider, testGuard } from "./fakes.js";
 import { tokenFor } from "./jwt.js";
 import { FakeMcp, headers, MemoryStore, serve, T1, tool, USER } from "./surface-fakes.js";
 
@@ -32,7 +32,7 @@ const setup = async (script: ModelResponse[], mcp = new FakeMcp([tool(GET, "ap.i
     cache,
     config: { tokenCap: 20_000, maxTurns: 3, pseudonymTtlMs: 60_000 },
     modelId: "claude-haiku-5-5",
-    ...(guard !== undefined ? { guard } : {}),
+    guard: guard ?? testGuard(),
     ...(outputGuard !== undefined ? { outputGuard } : {}),
   });
   const srv = await serve({ approvals: store, copilot });
@@ -184,7 +184,7 @@ describe("POST /api/v1/copilot/chat", () => {
 
 describe("egress guard on the chat", () => {
   it("answers the standard refusal with no provider call and one BLOCKED guard row when the analyzer fails", async () => {
-    const guard = createEgressGuard({ analyzer: { scan: () => { throw new Error("analyzer down"); } } });
+    const guard = testGuard({ analyzer: { scan: () => { throw new Error("analyzer down"); } } });
     const s = await setup([answer("never sent")], undefined, false, guard);
     close = s.srv.close;
     const res = await chat(s.srv.base, { mode: "ask", message: "anything" });

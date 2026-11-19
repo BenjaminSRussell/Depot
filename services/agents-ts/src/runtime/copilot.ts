@@ -19,7 +19,7 @@ import { ProviderError, proposeTool } from "../providers/wire.js";
 import type { ModelEndpoint } from "../cloudprofile/index.js";
 import type { AuditPort, BudgetPort, KillSwitchPort, ModelUsage, RunRequest, RunResult } from "./engine.js";
 import type { AiPlan, AiRouter } from "./aiRouter.js";
-import { createEgressGuard, EGRESS_GUARD_TOOL, GUARD_POLICY_VERSION, GUARD_REFUSAL_MESSAGE, highestClassOf, type DataClass, type EgressGuard, type GuardContext, type GuardResult, type OutputGuardReason } from "./egressGuard.js";
+import { EGRESS_GUARD_TOOL, GUARD_POLICY_VERSION, GUARD_REFUSAL_MESSAGE, highestClassOf, type DataClass, type EgressGuard, type GuardContext, type GuardResult, type OutputGuardReason } from "./egressGuard.js";
 import { createChunkReleaser, createOutputGuard, OUTPUT_GUARD_CODE, OUTPUT_GUARD_MESSAGE, OUTPUT_GUARD_TOOL, type OutputGuard } from "./outputGuard.js";
 import { CUI_VIEW_DUTY, type NeedToKnowClient } from "./needToKnow.js";
 import type { McpConnector } from "./mcp.js";
@@ -97,7 +97,7 @@ export interface CopilotDeps {
   modelId: string;
   /** The knowledge index. When set, `depot.knowledge.search` is a read tool of the copilot to everyone who may use the copilot. */
   knowledge?: KnowledgeService;
-  guard?: EgressGuard;
+  guard: EgressGuard;
   outputGuard?: OutputGuard;
   needToKnow?: NeedToKnowClient;
   now?: () => Date;
@@ -146,7 +146,7 @@ const clip = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n)}
  */
 export function createCopilotService(deps: CopilotDeps) {
   const now = deps.now ?? (() => new Date());
-  const guard = deps.guard ?? createEgressGuard();
+  const guard = deps.guard;
   const outputGuard = deps.outputGuard ?? createOutputGuard();
   const needToKnow: NeedToKnowClient = deps.needToKnow ?? { enforced: async (c) => !c.duties.has(CUI_VIEW_DUTY) };
   return {

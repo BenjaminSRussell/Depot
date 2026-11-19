@@ -91,7 +91,7 @@ async function main(): Promise<void> {
     },
   };
   const mcp = createMcpConnector({ baseUrl: cfg.mcpUrl });
-  const providerFor = createRunProviderFactory(cfg, undefined, createEgressGuard({ log }));
+  const providerFor = createRunProviderFactory(cfg, undefined, createEgressGuard({ log, policy: aiPolicyGuard }));
   const agents = agentCatalog(cfg);
   // Every definition this pod runs is in agent_version; a run starts only when its newest eval_run passed (AGT-0204).
   const versions = new PgVersionStore(pool);

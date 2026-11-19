@@ -16,6 +16,8 @@ import type {
   ToolResult,
 } from "../src/runtime/engine.js";
 import type { AiRouter } from "../src/runtime/aiRouter.js";
+import type { AiPolicyGuard } from "../src/runtime/aiPolicyGuard.js";
+import { createEgressGuard } from "../src/runtime/egressGuard.js";
 
 export const TENANT = "00000000-0000-7000-8000-0000000000aa";
 export const INVOKER = "00000000-0000-7000-8000-000000000001";
@@ -53,7 +55,14 @@ export class ScriptedProvider implements ModelProvider {
   }
 }
 
-export const openRouter = (provider: ModelProvider): AiRouter => ({
+export const allowAllPolicy: AiPolicyGuard = {
+  check: async () => ({ allowed: true, policyVersion: 1, reason: "allowed" }),
+  invalidate: () => undefined,
+};
+
+export const testGuard = (deps: Omit<Parameters<typeof createEgressGuard>[0], "policy"> = {}) => createEgressGuard({ policy: allowAllPolicy, ...deps });
+
+export const openRouter =(provider: ModelProvider): AiRouter => ({
   plan: async ({ refs }) => ({ routeId: "test", provider, keep: [...refs], excluded: [], restricted: [] }),
 });
 

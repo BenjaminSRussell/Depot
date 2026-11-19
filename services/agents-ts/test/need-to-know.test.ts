@@ -8,7 +8,7 @@ import type { ModelResponse } from "../src/runtime/engine.js";
 import { createEgressGuard, EGRESS_GUARD_TOOL } from "../src/runtime/egressGuard.js";
 import { createNeedToKnowClient } from "../src/runtime/needToKnow.js";
 import type { AiRouter } from "../src/runtime/aiRouter.js";
-import { ScriptedProvider } from "./fakes.js";
+import { ScriptedProvider, testGuard } from "./fakes.js";
 import { FakeMcp, headers, MemoryStore, serve, tool } from "./surface-fakes.js";
 
 const GET = "depot.ap.invoice.get";
@@ -60,8 +60,7 @@ describe("guard admission order", () => {
     expect(await guard.admit({ tenantId: T1, tool: "depot.ar.invoice.list", text: "DE89370400440532013000" })).toMatchObject({ pass: true, class: "P3" });
     const unreadable = createEgressGuard({ policy: createAiPolicyGuard({ read: async () => Promise.reject(new Error("db down")) }) });
     expect(await unreadable.admit({ tenantId: T1, tool: "depot.knowledge.search", text: "x" })).toMatchObject({ pass: true });
-  });
-});
+  });});
 
 let close: (() => Promise<void>) | undefined;
 afterEach(async () => {
@@ -77,6 +76,7 @@ const chatWithCui = async (duties: string, enforced: boolean) => {
   ]);
   const router: AiRouter = { plan: async ({ refs }) => ({ routeId: "cui", provider, keep: [...refs], excluded: [], restricted: [...refs] }) };
   const copilot = createCopilotService({
+    guard: testGuard(),
     router,
     needToKnow: { enforced: async () => enforced },
     mcp: new FakeMcp([tool(GET, "ap.invoice.read")], { [GET]: { ok: true, output: { id: "CUI-INV-9", note: "secret-cui-note" }, ref: "CUI-INV-9" } }),

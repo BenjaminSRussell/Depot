@@ -5,7 +5,7 @@ import { createCopilotService } from "../src/runtime/copilot.js";
 import type { ModelResponse } from "../src/runtime/engine.js";
 import { createKnowledgeService, MemoryVectorIndex, type EmbeddingPort, type KeywordIndex, type KnowledgeText } from "../src/runtime/knowledge.js";
 import { PgKeywordIndex } from "../src/store/knowledge.js";
-import { openRouter, ScriptedProvider } from "./fakes.js";
+import { openRouter, ScriptedProvider, testGuard } from "./fakes.js";
 import { fixture, ownerUrl, type Fixture } from "./pgHelper.js";
 import { FakeMcp, headers, MemoryStore, serve, T1 } from "./surface-fakes.js";
 
@@ -123,6 +123,7 @@ describe("the copilot answers from the knowledge index with a citation, or refus
     const store = new MemoryStore();
     const provider = new ScriptedProvider([call({ query: question }), answer("Meals are reimbursed up to the daily limit.")]);
     const copilot = createCopilotService({
+      guard: testGuard(),
       router: openRouter(provider),
       mcp: new FakeMcp([]),
       store,

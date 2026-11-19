@@ -7,7 +7,7 @@ import { createPhiGuard, parsePhiFields, type PhiGuard } from "./domain/phi.js";
 import { NO_ROUTE_MESSAGE, type Boundary } from "./domain/modelRoute.js";
 import { AgentError } from "./errors.js";
 import type { ModelProvider, ModelRequest } from "./runtime/engine.js";
-import { createEgressGuard, GUARD_REFUSAL_MESSAGE, type EgressGuard } from "./runtime/egressGuard.js";
+import { GUARD_REFUSAL_MESSAGE, type EgressGuard } from "./runtime/egressGuard.js";
 import { Pseudonymizer } from "./domain/redaction.js";
 
 /** The Claude models Depot defaults to; every one is overridable by configuration. */
@@ -272,8 +272,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
 
 export function createRunProviderFactory(
   cfg: Config,
-  fetchFn?: typeof fetch,
-  guard: EgressGuard = createEgressGuard(),
+  fetchFn: typeof fetch | undefined,
+  guard: EgressGuard,
 ): (modelId: string) => ModelProvider {
   const direct = createProviderFactory(cfg, fetchFn);
   return (modelId) => {

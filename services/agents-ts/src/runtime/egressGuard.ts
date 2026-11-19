@@ -103,7 +103,7 @@ function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
 }
 
 export function createEgressGuard(
-  deps: { analyzer?: Analyzer; policy?: AiPolicyGuard; log?: LogFn; observe?: (seconds: number, decision: GuardDecision) => void; deadlineMs?: number } = {},
+  deps: { analyzer?: Analyzer; policy: AiPolicyGuard; log?: LogFn; observe?: (seconds: number, decision: GuardDecision) => void; deadlineMs?: number },
 ): EgressGuard {
   const analyzer = deps.analyzer ?? { scan: scanPii };
   const deadlineMs = deps.deadlineMs ?? ANALYZER_DEADLINE_MS;
@@ -117,7 +117,8 @@ export function createEgressGuard(
       try {
         const [found = []] = await scan([text]);
         const cls = highestClassOf([declared satisfies ToolClass, ...found.map((f) => CATEGORY_CLASS[f.category])]);
-        if (policyCell === "default" || deps.policy === undefined || cls === "P2" || cls === "P3") return { ...base, pass: true, class: cls };
+        // P2 and P3 values are pseudonymized later in inspect(), which throws RESIDUAL_PII on any leftover.
+        if (policyCell === "default" || cls === "P2" || cls === "P3") return { ...base, pass: true, class: cls };
         const decision = await deps.policy.check({ tenantId, module, dataClass: cls });
         return { ...base, pass: decision.allowed, class: cls, policyVersion: decision.policyVersion };
       } catch (err) {

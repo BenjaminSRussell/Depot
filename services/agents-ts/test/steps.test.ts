@@ -4,11 +4,11 @@ import type { ActionRecord } from "../src/domain/audit.js";
 import type { McpConnector } from "../src/runtime/mcp.js";
 import type { RunRequest } from "../src/runtime/engine.js";
 import { withEgressGuard } from "../src/config.js";
-import { createEgressGuard, EGRESS_GUARD_TOOL } from "../src/runtime/egressGuard.js";
+import { EGRESS_GUARD_TOOL } from "../src/runtime/egressGuard.js";
 import { createRunSteps, initialStepState, type RunInput, type StepAudit, type StepsDeps } from "../src/runtime/steps.js";
 import type { RunCredential } from "../src/store/runstate.js";
 import { MemState } from "./memstate.js";
-import { apAgent, APPROVER, codingDescriptor, FakeTools, INVOKER, postDescriptor, proposal, REAL_IBAN, ScriptedProvider, TENANT, usd } from "./fakes.js";
+import { apAgent, APPROVER, codingDescriptor, FakeTools, INVOKER, postDescriptor, proposal, REAL_IBAN, ScriptedProvider, TENANT, testGuard, usd } from "./fakes.js";
 
 const RUN = "run-1";
 const CODING = "depot.ap.invoice.propose_coding";
@@ -175,7 +175,7 @@ describe("resumable run steps", () => {
 
   it("records a guard row before the proposal row, and the approval commit writes the next seq (AC7)", async () => {
     const inner = new ScriptedProvider([proposal(0.8)]);
-    const s = setup({ provider: Object.assign(withEgressGuard(inner, createEgressGuard()), { seen: inner.seen }) as ScriptedProvider });
+    const s = setup({ provider: Object.assign(withEgressGuard(inner, testGuard()), { seen: inner.seen }) as ScriptedProvider });
     await toAwaiting(s);
     s.inbox.decided = { decision: "APPROVED", approverUserId: APPROVER, decidedAt: "2026-10-21T01:00:00.000Z" };
     await s.state.putCredential(TENANT, RUN, approverCred(), far);

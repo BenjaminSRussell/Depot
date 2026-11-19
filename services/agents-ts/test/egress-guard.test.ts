@@ -7,9 +7,9 @@ import { AMOUNT_WITHHELD_NOTICE } from "../src/domain/financialFields.js";
 import { createProviderFactory, loadConfig, withEgressGuard } from "../src/config.js";
 import { PROPOSE_TOOL_NAME } from "../src/providers/wire.js";
 import { AgentError } from "../src/errors.js";
-import { createEgressGuard, EGRESS_GUARD_TOOL, type Analyzer, type EgressInput, type GuardDecision } from "../src/runtime/egressGuard.js";
+import { EGRESS_GUARD_TOOL, type Analyzer, type EgressInput, type GuardDecision } from "../src/runtime/egressGuard.js";
 import { Metrics } from "../src/server.js";
-import { openRouter, ScriptedProvider } from "./fakes.js";
+import { openRouter, ScriptedProvider, testGuard } from "./fakes.js";
 import { FakeMcp, headers, MemoryStore, serve, tool } from "./surface-fakes.js";
 
 const GET = "depot.ap.invoice.get";
@@ -57,7 +57,7 @@ const chatWith = async (analyzer?: Analyzer, observe?: (seconds: number, decisio
     cache: new CopilotAnswerCache(),
     config: { tokenCap: 20_000, maxTurns: 3, pseudonymTtlMs: 60_000 },
     modelId: "claude-haiku-5-5",
-    guard: createEgressGuard({ ...(analyzer !== undefined ? { analyzer } : {}), deadlineMs: 50, ...(observe !== undefined ? { observe } : {}) }),
+    guard: testGuard({ ...(analyzer !== undefined ? { analyzer } : {}), deadlineMs: 50, ...(observe !== undefined ? { observe } : {}) }),
   });
   const srv = await serve({ approvals: store, copilot });
   close = srv.close;
@@ -141,14 +141,14 @@ describe("guard inspect", () => {
   });
 
   it("allows clean text unchanged with an empty record", async () => {
-    const verdict = await createEgressGuard().inspect(input(new Pseudonymizer("t", 1000, () => 0), { results: ["Result of x: INV-2026-0042 1,200.50"] }));
+    const verdict = await testGuard().inspect(input(new Pseudonymizer("t", 1000, () => 0), { results: ["Result of x: INV-2026-0042 1,200.50"] }));
     expect(verdict.result).toMatchObject({ decision: "ALLOWED", highestClass: "P0", counts: {}, excluded: {}, routeId: "r", policyVersion: 1 });
     expect(verdict.user).toBe("hello\n\nResult of x: INV-2026-0042 1,200.50");
   });
 
   it("keeps one pseudonym per value across calls with the same pseudonymizer", async () => {
     const pseudo = new Pseudonymizer("t", 1000, () => 0);
-    const guard = createEgressGuard();
+    const guard = testGuard();
     const first = await guard.inspect(input(pseudo, { typed: `iban ${CANARIES.iban}` }));
     const second = await guard.inspect(input(pseudo, { results: [`other ${CANARIES.iban}`] }));
     expect(first.user).toBe("iban [IBAN-1]");
@@ -159,7 +159,7 @@ describe("guard inspect", () => {
 
 describe("run provider wrapper", () => {
   const response: ModelResponse = { text: "ok" };
-  const make = (calls: string[]) => withEgressGuard({ complete: async (req) => (calls.push(req.user), response) }, createEgressGuard());
+  const make = (calls: string[]) => withEgressGuard({ complete: async (req) => (calls.push(req.user), response) }, testGuard());
 
   it("forwards a prompt with no sensitive data", async () => {
     const calls: string[] = [];
@@ -195,7 +195,7 @@ describe("adapter parity", () => {
   const typed = `Pay ${CANARIES.iban} with card ${CANARIES.typedCard}, EIN ${CANARIES.ein}, ssn ${CANARIES.ssn}`;
 
   it("sends the same redacted prompt through all four adapters and no canary", async () => {
-    const verdict = await createEgressGuard().inspect({ tenantId: "t", callId: "c", routeId: "r", pseudo: new Pseudonymizer("t", 60_000, () => 0), system: "s", typed, results: [] });
+    const verdict = await testGuard().inspect({ tenantId: "t", callId: "c", routeId: "r", pseudo: new Pseudonymizer("t", 60_000, () => 0), system: "s", typed, results: [] });
     expect(verdict.result.decision).toBe("REDACTED");
     const escaped = JSON.stringify(verdict.user).slice(1, -1);
     for (const [name, env] of Object.entries(adapters)) {
