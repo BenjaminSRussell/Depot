@@ -378,19 +378,19 @@ func TestCreateProposal_TotalsAndReplay(t *testing.T) {
 	}
 }
 
-func TestCreateProposal_WithoutShipToKeepsCallersCodeAndTax(t *testing.T) {
-	body := strings.Replace(proposal("1", "100", "4900"), `"taxCode":"DE19","tax":"19.00"`, `"taxCode":"EXEMPT","tax":"0"`, 1)
-	rec := do(setup(t, newFakeStore(), UnavailableTax{}), http.MethodPost, "/v1/billing/free-text-invoices", key, body)
-	var got invoiceDTO
-	decode(t, rec, &got)
-	if rec.Code != http.StatusCreated || got.Totals.Tax != "0.00" || got.Lines[0].TaxCode != "EXEMPT" {
-		t.Fatalf("status %d, invoice %+v", rec.Code, got)
+// A person (not a verified service principal) cannot state the tax: a supplied tax is ignored, so with no
+// engine the request fails closed, and with the engine the engine's amount wins over a supplied zero.
+func TestCreateProposal_SuppliedTaxFromAPersonIsIgnored(t *testing.T) {
+	zeroed := strings.Replace(proposal("1", "100", "4900"), `"taxCode":"DE19","tax":"19.00"`, `"taxCode":"EXEMPT","tax":"0"`, 1)
+	rec := do(setup(t, newFakeStore(), UnavailableTax{}), http.MethodPost, "/v1/billing/free-text-invoices", key, zeroed)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status %d, want 503: a supplied zero tax must not stand in for the engine", rec.Code)
 	}
-	taxed := strings.Replace(proposal("1", "100", "4900"), `"tax":"19.00"`, `"tax":"19"`, 1)
-	rec = do(setup(t, newFakeStore(), UnavailableTax{}), http.MethodPost, "/v1/billing/free-text-invoices", "k-tax", taxed)
+	var got invoiceDTO
+	rec = do(setup(t, newFakeStore(), &fakeTax{perLine: "19.00"}), http.MethodPost, "/v1/billing/free-text-invoices", "k-engine", zeroed)
 	decode(t, rec, &got)
 	if rec.Code != http.StatusCreated || got.Totals.Tax != "19.00" {
-		t.Fatalf("status %d, invoice %+v", rec.Code, got)
+		t.Fatalf("status %d, tax %q: the engine's 19.00 must replace the supplied 0", rec.Code, got.Totals.Tax)
 	}
 }
 

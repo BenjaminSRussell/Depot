@@ -161,7 +161,7 @@ func translateLines(ctx context.Context, ledger Ledger, from string, date time.T
 		sourceNet = sourceNet.Add(signed(l.Side, l.Amount))
 		translatedNet = translatedNet.Add(signed(l.Side, out[i].Amount))
 	}
-	absorbRounding(out, ledger.Currency, sourceNet.Mul(rate).Round(minor).Sub(translatedNet), minor)
+	absorbRounding(out, ledger.Currency, sourceNet.Mul(rate).Round(minor).Sub(translatedNet), minor, false)
 	return out, nil
 }
 
@@ -174,7 +174,7 @@ func signed(side string, amount decimal.Decimal) decimal.Decimal {
 
 // absorbRounding moves the translated net by diff (wanted net minus actual net) onto the largest line
 // that can take it: reducing the heavier side first, else enlarging the lighter side (BR-12.4).
-func absorbRounding(lines []domain.LineInput, currency string, diff decimal.Decimal, minor int32) {
+func absorbRounding(lines []domain.LineInput, currency string, diff decimal.Decimal, minor int32, convertedOnly bool) {
 	if diff.IsZero() || diff.Abs().GreaterThan(decimal.New(int64(len(lines)), -minor)) {
 		return
 	}
@@ -183,17 +183,19 @@ func absorbRounding(lines []domain.LineInput, currency string, diff decimal.Deci
 		reduce, enlarge = domain.SideCredit, domain.SideDebit
 	}
 	amount := diff.Abs()
-	if i := largestLine(lines, currency, reduce); i >= 0 && lines[i].Amount.Sub(amount).IsPositive() {
+	if i := largestLine(lines, currency, reduce, convertedOnly); i >= 0 && lines[i].Amount.Sub(amount).IsPositive() {
 		lines[i].Amount, lines[i].RoundingAdjustment = lines[i].Amount.Sub(amount), true
-	} else if j := largestLine(lines, currency, enlarge); j >= 0 {
+	} else if j := largestLine(lines, currency, enlarge, convertedOnly); j >= 0 {
 		lines[j].Amount, lines[j].RoundingAdjustment = lines[j].Amount.Add(amount), true
 	}
 }
 
-func largestLine(lines []domain.LineInput, currency, side string) int {
+// largestLine finds the biggest line on a side; with convertedOnly, only lines converted from another currency
+// qualify, because adjusting a native line would unbalance its own transaction-currency group.
+func largestLine(lines []domain.LineInput, currency, side string, convertedOnly bool) int {
 	target := -1
 	for i, l := range lines {
-		if l.Currency == currency && l.Side == side && l.Amount.IsPositive() && (target < 0 || l.Amount.GreaterThan(lines[target].Amount)) {
+		if l.Currency == currency && l.Side == side && l.Amount.IsPositive() && (!convertedOnly || l.CurrencyTxn != "") && (target < 0 || l.Amount.GreaterThan(lines[target].Amount)) {
 			target = i
 		}
 	}

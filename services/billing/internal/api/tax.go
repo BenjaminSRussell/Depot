@@ -8,6 +8,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/billing/internal/domain"
 )
 
@@ -75,4 +76,22 @@ func (a *API) quote(ctx context.Context, in QuoteInput) (QuoteResult, error) {
 		out.Taxes[i] = *l.SuppliedTax
 	}
 	return out, nil
+}
+
+// suppliedTaxTrusted reports whether the caller may state the tax itself: only a verified service
+// principal (sales feeding billing), never a person or a portal. Everyone else gets the engine's answer.
+func suppliedTaxTrusted(ctx context.Context) bool {
+	p, ok := tenant.FromContext(ctx)
+	return ok && p.Service != ""
+}
+
+// dropUntrustedTax removes caller-supplied line tax from a request that did not come from a service
+// principal, so the tax engine decides (or the request fails closed when it is unavailable).
+func dropUntrustedTax(ctx context.Context, lines []domain.Line) {
+	if suppliedTaxTrusted(ctx) {
+		return
+	}
+	for i := range lines {
+		lines[i].SuppliedTax = nil
+	}
 }
