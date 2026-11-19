@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Alert, Badge, Button, Card, EmptyState, FormField, Textarea } from "../../shell/ui";
 import type { ChatRequest, ChatResponse } from "./api/client";
 import { askCopilot } from "./api/stream";
@@ -26,6 +26,7 @@ export interface CopilotPanelProps {
   /** Called only when the user clicks "Insert draft". Never called automatically. */
   onInsertDraft?: (text: string) => void;
   initialMode?: CopilotMode;
+  initialMessage?: string;
   /**
    * When set, the chosen mode is remembered per user and workspace in `store`
    * (9.47.6) and restored the next time the panel opens there.
@@ -45,7 +46,7 @@ const PROMPT_HINTS: Readonly<Record<CopilotMode, string>> = {
   summarize: "Name the workflow or case to summarize.",
 };
 
-export function CopilotPanel({ ask = askCopilot, recordRef, onInsertDraft, initialMode = "ask", memory }: CopilotPanelProps) {
+export function CopilotPanel({ ask = askCopilot, recordRef, onInsertDraft, initialMode = "ask", initialMessage, memory }: CopilotPanelProps) {
   const [mode, setModeState] = useState<CopilotMode>(
     () => (memory ? readRememberedMode(memory.store, memory.userId, memory.workspace) : undefined) ?? initialMode,
   );
@@ -60,9 +61,7 @@ export function CopilotPanel({ ask = askCopilot, recordRef, onInsertDraft, initi
   /** The answer so far while the server streams it (FR-47.3). */
   const [partial, setPartial] = useState("");
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const text = message.trim();
+  async function send(text: string) {
     if (text === "" || pending) return;
     setPending(true);
     setError(null);
@@ -81,6 +80,18 @@ export function CopilotPanel({ ask = askCopilot, recordRef, onInsertDraft, initi
       setPending(false);
     }
   }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void send(message.trim());
+  }
+
+  const sentInitial = useRef(false);
+  useEffect(() => {
+    if (sentInitial.current || !initialMessage?.trim()) return;
+    sentInitial.current = true;
+    void send(initialMessage.trim());
+  }, []);
 
   return (
     <Card title="Conversation">

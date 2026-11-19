@@ -17,6 +17,7 @@ const E2E_DUTIES = [
   "identity.security-role.maintain",
   "identity.setup.maintain",
   "inbox.read",
+  "mcp.copilot.use",
   "tax.code.maintain",
   "metadata.read",
   "notify.write",
