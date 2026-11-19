@@ -29,7 +29,7 @@ const admin: DepotModule = {
     { path: "/admin/security/roles/:name", element: createElement(RoleDetailPage), handle: { title: "Role" } },
   ],
   nav: [
-    { label: "Overview", to: "/admin", duty: "audit.read" },
+    { label: "Overview", to: "/admin" },
     { label: "Sequences", to: "/admin/sequences", duty: "numbering.read" },
     { label: "Import", to: "/admin/import" },
     { label: "Effective permissions", to: "/admin/security/permissions", duty: "identity.effective-permission.view" },

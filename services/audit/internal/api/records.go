@@ -113,7 +113,8 @@ func (a *API) query(w http.ResponseWriter, r *http.Request) {
 	}
 	if !holdsRead {
 		for _, rec := range rows {
-			if !tenant.InLegalEntityScope(p, rec.LegalEntityID) {
+			// A record with no legal entity is tenant-wide master data; holding its read duty is enough.
+			if rec.LegalEntityID != "" && !tenant.InLegalEntityScope(p, rec.LegalEntityID) {
 				forbidden(w, r, "the record belongs to a legal entity outside your scope")
 				return
 			}

@@ -478,7 +478,6 @@
     "modules/costing/ValueReportPage.tsx:Enter a site id (a UUID), or leave it empty for every site.",
     "modules/costing/ValueReportPage.tsx:Enter the legal entity's id (a UUID).",
     "modules/costing/VersionsPage.tsx:Enter the legal entity's id (a UUID).",
-    "modules/costing/versionParts.tsx:: productId and siteId must be UUIDs.",
     "modules/eam/AssetCare.tsx:Enter the vendor's party id (a UUID).",
     "modules/eam/AssetsPage.tsx:Enter the production resource id (a UUID), or leave it empty.",
     "modules/eam/AssetsPage.tsx:Enter the site id (a UUID).",
