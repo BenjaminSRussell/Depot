@@ -13,9 +13,10 @@ const LE = "2f6c3e0a-8d6b-4c1e-9a43-0c5f3b1d7e21";
 const INVOICE = "depot.ap.invoice.get";
 const VENDOR = "depot.ap.vendor.list";
 const PAYMENT = "depot.ap.payment.list";
+const SEARCH = "depot.knowledge.search";
 const SECRET_TOTAL = "1200.00";
 const PROMPT = "Which invoices are overdue for Acme Holdings?";
-const DUTIES = new Set(["mcp.copilot.use", "ap.invoice.read", "ap.vendor.read", "ap.payment.read"]);
+const DUTIES = new Set(["mcp.copilot.use", "ap.invoice.read", "ap.vendor.read", "ap.payment.read", "knowledge.read"]);
 const caller: Principal = { tenantId: T1, userId: USER, duties: DUTIES, legalEntityId: LE };
 const seed = Buffer.alloc(32, 7).toString("base64");
 const signer = createServiceSigner({ seedBase64: seed });
@@ -100,7 +101,7 @@ describe("the AI data-access audit client", () => {
 const harness = (script: ModelResponse[], aiAccess: AiAccessAudit, results: Record<string, unknown>, guard?: EgressGuard) => {
   const provider = new ScriptedProvider(script);
   const mcp = new FakeMcp(
-    [tool(INVOICE, "ap.invoice.read"), tool(VENDOR, "ap.vendor.read"), tool(PAYMENT, "ap.payment.read")],
+    [tool(INVOICE, "ap.invoice.read"), tool(VENDOR, "ap.vendor.read"), tool(PAYMENT, "ap.payment.read"), tool(SEARCH, "knowledge.read")],
     Object.fromEntries(Object.entries(results).map(([name, output]) => [name, { ok: true as const, output, ref: name }])),
   );
   const copilot = createCopilotService({
@@ -183,12 +184,41 @@ describe("copilot chat and the AI data-access audit", () => {
     expect(audit.rows).toEqual([expect.objectContaining({ tool: INVOICE, decision: "BLOCKED", highestClass: "P2", policyVersion: 4, redactionCounts: { EMAIL: 2 } })]);
   });
 
-  it("splits a read of more than 200 ids into rows of at most 200 and writes nothing for an empty list", async () => {
+  it("splits a read of more than 200 ids into rows of at most 200 and still writes an id-less row for an empty list", async () => {
     const many = { items: Array.from({ length: 450 }, (_, i) => ({ id: `V-${i}` })) };
     const audit = allowAiAccess();
     const h = harness([call(VENDOR), call(PAYMENT), answer("done")], audit, { ...READS, [VENDOR]: many, [PAYMENT]: { items: [] } });
     await h.chat();
-    expect(audit.rows.map((r) => r.recordIds.length)).toEqual([200, 200, 50]);
-    expect(audit.rows.every((r) => r.tool === VENDOR)).toBe(true);
+    expect(audit.rows.map((r) => [r.tool, r.recordIds.length])).toEqual([[VENDOR, 200], [VENDOR, 200], [VENDOR, 50], [PAYMENT, 0]]);
+  });
+
+  it("audits an id-less result and a knowledge search, and refuses without a provider call when the write fails", async () => {
+    const summary = { total: 3 };
+    const search = { chunks: [] };
+    const audit = allowAiAccess();
+    const ok = harness([call(INVOICE), call(SEARCH), answer("done")], audit, { ...READS, [INVOICE]: summary, [SEARCH]: search });
+    await ok.chat();
+    expect(audit.rows.map((r) => [r.tool, r.entityType, r.recordIds])).toEqual([
+      [INVOICE, "invoice", []],
+      [SEARCH, "knowledge", []],
+    ]);
+    const failing: AiAccessAudit = {
+      record: async () => {
+        throw new Error("audit down");
+      },
+    };
+    for (const [name, output] of [[INVOICE, summary], [SEARCH, search]] as const) {
+      const h = harness([call(name), answer("leak")], failing, { ...READS, [name]: output });
+      const res = await h.chat();
+      expect(res.refusal?.code).toBe("AGT-0230");
+      expect(h.provider.seen).toHaveLength(1);
+    }
+  });
+
+  it("sends ids such as INV/2026/001 and over-long ids in a form the audit service accepts", async () => {
+    const audit = allowAiAccess();
+    const h = harness([call(VENDOR), answer("done")], audit, { ...READS, [VENDOR]: { items: [{ id: "INV/2026/001" }, { id: "a b" }, { id: "x".repeat(300) }] } });
+    await h.chat();
+    expect(audit.rows[0]?.recordIds).toEqual(["INV/2026/001", "a_b", "x".repeat(128)]);
   });
 });

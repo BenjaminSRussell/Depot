@@ -359,9 +359,12 @@ export function createCopilotService(deps: CopilotDeps) {
           }
           row(p.tool, p.args, shown, "AUTO", "read");
           const shownRefs = found.flatMap((ref, i) => (excludedHere.includes(ref) || ref.recordId === "" ? [] : [{ id: ref.recordId, class: next?.classes[i] ?? "UNKNOWN" }]));
-          if (shownRefs.length > 0) {
-            pending.push({ tool: p.tool, entityType: found[0]?.entityType ?? "", recordIds: shownRefs.map((r) => r.id), recordClasses: shownRefs.map((r) => r.class) });
-          }
+          pending.push({
+            tool: p.tool,
+            entityType: (p.tool === KNOWLEDGE_SEARCH_TOOL ? "knowledge" : found[0]?.entityType) || "unidentified",
+            recordIds: shownRefs.map((r) => auditableId(r.id)),
+            recordClasses: shownRefs.map((r) => r.class),
+          });
           if (next !== undefined) {
             provider = next.provider;
             routeId = next.routeId;
@@ -419,6 +422,10 @@ async function searchKnowledge(knowledge: KnowledgeService, tenantId: string, ar
   } catch {
     return { ok: false, code: "AGT-0214", message: "the knowledge search failed" };
   }
+}
+
+function auditableId(id: string): string {
+  return id.replace(/[^\w.:/#@+=~%-]/g, "_").replace(/^[^A-Za-z0-9]/, "n").slice(0, 128);
 }
 
 function refusal(code: string, message: string): ChatResponse {

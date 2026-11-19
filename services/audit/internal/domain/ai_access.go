@@ -21,6 +21,7 @@ const (
 
 var (
 	aiAccessIdentifier = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:-]*$`)
+	aiAccessRecordID   = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:/#@+=~%-]*$`)
 	aiAccessAgentID    = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,63}$`)
 	aiAccessKinds      = []string{AIAccessKindRead, AIAccessKindExport}
 	aiAccessDecisions  = []string{"ALLOWED", "REDACTED", "WITHHELD", "BLOCKED"}
@@ -111,8 +112,8 @@ func ValidateAIAccess(a AIAccess, now time.Time) map[string]string {
 		problems["recordIds"] = fmt.Sprintf("holds at most %d ids per row", MaxAIAccessRecordIDs)
 	} else {
 		for _, id := range a.RecordIDs {
-			if len(id) > maxAIAccessText || !aiAccessIdentifier.MatchString(id) {
-				problems["recordIds"] = "must be ids of letters, digits, _ . : - with no spaces, at most 128 characters each"
+			if len(id) > maxAIAccessText || !aiAccessRecordID.MatchString(id) {
+				problems["recordIds"] = "must be ids of letters, digits, _ . : / # @ + = ~ % - with no spaces, at most 128 characters each"
 				break
 			}
 		}

@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS ai_data_access (
   record_ids text[] NOT NULL CHECK (
     cardinality(record_ids) <= 200
     AND length(array_to_string(record_ids, ',')) <= 25800
-    AND array_to_string(record_ids, ',') ~ '^[A-Za-z0-9_.:,-]*$'),
+    AND array_to_string(record_ids, ',') ~ '^[A-Za-z0-9_.:,/#@+=~%-]*$'),
   record_classes text[] NOT NULL CHECK (cardinality(record_classes) = cardinality(record_ids)),
   highest_class text NOT NULL CHECK (highest_class IN ('P0', 'P1', 'P2', 'P3')),
   route_id text NOT NULL CHECK (length(route_id) BETWEEN 1 AND 128),

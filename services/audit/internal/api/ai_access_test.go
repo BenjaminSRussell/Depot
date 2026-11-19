@@ -58,6 +58,15 @@ func TestRecordAIAccessTakesTheActorFromTheVerifiedToken(t *testing.T) {
 	}
 }
 
+func TestRecordAIAccessAcceptsDocumentNumbersAsIDs(t *testing.T) {
+	f := &fakeStore{}
+	body := strings.Replace(aiAccessBody, `"inv-1"`, `"INV/2026/001"`, 1)
+	rec := postAIAccess(verifiedRouter(f, aiAccessPrincipal("agents", dutyAIAccessWrite)), body)
+	if rec.Code != http.StatusCreated || f.aiAccess[0].RecordIDs[0] != "INV/2026/001" {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestRecordAIAccessRefusals(t *testing.T) {
 	tests := []struct {
 		name, body string

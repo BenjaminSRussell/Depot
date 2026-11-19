@@ -372,7 +372,7 @@ components:
         runId: { type: string, maxLength: 128 }
         tool: { type: string, maxLength: 128 }
         entityType: { type: string, maxLength: 128 }
-        recordIds: { type: array, maxItems: 200, items: { type: string, maxLength: 128, pattern: '^[A-Za-z0-9][A-Za-z0-9_.:-]*$' } }
+        recordIds: { type: array, maxItems: 200, items: { type: string, maxLength: 128, pattern: '^[A-Za-z0-9][A-Za-z0-9_.:/#@+=~%-]*$' } }
         recordClasses: { type: array, maxItems: 200, items: { type: string, maxLength: 16 }, description: One designation class per record id. }
         highestClass: { type: string, enum: [P0, P1, P2, P3] }
         routeId: { type: string, maxLength: 128 }

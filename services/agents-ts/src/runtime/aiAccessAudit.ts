@@ -28,7 +28,7 @@ export interface AiAccessAudit {
 }
 
 export function chunkIds(row: AiAccessRow): AiAccessRow[] {
-  const chunks: AiAccessRow[] = [];
+  const chunks: AiAccessRow[] = row.recordIds.length === 0 ? [row] : [];
   for (let start = 0; start < row.recordIds.length; start += MAX_IDS_PER_ROW) {
     chunks.push({ ...row, recordIds: row.recordIds.slice(start, start + MAX_IDS_PER_ROW), recordClasses: row.recordClasses.slice(start, start + MAX_IDS_PER_ROW) });
   }
