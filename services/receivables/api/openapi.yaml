@@ -606,7 +606,12 @@ paths:
         dev.depot.receivables.payment.applicationreversed.v1 in the same transaction. A locked item is 409 AR-0002, an unknown payment
         or application 404 AR-PAYMENT-NOT-FOUND, an application already reversed or a payment not in an applied state 409
         AR-PAYMENT-STATE, a bank-reconciled payment (or one whose state cannot be read) 409 AR-0021, a closed posting period 409
-        AR-0023 (never re-dated). A ledger refusal or outage is 503 AR-0022 with nothing stored; repeat with the same Idempotency-Key.
+        AR-0023 (never re-dated), an item dunned, cleared, settled by another payment or whose payment has a later application since the
+        application was made 409 AR-0024 (`errors` maps each openItemId to DUNNED, CLEARED, FURTHER_SETTLED or LATER_APPLICATION). A ledger
+        refusal or outage, or an application journal not posted to the ledger yet, is 503 AR-0022 with nothing stored; repeat with the same
+        Idempotency-Key. With `dryRun: true` the same guards run through one shared function, nothing changes, If-Match and Idempotency-Key
+        are not needed, and the answer is 200 `{ eligible, code?, reason?, items? }` carrying the code the real call would return (a closed
+        period and a ledger outage are only known when posting).
         The same key and body replays the first response, the same key with another body is 422 idempotency_key_reuse.
       x-depot-duty: receivables.payment.post
       x-passage-duty: receivables.payment.post
@@ -625,31 +630,46 @@ paths:
               properties:
                 applicationId: { type: string, format: uuid }
                 reason: { type: string, minLength: 1, maxLength: 500, description: Stored on the application for audit. }
+                dryRun: { type: boolean, default: false, description: Run the guards only; changes nothing and needs no If-Match or Idempotency-Key. }
       responses:
         "200":
-          description: Application reversed
+          description: Application reversed, or (dryRun) the eligibility answer
           headers:
             ETag: { $ref: "#/components/headers/ETag" }
           content:
             application/json:
               schema:
-                type: object
-                required: [applicationId, reversalJournalEntryId, payment, reopened]
-                properties:
-                  applicationId: { type: string, format: uuid }
-                  reversalJournalEntryId: { type: string }
-                  payment: { $ref: "#/components/schemas/Payment" }
-                  reopened:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        settlementId: { type: string, format: uuid }
-                        openItemId: { type: string, format: uuid }
-                        amount: { $ref: "#/components/schemas/Money" }
-                        itemAmount: { $ref: "#/components/schemas/Money" }
-                        openAfter: { $ref: "#/components/schemas/Money" }
-                        itemStatus: { type: string, enum: [OPEN, PARTIALLY_SETTLED] }
+                oneOf:
+                  - type: object
+                    required: [applicationId, reversalJournalEntryId, payment, reopened]
+                    properties:
+                      applicationId: { type: string, format: uuid }
+                      reversalJournalEntryId: { type: string }
+                      payment: { $ref: "#/components/schemas/Payment" }
+                      reopened:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            settlementId: { type: string, format: uuid }
+                            openItemId: { type: string, format: uuid }
+                            amount: { $ref: "#/components/schemas/Money" }
+                            itemAmount: { $ref: "#/components/schemas/Money" }
+                            openAfter: { $ref: "#/components/schemas/Money" }
+                            itemStatus: { type: string, enum: [OPEN, PARTIALLY_SETTLED] }
+                  - type: object
+                    required: [eligible]
+                    properties:
+                      eligible: { type: boolean }
+                      code: { type: string }
+                      reason: { type: string }
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            openItemId: { type: string, format: uuid }
+                            cause: { type: string, enum: [DUNNED, CLEARED, FURTHER_SETTLED, LATER_APPLICATION] }
         "400": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }

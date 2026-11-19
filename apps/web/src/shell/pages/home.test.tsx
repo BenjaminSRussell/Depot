@@ -37,11 +37,11 @@ const item = (n: number) => ({
   createdAt: "2026-11-01T00:00:00Z",
 });
 
-function renderHome(duties: string[], shellModules: DepotModule[] = modules, entry: { pathname: string; state?: unknown } = { pathname: "/" }) {
+function renderHome(duties: string[], shellModules: DepotModule[] = modules, entry: { pathname: string; state?: unknown } = { pathname: "/" }, features?: Record<string, boolean>) {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
-        <Route element={<Shell modules={shellModules} duties={duties} />}>
+        <Route element={<Shell modules={shellModules} duties={duties} features={features} />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/copilot" element={<CopilotHome />} />
         </Route>
@@ -276,6 +276,13 @@ describe("role home", () => {
       expect(main().getByText("Current workspace")).toBeInTheDocument();
       expect(main().getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
       expect(server.calls.filter((c) => c.url.pathname.startsWith("/api/v1/copilot"))).toHaveLength(0);
+    });
+
+    it("shows the classic home, with no prompt to drop, when the copilot is switched off for the installation", () => {
+      renderHome([COPILOT_DUTY], modules, { pathname: "/" }, { "install:node": false });
+      expect(screen.queryByRole("textbox", { name: "Ask or do anything..." })).not.toBeInTheDocument();
+      expect(main().queryByRole("button", { name: "Send" })).not.toBeInTheDocument();
+      expect(main().getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
     });
 
     it("offers a workspace page as a link, one click away, inside the secondary region", () => {

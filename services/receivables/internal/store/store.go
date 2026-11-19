@@ -46,6 +46,7 @@ const (
 	CodeReversalReconciled        = "AR-0021"
 	CodeReversalLedgerUnavailable = "AR-0022"
 	CodeReversalPeriodClosed      = "AR-0023"
+	CodeReversalItemChanged       = "AR-0024"
 	eventSource                   = "receivables"
 	lockNotAvailable              = "55P03"
 	uniqueViolation               = "23505"
@@ -186,6 +187,7 @@ type Store interface {
 	MatchPayment(ctx context.Context, id string) (domain.Result, error)
 	ApplyPayment(ctx context.Context, id string, version int, req ApplyRequest, idempotencyKey string) (ApplyResult, error)
 	ReverseApplication(ctx context.Context, paymentID string, version int, req ReverseApplicationRequest, idempotencyKey string) (ReverseApplicationResult, error)
+	CheckReverseApplication(ctx context.Context, paymentID string, req ReverseApplicationRequest) (ReverseEligibility, error)
 	OpenDispute(ctx context.Context, in Dispute, idempotencyKey string) (Dispute, error)
 	GetDispute(ctx context.Context, id string) (Dispute, error)
 	ListDisputes(ctx context.Context, f DisputeFilter, limit int) ([]Dispute, error)

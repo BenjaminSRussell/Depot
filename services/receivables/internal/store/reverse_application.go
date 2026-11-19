@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5"
@@ -36,6 +37,31 @@ type appReversal struct {
 	id, postingDate, entryID string
 }
 
+const reversalLedgerTimeout = 10 * time.Second
+
+type ItemChange struct {
+	OpenItemID string `json:"openItemId"`
+	Cause      string `json:"cause"`
+}
+
+type ReverseEligibility struct {
+	Eligible bool         `json:"eligible"`
+	Code     string       `json:"code,omitempty"`
+	Reason   string       `json:"reason,omitempty"`
+	Items    []ItemChange `json:"items,omitempty"`
+}
+
+func (e ReverseEligibility) problem() *httpx.Problem {
+	pr := httpx.NewProblem(http.StatusConflict, e.Code, e.Reason)
+	if len(e.Items) > 0 {
+		pr.Errors = make(map[string]string, len(e.Items))
+		for _, it := range e.Items {
+			pr.Errors[it.OpenItemID] = it.Cause
+		}
+	}
+	return pr
+}
+
 func (s *Postgres) ReverseApplication(ctx context.Context, paymentID string, version int, req ReverseApplicationRequest, idempotencyKey string) (ReverseApplicationResult, error) {
 	p, _ := tenant.FromContext(ctx)
 	var out ReverseApplicationResult
@@ -51,8 +77,14 @@ func (s *Postgres) ReverseApplication(ctx context.Context, paymentID string, ver
 		if pay.Version != version {
 			return httpx.NewProblem(http.StatusPreconditionFailed, CodeVersionConflict, "payment changed since it was read")
 		}
-		app, err := reverseGuards(ctx, tx, p, pay, req.ApplicationID)
+		app, eligibility, err := reverseGuards(ctx, tx, p, pay, req.ApplicationID)
 		if err != nil {
+			return err
+		}
+		if !eligibility.Eligible {
+			return eligibility.problem()
+		}
+		if err := requireJournalsPosted(ctx, tx, p.TenantID, pay.ID); err != nil {
 			return err
 		}
 		var res UnapplyResult
@@ -70,45 +102,127 @@ func reverseApplicationHash(paymentID string, version int, req ReverseApplicatio
 	return hex.EncodeToString(sum[:])
 }
 
-func reverseGuards(ctx context.Context, tx pgx.Tx, p tenant.Principal, pay Payment, applicationID string) (appReversal, error) {
+func (s *Postgres) CheckReverseApplication(ctx context.Context, paymentID string, req ReverseApplicationRequest) (ReverseEligibility, error) {
+	p, _ := tenant.FromContext(ctx)
+	var out ReverseEligibility
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		pay, err := scanPayment(tx.QueryRow(ctx, `select `+paymentColumns+` from payment where id = $1`, paymentID))
+		if err != nil {
+			return notFound(err, CodePaymentNotFound, "payment not found")
+		}
+		_, out, err = reverseGuards(ctx, tx, p, pay, req.ApplicationID)
+		return err
+	})
+	return out, mapWriteErr(err)
+}
+
+func reverseGuards(ctx context.Context, tx pgx.Tx, p tenant.Principal, pay Payment, applicationID string) (appReversal, ReverseEligibility, error) {
 	app := appReversal{id: applicationID}
 	var status string
 	if err := tx.QueryRow(ctx, `select status, posting_date::text from payment_application where tenant_id = $1 and id = $2 and payment_id = $3`,
 		p.TenantID, applicationID, pay.ID).Scan(&status, &app.postingDate); err != nil {
-		return app, notFound(err, CodePaymentNotFound, "payment application not found")
+		return app, ReverseEligibility{}, notFound(err, CodePaymentNotFound, "payment application not found")
+	}
+	refuse := func(code, reason string, items []ItemChange) (appReversal, ReverseEligibility, error) {
+		return app, ReverseEligibility{Code: code, Reason: reason, Items: items}, nil
 	}
 	if status != "APPLIED" {
-		return app, httpx.NewProblem(http.StatusConflict, CodePaymentState, "the application is already reversed")
+		return refuse(CodePaymentState, "the application is already reversed", nil)
 	}
 	if pay.Status != "APPLIED" && pay.Status != "ON_ACCOUNT" {
-		return app, httpx.NewProblem(http.StatusConflict, CodePaymentState, "payment in status "+pay.Status+" has no application to reverse")
+		return refuse(CodePaymentState, "payment in status "+pay.Status+" has no application to reverse", nil)
 	}
-	var reconciled bool
-	if err := tx.QueryRow(ctx, `select bank_reconciled_at is not null from payment where tenant_id = $1 and id = $2`, p.TenantID, pay.ID).Scan(&reconciled); err != nil || reconciled {
-		return app, httpx.NewProblem(http.StatusConflict, CodeReversalReconciled, "the payment is bank-reconciled or its reconciliation state cannot be determined")
+	if bankReconciledOrUnknown(ctx, tx, p.TenantID, pay.ID) {
+		return refuse(CodeReversalReconciled, "the payment is bank-reconciled or its reconciliation state cannot be determined", nil)
 	}
-	return app, nil
+	items, err := changedItems(ctx, tx, p.TenantID, pay.ID, applicationID)
+	if err != nil {
+		return app, ReverseEligibility{}, err
+	}
+	if len(items) > 0 {
+		return refuse(CodeReversalItemChanged, "an item of the application was touched since it was applied", items)
+	}
+	return app, ReverseEligibility{Eligible: true}, nil
 }
 
-func (s *Postgres) postApplicationReversal(ctx context.Context, pay Payment, app *appReversal, lines []journalLine) error {
+func bankReconciledOrUnknown(ctx context.Context, tx pgx.Tx, tenantID, paymentID string) bool {
+	sp, err := tx.Begin(ctx)
+	if err != nil {
+		return true
+	}
+	var reconciled bool
+	if err := sp.QueryRow(ctx, `select bank_reconciled_at is not null from payment where tenant_id = $1 and id = $2`, tenantID, paymentID).Scan(&reconciled); err != nil {
+		slog.ErrorContext(ctx, "payment reconciliation state not readable", "payment", paymentID, "err", err, "correlationId", middleware.GetReqID(ctx))
+		_ = sp.Rollback(ctx)
+		return true
+	}
+	return sp.Commit(ctx) != nil || reconciled
+}
+
+func changedItems(ctx context.Context, tx pgx.Tx, tenantID, paymentID, applicationID string) ([]ItemChange, error) {
+	rows, err := tx.Query(ctx, `
+		with ap as (select applied_at from payment_application where tenant_id = $1 and id = $3),
+		it as (select distinct open_item_id from settlement where tenant_id = $1 and application_id = $3 and reversal_of_id is null)
+		select it.open_item_id::text, cause.name from it cross join ap
+		cross join lateral (values
+		  ('DUNNED', exists (select 1 from dunning_letter l where l.tenant_id = $1 and l.status = 'ISSUED' and l.issued_at > ap.applied_at
+		    and l.items @> jsonb_build_array(jsonb_build_object('openItemId', it.open_item_id::text)))),
+		  ('CLEARED', exists (select 1 from down_payment_clearing c where c.tenant_id = $1 and c.open_item_id = it.open_item_id and c.cleared_at > ap.applied_at)
+		    or exists (select 1 from credit_settlement c where c.tenant_id = $1 and c.debit_item_id = it.open_item_id and c.settled_at > ap.applied_at)),
+		  ('FURTHER_SETTLED', exists (select 1 from settlement s where s.tenant_id = $1 and s.open_item_id = it.open_item_id and s.reversal_of_id is null
+		    and s.payment_id <> $2 and s.settled_at > ap.applied_at)),
+		  ('LATER_APPLICATION', exists (select 1 from payment_application a where a.tenant_id = $1 and a.payment_id = $2 and a.id <> $3
+		    and a.status = 'APPLIED' and a.applied_at > ap.applied_at))
+		) as cause(name, hit)
+		where cause.hit
+		order by it.open_item_id, cause.name`, tenantID, paymentID, applicationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ItemChange
+	for rows.Next() {
+		var c ItemChange
+		if err := rows.Scan(&c.OpenItemID, &c.Cause); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+func requireJournalsPosted(ctx context.Context, tx pgx.Tx, tenantID, paymentID string) error {
+	var pending bool
+	if err := tx.QueryRow(ctx, `select exists (select 1 from gl_journal where tenant_id = $1 and source_id = $2 and status = 'PENDING'
+		and source_key ~ '^(apply|fx):')`, tenantID, paymentID).Scan(&pending); err != nil {
+		return err
+	}
+	if pending {
+		return httpx.NewProblem(http.StatusServiceUnavailable, CodeReversalLedgerUnavailable, "the application's own journal is not posted to the ledger yet; retry with the same Idempotency-Key")
+	}
+	return nil
+}
+
+func (s *Postgres) postApplicationReversal(ctx context.Context, pay Payment, app *appReversal, currency, suffix string, lines []journalLine) (string, error) {
 	lines = slices.DeleteFunc(lines, func(l journalLine) bool { return !l.Amount.IsPositive() })
 	ledgerID := s.journalLedger(pay.LegalEntityID)
 	if s.ledger == nil || ledgerID == "" {
 		slog.ErrorContext(ctx, "payment application reversal not posted: ledger not configured", "application", app.id, "correlationId", middleware.GetReqID(ctx))
-		return httpx.NewProblem(http.StatusServiceUnavailable, CodeReversalLedgerUnavailable, "the ledger is not available; retry with the same Idempotency-Key")
+		return "", httpx.NewProblem(http.StatusServiceUnavailable, CodeReversalLedgerUnavailable, "the ledger is not available; retry with the same Idempotency-Key")
 	}
-	id, err := s.postLedgerEntry(ctx, ledgerEntry{legalEntityID: pay.LegalEntityID, ledgerID: ledgerID, documentID: "PAY-" + pay.ID + "-APP-REVERSAL",
-		postingDate: app.postingDate, currency: pay.Currency, key: "post:receivables:paymentapplication:" + app.id + ":reversal",
+	ctx, cancel := context.WithTimeout(ctx, reversalLedgerTimeout)
+	defer cancel()
+	id, err := s.postLedgerEntry(ctx, ledgerEntry{legalEntityID: pay.LegalEntityID, ledgerID: ledgerID, documentID: "PAY-" + pay.ID + "-APP-REVERSAL" + suffix,
+		postingDate: app.postingDate, currency: currency, key: "post:receivables:paymentapplication:" + app.id + ":reversal" + suffix,
 		sourceType: "receivables-payment_application_reversal"}, lines)
 	if err != nil {
 		slog.ErrorContext(ctx, "payment application reversal not posted", "application", app.id, "err", err, "correlationId", middleware.GetReqID(ctx))
 		if ledgerclient.CodeOf(err) == ledgerclient.CodePeriodClosed {
-			return httpx.NewProblem(http.StatusConflict, CodeReversalPeriodClosed, "the posting period of the application is closed; the reversal is not re-dated")
+			return "", httpx.NewProblem(http.StatusConflict, CodeReversalPeriodClosed, "the posting period of the application is closed; the reversal is not re-dated")
 		}
-		return httpx.NewProblem(http.StatusServiceUnavailable, CodeReversalLedgerUnavailable, "the ledger refused or could not be reached; retry with the same Idempotency-Key")
+		return "", httpx.NewProblem(http.StatusServiceUnavailable, CodeReversalLedgerUnavailable, "the ledger refused or could not be reached; retry with the same Idempotency-Key")
 	}
-	app.entryID = id
-	return nil
+	return id, nil
 }
 
 func finishApplicationReversal(ctx context.Context, tx pgx.Tx, p tenant.Principal, pay Payment, app *appReversal, reason string, reopened []UnappliedSettlement) error {

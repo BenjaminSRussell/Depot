@@ -171,6 +171,7 @@ The `type` is `https://depot.dev/problems/<code>`.
 | `AR-0021` | 409 | `:reverse-application`: the payment is bank-reconciled (`payment.bank_reconciled_at` set) or its reconciliation state cannot be read (fails closed) |
 | `AR-0022` | 503 | `:reverse-application`: the ledger refused the reversing journal, is unavailable or is not configured; nothing was stored, repeat with the same `Idempotency-Key` |
 | `AR-0023` | 409 | `:reverse-application`: the posting period of the original application is closed; the reversal is never re-dated |
+| `AR-0024` | 409 | `:reverse-application`: an item of the application was dunned, cleared, settled by another payment, or the payment has a later application since; `errors` maps each openItemId to its cause |
 | `AR-GATEWAY-ITEM` | 422 | A portal payment names a credit, a paid item, or items in more than one currency |
 | `AR-GATEWAY-METHOD` | 422 | ACH outside USD |
 | `AR-GATEWAY-NOT-FOUND` | 404 | Gateway payment unknown, or another customer's |

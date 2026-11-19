@@ -133,6 +133,7 @@ export const test = base.extend<{ writeGuard: WriteGuard }>({
       session: () => structuredClone(session),
       expectNoWrites: () => assertClean(evaluateSession(session, "no-writes")),
       expectWritesOnlyAfterApproval: async (approveEvent) => {
+        await approveEvent.click({ trial: true });
         guard.approvedAt = Date.now();
         session.events.push({ type: "approve", t: guard.approvedAt });
         await approveEvent.click();

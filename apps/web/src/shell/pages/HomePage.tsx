@@ -3,10 +3,12 @@ import { copy } from "../copy";
 import { DemoTour } from "../../demo/DemoTour";
 import { holdsDuty } from "../dutyGate";
 import { AssistantPrompt } from "../home/AssistantPrompt";
-import { ASSISTANT_DUTY, routePrompt } from "../home/assistantRouter";
+import { ASSISTANT_DUTY, COPILOT_PATH } from "../home/assistantRouter";
+import { plannedRouteFor } from "../plannedRoutes";
 import homeStyles from "../home/home.module.css";
 import { usePrincipalDuties } from "../principal";
 import { useRecentPages } from "../recent";
+import { isPathEnabled } from "../tenant/featureRules";
 import { useTenantSettings } from "../tenant/TenantSettings";
 import { Alert, Badge, Button, Card, CardGrid, EmptyState, Icon, PageHeader } from "../ui";
 import { MyWorkSummary } from "./MyWorkSummary";
@@ -66,7 +68,8 @@ export function HomePage() {
   const { held, active, setActive } = useWorkspaceNav();
   const navigate = useNavigate();
   const announce = useOutletContext<((message: string) => void) | undefined>();
-  const assistant = holdsDuty(usePrincipalDuties(), ASSISTANT_DUTY);
+  const { features } = useTenantSettings();
+  const assistant = holdsDuty(usePrincipalDuties(), ASSISTANT_DUTY) && isPathEnabled(features, COPILOT_PATH) && plannedRouteFor(COPILOT_PATH) === undefined;
   const ordered = (active ? [active, ...held.filter((w) => w.id !== active.id)] : held).slice(0, HOME_WORKSPACE_LIMIT);
   const cards =
     ordered.length === 0 ? (
@@ -130,8 +133,7 @@ export function HomePage() {
       <AssistantPrompt
         onSubmit={async (text) => {
           announce?.(copy.home.assistantLoading);
-          const route = await routePrompt(text);
-          navigate(route.to, { state: route.state });
+          navigate(COPILOT_PATH, { state: { prompt: text } });
         }}
       />
       {demoTour}

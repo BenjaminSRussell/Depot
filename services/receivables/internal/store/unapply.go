@@ -205,15 +205,13 @@ func (s *Postgres) unapplyRows(ctx context.Context, tx pgx.Tx, p tenant.Principa
 	}
 	out.Payment = pay
 	key := fmt.Sprintf("unapply:%s:%d", pay.ID, pay.Version)
-	postingDate, fxKey := today(), "fx-"+key
+	unapplyJournal := unapplyLines(order, recvByPartner, cash, disc, off)
 	if app != nil {
-		postingDate, fxKey = app.postingDate, "fx-reversal:"+app.id
-		if err := s.postApplicationReversal(ctx, pay, app, unapplyLines(order, recvByPartner, cash, disc, off)); err != nil {
+		if app.entryID, err = s.postApplicationReversal(ctx, pay, app, pay.Currency, "", unapplyJournal); err != nil {
 			return err
 		}
 	} else if err := enqueueJournal(ctx, tx, p.TenantID, journalSpec{LegalEntityID: pay.LegalEntityID, SourceType: JournalPaymentUnapply, SourceID: pay.ID,
-		SourceKey: key, DocumentID: "PAY-" + pay.ID + "-UNAPPLY", PostingDate: postingDate, Currency: pay.Currency,
-		Lines: unapplyLines(order, recvByPartner, cash, disc, off)}); err != nil {
+		SourceKey: key, DocumentID: "PAY-" + pay.ID + "-UNAPPLY", PostingDate: today(), Currency: pay.Currency, Lines: unapplyJournal}); err != nil {
 		return err
 	}
 	if gain.IsPositive() || loss.IsPositive() {
@@ -235,8 +233,12 @@ func (s *Postgres) unapplyRows(ctx context.Context, tx pgx.Tx, p tenant.Principa
 				lines = append(lines, withPartner(debit(domain.AccountReceivable, l, "Realized exchange loss reversed"), pt), credit(set.LossAccount, l, "Realized exchange loss reversed"))
 			}
 		}
-		if err := enqueueJournal(ctx, tx, p.TenantID, journalSpec{LegalEntityID: pay.LegalEntityID, SourceType: JournalRealizedFX, SourceID: pay.ID,
-			SourceKey: fxKey, DocumentID: "PAY-" + pay.ID + "-UNAPPLY", PostingDate: postingDate, Currency: set.FunctionalCurrency, Lines: lines}); err != nil {
+		if app != nil {
+			if _, err := s.postApplicationReversal(ctx, pay, app, set.FunctionalCurrency, "-fx", lines); err != nil {
+				return err
+			}
+		} else if err := enqueueJournal(ctx, tx, p.TenantID, journalSpec{LegalEntityID: pay.LegalEntityID, SourceType: JournalRealizedFX, SourceID: pay.ID,
+			SourceKey: "fx-" + key, DocumentID: "PAY-" + pay.ID + "-UNAPPLY", PostingDate: today(), Currency: set.FunctionalCurrency, Lines: lines}); err != nil {
 			return err
 		}
 	}

@@ -184,4 +184,14 @@ test.describe("writeGuard fixture on a live page", () => {
     await page.evaluate(() => fetch("/api/v1/ap/invoices", { method: "POST", body: "{}" }));
     await expect(writeGuard.expectWritesOnlyAfterApproval(page.getByRole("button", { name: "Approve" }))).rejects.toThrow(/domain write before the approval event/);
   });
+
+  test("expectWritesOnlyAfterApproval counts a write fired while the button was still not clickable as before the approval", async ({ page, writeGuard }) => {
+    const latePage = `<button id="approve" disabled>Approve</button><script>
+      setTimeout(() => fetch('/api/v1/ap/invoices', { method: 'POST', body: '{}' }), 100);
+      setTimeout(() => { document.getElementById('approve').disabled = false; }, 600);
+    </script>`;
+    await page.route(`${ORIGIN}/late`, (route) => route.fulfill({ contentType: "text/html", body: latePage }));
+    await page.goto(`${ORIGIN}/late`);
+    await expect(writeGuard.expectWritesOnlyAfterApproval(page.getByRole("button", { name: "Approve" }))).rejects.toThrow(/domain write before the approval event/);
+  });
 });

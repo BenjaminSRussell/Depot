@@ -142,19 +142,11 @@ func (a *API) reversePayment(w http.ResponseWriter, r *http.Request, id string) 
 type reverseApplicationRequest struct {
 	ApplicationID string `json:"applicationId"`
 	Reason        string `json:"reason"`
+	DryRun        bool   `json:"dryRun"`
 }
 
 func (a *API) reverseApplication(w http.ResponseWriter, r *http.Request, id string) {
 	if !require(w, r, dutyPayment) {
-		return
-	}
-	version, err := ifMatch(r)
-	if err != nil {
-		httpx.Fail(w, r, err)
-		return
-	}
-	key, ok := requiredKey(w, r)
-	if !ok {
 		return
 	}
 	var in reverseApplicationRequest
@@ -174,7 +166,26 @@ func (a *API) reverseApplication(w http.ResponseWriter, r *http.Request, id stri
 		writeFields(w, r, fields)
 		return
 	}
-	out, err := a.store.ReverseApplication(r.Context(), id, version, store.ReverseApplicationRequest{ApplicationID: applicationID, Reason: in.Reason}, key)
+	req := store.ReverseApplicationRequest{ApplicationID: applicationID, Reason: in.Reason}
+	if in.DryRun {
+		out, err := a.store.CheckReverseApplication(r.Context(), id, req)
+		if err != nil {
+			a.fail("check payment application reversal", w, r, err)
+			return
+		}
+		httpx.JSON(w, http.StatusOK, out)
+		return
+	}
+	version, err := ifMatch(r)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	key, ok := requiredKey(w, r)
+	if !ok {
+		return
+	}
+	out, err := a.store.ReverseApplication(r.Context(), id, version, req, key)
 	if err != nil {
 		a.fail("reverse payment application", w, r, err)
 		return

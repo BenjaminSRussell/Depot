@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 import { copy } from "../copy";
 import { pageViolations } from "../testing/fakeServer";
 import { AssistantPrompt } from "./AssistantPrompt";
-import { routePrompt } from "./assistantRouter";
 
 const prompt = () => screen.getByRole("textbox", { name: copy.home.assistantLabel });
 
@@ -69,11 +68,5 @@ describe("AssistantPrompt", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(copy.home.assistantFailed);
     expect(prompt()).toBeEnabled();
     expect(prompt()).toHaveValue("hello");
-  });
-});
-
-describe("routePrompt", () => {
-  it("opens the copilot in ask mode with the text", async () => {
-    await expect(routePrompt("why is cash low")).resolves.toEqual({ to: "/copilot", state: { prompt: "why is cash low", mode: "ask" } });
   });
 });
