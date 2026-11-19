@@ -353,6 +353,8 @@ spec:
         operations: [Create, Describe, Write, DescribeConfigs]
       - resource: {type: topic, name: depot.agent.killswitch, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.agent.action, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
       # analytics: one literal per AsyncAPI channel of services/analytics/events/asyncapi.yaml (outbox-analytics routes by event type).
       - resource: {type: topic, name: depot.analytics.metric, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
@@ -2041,8 +2043,8 @@ spec:
     producer.override.enable.idempotence: true
 ---
 # Agents-ts routes by event type: dev.depot.agent.<entity>.<verb>.v<n> goes to depot.agent.<entity>, the AsyncAPI channels in
-# services/agents-ts/events/asyncapi.yaml (3 of them).
-# Also: approval.requested, budget.threshold and killswitch.changed are written to the outbox as CloudEvents envelopes
+# services/agents-ts/events/asyncapi.yaml (5 of them).
+# Also: approval.requested, budget.threshold, killswitch.changed and action.declined are written to the outbox as CloudEvents envelopes
 # (src/store/outbox.ts); run.completed is built but not written yet (services/agents-ts/NOT-IMPLEMENTED.md), and its channel
 # depot.agent.run and ACL are here already so wiring it needs no deploy change.
 # A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing

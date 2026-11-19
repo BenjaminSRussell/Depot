@@ -3,8 +3,9 @@ import type { AddressInfo } from "node:net";
 import type { ApprovalRequest, RecordedDecision } from "../src/api/decision.js";
 import { createAgentsHandler, type AgentsApiDeps } from "../src/api/router.js";
 import { edgeHeaders, testAuthenticate } from "./jwt.js";
-import type { ActionRecord } from "../src/domain/audit.js";
+import type { ActionDecline, ActionRecord } from "../src/domain/audit.js";
 import { KillSwitchRegistry } from "../src/domain/killswitch.js";
+import type { ActionStore } from "../src/store/actions.js";
 import type { NewApproval, PendingApproval } from "../src/store/approvals.js";
 import type { StoredRun } from "../src/store/pg.js";
 import type { McpConnector, McpSession, McpToolInfo } from "../src/runtime/mcp.js";
@@ -135,6 +136,26 @@ export class MemoryStore implements RunStore {
     return [...this.approvals.values()]
       .filter((a) => a.runId === runId && a.decided === undefined)
       .map((a) => ({ actionId: a.actionId, runId: a.runId, seq: a.seq, tool: a.tool, requestedAt: "2026-10-21T00:00:00.000Z", approvalDuty: a.approvalDuty }));
+  }
+}
+
+/** An in-memory ActionStore over a MemoryStore's action rows; `writes` counts the declines that changed a row. */
+export class MemoryActions implements ActionStore {
+  writes = 0;
+
+  constructor(private readonly store: MemoryStore) {}
+
+  async find(tenantId: string, runId: string, actionId: string): Promise<ActionRecord | undefined> {
+    return tenantId === T1 ? this.store.actionRows.get(runId)?.find((a) => a.actionId === actionId) : undefined;
+  }
+
+  async decline(tenantId: string, runId: string, actionId: string, d: ActionDecline): Promise<ActionRecord | undefined> {
+    const row = await this.find(tenantId, runId, actionId);
+    if (row !== undefined && row.declined === undefined && row.decision === "AUTO") {
+      row.declined = d;
+      this.writes += 1;
+    }
+    return row;
   }
 }
 

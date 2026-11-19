@@ -7,6 +7,7 @@ import { createAgentsHandler, MAX_BODY_BYTES } from "../src/api/router.js";
 import { edgeHeaders, testAuthenticate } from "./jwt.js";
 import type { CopilotService } from "../src/runtime/copilot.js";
 import type { KnowledgeService } from "../src/runtime/knowledge.js";
+import type { ActionService } from "../src/runtime/actions.js";
 import type { RunService } from "../src/runtime/service.js";
 import type { AgentEvent } from "../src/domain/events.js";
 import { KillSwitchRegistry } from "../src/domain/killswitch.js";
@@ -189,6 +190,7 @@ describe("api/openapi.yaml matches the router", () => {
       "GET /api/v1/agents/runs/{runId}/actions",
       "POST /api/v1/agents/kill-switch",
       "POST /api/v1/agents/runs/{runId}/actions/{actionId}/decision",
+      "POST /api/v1/agents/runs/{runId}/actions/{actionId}:undo",
       "POST /api/v1/agents/runs/{runId}/steps/{step}",
       "POST /api/v1/agents/{agentId}/runs",
       "POST /api/v1/copilot/chat",
@@ -203,6 +205,7 @@ describe("api/openapi.yaml matches the router", () => {
       publish: async () => undefined,
       // Never reached: an anonymous call is refused at the edge identity check.
       runs: {} as RunService,
+      actions: {} as ActionService,
       copilot: {} as CopilotService,
       knowledge: {} as KnowledgeService,
       steps: { service: {} as never, verifier: { verify: () => { throw new Error("no"); } } },

@@ -24,6 +24,7 @@ export type ApiCode =
   | "AGT-0405" // method not allowed on the route
   | "AGT-0409" // the action was already decided differently
   | "AGT-0413" // request body too large
+  | "NOT_REVERSIBLE" // the action cannot be undone
   | "AGT-0500" // unexpected error, never echoed
   | "AGT-0503"; // the signing keys could not be read
 

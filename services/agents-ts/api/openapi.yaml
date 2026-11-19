@@ -70,15 +70,27 @@ paths:
   /api/v1/agents/runs/{runId}/actions/{actionId}/decision:
     post:
       operationId: decideAgentAction
-      summary: Approve or reject a proposal that waits at the approval gate (FR-47.8)
+      summary: Approve or reject a proposal that waits at the approval gate (FR-47.8), or decline an action that had no gate
       description: |
-        The caller must hold the action's approval duty (AGT-0203). An approver
-        who started the run may not approve above the self-approval limit
-        (AGT-0209). An expired request is recorded and answered with decision
-        REJECTED, reason EXPIRED and code AGT-0208 (BR-47.3): the source
-        document stays unposted. Idempotent by action id: the same decision
-        again returns the recorded one; a different decision on a decided
-        action is 409 AGT-0409. Another tenant's action is never found (404).
+        Gated action (it has an approval request): the caller must hold the
+        action's approval duty (AGT-0203). An approver who started the run may
+        not approve above the self-approval limit (AGT-0209). An expired
+        request is recorded and answered with decision REJECTED, reason EXPIRED
+        and code AGT-0208 (BR-47.3): the source document stays unposted.
+        Idempotent by action id: the same decision again returns the recorded
+        one; a different decision on a decided action is 409 AGT-0409. The
+        optional `reason` is ignored.
+
+        Ungated action (suggest mode with no approval request, decision AUTO):
+        only REJECTED is accepted (a decline). The caller needs agents.run.read
+        and must be the run's invoker or hold agentapproval.decide (403
+        AGT-0203). The decline is stored on the action with reason, actor and
+        time and shown by GET /api/v1/agents/runs/{runId}; no tool is called, so
+        the domain record is unchanged. A repeat returns the stored decline
+        (200) and writes no second audit row or event. A reason holding PII is
+        422 AGT-0210. A row that is not AUTO is 409 AGT-0409.
+
+        Another tenant's run or action is never found (404).
       x-depot-duty: AgentApprove
       x-depot-approval: none
       parameters:
@@ -91,16 +103,67 @@ paths:
             schema: {$ref: "#/components/schemas/ApprovalDecisionCommand"}
       responses:
         "200":
-          description: The recorded decision.
+          description: The recorded decision (gated) or the stored decline (ungated).
           content:
             application/json:
-              schema: {$ref: "#/components/schemas/ApprovalDecisionResult"}
+              schema:
+                oneOf:
+                  - {$ref: "#/components/schemas/ApprovalDecisionResult"}
+                  - {$ref: "#/components/schemas/ActionDeclineResult"}
         "400": {$ref: "#/components/responses/Problem"}
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
         "413": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/runs/{runId}/actions/{actionId}:undo:
+    post:
+      operationId: undoAgentAction
+      summary: Undo a committed action through its reversibility registry entry
+      description: |
+        Undo is always a compensating reversal, never a delete. The registry
+        (src/domain/reversibility.ts) has exactly two reversible entries:
+        depot.ap.invoice.propose_coding (restore the before snapshot while the
+        invoice is still DRAFT) and depot.ar.settlement.propose (receivables
+        :reverse-application). Every other tool (planning action, collections
+        draft, anomaly flag) is not reversible because it is approval-gated and
+        reversed through its owning module's normal flow.
+
+        In this slice neither entry is wired (no AP invoice coding update API
+        exists, and the receivables call is a later slice), so every action
+        answers 409 NOT_REVERSIBLE with the same reason the run view shows as
+        reversibleReason, and nothing is called or written. The caller needs
+        agents.run.read and must be the run's invoker or hold
+        agentapproval.decide (403 AGT-0203). Another tenant's run or action is
+        never found (404). The body is optional.
+      x-depot-duty: agents.run.read
+      x-depot-approval: none
+      parameters:
+        - {name: runId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: actionId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: {type: string, maxLength: 500}
+              additionalProperties: false
+      responses:
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "405": {$ref: "#/components/responses/Problem"}
+        "409":
+          description: NOT_REVERSIBLE, with `detail` set to the reason ('cannot undo: ...').
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "413": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /api/v1/agents/{agentId}/runs:
     post:
       operationId: startAgentRun
@@ -394,7 +457,7 @@ components:
         approvalDuty: {type: string}
     RunView:
       type: object
-      required: [run, pendingApprovals]
+      required: [run, pendingApprovals, actions]
       properties:
         run:
           type: object
@@ -415,6 +478,9 @@ components:
         pendingApprovals:
           type: array
           items: {$ref: "#/components/schemas/PendingApproval"}
+        actions:
+          type: array
+          items: {$ref: "#/components/schemas/AgentAction"}
     ChatResponse:
       type: object
       required: [answer, citations, toolCalls, refusal, generated]
@@ -491,8 +557,19 @@ components:
       type: object
       required: [decision]
       properties:
-        decision: {type: string, enum: [APPROVED, REJECTED]}
+        decision: {type: string, enum: [APPROVED, REJECTED], description: An action without an approval gate accepts REJECTED only.}
+        reason: {type: string, maxLength: 500, description: Read for the decline of an ungated action; ignored for a gated one. No PII.}
       additionalProperties: false
+    ActionDeclineResult:
+      type: object
+      required: [runId, actionId, decision, declinedBy, declinedAt, reason]
+      properties:
+        runId: {type: string, format: uuid}
+        actionId: {type: string, format: uuid}
+        decision: {type: string, enum: [REJECTED]}
+        declinedBy: {type: string}
+        declinedAt: {type: string, format: date-time}
+        reason: {type: [string, "null"]}
     ApprovalDecisionResult:
       type: object
       required: [runId, actionId, decision, approverUserId, decidedAt]
@@ -546,3 +623,14 @@ components:
         decision: {$ref: "#/components/schemas/ActionDecision"}
         approverUserId: {type: [string, "null"], format: uuid}
         committedEntityRef: {type: [string, "null"]}
+        actionId: {type: string, format: uuid, description: The id the decision and undo endpoints take.}
+        reversible: {type: boolean, description: Computed on read from the reversibility registry; false for every action in this slice.}
+        reversibleReason: {type: string, description: "'cannot undo: <reason>' when reversible is false."}
+        declined:
+          type: object
+          description: Present once an ungated action was declined.
+          required: [by, reason, at]
+          properties:
+            by: {type: string}
+            reason: {type: [string, "null"]}
+            at: {type: string, format: date-time}

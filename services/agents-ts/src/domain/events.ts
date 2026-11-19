@@ -10,6 +10,7 @@ export const AGENT_EVENT_TYPES = {
   approvalRequested: "dev.depot.agent.approval.requested.v1",
   budgetThreshold: "dev.depot.agent.budget.threshold.v1",
   killSwitchChanged: "dev.depot.agent.killswitch.changed.v1",
+  actionDeclined: "dev.depot.agent.action.declined.v1",
 } as const;
 
 /** What the outbox receives: the type, the tenant the envelope is addressed to, and the data. */
@@ -175,6 +176,31 @@ export function approvalRequestedEvent(input: {
       confidence: input.confidence,
       ...(input.riskScore !== undefined ? { risk_score: input.riskScore } : {}),
     },
+  };
+}
+
+export interface ActionDeclinedData {
+  run_id: string;
+  action_id: string;
+  tool_name: string;
+  declined_by: string;
+  declined_at: string;
+}
+
+/** `agent.action.declined`: ids, tool and actor only; the decline reason text never leaves agent_action. */
+export function actionDeclinedEvent(input: {
+  tenantId: string;
+  runId: string;
+  actionId: string;
+  toolName: string;
+  declinedBy: string;
+  declinedAt: string;
+}): AgentEvent<ActionDeclinedData> {
+  if (!UUID.test(input.tenantId)) throw new Error("tenantId must be a tenant id");
+  return {
+    type: AGENT_EVENT_TYPES.actionDeclined,
+    tenantId: input.tenantId,
+    data: { run_id: input.runId, action_id: input.actionId, tool_name: input.toolName, declined_by: input.declinedBy, declined_at: input.declinedAt },
   };
 }
 

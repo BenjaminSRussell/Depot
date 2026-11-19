@@ -4155,8 +4155,11 @@
     "agents.invoke": {"permissions": [{"resource": "/api/v1/agents/*/runs", "methods": ["POST"]}]},
     "agents.run.read": {"permissions": [
       {"resource": "/api/v1/agents/runs/*", "methods": ["GET"]},
-      {"resource": "/api/v1/agents/runs/*/actions", "methods": ["GET"]}
+      {"resource": "/api/v1/agents/runs/*/actions", "methods": ["GET"]},
+      {"resource": "/api/v1/agents/runs/*/actions/*/decision", "methods": ["POST"]},
+      {"resource": "/api/v1/agents/runs/*/actions/*:undo", "methods": ["POST"]}
     ]},
+    "agentapproval.decide": {"flag": true, "permissions": []},
     "agents.run.signal": {"service_only": true, "permissions": [
       {"resource": "/v1/workflows/agent-runs/*:start", "methods": ["POST"]},
       {"resource": "/v1/workflows/agent-runs/*:approval-decided", "methods": ["POST"]}
