@@ -871,6 +871,8 @@ test_inventory_issue_claim_is_service_only_and_opens_only_its_routes if {
 	}
 	allowed("inventory.issue.claim", "POST", "/v1/inventory/issue-claims")
 	allowed("inventory.issue.claim", "POST", "/v1/inventory/issue-claims:release")
+	allowed("inventory.issue.claim", "GET", "/v1/inventory/issue-cost")
+	not allowed("inventory.issue.claim", "POST", "/v1/inventory/issue-cost")
 	not allowed("inventory.issue.claim", "GET", "/v1/inventory/onhand")
 	not allowed("inventory.issue.claim", "POST", "/v1/inventory/holds")
 	not allowed("inventory.issue.claim", "POST", "/v1/inventory/journals")

@@ -548,7 +548,8 @@
     ]},
     "inventory.issue.claim": {"service_only": true, "permissions": [
       {"resource": "/v1/inventory/issue-claims", "methods": ["POST"]},
-      {"resource": "/v1/inventory/issue-claims:release", "methods": ["POST"]}
+      {"resource": "/v1/inventory/issue-claims:release", "methods": ["POST"]},
+      {"resource": "/v1/inventory/issue-cost", "methods": ["GET"]}
     ]},
     "inventory.transaction.apply": {"service_only": true, "permissions": [{"resource": "/internal/v1/inventory/transactions:apply", "methods": ["POST"]}]},
     "inventory.transaction.step": {"permissions": [
