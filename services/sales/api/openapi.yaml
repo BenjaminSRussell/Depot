@@ -4634,7 +4634,7 @@ components:
         lineStatus: {type: string, enum: [OPEN, RESERVED, PICKED, DELIVERED, INVOICED, CANCELLED]}
     OpenOrderLine:
       type: object
-      required: [lineId, orderId, orderNumber, lineNo, productId, siteId, warehouseId, openQty, dueDate]
+      required: [lineId, orderId, orderNumber, lineNo, productId, siteId, warehouseId, openQty, unit, dueDate]
       properties:
         lineId: {type: string, format: uuid}
         orderId: {type: string, format: uuid}
@@ -4644,6 +4644,7 @@ components:
         siteId: {type: string, format: uuid}
         warehouseId: {type: string, format: uuid}
         openQty: {type: string, description: "quantity still to deliver, a decimal"}
+        unit: {type: string, description: "the order line unit that openQty is counted in"}
         dueDate: {type: string, format: date}
     OrderSummary:
       type: object

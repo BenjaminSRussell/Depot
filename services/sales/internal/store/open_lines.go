@@ -25,6 +25,7 @@ type OpenOrderLine struct {
 	SiteID      string          `json:"siteId"`
 	WarehouseID string          `json:"warehouseId"`
 	OpenQty     decimal.Decimal `json:"openQty"`
+	Unit        string          `json:"unit"`
 	DueDate     string          `json:"dueDate"`
 }
 
@@ -70,7 +71,7 @@ func (s *Postgres) ListOpenOrderLines(ctx context.Context, f OpenLineFilter) (Op
 	page := OpenLinePage{Items: []OpenOrderLine{}}
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `select l.id::text, o.id::text, o.order_number, l.line_no, l.product_id::text, l.site_id::text, l.warehouse_id::text,
-				(l.quantity - l.delivered_qty)::text, coalesce(l.confirmed_ship_date, l.requested_ship_date)
+				(l.quantity - l.delivered_qty)::text, l.unit, coalesce(l.confirmed_ship_date, l.requested_ship_date)
 			from sales_order_line l
 			join sales_order o on o.tenant_id = l.tenant_id and o.id = l.order_id
 			where l.tenant_id = $1 and o.order_type = 'ORDER' and o.status in ('OPEN', 'CONFIRMED', 'PARTIALLY_SHIPPED')
@@ -89,7 +90,7 @@ func (s *Postgres) ListOpenOrderLines(ctx context.Context, f OpenLineFilter) (Op
 			var l OpenOrderLine
 			var qty string
 			var due time.Time
-			if err := rows.Scan(&l.LineID, &l.OrderID, &l.OrderNumber, &l.LineNo, &l.ProductID, &l.SiteID, &l.WarehouseID, &qty, &due); err != nil {
+			if err := rows.Scan(&l.LineID, &l.OrderID, &l.OrderNumber, &l.LineNo, &l.ProductID, &l.SiteID, &l.WarehouseID, &qty, &l.Unit, &due); err != nil {
 				return err
 			}
 			if l.OpenQty, err = decimal.NewFromString(qty); err != nil {
