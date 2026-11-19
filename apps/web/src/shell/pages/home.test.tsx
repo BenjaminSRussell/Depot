@@ -232,13 +232,16 @@ describe("role home", () => {
       expect(server.calls.filter((c) => c.url.pathname !== AVAILABILITY_PATH)).toHaveLength(0);
     });
 
-    const chat = (answer = json(200, { answer: "Cash is steady.", citations: [], toolCalls: [], refusal: null, generated: true })) => (url: URL, init?: RequestInit) =>
-      url.pathname === "/api/v1/copilot/chat" ? (JSON.parse(String(init?.body)).mode === "route" ? routeReply : answer) : undefined;
+    const CONVERSATIONS = "/api/v1/agents/copilot/conversations";
+    const CONVERSATION_ID = "6f1c1f0e-8f0a-4a52-9a43-0a8c5a1f2b11";
+    const MESSAGES = `${CONVERSATIONS}/${CONVERSATION_ID}/messages`;
+    const chat = (answer = json(200, { answer: "Cash is steady.", citations: [], toolCalls: [], refusal: null, generated: true })) => (url: URL) =>
+      url.pathname === "/api/v1/copilot/chat" ? routeReply : url.pathname === CONVERSATIONS ? json(201, { conversationId: CONVERSATION_ID }) : url.pathname === MESSAGES ? answer : undefined;
     let routeReply: Reply = json(200, { kind: "ask", confidence: 1, generated: true });
     beforeEach(() => {
       routeReply = json(200, { kind: "ask", confidence: 1, generated: true });
     });
-    const chats = () => server.calls.filter((c) => c.url.pathname === "/api/v1/copilot/chat");
+    const chats = () => server.calls.filter((c) => c.url.pathname === "/api/v1/copilot/chat" || c.url.pathname === MESSAGES);
 
     it("classifies the typed text first, then opens the copilot in ask mode and sends it once", async () => {
       const user = userEvent.setup();
@@ -284,14 +287,17 @@ describe("role home", () => {
       expect(chats()).toHaveLength(0);
     });
 
-    it("announces the sending text in the shell status region so it survives the route change", async () => {
+    it("answers inline on the home, in one new conversation, without opening the copilot page", async () => {
       const user = userEvent.setup();
-      server.handler = chat();
+      server.handler = chat(json(200, { answer: "Cash is steady.", citations: [], toolCalls: [{ tool: "metric.search", status: "OK" }], refusal: null, generated: true }));
       renderHome([COPILOT_DUTY]);
       await user.type(await askBox(), "how is cash{Enter}");
-      await main().findByRole("article", { name: "Copilot answer" });
-      expect(screen.queryByRole("textbox", { name: "Ask or do anything..." })).not.toBeInTheDocument();
-      expect(screen.getAllByRole("status").some((r) => r.textContent === "Sending your question to the assistant...")).toBe(true);
+      const answer = await main().findByRole("article", { name: "Copilot answer" });
+      expect(within(answer).getByText("AI-generated: check before you use it")).toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "Ask or do anything..." })).toBeInTheDocument();
+      expect(server.calls.filter((c) => c.url.pathname === CONVERSATIONS)).toHaveLength(1);
+      expect(chats().at(-1)?.url.pathname).toBe(MESSAGES);
+      expect(screen.getAllByRole("status").some((r) => r.textContent === "The copilot has finished answering.")).toBe(true);
     });
 
     it.each([
@@ -303,7 +309,7 @@ describe("role home", () => {
       if (handedOff !== undefined) handOffPrompt(handedOff);
       renderHome([COPILOT_DUTY], modules, { pathname: "/copilot" });
       await screen.findByRole("heading", { name: "Copilot" });
-      expect(server.calls.filter((c) => c.url.pathname === "/api/v1/copilot/chat")).toHaveLength(0);
+      expect(chats()).toHaveLength(0);
     });
 
     it("sends nothing when the handed-off prompt is older than ten seconds", async () => {
@@ -313,19 +319,16 @@ describe("role home", () => {
       renderHome([COPILOT_DUTY], modules, { pathname: "/copilot" });
       await screen.findByRole("heading", { name: "Copilot" });
       vi.restoreAllMocks();
-      expect(server.calls.filter((c) => c.url.pathname === "/api/v1/copilot/chat")).toHaveLength(0);
+      expect(chats()).toHaveLength(0);
     });
 
     it("passes an oversize prompt through so the copilot shows the refusal instead of dropping it", async () => {
       const prompt = "x".repeat(4500);
-      server.handler = (url) =>
-        url.pathname === "/api/v1/copilot/chat"
-          ? json(200, { answer: "", citations: [], toolCalls: [], refusal: { code: "AGT-0001", message: "That question is too long." }, generated: true })
-          : undefined;
+      server.handler = chat(json(200, { answer: "", citations: [], toolCalls: [], refusal: { code: "AGT-0001", message: "That question is too long." }, generated: true }));
       handOffPrompt(prompt);
       renderHome([COPILOT_DUTY], modules, { pathname: "/copilot" });
       expect(await main().findByText("That question is too long.")).toBeInTheDocument();
-      expect(server.calls.filter((c) => c.url.pathname === "/api/v1/copilot/chat")[0].body).toEqual({ mode: "ask", message: prompt });
+      expect(chats()[0].body).toEqual({ mode: "ask", message: prompt });
     });
 
     it("shows the classic cards as the primary content, with no prompt and no copilot request, without the duty", () => {
@@ -335,7 +338,7 @@ describe("role home", () => {
       expect(main().queryByRole("region", { name: "Browse workspaces" })).not.toBeInTheDocument();
       expect(main().getByText("Current workspace")).toBeInTheDocument();
       expect(main().getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
-      expect(server.calls.filter((c) => c.url.pathname.startsWith("/api/v1/copilot"))).toHaveLength(0);
+      expect(server.calls.filter((c) => c.url.pathname.includes("/copilot"))).toHaveLength(0);
     });
 
     it("shows the classic home, with no prompt to drop, when the copilot is switched off for the installation", () => {

@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AI_FIRST_TOKEN_TIMEOUT_MS, AI_REQUEST_TIMEOUT_MS } from "../../../shell/assistant/availability";
-import { COPILOT_TIMEOUT_MESSAGE, CopilotError, postChat } from "./client";
-import { askCopilot, parseSseFrames, streamChat, toStreamEvent, type StreamEvent } from "./stream";
+import { COPILOT_TIMEOUT_MESSAGE, CopilotError, postChat as postChatInConversation, type ChatRequest } from "./client";
+import { askCopilot as askInConversation, parseSseFrames, streamChat as streamInConversation, toStreamEvent, type StreamEvent } from "./stream";
+
+const CONVERSATION_ID = "6f1c1f0e-8f0a-4a52-9a43-0a8c5a1f2b11";
+const postChat = (req: ChatRequest, fetchFn?: typeof fetch) => postChatInConversation(req, fetchFn, CONVERSATION_ID);
+const streamChat = (req: ChatRequest, fetchFn?: typeof fetch) => streamInConversation(req, fetchFn, CONVERSATION_ID);
+const askCopilot = (req: ChatRequest, onToken?: (text: string) => void, onWithdrawn?: (message: string) => void, fetchFn?: typeof fetch) =>
+  askInConversation(req, onToken, onWithdrawn, fetchFn, CONVERSATION_ID);
 
 const donePayload = {
   answer: "Revenue rose 4.2%.",
@@ -206,5 +212,49 @@ describe("copilot failures and deadlines", () => {
   it("throws a terminal error frame with its code", async () => {
     const fetchFn = streamingFetch([new TextEncoder().encode(frames(["error", { code: "AGT-0202", message: "budget" }]))]);
     expect(await askCopilot(request, undefined, undefined, fetchFn).catch((e: unknown) => e)).toMatchObject({ code: "AGT-0202", message: "AGT-0202: budget" });
+  });
+});
+
+describe("conversations transport", () => {
+  const created = () => new Response(JSON.stringify({ conversationId: CONVERSATION_ID }), { status: 201, headers: { "content-type": "application/json" } });
+  const answered = () => new Response(JSON.stringify(donePayload), { status: 200, headers: { "content-type": "application/json" } });
+  const recorder = (reply: () => Response) => {
+    const urls: string[] = [];
+    const fetchFn = (async (url: string) => {
+      urls.push(url);
+      return urls.length === 1 ? reply() : answered();
+    }) as unknown as typeof fetch;
+    return { urls, fetchFn };
+  };
+
+  it("posts to the messages path of the given conversation and creates none", async () => {
+    const { urls, fetchFn } = recorder(answered);
+    await askInConversation({ mode: "ask", message: "x" }, undefined, undefined, fetchFn, CONVERSATION_ID);
+    expect(urls).toEqual([`/api/v1/agents/copilot/conversations/${CONVERSATION_ID}/messages`]);
+  });
+
+  it("creates the conversation first when none is given, then posts to its messages path", async () => {
+    const { urls, fetchFn } = recorder(created);
+    await askInConversation({ mode: "ask", message: "x" }, undefined, undefined, fetchFn);
+    expect(urls).toEqual(["/api/v1/agents/copilot/conversations", `/api/v1/agents/copilot/conversations/${CONVERSATION_ID}/messages`]);
+  });
+
+  it.each([
+    ["no conversation id", {}],
+    ["a number", { conversationId: 7 }],
+    ["a string that is not a uuid", { conversationId: "../../admin" }],
+  ])("sends no message when the new conversation comes back with %s", async (_name, body) => {
+    const urls: string[] = [];
+    const fetchFn = (async (url: string) => {
+      urls.push(url);
+      return new Response(JSON.stringify(body), { status: 201, headers: { "content-type": "application/json" } });
+    }) as unknown as typeof fetch;
+    await expect(askInConversation({ mode: "ask", message: "x" }, undefined, undefined, fetchFn)).rejects.toThrow();
+    expect(urls).toEqual(["/api/v1/agents/copilot/conversations"]);
+  });
+
+  it("carries the problem code when the conversation is refused", async () => {
+    const fetchFn = (async () => new Response(JSON.stringify({ code: "AGT-0203" }), { status: 403 })) as unknown as typeof fetch;
+    expect(await askInConversation({ mode: "ask", message: "x" }, undefined, undefined, fetchFn).catch((e: unknown) => e)).toMatchObject({ code: "AGT-0203" });
   });
 });

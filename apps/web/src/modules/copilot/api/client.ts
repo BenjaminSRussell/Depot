@@ -91,10 +91,37 @@ export async function postRoute(message: string, fetchFn: typeof fetch = apiFetc
   }
 }
 
-export async function postChat(req: ChatRequest, fetchFn: typeof fetch = apiFetch): Promise<ChatResponse> {
+const CONVERSATIONS_PATH = "/api/v1/agents/copilot/conversations";
+
+const conversationSchema = z.object({ conversationId: z.string().uuid() });
+
+export async function createConversation(fetchFn: typeof fetch = apiFetch): Promise<string> {
   const deadline = withDeadline(AI_REQUEST_TIMEOUT_MS);
   try {
-    const res = await fetchFn("/api/v1/copilot/chat", {
+    const res = await fetchFn(CONVERSATIONS_PATH, {
+      method: "POST",
+      cache: "no-store",
+      headers: { accept: "application/json" },
+      signal: deadline.signal,
+    });
+    if (!res.ok) throw await failedCopilotCall(res);
+    return conversationSchema.parse(await res.json()).conversationId;
+  } catch (err) {
+    throw deadline.expired() ? new CopilotError(COPILOT_TIMEOUT_MESSAGE) : err;
+  } finally {
+    deadline.clear();
+  }
+}
+
+export function messagesPath(conversationId: string): string {
+  return `${CONVERSATIONS_PATH}/${conversationSchema.shape.conversationId.parse(conversationId)}/messages`;
+}
+
+export async function postChat(req: ChatRequest, fetchFn: typeof fetch = apiFetch, conversationId?: string): Promise<ChatResponse> {
+  const path = messagesPath(conversationId ?? (await createConversation(fetchFn)));
+  const deadline = withDeadline(AI_REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetchFn(path, {
       method: "POST",
       cache: "no-store",
       headers: { "content-type": "application/json", accept: "application/json" },

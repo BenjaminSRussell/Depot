@@ -1,9 +1,10 @@
 import { lazy, Suspense, useMemo, useRef } from "react";
 import { Link, useNavigate, useOutletContext } from "react-router-dom";
 import { postRoute } from "../../modules/copilot/api/client";
+import { AskAnswer } from "../../modules/copilot/AskAnswer";
+import { useCopilotConversation } from "../../modules/copilot/useCopilotConversation";
 import { AssistantNotice, useAiAvailability } from "../assistant/AvailabilityProvider";
 import { createPromptRouter } from "../assistant/router";
-import { handOffPrompt } from "../assistant/session";
 import { copy } from "../copy";
 import { holdsDuty } from "../dutyGate";
 import { AssistantPrompt } from "../home/AssistantPrompt";
@@ -81,17 +82,16 @@ export function HomePage() {
   const availability = useAiAvailability().state;
   const availabilityRef = useRef(availability);
   availabilityRef.current = availability;
+  const conversation = useCopilotConversation();
+  const conversationRef = useRef(conversation);
+  conversationRef.current = conversation;
   // TODO DEPOT-283: the command bar calls router.submit
   // TODO DEPOT-281, DEPOT-282, DEPOT-297: register the navigate and act handlers
   const router = useMemo(
     () =>
       createPromptRouter({
         handlers: {
-          ask: (text) => {
-            announce?.(copy.home.assistantLoading);
-            handOffPrompt(text);
-            navigate(COPILOT_PATH);
-          },
+          ask: (text) => conversationRef.current.send(text, "ask"),
         },
         getAvailability: () => availabilityRef.current,
         hasDuty: (duty) => holdsDuty(duties, duty),
@@ -172,6 +172,7 @@ export function HomePage() {
       <PageHeader title={copy.home.pageTitle} description={copy.home.description} />
       <AssistantNotice />
       <AssistantPrompt onSubmit={router.submit} />
+      <AskAnswer conversation={conversation} />
       {demoTour}
       <SetupBanner />
       <MyWorkSummary />

@@ -1,7 +1,8 @@
 import { copy } from "../../shell/copy";
 import { holdsDuty } from "../../shell/dutyGate";
+import type { ChatResponse } from "./api/client";
 import type { DataUsedRecord, RunTrace } from "./api/runTrace";
-import { toolActionLabel } from "./domain";
+import { toolActionLabel, toolCallLabel } from "./domain";
 
 export type SuggestionHost =
   "answer" | "proposal" | "feed-item" | "briefing-item";
@@ -9,7 +10,7 @@ export type SuggestionHost =
 export interface SuggestionViewModel {
   actionId: string;
   agentLabel: string;
-  agentVersion: number;
+  agentVersion?: number | undefined;
   rationale: string | undefined;
   confidencePercent: number | undefined;
   tools: string[];
@@ -118,6 +119,29 @@ export function resolveRecord(
     entityLabel: page.entityLabel,
     label: record.label,
     href: page.route(encodeURIComponent(record.recordId)),
+  };
+}
+
+const RECORD_CITATION = /^record:[^/]+\/([^/]+)\/([A-Za-z0-9_-]+)$/;
+
+export function citationRoute(citation: { sourceRef: string }, duties: readonly string[]): string | undefined {
+  const match = RECORD_CITATION.exec(citation.sourceRef);
+  const [, entity, id] = match ?? [];
+  if (entity === undefined || id === undefined || !Object.hasOwn(RECORD_PAGES, entity)) return undefined;
+  const page = RECORD_PAGES[entity];
+  return page !== undefined && holdsDuty(duties, page.duty) ? page.route(encodeURIComponent(id)) : undefined;
+}
+
+export function answerViewModel(response: ChatResponse, turnId: string): SuggestionViewModel {
+  return {
+    actionId: turnId,
+    agentLabel: copy.answer.agentLabel,
+    rationale: copy.answer.why,
+    confidencePercent: undefined,
+    tools: response.toolCalls.map(toolCallLabel),
+    records: [],
+    dataClass: response.dataClass,
+    excluded: response.excluded,
   };
 }
 

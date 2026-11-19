@@ -11,6 +11,9 @@ import { availableAssistant, json, server, useFakeServer } from "../testing/fake
 useFakeServer();
 
 const CHAT_PATH = "/api/v1/copilot/chat";
+const CONVERSATIONS_PATH = "/api/v1/agents/copilot/conversations";
+const CONVERSATION_ID = "6f1c1f0e-8f0a-4a52-9a43-0a8c5a1f2b11";
+const MESSAGES_PATH = `${CONVERSATIONS_PATH}/${CONVERSATION_ID}/messages`;
 const CANARY = "CANARY-quarterly-cash-forecast-4417";
 
 let locations: Location[] = [];
@@ -23,12 +26,16 @@ function Probe() {
 
 async function renderApp(prompt: string) {
   locations = [];
-  server.handler = (url, init) =>
+  server.handler = (url) =>
     url.pathname === CHAT_PATH
-      ? json(200, JSON.parse(String(init?.body)).mode === "route" ? { kind: "ask", confidence: 1, generated: true } : { answer: `Answer for ${CANARY}`, citations: [], toolCalls: [], refusal: null, generated: true })
-      : url.pathname === AVAILABILITY_PATH
-        ? json(200, availableAssistant)
-        : undefined;
+      ? json(200, { kind: "ask", confidence: 1, generated: true })
+      : url.pathname === CONVERSATIONS_PATH
+        ? json(201, { conversationId: CONVERSATION_ID })
+        : url.pathname === MESSAGES_PATH
+          ? json(200, { answer: `Answer for ${CANARY}`, citations: [], toolCalls: [], refusal: null, generated: true })
+          : url.pathname === AVAILABILITY_PATH
+            ? json(200, availableAssistant)
+            : undefined;
   render(
     <MemoryRouter initialEntries={["/"]}>
       <Probe />
@@ -48,8 +55,7 @@ describe("assistant text stays out of browser-visible state on route change", ()
     await renderApp(CANARY);
     expect(await within(screen.getByRole("main")).findByRole("article", { name: "Copilot answer" })).toHaveTextContent(CANARY);
 
-    const arrived = locations.filter((l) => l.pathname === "/copilot");
-    expect(arrived.length).toBeGreaterThan(0);
+    expect(locations.every((l) => l.pathname === "/")).toBe(true);
     for (const location of locations) {
       expect(location.search).toBe("");
       expect(location.hash).toBe("");
@@ -58,11 +64,11 @@ describe("assistant text stays out of browser-visible state on route change", ()
     }
     expect(document.title).not.toContain(CANARY);
 
-    const others = server.calls.filter((c) => c.url.pathname !== CHAT_PATH);
+    const chats = server.calls.filter((c) => c.url.pathname === CHAT_PATH || c.url.pathname === MESSAGES_PATH);
+    const others = server.calls.filter((c) => !chats.includes(c));
     for (const call of others) {
       expect(JSON.stringify({ url: call.url.href, headers: call.init.headers, body: call.body })).not.toContain(CANARY);
     }
-    const chats = server.calls.filter((c) => c.url.pathname === CHAT_PATH);
     expect(chats.map((c) => c.body)).toEqual([
       { mode: "route", message: CANARY },
       { mode: "ask", message: CANARY },

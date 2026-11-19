@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { getAvailability } from "../../../shell/assistant/availability";
 import { getKillSwitch, setKillSwitch } from "./agents";
-import { postChat } from "./client";
+import { createConversation, postChat } from "./client";
 import { listTools } from "./mcp";
 import { askCopilot, streamChat } from "./stream";
 
@@ -14,13 +14,15 @@ function capture() {
   return { inits, fetchFn: fetchFn as unknown as typeof fetch };
 }
 
+const CONVERSATION_ID = "6f1c1f0e-8f0a-4a52-9a43-0a8c5a1f2b11";
 const request = { mode: "ask" as const, message: "how is cash" };
 
 describe("copilot requests are never stored by the browser HTTP cache", () => {
   it.each([
-    ["postChat", (f: typeof fetch) => postChat(request, f)],
-    ["streamChat", (f: typeof fetch) => streamChat(request, f).next()],
-    ["askCopilot", (f: typeof fetch) => askCopilot(request, undefined, undefined, f)],
+    ["createConversation", (f: typeof fetch) => createConversation(f)],
+    ["postChat", (f: typeof fetch) => postChat(request, f, CONVERSATION_ID)],
+    ["streamChat", (f: typeof fetch) => streamChat(request, f, CONVERSATION_ID).next()],
+    ["askCopilot", (f: typeof fetch) => askCopilot(request, undefined, undefined, f, CONVERSATION_ID)],
     ["getKillSwitch", (f: typeof fetch) => getKillSwitch(undefined, f)],
     ["setKillSwitch", (f: typeof fetch) => setKillSwitch({ scope: "GLOBAL", active: true }, f)],
     ["getAvailability", (f: typeof fetch) => getAvailability(undefined, f)],
