@@ -1,0 +1,38 @@
+{
+  "entries": [
+    {
+      "t": 1767000000000,
+      "method": "GET",
+      "url": "https://app.depot.example/api/v1/ap/invoices"
+    },
+    {
+      "t": 1767000002000,
+      "method": "POST",
+      "url": "https://app.depot.example/api/v1/agents/runs",
+      "postData": "{\"agentId\": \"ap-clerk\"}"
+    },
+    {
+      "t": 1767000002500,
+      "method": "GET",
+      "url": "https://app.depot.example/api/v1/agents/runs/r-1"
+    },
+    {
+      "t": 1767000006100,
+      "method": "POST",
+      "url": "https://app.depot.example/api/v1/agents/approvals/a-1:decide",
+      "postData": "{\"decision\": \"APPROVED\"}"
+    },
+    {
+      "t": 1767000006300,
+      "method": "POST",
+      "url": "https://app.depot.example/api/v1/ap/invoices",
+      "postData": "{\"vendorId\": \"v-1\", \"total\": \"10.00\"}"
+    }
+  ],
+  "events": [
+    {
+      "type": "approve",
+      "t": 1767000006000
+    }
+  ]
+}
