@@ -39,6 +39,8 @@ OPA everywhere, on one policy bundle.
      service's own base (`gateway_service_bases` in `authz.rego`, checked against the generated HTTPRoutes by
      `deploy/scripts/test_gateway.py`). The single-host gateways do not rewrite those prefixes (they forward `/v1/<prefix>`),
      which is a routing gap, not a policy one; the shared route table leaves the D22 prefixes out and records why.
+     Note 2026-11-18: `depot-server` now routes `/api/v1/agents/**` to agents-ts (DEPOT-294) with `keepApiPrefix: true` on the
+     shipped `node.yaml` service, so agents-ts receives `/api/v1/agents/**`, the path it serves; the other D22 prefixes remain unrewritten.
    - Envoy: `SecurityPolicy/depot-api-jwt` gains `extAuth` (gRPC to Service `depot-authz-opa:9191`, `failOpen: false`,
      only `x-depot-tenant`, `x-depot-user`, `x-depot-legal-entity` and `x-request-id` sent); `EnvoyProxy/depot-api-proxy`
      puts `ext_authz` after `jwt_authn`. The OPA (`deploy/gateway/authz-opa.yaml`, OPA 1.21.2-envoy) pulls identity's signed
