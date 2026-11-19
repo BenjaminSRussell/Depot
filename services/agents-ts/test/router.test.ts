@@ -87,10 +87,18 @@ describe("agents HTTP surface", () => {
     expect(await status.json()).toMatchObject({ tenantId: T1, halted: true, tenant: { active: true, version: 1, byUser: ADMIN }, global: { active: false } });
   });
 
-  it("GET availability answers a caller with no duties, reporting the halt and no copilot when none is wired", async () => {
-    const res = await fetch(`${base}/api/v1/agents/availability`, { headers: edgeHeaders(T1, ADMIN, "") });
+  it("GET availability answers a copilot user with only the halt flags", async () => {
+    const res = await fetch(`${base}/api/v1/agents/availability`, { headers: edgeHeaders(T1, CLERK, "mcp.copilot.use") });
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ killSwitch: { tenantId: T1, halted: true }, budgetStatus: "OK", copilotEnabled: false });
+    expect(await res.json()).toEqual({ killSwitch: { halted: true, stale: false }, budgetStatus: "OK", copilotEnabled: false });
+  });
+
+  it("GET availability answers 403 without mcp.copilot.use, even for an agents.admin", async () => {
+    for (const headers of [edgeHeaders(T1, ADMIN, ""), admin]) {
+      const res = await fetch(`${base}/api/v1/agents/availability`, { headers });
+      expect(res.status).toBe(403);
+      expect(await res.json()).toMatchObject({ code: "AGT-0203", detail: expect.stringContaining("mcp.copilot.use") });
+    }
   });
 
   it("returns an RFC 9457 problem with a stable code for a refused caller", async () => {

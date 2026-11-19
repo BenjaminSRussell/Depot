@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/BenjaminSRussell/depot/platform v0.0.0
 	github.com/go-chi/chi/v5 v5.5.0
-	github.com/jackc/pgx/v5 v5.12.0
+	github.com/jackc/pgx/v5 v5.13.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -16,8 +16,8 @@ require (
 	github.com/jackc/puddle/v2 v2.2.3 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
-	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 )
 
 replace github.com/BenjaminSRussell/depot/platform => ../../platform/go

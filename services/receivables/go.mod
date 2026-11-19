@@ -5,10 +5,10 @@ go 1.26.0
 require (
 	github.com/BenjaminSRussell/depot/platform v0.0.0
 	github.com/go-chi/chi/v5 v5.5.0
-	github.com/jackc/pgx/v5 v5.12.0
+	github.com/jackc/pgx/v5 v5.13.0
 	github.com/pkg/sftp v1.13.12
 	github.com/shopspring/decimal v1.4.0
-	golang.org/x/crypto v0.58.0
+	golang.org/x/crypto v0.59.0
 	pgregory.net/rapid v1.3.0
 )
 
@@ -22,9 +22,9 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.33 // indirect
 	github.com/twmb/franz-go v1.22.3 // indirect
 	github.com/twmb/franz-go/pkg/kmsg v1.15.1 // indirect
-	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
 	golang.org/x/sys v0.50.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 )
 
 replace github.com/BenjaminSRussell/depot/platform => ../../platform/go
