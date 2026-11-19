@@ -8,6 +8,7 @@ import { holdsDuty, requiredDuty, visibleModules } from "./dutyGate";
 import { plannedRouteFor } from "./plannedRoutes";
 import { newActions } from "./search/newActions";
 import { InboxProvider } from "./inbox/InboxProvider";
+import { PinsProvider } from "./pins/PinsProvider";
 import { RecentProvider, useRecentPages } from "./recent";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { NotAvailablePage } from "./pages/NotAvailablePage";
@@ -109,6 +110,11 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
   const page = useMemo(
     () => (available ? resolvePage(pathname, allModules, shellNav) : { title: copy.notAvailable.pageTitle }),
     [available, pathname, allModules],
+  );
+
+  const canOpen = useCallback(
+    (to: string) => isPathEnabled(settings.features, to) && plannedRouteFor(to) === undefined && holdsDuty(principalDuties, requiredDuty(to, allModules)),
+    [settings.features, principalDuties, allModules],
   );
 
   const config = useMemo(() => workspaceConfig ?? loadWorkspaceConfig(settings.workspaceOverride), [workspaceConfig, settings.workspaceOverride]);
@@ -339,6 +345,7 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
       <WorkspaceNavProvider entries={navEntries} config={config}>
       <InboxProvider>
       <RecentProvider identity={userId}>
+      <PinsProvider key={userId} identity={userId} canOpen={canOpen} pageLabels={navEntryByTo} announce={announce}>
       <RecentTracker entries={navEntryByTo} />
       <div className={styles.root} data-density={density}>
         <a href="#main" className="skip-link">
@@ -391,6 +398,7 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
         ) : null}
         {paletteOpen ? <CommandPalette entries={entries} identity={userId} onSelect={selectEntry} onClose={() => closePalette()} announce={announceQuietly} onAsk={(text) => void askAssistant(text)} assistantState={availability.state} /> : null}
       </div>
+      </PinsProvider>
       </RecentProvider>
       </InboxProvider>
       </WorkspaceNavProvider>

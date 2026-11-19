@@ -6,6 +6,7 @@ import { copy, shortcutHint } from "./copy";
 import type { PageMeta } from "./pageMeta";
 import { HelpButton } from "./help/HelpPanel";
 import { ContextPicker } from "./lookup/workContext";
+import { PinToggle } from "./pins/PinsProvider";
 import styles from "./Shell.module.css";
 import { Button, Icon } from "./ui";
 
@@ -79,12 +80,14 @@ export function TopBar({ page, titleRef, menuRef, searchRef, drawerOpen, compact
       </h1>
       {phone ? (
         <div className={styles.topbarActions}>
+          <PinToggle />
           {searchTrigger}
           <ContextSheet showContext={showContext} compact={compact} onToggleCompact={onToggleCompact} />
         </div>
       ) : (
         <div className={styles.topbarActions}>
           {showContext ? <ContextPicker /> : null}
+          <PinToggle />
           {searchTrigger}
           <HelpButton />
           <Button variant="ghost" size="sm" aria-pressed={compact} className={styles.compactToggle} onClick={onToggleCompact}>
