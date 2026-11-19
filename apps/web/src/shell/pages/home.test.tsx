@@ -1,12 +1,13 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { clearHandedOffPrompt, handOffPrompt } from "../assistant/session";
 import { CopilotHome } from "../../modules/copilot/pages";
 import { loadModules, type DepotModule } from "../../modules/registry";
 import { Shell } from "../Shell";
-import { json, pageViolations, server, useFakeServer } from "../testing/fakeServer";
+import { AVAILABILITY_PATH } from "../assistant/availability";
+import { availableAssistant, json, pageViolations, server, useFakeServer, type Reply } from "../testing/fakeServer";
 import { HomePage } from "./HomePage";
 import { workspaceKpis } from "./kpi";
 
@@ -38,7 +39,15 @@ const item = (n: number) => ({
   createdAt: "2026-11-01T00:00:00Z",
 });
 
+const enabled = availableAssistant;
+let availability: Reply = json(200, enabled);
+beforeEach(() => {
+  availability = json(200, enabled);
+});
+
 function renderHome(duties: string[], shellModules: DepotModule[] = modules, entry: { pathname: string } = { pathname: "/" }, features?: Record<string, boolean>) {
+  const inner = server.handler;
+  server.handler = (url, init) => (url.pathname === AVAILABILITY_PATH ? availability : inner(url, init));
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
@@ -200,23 +209,25 @@ describe("role home", () => {
 
   describe("assistant-led home", () => {
     const COPILOT_DUTY = "mcp.copilot.use";
-    const askBox = () => main().getByRole("textbox", { name: "Ask or do anything..." });
+    const askBox = () => main().findByRole("textbox", { name: "Ask or do anything..." });
 
-    it("puts the prompt first in the main landmark and the workspace cards in a Browse workspaces region", () => {
+    it("puts the prompt first in the main landmark and the workspace cards in a Browse workspaces region", async () => {
       renderHome([COPILOT_DUTY]);
-      expect(screen.getByRole("main").querySelector(PAGE_CONTROLS)).toBe(askBox());
+      const box = await askBox();
+      expect(screen.getByRole("main").querySelector(PAGE_CONTROLS)).toBe(box);
       const region = within(main().getByRole("region", { name: "Browse workspaces" }));
       expect(region.getByText("Current workspace")).toBeInTheDocument();
       expect(region.getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
-      expect(askBox().compareDocumentPosition(main().getByRole("region", { name: "Browse workspaces" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(box.compareDocumentPosition(main().getByRole("region", { name: "Browse workspaces" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
     it("shows an error and makes no request when the prompt is empty", async () => {
       const user = userEvent.setup();
       renderHome([COPILOT_DUTY]);
+      await askBox();
       await user.click(main().getByRole("button", { name: "Send" }));
       expect(main().getByRole("alert")).toHaveTextContent("Type a question or a request first.");
-      expect(server.calls).toHaveLength(0);
+      expect(server.calls.filter((c) => c.url.pathname !== AVAILABILITY_PATH)).toHaveLength(0);
     });
 
     it("opens the copilot in ask mode and sends the typed text once", async () => {
@@ -226,7 +237,7 @@ describe("role home", () => {
           ? json(200, { answer: "Cash is steady.", citations: [], toolCalls: [], refusal: null, generated: true })
           : undefined;
       renderHome([COPILOT_DUTY]);
-      await user.type(askBox(), "how is cash{Enter}");
+      await user.type(await askBox(), "how is cash{Enter}");
       expect(await main().findByRole("article", { name: "Copilot answer" })).toHaveTextContent("Cash is steady.");
       const chats = server.calls.filter((c) => c.url.pathname === "/api/v1/copilot/chat");
       expect(chats).toHaveLength(1);
@@ -240,7 +251,7 @@ describe("role home", () => {
           ? json(200, { answer: "Cash is steady.", citations: [], toolCalls: [], refusal: null, generated: true })
           : undefined;
       renderHome([COPILOT_DUTY]);
-      await user.type(askBox(), "how is cash{Enter}");
+      await user.type(await askBox(), "how is cash{Enter}");
       await main().findByRole("article", { name: "Copilot answer" });
       expect(screen.queryByRole("textbox", { name: "Ask or do anything..." })).not.toBeInTheDocument();
       expect(screen.getAllByRole("status").some((r) => r.textContent === "Sending your question to the assistant...")).toBe(true);
@@ -297,11 +308,66 @@ describe("role home", () => {
       expect(main().getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
     });
 
-    it("offers a workspace page as a link, one click away, inside the secondary region", () => {
+    it("offers a workspace page as a link, one click away, inside the secondary region", async () => {
       renderHome([COPILOT_DUTY]);
-      const region = within(main().getByRole("region", { name: "Browse workspaces" }));
+      const region = within(await main().findByRole("region", { name: "Browse workspaces" }));
       const tasks = region.getAllByRole("list", { name: /Top tasks/ })[0];
       expect(within(tasks).getAllByRole("link")[0]).toHaveAttribute("href", expect.stringMatching(/^\//));
+    });
+  });
+
+  describe("when the assistant is not available", () => {
+    const COPILOT_DUTY = "mcp.copilot.use";
+    const promptBox = () => screen.queryByRole("textbox", { name: "Ask or do anything..." });
+    const paused = "The assistant is paused";
+    const limit = "The assistant has reached its usage limit";
+    const unreachable = "The assistant can't be reached right now";
+    const withKill = (kill: object) => ({ ...enabled, killSwitch: { ...enabled.killSwitch, ...kill } });
+
+    it.each([
+      ["the kill switch is on", json(200, withKill({ halted: true })), paused],
+      ["the budget is used up", json(200, { ...enabled, budgetStatus: "HARD" }), limit],
+      ["the company has the assistant off", json(200, { ...enabled, copilotEnabled: false }), "The assistant is turned off"],
+      ["the read fails with a server error", json(503, {}), unreachable],
+      ["the body cannot be read", json(200, { killSwitch: { halted: "false" } }), unreachable],
+    ])("shows the classic home, a notice and no prompt when %s", async (_name, reply: Reply, title) => {
+      availability = reply;
+      renderHome([COPILOT_DUTY]);
+      expect(await main().findByText(title)).toBeInTheDocument();
+      expect(promptBox()).not.toBeInTheDocument();
+      expect(main().getByText("Current workspace")).toBeInTheDocument();
+      expect(main().getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
+    });
+
+    it("keeps My work working and has no axe violations while the assistant is unreachable", async () => {
+      availability = json(503, {});
+      server.handler = (url) => (url.pathname === "/api/v1/inbox" ? json(200, { items: [item(1), item(2)], unavailable: [], truncated: [] }) : undefined);
+      const { container } = renderHome([COPILOT_DUTY, "inbox.read"]);
+      expect(await main().findByText("2 items are waiting for you.")).toBeInTheDocument();
+      expect(await main().findByText(unreachable)).toBeInTheDocument();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(pageViolations(container)).toEqual([]);
+    });
+
+    it("returns the assistant-led home on the next check when the budget is raised, with no notice left", async () => {
+      availability = json(200, { ...enabled, budgetStatus: "HARD" });
+      renderHome([COPILOT_DUTY]);
+      expect(await main().findByText(limit)).toBeInTheDocument();
+      availability = json(200, enabled);
+      fireEvent.focus(window);
+      expect(await main().findByRole("textbox", { name: "Ask or do anything..." })).toBeInTheDocument();
+      expect(main().queryByText(limit)).not.toBeInTheDocument();
+    });
+
+    it("shows a soft budget warning to an administrator and nothing to anyone else", async () => {
+      availability = json(200, { ...enabled, budgetStatus: "SOFT" });
+      const admin = renderHome([COPILOT_DUTY, "agents.admin"]);
+      expect(await main().findByText("The assistant is close to its usage limit")).toBeInTheDocument();
+      expect(promptBox()).toBeInTheDocument();
+      admin.unmount();
+      renderHome([COPILOT_DUTY]);
+      expect(await main().findByRole("textbox", { name: "Ask or do anything..." })).toBeInTheDocument();
+      expect(main().queryByText("The assistant is close to its usage limit")).not.toBeInTheDocument();
     });
   });
 });

@@ -12,6 +12,9 @@ import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { NotAvailablePage } from "./pages/NotAvailablePage";
 import { resolvePage } from "./pageMeta";
 import { WorkContextProvider } from "./lookup/workContext";
+import { AvailabilityProvider, useAvailabilityController } from "./assistant/AvailabilityProvider";
+import { hideAssistantEntries } from "./assistant/availability";
+import { ASSISTANT_DUTY } from "./home/assistantRouter";
 import { devDuties, devIdentity, PrincipalProvider } from "./principal";
 import { readDensity, writeDensity, type Density } from "./personalization";
 import { RouteErrorBoundary } from "./RouteErrorBoundary";
@@ -70,10 +73,12 @@ function PageSkeleton() {
 export function Shell({ modules: allModules, duties, identity, workspaceConfig, features: fixedFeatures }: ShellProps) {
   const principalDuties = useMemo(() => duties ?? devDuties(), [duties]);
   const settings = useTenantSettingsLoader(principalDuties, fixedFeatures);
-  const modules = useMemo(
-    () => filterModulesByFeatures(visibleModules(allModules, principalDuties), settings.features),
-    [allModules, principalDuties, settings.features],
-  );
+  const availability = useAvailabilityController(principalDuties.includes(ASSISTANT_DUTY));
+  const assistantHidden = availability.state.status !== "enabled" && availability.state.status !== "checking";
+  const modules = useMemo(() => {
+    const visible = filterModulesByFeatures(visibleModules(allModules, principalDuties), settings.features);
+    return assistantHidden ? hideAssistantEntries(visible) : visible;
+  }, [allModules, principalDuties, settings.features, assistantHidden]);
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const online = useOnlineStatus();
@@ -294,6 +299,7 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
 
   return (
     <PrincipalProvider duties={principalDuties}>
+      <AvailabilityProvider value={availability}>
       <TenantSettingsProvider value={settings}>
       <WorkContextProvider identity={userId} enabled={principalDuties.includes("org.read")}>
       <WorkspaceNavProvider entries={navEntries} config={config}>
@@ -354,6 +360,7 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
       </WorkspaceNavProvider>
       </WorkContextProvider>
       </TenantSettingsProvider>
+      </AvailabilityProvider>
     </PrincipalProvider>
   );
 }

@@ -38,3 +38,11 @@ The only browser storage an assistant surface may use is `shell/assistant/assist
 - Copilot requests send `cache: "no-store"`; the agent runtime answers `Cache-Control: no-store`. The app registers no service worker.
 
 `shell/assistant/storageScan.test.ts` fails the build when a non-test source under `modules/copilot`, `shell/assistant` or `shell/home` uses those browser stores directly or imports `preferenceStorage` outside the wrapper, or when a service worker appears.
+
+## Assistant availability (DEPOT-277)
+
+No ERP flow depends on the assistant (ADR-0001). `shell/assistant/AvailabilityProvider.tsx` reads `GET /api/v1/agents/availability` for users who hold `mcp.copilot.use` and keeps one state in memory: `enabled`, `degraded` (budget used up, or the read failed) or `unavailable` (paused, or turned off for the company). Anything but `enabled` shows the classic home with a status notice, hides the Copilot and Tool catalog entries, and leaves every other page alone. A failed, slow, unreadable or 404 read counts as not enabled.
+
+- `AVAILABILITY_POLL_MS` (10 seconds) is the single poll interval. The read repeats while the tab is visible, not while it is hidden, and runs at once on window focus, when the tab becomes visible and after a copilot refusal or failure. Each read replaces the whole state, so a lifted pause or a raised budget returns the assistant-led home on the next read.
+- `AI_REQUEST_TIMEOUT_MS` (10 seconds) bounds the availability read and non-streamed chat; `AI_FIRST_TOKEN_TIMEOUT_MS` (30 seconds) bounds the wait for the first streamed token.
+- A copilot refusal with code `AGT-0202` shows the code and a plain message in the answer and switches the home to classic at once. Nothing retries.

@@ -180,6 +180,22 @@ export const copy = {
     kpiUnavailable: "This number could not be loaded right now.",
     kpiMore: "The list has more than were counted. Open it to see them all.",
   },
+  assistantStatus: {
+    pausedTitle: "The assistant is paused",
+    pausedBody: "An administrator has paused it. Every page and workflow below works as usual.",
+    offTitle: "The assistant is turned off",
+    offBody: "It is not turned on for your company. Every page and workflow below works as usual.",
+    budgetTitle: "The assistant has reached its usage limit",
+    budgetBody: "It comes back when an administrator raises the limit or the next period starts. Every page and workflow below works as usual.",
+    unreachableTitle: "The assistant can't be reached right now",
+    unreachableBody: "Every page and workflow below works as usual. We check again every few seconds.",
+    softTitle: "The assistant is close to its usage limit",
+    softBody: "Ask an administrator to raise the limit before it stops answering.",
+    refusals: {
+      "AGT-0202": "The assistant has reached its usage limit, so it can't answer right now. Every page and workflow still works.",
+      "AGT-0201": "The assistant is paused, so it can't answer right now. Every page and workflow still works.",
+    } as Readonly<Record<string, string>>,
+  },
   myWork: {
     title: "My work",
     description: "Everything waiting for you to approve or review, in one place.",
