@@ -769,6 +769,7 @@ const inventoryGaps: Record<string, ProblemCatalogEntry> = {
   "INV-PST-004": { message: "The correction doesn't match what was booked for the line.", action: "Contact support with the details below." },
   "INV-PST-005": { message: "The serial or weight details on the line don't add up.", action: "Check each serial number and its weight." },
   "INV-PST-006": { message: "The vendor invoice was posted before the goods on that line were received.", action: "Receive the goods first, then post the invoice again." },
+  "INV-PST-007": { message: "This vendor invoice line was already recorded with a different quantity or amount.", action: "Check the invoice against the one already posted, then contact support." },
   "INV-REC-001": { message: "We couldn't find that reconciliation.", action: "Go back to the list and open it again." },
   "INV-RES-003": { message: "We couldn't find that reservation.", action: "Go back to the list and open it again." },
   "INV-RES-004": { message: "The stock is reserved against the expected receipt, but less would still be expected.", action: "Release the reservations first." },

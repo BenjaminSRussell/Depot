@@ -369,6 +369,7 @@ describe("charges on a purchase order", () => {
     });
     renderAt("/purchasing/purchase-orders/new");
     fireEvent.change(await screen.findByLabelText("Legal entity"), { target: { value: LE } });
+    fireEvent.change(await screen.findByLabelText("Currency"), { target: { value: "USD" } });
     fireEvent.change(screen.getByLabelText("Vendor"), { target: { value: VENDOR } });
     fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Steel" } });
     fireEvent.change(screen.getByLabelText("Quantity"), { target: { value: "5" } });
@@ -420,6 +421,7 @@ describe("charges on a purchase order", () => {
     });
     renderAt("/purchasing/purchase-orders/new");
     fireEvent.change(await screen.findByLabelText("Legal entity"), { target: { value: LE } });
+    fireEvent.change(await screen.findByLabelText("Currency"), { target: { value: "USD" } });
     fireEvent.change(screen.getByLabelText("Vendor"), { target: { value: VENDOR } });
     fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Steel" } });
     fireEvent.change(screen.getByLabelText("Quantity"), { target: { value: "5" } });

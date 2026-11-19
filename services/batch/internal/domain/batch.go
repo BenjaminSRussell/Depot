@@ -1,5 +1,11 @@
 package domain
 
+import (
+	"time"
+
+	"github.com/BenjaminSRussell/depot/platform/jobs"
+)
+
 const (
 	JobActive = "active"
 	JobHold   = "hold"
@@ -95,6 +101,14 @@ func ValidateJob(job Job) map[string]string {
 	case PriorityA, PriorityB, PriorityC, "":
 	default:
 		fields["priority"] = "must be A, B or C"
+	}
+	if job.Cron != "" {
+		if _, err := jobs.ParseCron(job.Cron); err != nil {
+			fields["cron"] = err.Error()
+		}
+	}
+	if _, err := time.LoadLocation(job.TimeZone); err != nil || job.TimeZone == "Local" {
+		fields["timeZone"] = "must be an IANA time zone name"
 	}
 	return fields
 }

@@ -72,6 +72,10 @@ func run(ctx context.Context, getenv func(string) string) error {
 	if err != nil {
 		return err
 	}
+	scheduleInterval, err := durationEnv(getenv, "SCHEDULER_INTERVAL", jobs.DefaultScheduleInterval)
+	if err != nil {
+		return err
+	}
 	aggregator, err := loadInbox(getenv)
 	if err != nil {
 		return err
@@ -86,7 +90,8 @@ func run(ctx context.Context, getenv func(string) string) error {
 			return fmt.Errorf("migrate: %w", err)
 		}
 	}
-	a := api.New(store.New(pool)).WithInbox(aggregator)
+	batchStore := store.New(pool)
+	a := api.New(batchStore).WithInbox(aggregator)
 	router := httpx.NewRouter()
 	a.Register(router)
 	admin := http.NewServeMux()
@@ -98,6 +103,9 @@ func run(ctx context.Context, getenv func(string) string) error {
 		cancel()
 		background.Wait()
 	}()
+	scheduler := &jobs.Scheduler{Source: jobs.NewPgScheduleSource(pool), Starter: batchStore, Interval: scheduleInterval}
+	metrics = append(metrics, scheduler.Metrics())
+	background.Go(func() { scheduler.Run(ctx) })
 	if dispatch == nil {
 		slog.Warn("run dispatcher disabled: PRODUCT_URL is empty")
 	} else {

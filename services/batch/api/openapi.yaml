@@ -351,6 +351,8 @@ components:
         status: { type: string }
         partitionStrategy: { type: string }
         priority: { type: string }
+        cron: { type: string, description: "Five-field cron expression (minute hour day month weekday). A run starts at each matching minute in timeZone, with the saver's legal entity and duties; a minute is skipped while an exclusive job is running." }
+        timeZone: { type: string, description: "IANA time zone name the cron is evaluated in. Defaults to UTC." }
         id: { type: string }
     Template:
       type: object

@@ -22,6 +22,7 @@ import { createArrival, fetchOpenPurchaseOrders, fetchPurchaseOrderLines, newKey
 import { DECIMAL, fieldErrors, UUID } from "../../shell/api/http";
 import styles from "../../shell/pageLayout.module.css";
 import { ProblemMessage } from "../../shell/errors";
+import { useDefaultCurrency } from "../../shell/defaults/useDefaults";
 
 const MAX_LINES = 500;
 const LINE_NO = /^[1-9]\d*$/;
@@ -66,7 +67,7 @@ export const emptyArrival: ArrivalDraft = {
   carrier: "",
   palletCount: "",
   receiptDate: "",
-  currency: "USD",
+  currency: "",
   lines: [emptyLine],
 };
 
@@ -169,6 +170,13 @@ export function NewArrivalPage() {
     enabled: UUID.test(values.vendorId),
   });
 
+  const derivedCurrency = useDefaultCurrency([
+    { entity: "purchaseOrder", id: values.purchaseOrderId },
+    { entity: "vendor", id: values.vendorId },
+    { entity: "legalEntity", id: values.legalEntityId },
+  ]);
+  const effective: ArrivalDraft = { ...values, currency: values.currency || derivedCurrency };
+
   const update = (patch: Partial<ArrivalDraft>) => setValues((prev) => ({ ...prev, ...patch }));
   const updateLine = (index: number, patch: Partial<ArrivalLineDraft>) =>
     setValues((prev) => ({ ...prev, lines: prev.lines.map((l, i) => (i === index ? { ...l, ...patch } : l)) }));
@@ -176,13 +184,13 @@ export function NewArrivalPage() {
   const { prompt, release } = useUnsavedChanges(useFormBaseline(values));
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const found = validateArrival(values);
+    const found = validateArrival(effective);
     setErrors(found);
     setFailure(null);
     if (Object.keys(found).length > 0) return;
     setBusy(true);
     try {
-      const receipt = await createArrival(toArrivalInput(values), key.current);
+      const receipt = await createArrival(toArrivalInput(effective), key.current);
       key.current = newKey();
       await queryClient.invalidateQueries({ queryKey: ["receiving", "receipts"] });
       release();
@@ -197,7 +205,7 @@ export function NewArrivalPage() {
 
   const text = (field: keyof Omit<ArrivalDraft, "lines">, label: string, extra: { hint?: string; optional?: boolean; type?: string; mono?: boolean } = {}) => (
     <FormField id={`arrival-${field}`} label={label} hint={extra.hint} optional={extra.optional} error={errors[field]}>
-      {(c) => <Input {...c} type={extra.type} className={extra.mono ? styles.mono : undefined} value={values[field]} onChange={(e) => update({ [field]: e.target.value })} invalid={Boolean(errors[field])} />}
+      {(c) => <Input {...c} type={extra.type} className={extra.mono ? styles.mono : undefined} value={effective[field]} onChange={(e) => update({ [field]: e.target.value })} invalid={Boolean(errors[field])} />}
     </FormField>
   );
 
