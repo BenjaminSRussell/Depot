@@ -19,6 +19,8 @@ import {
   assertBoundarySupported,
   createConfiguredRouter,
 } from "./runtime/aiRouter.js";
+import { createBriefingService } from "./runtime/briefing.js";
+import { PgBriefingFacts, PgBriefingStore } from "./store/briefing.js";
 import { createCopilotService } from "./runtime/copilot.js";
 import { createEgressGuard } from "./runtime/egressGuard.js";
 import { createOutputGuard } from "./runtime/outputGuard.js";
@@ -229,6 +231,7 @@ async function main(): Promise<void> {
     copilot,
     knowledge,
     budgets: createAgentBudgetService({ store: new PgAgentBudgets(store) }),
+    briefings: createBriefingService({ store: new PgBriefingStore(store), facts: new PgBriefingFacts(store), log }),
   };
   const handler = createRequestHandler({
     api,

@@ -28,6 +28,8 @@ export type ApiCode =
   | "AGT-0413" // request body too large
   | "AGT-0422" // a field value the API cannot accept
   | "AGT-0428" // If-Match is required
+  | "AGT-0230" // briefing generation rate limited
+  | "AGT-0231" // a briefing generation is already in flight
   | "NOT_REVERSIBLE" // the action cannot be undone
   | "AGT-0500" // unexpected error, never echoed
   | "AGT-0503"; // the signing keys could not be read
@@ -36,12 +38,21 @@ export type ApiCode =
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  readonly members: Readonly<Record<string, unknown>>;
+  readonly headers: Readonly<Record<string, string>>;
 
-  constructor(status: number, code: ApiCode | AgentError["code"], message: string) {
+  constructor(
+    status: number,
+    code: ApiCode | AgentError["code"],
+    message: string,
+    extension: { members?: Record<string, unknown>; headers?: Record<string, string> } = {},
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.members = extension.members ?? {};
+    this.headers = extension.headers ?? {};
   }
 }
 
