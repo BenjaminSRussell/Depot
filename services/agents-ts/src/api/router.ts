@@ -203,8 +203,10 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
       if (path === AVAILABILITY_PATH) {
         if (req.method !== "GET") throw new MethodNotAllowed("GET");
         const principal = await deps.authenticate(req.headers);
+        requireDuty(principal, COPILOT_DUTY, "the assistant availability");
+        const { halted, stale } = killSwitchStatusOf(principal, deps.registry);
         send(res, 200, {
-          killSwitch: killSwitchStatusOf(principal, deps.registry),
+          killSwitch: { halted, stale },
           budgetStatus: deps.budgets === undefined ? "OK" : await deps.budgets.status(principal),
           copilotEnabled: deps.copilot !== undefined,
         });

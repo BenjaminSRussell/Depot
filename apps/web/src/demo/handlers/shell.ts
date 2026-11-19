@@ -175,7 +175,7 @@ route("PUT", "/api/v1/tenant/setup/steps/{step}", ({ params, body }) => {
   return setupBody();
 });
 route("GET", "/api/v1/agents/availability", () => ({
-  killSwitch: { halted: false, stale: false, tenant: { active: false, version: null, changedAt: null, byUser: null }, global: { active: false, version: null, changedAt: null } },
+  killSwitch: { halted: false, stale: false },
   budgetStatus: "OK",
   copilotEnabled: true,
 }));

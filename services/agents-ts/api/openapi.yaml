@@ -24,7 +24,9 @@ paths:
       operationId: getAgentsAvailability
       summary: Whether the assistant may be shown to the caller
       description: |
-        Opened by the `mcp.copilot.use` duty. `budgetStatus` carries no figures. The web treats
+        Opened by the `mcp.copilot.use` duty. `budgetStatus` carries no figures and `killSwitch`
+        carries only the halt flags: the operator id, versions and timestamps stay on the
+        agents.admin kill-switch route. The web treats
         any failure of this call as "assistant off" and shows the classic home.
       x-depot-duty: mcp.copilot.use
       responses:
@@ -36,10 +38,16 @@ paths:
                 type: object
                 required: [killSwitch, budgetStatus, copilotEnabled]
                 properties:
-                  killSwitch: {$ref: "#/components/schemas/KillSwitchStatus"}
+                  killSwitch:
+                    type: object
+                    required: [halted, stale]
+                    properties:
+                      halted: {type: boolean}
+                      stale: {type: boolean}
                   budgetStatus: {type: string, enum: [OK, SOFT, HARD]}
                   copilotEnabled: {type: boolean}
         "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
   /api/v1/agents/kill-switch:
     get:
       operationId: getKillSwitchStatus
