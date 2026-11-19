@@ -158,10 +158,15 @@ func TestPerRecordRouteAuthorizesByTheRecordReadDuty(t *testing.T) {
 	}
 }
 
-func TestPerRecordRouteRefusesATenantLevelRowToARecordDutyHolder(t *testing.T) {
+// A tenant-level row has no legal entity: it is master data for the whole tenant, so the record's own read
+// duty is enough. Without the duty it is still refused.
+func TestPerRecordRouteShowsATenantLevelRowToARecordDutyHolder(t *testing.T) {
 	f := &fakeStore{records: history()[2:3]}
-	if rec := getAs(f, "/v1/audit/records/party.vendor/v-1", "party.read", leA); rec.Code != http.StatusForbidden {
-		t.Fatalf("got %d %s", rec.Code, rec.Body.String())
+	if rec := getAs(f, "/v1/audit/records/party.vendor/v-1", "party.read", leA); rec.Code != http.StatusOK {
+		t.Fatalf("with the read duty: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := getAs(f, "/v1/audit/records/party.vendor/v-1", "product.read", leA); rec.Code != http.StatusForbidden {
+		t.Fatalf("with another record's duty: %d %s", rec.Code, rec.Body.String())
 	}
 }
 

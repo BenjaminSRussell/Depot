@@ -752,14 +752,14 @@ func (a *API) runDefinition(w http.ResponseWriter, r *http.Request) {
 }
 
 type cellDTO struct {
-	Row            string `json:"row"`
-	Column         string `json:"column"`
-	Value          string `json:"value"`
-	Blank          bool   `json:"blank"`
-	Computed       bool   `json:"computed"`
-	Note           string `json:"note,omitempty"`
-	KeyCount       int    `json:"keyCount"`
-	FilteredAmount string `json:"filteredAmount"`
+	Row      string `json:"row"`
+	Column   string `json:"column"`
+	Value    string `json:"value"`
+	Blank    bool   `json:"blank"`
+	Computed bool   `json:"computed"`
+	Note     string `json:"note,omitempty"`
+	KeyCount int    `json:"keyCount"`
+	Filtered bool   `json:"filtered"`
 }
 
 func (a *API) listCells(w http.ResponseWriter, r *http.Request) {
@@ -778,7 +778,7 @@ func (a *API) listCells(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]cellDTO, 0, len(cells))
 	for _, c := range cells {
-		out = append(out, cellDTO{Row: c.Row, Column: c.Column, Value: c.Value.StringFixed(6), Blank: c.Blank, Computed: c.Computed, Note: c.Note, KeyCount: len(c.Keys), FilteredAmount: c.FilteredAmount.StringFixed(6)})
+		out = append(out, cellDTO{Row: c.Row, Column: c.Column, Value: c.Value.StringFixed(6), Blank: c.Blank, Computed: c.Computed, Note: c.Note, KeyCount: len(c.Keys), Filtered: !c.FilteredAmount.IsZero()})
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"items": out})
 }
@@ -820,7 +820,7 @@ func (a *API) drillBalances(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"runId": id, "row": cell.Row, "column": cell.Column, "value": cell.Value.StringFixed(6),
 		"blank": cell.Blank, "computed": cell.Computed, "sumOfKeys": sum.StringFixed(6), "keys": keys,
-		"filteredAmount": cell.FilteredAmount.StringFixed(6), "warning": filteredWarning(cell.FilteredAmount),
+		"filtered": !cell.FilteredAmount.IsZero(), "warning": filteredWarning(cell.FilteredAmount),
 	})
 }
 
@@ -907,15 +907,17 @@ func (a *API) drillLines(w http.ResponseWriter, r *http.Request) {
 		"sumOfLines": page.SumOfLines.StringFixed(6), "cumulativeSum": page.CumulativeSum.StringFixed(6), "nextCursor": next,
 		"linesTotal": rec.LinesTotal.StringFixed(6), "difference": rec.Difference.StringFixed(6),
 		"unreconciledKeys": rec.UnreconciledKeys, "reconciled": rec.Reconciled(),
-		"filteredAmount": page.Cell.FilteredAmount.StringFixed(6), "warning": filteredWarning(page.Cell.FilteredAmount),
+		"filtered": !page.Cell.FilteredAmount.IsZero(), "warning": filteredWarning(page.Cell.FilteredAmount),
 	})
 }
 
+// filteredWarning says that something was left out, never how much: the amount would give a restricted
+// reader the unrestricted total.
 func filteredWarning(amount decimal.Decimal) any {
 	if amount.IsZero() {
 		return nil
 	}
-	return map[string]string{"code": CodeFilteredAmount, "detail": amount.StringFixed(6) + " of this cell is outside your dimension permissions"}
+	return map[string]string{"code": CodeFilteredAmount, "detail": "part of this cell is outside your dimension permissions"}
 }
 
 func (a *API) lag(w http.ResponseWriter, r *http.Request) {
