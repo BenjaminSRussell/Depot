@@ -56,6 +56,10 @@ func (f *fakePostings) CreateTransaction(ctx context.Context, in store.CreateTra
 	return store.StatusChange{TransactionID: "t"}, true, nil
 }
 
+func (f *fakePostings) RecordInvoicePart(_ context.Context, _, _, _ string, _ int, qty, amount decimal.Decimal) (store.InvoicedTotal, error) {
+	return store.InvoicedTotal{Qty: qty, Amount: amount}, nil
+}
+
 func (f *fakePostings) IssueBasis(context.Context, string, string, domain.Dimensions) (string, decimal.Decimal, error) {
 	return "EUR", f.cost, nil
 }

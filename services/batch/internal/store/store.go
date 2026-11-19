@@ -97,6 +97,8 @@ type Job struct {
 	Status         string `json:"status"`
 	Strategy       string `json:"partitionStrategy"`
 	Priority       string `json:"priority"`
+	Cron           string `json:"cron,omitempty"`
+	TimeZone       string `json:"timeZone,omitempty"`
 }
 
 type Run struct {
@@ -387,7 +389,8 @@ func (s *Postgres) SaveJob(ctx context.Context, job Job) (Job, error) {
 	if err != nil {
 		return Job{}, err
 	}
-	if _, err := requireProductDuties(p, job.Handler); err != nil {
+	serviceDuties, err := requireProductDuties(p, job.Handler)
+	if err != nil {
 		return Job{}, err
 	}
 	if job.ID == "" {
@@ -408,18 +411,38 @@ func (s *Postgres) SaveJob(ctx context.Context, job Job) (Job, error) {
 	if job.Priority == "" {
 		job.Priority = domain.PriorityB
 	}
-	if fields := domain.ValidateJob(domain.Job{Code: job.Code, Handler: job.Handler, PartitionCount: job.PartitionCount, Concurrency: job.Concurrency, PartitionStrategy: job.Strategy, Priority: job.Priority}); len(fields) > 0 {
+	if job.TimeZone == "" {
+		job.TimeZone = "UTC"
+	}
+	if fields := domain.ValidateJob(domain.Job{Code: job.Code, Handler: job.Handler, PartitionCount: job.PartitionCount, Concurrency: job.Concurrency, PartitionStrategy: job.Strategy, Priority: job.Priority, Cron: job.Cron, TimeZone: job.TimeZone}); len(fields) > 0 {
 		prob := httpx.NewProblem(http.StatusBadRequest, domain.CodeInvalid, "request failed validation")
 		prob.Errors = fields
 		return Job{}, prob
 	}
+	var scheduleEntity, scheduledBy any
+	if job.Cron != "" {
+		if !ids.Valid(p.UserID) {
+			return Job{}, fieldProblem(http.StatusUnprocessableEntity, "cron", "a schedule needs the signed-in user")
+		}
+		entity, err := runLegalEntity(p, "")
+		if err != nil {
+			return Job{}, err
+		}
+		scheduleEntity, scheduledBy = entity, p.UserID
+	}
 	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `insert into batch_job
-			(tenant_id, id, code, handler, partition_strategy, partition_count, concurrency, priority, exclusive, status)
-			values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+			(tenant_id, id, code, handler, partition_strategy, partition_count, concurrency, priority, exclusive, status,
+			 cron, time_zone, schedule_legal_entity_id, scheduled_by, schedule_duties, last_fired_at)
+			values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,nullif($11,''),$12,$13::uuid,$14::uuid,$15,now())
 			on conflict (tenant_id, code) do update set handler=excluded.handler, partition_count=excluded.partition_count,
-				concurrency=excluded.concurrency, exclusive=excluded.exclusive, status=excluded.status`,
-			p.TenantID, job.ID, job.Code, job.Handler, job.Strategy, job.PartitionCount, job.Concurrency, job.Priority, job.Exclusive, job.Status)
+				concurrency=excluded.concurrency, exclusive=excluded.exclusive, status=excluded.status,
+				last_fired_at = case when batch_job.cron is distinct from excluded.cron or batch_job.time_zone is distinct from excluded.time_zone
+					then now() else batch_job.last_fired_at end,
+				cron=excluded.cron, time_zone=excluded.time_zone, schedule_legal_entity_id=excluded.schedule_legal_entity_id,
+				scheduled_by=excluded.scheduled_by, schedule_duties=excluded.schedule_duties`,
+			p.TenantID, job.ID, job.Code, job.Handler, job.Strategy, job.PartitionCount, job.Concurrency, job.Priority, job.Exclusive, job.Status,
+			job.Cron, job.TimeZone, scheduleEntity, scheduledBy, serviceDuties)
 		return err
 	})
 	return job, err

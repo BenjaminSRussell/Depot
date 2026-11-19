@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkAxeAA } from "../../shell/a11y";
+import { currencyLookups } from "../../shell/defaults/testLookup";
 import { setLookupFetcher } from "../../shell/lookup/entities";
 import { promiseSummary, validateAtp } from "./AtpCheckPage";
 import { blankProfile, validateProfile } from "./CreditProfileFormPage";
@@ -378,6 +379,7 @@ describe("New sales order", () => {
     renderAt("/sales/orders/new");
     const set = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
     set("Legal entity", LE);
+    set("Currency", "USD");
     set("Customer", CUSTOMER);
     await waitFor(() => expect(calls.some((c) => c.url.pathname === `/api/v1/party/customers/${CUSTOMER}`)).toBe(true));
     set("Product", PRODUCT);
@@ -401,6 +403,7 @@ describe("New sales order", () => {
     expect(pageViolations(container)).toEqual([]);
     const set = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
     set("Legal entity", LE);
+    set("Currency", "USD");
     set("Customer", CUSTOMER);
     set("Product", PRODUCT);
     set("Quantity", "3");
@@ -419,6 +422,7 @@ describe("New sales order", () => {
     renderAt("/sales/orders/new");
     const set = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
     set("Legal entity", LE);
+    set("Currency", "USD");
     set("Customer", CUSTOMER);
     set("Product", PRODUCT);
     set("Unit price", "1");
@@ -427,6 +431,63 @@ describe("New sales order", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save draft order" }));
     expect(await screen.findByText("must be an ISO 4217 alpha-3 code")).toBeInTheDocument();
     expect(screen.getByText("Could not save the order")).toBeInTheDocument();
+  });
+});
+
+describe("New sales order defaults", () => {
+  const set = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
+
+  function open(currencies: Record<string, string>) {
+    handler = (url, init) =>
+      url.pathname.startsWith("/api/v1/pricing/") ? { status: 403, body: { code: "AUTH-0003" } } : init.method === "POST" ? { status: 201, body: order(), etag: '"1"' } : { status: 200, body: order(), etag: '"1"' };
+    const view = renderAt("/sales/orders/new");
+    currencyLookups(currencies);
+    set("Legal entity", LE);
+    set("Customer", CUSTOMER);
+    return view;
+  }
+
+  it.each([
+    ["the customer", { [CUSTOMER]: "EUR", [LE]: "USD" }, "EUR"],
+    ["the legal entity", { [LE]: "CHF" }, "CHF"],
+  ])("takes the currency from %s", async (_source, currencies, expected) => {
+    open(currencies);
+    await waitFor(() => expect(screen.getByLabelText("Currency")).toHaveValue(expected));
+  });
+
+  it("orders for a EUR customer of a USD company in EUR without typing the currency", async () => {
+    open({ [CUSTOMER]: "EUR", [LE]: "USD" });
+    await waitFor(() => expect(screen.getByLabelText("Currency")).toHaveValue("EUR"));
+    set("Product", PRODUCT);
+    set("Quantity", "3");
+    set("Unit price", "1000");
+    set("Site", SITE);
+    set("Warehouse", WAREHOUSE);
+    fireEvent.click(screen.getByRole("button", { name: "Save draft order" }));
+    await screen.findByRole("heading", { name: "Sales order SO-0000042" });
+    expect(calls.find((c) => c.method === "POST" && c.url.pathname === "/api/v1/sales/orders")?.body).toMatchObject({ currency: "EUR" });
+  });
+
+  it("keeps a typed currency over the derived one", async () => {
+    open({ [CUSTOMER]: "EUR" });
+    await waitFor(() => expect(screen.getByLabelText("Currency")).toHaveValue("EUR"));
+    set("Currency", "gbp");
+    expect(screen.getByLabelText("Currency")).toHaveValue("GBP");
+  });
+
+  it("asks for the currency when no source resolves and sends nothing", async () => {
+    open({});
+    fireEvent.click(screen.getByRole("button", { name: "Save draft order" }));
+    expect(await screen.findByText("Enter a three-letter ISO currency code, such as USD.")).toBeInTheDocument();
+    expect(calls.filter((c) => c.method === "POST")).toHaveLength(0);
+  });
+
+  it("keeps order type and invoice account under Advanced and the currency outside it", () => {
+    renderAt("/sales/orders/new");
+    const advanced = screen.getByText("Advanced").closest("details") as HTMLElement;
+    expect(within(advanced).getByLabelText("Order type")).toBeInTheDocument();
+    expect(within(advanced).getByLabelText("Invoice account")).toBeInTheDocument();
+    expect(within(advanced).queryByLabelText("Currency")).not.toBeInTheDocument();
   });
 });
 

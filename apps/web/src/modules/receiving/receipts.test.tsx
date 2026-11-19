@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Receipt, ReceiptLine } from "./api/client";
 import { emptyArrival, pickPOLine, toArrivalInput, validateArrival } from "./NewArrivalPage";
 import { validateCorrection, validatePostingDate, validateRegister } from "./ReceiptPage";
+import { currencyLookups } from "../../shell/defaults/testLookup";
 import { idempotencyKey, json, pageViolations, renderAt, server, useFakeServer } from "./testServer";
 
 useFakeServer();
@@ -81,6 +82,7 @@ describe("client-side checks", () => {
       legalEntityId: UUID_A,
       packingSlip: "PS-1",
       receiptDate: "2026-10-25",
+      currency: "USD",
       lines: [{ ...emptyArrival.lines[0], poLineNo: "2", productId: UUID_D, unit: "EA" }],
     };
     expect(validateArrival(ok)).toEqual({});
@@ -211,8 +213,13 @@ describe("record arrival", () => {
     fill("Receipt date", "2026-10-25");
   }
 
-  async function fillValid() {
+  async function fillHeaderUsd() {
     await fillHeader();
+    fill("Currency", "USD");
+  }
+
+  async function fillValid() {
+    await fillHeaderUsd();
     fill("Line 1 PO line", "1");
     fill("Line 1 product", UUID_D);
     fill("Line 1 unit", "EA");
@@ -258,7 +265,7 @@ describe("record arrival", () => {
       return undefined;
     });
     const { container } = renderAt("/receiving/receipts/new");
-    await fillHeader();
+    await fillHeaderUsd();
     const select = await screen.findByRole("combobox", { name: "Line 1 PO line" });
     expect(within(select).getAllByRole("option").map((o) => o.textContent)).toEqual(["Choose a line", "2: Bolts (10 BOX)"]);
     expect(pageViolations(container)).toEqual([]);
@@ -294,6 +301,63 @@ describe("record arrival", () => {
     expect(await screen.findByText(/Packing slip already used on receipt RCV-00000009/)).toBeInTheDocument();
     expect(screen.getByLabelText("Packing slip")).toBeInvalid();
     expect(screen.getByLabelText("Packing slip")).toHaveValue("PS-1");
+  });
+
+  describe("currency default", () => {
+    const VENDOR = UUID_A;
+    const LEGAL_ENTITY = UUID_C;
+    async function pickSources(currencies: Record<string, string> = {}) {
+      server.handler = ordersFor(server.handler);
+      renderAt("/receiving/receipts/new");
+      currencyLookups(currencies);
+      fill("Vendor", VENDOR);
+      await screen.findByRole("option", { name: "PO-1" });
+      fill("Purchase order", UUID_B);
+      fill("Legal entity", LEGAL_ENTITY);
+    }
+
+    it.each([
+      ["the purchase order", { [UUID_B]: "EUR", [VENDOR]: "GBP", [LEGAL_ENTITY]: "JPY" }, "EUR"],
+      ["the vendor", { [VENDOR]: "GBP", [LEGAL_ENTITY]: "JPY" }, "GBP"],
+      ["the legal entity", { [LEGAL_ENTITY]: "JPY" }, "JPY"],
+    ])("follows %s first", async (_source, currencies, expected) => {
+      await pickSources(currencies);
+      await waitFor(() => expect(screen.getByLabelText("Currency")).toHaveValue(expected));
+    });
+
+    async function submitArrival() {
+      fill("Packing slip", "PS-1");
+      fill("Receipt date", "2026-10-25");
+      fill("Line 1 PO line", "1");
+      fill("Line 1 product", UUID_D);
+      fill("Line 1 unit", "EA");
+      fireEvent.click(screen.getByRole("button", { name: "Record arrival" }));
+      await waitFor(() => expect(commandCalls()).toHaveLength(1));
+      return commandCalls()[0].body;
+    }
+
+    it("sends the derived currency when nothing was typed", async () => {
+      serve(receipt(), () => json(201, receipt()));
+      await pickSources({ [UUID_B]: "EUR" });
+      await waitFor(() => expect(screen.getByLabelText("Currency")).toHaveValue("EUR"));
+      expect(await submitArrival()).toMatchObject({ currency: "EUR" });
+    });
+
+    it("keeps a typed currency over the derived one", async () => {
+      serve(receipt(), () => json(201, receipt()));
+      await pickSources({ [UUID_B]: "EUR" });
+      await waitFor(() => expect(screen.getByLabelText("Currency")).toHaveValue("EUR"));
+      fill("Currency", "CAD");
+      expect(await submitArrival()).toMatchObject({ currency: "CAD" });
+    });
+
+    it("leaves the currency empty and blocks the post when no source resolves", async () => {
+      await pickSources();
+      fill("Packing slip", "PS-1");
+      fireEvent.click(screen.getByRole("button", { name: "Record arrival" }));
+      expect(await screen.findByText("Use a 3-letter upper-case currency code.")).toBeInTheDocument();
+      expect(commandCalls()).toHaveLength(0);
+    });
   });
 
   it("adds and removes lines with unique labels", () => {

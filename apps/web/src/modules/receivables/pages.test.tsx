@@ -214,6 +214,7 @@ describe("Record payment", () => {
     expect(screen.getByRole("button", { name: "Legal entity: Choose a legal entity." })).toBeInTheDocument();
 
     fill("Legal entity", LE);
+    fill("Currency", "USD");
     fill("Customer", CUST);
     fill("Amount", "980.00");
     fill("Check or bank reference", "ACH-7");
@@ -245,6 +246,7 @@ describe("Record payment", () => {
     server.handler = () => json(409, { code: "AR-PAYMENT-DUPLICATE", detail: "a payment or open item with this reference already exists" });
     renderAt("/receivables/payments/new");
     fill("Legal entity", LE);
+    fill("Currency", "USD");
     fill("Amount", "10");
     fireEvent.click(screen.getByRole("button", { name: "Record payment" }));
     expect(await findAlert()).toHaveTextContent("AR-PAYMENT-DUPLICATE");

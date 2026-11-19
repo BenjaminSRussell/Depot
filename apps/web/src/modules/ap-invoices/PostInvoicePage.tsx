@@ -23,6 +23,7 @@ import styles from "../../shell/pageLayout.module.css";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityLookup } from "../../shell/lookup/EntityLookup";
 import { LookupFormField } from "../../shell/lookup/LookupFormField";
+import { useDefaultCurrency, useDefaultLedger } from "../../shell/defaults/useDefaults";
 
 const MAX_LINES = 500;
 
@@ -55,7 +56,7 @@ export const emptyInvoice: InvoiceDraft = {
   invoiceNumber: "",
   invoiceDate: "",
   postingDate: "",
-  currency: "USD",
+  currency: "",
   ledgerId: "",
   lines: [emptyInvoiceLine],
 };
@@ -146,19 +147,23 @@ export function PostInvoicePage() {
   // A posted invoice shows its result instead of the form, so leaving it then loses nothing.
   const { prompt } = useUnsavedChanges(useFormBaseline([values]) && posted === null);
 
+  const derivedCurrency = useDefaultCurrency([{ entity: "vendor", id: values.vendorId }, { entity: "legalEntity", id: values.legalEntityId }]);
+  const derivedLedger = useDefaultLedger(values.legalEntityId);
+  const effective: InvoiceDraft = { ...values, currency: values.currency || derivedCurrency, ledgerId: values.ledgerId || derivedLedger };
+
   const update = (patch: Partial<InvoiceDraft>) => setValues((prev) => ({ ...prev, ...patch }));
   const updateLine = (index: number, patch: Partial<InvoiceLineDraft>) =>
     setValues((prev) => ({ ...prev, lines: prev.lines.map((l, i) => (i === index ? { ...l, ...patch } : l)) }));
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const found = validateInvoice(values);
+    const found = validateInvoice(effective);
     setErrors(found);
     setFailure(null);
     if (Object.keys(found).length > 0) return;
     setBusy(true);
     try {
-      setPosted(await postVendorInvoice(toInvoiceInput(values), key.current));
+      setPosted(await postVendorInvoice(toInvoiceInput(effective), key.current));
       key.current = newKey();
       await queryClient.invalidateQueries({ queryKey: ["ap-invoices", "grir"] });
     } catch (error) {
@@ -195,7 +200,7 @@ export function PostInvoicePage() {
 
   const text = (field: keyof Omit<InvoiceDraft, "lines">, label: string, extra: { hint?: string; type?: string; mono?: boolean } = {}) => (
     <FormField id={`invoice-${field}`} label={label} hint={extra.hint} error={errors[field]}>
-      {(c) => <Input {...c} type={extra.type} className={extra.mono ? styles.mono : undefined} value={values[field]} onChange={(e) => update({ [field]: e.target.value })} invalid={Boolean(errors[field])} />}
+      {(c) => <Input {...c} type={extra.type} className={extra.mono ? styles.mono : undefined} value={effective[field]} onChange={(e) => update({ [field]: e.target.value })} invalid={Boolean(errors[field])} />}
     </FormField>
   );
 
@@ -223,7 +228,7 @@ export function PostInvoicePage() {
           {text("invoiceDate", "Invoice date", { type: "date" })}
           {text("postingDate", "Posting date", { type: "date", hint: "Sets the fiscal period; it must be an open AP period." })}
           {text("currency", "Currency", { hint: "Must match the receipt currency." })}
-          <LookupFormField id="invoice-ledgerId" label="Ledger" entity="ledger" scope={{ legalEntityId: values.legalEntityId || undefined }} value={values.ledgerId} error={errors.ledgerId} onChange={(ledgerId) => update({ ledgerId })} />
+          <LookupFormField id="invoice-ledgerId" label="Ledger" entity="ledger" scope={{ legalEntityId: values.legalEntityId || undefined }} value={effective.ledgerId} error={errors.ledgerId} onChange={(ledgerId) => update({ ledgerId })} />
           {errors.lines ? (
             <div className={styles.formActions}>
               <Alert tone="danger" live="alert">

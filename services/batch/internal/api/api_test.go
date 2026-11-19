@@ -78,6 +78,11 @@ func (f *fakeStore) SaveJob(_ context.Context, job store.Job) (store.Job, error)
 	if f.err != nil {
 		return store.Job{}, f.err
 	}
+	if fields := domain.ValidateJob(domain.Job{Code: job.Code, Handler: job.Handler, PartitionCount: 1, Concurrency: 1, Cron: job.Cron, TimeZone: job.TimeZone}); len(fields) > 0 {
+		prob := httpx.NewProblem(http.StatusBadRequest, domain.CodeInvalid, "request failed validation")
+		prob.Errors = fields
+		return store.Job{}, prob
+	}
 	job.ID = "job-1"
 	f.job = job
 	return job, nil
@@ -176,6 +181,36 @@ func TestAPI(t *testing.T) {
 	}
 	if rec := do(r, http.MethodPost, "/v1/workflows/instances", `{}`, allDuties, false); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("no tenant %d", rec.Code)
+	}
+}
+
+func TestSaveJobRejectsABadCronOrTimeZone(t *testing.T) {
+	r := newRouter(&fakeStore{})
+	tests := []struct{ name, body, field string }{
+		{"bad cron", `{"code":"c","handler":"synthetic.rows","cron":"61 * * * *"}`, "cron"},
+		{"four field cron", `{"code":"c","handler":"synthetic.rows","cron":"* * * *"}`, "cron"},
+		{"unknown time zone", `{"code":"c","handler":"synthetic.rows","cron":"* * * * *","timeZone":"Mars/Olympus"}`, "timeZone"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := do(r, http.MethodPost, "/v1/batch/jobs", tc.body, allDuties, true)
+			var prob httpx.Problem
+			if err := json.Unmarshal(rec.Body.Bytes(), &prob); err != nil || rec.Code != http.StatusBadRequest || prob.Code != domain.CodeInvalid || prob.Errors[tc.field] == "" {
+				t.Fatalf("got %d %s", rec.Code, rec.Body)
+			}
+		})
+	}
+	if rec := do(r, http.MethodPost, "/v1/batch/jobs", `{"code":"c","handler":"synthetic.rows","cron":5}`, allDuties, true); rec.Code != http.StatusBadRequest {
+		t.Fatalf("a numeric cron must be a 400, got %d", rec.Code)
+	}
+	if rec := do(r, http.MethodPost, "/v1/batch/jobs", `{"code":"c","handler":"synthetic.rows","cron":"*/5 * * * *","timeZone":"UTC"}`, allDuties, true); rec.Code != http.StatusCreated {
+		t.Fatalf("a valid schedule is accepted, got %d %s", rec.Code, rec.Body)
+	}
+	if rec := do(r, http.MethodPost, "/v1/batch/jobs", `{"code":"c","handler":"synthetic.rows","cron":"* * * * *"}`, "batch.read", true); rec.Code != http.StatusForbidden {
+		t.Fatalf("saving a schedule needs batch.write, got %d", rec.Code)
+	}
+	if rec := do(r, http.MethodPost, "/v1/batch/jobs", `{"code":"c","handler":"synthetic.rows","cron":"* * * * *"}`, allDuties, false); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("no tenant must be 401, got %d", rec.Code)
 	}
 }
 

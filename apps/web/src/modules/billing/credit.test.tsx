@@ -286,6 +286,7 @@ describe("Credit notes list", () => {
 describe("Installment plan on a free-text invoice", () => {
   const base = {
     ...emptyFreeText("2027-03-10"),
+    currency: "EUR",
     legalEntityId: LE,
     customerId: CUST,
     invoiceAccountId: ACCT,
@@ -321,6 +322,7 @@ describe("Installment plan on a free-text invoice", () => {
     fireEvent.change(second, { target: { value: "60" } });
     fireEvent.change(screen.getAllByLabelText(/Due after \(days\)/)[1], { target: { value: "30" } });
     fill("Legal entity", LE);
+    fill("Currency", "EUR");
     fill("Customer", CUST);
     fill("Invoice account", ACCT);
     fill("Description", "Machine");

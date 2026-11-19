@@ -68,29 +68,28 @@ func enteredTotal(rows []store.TransactionRow) decimal.Decimal {
 	return total
 }
 
-func netBookedQty(ctx context.Context, s PostingsStore, legalEntityID, tenantID, receiptID string, receiptLineNo int, rows []store.TransactionRow) (decimal.Decimal, error) {
+func correctionOrigins(tenantID, receiptID string, receiptLineNo int) []string {
 	origins := make([]string, 0, invoiceCorrectionProbe)
 	for seq := 1; seq <= invoiceCorrectionProbe; seq++ {
 		origins = append(origins, receiptCorrectionSourceID(tenantID, receiptID, seq, receiptLineNo))
 	}
-	mirrors, err := s.LineBookings(ctx, legalEntityID, sourceReceiptLine, origins)
-	if err != nil {
-		return decimal.Zero, err
-	}
-	net := enteredTotal(rows)
-	for _, m := range mirrors {
-		net = net.Add(enteredTotal(m))
-	}
-	return net, nil
+	return origins
 }
 
-func stepInvoiceLine(ctx context.Context, s PostingsStore, d invoicePostedData, lineNo int, receiptID string, qty, amount, booked decimal.Decimal, rows []store.TransactionRow,
-	evt events.Event) (int, error) {
-	if qty.LessThan(booked) {
-		slog.WarnContext(ctx, "invoice line partial, stays RECEIVED", "invoiceId", d.InvoiceID, "receiptId", receiptID, "lineNo", lineNo,
-			"invoicedQty", qty.String(), "bookedQty", booked.String(), "eventId", evt.ID)
-		return 0, nil
+func netBookedQty(bookings map[string][]store.TransactionRow, tenantID, receiptID string, receiptLineNo int, rows []store.TransactionRow) (decimal.Decimal, decimal.Decimal) {
+	net := enteredTotal(rows)
+	mirrorValue := decimal.Zero
+	for _, origin := range correctionOrigins(tenantID, receiptID, receiptLineNo) {
+		for _, m := range bookings[origin] {
+			net = net.Add(m.EnteredQty)
+			mirrorValue = mirrorValue.Add(m.CostAmountPhysical)
+		}
 	}
+	return net, mirrorValue
+}
+
+func stepInvoiceLine(ctx context.Context, s PostingsStore, d invoicePostedData, lineNo int, receiptID string, amount decimal.Decimal, rows []store.TransactionRow,
+	evt events.Event) (int, error) {
 	date, _ := postingDate(d.PostingDate, evt)
 	shares := invoiceShares(amount, len(rows), d.Currency)
 	stepped := 0
@@ -138,9 +137,11 @@ func bookInvoice(ctx context.Context, s PostingsStore, evt events.Event) error {
 	for _, l := range d.Lines {
 		if ids.Valid(l.ReceiptID) && l.ReceiptLineNo > 0 {
 			origins = append(origins, receiptLineSourceID(evt.TenantID, l.ReceiptID, l.ReceiptLineNo))
+			origins = append(origins, correctionOrigins(evt.TenantID, l.ReceiptID, l.ReceiptLineNo)...)
 		}
 	}
-	bookings, err := s.LineBookings(ctx, strings.ToLower(d.LegalEntityID), sourceReceiptLine, origins)
+	legalEntityID := strings.ToLower(d.LegalEntityID)
+	bookings, err := s.LineBookings(ctx, legalEntityID, sourceReceiptLine, origins)
 	if err != nil {
 		slog.ErrorContext(ctx, "read the booked receipt lines failed", "invoiceId", d.InvoiceID, "err", err, "eventId", evt.ID)
 		return fmt.Errorf("read the booked receipt lines: %w", err)
@@ -164,18 +165,23 @@ func bookInvoice(ctx context.Context, s PostingsStore, evt events.Event) error {
 			failed.add(what, fmt.Errorf("%s: receipt line %s/%d is not booked yet", CodePostingOriginalMissing, strings.ToLower(l.ReceiptID), l.ReceiptLineNo))
 			continue
 		}
-		booked := enteredTotal(rows)
-		if qty.LessThan(booked) {
-			var nerr error
-			if booked, nerr = netBookedQty(ctx, s, strings.ToLower(d.LegalEntityID), evt.TenantID, l.ReceiptID, l.ReceiptLineNo, rows); nerr != nil {
-				slog.ErrorContext(ctx, "read the receipt line corrections failed", "invoiceId", d.InvoiceID, "receiptId", l.ReceiptID, "lineNo", l.LineNo, "err", nerr, "eventId", evt.ID)
-				failed.add(what, fmt.Errorf("read the receipt line corrections: %w", nerr))
-				continue
-			}
+		lineSource := receiptLineSourceID(evt.TenantID, l.ReceiptID, l.ReceiptLineNo)
+		total, rerr := s.RecordInvoicePart(ctx, legalEntityID, lineSource, strings.ToLower(d.InvoiceID), l.LineNo, qty, amount)
+		if rerr != nil {
+			slog.ErrorContext(ctx, "record the invoiced part of the receipt line failed", "invoiceId", d.InvoiceID, "receiptId", l.ReceiptID, "lineNo", l.LineNo, "err", rerr, "eventId", evt.ID)
+			failed.add(what, rerr)
+			continue
 		}
-		n, err := stepInvoiceLine(ctx, s, d, l.LineNo, l.ReceiptID, qty, amount, booked, rows, evt)
+		net, mirrorValue := netBookedQty(bookings, evt.TenantID, l.ReceiptID, l.ReceiptLineNo, rows)
+		if total.Qty.LessThan(net) {
+			slog.InfoContext(ctx, "invoice line is a part invoice, stays RECEIVED", "invoiceId", d.InvoiceID, "receiptId", l.ReceiptID, "lineNo", l.LineNo,
+				"invoicedQty", total.Qty.String(), "bookedQty", net.String(), "eventId", evt.ID)
+			continue
+		}
+		n, err := stepInvoiceLine(ctx, s, d, l.LineNo, l.ReceiptID, total.Amount.Sub(mirrorValue), rows, evt)
 		stepped += n
 		if err != nil {
+			slog.ErrorContext(ctx, "step the invoiced receipt line failed", "invoiceId", d.InvoiceID, "receiptId", l.ReceiptID, "lineNo", l.LineNo, "err", err, "eventId", evt.ID)
 			failed.add(what, err)
 		}
 	}
