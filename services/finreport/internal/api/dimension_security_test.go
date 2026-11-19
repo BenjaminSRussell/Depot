@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -129,24 +130,24 @@ func TestRunRoutes_RefuseWhenTheDecisionFails(t *testing.T) {
 	}
 }
 
-func TestDrill_ReportsTheFilteredAmount(t *testing.T) {
+func TestDrill_ReportsThatSomethingWasFilteredButNotHowMuch(t *testing.T) {
 	s := &scopedStore{runScope: "COST_CENTER=100", filtered: decimal.RequireFromString("40.5")}
 	router := scopedRouter(s, fakeDecider{scope: costCentre100})
 	var cells struct {
 		Items []struct {
-			FilteredAmount string `json:"filteredAmount"`
+			Filtered bool `json:"filtered"`
 		} `json:"items"`
 	}
 	w := call(router, http.MethodGet, "/v1/reporting/runs/"+runUUID+"/cells", "", nil, DutyView)
-	if err := json.Unmarshal(w.Body.Bytes(), &cells); err != nil || cells.Items[0].FilteredAmount != "40.500000" {
+	if err := json.Unmarshal(w.Body.Bytes(), &cells); err != nil || !cells.Items[0].Filtered || strings.Contains(w.Body.String(), "40.5") {
 		t.Fatalf("cells %s", w.Body.String())
 	}
 	var drill struct {
-		FilteredAmount string            `json:"filteredAmount"`
-		Warning        map[string]string `json:"warning"`
+		Filtered bool              `json:"filtered"`
+		Warning  map[string]string `json:"warning"`
 	}
 	w = call(router, http.MethodGet, "/v1/reporting/runs/"+runUUID+"/cells/REV/P/balances", "", nil, DutyView)
-	if err := json.Unmarshal(w.Body.Bytes(), &drill); err != nil || drill.FilteredAmount != "40.500000" || drill.Warning["code"] != CodeFilteredAmount {
+	if err := json.Unmarshal(w.Body.Bytes(), &drill); err != nil || !drill.Filtered || strings.Contains(w.Body.String(), "40.5") || drill.Warning["code"] != CodeFilteredAmount {
 		t.Fatalf("balances %s", w.Body.String())
 	}
 	s.filtered = decimal.Zero

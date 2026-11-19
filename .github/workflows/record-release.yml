@@ -45,9 +45,9 @@ jobs:
             base=$(git log --diff-filter=A --format=%H -1 -- "${releases[-1]}")
           fi
           if [ -z "$base" ]; then base=$(git rev-list --max-parents=0 "$HEAD_SHA" | tail -1); fi
-          start=$(( ${#releases[@]} > 5 ? ${#releases[@]} - 5 : 0 ))
+          # Every earlier release counts: the provisional-use cap and its 90-day window (G8) look back across all of them.
           previous=()
-          for file in "${releases[@]:start}"; do previous+=(--previous "$file"); done
+          for file in "${releases[@]}"; do previous+=(--previous "$file"); done
           node apps/web/scripts/check-usability-gate.mjs --notes "$newest" --range "$base..$HEAD_SHA" "${previous[@]}"
       - env:
           DEPOT_PLATFORM_API_URL: ${{ vars.DEPOT_PLATFORM_API_URL }}

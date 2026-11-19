@@ -7,7 +7,7 @@ import { checkAxeAA } from "../../shell/a11y";
 import type { ActivationResponse, CostingVersion, ItemCostRow } from "./api/client";
 import { VersionDetailPage } from "./VersionDetailPage";
 import { CreateVersionPage, validateVersion, VersionsPage } from "./VersionsPage";
-import { costDelta, parseOnHandCsv } from "./versionParts";
+import { costDelta } from "./versionParts";
 
 const shellRules = new Set(["page-has-heading-one", "landmark-unique", "region", "bypass"]);
 const pageViolations = (container: HTMLElement) => checkAxeAA(container).filter((v) => !shellRules.has(v.id));
@@ -49,6 +49,7 @@ const preview: ActivationResponse = {
   lineCount: 2,
   revaluationTotal: "110.00",
   sites: [{ siteId: S1, revaluation: "110.00" }],
+  vouchers: { posted: 1, pending: 0 },
   topDeltas: [
     { productId: P1, siteId: S1, previousCost: "10", newCost: "11", onHandQty: "100", revaluation: "100.00" },
     { productId: P2, siteId: S1, bookValue: "100.00", newCost: "5.5", onHandQty: "20", revaluation: "10.00" },
@@ -97,7 +98,6 @@ function at(path: string) {
   );
 }
 
-const ON_HAND = `productId,siteId,qty,bookValue\n${P1},${S1},100,\n${P2},${S1},20,100`;
 
 function detailRoutes(extra: Record<string, Handler> = {}) {
   return stubRoutes({
@@ -227,29 +227,18 @@ describe("VersionDetailPage", () => {
     at(`/costing/versions/${V1}`);
     const activate = await screen.findByRole("button", { name: "Activate version" });
     expect(activate).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("On hand at activation (CSV)"), { target: { value: ON_HAND } });
     fireEvent.click(screen.getByRole("button", { name: "Preview revaluation" }));
     const result = await screen.findByRole("region", { name: "Revaluation preview" });
     expect(within(result).getByRole("table", { name: "Revaluation by site" })).toHaveTextContent("110.00");
     expect(within(result).getByRole("table", { name: "Largest revaluation deltas" })).toHaveTextContent("Book value 100.00");
     const [[, previewInit]] = calls(fetchMock, "POST", ":preview-activation");
-    expect(JSON.parse(String(previewInit.body))).toEqual({
-      onHand: [
-        { productId: P1, siteId: S1, qty: "100" },
-        { productId: P2, siteId: S1, qty: "20", bookValue: "100" },
-      ],
-    });
+    expect(JSON.parse(String(previewInit.body))).toEqual({});
     await waitFor(() => expect(activate).toBeEnabled());
 
-    // Editing the on-hand makes the preview stale again.
-    fireEvent.change(screen.getByLabelText("On hand at activation (CSV)"), { target: { value: `${ON_HAND}\n` } });
-    expect(activate).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("On hand at activation (CSV)"), { target: { value: ON_HAND } });
-    expect(activate).toBeEnabled();
-
     fireEvent.click(activate);
-    expect(await findStatus()).toHaveTextContent("Version STD-2027 is active. Revaluation 110.00 EUR.");
+    expect(await findStatus()).toHaveTextContent("Version STD-2027 is active. Revaluation 110.00 EUR: 1 voucher(s) posted, 0 pending.");
     const [[, activateInit]] = calls(fetchMock, "POST", ":activate");
+    expect(JSON.parse(String(activateInit.body))).toEqual({});
     expect((activateInit.headers as Record<string, string>)["If-Match"]).toBe('"4"');
   });
 
@@ -266,18 +255,13 @@ describe("VersionDetailPage", () => {
     expect(screen.getByRole("button", { name: "Activate version" })).toBeDisabled();
   });
 
-  it("shows a refused preview's message and rejects bad on-hand before sending", async () => {
-    const fetchMock = detailRoutes({
+  it("shows a refused preview's message", async () => {
+    detailRoutes({
       [`POST /api/v1/costing/versions/${V1}:preview-activation`]: () =>
         json(422, { title: "Unprocessable Entity", code: "CST-ACT-007", detail: "1 product and site pairs have stock but no active standard cost" }),
     });
     at(`/costing/versions/${V1}`);
-    fireEvent.change(await screen.findByLabelText("On hand at activation (CSV)"), { target: { value: "productId,siteId,qty\nnope,x,1" } });
-    fireEvent.click(screen.getByRole("button", { name: "Preview revaluation" }));
-    expect(await screen.findByText("Line 2: productId and siteId must be UUIDs.")).toBeInTheDocument();
-    expect(calls(fetchMock, "POST", ":preview-activation")).toHaveLength(0);
-    fireEvent.change(screen.getByLabelText("On hand at activation (CSV)"), { target: { value: `productId,siteId,qty\n${P2},${S1},20` } });
-    fireEvent.click(screen.getByRole("button", { name: "Preview revaluation" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Preview revaluation" }));
     await waitFor(() => expect(screen.getAllByRole("alert").some((a) => a.textContent?.includes("no active standard cost"))).toBe(true));
   });
 
@@ -315,19 +299,6 @@ describe("VersionDetailPage", () => {
     expect(await screen.findByRole("region", { name: "Recorded revaluation" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Activate version" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Import costs" })).not.toBeInTheDocument();
-  });
-});
-
-describe("parseOnHandCsv", () => {
-  it("reads columns in any order with an optional book value", () => {
-    expect(parseOnHandCsv("")).toEqual({ ok: true, value: [] });
-    expect(parseOnHandCsv(`qty,SiteId,productid\n-3,${S1},${P1}`)).toEqual({ ok: true, value: [{ productId: P1, siteId: S1, qty: "-3" }] });
-  });
-
-  it("names the line of the first bad row", () => {
-    expect(parseOnHandCsv("a,b\n")).toMatchObject({ ok: false });
-    expect(parseOnHandCsv(`productId,siteId,qty\n${P1},${S1},1.0000001`)).toEqual({ ok: false, error: "Line 2: qty must be a number with at most 6 decimals." });
-    expect(parseOnHandCsv(`productId,siteId,qty\n${P1},${S1},1\n${P1.toUpperCase()},${S1},2`)).toEqual({ ok: false, error: "Line 3: this product and site is already listed." });
   });
 });
 

@@ -247,14 +247,6 @@ export interface ItemCostRow {
   activatedAt?: string;
 }
 
-export interface OnHandLine {
-  productId: string;
-  siteId: string;
-  qty: string;
-  /** Current inventory value; needed where the product and site has no standard yet. */
-  bookValue?: string;
-}
-
 export interface ActivationDelta {
   productId: string;
   siteId: string;
@@ -276,6 +268,7 @@ export interface ActivationResponse {
   revaluationTotal: string;
   sites: { siteId: string; revaluation: string }[];
   topDeltas: ActivationDelta[];
+  vouchers: { posted: number; pending: number };
 }
 
 const versionsPath = "/api/v1/costing/versions";
@@ -320,13 +313,13 @@ export function copyItemCosts(
   return post(`${versionPath(targetId)}/item-costs:copy`, { sourceVersionId, percentChange }, fetchImpl);
 }
 
-export function previewActivation(id: string, onHand: OnHandLine[], fetchImpl: typeof fetch = apiFetch): Promise<ActivationResponse> {
-  return post(`${versionPath(id)}:preview-activation`, { onHand }, fetchImpl);
+export function previewActivation(id: string, fetchImpl: typeof fetch = apiFetch): Promise<ActivationResponse> {
+  return post(`${versionPath(id)}:preview-activation`, {}, fetchImpl);
 }
 
 /** Activates at the version the preview returned; a change since then is 412 conflict_version. */
-export function activateVersion(id: string, version: number, onHand: OnHandLine[], fetchImpl: typeof fetch = apiFetch): Promise<ActivationResponse> {
-  return post(`${versionPath(id)}:activate`, { onHand }, fetchImpl, { "If-Match": `"${version}"` });
+export function activateVersion(id: string, version: number, fetchImpl: typeof fetch = apiFetch): Promise<ActivationResponse> {
+  return post(`${versionPath(id)}:activate`, {}, fetchImpl, { "If-Match": `"${version}"` });
 }
 
 // ---- valuation setup (FR-20.15, FR-20.16) ----

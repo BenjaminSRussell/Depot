@@ -235,3 +235,19 @@ func TestPlanActivation_TotalsReconcileProperty(t *testing.T) {
 		}
 	})
 }
+
+func TestPlanActivation_SiteTotalBooksQtyTimesDeltaOnInventoryAndAdjustment(t *testing.T) {
+	plan, err := PlanActivation(false, 2, []PendingCost{{ProductID: "p", SiteID: "s", NewCost: dec("11"), PreviousCost: dec("10"), HasPrevious: true, OnHandQty: dec("100")}})
+	if err != nil || len(plan.Sites) != 1 {
+		t.Fatalf("plan %+v, %v", plan, err)
+	}
+	accounts := PostingAccounts{Inventory: "1400", Adjustment: "5000"}
+	raise := CloseVoucher(accounts, plan.Sites[0].Amount)
+	if len(raise) != 2 || raise[0].Account != "1400" || raise[0].Credit || !raise[0].Amount.Equal(dec("100")) || raise[1].Account != "5000" || !raise[1].Credit {
+		t.Errorf("raise voucher %+v, want Dr 1400 / Cr 5000 of 100 = 100 x (11 - 10)", raise)
+	}
+	cut := CloseVoucher(accounts, plan.Sites[0].Amount.Neg())
+	if cut[0].Account != "1400" || !cut[0].Credit || cut[1].Credit {
+		t.Errorf("cut voucher %+v, want Cr 1400 / Dr 5000", cut)
+	}
+}

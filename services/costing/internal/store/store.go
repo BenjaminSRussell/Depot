@@ -64,10 +64,10 @@ type Store interface {
 	GetVersion(ctx context.Context, id string) (CostingVersion, error)
 	ListItemCosts(ctx context.Context, versionID, after string, limit int) (ItemCostPage, error)
 	CopyItemCosts(ctx context.Context, targetID, sourceID string, percent decimal.Decimal) (int, error)
-	PreviewActivation(ctx context.Context, versionID string, onHand OnHand) (ActivationResult, error)
+	PreviewActivation(ctx context.Context, versionID string) (ActivationResult, error)
 	// ActivateVersion commits the activation when the version is still at
 	// expectedVersion (If-Match); an ACTIVE version replays its stored result.
-	ActivateVersion(ctx context.Context, versionID string, expectedVersion int, onHand OnHand) (ActivationResult, error)
+	ActivateVersion(ctx context.Context, versionID string, expectedVersion int, ledger ledgerclient.Ledger) (ActivationResult, error)
 	CurrentCost(ctx context.Context, productID, siteID, asOf string) (CostLookup, error)
 	// Valuation setup (FR-20.15, FR-20.16). An empty legalEntityID lists every
 	// legal entity in the caller's scope.
@@ -96,7 +96,7 @@ type Store interface {
 	// Manual cost adjustments (FR-20.6). CreateAdjustment reports created=false
 	// for an idempotent replay.
 	PreviewAdjustment(ctx context.Context, in AdjustmentRequest) (Adjustment, error)
-	CreateAdjustment(ctx context.Context, in AdjustmentRequest, idempotencyKey, requestHash string) (a Adjustment, created bool, err error)
+	CreateAdjustment(ctx context.Context, in AdjustmentRequest, idempotencyKey, requestHash string, ledger ledgerclient.Ledger) (a Adjustment, created bool, err error)
 	GetAdjustment(ctx context.Context, id string) (Adjustment, error)
 	ListAdjustments(ctx context.Context, f AdjustmentFilter, after string, limit int) (AdjustmentPage, error)
 	// Stored reconciliation runs (FR-20.4). CreateReconciliationRun reports

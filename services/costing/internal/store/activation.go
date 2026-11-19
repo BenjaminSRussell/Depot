@@ -3,10 +3,12 @@ package store
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
@@ -15,6 +17,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/events"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 	"github.com/BenjaminSRussell/depot/platform/money"
 	"github.com/BenjaminSRussell/depot/platform/outbox"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
@@ -35,26 +38,24 @@ const (
 	activateLock = "costing.activate"
 )
 
-// OnHandQty is the physical on-hand of one product x site at activation
-// (BR-20.7) and, where it has no active standard yet, its current book value.
-type OnHandQty struct {
-	Qty       decimal.Decimal
-	BookValue *decimal.Decimal
+type onHandValue struct {
+	qty, book decimal.Decimal
 }
 
-// OnHand maps OnHandKey(product, site) to its on-hand.
-type OnHand map[string]OnHandQty
-
-// OnHandKey is the map key for a product x site in an OnHand map.
+// OnHandKey is the key of a product x site: the on-hand map of loadOnHand and the outbox aggregate id.
 func OnHandKey(productID, siteID string) string { return productID + "|" + siteID }
 
 // ActivationResult is the outcome of an activation or a preview of one. Plan is
 // the revaluation the activation posts (or would post, or did post when
-// AlreadyActive replays a version activated earlier).
+// AlreadyActive replays a version activated earlier). VouchersPosted are the
+// revaluation vouchers the ledger confirmed, VouchersPending those staged and
+// still to be sent (POST /v1/costing/gl-postings retries them).
 type ActivationResult struct {
-	Version       CostingVersion
-	AlreadyActive bool
-	Plan          domain.ActivationPlan
+	Version         CostingVersion
+	AlreadyActive   bool
+	Plan            domain.ActivationPlan
+	VouchersPosted  int
+	VouchersPending int
 }
 
 // CostLookup is the standard cost of one product x site in force on a date
@@ -355,8 +356,8 @@ func (s *Postgres) CopyItemCosts(ctx context.Context, targetID, sourceID string,
 // PreviewActivation computes the revaluation that activating versionID would
 // post, without changing any row (FR-20.5: mandatory preview before activation).
 // For an ACTIVE version it returns the revaluation recorded at activation.
-func (s *Postgres) PreviewActivation(ctx context.Context, versionID string, onHand OnHand) (ActivationResult, error) {
-	return s.activate(ctx, versionID, 0, onHand, false)
+func (s *Postgres) PreviewActivation(ctx context.Context, versionID string) (ActivationResult, error) {
+	return s.activate(ctx, versionID, 0, nil, false)
 }
 
 // ActivateVersion activates a DRAFT STANDARD version in one transaction: the
@@ -366,12 +367,15 @@ func (s *Postgres) PreviewActivation(ctx context.Context, versionID string, onHa
 // the outbox. All of it commits or none of it does. Activations in one legal
 // entity are serialised by an advisory lock, so two versions never read the
 // same "previous" cost. Activating an ACTIVE version replays its recorded
-// result without writing (idempotent per version id).
-func (s *Postgres) ActivateVersion(ctx context.Context, versionID string, expectedVersion int, onHand OnHand) (ActivationResult, error) {
-	return s.activate(ctx, versionID, expectedVersion, onHand, true)
+// result without writing (idempotent per version id). The on-hand comes from the
+// inventory-fed cost transactions, and the revaluation is staged as one voucher
+// per site and one REVALUATION cost transaction per product x site in the same
+// transaction; the vouchers are sent to ledger afterwards.
+func (s *Postgres) ActivateVersion(ctx context.Context, versionID string, expectedVersion int, ledger ledgerclient.Ledger) (ActivationResult, error) {
+	return s.activate(ctx, versionID, expectedVersion, ledger, true)
 }
 
-func (s *Postgres) activate(ctx context.Context, versionID string, expectedVersion int, onHand OnHand, commit bool) (ActivationResult, error) {
+func (s *Postgres) activate(ctx context.Context, versionID string, expectedVersion int, ledger ledgerclient.Ledger, commit bool) (ActivationResult, error) {
 	p, _ := tenant.FromContext(ctx)
 	var out ActivationResult
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
@@ -392,8 +396,8 @@ func (s *Postgres) activate(ctx context.Context, versionID string, expectedVersi
 		if v.Status != "DRAFT" {
 			return httpx.NewProblem(http.StatusConflict, CodeVersionNotDraft, "only a DRAFT version can be activated")
 		}
-		if err := domain.CheckActivatable(domain.VersionState{Type: v.Type, EffectiveFrom: v.EffectiveFrom, Blocked: v.BlockActivation},
-			time.Now().UTC().Format(time.DateOnly)); err != nil {
+		today := time.Now().UTC().Format(time.DateOnly)
+		if err := domain.CheckActivatable(domain.VersionState{Type: v.Type, EffectiveFrom: v.EffectiveFrom, Blocked: v.BlockActivation}, today); err != nil {
 			return err
 		}
 		if commit {
@@ -406,7 +410,7 @@ func (s *Postgres) activate(ctx context.Context, versionID string, expectedVersi
 				return err
 			}
 		}
-		pending, err := loadPending(ctx, tx, p.TenantID, versionID, onHand)
+		pending, err := loadPending(ctx, tx, p.TenantID, v.LegalEntityID, versionID, today)
 		if err != nil {
 			return err
 		}
@@ -423,7 +427,8 @@ func (s *Postgres) activate(ctx context.Context, versionID string, expectedVersi
 			return err
 		}
 		out.Version.Status, out.Version.Version, out.Version.ActivatedAt = "ACTIVE", v.Version+1, &activatedAt
-		return nil
+		out.VouchersPending, err = stageRevaluation(ctx, tx, p.TenantID, v, plan, today)
+		return err
 	})
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
@@ -433,12 +438,93 @@ func (s *Postgres) activate(ctx context.Context, versionID string, expectedVersi
 	if err != nil {
 		return ActivationResult{}, err
 	}
+	if out.VouchersPending > 0 && ledger != nil {
+		booked, _, err := s.postStaged(ctx, ledger, out.Version.LegalEntityID, revaluationKeyPrefix+versionID+":")
+		if err != nil {
+			slog.ErrorContext(ctx, "costing revaluation vouchers not sent", "version", versionID, "err", err, "correlationId", middleware.GetReqID(ctx))
+		}
+		out.VouchersPosted = len(booked)
+		out.VouchersPending -= len(booked)
+	}
 	return out, nil
 }
 
+// loadOnHand sums the quantity and inventory value (every kind but PPV, as the
+// value report does) of the cost transactions of the version's pending product x
+// site pairs in the legal entity's primary valuation through today.
+func loadOnHand(ctx context.Context, tx pgx.Tx, tenantID, legalEntityID, versionID, today string) (map[string]onHandValue, error) {
+	rows, err := tx.Query(ctx, `select product_id::text, site_id::text, sum(qty)::text, sum(amount_acct)::text
+		from cost_transaction
+		where tenant_id = $1 and legal_entity_id = $2 and valuation_ledger_id is null and kind <> 'PPV' and financial_date <= $4::date
+		  and (product_id, site_id) in (select product_id, site_id from item_cost where tenant_id = $1 and version_id = $3 and status = 'PENDING')
+		group by product_id, site_id`, tenantID, legalEntityID, versionID, today)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]onHandValue{}
+	for rows.Next() {
+		var productID, siteID, qty, book string
+		if err := rows.Scan(&productID, &siteID, &qty, &book); err != nil {
+			return nil, err
+		}
+		out[OnHandKey(productID, siteID)] = onHandValue{qty: decimal.RequireFromString(qty), book: decimal.RequireFromString(book)}
+	}
+	return out, rows.Err()
+}
+
+// stageRevaluation books the plan inside the activation transaction: one
+// REVALUATION cost transaction per product x site with a non-zero revaluation
+// (so the value report moves with the activation) and one PENDING voucher per
+// site with a non-zero total, Dr inventory and Cr adjustment account when it
+// raises the value. A legal entity without a posting profile cannot book the
+// revaluation, so the activation is refused (409 CST-GL-002) rather than left
+// apart from the ledger. It returns the number of vouchers staged.
+func stageRevaluation(ctx context.Context, tx pgx.Tx, tenantID string, v CostingVersion, plan domain.ActivationPlan, date string) (int, error) {
+	scale := money.MinorUnits(v.Currency)
+	var rows []CostTransaction
+	for _, l := range plan.Lines {
+		if !l.Revaluation.IsZero() {
+			rows = append(rows, CostTransaction{SourceKey: revaluationKeyPrefix + v.ID + ":" + l.ProductID + ":" + l.SiteID, LegalEntityID: v.LegalEntityID,
+				ProductID: l.ProductID, SiteID: l.SiteID, Kind: domain.KindRevaluation, Qty: "0", Amount: l.Revaluation.StringFixed(scale),
+				Currency: v.Currency, FinancialDate: date})
+		}
+	}
+	if len(rows) == 0 {
+		return 0, nil
+	}
+	profile, err := loadProfile(ctx, tx, tenantID, v.LegalEntityID)
+	if err != nil {
+		return 0, err
+	}
+	if err := resolveLedgers(ctx, tx, tenantID, rows); err != nil {
+		return 0, err
+	}
+	if _, err := insertCostTransactions(ctx, tx, tenantID, rows); err != nil {
+		return 0, err
+	}
+	staged := 0
+	for _, st := range plan.Sites {
+		if st.Amount.IsZero() {
+			continue
+		}
+		key := revaluationKeyPrefix + v.ID + ":" + st.SiteID
+		if err := insertVoucher(ctx, tx, tenantID, voucher{legalEntityID: v.LegalEntityID, sourceKey: key, glLedgerID: profile.GLLedgerID, currency: v.Currency,
+			date: date, key: "costing-" + strings.ReplaceAll(key, ":", "-"), lines: domain.CloseVoucher(profile.accounts(), st.Amount)}); err != nil {
+			return 0, err
+		}
+		staged++
+	}
+	return staged, nil
+}
+
 // loadPending reads the PENDING costs of a version with the ACTIVE cost each one
-// replaces, attaching the on-hand used for the revaluation.
-func loadPending(ctx context.Context, tx pgx.Tx, tenantID, versionID string, onHand OnHand) ([]domain.PendingCost, error) {
+// replaces, attaching the on-hand read from the cost transactions.
+func loadPending(ctx context.Context, tx pgx.Tx, tenantID, legalEntityID, versionID, today string) ([]domain.PendingCost, error) {
+	onHand, err := loadOnHand(ctx, tx, tenantID, legalEntityID, versionID, today)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := tx.Query(ctx, `select ic.product_id::text, ic.site_id::text, ic.unit_cost::text, prev.unit_cost::text
 		from item_cost ic
 		left join item_cost prev on prev.tenant_id = ic.tenant_id and prev.product_id = ic.product_id
@@ -456,8 +542,10 @@ func loadPending(ctx context.Context, tx pgx.Tx, tenantID, versionID string, onH
 		if err := rows.Scan(&productID, &siteID, &newCost, &prevCost); err != nil {
 			return nil, err
 		}
-		oh := onHand[OnHandKey(productID, siteID)]
-		pc := domain.PendingCost{ProductID: productID, SiteID: siteID, OnHandQty: oh.Qty, BookValue: oh.BookValue}
+		pc := domain.PendingCost{ProductID: productID, SiteID: siteID}
+		if oh, ok := onHand[OnHandKey(productID, siteID)]; ok {
+			pc.OnHandQty, pc.BookValue = oh.qty, &oh.book
+		}
 		if pc.NewCost, err = decimal.NewFromString(newCost); err != nil {
 			return nil, err
 		}

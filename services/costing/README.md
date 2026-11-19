@@ -30,8 +30,10 @@ Manual cost adjustments (FR-20.6) and stored reconciliation runs that emit `reco
   `dev.depot.costing.cost.changed.v1` (with `adjustmentId`, warehouse and valuation type) to the
   outbox in the same transaction. Refusals: `CST-ADJ-002` nothing to adjust (or not a receipt),
   `CST-ADJ-003` a unit cost without positive stock, `CST-ADJ-004` no change, `CST-ADJ-005` a negative
-  value on positive stock. A replay returns the stored adjustment with 200. The ledger voucher is a
-  handoff (see NOT-IMPLEMENTED).
+  value on positive stock. A replay returns the stored adjustment with 200. The delta's ledger voucher
+  is staged in the same transaction (a legal entity without a posting profile is refused,
+  `CST-GL-002`) and sent after commit; the response `voucher` is `POSTED` or `PENDING`, and
+  `POST /v1/costing/gl-postings` retries a pending one.
 - **Adjustment reads** `GET /v1/costing/adjustments?legalEntityId=&kind=&productId=` (newest
   financial date first, paged) and `GET /v1/costing/adjustments/{id}` (`CST-ADJ-007` not found).
 - **Reconciliation runs** `POST /v1/costing/reconciliations` (duty `costing.reconcile`; the job's
