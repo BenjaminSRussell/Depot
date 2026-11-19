@@ -171,6 +171,14 @@ describe("copilot failures and deadlines", () => {
     expect(await outcome).toMatchObject({ message: COPILOT_TIMEOUT_MESSAGE });
   });
 
+  it("gives up after the request limit when a non-streamed body never finishes", async () => {
+    vi.useFakeTimers();
+    const slowJson = (async () => ({ ok: true, headers: new Headers({ "content-type": "application/json" }), json: () => new Promise(() => undefined) })) as unknown as typeof fetch;
+    const outcome = askCopilot(request, undefined, slowJson).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(AI_REQUEST_TIMEOUT_MS);
+    expect(await outcome).toMatchObject({ message: COPILOT_TIMEOUT_MESSAGE });
+  });
+
   it("stops the first-token timer once a frame arrives, so a long answer is not cut off", async () => {
     vi.useFakeTimers();
     const fetchFn = streamingFetch([new TextEncoder().encode(frames(["token", { text: "Rev" }], ["done", donePayload]))]);

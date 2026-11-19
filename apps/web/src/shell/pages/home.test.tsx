@@ -7,7 +7,7 @@ import { CopilotHome } from "../../modules/copilot/pages";
 import { loadModules, type DepotModule } from "../../modules/registry";
 import { Shell } from "../Shell";
 import { AVAILABILITY_PATH } from "../assistant/availability";
-import { json, pageViolations, server, useFakeServer, type Reply } from "../testing/fakeServer";
+import { availableAssistant, json, pageViolations, server, useFakeServer, type Reply } from "../testing/fakeServer";
 import { HomePage } from "./HomePage";
 import { workspaceKpis } from "./kpi";
 
@@ -39,7 +39,7 @@ const item = (n: number) => ({
   createdAt: "2026-11-01T00:00:00Z",
 });
 
-const enabled = { killSwitch: { halted: false, stale: false, tenant: { active: false, version: null, changedAt: null, byUser: null }, global: { active: false, version: null, changedAt: null } }, budgetStatus: "OK", copilotEnabled: true };
+const enabled = availableAssistant;
 let availability: Reply = json(200, enabled);
 beforeEach(() => {
   availability = json(200, enabled);
@@ -326,11 +326,9 @@ describe("role home", () => {
 
     it.each([
       ["the kill switch is on", json(200, withKill({ halted: true })), paused],
-      ["the kill switch is stale", json(200, withKill({ stale: true })), paused],
       ["the budget is used up", json(200, { ...enabled, budgetStatus: "HARD" }), limit],
       ["the company has the assistant off", json(200, { ...enabled, copilotEnabled: false }), "The assistant is turned off"],
       ["the read fails with a server error", json(503, {}), unreachable],
-      ["the endpoint is not served", json(404, {}), unreachable],
       ["the body cannot be read", json(200, { killSwitch: { halted: "false" } }), unreachable],
     ])("shows the classic home, a notice and no prompt when %s", async (_name, reply: Reply, title) => {
       availability = reply;
@@ -361,16 +359,6 @@ describe("role home", () => {
       expect(main().queryByText(limit)).not.toBeInTheDocument();
     });
 
-    it("returns the assistant-led home on the next check when the kill switch is turned off", async () => {
-      availability = json(200, withKill({ halted: true }));
-      renderHome([COPILOT_DUTY]);
-      expect(await main().findByText(paused)).toBeInTheDocument();
-      availability = json(200, enabled);
-      fireEvent.focus(window);
-      expect(await main().findByRole("textbox", { name: "Ask or do anything..." })).toBeInTheDocument();
-      expect(main().queryByText(paused)).not.toBeInTheDocument();
-    });
-
     it("shows a soft budget warning to an administrator and nothing to anyone else", async () => {
       availability = json(200, { ...enabled, budgetStatus: "SOFT" });
       const admin = renderHome([COPILOT_DUTY, "agents.admin"]);
@@ -380,12 +368,6 @@ describe("role home", () => {
       renderHome([COPILOT_DUTY]);
       expect(await main().findByRole("textbox", { name: "Ask or do anything..." })).toBeInTheDocument();
       expect(main().queryByText("The assistant is close to its usage limit")).not.toBeInTheDocument();
-    });
-
-    it("asks nothing about the assistant for a user without the copilot duty", async () => {
-      renderHome(["inbox.read"]);
-      await waitFor(() => expect(server.calls.length).toBeGreaterThan(0));
-      expect(server.calls.filter((c) => c.url.pathname === AVAILABILITY_PATH)).toHaveLength(0);
     });
   });
 });

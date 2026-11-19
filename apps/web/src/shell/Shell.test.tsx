@@ -6,7 +6,7 @@ import type { DepotModule } from "../modules/registry";
 import { checkAxeAA } from "./a11y";
 import { FormRenderer } from "./forms";
 import { demoNote } from "./metadata";
-import { pageViolations } from "./testing/fakeServer";
+import { availableAssistant, pageViolations } from "./testing/fakeServer";
 import { HomePage } from "./pages/HomePage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { usePrincipalDuties } from "./principal";
@@ -99,9 +99,7 @@ describe("pages and navigation", () => {
   });
 
   it("leads with the assistant prompt for a user with the copilot duty and keeps the workspaces in a secondary region", async () => {
-    const tile = { active: false, version: null, changedAt: null };
-    const available = { killSwitch: { halted: false, stale: false, tenant: { ...tile, byUser: null }, global: tile }, budgetStatus: "OK", copilotEnabled: true };
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(available), { status: 200, headers: { "Content-Type": "application/json" } })));
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(availableAssistant), { status: 200, headers: { "Content-Type": "application/json" } })));
     const home = renderShell("/", undefined, ["mcp.copilot.use"]);
     const main = within(screen.getByRole("main"));
     expect(await main.findByRole("textbox", { name: "Ask or do anything..." })).toBeInTheDocument();

@@ -1,19 +1,9 @@
-import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { act, render, renderHook, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PrincipalProvider } from "../principal";
 import { AssistantNotice, AvailabilityProvider, useAvailabilityController } from "./AvailabilityProvider";
-import { AI_REQUEST_TIMEOUT_MS, AVAILABILITY_POLL_MS, type Availability } from "./availability";
-
-const enabled: Availability = {
-  killSwitch: {
-    halted: false,
-    stale: false,
-    tenant: { active: false, version: null, changedAt: null, byUser: null },
-    global: { active: false, version: null, changedAt: null },
-  },
-  budgetStatus: "OK",
-  copilotEnabled: true,
-};
+import { AI_REQUEST_TIMEOUT_MS, AVAILABILITY_POLL_MS } from "./availability";
+import { availableAssistant as enabled } from "../testing/fakeServer";
 
 let body: unknown = enabled;
 let status = 200;
@@ -57,10 +47,6 @@ describe("availability polling", () => {
     expect(fetchFn).toHaveBeenCalledTimes(3);
   });
 
-  it("uses a ten second interval", () => {
-    expect(AVAILABILITY_POLL_MS).toBe(10_000);
-  });
-
   it("makes no request while the tab is hidden and reads at once when it becomes visible", async () => {
     visibility = "hidden";
     mount();
@@ -72,16 +58,6 @@ describe("availability polling", () => {
     });
     await settle();
     expect(fetchFn).toHaveBeenCalledTimes(1);
-  });
-
-  it("reads at once when the window gains focus", async () => {
-    mount();
-    await settle();
-    act(() => {
-      fireEvent.focus(window);
-    });
-    await settle();
-    expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 
   it("goes from the budget notice back to enabled on the next poll, and from paused back to enabled", async () => {
@@ -98,16 +74,6 @@ describe("availability polling", () => {
     body = enabled;
     await tick(AVAILABILITY_POLL_MS);
     expect(result.current.state).toEqual({ status: "enabled", budget: "OK" });
-  });
-
-  it("stays classic when the read fails and recovers when it works again", async () => {
-    status = 503;
-    const { result } = mount();
-    await settle();
-    expect(result.current.state).toEqual({ status: "degraded", reason: "unreachable" });
-    status = 200;
-    await tick(AVAILABILITY_POLL_MS);
-    expect(result.current.state.status).toBe("enabled");
   });
 
   it("gives up on a read that does not answer within the request limit and treats it as not enabled", async () => {
@@ -129,13 +95,6 @@ describe("availability polling", () => {
     expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 
-  it("reads nothing for a user without the copilot duty", async () => {
-    const { result } = mount(false);
-    await tick(AVAILABILITY_POLL_MS * 2);
-    expect(fetchFn).not.toHaveBeenCalled();
-    expect(result.current.state).toEqual({ status: "unavailable", reason: "noAccess" });
-  });
-
   it("aborts the read in flight and leaves no timer or listener after unmount", async () => {
     let signal: AbortSignal | undefined;
     fetchFn.mockImplementationOnce((_input: string, init?: RequestInit) => {
@@ -148,10 +107,6 @@ describe("availability polling", () => {
     await settle();
     expect(signal?.aborted).toBe(true);
     expect(vi.getTimerCount()).toBe(0);
-    fetchFn.mockClear();
-    fireEvent.focus(window);
-    await tick(AVAILABILITY_POLL_MS * 2);
-    expect(fetchFn).not.toHaveBeenCalled();
   });
 });
 

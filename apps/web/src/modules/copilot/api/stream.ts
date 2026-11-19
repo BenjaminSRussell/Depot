@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { chatResponseSchema, COPILOT_TIMEOUT_MESSAGE, CopilotError, failedCopilotCall, type ChatRequest, type ChatResponse } from "./client";
 import { apiFetch } from "../../../shell/api/http";
-import { AI_FIRST_TOKEN_TIMEOUT_MS, withDeadline } from "../../../shell/assistant/availability";
+import { AI_FIRST_TOKEN_TIMEOUT_MS, AI_REQUEST_TIMEOUT_MS, withDeadline } from "../../../shell/assistant/availability";
 
 /**
  * Streaming client for POST /api/v1/copilot/chat when the server answers with
@@ -151,6 +151,7 @@ export async function askCopilot(
   fetchFn: typeof fetch = apiFetch,
 ): Promise<ChatResponse> {
   const deadline = withDeadline(AI_FIRST_TOKEN_TIMEOUT_MS);
+  let bodyLimit: ReturnType<typeof withDeadline> | undefined;
   try {
     const res = await fetchFn("/api/v1/copilot/chat", {
       method: "POST",
@@ -160,7 +161,16 @@ export async function askCopilot(
       signal: deadline.signal,
     });
     if (!res.ok) throw await failedCopilotCall(res);
-    if (!isEventStream(res)) return chatResponseSchema.parse(await res.json());
+    if (!isEventStream(res)) {
+      deadline.clear();
+      bodyLimit = withDeadline(AI_REQUEST_TIMEOUT_MS);
+      const limit = bodyLimit;
+      const body = await new Promise<unknown>((resolve, reject) => {
+        limit.signal.addEventListener("abort", () => reject(new Error("Copilot response timed out.")), { once: true });
+        res.json().then(resolve, reject);
+      });
+      return chatResponseSchema.parse(body);
+    }
     for await (const event of readChatStream(res)) {
       deadline.clear();
       if (event.type === "token") onToken?.(event.text);
@@ -170,8 +180,9 @@ export async function askCopilot(
     // readChatStream throws before it can end without a terminal frame.
     throw new Error("Copilot stream ended before the answer was complete.");
   } catch (err) {
-    throw deadline.expired() ? new CopilotError(COPILOT_TIMEOUT_MESSAGE) : err;
+    throw deadline.expired() || bodyLimit?.expired() ? new CopilotError(COPILOT_TIMEOUT_MESSAGE) : err;
   } finally {
     deadline.clear();
+    bodyLimit?.clear();
   }
 }

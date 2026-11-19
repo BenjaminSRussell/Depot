@@ -18,6 +18,12 @@ export interface Call {
 
 export const server: { handler: Handler; calls: Call[] } = { handler: () => undefined, calls: [] };
 
+export const availableAssistant = {
+  killSwitch: { halted: false, stale: false, tenant: { active: false, version: null, changedAt: null, byUser: null }, global: { active: false, version: null, changedAt: null } },
+  budgetStatus: "OK" as "OK" | "SOFT" | "HARD",
+  copilotEnabled: true,
+};
+
 export function json(status: number, body: unknown): Reply {
   return { status, body };
 }

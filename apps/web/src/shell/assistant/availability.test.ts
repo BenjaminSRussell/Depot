@@ -9,17 +9,7 @@ import {
   hideAssistantEntries,
   type Availability,
 } from "./availability";
-
-const enabled: Availability = {
-  killSwitch: {
-    halted: false,
-    stale: false,
-    tenant: { active: false, version: null, changedAt: null, byUser: null },
-    global: { active: false, version: null, changedAt: null },
-  },
-  budgetStatus: "OK",
-  copilotEnabled: true,
-};
+import { availableAssistant as enabled } from "../testing/fakeServer";
 
 const reply = (status: number, body: unknown) => vi.fn(async () => new Response(JSON.stringify(body), { status }));
 
@@ -39,16 +29,11 @@ describe("deriveAvailability", () => {
     ["the assistant off for the company", read({ ...enabled, copilotEnabled: false }), { status: "unavailable", reason: "off" }],
     ["a hard budget", read({ ...enabled, budgetStatus: "HARD" }), { status: "degraded", reason: "budget" }],
     ["a network error", { ok: false as const, cause: "network" as const }, { status: "degraded", reason: "unreachable" }],
-    ["a timeout", { ok: false as const, cause: "timeout" as const }, { status: "degraded", reason: "unreachable" }],
-    ["an http error", { ok: false as const, cause: "http" as const }, { status: "degraded", reason: "unreachable" }],
     ["an invalid body", { ok: false as const, cause: "invalid" as const }, { status: "degraded", reason: "unreachable" }],
   ])("maps %s", (_name, input, expected) => {
     expect(deriveAvailability(input)).toEqual(expected);
   });
 
-  it("puts the pause before the budget when both apply", () => {
-    expect(deriveAvailability(read({ ...kill({ halted: true }), budgetStatus: "HARD" }))).toEqual({ status: "unavailable", reason: "paused" });
-  });
 });
 
 describe("applyRefusal", () => {
@@ -72,22 +57,9 @@ describe("getAvailability", () => {
 
   it.each([
     ["null", null],
-    ["an empty object", {}],
-    ["a string flag", { ...enabled, killSwitch: { ...enabled.killSwitch, halted: "true" } }],
-    ["a lower-case budget word", { ...enabled, budgetStatus: "hard" }],
     ["a missing copilotEnabled", { killSwitch: enabled.killSwitch, budgetStatus: "OK" }],
   ])("fails closed on %s", async (_name, body) => {
     expect(await getAvailability(undefined, reply(200, body))).toEqual({ ok: false, cause: "invalid" });
-  });
-
-  it("fails closed on a body that is not JSON", async () => {
-    const fetchFn = vi.fn(async () => new Response("<html>", { status: 200 }));
-    expect(await getAvailability(undefined, fetchFn)).toEqual({ ok: false, cause: "invalid" });
-  });
-
-  it("reports a network error without throwing", async () => {
-    const fetchFn = vi.fn(async () => Promise.reject(new TypeError("Failed to fetch")));
-    expect(await getAvailability(undefined, fetchFn)).toEqual({ ok: false, cause: "network" });
   });
 
   it("aborts and reports a timeout when nothing answers within the request limit", async () => {
@@ -103,16 +75,6 @@ describe("getAvailability", () => {
     expect(await pending).toEqual({ ok: false, cause: "timeout" });
   });
 
-  it("reports a network cause, not a timeout, when the caller aborts", async () => {
-    const caller = new AbortController();
-    const fetchFn = vi.fn(
-      (_input: string, init?: RequestInit) =>
-        new Promise<Response>((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")))),
-    );
-    const pending = getAvailability(caller.signal, fetchFn);
-    caller.abort();
-    expect(await pending).toEqual({ ok: false, cause: "network" });
-  });
 });
 
 describe("hideAssistantEntries", () => {

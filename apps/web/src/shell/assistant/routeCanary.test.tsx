@@ -6,16 +6,11 @@ import { CopilotHome } from "../../modules/copilot/pages";
 import { Shell } from "../Shell";
 import { HomePage } from "../pages/HomePage";
 import { AVAILABILITY_PATH } from "./availability";
-import { json, server, useFakeServer } from "../testing/fakeServer";
+import { availableAssistant, json, server, useFakeServer } from "../testing/fakeServer";
 
 useFakeServer();
 
 const CHAT_PATH = "/api/v1/copilot/chat";
-const AVAILABLE = {
-  killSwitch: { halted: false, stale: false, tenant: { active: false, version: null, changedAt: null, byUser: null }, global: { active: false, version: null, changedAt: null } },
-  budgetStatus: "OK",
-  copilotEnabled: true,
-};
 const CANARY = "CANARY-quarterly-cash-forecast-4417";
 
 let locations: Location[] = [];
@@ -32,7 +27,7 @@ async function renderApp(prompt: string) {
     url.pathname === CHAT_PATH
       ? json(200, { answer: `Answer for ${CANARY}`, citations: [], toolCalls: [], refusal: null, generated: true })
       : url.pathname === AVAILABILITY_PATH
-        ? json(200, AVAILABLE)
+        ? json(200, availableAssistant)
         : undefined;
   render(
     <MemoryRouter initialEntries={["/"]}>
