@@ -629,9 +629,15 @@ type postEntryRequest struct {
 	OptionalDimensions []string `json:"optionalDimensions,omitempty"`
 }
 
+type rateOverrideDTO struct {
+	Rate   string `json:"rate"`
+	Reason string `json:"reason"`
+}
+
 type singleEntryRequest struct {
 	postEntryRequest
-	LedgerLines []ledgerLinesDTO `json:"ledgerLines,omitempty"`
+	LedgerLines  []ledgerLinesDTO `json:"ledgerLines,omitempty"`
+	RateOverride *rateOverrideDTO `json:"rateOverride,omitempty"`
 }
 
 // withoutOptional is the request as the idempotency hash sees it: optional dimensions are best-effort tags
@@ -822,6 +828,16 @@ func (a *API) postEntry(w http.ResponseWriter, r *http.Request) {
 		delete(fields, "lines")
 	}
 	in.LedgerLines = ledgerLinesInput(req.LedgerLines, fields)
+	if req.RateOverride != nil {
+		rate, err := decimal.NewFromString(req.RateOverride.Rate)
+		if err != nil || !rate.IsPositive() {
+			fields["rateOverride.rate"] = "must be a decimal string greater than zero"
+		}
+		if utf8.RuneCountInString(req.RateOverride.Reason) > maxTextLength {
+			fields["rateOverride.reason"] = fmt.Sprintf("must be at most %d characters", maxTextLength)
+		}
+		in.RateOverride, in.RateOverrideReason = &rate, req.RateOverride.Reason
+	}
 	key := idempotencyKey(r, fields)
 	if len(fields) > 0 {
 		validationFailed(w, r, fields)
@@ -837,6 +853,7 @@ func (a *API) postEntry(w http.ResponseWriter, r *http.Request) {
 	}
 	in.Key, in.Hash, in.Actor = key, hash, p.UserID
 	in.CanPostLedgerSpecific = p.HasDuty(store.DutyPostLedgerSpecific)
+	in.CanOverrideRate = p.HasDuty(store.DutyRateOverride)
 	res, err := a.store.PostEntry(r.Context(), in)
 	if err != nil {
 		a.fail(w, r, err)

@@ -14,6 +14,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
 	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/productblock"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
 	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
@@ -91,6 +92,14 @@ func (a *API) createRequisition(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := inScope(p, req.LegalEntityID); err != nil {
+		fail(w, r, err)
+		return
+	}
+	productIDs := make([]string, len(req.Lines))
+	for i, l := range req.Lines {
+		productIDs[i] = l.ProductID
+	}
+	if err := productblock.CheckAll(r.Context(), a.blocks, req.LegalEntityID, productblock.PurchaseRequisition, productIDs); err != nil {
 		fail(w, r, err)
 		return
 	}

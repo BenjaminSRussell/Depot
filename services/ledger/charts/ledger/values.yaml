@@ -101,6 +101,8 @@ ingressPolicy:
     podNames: [expense]
   - name: finreport
     podNames: [finreport]
+  - name: fulfillment
+    podNames: [fulfillment]
   - name: intercompany
     podNames: [intercompany, intercompany-reconcile]
   - name: inventory

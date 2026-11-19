@@ -7,6 +7,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -158,6 +159,8 @@ type Invoice struct {
 	// TradingPartnerID is the legal entity on the other side of an intercompany invoice (#40); empty on an ordinary invoice. The GL
 	// posting names it on the receivable and revenue lines.
 	TradingPartnerID string
+	// ShipTo is the ship-to tax data the proposal was quoted with; the post-time re-quote repeats it.
+	ShipTo *domain.ShipTo
 }
 
 // ProposalBatch is one POST /v1/billing/proposals request: its key, the hash of
@@ -183,7 +186,7 @@ const invoiceColumns = `id::text, legal_entity_id::text, customer_id::text, invo
   coalesce(posting_date::text, ''), payment_term_days, net_amount::text, charge_amount::text, tax_amount::text,
   gross_amount::text, idempotency_key, request_hash, version, coalesce(original_invoice_id::text, ''),
   coalesce((select o.invoice_number from invoice o where o.tenant_id = invoice.tenant_id and o.id = invoice.original_invoice_id), ''),
-  coalesce(credit_reason, '')`
+  coalesce(credit_reason, ''), coalesce(ship_to::text, '')`
 
 func loadInvoice(ctx context.Context, tx pgx.Tx, where string, args ...any) (Invoice, error) {
 	inv, err := scanInvoice(tx.QueryRow(ctx, `select `+invoiceColumns+` from invoice `+where, args...))
@@ -204,14 +207,20 @@ func loadInvoice(ctx context.Context, tx pgx.Tx, where string, args ...any) (Inv
 
 func scanInvoice(row pgx.Row) (Invoice, error) {
 	var inv Invoice
-	var invoiceDate, dueDate, postingDate, net, charge, tax, gross string
+	var invoiceDate, dueDate, postingDate, net, charge, tax, gross, shipTo string
 	err := row.Scan(
 		&inv.ID, &inv.LegalEntityID, &inv.CustomerID, &inv.InvoiceAccountID, &inv.Type, &inv.Status,
 		&inv.Currency, &inv.Number, &inv.FiscalYear, &invoiceDate, &dueDate, &postingDate, &inv.PaymentTermDays,
 		&net, &charge, &tax, &gross, &inv.IdempotencyKey, &inv.RequestHash, &inv.Version, &inv.OriginalInvoiceID,
-		&inv.OriginalNumber, &inv.Reason)
+		&inv.OriginalNumber, &inv.Reason, &shipTo)
 	if err != nil {
 		return Invoice{}, err
+	}
+	if shipTo != "" {
+		inv.ShipTo = &domain.ShipTo{}
+		if err := json.Unmarshal([]byte(shipTo), inv.ShipTo); err != nil {
+			return Invoice{}, fmt.Errorf("invoice %s ship_to: %w", inv.ID, err)
+		}
 	}
 	if inv.InvoiceDate, err = time.Parse(dateLayout, invoiceDate); err != nil {
 		return Invoice{}, err
@@ -236,7 +245,7 @@ func loadLines(ctx context.Context, tx pgx.Tx, invoiceID string) ([]Line, error)
 	rows, err := tx.Query(ctx, `select line_no, description, qty::text, unit_price::text, disc_pct::text, line_net::text,
 		tax_amount::text, revenue_account, tax_code, coalesce(original_line_no, 0), coalesce(packing_slip_id::text, ''),
 		coalesce(packing_slip_line_id::text, ''), coalesce(packing_slip_date::text, ''), coalesce(order_id::text, ''),
-		coalesce(order_line_id::text, ''), coalesce(product_id::text, ''), coalesce(price_explain_ref, '')
+		coalesce(order_line_id::text, ''), coalesce(product_id::text, ''), coalesce(price_explain_ref, ''), coalesce(item_tax_group, '')
 		from invoice_line where invoice_id = $1 order by line_no`, invoiceID)
 	if err != nil {
 		return nil, err
@@ -248,7 +257,7 @@ func loadLines(ctx context.Context, tx pgx.Tx, invoiceID string) ([]Line, error)
 		var qty, price, disc, net, tax, slipDate string
 		src := &l.Source
 		if err := rows.Scan(&l.No, &l.Description, &qty, &price, &disc, &net, &tax, &l.RevenueAccount, &l.TaxCode, &l.OriginalLineNo,
-			&src.PackingSlipID, &src.PackingSlipLineID, &slipDate, &src.OrderID, &src.OrderLineID, &src.ProductID, &src.PriceExplainRef); err != nil {
+			&src.PackingSlipID, &src.PackingSlipLineID, &slipDate, &src.OrderID, &src.OrderLineID, &src.ProductID, &src.PriceExplainRef, &l.ItemTaxGroup); err != nil {
 			return nil, err
 		}
 		if slipDate != "" {
@@ -404,19 +413,26 @@ func (s *Postgres) insertProposal(ctx context.Context, inv Invoice, before func(
 // references, and its installments inside tx.
 func writeProposal(ctx context.Context, tx pgx.Tx, inv Invoice) error {
 	p, _ := tenant.FromContext(ctx)
-	var batchSeq any
+	var batchSeq, shipTo any
 	if inv.ProposalBatchSeq > 0 {
 		batchSeq = inv.ProposalBatchSeq
 	}
+	if inv.ShipTo != nil {
+		raw, err := json.Marshal(inv.ShipTo)
+		if err != nil {
+			return err
+		}
+		shipTo = string(raw)
+	}
 	_, err := tx.Exec(ctx, `insert into invoice (tenant_id, id, legal_entity_id, customer_id, invoice_account_id, invoice_type, status,
 		invoice_date, due_date, payment_term_days, currency, net_amount, charge_amount, tax_amount, gross_amount, idempotency_key, request_hash,
-		original_invoice_id, credit_reason, proposal_batch_id, proposal_batch_seq, counterparty_country, counterparty_vat_id, supply_kind, trading_partner_id)
-		values ($1, $2, $3, $4, $5, $6, 'PROPOSAL', $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)`,
+		original_invoice_id, credit_reason, proposal_batch_id, proposal_batch_seq, counterparty_country, counterparty_vat_id, supply_kind, trading_partner_id, ship_to)
+		values ($1, $2, $3, $4, $5, $6, 'PROPOSAL', $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)`,
 		p.TenantID, inv.ID, inv.LegalEntityID, inv.CustomerID, inv.InvoiceAccountID, inv.Type,
 		inv.InvoiceDate.Format(dateLayout), inv.DueDate.Format(dateLayout), inv.PaymentTermDays, inv.Currency,
 		inv.Totals.Net.String(), inv.Totals.Charges.String(), inv.Totals.Tax.String(), inv.Totals.Gross.String(),
 		inv.IdempotencyKey, inv.RequestHash, nullable(inv.OriginalInvoiceID), nullable(inv.Reason),
-		nullable(inv.ProposalBatchID), batchSeq, nullable(inv.CounterpartyCountry), nullable(inv.CounterpartyVATID), nullable(inv.SupplyKind), nullable(inv.TradingPartnerID))
+		nullable(inv.ProposalBatchID), batchSeq, nullable(inv.CounterpartyCountry), nullable(inv.CounterpartyVATID), nullable(inv.SupplyKind), nullable(inv.TradingPartnerID), shipTo)
 	if err != nil {
 		return err
 	}
@@ -431,12 +447,12 @@ func writeProposal(ctx context.Context, tx pgx.Tx, inv Invoice) error {
 		}
 		if _, err := tx.Exec(ctx, `insert into invoice_line (tenant_id, invoice_id, line_no, description, qty, unit_price, disc_pct,
 			line_net, tax_amount, revenue_account, tax_code, original_line_no, packing_slip_id, packing_slip_line_id, packing_slip_date,
-			order_id, order_line_id, product_id, price_explain_ref)
-			values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
+			order_id, order_line_id, product_id, price_explain_ref, item_tax_group)
+			values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
 			p.TenantID, inv.ID, l.No, l.Description, l.Qty.String(), l.UnitPrice.String(), l.DiscountPct.String(),
 			l.Net.String(), l.Tax.String(), l.RevenueAccount, l.TaxCode, originalLine, nullable(src.PackingSlipID),
 			nullable(src.PackingSlipLineID), slipDate, nullable(src.OrderID), nullable(src.OrderLineID), nullable(src.ProductID),
-			nullable(src.PriceExplainRef)); err != nil {
+			nullable(src.PriceExplainRef), nullable(l.ItemTaxGroup)); err != nil {
 			return err
 		}
 	}

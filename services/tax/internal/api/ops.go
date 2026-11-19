@@ -46,7 +46,10 @@ var accountPattern = regexp.MustCompile(`^[A-Za-z0-9._-]{1,20}$`)
 type Store interface {
 	RecordTransactions(ctx context.Context, txns []domain.Txn) (int, error)
 	SetLedgerConfig(ctx context.Context, cfg store.LedgerConfig) error
-	SettleRun(ctx context.Context, period domain.Period, newGL func(store.LedgerConfig) domain.GLMovement) (store.Run, error)
+	LedgerConfig(ctx context.Context) (store.LedgerConfig, error)
+	SettleRun(ctx context.Context, period domain.Period, settlementAccount string, newGL func(store.LedgerConfig) domain.GLMovement) (store.Run, error)
+	UnpostedRuns(ctx context.Context) ([]store.Run, error)
+	MarkRunPosted(ctx context.Context, runID, entryID string) error
 	Totals(ctx context.Context, period domain.Period) ([]store.Total, error)
 	EnqueueRecommit(ctx context.Context, provider, reason string, request json.RawMessage) (string, error)
 	Recommit(ctx context.Context, limit int, process func(context.Context, store.Recommit) (json.RawMessage, error)) (store.RecommitSummary, error)
@@ -144,13 +147,21 @@ func (a *API) recordTransactions(w http.ResponseWriter, r *http.Request) {
 }
 
 type settleRequest struct {
-	PeriodFrom domain.Date `json:"period_from"`
-	PeriodTo   domain.Date `json:"period_to"`
+	PeriodFrom        domain.Date `json:"period_from"`
+	PeriodTo          domain.Date `json:"period_to"`
+	SettlementAccount string      `json:"settlement_account"`
 }
 
 func (req settleRequest) validate() error {
 	if req.PeriodFrom.IsZero() || req.PeriodTo.IsZero() || req.PeriodTo.Before(req.PeriodFrom.Time) {
 		return invalid("period_from", "period_from and period_to are required and period_to may not precede period_from")
+	}
+	return validSettlementAccount(req.SettlementAccount)
+}
+
+func validSettlementAccount(account string) error {
+	if account != "" && !accountPattern.MatchString(account) {
+		return invalid("settlement_account", "settlement_account is not a valid GL account number")
 	}
 	return nil
 }
@@ -171,7 +182,7 @@ func validateLedgerConfig(cfg store.LedgerConfig) error {
 			return invalid("accounts", "account for %q is not a valid GL account number", key)
 		}
 	}
-	return nil
+	return validSettlementAccount(cfg.SettlementAccount)
 }
 
 func (a *API) setLedgerConfig(w http.ResponseWriter, r *http.Request) {
@@ -211,7 +222,13 @@ func (a *API) settle(w http.ResponseWriter, r *http.Request) {
 		a.reject(w, r, err)
 		return
 	}
-	run, err := a.RunSettlement(r.Context(), domain.Period{From: req.PeriodFrom, To: req.PeriodTo})
+	// The settlement account is governed by the ledger configuration; naming another one in the request
+	// redirects the whole net liability posting, so it needs the configuration duty, not only the run duty.
+	if caller, _ := tenant.FromContext(r.Context()); req.SettlementAccount != "" && !caller.HasDuty(dutyLedgerConfig) {
+		fail(w, r, httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "overriding the settlement account needs duty "+dutyLedgerConfig))
+		return
+	}
+	run, err := a.settleAndPost(r.Context(), domain.Period{From: req.PeriodFrom, To: req.PeriodTo}, req.SettlementAccount)
 	if err != nil {
 		a.reject(w, r, err)
 		return
@@ -219,21 +236,56 @@ func (a *API) settle(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusCreated, run)
 }
 
-// RunSettlement settles the open tax transactions of the period for the legal entity of ctx against the ledger (POST
-// /v1/tax/settlements:run and the scheduled settlement); it is ErrNotConfigured-like 503 when the store or the ledger is missing.
+// RunSettlement settles the open tax transactions of the period for the legal entity of ctx against the ledger and posts the
+// settlement to the settlement account of the ledger configuration (the scheduled settlement).
 func (a *API) RunSettlement(ctx context.Context, period domain.Period) (store.Run, error) {
+	return a.settleAndPost(ctx, period, "")
+}
+
+// settleAndPost first retries the runs an earlier call committed but could not post, then settles the period and posts that run; a
+// failed post leaves its run pending for the next call, which posts it again under the same key, and never blocks the settlement of
+// another period.
+func (a *API) settleAndPost(ctx context.Context, period domain.Period, settlementAccount string) (store.Run, error) {
 	if a.store == nil || a.ledger == nil {
 		return store.Run{}, errors.New("tax: the store or the general ledger is not configured")
+	}
+	pending, err := a.store.UnpostedRuns(ctx)
+	if err != nil {
+		return store.Run{}, err
+	}
+	for _, earlier := range pending {
+		_, _ = a.postRun(ctx, earlier)
 	}
 	p, _ := tenant.FromContext(ctx)
 	newGL := func(cfg store.LedgerConfig) domain.GLMovement {
 		return ledger.GL{Client: a.ledger, LegalEntityID: p.LegalEntityID, LedgerID: cfg.LedgerID, Accounts: cfg.Accounts}
 	}
-	run, err := a.store.SettleRun(ctx, period, newGL)
-	if err == nil {
-		a.settlements.Add(1)
+	run, err := a.store.SettleRun(ctx, period, settlementAccount, newGL)
+	if err != nil {
+		return run, err
 	}
-	return run, err
+	a.settlements.Add(1)
+	return a.postRun(ctx, run)
+}
+
+func (a *API) postRun(ctx context.Context, run store.Run) (store.Run, error) {
+	p, _ := tenant.FromContext(ctx)
+	currency, err := ledger.AccountingCurrency(ctx, a.ledger, p.LegalEntityID, run.LedgerID)
+	if err == nil {
+		poster := ledger.Poster{Client: a.ledger, RunID: run.ID, LegalEntityID: p.LegalEntityID, LedgerID: run.LedgerID, Currency: currency,
+			Accounts: run.Accounts, SettlementAccount: run.SettlementAccount}
+		run.PostedEntryID, err = domain.PostSettlement(ctx, poster, run.ID, run.Settlement)
+	}
+	if err != nil {
+		slog.Error("tax settlement post failed", "runId", run.ID, "ledgerCode", ledgerclient.CodeOf(err), "err", err, "correlationId", middleware.GetReqID(ctx))
+		return run, fmt.Errorf("%w: %w", ledger.ErrPost, err)
+	}
+	if err := a.store.MarkRunPosted(ctx, run.ID, run.PostedEntryID); err != nil {
+		slog.Error("tax settlement posted but not marked", "runId", run.ID, "err", err, "correlationId", middleware.GetReqID(ctx))
+		return run, err
+	}
+	a.postedSettlements.Add(1)
+	return run, nil
 }
 
 // RunRecommit drains up to limit queued recommits of the legal entity of ctx on their providers (POST /v1/tax/recommit:run and the

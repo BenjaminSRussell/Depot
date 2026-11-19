@@ -23,7 +23,7 @@ Part of #80. `kustomization.yaml` turns `realm-depot.json` into a ConfigMap that
 
 ## Tests
 
-`services/identity/keycloak_test.go` and `keycloak_login_test.go`. The realm tests always run and check the export against identity's expectations: audience, the `tid`/`le`/`duties`/`tier` single-string claims (`duties` comma-joined, as apps/web `parseDuties` reads it), token lifespan, the MFA flows (browser and post-broker), the pinned OTP policy, admin-only token attributes, IdP mappers that keep token claims local, and no embedded secrets.
+`services/identity/keycloak_test.go` and `keycloak_login_test.go`. The realm tests always run and check the export against identity's expectations: audience, the `tid`/`le`/`duties`/`tier` single-string claims (`duties` comma-joined, as apps/web `parseDuties` reads it), token lifespan, the MFA flows (browser and post-broker), the pinned OTP policy, admin-only token attributes (`tenant_id`, `legal_entity_id`, `duties`, `tier`, `customer_id`, `vendor_id`) with no `unmanagedAttributePolicy` that lets users write attributes, a negative control (`TestKeycloakRealmChecksFailOnABadRealm`) that breaks a copy of the realm and expects the check to fail on an editable claim attribute, a missing audience mapper or enabled unmanaged attributes, IdP mappers that keep token claims local, and no embedded secrets.
 
 The live tests run only when `DEPOT_TEST_KEYCLOAK_URL` is set. The `keycloak` job in `.github/workflows/ci.yml` starts `quay.io/keycloak/keycloak:26.0.8` with `docker run` (a `services:` container cannot take the `start-dev --import-realm` arguments) with this realm and a per-run random admin password, then runs `go test -run Keycloak`:
 

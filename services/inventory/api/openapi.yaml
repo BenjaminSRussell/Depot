@@ -990,6 +990,35 @@ paths:
         '400': { $ref: '#/components/responses/Problem' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
+  /v1/inventory/issue-cost:
+    get:
+      operationId: getInventoryIssueCost
+      summary: Running average unit cost an issue from a warehouse is valued at
+      description: |
+        Service-to-service call of fulfillment (packing-slip post), which prices the slip from inventory
+        valuation instead of the request. The cost is the running average unit cost of the product over
+        every on-hand row of the warehouse (any site, location or batch), valued as the DELIVERED booking
+        values the issue: posted value plus the physical cost of receipts and issues not yet posted,
+        over the same quantities. A warehouse with no stock answers unitCost 0 and an empty currency.
+      x-depot-duty: inventory.issue.claim
+      parameters:
+        - { name: legalEntityId, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: productId, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: warehouse, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 120 } }
+      responses:
+        '200':
+          description: The unit cost and the currency the stock is valued in
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [currency, unitCost]
+                properties:
+                  currency: { type: string, description: 'ISO 4217, empty when no row holds a value' }
+                  unitCost: { $ref: '#/components/schemas/Decimal' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
   /v1/inventory/count-plans:
     post:
       operationId: createInventoryCountPlan

@@ -9,15 +9,14 @@ paths:
   /v1/numbering/sequences:
     get:
       operationId: listSequences
-      summary: "List the number sequences in the caller's legal-entity scope"
-      description: Sequences of every legal entity the caller's claim covers (all of the tenant's for an all-scope caller), in id order, each with the number its next allocation issues. A caller with no legal-entity scope gets 403 AUTH-0003.
+      summary: "List number sequences in the caller's legal-entity scope"
       x-depot-duty: numbering.read
       parameters:
-        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
-        - { name: cursor, in: query, description: The nextCursor of the previous page., schema: { type: string, format: uuid } }
+        - { name: after, in: query, schema: { type: string, format: uuid }, description: 'Cursor: the next value of the previous page' }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         '200':
-          description: One page of sequences.
+          description: One page in id order. next is empty on the last page.
           content: { application/json: { schema: { $ref: '#/components/schemas/SequencePage' } } }
         default: { $ref: '#/components/responses/Problem' }
     post:
@@ -59,6 +58,69 @@ paths:
           description: Next value. Gap-free sequences never skip or repeat.
           content: { application/json: { schema: { $ref: '#/components/schemas/Issued' } } }
         default: { $ref: '#/components/responses/Problem' }
+  /v1/numbering/sequences/{code}/reserve:
+    post:
+      operationId: reserveNumber
+      summary: "Reserve the next number of a sequence until it is confirmed, voided or its lease expires"
+      x-depot-duty: numbering.write
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string } }
+        - { name: Idempotency-Key, in: header, schema: { type: string } }
+      requestBody:
+        content: { application/json: { schema: { $ref: '#/components/schemas/ReserveNumber' } } }
+      responses:
+        '201':
+          description: Reserved number, or the original on an Idempotency-Key replay.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Reservation' } } }
+        default: { $ref: '#/components/responses/Problem' }
+  /v1/numbering/reservations/{id}/confirm:
+    post:
+      operationId: confirmReservation
+      summary: "Confirm a reservation once the document that carries the number is committed"
+      x-depot-duty: numbering.write
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ConfirmReservation' } } }
+      responses:
+        '200':
+          description: Confirmed reservation.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Reservation' } } }
+        '404': { description: 'NUM-0007 reservation not found.' }
+        '409': { description: 'NUM-0005 the lease expired and the number was voided, or NUM-0006 the reservation is already confirmed or voided.' }
+        default: { $ref: '#/components/responses/Problem' }
+  /v1/numbering/reservations/{id}/void:
+    post:
+      operationId: voidReservation
+      summary: "Void a reservation; the number is logged and never offered again"
+      x-depot-duty: numbering.write
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/VoidReservation' } } }
+      responses:
+        '200':
+          description: Voided reservation.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Reservation' } } }
+        '404': { description: 'NUM-0007 reservation not found.' }
+        '409': { description: 'NUM-0006 the reservation is already confirmed or voided.' }
+        default: { $ref: '#/components/responses/Problem' }
+  /v1/numbering/sequences/{code}/voided:
+    get:
+      operationId: listVoidedNumbers
+      summary: "Voided-number log of a sequence; overdue leases are voided first"
+      x-depot-duty: numbering.read
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string } }
+        - { name: after, in: query, schema: { type: string, format: uuid } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+      responses:
+        '200':
+          description: One page in id order. next is empty on the last page.
+          content: { application/json: { schema: { $ref: '#/components/schemas/VoidedPage' } } }
+        default: { $ref: '#/components/responses/Problem' }
   /healthz:
     get:
       operationId: liveness
@@ -96,20 +158,12 @@ components:
         legalEntityId: { type: string, format: uuid }
         mode: { type: string, enum: [gap_free, continuous, non_continuous] }
         startFrom: { type: integer }
-    ListedSequence:
-      allOf:
-        - $ref: '#/components/schemas/Sequence'
-        - type: object
-          required: [nextValue]
-          properties:
-            nextValue: { type: integer, description: The value the next allocation issues; startFrom before the first. }
-            nextFormatted: { type: string, description: nextValue in the sequence's format; absent when the padded width is exhausted. }
     SequencePage:
       type: object
-      required: [items]
+      required: [items, next]
       properties:
-        items: { type: array, items: { $ref: '#/components/schemas/ListedSequence' } }
-        nextCursor: { type: string, description: Absent on the last page. }
+        items: { type: array, items: { $ref: '#/components/schemas/Sequence' } }
+        next: { type: string }
     Issued:
       type: object
       required: [value, formatted, sequence, legalEntityId]
@@ -118,6 +172,51 @@ components:
         formatted: { type: string }
         sequence: { type: string }
         legalEntityId: { type: string, format: uuid }
+    ReserveNumber:
+      type: object
+      additionalProperties: false
+      properties:
+        leaseSeconds: { type: integer, minimum: 1, maximum: 3600, default: 300 }
+    ConfirmReservation:
+      type: object
+      additionalProperties: false
+      required: [documentRef]
+      properties:
+        documentRef: { type: string, minLength: 1, maxLength: 200 }
+    VoidReservation:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 200 }
+    Reservation:
+      type: object
+      required: [id, sequence, legalEntityId, value, formatted, status, leaseExpiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        sequence: { type: string }
+        legalEntityId: { type: string, format: uuid }
+        value: { type: integer }
+        formatted: { type: string }
+        status: { type: string, enum: [reserved, confirmed, voided] }
+        leaseExpiresAt: { type: string, format: date-time }
+        documentRef: { type: string }
+        voidReason: { type: string }
+    VoidedNumber:
+      type: object
+      required: [id, value, formatted, reason, voidedAt]
+      properties:
+        id: { type: string, format: uuid }
+        value: { type: integer }
+        formatted: { type: string }
+        reason: { type: string }
+        voidedAt: { type: string, format: date-time }
+    VoidedPage:
+      type: object
+      required: [items, next]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/VoidedNumber' } }
+        next: { type: string }
     Problem:
       type: object
       required: [type, title, status]

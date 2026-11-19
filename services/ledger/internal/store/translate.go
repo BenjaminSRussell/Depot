@@ -110,30 +110,34 @@ func (s *Postgres) resolveRates(ctx context.Context, setID string, date time.Tim
 }
 
 func rateFor(ctx context.Context, ledger Ledger, from string, date time.Time) (decimal.Decimal, error) {
+	return rateBetween(ctx, ledger, from, ledger.Currency, date)
+}
+
+func rateBetween(ctx context.Context, ledger Ledger, from, to string, date time.Time) (decimal.Decimal, error) {
 	var got resolvedRate
 	if resolved, ok := ctx.Value(resolvedRatesKey{}).(map[string]resolvedRate); ok {
-		if got, ok = resolved[rateKey(from, ledger.Currency, date)]; !ok {
+		if got, ok = resolved[rateKey(from, to, date)]; !ok {
 			got.err = &RateRejected{Code: CodeRateMissing, Detail: "no rate was resolved"}
 		}
 	} else if src, _ := ctx.Value(rateSourceKey{}).(RateSource); src != nil {
-		got.rate, got.err = src.Rate(ctx, ledger.LegalEntityID, from, ledger.Currency, date)
+		got.rate, got.err = src.Rate(ctx, ledger.LegalEntityID, from, to, date)
 	} else {
 		got.err = &RateRejected{Code: CodeRateMissing, Detail: "no exchange rate source is configured"}
 	}
 	if got.err == nil {
 		return got.rate, nil
 	}
-	pair := "ledger " + ledger.Code + ": " + RateTypeSpot + " rate from " + from + " to " + ledger.Currency + " on " + date.Format(time.DateOnly)
+	pair := "ledger " + ledger.Code + ": " + RateTypeSpot + " rate from " + from + " to " + to + " on " + date.Format(time.DateOnly)
 	var rejected *RateRejected
 	var refused *RateRefused
 	switch {
 	case errors.As(got.err, &rejected):
 		return decimal.Decimal{}, httpx.NewProblem(http.StatusUnprocessableEntity, rejected.Code, pair+": "+rejected.Detail)
 	case errors.As(got.err, &refused):
-		slog.ErrorContext(ctx, "exchange rate lookup refused", "status", refused.Status, "from", from, "to", ledger.Currency, "correlationId", middleware.GetReqID(ctx))
+		slog.ErrorContext(ctx, "exchange rate lookup refused", "status", refused.Status, "from", from, "to", to, "correlationId", middleware.GetReqID(ctx))
 		return decimal.Decimal{}, httpx.NewProblem(http.StatusBadGateway, CodeFXMisconfigure, "the exchange rate service refused the lookup; check the ledger's fx grant and request; nothing was posted")
 	}
-	slog.ErrorContext(ctx, "exchange rate lookup failed", "err", got.err, "from", from, "to", ledger.Currency, "correlationId", middleware.GetReqID(ctx))
+	slog.ErrorContext(ctx, "exchange rate lookup failed", "err", got.err, "from", from, "to", to, "correlationId", middleware.GetReqID(ctx))
 	return decimal.Decimal{}, httpx.NewProblem(http.StatusServiceUnavailable, CodeFXUnavailable, "the exchange rate service could not be reached; nothing was posted")
 }
 
@@ -157,7 +161,7 @@ func translateLines(ctx context.Context, ledger Ledger, from string, date time.T
 		sourceNet = sourceNet.Add(signed(l.Side, l.Amount))
 		translatedNet = translatedNet.Add(signed(l.Side, out[i].Amount))
 	}
-	absorbRounding(out, ledger.Currency, sourceNet.Mul(rate).Round(minor).Sub(translatedNet), minor)
+	absorbRounding(out, ledger.Currency, sourceNet.Mul(rate).Round(minor).Sub(translatedNet), minor, false)
 	return out, nil
 }
 
@@ -170,7 +174,7 @@ func signed(side string, amount decimal.Decimal) decimal.Decimal {
 
 // absorbRounding moves the translated net by diff (wanted net minus actual net) onto the largest line
 // that can take it: reducing the heavier side first, else enlarging the lighter side (BR-12.4).
-func absorbRounding(lines []domain.LineInput, currency string, diff decimal.Decimal, minor int32) {
+func absorbRounding(lines []domain.LineInput, currency string, diff decimal.Decimal, minor int32, convertedOnly bool) {
 	if diff.IsZero() || diff.Abs().GreaterThan(decimal.New(int64(len(lines)), -minor)) {
 		return
 	}
@@ -179,17 +183,19 @@ func absorbRounding(lines []domain.LineInput, currency string, diff decimal.Deci
 		reduce, enlarge = domain.SideCredit, domain.SideDebit
 	}
 	amount := diff.Abs()
-	if i := largestLine(lines, currency, reduce); i >= 0 && lines[i].Amount.Sub(amount).IsPositive() {
+	if i := largestLine(lines, currency, reduce, convertedOnly); i >= 0 && lines[i].Amount.Sub(amount).IsPositive() {
 		lines[i].Amount, lines[i].RoundingAdjustment = lines[i].Amount.Sub(amount), true
-	} else if j := largestLine(lines, currency, enlarge); j >= 0 {
+	} else if j := largestLine(lines, currency, enlarge, convertedOnly); j >= 0 {
 		lines[j].Amount, lines[j].RoundingAdjustment = lines[j].Amount.Add(amount), true
 	}
 }
 
-func largestLine(lines []domain.LineInput, currency, side string) int {
+// largestLine finds the biggest line on a side; with convertedOnly, only lines converted from another currency
+// qualify, because adjusting a native line would unbalance its own transaction-currency group.
+func largestLine(lines []domain.LineInput, currency, side string, convertedOnly bool) int {
 	target := -1
 	for i, l := range lines {
-		if l.Currency == currency && l.Side == side && l.Amount.IsPositive() && (target < 0 || l.Amount.GreaterThan(lines[target].Amount)) {
+		if l.Currency == currency && l.Side == side && l.Amount.IsPositive() && (!convertedOnly || l.CurrencyTxn != "") && (target < 0 || l.Amount.GreaterThan(lines[target].Amount)) {
 			target = i
 		}
 	}

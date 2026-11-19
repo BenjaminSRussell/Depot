@@ -13,10 +13,13 @@ import (
 )
 
 type issueClaimFake struct {
-	in       store.IssueClaimInput
-	replay   bool
-	err      error
-	released string
+	in        store.IssueClaimInput
+	replay    bool
+	err       error
+	released  string
+	costAsked [3]string
+	costIs    string
+	costErr   error
 }
 
 func (f *fakeStore) ClaimIssue(_ context.Context, in store.IssueClaimInput) (bool, error) {

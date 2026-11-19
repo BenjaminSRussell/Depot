@@ -1,5 +1,7 @@
 # Depot web app: Accessibility Conformance Report (draft)
 
+Extended by docs/ux/ (UXS-15); where they differ, docs/ux wins.
+
 Based on the VPAT® 2.5 WCAG edition template. **Status: draft, not signed off.** The human screen-reader pass and the sign-off are tracked in #512. This draft records what the automated checks and the code review show today, so the sign-off can start from evidence rather than from a blank template.
 
 | | |
@@ -13,8 +15,9 @@ Based on the VPAT® 2.5 WCAG edition template. **Status: draft, not signed off.*
 ## Evaluation methods
 
 - **Automated, every CI run.**
-  - `e2e/flows-a11y.demo.spec.ts`: axe-core with the `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa` and `wcag22aa` tags on every route in `e2e/flowRoutes.ts` (the procure-to-pay and order-to-cash pages), against the demo build. The run fails on any serious or critical violation.
-  - `e2e/a11y.spec.ts`: axe-core (WCAG 2.1 A and AA tags) on every shell route, and on the open command palette, the palette with no results and the open mobile drawer.
+  - `e2e/a11y-routes.demo.spec.ts`: axe-core with the `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa` and `wcag22aa` tags on every workspace route (the shell pages, every module menu page, `/design-system` and the not-found page), against the demo build, at desktop width and at 390px. The route list is generated from the module nav (`e2e/axeRoutes.generated.json`, kept fresh by `src/shell/axeRoutes.test.ts`). The run fails on any violation, minor included, that is not in the dated allowlist `e2e/axeAllowlist.json`.
+  - `e2e/reflow.demo.spec.ts`: every route of the same list has no sideways page scroll at 390px and at 320px (WCAG 1.4.10).
+  - `e2e/a11y.spec.ts`: the same axe gate on the open command palette, the palette with no results and the open mobile drawer.
   - Component tests run the in-repo checks in `src/shell/a11y.ts` (one `h1`, a labelled `nav`, `main`, a skip link, labelled form controls) on the shared components and pages.
 - **Keyboard.** `e2e/p2p-keyboard.demo.spec.ts` creates a requisition and sends it for approval using only Tab, Shift+Tab, Enter and Space after the first page load.
 - **Design review.** Contrast pairs, focus order, dialog behaviour, target sizes and reduced motion are specified and checked in [design-system.md](design-system.md), section 6.
@@ -75,7 +78,7 @@ Based on the VPAT® 2.5 WCAG edition template. **Status: draft, not signed off.*
 | 1.4.3 Contrast (minimum) | Supports | Token pairs measured at 4.5:1 or more for text in light and dark themes (design-system section 6). axe `color-contrast` passes on the scanned routes, including the open drawer. |
 | 1.4.4 Resize text | Not evaluated | Sizes use `rem`, so text scales with browser settings. A manual 200% zoom pass is still needed. |
 | 1.4.5 Images of text | Supports | No images of text. |
-| 1.4.10 Reflow | Partially supports | The shell reflows to a single column with a drawer below 960px and 640px. Wide data tables scroll sideways inside a labelled region, which the criterion allows for data tables; some dense forms have not been checked at 320 CSS pixels. |
+| 1.4.10 Reflow | Partially supports | Below 960px the shell is one column with a drawer; below 640px the top bar keeps the menu, the title and one "Context" button, and the work context, Help, density and account controls move into a sheet. Before that change the top bar was 481px wide at 390px. `e2e/reflow.demo.spec.ts` checks every workspace route for sideways page scroll at 390px and 320px against the demo build. Wide data tables scroll inside a labelled region, which the criterion allows for data tables. Pages with live data at 320px have not had a manual pass. Two routes, `/productcost/conversion` and `/compliance/sod/check`, overflow by 6px at 320px on the CI renderer and their reflow checks are skipped until 2026-12-31; the cause is not found yet. |
 | 1.4.11 Non-text contrast | Supports | Input borders and the focus ring meet 3:1 against their backgrounds (design-system section 6). The plain border token is decorative only and never the sole boundary of an input. |
 | 1.4.12 Text spacing | Not evaluated | No fixed-height text containers are known, but a manual check with the text-spacing bookmarklet is still needed. |
 | 1.4.13 Content on hover or focus | Not evaluated | The copy-id button beside a name and the glossary terms show extra content on hover or focus. Whether each stays while hovered and can be dismissed with Esc without moving focus needs a manual check. |
@@ -101,7 +104,7 @@ Based on the VPAT® 2.5 WCAG edition template. **Status: draft, not signed off.*
 4. **Input purpose** (1.3.5): add `autocomplete` tokens to the remaining personal-data fields in HR self-service.
 5. **Link distinction** (1.4.1): measure accent against body text, or underline links inside paragraphs.
 6. **Hover and focus content** (1.4.13): check the copy-id button and glossary terms for hover persistence and Esc dismissal.
-7. **Shell routes at WCAG 2.2**: `e2e/a11y.spec.ts` still scans with the 2.1 tags; add `wcag22aa` once the shell routes are clean under it.
+7. **Allowlist rows**: `e2e/axeAllowlist.json` lists the violations accepted for now, each with a reason and an expiry date. Fix them and delete the rows before they expire.
 
 ## Sign-off
 

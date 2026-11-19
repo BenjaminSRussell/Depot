@@ -33,10 +33,8 @@ const modules: DepotModule[] = [
     title: "Admin",
     routes: [],
     nav: [
-      { label: "Audit", to: "/admin/audit" },
+      { label: "Import", to: "/admin/import" },
       { label: "Sequences", to: "/admin/sequences" },
-      // Audit is a planned route (shell/plannedRoutes.json): the shell lists it in no workspace, All features or palette.
-      { label: "Import records", to: "/admin/import" },
     ],
   },
 ];
@@ -187,8 +185,7 @@ describe("All features", () => {
     expect(advanced).not.toHaveAttribute("open");
     await user.click(finance.getByText("Advanced (1)"));
     expect(within(advanced).getByRole("link", { name: /Ledger settings/ })).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: "Administration" })).getByRole("link", { name: /Import records/ })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Audit log/ })).not.toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Administration" })).getByRole("link", { name: /Import data/ })).toBeInTheDocument();
   });
 
   it("filters by task label or original screen name, opening Advanced matches, and reports no matches", async () => {
@@ -197,7 +194,7 @@ describe("All features", () => {
     await user.type(screen.getByLabelText("Filter features"), "settings");
     const main = within(screen.getByRole("main"));
     expect(main.getByRole("link", { name: /Ledger settings/ })).toBeVisible();
-    expect(main.queryByRole("link", { name: /Import records/ })).not.toBeInTheDocument();
+    expect(main.queryByRole("link", { name: /Import data/ })).not.toBeInTheDocument();
     expect(screen.getByText("1 feature")).toBeInTheDocument();
     await user.clear(screen.getByLabelText("Filter features"));
     await user.type(screen.getByLabelText("Filter features"), "Journal batches");
@@ -220,7 +217,7 @@ describe("All features", () => {
     const user = userEvent.setup();
     const first = renderShell("/features", []);
     await user.type(screen.getByLabelText("Filter features"), "administration");
-    expect(within(screen.getByRole("main")).getByRole("link", { name: /Import records/ })).toBeInTheDocument();
+    expect(within(screen.getByRole("main")).getByRole("link", { name: /Import data/ })).toBeInTheDocument();
     first.unmount();
     render(
       <MemoryRouter initialEntries={["/features"]}>

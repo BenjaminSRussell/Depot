@@ -6,6 +6,7 @@ import { DEFAULT_PLAN_CODE, PLAN_CODE, useLoad } from "./hooks";
 import { trimQty } from "./NetRequirementsPage";
 import styles from "./pages.module.css";
 import { ProblemMessage } from "../../shell/errors";
+import { EntityMultiLookup } from "../../shell/lookup/EntityMultiLookup";
 import { EntityName } from "../../shell/lookup/EntityName";
 import { useNames } from "../mfg-shared/names";
 
@@ -47,7 +48,7 @@ export function readSelection(params: URLSearchParams): ScheduleSelection {
 
 interface Draft {
   plan: string;
-  items: string;
+  items: string[];
   bucket: Bucket;
   horizon: string;
   cost: string;
@@ -60,10 +61,9 @@ type DraftErrors = Partial<Record<keyof Draft, string>>;
 export function validateDraft(d: Draft): DraftErrors {
   const e: DraftErrors = {};
   if (!PLAN_CODE.test(d.plan.trim().toUpperCase())) e.plan = "Use 2 to 20 capital letters, digits, _ or -.";
-  const ids = d.items.split(/[\s,]+/).filter(Boolean);
-  if (ids.length === 0) e.items = "Enter at least one item id.";
-  else if (ids.some((id) => !UUID.test(id))) e.items = "Every item id must be a UUID, separated by commas or spaces.";
-  else if (new Set(ids.map((id) => id.toLowerCase())).size > MAX_ITEMS) e.items = `Choose at most ${MAX_ITEMS} items.`;
+  const ids = Array.isArray(d.items) ? d.items : [];
+  if (ids.length === 0) e.items = "Choose at least one item.";
+  else if (new Set(ids).size > MAX_ITEMS) e.items = `Choose at most ${MAX_ITEMS} items.`;
   const horizon = Number(d.horizon);
   if (!Number.isInteger(horizon) || horizon < 1 || horizon > 730) e.horizon = "Enter whole days from 1 to 730.";
   if (d.cost !== "" && !DECIMAL.test(d.cost)) e.cost = "Enter 0 or more, with up to 6 decimals.";
@@ -75,7 +75,7 @@ export function validateDraft(d: Draft): DraftErrors {
 function SelectionForm({ selection, onSelect }: { selection: ScheduleSelection; onSelect: (next: ScheduleSelection) => void }) {
   const [draft, setDraft] = useState<Draft>({
     plan: selection.plan,
-    items: selection.items.join("\n"),
+    items: selection.items,
     bucket: selection.bucket,
     horizon: String(selection.horizon),
     cost: selection.cost,
@@ -91,7 +91,7 @@ function SelectionForm({ selection, onSelect }: { selection: ScheduleSelection; 
     if (Object.keys(found).length > 0) return;
     onSelect({
       plan: draft.plan.trim().toUpperCase(),
-      items: [...new Set(draft.items.split(/[\s,]+/).filter(Boolean).map((id) => id.toLowerCase()))],
+      items: [...new Set(draft.items)],
       bucket: draft.bucket,
       horizon: Number(draft.horizon),
       cost: draft.cost,
@@ -104,8 +104,8 @@ function SelectionForm({ selection, onSelect }: { selection: ScheduleSelection; 
       <FormField id="sched-plan" label="Plan" error={errors.plan}>
         {(a11y) => <Input {...a11y} value={draft.plan} maxLength={20} onChange={(e) => set("plan", e.target.value)} />}
       </FormField>
-      <FormField id="sched-items" label="Items" hint={`Item ids, up to ${MAX_ITEMS}, separated by commas or spaces.`} error={errors.items}>
-        {(a11y) => <Input {...a11y} className={styles.mono} value={draft.items} onChange={(e) => set("items", e.target.value)} />}
+      <FormField id="sched-items" label="Items" hint={`Up to ${MAX_ITEMS}. Search by name or number, or paste item numbers.`} error={errors.items}>
+        {(a11y) => <EntityMultiLookup {...a11y} entity="product" cap={MAX_ITEMS} value={draft.items} onChange={(ids) => set("items", ids)} />}
       </FormField>
       <FormField id="sched-bucket" label="Period">
         {(a11y) => (
@@ -189,7 +189,7 @@ function Schedules({ data }: { data: PlanProjection }) {
               compact
               icon="grid"
               title="Not in this plan"
-              description="The current version has no demand or supply for this item. Check the item id, or run the plan."
+              description="The current version has no demand or supply for this item. Check the item, or run the plan."
             />
           )}
         </Card>
@@ -245,7 +245,7 @@ export function SupplySchedulePage() {
       <SelectionForm key={key} selection={selection} onSelect={select} />
       {selection.items.length === 0 ? (
         <Card>
-          <EmptyState compact icon="grid" title="Choose items" description="Enter the item ids to see how the plan supplies them period by period." />
+          <EmptyState compact icon="grid" title="Choose items" description="Choose the items to see how the plan supplies them period by period." />
         </Card>
       ) : state.error ? (
         <Alert tone="danger" title="Could not load the supply schedule" live="alert">

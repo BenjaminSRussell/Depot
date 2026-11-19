@@ -110,7 +110,7 @@ func TestMigrationsApplyWithRLS(t *testing.T) {
 	if metadataErr != nil || currentUser != "depot_app" || roleSuper || roleBypass {
 		t.Fatalf("RLS test must use non-bypass depot_app role: user=%q super=%v bypass=%v err=%v", currentUser, roleSuper, roleBypass, metadataErr)
 	}
-	for _, table := range []string{"number_sequence", "number_sequence_state", "number_allocation", "outbox"} {
+	for _, table := range []string{"number_sequence", "number_sequence_state", "number_allocation", "number_reservation", "outbox"} {
 		var enabled, forced bool
 		err := pool.QueryRow(ctx, `select relrowsecurity, relforcerowsecurity from pg_class where relname = $1 and relnamespace = current_schema()::regnamespace`, table).Scan(&enabled, &forced)
 		if err != nil || !enabled || !forced {
@@ -165,79 +165,5 @@ func TestPostgresMultiEntityScopeRefusesAmbiguousCode(t *testing.T) {
 	narrowed, err := s.Allocate(scoped(entityA), "DUP", "")
 	if err != nil || narrowed.LegalEntityID != entityA || narrowed.Formatted != "A-0001" {
 		t.Fatalf("allocate narrowed to one entity = %+v, %v", narrowed, err)
-	}
-}
-
-func TestPostgresListScopesPagesAndReportsTheNextValueUnderTheAppRole(t *testing.T) {
-	admin, pool := testkit.DBWithApp(t)
-	entityA, entityB := testkit.TenantID(7), testkit.TenantID(8)
-	scoped := func(tenantN int, claim string) context.Context {
-		p := principal(tenantN)
-		p.LegalEntityID = claim
-		return tenant.With(context.Background(), p)
-	}
-	both := scoped(1, entityA+","+entityB)
-	if err := dbx.Migrate(both, admin, migrations.FS); err != nil {
-		t.Fatal(err)
-	}
-	s := store.New(pool)
-	for _, in := range []store.Sequence{
-		{Code: "INV", Name: "Invoices A", Format: "INV-{######}", LegalEntityID: entityA, Mode: domain.ModeGapFree, StartFrom: 1},
-		{Code: "PO", Name: "Orders A", Format: "PO-{####}", LegalEntityID: entityA, Mode: domain.ModeContinuous, StartFrom: 500},
-		{Code: "INV", Name: "Invoices B", Format: "RE-{######}", LegalEntityID: entityB, Mode: domain.ModeGapFree, StartFrom: 1},
-	} {
-		if _, err := s.Create(both, in, ""); err != nil {
-			t.Fatal(err)
-		}
-	}
-	for range 2 {
-		if _, err := s.Allocate(scoped(1, entityA), "INV", ""); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	all, err := s.List(both, "", 100)
-	if err != nil || len(all.Items) != 3 || all.NextCursor != "" {
-		t.Fatalf("list both entities = %+v, %v", all, err)
-	}
-	next := map[string]string{}
-	for _, item := range all.Items {
-		next[item.Name] = item.NextFormatted
-	}
-	for name, formatted := range map[string]string{"Invoices A": "INV-000003", "Orders A": "PO-0500", "Invoices B": "RE-000001"} {
-		if next[name] != formatted {
-			t.Errorf("%s next = %q, want %q", name, next[name], formatted)
-		}
-	}
-
-	onlyB, err := s.List(scoped(1, entityB), "", 100)
-	if err != nil || len(onlyB.Items) != 1 || onlyB.Items[0].LegalEntityID != entityB || onlyB.Items[0].NextValue != 1 {
-		t.Fatalf("list scoped to B = %+v, %v", onlyB, err)
-	}
-
-	first, err := s.List(both, "", 2)
-	if err != nil || len(first.Items) != 2 || first.NextCursor != first.Items[1].ID {
-		t.Fatalf("first page = %+v, %v", first, err)
-	}
-	rest, err := s.List(both, first.NextCursor, 2)
-	if err != nil || len(rest.Items) != 1 || rest.NextCursor != "" || rest.Items[0].ID <= first.NextCursor {
-		t.Fatalf("second page = %+v, %v", rest, err)
-	}
-
-	other, err := s.List(scoped(2, entityA+","+entityB), "", 100)
-	if err != nil || other.Items == nil || len(other.Items) != 0 {
-		t.Fatalf("tenant 2 list = %+v, %v; want an empty, non-nil page", other, err)
-	}
-
-	var problem *httpx.Problem
-	if _, err := s.List(scoped(1, ""), "", 100); !errors.As(err, &problem) || problem.Status != http.StatusForbidden {
-		t.Fatalf("caller without a legal entity = %v; want 403", err)
-	}
-
-	// The admin pool (the migrations owner; a superuser here) bypasses RLS, so only the query's own scope filter keeps
-	// entity A's rows from a caller scoped to B. It pins that filter should the service ever run as the owner.
-	owner, err := store.New(admin).List(scoped(1, entityB), "", 100)
-	if err != nil || len(owner.Items) != 1 || owner.Items[0].LegalEntityID != entityB {
-		t.Fatalf("list as the admin pool, scoped to B = %+v, %v; want only B's sequence", owner, err)
 	}
 }

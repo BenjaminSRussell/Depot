@@ -117,6 +117,48 @@ func TestClientRelease_PostsTheKey(t *testing.T) {
 	}
 }
 
+func TestClientIssueCost_SendsTheSignedQueryAndReadsTheCost(t *testing.T) {
+	var path string
+	var query map[string][]string
+	status, body := http.StatusOK, `{"currency":"USD","unitCost":"12.500000"}`
+	c := newClient(t, func(w http.ResponseWriter, r *http.Request) {
+		path, query = r.URL.Path, r.URL.Query()
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(body))
+	})
+	currency, cost, err := c.IssueCost(principalCtx(), entityID, itemID, "WH-1")
+	if err != nil || currency != "USD" || !cost.Equal(decimal.RequireFromString("12.5")) {
+		t.Fatalf("cost %s %s, %v", currency, cost, err)
+	}
+	if path != "/v1/inventory/issue-cost" || query["legalEntityId"][0] != entityID || query["productId"][0] != itemID || query["warehouse"][0] != "WH-1" {
+		t.Fatalf("request %s %v", path, query)
+	}
+	status = http.StatusServiceUnavailable
+	if _, _, err := c.IssueCost(principalCtx(), entityID, itemID, "WH-1"); err == nil {
+		t.Fatal("a 503 must be an error, not a zero cost")
+	}
+	status, body = http.StatusOK, `{"currency":"USD","unitCost":"-1"}`
+	if _, _, err := c.IssueCost(principalCtx(), entityID, itemID, "WH-1"); err == nil {
+		t.Fatal("a negative cost must be an error")
+	}
+	if _, _, err := c.IssueCost(principalCtx(), entityID, "BOLT", "WH-1"); !errors.Is(err, issueclaim.ErrNotProduct) {
+		t.Fatalf("non-UUID product: %v", err)
+	}
+}
+
+func TestFake_IssueCostAnswersWhatWasSetAndFailsOnDemand(t *testing.T) {
+	f := &issueclaim.Fake{}
+	f.SetCost(itemID, "EUR", d(3))
+	currency, cost, err := f.IssueCost(context.Background(), entityID, itemID, "WH-1")
+	if err != nil || currency != "EUR" || !cost.Equal(d(3)) {
+		t.Fatalf("cost %s %s, %v", currency, cost, err)
+	}
+	f.FailCosts(errors.New("down"))
+	if _, _, err := f.IssueCost(context.Background(), entityID, itemID, "WH-1"); err == nil {
+		t.Fatal("FailCosts must fail the read")
+	}
+}
+
 func TestFromEnv(t *testing.T) {
 	c, err := issueclaim.FromEnv(func(string) string { return "" })
 	if c != nil || err != nil {

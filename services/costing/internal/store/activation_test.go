@@ -13,17 +13,29 @@ import (
 
 	"github.com/BenjaminSRussell/depot/platform/dbx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 	"github.com/BenjaminSRussell/depot/platform/testkit"
 	"github.com/BenjaminSRussell/depot/services/costing/internal/domain"
 )
 
 func d(s string) decimal.Decimal { return decimal.RequireFromString(s) }
 
-func qty(s string) OnHandQty { return OnHandQty{Qty: d(s)} }
+func withProfile(t *testing.T, s *Postgres, ctx context.Context, le string) (*ledgerclient.Fake, string) {
+	t.Helper()
+	ledger, gl := ledgerclient.NewFake(), ids.New()
+	ledger.AddLedger(gl, le)
+	if _, err := s.SavePostingProfile(ctx, PostingProfile{LegalEntityID: le, GLLedgerID: gl, InventoryAccount: "1400", GRIRAccount: "2100",
+		APAccount: "2000", PPVAccount: "5100", AdjustmentAccount: "5000"}, "tester"); err != nil {
+		t.Fatal(err)
+	}
+	return ledger, gl
+}
 
-func valued(q, book string) OnHandQty {
-	b := d(book)
-	return OnHandQty{Qty: d(q), BookValue: &b}
+func seedStock(t *testing.T, s *Postgres, ctx context.Context, le, product, site, qty, value string) {
+	t.Helper()
+	if _, err := s.RecordCostTransactions(ctx, []CostTransaction{costRow("seed:"+product+":"+site, le, product, site, domain.KindPhysical, qty, value, "2026-01-01")}); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func domainCode(err error) string {
@@ -108,13 +120,12 @@ func TestPostgres_ActivationLifecycle(t *testing.T) {
 	if _, err := s.ImportItemCosts(ctx, v1.ID, []ItemCost{{ProductID: p1, SiteID: site, UnitCost: "10"}, {ProductID: p2, SiteID: site, UnitCost: "5"}}); err != nil {
 		t.Fatal(err)
 	}
+	ledger, _ := withProfile(t, s, ctx, le)
 	// p1 has 100 on hand carried at 950.00 and no standard yet: 100 x 10 − 950 = 50.00.
-	// p2 has no stock, so it needs no book value.
-	if _, err := s.PreviewActivation(ctx, v1.ID, OnHand{OnHandKey(p1, site): qty("100")}); domainCode(err) != domain.CodeBookValueMissing {
-		t.Fatalf("preview without book value: %v, want %s", err, domain.CodeBookValueMissing)
-	}
-	onHand := OnHand{OnHandKey(p1, site): valued("100", "950")}
-	prev, err := s.PreviewActivation(ctx, v1.ID, onHand)
+	// p2 has 4 on hand carried at its new standard, so it revalues by nothing.
+	seedStock(t, s, ctx, le, p1, site, "100", "950.00")
+	seedStock(t, s, ctx, le, p2, site, "4", "20.00")
+	prev, err := s.PreviewActivation(ctx, v1.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,10 +139,10 @@ func TestPostgres_ActivationLifecycle(t *testing.T) {
 		t.Fatalf("preview wrote %d outbox rows", len(got))
 	}
 
-	if _, err := s.ActivateVersion(ctx, v1.ID, 1, onHand); problemCode(err) != CodeConflictVersion {
+	if _, err := s.ActivateVersion(ctx, v1.ID, 1, ledger); problemCode(err) != CodeConflictVersion {
 		t.Fatalf("stale If-Match: %v, want %s", err, CodeConflictVersion)
 	}
-	act, err := s.ActivateVersion(ctx, v1.ID, prev.Version.Version, onHand)
+	act, err := s.ActivateVersion(ctx, v1.ID, prev.Version.Version, ledger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,12 +165,15 @@ func TestPostgres_ActivationLifecycle(t *testing.T) {
 		}
 	}
 
-	again, err := s.ActivateVersion(ctx, v1.ID, 1, onHand)
+	if len(ledger.Entries()) != 1 || act.VouchersPosted != 1 || act.VouchersPending != 0 {
+		t.Fatalf("ledger entries %d, posted %d, pending %d; want the site's one revaluation voucher posted", len(ledger.Entries()), act.VouchersPosted, act.VouchersPending)
+	}
+	again, err := s.ActivateVersion(ctx, v1.ID, 1, ledger)
 	if err != nil || !again.AlreadyActive || !again.Plan.Total.Equal(d("50")) || len(again.Plan.Lines) != 2 {
 		t.Fatalf("replay = %+v, %v; want ALREADY_ACTIVE with the recorded 50.00", again, err)
 	}
-	if got := outboxRows(t, ctx, app); len(got) != 2 {
-		t.Fatalf("replay wrote events: %d rows", len(got))
+	if got := outboxRows(t, ctx, app); len(got) != 2 || len(ledger.Entries()) != 1 {
+		t.Fatalf("replay wrote %d events and %d ledger entries, want 2 and 1", len(got), len(ledger.Entries()))
 	}
 	if _, err := s.ImportItemCosts(ctx, v1.ID, []ItemCost{{ProductID: p1, SiteID: site, UnitCost: "1"}}); problemCode(err) != CodeVersionNotDraft {
 		t.Errorf("import into ACTIVE version: %v, want %s", err, CodeVersionNotDraft)
@@ -186,7 +200,7 @@ func TestPostgres_ActivationLifecycle(t *testing.T) {
 	if err != nil || v2Now.ItemCount != 2 || v2Now.Version != 2 {
 		t.Fatalf("v2 after copy = %+v, %v; want 2 items at version 2", v2Now, err)
 	}
-	second, err := s.ActivateVersion(ctx, v2.ID, v2Now.Version, OnHand{OnHandKey(p1, site): qty("100"), OnHandKey(p2, site): qty("4")})
+	second, err := s.ActivateVersion(ctx, v2.ID, v2Now.Version, ledger)
 	if err != nil || !second.Plan.Total.Equal(d("102")) {
 		t.Fatalf("second activation total %s, %v; want 102", second.Plan.Total, err)
 	}
@@ -248,11 +262,11 @@ func TestPostgres_ActivationRefusals(t *testing.T) {
 			}
 			v.Version++
 		}
-		if _, err := s.ActivateVersion(ctx, v.ID, v.Version, OnHand{}); domainCode(err) != tc.want {
+		if _, err := s.ActivateVersion(ctx, v.ID, v.Version, nil); domainCode(err) != tc.want {
 			t.Errorf("%s: %v, want %s", tc.name, err, tc.want)
 		}
 	}
-	if _, err := s.ActivateVersion(ctx, ids.New(), 1, OnHand{}); problemCode(err) != CodeVersionNotFound {
+	if _, err := s.ActivateVersion(ctx, ids.New(), 1, nil); problemCode(err) != CodeVersionNotFound {
 		t.Errorf("unknown version: %v", err)
 	}
 }
@@ -299,7 +313,9 @@ func TestPostgres_ConcurrentActivationsChain(t *testing.T) {
 	if _, err := s.ImportItemCosts(ctx, base.ID, []ItemCost{{ProductID: p, SiteID: site, UnitCost: "10"}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.ActivateVersion(ctx, base.ID, 2, OnHand{}); err != nil {
+	ledger, _ := withProfile(t, s, ctx, le)
+	seedStock(t, s, ctx, le, p, site, "10", "100.00")
+	if _, err := s.ActivateVersion(ctx, base.ID, 2, ledger); err != nil {
 		t.Fatal(err)
 	}
 	var vs []CostingVersion
@@ -310,7 +326,6 @@ func TestPostgres_ConcurrentActivationsChain(t *testing.T) {
 		}
 		vs = append(vs, v)
 	}
-	onHand := OnHand{OnHandKey(p, site): qty("10")}
 	results := make([]ActivationResult, 2)
 	errs := make([]error, 2)
 	var wg sync.WaitGroup
@@ -318,7 +333,7 @@ func TestPostgres_ConcurrentActivationsChain(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			results[i], errs[i] = s.ActivateVersion(ctx, vs[i].ID, 2, onHand)
+			results[i], errs[i] = s.ActivateVersion(ctx, vs[i].ID, 2, ledger)
 		}(i)
 	}
 	wg.Wait()

@@ -318,7 +318,7 @@ describe("duplicate candidates", () => {
       target: { value: PARTY },
     });
     fireEvent.click(screen.getByRole("button", { name: "Compare" }));
-    expect(await screen.findByText("Enter a different party id to compare.")).toBeInTheDocument();
+    expect(await screen.findByText("Choose a different party to compare.")).toBeInTheDocument();
     expect(api.calls).toHaveLength(0);
   });
 });

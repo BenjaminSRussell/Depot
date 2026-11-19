@@ -8,6 +8,13 @@ channels:
     messages:
       allocated:
         $ref: '#/components/messages/allocated'
+  depot.numbering.reservation:
+    address: depot.numbering.reservation
+    messages:
+      confirmed:
+        $ref: '#/components/messages/confirmed'
+      voided:
+        $ref: '#/components/messages/voided'
 operations:
   onAllocated:
     action: send
@@ -15,6 +22,18 @@ operations:
       $ref: '#/channels/depot.numbering.sequence'
     messages:
       - $ref: '#/channels/depot.numbering.sequence/messages/allocated'
+  onConfirmed:
+    action: send
+    channel:
+      $ref: '#/channels/depot.numbering.reservation'
+    messages:
+      - $ref: '#/channels/depot.numbering.reservation/messages/confirmed'
+  onVoided:
+    action: send
+    channel:
+      $ref: '#/channels/depot.numbering.reservation'
+    messages:
+      - $ref: '#/channels/depot.numbering.reservation/messages/voided'
 components:
   messages:
     allocated:
@@ -29,3 +48,31 @@ components:
           formatted: { type: string }
           legalEntityId: { type: string, format: uuid }
       x-depot-type: dev.depot.numbering.sequence.allocated.v1
+    confirmed:
+      name: confirmed
+      title: Reserved number confirmed
+      payload:
+        type: object
+        required: [reservationId, sequence, value, formatted, legalEntityId, documentRef]
+        properties:
+          reservationId: { type: string, format: uuid }
+          sequence: { type: string }
+          value: { type: integer }
+          formatted: { type: string }
+          legalEntityId: { type: string, format: uuid }
+          documentRef: { type: string }
+      x-depot-type: dev.depot.numbering.reservation.confirmed.v1
+    voided:
+      name: voided
+      title: Reserved number voided
+      payload:
+        type: object
+        required: [reservationId, sequence, value, formatted, legalEntityId, reason]
+        properties:
+          reservationId: { type: string, format: uuid }
+          sequence: { type: string }
+          value: { type: integer }
+          formatted: { type: string }
+          legalEntityId: { type: string, format: uuid }
+          reason: { type: string }
+      x-depot-type: dev.depot.numbering.reservation.voided.v1

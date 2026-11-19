@@ -21,6 +21,7 @@ config:
   releaseHorizonDays: "2"       # RELEASE_HORIZON_DAYS (FR-28.1)
   releaseRequiresFullAtp: "true"
   migrateOnStart: "false"       # dev only, with migrateJob.enabled false; otherwise the migration Job
+  glLedgers: ""                 # FULFILLMENT_GL_LEDGERS, JSON object of legal entity id to the ledger id its slip journals post to
 
 # Inventory holds on packing-slip post (wave 33 AC2). Empty skips the check.
 inventoryUrl: ""
@@ -35,6 +36,12 @@ carrierGatewayUrl: ""
 # Needs serviceIdentity.signingKeySecret; sales must list fulfillment's public key.
 salesUrl: ""
 salesReportInterval: "30s"      # SALES_REPORT_INTERVAL, how often due reports are looked for
+
+# Ledger (B-14): each posted packing slip, and the reversing slip of a cancel, owes the ledger its journal
+# (Dr 1405 or 5000 / Cr 1400); a poster in every API replica posts the due ones (leased) as service:fulfillment.
+# Empty leaves the journals queued (PENDING) without posting them. Needs serviceIdentity.signingKeySecret
+# (the ledger must list fulfillment's public key) and config.glLedgers.
+ledgerUrl: ""
 
 # Intrastat data for packingslip.posted (#13): with both set, a post reads the customer's VAT country from party
 # (party.tax-registration.read) and each product's commodity code, origin and weight from product (product.customs.read)

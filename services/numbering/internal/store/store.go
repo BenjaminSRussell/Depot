@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -45,35 +47,32 @@ type Issued struct {
 	LegalEntityID string `json:"legalEntityId"`
 }
 
-// Listed is a sequence as the list shows it: the definition plus the number the next allocation will issue.
-type Listed struct {
-	Sequence
-	// NextValue is the value the next allocation issues: one past the last issued value, or StartFrom before the first.
-	NextValue int64 `json:"nextValue"`
-	// NextFormatted is NextValue in the sequence's format; empty when the padded width is exhausted.
-	NextFormatted string `json:"nextFormatted,omitempty"`
-}
-
-// Page is one page of the sequence list. NextCursor is empty on the last page.
-type Page struct {
-	Items      []Listed `json:"items"`
-	NextCursor string   `json:"nextCursor,omitempty"`
-}
-
 // Store is the numbering persistence port.
 type Store interface {
 	Create(ctx context.Context, in Sequence, idempotencyKey string) (Sequence, error)
 	Get(ctx context.Context, code string) (Sequence, error)
-	List(ctx context.Context, cursor string, limit int) (Page, error)
+	List(ctx context.Context, after string, limit int) ([]Sequence, error)
 	Allocate(ctx context.Context, code, idempotencyKey string) (Issued, error)
+	Reserve(ctx context.Context, code, idempotencyKey string, lease time.Duration) (Reservation, error)
+	Confirm(ctx context.Context, id, documentRef string) (Reservation, error)
+	Void(ctx context.Context, id, reason string) (Reservation, error)
+	Voided(ctx context.Context, code, after string, limit int) ([]VoidedNumber, error)
 	Ping(ctx context.Context) error
 }
 
 // Postgres implements Store.
-type Postgres struct{ pool *pgxpool.Pool }
+type Postgres struct {
+	pool  *pgxpool.Pool
+	clock func() time.Time
+}
 
-// New wraps pool.
-func New(pool *pgxpool.Pool) *Postgres { return &Postgres{pool: pool} }
+// New wraps pool and reads time from the wall clock.
+func New(pool *pgxpool.Pool) *Postgres { return NewWithClock(pool, time.Now) }
+
+// NewWithClock wraps pool and reads lease time from clock.
+func NewWithClock(pool *pgxpool.Pool, clock func() time.Time) *Postgres {
+	return &Postgres{pool: pool, clock: clock}
+}
 
 // Ping checks the pool.
 func (s *Postgres) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
@@ -124,59 +123,30 @@ func (s *Postgres) Get(ctx context.Context, code string) (Sequence, error) {
 	return e, err
 }
 
-// List pages through the sequences of the caller's legal-entity scope in id order, after cursor (a sequence id), with
-// the next value each would issue. It reads under the same tenant and legal-entity RLS as every other query; the
-// explicit scope filter repeats it so an all-scope caller sees every legal entity and a scoped caller only its own.
-func (s *Postgres) List(ctx context.Context, cursor string, limit int) (Page, error) {
+// List returns sequences in the caller's legal-entity scope in id order after the cursor.
+func (s *Postgres) List(ctx context.Context, after string, limit int) ([]Sequence, error) {
 	p, _ := tenant.FromContext(ctx)
-	entities, err := scopeEntities(p)
-	if err != nil {
-		return Page{}, err
-	}
-	// A nil scope (all-scope caller) or an empty cursor turns its filter off.
-	var after *string
-	if cursor != "" {
-		after = &cursor
-	}
-	var items []Listed
-	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `select s.id, s.code, s.name, s.format, s.legal_entity_id, s.mode, s.start_from,
-				coalesce(st.next_value + 1, s.start_from)
-			from number_sequence s
-			left join number_sequence_state st
-				on st.tenant_id = s.tenant_id and st.legal_entity_id = s.legal_entity_id and st.sequence_code = s.code
-			where s.tenant_id = $1
-				and ($2::uuid[] is null or s.legal_entity_id = any($2::uuid[]))
-				and ($3::uuid is null or s.id > $3::uuid)
-			order by s.id
-			limit $4`, p.TenantID, entities, after, limit+1)
+	items := []Sequence{}
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		entities, err := scopeEntities(p)
 		if err != nil {
 			return err
 		}
-		items, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (Listed, error) {
-			var l Listed
-			err := row.Scan(&l.ID, &l.Code, &l.Name, &l.Format, &l.LegalEntityID, &l.Mode, &l.StartFrom, &l.NextValue)
-			return l, err
-		})
+		q := `select id, code, name, format, legal_entity_id, mode, start_from from number_sequence
+			where tenant_id=$1 and id > $2`
+		args := []any{p.TenantID, after}
+		if entities != nil {
+			q += ` and legal_entity_id = any($3::uuid[])`
+			args = append(args, entities)
+		}
+		rows, err := tx.Query(ctx, q+` order by id limit `+strconv.Itoa(limit), args...)
+		if err != nil {
+			return err
+		}
+		items, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (Sequence, error) { return scanSeq(row) })
 		return err
 	})
-	if err != nil {
-		return Page{}, err
-	}
-	page := Page{Items: items}
-	if len(items) > limit {
-		page.Items = items[:limit]
-		page.NextCursor = page.Items[limit-1].ID
-	}
-	if page.Items == nil {
-		page.Items = []Listed{}
-	}
-	for i := range page.Items {
-		if formatted, err := domain.FormatValue(page.Items[i].Format, page.Items[i].NextValue); err == nil {
-			page.Items[i].NextFormatted = formatted
-		}
-	}
-	return page, nil
+	return items, err
 }
 
 // Allocate issues the next gap-free value under a row lock.
@@ -200,12 +170,10 @@ func (s *Postgres) Allocate(ctx context.Context, code, idempotencyKey string) (I
 		if err != nil {
 			return err
 		}
-		var next int64
-		err = tx.QueryRow(ctx, `insert into number_sequence_state (tenant_id, legal_entity_id, sequence_code, next_value)
-			values ($1,$2,$3,$4)
-			on conflict (tenant_id, legal_entity_id, sequence_code)
-			do update set next_value = number_sequence_state.next_value + 1
-			returning next_value`, p.TenantID, seq.LegalEntityID, seq.Code, seq.StartFrom).Scan(&next)
+		if p.Service != "" && seq.Mode == domain.ModeGapFree {
+			return httpx.NewProblem(http.StatusConflict, domain.CodeGapFreeRemote, "a gap-free number cannot be taken over HTTP with next; reserve it, then confirm or void it")
+		}
+		next, err := takeNext(ctx, tx, p, seq)
 		if err != nil {
 			return err
 		}
@@ -239,6 +207,16 @@ func (s *Postgres) Allocate(ctx context.Context, code, idempotencyKey string) (I
 		return Issued{}, httpx.NewProblem(http.StatusConflict, CodeDuplicate, "allocation conflict")
 	}
 	return out, err
+}
+
+func takeNext(ctx context.Context, tx pgx.Tx, p tenant.Principal, seq Sequence) (int64, error) {
+	var next int64
+	err := tx.QueryRow(ctx, `insert into number_sequence_state (tenant_id, legal_entity_id, sequence_code, next_value)
+		values ($1,$2,$3,$4)
+		on conflict (tenant_id, legal_entity_id, sequence_code)
+		do update set next_value = number_sequence_state.next_value + 1
+		returning next_value`, p.TenantID, seq.LegalEntityID, seq.Code, seq.StartFrom).Scan(&next)
+	return next, err
 }
 
 func scopeEntities(p tenant.Principal) ([]string, error) {

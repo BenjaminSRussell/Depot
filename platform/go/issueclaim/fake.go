@@ -16,12 +16,19 @@ import (
 // does in inventory while these movements are not journals there. Release of
 // a hold (a usage decision) is Set with held = 0.
 type Fake struct {
-	mu     sync.Mutex
-	stock  map[string]stock
-	claims map[string]Claim
+	mu      sync.Mutex
+	stock   map[string]stock
+	claims  map[string]Claim
+	costs   map[string]fakeCost
+	costErr error
 }
 
 type stock struct{ physical, held decimal.Decimal }
+
+type fakeCost struct {
+	currency string
+	unitCost decimal.Decimal
+}
 
 func (f *Fake) Set(product string, physical, held decimal.Decimal) {
 	f.mu.Lock()
@@ -30,6 +37,33 @@ func (f *Fake) Set(product string, physical, held decimal.Decimal) {
 		f.stock = map[string]stock{}
 	}
 	f.stock[product] = stock{physical: physical, held: held}
+}
+
+// SetCost sets what IssueCost answers for a product, in any warehouse.
+func (f *Fake) SetCost(product, currency string, unitCost decimal.Decimal) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.costs == nil {
+		f.costs = map[string]fakeCost{}
+	}
+	f.costs[product] = fakeCost{currency: currency, unitCost: unitCost}
+}
+
+// FailCosts makes IssueCost return err until it is called with nil.
+func (f *Fake) FailCosts(err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.costErr = err
+}
+
+func (f *Fake) IssueCost(_ context.Context, _, product, _ string) (string, decimal.Decimal, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.costErr != nil {
+		return "", decimal.Zero, f.costErr
+	}
+	c := f.costs[product]
+	return c.currency, c.unitCost, nil
 }
 
 func (f *Fake) Claim(_ context.Context, c Claim) error {

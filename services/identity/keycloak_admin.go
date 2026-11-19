@@ -278,6 +278,38 @@ func userTenant(user map[string]any) string {
 	return tenantID
 }
 
+func ownedUserID(user map[string]any, target KeycloakTarget) (string, error) {
+	id, _ := user["id"].(string)
+	if _, ok := canonicalUUID(id); !ok {
+		return "", &KeycloakError{Op: "get user", Detail: "the user representation has no id"}
+	}
+	if tenantID := userTenant(user); tenantID != "" && !strings.EqualFold(tenantID, target.TenantID) {
+		return "", &KeycloakError{Op: "get user", Detail: "the Keycloak user belongs to another tenant", Permanent: true}
+	}
+	return id, nil
+}
+
+func (k *KeycloakAdmin) RevokeSessions(ctx context.Context, realm string, target KeycloakTarget) (KeycloakOutcome, error) {
+	user, err := k.findUser(ctx, realm, target)
+	if err != nil || user == nil {
+		return KeycloakOutcome{Result: "not_found"}, err
+	}
+	id, err := ownedUserID(user, target)
+	if err != nil {
+		return KeycloakOutcome{}, err
+	}
+	status, raw, err := k.call(ctx, realm, "logout user", http.MethodPost, "/users/"+url.PathEscape(id)+"/logout", nil)
+	switch {
+	case err != nil:
+		return KeycloakOutcome{}, err
+	case status == http.StatusNotFound:
+		return KeycloakOutcome{Result: "not_found"}, nil
+	case status != http.StatusNoContent && status != http.StatusOK:
+		return KeycloakOutcome{}, statusError("logout user", status, raw)
+	}
+	return KeycloakOutcome{Result: "revoked", UserID: id}, nil
+}
+
 // DeprovisionUser disables the target's Keycloak user and logs out all of its sessions, which also sets the user's
 // not-before so tokens issued earlier stop refreshing. It is idempotent: an already disabled user is logged out
 // again, and a user that does not exist (or disappears midway) is reported as not_found, which is done. A user
@@ -287,12 +319,9 @@ func (k *KeycloakAdmin) DeprovisionUser(ctx context.Context, realm string, targe
 	if err != nil || user == nil {
 		return KeycloakOutcome{Result: "not_found"}, err
 	}
-	id, _ := user["id"].(string)
-	if _, ok := canonicalUUID(id); !ok {
-		return KeycloakOutcome{}, &KeycloakError{Op: "get user", Detail: "the user representation has no id"}
-	}
-	if tenantID := userTenant(user); tenantID != "" && !strings.EqualFold(tenantID, target.TenantID) {
-		return KeycloakOutcome{}, &KeycloakError{Op: "get user", Detail: "the Keycloak user belongs to another tenant", Permanent: true}
+	id, err := ownedUserID(user, target)
+	if err != nil {
+		return KeycloakOutcome{}, err
 	}
 	path := "/users/" + url.PathEscape(id)
 	if enabled, _ := user["enabled"].(bool); enabled {

@@ -89,7 +89,7 @@ var serviceGrants = map[string]map[string][]string{
 		"ledger": {"ledger.entry.post", "ledger.ledger.lookup"},
 		"revrec": {"revrec.allocation.read"},
 		"sales":  {"sales.order.record-invoice", "sales.order.record-delivery"},
-		"tax":    {"tax.transaction.record"},
+		"tax":    {"tax.transaction.record", "tax.tax.calculate"},
 	},
 	// fulfillment and transport reach carriers only through carrier-gateway (#482); transport buys no labels.
 	// fulfillment reports posted packing slips to sales' :record-progress (#496) and may report nothing else there.
@@ -98,6 +98,7 @@ var serviceGrants = map[string]map[string][]string{
 		"product":         {"product.customs.read"},
 		"party":           {"party.tax-registration.read"},
 		"inventory":       {"inventory.issue.claim"},
+		"ledger":          {"ledger.entry.post", "ledger.ledger.lookup", "ledger.balance.read"},
 		"carrier-gateway": {"carrier.rate.quote", "carrier.label.create", "carrier.tracking.read"},
 	},
 	"transport": {
@@ -114,6 +115,7 @@ var serviceGrants = map[string]map[string][]string{
 	// and converts a requisition line's pre-encumbrance when it creates a PO line from it (FR-38.5).
 	"purchasing": {
 		"budgeting": {"budget.encumbrance.convert", "budget.requisition.check"},
+		"product":   {"product.read"},
 	},
 	"receiving": {
 		"ledger":     {"ledger.entry.post", "ledger.journal.reverse"},
@@ -127,7 +129,7 @@ var serviceGrants = map[string]map[string][]string{
 		"compliance": {"compliance.legal-hold.check"},
 	},
 	"tax": {
-		"ledger": {"ledger.balance.read", "ledger.entry.lookup", "ledger.ledger.lookup", "ledger.account.lookup"},
+		"ledger": {"ledger.balance.read", "ledger.entry.lookup", "ledger.ledger.lookup", "ledger.account.lookup", "ledger.entry.post"},
 	},
 	"payables": {
 		"ledger": {"ledger.balance.read", "ledger.ledger.lookup", "ledger.entry.lookup", "ledger.entry.post"},
@@ -160,6 +162,10 @@ var serviceGrants = map[string]map[string][]string{
 	},
 	"costing": {
 		"ledger": {"ledger.entry.post", "ledger.balance.read", "ledger.ledger.lookup"},
+	},
+	"planning": {
+		"sales":     {"sales.order.open-lines"},
+		"inventory": {"inventory.read"},
 	},
 	// The postings consumer converts plain document quantities into the
 	// product's inventory unit (#480).
@@ -201,7 +207,7 @@ var serviceGrants = map[string]map[string][]string{
 		"receivables": {"receivables.forecast.read"},
 	},
 	"sales": {
-		"product":     {"product.configuration.read", "product.names.read"},
+		"product":     {"product.configuration.read", "product.names.read", "product.read"},
 		"production":  {"production.order.create-from-sales"},
 		"billing":     {"billing.invoice.read"},
 		"fulfillment": {"fulfillment.packing-slip.read"},

@@ -1,68 +1,63 @@
-{
-  "$comment": "Routes that exist in code but have no working data source yet (UXS-01, docs/ux/patterns.md). Each renders an honest 'isn't available yet' page instead of fake or empty-by-design data, and no workspace may link it. `description` is shown to people and follows apps/web/docs/ux-writing.md; `reason` is for developers. shell/honestScreens.test.ts fails the day after `targetDate`: ship the page and remove the entry, or move the date in a reviewed change.",
-  "routes": [
-    {
-      "path": "/admin/audit",
-      "description": "It will show who changed what, and when.",
-      "reason": "The page never fetched, so it always said there were no audit entries. It returns when it reads the audit service.",
-      "issue": 689,
-      "backlog": "B-23",
-      "slice": 3,
-      "targetDate": "2027-02-26"
-    },
-    {
-      "path": "/admin/alerts",
-      "description": "It will list failed background jobs and overdue approvals.",
-      "reason": "Static empty state with no fetch. Returns on GET /v1/audit/alerts.",
-      "issue": 701,
-      "backlog": "B-53",
-      "slice": 17,
-      "targetDate": "2027-06-30"
-    },
-    {
-      "path": "/admin/documents",
-      "description": "It will let you check documents in and out, track versions and apply legal holds.",
-      "reason": "Static empty state with no fetch. Returns on the document store.",
-      "issue": 701,
-      "backlog": "B-53",
-      "slice": 17,
-      "targetDate": "2027-06-30"
-    },
-    {
-      "path": "/admin/texts",
-      "description": "It will hold reusable text in every language you support.",
-      "reason": "Static empty state with no fetch. Returns with the persisted standard text library.",
-      "issue": 701,
-      "backlog": "B-53",
-      "slice": 17,
-      "targetDate": "2027-06-30"
-    },
-    {
-      "path": "/workflow/designer",
-      "description": "It will let you design approval chains.",
-      "reason": "Showed a hard-coded three-step chain. The batch service has no definition list to read yet.",
-      "issue": 700,
-      "backlog": "B-34",
-      "slice": 16,
-      "targetDate": "2027-05-28"
-    },
-    {
-      "path": "/workflow/templates",
-      "description": "It will list the messages that approvals and background jobs send.",
-      "reason": "Showed three hard-coded template codes. The batch service has no template list to read yet.",
-      "issue": 700,
-      "backlog": "B-34",
-      "slice": 16,
-      "targetDate": "2027-05-28"
-    },
-    {
-      "path": "/workflow/jobs",
-      "description": "It will show scheduled and on-demand background jobs, with their progress.",
-      "reason": "Showed invented job runs in production builds. Returns on the batch service run list; the demo rows wait in src/demo/handlers/workflow.ts.",
-      "issue": 700,
-      "backlog": "B-34",
-      "slice": 16,
-      "targetDate": "2027-05-28"
-    }
-  ]
-}
+[
+  {
+    "route": "/admin/audit",
+    "reason": "The audit page is built in slice 3.",
+    "issue": 689,
+    "slice": 3,
+    "date": "2027-03-31"
+  },
+  {
+    "route": "/admin/alerts",
+    "reason": "The alerts page is built in slice 17.",
+    "issue": 701,
+    "slice": 17,
+    "date": "2027-09-30"
+  },
+  {
+    "route": "/admin/documents",
+    "reason": "The documents page is built in slice 17.",
+    "issue": 701,
+    "slice": 17,
+    "date": "2027-09-30"
+  },
+  {
+    "route": "/admin/texts",
+    "reason": "The standard texts page is built in slice 17.",
+    "issue": 701,
+    "slice": 17,
+    "date": "2027-09-30"
+  },
+  {
+    "route": "/workflow/designer",
+    "reason": "The workflow designer is built in slice 16.",
+    "issue": 700,
+    "slice": 16,
+    "date": "2027-06-30"
+  },
+  {
+    "route": "/workflow/templates",
+    "reason": "The message templates page is built in slice 16.",
+    "issue": 700,
+    "slice": 16,
+    "date": "2027-06-30"
+  },
+  {
+    "route": "/workflow/jobs",
+    "reason": "The job monitor is built in slice 16.",
+    "issue": 700,
+    "slice": 16,
+    "date": "2027-06-30"
+  },
+  {
+    "route": "/close",
+    "reason": "Period close screen is built by the B-25 slice; the CT4 task starts there once it ships",
+    "issue": 691,
+    "slice": 4
+  },
+  {
+    "route": "/mobile-flows/devices",
+    "reason": "Device management screen is built by the B-37 slice; the WS1 task starts there once it ships",
+    "issue": 703,
+    "slice": 12
+  }
+]

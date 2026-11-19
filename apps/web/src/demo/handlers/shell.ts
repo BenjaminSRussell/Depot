@@ -2,7 +2,7 @@
 // the entity lookups that turn ids into names (shell/lookup/entities.ts). Imported after the area handlers, so an
 // area file that serves one of these paths more specifically wins.
 import type { InboxPage } from "../../shell/inbox/inbox";
-import { CUSTOMERS, ITEMS, LEGAL_ENTITY, LEGAL_ENTITY_DE, SITES, VENDORS, WAREHOUSES, type Item, type Party } from "../company";
+import { CUSTOMERS, ITEMS, LEGAL_ENTITY, SITES, VENDORS, WAREHOUSES, type Item, type Party } from "../company";
 import { rankBySearch } from "../../shell/search/match";
 import { reply, route } from "../backend";
 import { at, day } from "../store";
@@ -43,25 +43,11 @@ route("GET", `${ORG}/currencies`, () => ({ items: currencies }));
 
 // The setup checklist only asks whether each of these lists has a row; the demo company is fully set up.
 route("GET", "/api/v1/ledger/ledgers", () => ({ items: [{ id: "ledger-crp", legalEntityId: LEGAL_ENTITY.id, name: `${LEGAL_ENTITY.name} general ledger`, currency: LEGAL_ENTITY.currency }] }));
-// Shaped like the numbering service's list (services/numbering/api/openapi.yaml, SequencePage); /admin/sequences shows it.
-const sequence = (n: number, code: string, name: string, format: string, mode: string, nextValue: number, legalEntityId = LEGAL_ENTITY.id) => ({
-  id: `00000000-0000-0000-0000-00000000050${n}`,
-  code,
-  name,
-  format,
-  legalEntityId,
-  mode,
-  startFrom: 1,
-  nextValue,
-  nextFormatted: format.replace(/\{([0#]+)\}/, (_, token: string) => String(nextValue).padStart(token.length, "0")),
-});
 route("GET", "/api/v1/numbering/sequences", () => ({
   items: [
-    sequence(1, "SO", "Sales orders", "SO-{000000}", "continuous", 24190),
-    sequence(2, "PO", "Purchase orders", "PO-{000000}", "continuous", 48214),
-    sequence(3, "INV", "Customer invoices", "INV-{000000}", "gap_free", 31877),
-    sequence(4, "JE", "Journal entries", "JE-{000000}", "gap_free", 9102),
-    sequence(5, "INV", "Customer invoices", "RE-{000000}", "gap_free", 1406, LEGAL_ENTITY_DE.id),
+    { id: "00000000-0000-0000-0000-00000000a001", code: "SO", name: "Sales orders", format: "SO-{######}", legalEntityId: LEGAL_ENTITY.id, mode: "gap_free", startFrom: 1 },
+    { id: "00000000-0000-0000-0000-00000000a002", code: "PO", name: "Purchase orders", format: "PO-{######}", legalEntityId: LEGAL_ENTITY.id, mode: "gap_free", startFrom: 1 },
+    { id: "00000000-0000-0000-0000-00000000a003", code: "ITM", name: "Products", format: "ITM-{######}", legalEntityId: LEGAL_ENTITY.id, mode: "non_continuous", startFrom: 1000 },
   ],
 }));
 
@@ -82,7 +68,7 @@ for (const [kind, rows] of [
 }
 route("GET", "/api/v1/party/parties:search", ({ query }) => ({
   items: limit(
-    [...CUSTOMERS, ...VENDORS].filter((p) => matches(query.get("q"), p.name, p.number)).map((p) => ({ id: p.id, name: p.name, partyNumber: p.number })),
+    rankBySearch([...CUSTOMERS, ...VENDORS], query.get("q") ?? "", (p) => ({ number: p.number, name: p.name })).map((p) => ({ id: p.id, name: p.name, partyNumber: p.number })),
     query,
   ),
 }));

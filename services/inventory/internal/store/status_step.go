@@ -113,6 +113,7 @@ type StatusStepInput struct {
 	To             domain.Status
 	Date           time.Time
 	CostAmount     *decimal.Decimal
+	LedgerEntryID  string
 	IdempotencyKey string
 	Negative       domain.NegativePolicy
 }
@@ -274,6 +275,9 @@ func (s *Postgres) CreateTransaction(ctx context.Context, in CreateTransactionIn
 // status, dates and posted amount updated, the audit row written and the events
 // enqueued. A repeated Idempotency-Key replays the stored row (applied=false).
 func (s *Postgres) ApplyStatusStep(ctx context.Context, in StatusStepInput) (StatusChange, bool, error) {
+	if in.LedgerEntryID != "" && !ids.Valid(in.LedgerEntryID) {
+		return StatusChange{}, false, problem(http.StatusBadRequest, domain.CodeInvalid, "ledgerEntryId must be a ledger entry id")
+	}
 	date := stepDate(in.Date)
 	hash := stepRequestHash(in)
 	tp, _ := tenant.FromContext(ctx)
@@ -362,7 +366,7 @@ func (s *Postgres) ApplyStatusStep(ctx context.Context, in StatusStepInput) (Sta
 				return err
 			}
 		}
-		if err := moveTransaction(ctx, tx, tp.TenantID, &t, from, to, date, posted); err != nil {
+		if err := moveTransaction(ctx, tx, tp.TenantID, &t, from, to, date, posted, in.LedgerEntryID); err != nil {
 			return err
 		}
 		out = StatusChange{ID: ids.New(), LegalEntityID: t.legalEntityID, TransactionID: t.id, Command: in.Command, From: from, To: to,
@@ -407,7 +411,7 @@ func checkStepNegative(r *row, vendorOwned bool, neg domain.NegativePolicy) erro
 // status from an expected one sets the physical date; a financial status sets
 // the financial date and the posted cost amount (FR-16.11). Quantity and
 // identity are never touched (the append-only trigger enforces it).
-func moveTransaction(ctx context.Context, tx pgx.Tx, tenantID string, t *stepTxn, from, to domain.Status, date time.Time, posted *decimal.Decimal) error {
+func moveTransaction(ctx context.Context, tx pgx.Tx, tenantID string, t *stepTxn, from, to domain.Status, date time.Time, posted *decimal.Decimal, ledgerEntryID string) error {
 	d := date.Format(dateLayout)
 	if !domain.IsPhysical(from) && !domain.IsFinancial(from) && (domain.IsPhysical(to) || domain.IsFinancial(to)) && domain.CanStep(from, to) {
 		t.physicalDate = d
@@ -423,10 +427,15 @@ func moveTransaction(ctx context.Context, tx pgx.Tx, tenantID string, t *stepTxn
 	if t.financialDate != "" {
 		financial = &t.financialDate
 	}
+	var ledgerEntry *string
+	if ledgerEntryID != "" {
+		ledgerEntry = &ledgerEntryID
+	}
 	issue, receipt := statusColumns(t.direction, to)
 	_, err := tx.Exec(ctx, `update inventory_transaction set issue_status = $3, receipt_status = $4, physical_date = $5::date,
-		financial_date = $6::date, cost_amount_posted = coalesce($7::numeric, cost_amount_posted)
-		where tenant_id = $1 and id = $2`, tenantID, t.id, issue, receipt, t.physicalDate, financial, postedText)
+		financial_date = $6::date, cost_amount_posted = coalesce($7::numeric, cost_amount_posted),
+		ledger_entry_id = coalesce($8::uuid, ledger_entry_id)
+		where tenant_id = $1 and id = $2`, tenantID, t.id, issue, receipt, t.physicalDate, financial, postedText, ledgerEntry)
 	t.status = to
 	return err
 }
@@ -615,7 +624,11 @@ func stepRequestHash(in StatusStepInput) string {
 	if in.Command != domain.CommandStep {
 		from, to = "", "" // a named command's move follows from the current status
 	}
-	return fingerprint("STEP", in.TransactionID, string(in.Command), from, to, requestedDate(in.Date), cost)
+	parts := []string{"STEP", in.TransactionID, string(in.Command), from, to, requestedDate(in.Date), cost}
+	if in.LedgerEntryID != "" {
+		parts = append(parts, "ledger", strings.ToLower(in.LedgerEntryID))
+	}
+	return fingerprint(parts...)
 }
 
 func createRequestHash(in CreateTransactionInput) string {

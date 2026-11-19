@@ -1,5 +1,7 @@
 # UX writing style guide
 
+Extended by docs/ux/ (UXS-02); where they differ, docs/ux wins.
+
 How the web app talks to people. It covers every string a person can read or hear: page titles and descriptions, labels, hints, buttons, empty states, notices, error messages and accessible names. The design system's microcopy list (`design-system.md`, section 7) applies these rules to the shell.
 
 ## Voice
@@ -62,6 +64,23 @@ Rules:
 - **Permissions:** name the missing duty in plain words when you know it, and point to an administrator.
 - **Don't blame or guess.** Avoid "you entered an invalid value" when the service may be at fault; "Something went wrong on our side" is fine for a 500.
 
+## Banned in text people read
+
+`src/shell/plainLanguage.test.ts` scans every string in the modules and the shell and fails on these (rules in `src/shell/plainLanguageRules.ts`, fixtures in `plainLanguageRules.test.ts`):
+
+| Rule | Flags | Write instead |
+|---|---|---|
+| `SPEC_REF`, `DELIVERY_REF` | Spec ids, waves and slices | Say what the page does |
+| `UUID_WORD` | "UUID" | Let the person pick the record by name |
+| `ID_PROMPT` | "Enter the vendor id" | A lookup field that shows names |
+| `DUTY_CODE` | A duty code such as `sales.order.approve` | The duty in plain words; `dutyName("sales.order.approve")` from `src/shell/shared/dutyName.ts` returns "Approve sales order". `src/shell/shared/` imports nothing outside its own folder (`boundary.test.ts`) |
+| `PROBLEM_CODE` | A code such as `REPORT-0010` in a sentence | `ProblemMessage`, which keeps the code under Details |
+| `RAW_ENUM` | A raw status such as `PENDING_APPROVAL` in a sentence | `StatusPill` or a label from the catalog |
+
+Existing offenders are listed in `src/shell/plainLanguageAllowlist.json`. The list only shrinks: the test fails on a new offender and on an entry that no longer matches, so delete an entry when you fix its string. Raw id fields move to lookups in B-27, which empties `UUID_WORD` and `ID_PROMPT`.
+
+Accessibility has the same shape: `e2e/axeAllowlist.json` holds the dated axe exceptions (`route`, `rule`, `reason`, `expires`). The scan fails on any violation, minor included, that is not listed, and on a row past its date.
+
 ## Glossary
 
 Use these words, with these meanings, and the same word for the same thing on every screen.
@@ -92,7 +111,7 @@ Use these words, with these meanings, and the same word for the same thing on ev
 ### When technical terms are acceptable
 
 - **Industry standards the audience uses daily:** SSCC, ASN, EDI, IBAN, BIC, DDMRP, WIP, ATP, UoM, CSV. Spell out an abbreviation the first time on a page when the reader might not know it: "advance ship notice (ASN)".
-- **Identifiers a person must type or paste**, such as "Party id" or "Run id", until a picker replaces the field. Say what the id points to in the hint: "The employee's party record".
+- **Identifiers a person must type or paste** only on admin, integration and migration screens, where the id is the subject. Everywhere else a person chooses a record by name or number with `EntityLookup`, or several with `EntityMultiLookup` (paste of numbers accepted), and tables show the name with `EntityName` or `UserName`. `shell/lookup/rawIdInputs.test.ts` and `idColumns.test.ts` fail on a text input or column that holds an id, apart from the allowlisted screens still to convert.
 - **Under "Details" in `ProblemMessage`:** problem codes, server detail and request ids are for support and may be technical.
 - **Admin, integration and developer screens** (connectors, message logs, metadata) may show field names and raw values when the person needs them to configure or debug. Labels and hints still follow this guide.
 - **Never in user text:** spec ids (FR-, BR-, AC-), waves, slices, sagas, idempotency, ETags, If-Match, HTTP status numbers, stack traces, enum values in upper snake case, internal service names.

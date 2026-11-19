@@ -88,6 +88,15 @@ func (a *API) listLibrary(w http.ResponseWriter, r *http.Request) {
 		}
 		after = &c
 	}
+	scope, err := a.viewerScope(r)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	if scope.Restricted() {
+		key := scope.Key()
+		f.DimensionScope = &key
+	}
 	page, err := a.store.ListLibrary(r.Context(), f, after, limit)
 	if err != nil {
 		fail(w, r, err)

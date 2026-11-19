@@ -168,6 +168,39 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '500': { $ref: '#/components/responses/Problem' }
+  /v1/identity/users/{id}/session-revocations:
+    post:
+      operationId: revokeUserSessions
+      x-depot-duty: identity.user.maintain
+      description: >-
+        Ends every Keycloak session and offline session of the user and sets its not-before, so refresh tokens issued
+        earlier are refused; the user stays enabled. An access token already issued stays valid until it expires, at most
+        300 s. Needs a tenant administrator (tenant.administer, no legal-entity claim). 404 when the user is not in the
+        caller's tenant; 409 IDN-SESSION-REVOKE-REFUSED when Keycloak refuses (for example the Keycloak user belongs to
+        another tenant); 502 IDN-SESSION-REVOKE-FAILED when Keycloak could not be reached (nothing is recorded, retry);
+        503 IDN-SESSION-REVOKE-OFF when Keycloak administration is not configured. Audited and emitted as
+        dev.depot.identity.session.revoked.v1.
+      security: [{ gatewayHeaders: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/Duties'
+        - $ref: '#/components/parameters/LegalEntityHeader'
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessionRevocationRequest' }
+      responses:
+        '200': { description: The sessions were ended., content: { application/json: { schema: { $ref: '#/components/schemas/SessionRevocation' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+        '502': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /v1/identity/customer-contacts:
     get:
       operationId: listCustomerContacts
@@ -876,6 +909,20 @@ components:
         nextAttemptAt: { type: string, format: date-time }
         completedAt: { type: string, format: date-time }
         parkedAt: { type: string, format: date-time }
+    SessionRevocationRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason: { type: string, maxLength: 500 }
+    SessionRevocation:
+      type: object
+      required: [userId, outcome, revokedBy, revokedAt]
+      properties:
+        userId: { type: string, format: uuid }
+        outcome: { type: string, enum: [revoked, not_found] }
+        keycloakUserId: { type: string }
+        revokedBy: { type: string }
+        revokedAt: { type: string, format: date-time }
     KeycloakDeprovisionList:
       type: object
       required: [items]

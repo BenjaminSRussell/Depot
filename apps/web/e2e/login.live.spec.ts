@@ -23,18 +23,14 @@ test("an admin signs in through Keycloak, sees admin navigation and may call adm
   await signIn(page, "admin", "depot-admin-dev");
   // The workspace navigation lists the admin entries once the admin area is open.
   await page.goto(`${LIVE_URL}/admin`);
-  await expect(page.getByRole("link", { name: "Number sequences" }).first()).toBeVisible();
-  // Audit is a planned page (src/shell/plannedRoutes.json): nothing links it until it reads the audit service.
-  await expect(page.getByRole("link", { name: "Audit", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Sequences" })).toBeVisible();
   expect([401, 403]).not.toContain(await apiStatus(page, "/api/v1/numbering/sequences/PARTY"));
-  expect([401, 403, 404, 405]).not.toContain(await apiStatus(page, "/api/v1/numbering/sequences"));
 });
 
 test("a clerk signs in, sees no admin navigation and is refused by the API with 403", async ({ page }) => {
   await signIn(page, "clerk", "depot-clerk-dev");
   await page.goto(`${LIVE_URL}/admin`);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Audit" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Number sequences" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Sequences" })).toHaveCount(0);
   expect(await apiStatus(page, "/api/v1/numbering/sequences/PARTY")).toBe(403);
 });

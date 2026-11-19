@@ -35,6 +35,12 @@ type fakePostings struct {
 	cost    decimal.Decimal
 	booked  map[string]store.TransactionRow
 	entries map[string][]string
+	steps   []store.StatusStepInput
+}
+
+func (f *fakePostings) ApplyStatusStep(_ context.Context, in store.StatusStepInput) (store.StatusChange, bool, error) {
+	f.steps = append(f.steps, in)
+	return store.StatusChange{TransactionID: in.TransactionID}, true, nil
 }
 
 func (f *fakePostings) CreateTransaction(ctx context.Context, in store.CreateTransactionInput) (store.StatusChange, bool, error) {
@@ -48,6 +54,10 @@ func (f *fakePostings) CreateTransaction(ctx context.Context, in store.CreateTra
 		return store.StatusChange{}, false, err
 	}
 	return store.StatusChange{TransactionID: "t"}, true, nil
+}
+
+func (f *fakePostings) RecordInvoicePart(_ context.Context, _, _, _ string, _ int, qty, amount decimal.Decimal) (store.InvoicedTotal, error) {
+	return store.InvoicedTotal{Qty: qty, Amount: amount}, nil
 }
 
 func (f *fakePostings) IssueBasis(context.Context, string, string, domain.Dimensions) (string, decimal.Decimal, error) {

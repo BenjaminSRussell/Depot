@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -21,8 +22,9 @@ type fakeStore struct {
 	ping   error
 	seq    store.Sequence
 	issued store.Issued
-	cursor string
-	limit  int
+	items  []store.Sequence
+	res    store.Reservation
+	voided []store.VoidedNumber
 }
 
 func (f *fakeStore) Create(_ context.Context, in store.Sequence, _ string) (store.Sequence, error) {
@@ -39,18 +41,29 @@ func (f *fakeStore) Get(context.Context, string) (store.Sequence, error) {
 	}
 	return f.seq, nil
 }
+func (f *fakeStore) List(_ context.Context, after string, limit int) ([]store.Sequence, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.items, nil
+}
 func (f *fakeStore) Allocate(context.Context, string, string) (store.Issued, error) {
 	if f.err != nil {
 		return store.Issued{}, f.err
 	}
 	return f.issued, nil
 }
-func (f *fakeStore) List(_ context.Context, cursor string, limit int) (store.Page, error) {
-	if f.err != nil {
-		return store.Page{}, f.err
-	}
-	f.cursor, f.limit = cursor, limit
-	return store.Page{Items: []store.Listed{{Sequence: store.Sequence{Code: "INV", Format: "INV-{######}"}, NextValue: 3, NextFormatted: "INV-000003"}}}, nil
+func (f *fakeStore) Reserve(context.Context, string, string, time.Duration) (store.Reservation, error) {
+	return f.res, f.err
+}
+func (f *fakeStore) Confirm(context.Context, string, string) (store.Reservation, error) {
+	return f.res, f.err
+}
+func (f *fakeStore) Void(context.Context, string, string) (store.Reservation, error) {
+	return f.res, f.err
+}
+func (f *fakeStore) Voided(context.Context, string, string, int) ([]store.VoidedNumber, error) {
+	return f.voided, f.err
 }
 func (f *fakeStore) Ping(context.Context) error { return f.ping }
 
@@ -106,14 +119,6 @@ func TestSequences(t *testing.T) {
 		{"allocate with the narrow service duty", http.MethodPost, nextPath, "", "numbering.sequence.allocate", ok, true, http.StatusOK, `"formatted":"INV-000001"`},
 		{"create with the narrow service duty", http.MethodPost, createPath, validBody, "numbering.sequence.allocate", ok, true, http.StatusForbidden, "AUTH-0003"},
 		{"allocate without duty", http.MethodPost, nextPath, "", "numbering.read", ok, true, http.StatusForbidden, "AUTH-0003"},
-		{"list ok", http.MethodGet, createPath, "", "numbering.read", ok, true, http.StatusOK, `"nextFormatted":"INV-000003"`},
-		{"list with a limit and cursor", http.MethodGet, createPath + "?limit=500&cursor=00000000-0000-0000-0000-000000000001", "", "numbering.read", ok, true, http.StatusOK, `"items":[`},
-		{"list without duty", http.MethodGet, createPath, "", "numbering.write", ok, true, http.StatusForbidden, "AUTH-0003"},
-		{"list without tenant", http.MethodGet, createPath, "", "", ok, false, http.StatusUnauthorized, "AUTH-0001"},
-		{"list with a zero limit", http.MethodGet, createPath + "?limit=0", "", "numbering.read", ok, true, http.StatusBadRequest, `"limit"`},
-		{"list with a limit over the cap", http.MethodGet, createPath + "?limit=501", "", "numbering.read", ok, true, http.StatusBadRequest, `"limit"`},
-		{"list with a malformed cursor", http.MethodGet, createPath + "?cursor=INV", "", "numbering.read", ok, true, http.StatusBadRequest, `"cursor"`},
-		{"list store error", http.MethodGet, createPath, "", "numbering.read", &fakeStore{err: errors.New("pg secret")}, true, http.StatusInternalServerError, "COM-0500"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -126,15 +131,36 @@ func TestSequences(t *testing.T) {
 	}
 }
 
-func TestListPassesTheDefaultLimitAndCursor(t *testing.T) {
-	f := &fakeStore{}
-	r, _ := newRouter(f)
-	if rec := do(r, http.MethodGet, createPath, "", "numbering.read", true); rec.Code != http.StatusOK || f.limit != 100 || f.cursor != "" {
-		t.Fatalf("default: %d limit=%d cursor=%q", rec.Code, f.limit, f.cursor)
+func TestListSequences(t *testing.T) {
+	one := store.Sequence{ID: testkit.TenantID(5), Code: "INV", Name: "Invoices", Format: "INV-{######}", LegalEntityID: testkit.TenantID(9), Mode: "gap_free", StartFrom: 1}
+	tests := []struct {
+		name, query, duties string
+		store               *fakeStore
+		withTenant          bool
+		wantStatus          int
+		wantBody            string
+	}{
+		{"last page has no next", "", allDuties, &fakeStore{items: []store.Sequence{one}}, true, http.StatusOK, `"next":""`},
+		{"full page returns the last id as next", "?limit=1", allDuties, &fakeStore{items: []store.Sequence{one}}, true, http.StatusOK, `"next":"` + one.ID + `"`},
+		{"empty list is an empty array", "", allDuties, &fakeStore{}, true, http.StatusOK, `"items":[]`},
+		{"without tenant", "", "", &fakeStore{}, false, http.StatusUnauthorized, "AUTH-0001"},
+		{"without read duty", "", "numbering.write", &fakeStore{}, true, http.StatusForbidden, "AUTH-0003"},
+		{"limit out of range", "?limit=0", allDuties, &fakeStore{}, true, http.StatusBadRequest, `"limit"`},
+		{"limit not a number", "?limit=x", allDuties, &fakeStore{}, true, http.StatusBadRequest, `"limit"`},
+		{"cursor not a uuid", "?after=nope", allDuties, &fakeStore{}, true, http.StatusBadRequest, `"after"`},
+		{"store error", "", allDuties, &fakeStore{err: errors.New("pg secret")}, true, http.StatusInternalServerError, "COM-0500"},
 	}
-	cursor := testkit.TenantID(5)
-	if rec := do(r, http.MethodGet, createPath+"?limit=2&cursor="+cursor, "", "numbering.read", true); rec.Code != http.StatusOK || f.limit != 2 || f.cursor != cursor {
-		t.Fatalf("explicit: %d limit=%d cursor=%q", rec.Code, f.limit, f.cursor)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			r, _ := newRouter(tc.store)
+			rec := do(r, http.MethodGet, createPath+tc.query, "", tc.duties, tc.withTenant)
+			if rec.Code != tc.wantStatus || !strings.Contains(rec.Body.String(), tc.wantBody) {
+				t.Fatalf("got %d %s; want %d containing %s", rec.Code, rec.Body.String(), tc.wantStatus, tc.wantBody)
+			}
+			if strings.Contains(rec.Body.String(), "pg secret") {
+				t.Fatalf("store error leaked: %s", rec.Body.String())
+			}
+		})
 	}
 }
 

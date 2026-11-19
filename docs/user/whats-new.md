@@ -2,11 +2,27 @@
 
 Changes to Depot in plain language, newest first. Add an entry here for every change a user will notice. The "What's new" page in the app shows this file.
 
+## 2026-11-19
+
+- The currency on a new sales order, purchase order, goods arrival, vendor invoice, customer payment or free-text invoice now fills in from the customer, vendor or purchase order, or else from the legal entity, instead of always starting as USD. You can still type another currency.
+- On a new vendor invoice the ledger fills in when the legal entity has only one.
+- On a new sales order, **Order type** and **Invoice account** moved under **Advanced**.
+
 ## 2026-11-18
 
-- Admin, then Number sequences lists the number sequences of each legal entity: the code, the format, whether numbers are gap-free and the next number each will give. The setup checklist's number sequences check now reads the same list. You can't create or change sequences there yet.
-- Admin, then Import records (until now Import / export) opens the same import as the setup guide: download a template, preview the rows with what to fix in each, then start the import. To export, use Export CSV on the list you need.
-- Pages that aren't built yet, such as Audit, Alerts, Documents, Standard texts, the job monitor, the workflow designer and message templates, now say so instead of showing an empty list or made-up rows. Menus, workspaces, All features and search no longer offer them; a saved link still opens the page. The Workflow and batch area is now called Workflow.
+- **Run plan** and **Supply schedule** under **Planning** now take items by name or item number. Paste a list of item numbers, separated by commas, spaces or new lines, and each one becomes a named item you can remove; numbers that match nothing are listed so you can fix them.
+- **Duplicate candidates** under **Party** asks you to choose two parties by name.
+- Searching for a party lists the closest names first.
+
+## 2026-11-17
+
+- On a phone the top bar no longer runs off the side of the screen. A "Context" button opens a panel with the legal entity and site, Help, compact view and your account.
+- Sales order and quotation forms, scheduling parameters and write-off approval now name the permission they need in words instead of a code.
+- **Sequences** under **Admin** now lists how your documents are numbered, for each legal entity. It is read-only for now.
+- **Import** under **Admin** opens the same step as the setup guide, where you check a file of vendors, customers or products and start the import.
+- Pages that are not built yet no longer appear in the menus, and no page shows made-up rows. If you open one by its address, it says it isn't available yet.
+- Each release now has to show that the screens people use for their daily tasks did not get harder to use. Release notes carry a usability check, and a release that changes a task's screens without a measured reference does not go out.
+- The supplier portal has a demo build that answers with a sample vendor and two purchase orders, so you can try it without signing in. Invoices, shipments and payments are not in the demo yet.
 
 ## 2026-11-10
 

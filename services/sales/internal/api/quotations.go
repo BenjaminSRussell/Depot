@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/productblock"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/sales/internal/domain"
 	"github.com/BenjaminSRussell/depot/services/sales/internal/store"
@@ -144,6 +146,10 @@ func (a *API) createQuotation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !inScope(w, r, in.LegalEntityID) {
+		return
+	}
+	if err := a.checkBlocks(r.Context(), in.LegalEntityID, productblock.SalesQuotation, in.Lines); err != nil {
+		a.fail(w, r, "create quotation", err)
 		return
 	}
 	group, err := a.resolveGroup(r.Context(), in.LegalEntityID, in.CustomerID, req.CustomerGroup)
@@ -313,7 +319,15 @@ func (a *API) convertQuotation(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		p, _ := tenant.FromContext(r.Context())
-		group, err := a.quotationGroup(r.Context(), id)
+		group, err := a.quotationGroup(r.Context(), id, productblock.SalesOrder, func(q store.Quotation) []store.Line {
+			var lines []store.Line
+			for _, l := range q.Lines {
+				if len(req.LineNos) == 0 || slices.Contains(req.LineNos, l.LineNo) {
+					lines = append(lines, l.Line)
+				}
+			}
+			return lines
+		})
 		if err != nil {
 			a.fail(w, r, "convert quotation", err)
 			return
@@ -418,7 +432,7 @@ func (a *API) changeQuotation(w http.ResponseWriter, r *http.Request) {
 		in.CanOverrideListing = p.HasDuty(dutyOrderApprove)
 		if in.Lines != nil {
 			var err error
-			if in.CustomerGroup, err = a.quotationGroup(r.Context(), id); err != nil {
+			if in.CustomerGroup, err = a.quotationGroup(r.Context(), id, productblock.SalesQuotation, func(store.Quotation) []store.Line { return in.Lines }); err != nil {
 				a.fail(w, r, "change quotation", err)
 				return
 			}
@@ -463,9 +477,12 @@ func (a *API) cancelQuotation(w http.ResponseWriter, r *http.Request) {
 
 // quotationGroup re-reads the group of the quotation's customer from the party
 // service, so a customer moved to another group is checked against the new one.
-func (a *API) quotationGroup(ctx context.Context, id string) (*string, error) {
+func (a *API) quotationGroup(ctx context.Context, id, process string, pick func(store.Quotation) []store.Line) (*string, error) {
 	q, err := a.store.GetQuotation(ctx, id)
 	if err != nil {
+		return nil, err
+	}
+	if err := a.checkBlocks(ctx, q.LegalEntityID, process, pick(q)); err != nil {
 		return nil, err
 	}
 	return a.resolveGroup(ctx, q.LegalEntityID, q.CustomerID, nil)

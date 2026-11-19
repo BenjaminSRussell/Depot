@@ -28,7 +28,7 @@ const postingsDeadLetterTopic = "depot.inventory.postings.dlq"
 
 func postingsKafkaConfig(getenv func(string) string) (kafka.Config, error) {
 	return kafka.ConfigFromEnv(getenv, api.PostingsConsumerName, api.PostingsConsumerName,
-		[]string{api.ReceiptTopic, api.OrderProgressTopic, api.PackingSlipTopic, api.WorkOrderTopic})
+		[]string{api.ReceiptTopic, api.OrderProgressTopic, api.PackingSlipTopic, api.WorkOrderTopic, api.InvoiceTopic})
 }
 
 // postingsUnits is the unit conversion plain lines are booked with: the

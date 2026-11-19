@@ -1040,6 +1040,7 @@ paths:
                 asnEnabled: { type: boolean, description: "Publish dev.depot.fulfillment.asn.issued.v1 for this slip (FR-28.9). Omit to take the legal entity setting (false when none is saved)." }
                 costs:
                   type: array
+                  description: "With INVENTORY_URL set, inventory values each line (the running average of the product in the warehouse, snapshot inventory:<product id>:<posting date>) and a different unitCost here is ignored; only a catch weight is taken from it. A line the warehouse holds no valued stock of keeps this cost. A valuation currency other than the slip's is refused with FUL-0082."
                   items:
                     type: object
                     required: [shipmentLineId, unitCost, costSnapshotId]

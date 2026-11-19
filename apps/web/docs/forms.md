@@ -1,5 +1,7 @@
 # Form standard
 
+Extended by docs/ux/ (UXS-08); where they differ, docs/ux wins.
+
 Shared pieces live in `src/shell/ui` and are exported from `src/shell/ui/index.ts`. Use them for every new form; roll existing forms over in the rollout checklist (#505).
 
 ## Layout
@@ -15,6 +17,14 @@ Shared pieces live in `src/shell/ui` and are exported from `src/shell/ui/index.t
 - `FormField required` shows "Required" and sets `aria-required` on the control. `optional` shows "Optional". Mark one or the other on every field, including selects that have a default.
 - Help text is one line, passed as `hint`. Take the text from `copy.fieldHelp` in `src/shell/copy.ts`, not from an inline string, so it can be translated.
 - Write help in plain language: say what the field does or where to find the value. Skip help on obvious fields.
+
+## Defaults
+
+- A form never starts with a literal currency. The currency field holds what the person typed, else the currency of the source record: the purchase order, then the vendor or customer, then the legal entity. Use `useDefaultCurrency` from `src/shell/defaults/useDefaults.ts`; it returns `""` while the sources load or when none holds a code, and the form's own currency check then blocks the submit.
+- Show and submit the effective value (`values.currency || derived`). A typed value always wins and the field stays editable.
+- The ledger is the legal entity's only ledger when it has exactly one (`useDefaultLedger`); with several, the person picks.
+- Fields the person rarely changes, such as an order's type or invoice account, go under Advanced.
+- `src/shell/defaults/noLiteralDefaults.test.ts` fails when a task-route form regains a literal currency default; its allowlist stays empty.
 
 ## Inline validation
 

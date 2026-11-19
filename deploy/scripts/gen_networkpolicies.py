@@ -120,7 +120,7 @@ EXTERNAL_URLS = {
     "EDI_AS2_PUBLIC_URL": "edi's own public AS2 address", "NOTIFY_WEBHOOK_URL": "an operator webhook",
     "PROMETHEUS_URL": "Prometheus", "CUBE_URL": "the Cube semantic layer", "SEMANTIC_LAYER_URL": "the Cube semantic layer",
     "KEYCLOAK_ADMIN_URL": "Keycloak", "IDENTITY_KEYCLOAK_ADMIN_URL": "Keycloak", "OPS_KEYCLOAK_URL": "Keycloak",
-    "IDENTITY_OPA_URL": "OPA", "AGENTS_JWKS_URL": "the realm's JWKS", "AGENTS_OPENAI_BASE_URL": "the model provider",
+    "IDENTITY_OPA_URL": "OPA", "OPA_URL": "OPA", "AGENTS_JWKS_URL": "the realm's JWKS", "AGENTS_OPENAI_BASE_URL": "the model provider",
     "OPS_LAKEHOUSE_CATALOG_URL": "the lakehouse catalog",
 }
 URL_ENV = re.compile(r"\b([A-Z][A-Z0-9_]*_URL)\b")

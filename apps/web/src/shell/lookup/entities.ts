@@ -251,8 +251,13 @@ function orgEntity(
   noun: string,
   path: string,
   scoped: (scope: LookupScope) => Record<string, string | undefined>,
+  withCurrency = false,
 ): LookupDef {
-  const map = (row: Raw) => option(row, ["name"], ["code"]);
+  const map = (row: Raw) => {
+    const hit = option(row, ["name"], ["code"]);
+    const currency = text(row, "currency");
+    return hit && withCurrency && currency ? { ...hit, currency } : hit;
+  };
   return {
     noun,
     search: async (q, scope, signal) =>
@@ -338,6 +343,7 @@ function partyRole(
             id,
             name,
             number: text(role, "accountNumber") ?? text(party, "partyNumber"),
+            currency: text(role, "currencyCode"),
           }
         : null;
     },
@@ -1246,7 +1252,7 @@ export const lookupDefs: Record<LookupEntityKey, LookupDef> = {
   operatingUnit: operatingUnitDef,
   itemGroup: itemGroupDef,
   vendorGroup: vendorGroupDef,
-  legalEntity: orgEntity("legal entity", "legal-entities", () => ({})),
+  legalEntity: orgEntity("legal entity", "legal-entities", () => ({}), true),
   site: orgEntity("site", "sites", (scope) => ({
     legalEntityId: scope.legalEntityId,
   })),
@@ -1408,6 +1414,17 @@ function resolveUserName(id: string): Promise<LookupOption | null> {
 
 export function formatOption(entry: LookupOption): string {
   return entry.number ? `${entry.name} (${entry.number})` : entry.name;
+}
+
+export async function findByNumber(
+  entity: LookupEntityKey,
+  number: string,
+  signal?: AbortSignal,
+): Promise<LookupOption | null> {
+  const wanted = number.trim().toLowerCase();
+  if (wanted === "") return null;
+  const found = await lookupDefs[entity].search(number.trim(), {}, signal);
+  return found.find((entry) => entry.number?.toLowerCase() === wanted) ?? null;
 }
 
 /** How long a lookup that found nothing, or failed, is remembered before it is asked again. */

@@ -49,8 +49,6 @@ spec:
             {{- end }}
             - name: BILLING_MAX_LINES
               value: {{ .Values.maxLines | quote }}
-            - name: BILLING_TAX_RATES
-              value: {{ .Values.taxRates | quote }}
             {{- if .Values.closeUrl }}
             - name: BILLING_CLOSE_URL
               value: {{ .Values.closeUrl | quote }}

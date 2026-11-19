@@ -204,12 +204,13 @@ type Warning struct {
 }
 
 type Result struct {
-	Engine              string       `json:"engine"`
-	Fallback            bool         `json:"fallback"`
-	Lines               []LineResult `json:"lines"`
-	DocumentTaxesByCode []CodeTotal  `json:"document_taxes_by_code"`
-	Warnings            []Warning    `json:"warnings"`
-	DeterminationTrace  []string     `json:"determination_trace"`
+	Engine              string        `json:"engine"`
+	Fallback            bool          `json:"fallback"`
+	Lines               []LineResult  `json:"lines"`
+	DocumentTaxesByCode []CodeTotal   `json:"document_taxes_by_code"`
+	Warnings            []Warning     `json:"warnings"`
+	PostingLines        []PostingLine `json:"posting_lines"`
+	DeterminationTrace  []string      `json:"determination_trace"`
 }
 
 func validate(doc Document, cfg Config) error {

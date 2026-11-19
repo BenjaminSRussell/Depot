@@ -66,6 +66,11 @@ spec:
             - name: BUDGETING_URL
               value: {{ .Values.serviceUrls.budgeting | quote }}
             {{- end }}
+            {{- if .Values.serviceUrls.product }}
+            {{- if not .Values.serviceIdentity.signingKeySecret }}{{ fail "serviceUrls.product needs serviceIdentity.signingKeySecret: the product block check signs its calls and refuses to start without a key (B-39)" }}{{ end }}
+            - name: PRODUCT_URL
+              value: {{ .Values.serviceUrls.product | quote }}
+            {{- end }}
             {{- if .Values.serviceIdentity.signingKeySecret }}
             - name: DEPOT_SERVICE_SIGNING_KEY_FILE
               value: /var/run/depot/service-identity/signing-key

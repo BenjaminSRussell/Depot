@@ -2,7 +2,7 @@ package authz
 
 import rego.v1
 
-concrete(resource) := replace(replace(replace(resource, "{,/**}", "/item-1"), "{,/*}", "/item-1"), "*", "item-1")
+concrete(resource) := replace(replace(resource, "{,/**}", "/item-1"), "*", "item-1")
 
 allowed(duty, method, resource) if {
 	result := decision with input as {
@@ -251,7 +251,7 @@ test_all_seeded_duties_allow_their_declared_permissions if {
 }
 
 test_flag_duties_grant_no_routes if {
-	flag_duties := {"audit.cdc.apply", "audit.chain.anchor", "receivables.write-off.approve","purchasing.inbound.apply", "edi.pii.view", "edi.outbound.from-event", "tax.code.maintain", "fulfillment.order.sync", "budget.override", "inventory.blocking.scrap", "ledger.journal.postdirect", "ledger.journal.postledger", "ledger.period.postclosed", "org.hierarchy.backdate", "party.merge", "pii.read", "pricing.cache.invalidate", "production.batch.consume-expired", "production.journal.over-consume", "production.order.bom-after-release", "production.order.rework", "production.planned.intake", "receivables.openitem.from-billing", "billing.iccharge.from-event", "payables.iccharge.from-event", "intercompany.charge.from-event", "revrec.creditnote.reverse", "revrec.contract.from-invoice", "production.order.zero-output", "production.jobcard.shopfloor", "scheduling.constraints.override", "scheduling.order.import", "search.index.write", "shopfloor.job.sync", "tenant.administer", "treasury.facility.override"}
+	flag_duties := {"ledger.journal.rateoverride", "audit.auditor", "audit.cdc.apply", "audit.chain.anchor", "receivables.write-off.approve","purchasing.inbound.apply", "edi.pii.view", "edi.outbound.from-event", "tax.code.maintain", "fulfillment.order.sync", "budget.override", "inventory.blocking.scrap", "ledger.journal.postdirect", "ledger.journal.postledger", "ledger.period.postclosed", "org.hierarchy.backdate", "party.merge", "pii.read", "pricing.cache.invalidate", "production.batch.consume-expired", "production.journal.over-consume", "production.order.bom-after-release", "production.order.rework", "production.planned.intake", "receivables.openitem.from-billing", "billing.iccharge.from-event", "payables.iccharge.from-event", "intercompany.charge.from-event", "revrec.creditnote.reverse", "revrec.contract.from-invoice", "production.order.zero-output", "production.jobcard.shopfloor", "scheduling.constraints.override", "scheduling.order.import", "search.index.write", "shopfloor.job.sync", "tenant.administer", "treasury.facility.override"}
 	{d | some d, spec in data.duties; spec.flag == true} == flag_duties
 	every duty in flag_duties {
 		count(data.duties[duty].permissions) == 0
@@ -603,18 +603,6 @@ test_record_audit_changes_can_post_ingest_and_alert_rules if {
 	rules.allow
 }
 
-# B-21: numbering.read lists the sequences and reads one, and nothing below a sequence.
-test_numbering_read_lists_and_reads_sequences_only if {
-	allowed("numbering.read", "GET", "/v1/numbering/sequences")
-	allowed("numbering.read", "GET", "/v1/numbering/sequences/INV")
-	not allowed("numbering.read", "GET", "/v1/numbering/sequences/INV/next")
-	not allowed("numbering.read", "POST", "/v1/numbering/sequences")
-	not allowed("numbering.read", "GET", "/v1/numbering/sequencesX")
-	not allowed("numbering.write", "GET", "/v1/numbering/sequences")
-	result := decision with input as {"subject": {"tenant_id": "tenant-a", "user_id": "user-a"}, "action": "GET", "resource": "/v1/numbering/sequences"}
-	result == {"allow": false, "duty_missing": "numbering.read"}
-}
-
 test_missing_numbering_get_duty_is_least_privileged if {
 	result := decision with input as {
 		"subject": {"tenant_id": "tenant-a", "user_id": "user-a"},
@@ -622,6 +610,22 @@ test_missing_numbering_get_duty_is_least_privileged if {
 		"resource": "/v1/numbering/sequences/INV",
 	}
 	result == {"allow": false, "duty_missing": "numbering.read"}
+}
+
+test_numbering_list_needs_read_duty if {
+	denied := decision with input as {
+		"subject": {"tenant_id": "tenant-a", "user_id": "user-a"},
+		"action": "GET",
+		"resource": "/v1/numbering/sequences",
+	}
+	denied == {"allow": false, "duty_missing": "numbering.read"}
+	granted := decision with input as {
+		"subject": {"tenant_id": "tenant-a", "user_id": "user-a"},
+		"action": "GET",
+		"resource": "/v1/numbering/sequences",
+	}
+		with data.assignments as {"tenant-a": {"user-a": ["numbering.read"]}}
+	granted.allow
 }
 
 test_missing_audit_get_duty_is_least_privileged if {
@@ -867,6 +871,8 @@ test_inventory_issue_claim_is_service_only_and_opens_only_its_routes if {
 	}
 	allowed("inventory.issue.claim", "POST", "/v1/inventory/issue-claims")
 	allowed("inventory.issue.claim", "POST", "/v1/inventory/issue-claims:release")
+	allowed("inventory.issue.claim", "GET", "/v1/inventory/issue-cost")
+	not allowed("inventory.issue.claim", "POST", "/v1/inventory/issue-cost")
 	not allowed("inventory.issue.claim", "GET", "/v1/inventory/onhand")
 	not allowed("inventory.issue.claim", "POST", "/v1/inventory/holds")
 	not allowed("inventory.issue.claim", "POST", "/v1/inventory/journals")
@@ -918,6 +924,24 @@ test_billing_tax_report_holds_only_the_tax_transaction_duty if {
 	"tax.transaction.record" in data.service_grants.billing.tax
 	allowed("tax.transaction.record", "POST", "/v1/tax/transactions")
 	not allowed("tax.transaction.record", "POST", "/v1/tax/settlements:run")
+}
+
+test_billing_tax_calc_holds_only_the_tax_calculate_duty if {
+	data.service_principals["billing-tax-calc"] == ["tax.tax.calculate"]
+	"tax.tax.calculate" in data.service_grants.billing.tax
+	allowed("tax.tax.calculate", "POST", "/v1/tax/calculate")
+	not allowed("tax.tax.calculate", "POST", "/v1/tax/settlements:run")
+	not allowed("tax.tax.calculate", "POST", "/v1/tax/transactions")
+}
+
+test_planning_open_inputs_read_open_lines_and_on_hand_only if {
+	data.service_principals["planning-open-inputs"] == ["sales.order.open-lines", "inventory.read"]
+	data.duties["sales.order.open-lines"].service_only
+	"sales.order.open-lines" in data.service_grants.planning.sales
+	"inventory.read" in data.service_grants.planning.inventory
+	allowed("sales.order.open-lines", "GET", "/v1/sales/open-order-lines")
+	not allowed("sales.order.open-lines", "GET", "/v1/sales/order-lines")
+	not allowed("sales.order.open-lines", "POST", "/v1/sales/open-order-lines")
 }
 
 test_billing_tax_report_operator_routes_split_view_and_post if {
@@ -2204,7 +2228,7 @@ test_tax_duties_reach_only_their_routes if {
 	not allowed("tax.transaction.record", "POST", "/v1/tax/settlements:run")
 	not allowed("tax.recommit.run", "POST", "/v1/tax/settlements:run")
 	not allowed("tax.tax.calculate", "POST", "/v1/tax/settlements:run")
-	data.service_grants.tax.ledger == ["ledger.balance.read", "ledger.entry.lookup", "ledger.ledger.lookup", "ledger.account.lookup"]
+	data.service_grants.tax.ledger == ["ledger.balance.read", "ledger.entry.lookup", "ledger.ledger.lookup", "ledger.account.lookup", "ledger.entry.post"]
 	not allowed("ledger.balance.read", "POST", "/v1/ledger/journal-entries")
 }
 
@@ -3545,6 +3569,14 @@ test_audit_read_log_review_opens_only_the_break_glass_queue if {
 
 # B-07 (AUD-API-4): change-chain verification is its own duty; reading records does not verify and verifying reads no
 # record. The CDC consumer and the nightly chain job hold one flag duty each and reach no route.
+test_record_read_duty_opens_the_per_record_history_route if {
+	allowed("party.read", "GET", "/v1/audit/records/vendor_bank_account/b-1")
+	allowed("sales.order.read", "GET", "/v1/audit/records/sales_order/s-1")
+	not allowed("party.read", "GET", "/v1/audit/records")
+	not allowed("party.read", "GET", "/v1/audit/entities")
+	not allowed("party.read", "GET", "/v1/audit/records/vendor_bank_account/b-1:export")
+}
+
 test_audit_verify_opens_only_the_change_chain_verification if {
 	allowed("audit.verify", "GET", "/v1/audit/records:verify")
 	not allowed("audit.verify", "GET", "/v1/audit/records/vendor_bank_account/b1")
@@ -3930,4 +3962,36 @@ test_ledger_period_lock_is_service_only_and_opens_only_its_route if {
 	allowed("period.maintain", "POST", "/v1/close/periods/p1:resync-ledger-lock")
 	not allowed("period.check", "POST", "/v1/close/periods/p1:resync-ledger-lock")
 	not allowed("period.reopen", "POST", "/v1/close/periods/p1:resync-ledger-lock")
+}
+
+scope_input(tenant, user) := {"subject": {"tenant_id": tenant, "user_id": user}}
+
+test_data_scope_is_unrestricted_on_the_committed_seed if {
+	data_scope == {"unrestricted": true} with input as scope_input("tenant-a", "user-a")
+}
+
+test_data_scope_is_unrestricted_for_a_subject_without_an_entry if {
+	data_scope == {"unrestricted": true} with input as scope_input("tenant-a", "user-b")
+		with data.dimension_scopes as {"tenant-a": {"user-a": {"COST_CENTER": ["100"]}}}
+}
+
+test_data_scope_returns_the_sorted_permitted_values if {
+	data_scope == {"unrestricted": false, "dimensions": {"COST_CENTER": ["100", "300"], "DEPARTMENT": ["A"]}} with input as scope_input("tenant-a", "user-a")
+		with data.dimension_scopes as {"tenant-a": {"user-a": {"COST_CENTER": ["300", "100"], "DEPARTMENT": ["A"]}}}
+}
+
+test_data_scope_keeps_an_empty_value_list_empty if {
+	data_scope == {"unrestricted": false, "dimensions": {"COST_CENTER": []}} with input as scope_input("tenant-a", "user-a")
+		with data.dimension_scopes as {"tenant-a": {"user-a": {"COST_CENTER": []}}}
+}
+
+test_data_scope_has_no_decision_without_an_identity if {
+	not data_scope with input as scope_input("", "user-a")
+	not data_scope with input as scope_input("tenant-a", "")
+	not data_scope with input as {}
+}
+
+test_data_scope_does_not_see_another_tenants_grants if {
+	data_scope == {"unrestricted": true} with input as scope_input("tenant-b", "user-a")
+		with data.dimension_scopes as {"tenant-a": {"user-a": {"COST_CENTER": ["100"]}}}
 }

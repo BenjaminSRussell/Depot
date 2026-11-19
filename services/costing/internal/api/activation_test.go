@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 	"github.com/BenjaminSRussell/depot/services/costing/internal/domain"
 	"github.com/BenjaminSRussell/depot/services/costing/internal/store"
 )
@@ -22,20 +22,20 @@ func dec(s string) decimal.Decimal { return decimal.RequireFromString(s) }
 // plans come from the real domain function, so the DTO mapping is checked
 // against real arithmetic; the store's own rules are covered by the DB tests.
 type slice3 struct {
-	version       store.CostingVersion
-	pending       []domain.PendingCost
-	alreadyActive bool
-	onHand        store.OnHand
-	expected      int
-	committed     int
-	listFilter    store.VersionFilter
-	listAfter     string
-	listLimit     int
-	itemAfter     string
-	copySource    string
-	copyPercent   string
-	cost          *store.CostLookup
-	costAsOf      string
+	version          store.CostingVersion
+	pending          []domain.PendingCost
+	alreadyActive    bool
+	expected         int
+	activationLedger ledgerclient.Ledger
+	committed        int
+	listFilter       store.VersionFilter
+	listAfter        string
+	listLimit        int
+	itemAfter        string
+	copySource       string
+	copyPercent      string
+	cost             *store.CostLookup
+	costAsOf         string
 }
 
 func (f *fakeStore) ListVersions(_ context.Context, vf store.VersionFilter, after string, limit int) (store.VersionPage, error) {
@@ -63,8 +63,7 @@ func (f *fakeStore) CopyItemCosts(_ context.Context, _, source string, percent d
 	return 2, nil
 }
 
-func (f *fakeStore) plan(onHand store.OnHand) (store.ActivationResult, error) {
-	f.onHand = onHand
+func (f *fakeStore) plan() (store.ActivationResult, error) {
 	res := store.ActivationResult{Version: f.version, AlreadyActive: f.alreadyActive}
 	if f.alreadyActive {
 		return res, nil
@@ -73,29 +72,24 @@ func (f *fakeStore) plan(onHand store.OnHand) (store.ActivationResult, error) {
 		Blocked: f.version.BlockActivation}, "2026-10-27"); err != nil {
 		return res, err
 	}
-	pending := make([]domain.PendingCost, 0, len(f.pending))
-	for _, p := range f.pending {
-		oh := onHand[store.OnHandKey(p.ProductID, p.SiteID)]
-		p.OnHandQty, p.BookValue = oh.Qty, oh.BookValue
-		pending = append(pending, p)
-	}
-	plan, err := domain.PlanActivation(false, 2, pending)
+	plan, err := domain.PlanActivation(false, 2, f.pending)
 	res.Plan = plan
 	return res, err
 }
 
-func (f *fakeStore) PreviewActivation(_ context.Context, _ string, onHand store.OnHand) (store.ActivationResult, error) {
-	return f.plan(onHand)
+func (f *fakeStore) PreviewActivation(_ context.Context, _ string) (store.ActivationResult, error) {
+	return f.plan()
 }
 
-func (f *fakeStore) ActivateVersion(_ context.Context, _ string, expected int, onHand store.OnHand) (store.ActivationResult, error) {
-	f.expected = expected
+func (f *fakeStore) ActivateVersion(_ context.Context, _ string, expected int, ledger ledgerclient.Ledger) (store.ActivationResult, error) {
+	f.expected, f.activationLedger = expected, ledger
 	if !f.alreadyActive && expected != f.version.Version {
 		return store.ActivationResult{}, httpx.NewProblem(http.StatusPreconditionFailed, store.CodeConflictVersion, "changed")
 	}
-	res, err := f.plan(onHand)
+	res, err := f.plan()
 	if err == nil && !res.AlreadyActive {
 		f.committed++
+		res.VouchersPosted = len(res.Plan.Sites)
 		res.Version.Status, res.Version.Version = "ACTIVE", f.version.Version+1
 	}
 	return res, err
@@ -127,12 +121,12 @@ func TestActivation_PreviewThenActivate_FR205(t *testing.T) {
 	h, fs := server()
 	fs.version = draftVersion()
 	p1, p2, s1 := ids.New(), ids.New(), ids.New()
+	book := dec("90")
 	fs.pending = []domain.PendingCost{
-		{ProductID: p1, SiteID: s1, NewCost: dec("10"), PreviousCost: dec("9"), HasPrevious: true},
-		{ProductID: p2, SiteID: s1, NewCost: dec("5")},
+		{ProductID: p1, SiteID: s1, NewCost: dec("10"), PreviousCost: dec("9"), HasPrevious: true, OnHandQty: dec("100")},
+		{ProductID: p2, SiteID: s1, NewCost: dec("5"), OnHandQty: dec("20"), BookValue: &book},
 	}
-	body := fmt.Sprintf(`{"onHand":[{"productId":%q,"siteId":%q,"qty":"100"},{"productId":%q,"siteId":%q,"qty":"20","bookValue":"90"}]}`,
-		p1, s1, strings.ToUpper(p2), s1)
+	body := `{}`
 	base := "/v1/costing/versions/" + fs.version.ID
 
 	rec := call(h, http.MethodPost, base+":preview-activation", body, "costing.read", nil)
@@ -162,14 +156,18 @@ func TestActivation_PreviewThenActivate_FR205(t *testing.T) {
 	if rec = call(h, http.MethodPost, base+":activate", body, allDuties, map[string]string{"If-Match": "abc"}); rec.Code != http.StatusBadRequest {
 		t.Fatalf("activate with a malformed If-Match status %d, want 400", rec.Code)
 	}
-	if rec = call(h, http.MethodPost, base+":activate", body, allDuties, map[string]string{"If-Match": `"2"`}); rec.Code != http.StatusPreconditionFailed {
-		t.Fatalf("activate with a stale If-Match status %d, want 412", rec.Code)
+	rec = call(h, http.MethodPost, base+":activate", body, allDuties, map[string]string{"If-Match": `"2"`})
+	if stale, _ := decodeMap(rec); rec.Code != http.StatusPreconditionFailed || stale["code"] != "conflict_version" {
+		t.Fatalf("activate with a stale If-Match status %d body %v, want 412 conflict_version", rec.Code, stale)
 	}
 	rec = call(h, http.MethodPost, base+":activate", body, allDuties, map[string]string{"If-Match": `"3"`})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("activate status %d: %s", rec.Code, rec.Body.String())
 	}
 	m, _ = decodeMap(rec)
+	if vouchers, _ := m["vouchers"].(map[string]any); vouchers["posted"] != float64(1) || vouchers["pending"] != float64(0) {
+		t.Errorf("vouchers = %v, want the site's revaluation voucher posted", m["vouchers"])
+	}
 	if m["status"] != "ACTIVATED" || m["revaluationTotal"] != "110.00" || fs.committed != 1 || fs.expected != 3 || rec.Header().Get("ETag") != `"4"` {
 		t.Fatalf("activate body %v, committed %d, expected %d, etag %s", m, fs.committed, fs.expected, rec.Header().Get("ETag"))
 	}
@@ -198,9 +196,9 @@ func TestActivation_RefusalsAreProblems(t *testing.T) {
 			h, fs := server()
 			fs.version = draftVersion()
 			p, s := ids.New(), ids.New()
-			fs.pending = []domain.PendingCost{{ProductID: p, SiteID: s, NewCost: dec("2"), PreviousCost: dec("1"), HasPrevious: true}}
+			fs.pending = []domain.PendingCost{{ProductID: p, SiteID: s, NewCost: dec("2"), PreviousCost: dec("1"), HasPrevious: true, OnHandQty: dec("5")}}
 			tc.mutate(&fs.slice3)
-			body := fmt.Sprintf(`{"onHand":[{"productId":%q,"siteId":%q,"qty":"5"}]}`, p, s)
+			body := `{}`
 			rec := call(h, http.MethodPost, "/v1/costing/versions/"+fs.version.ID+":preview-activation", body, allDuties, nil)
 			m, _ := decodeMap(rec)
 			if rec.Code != tc.status || problemCode(t, m) != tc.code {
@@ -216,41 +214,38 @@ func TestActivation_AlreadyActiveReplays(t *testing.T) {
 	fs.version.Status = "ACTIVE"
 	fs.alreadyActive = true
 	// A replay needs no current If-Match: activation is idempotent per version id.
-	rec := call(h, http.MethodPost, "/v1/costing/versions/"+fs.version.ID+":activate", `{"onHand":[]}`, allDuties, map[string]string{"If-Match": `"1"`})
+	rec := call(h, http.MethodPost, "/v1/costing/versions/"+fs.version.ID+":activate", `{}`, allDuties, map[string]string{"If-Match": `"1"`})
 	m, _ := decodeMap(rec)
 	if rec.Code != http.StatusOK || m["status"] != "ALREADY_ACTIVE" || fs.committed != 0 {
 		t.Fatalf("status %d body %v committed %d", rec.Code, m, fs.committed)
 	}
 }
 
-func TestActivation_ValidatesOnHand(t *testing.T) {
+func TestActivation_RefusesATypedOnHand(t *testing.T) {
 	h, fs := server()
 	fs.version = draftVersion()
-	p, s := ids.New(), ids.New()
-	path := "/v1/costing/versions/" + fs.version.ID + ":preview-activation"
-	cases := map[string]string{
-		"onHand[0].productId": `{"onHand":[{"productId":"x","siteId":"` + s + `","qty":"1"}]}`,
-		"onHand[0].qty":       `{"onHand":[{"productId":"` + p + `","siteId":"` + s + `","qty":"1.0000001"}]}`,
-		"onHand[0].bookValue": `{"onHand":[{"productId":"` + p + `","siteId":"` + s + `","qty":"1","bookValue":"abc"}]}`,
-		"onHand[1]":           `{"onHand":[{"productId":"` + p + `","siteId":"` + s + `","qty":"1"},{"productId":"` + strings.ToUpper(p) + `","siteId":"` + s + `","qty":"2"}]}`,
-	}
-	for field, body := range cases {
-		rec := call(h, http.MethodPost, path, body, allDuties, nil)
-		m, _ := decodeMap(rec)
-		errs, _ := m["errors"].(map[string]any)
-		if rec.Code != http.StatusBadRequest || errs[field] == nil {
-			t.Errorf("%s: status %d errors %v", field, rec.Code, errs)
+	base := "/v1/costing/versions/" + fs.version.ID
+	typed := `{"onHand":[{"productId":"` + ids.New() + `","siteId":"` + ids.New() + `","qty":"5"}]}`
+	for _, path := range []string{base + ":preview-activation", base + ":activate"} {
+		rec := call(h, http.MethodPost, path, typed, allDuties, map[string]string{"If-Match": `"3"`})
+		if rec.Code != http.StatusBadRequest || fs.committed != 0 {
+			t.Errorf("%s with a typed on-hand: status %d committed %d, want 400 and nothing written", path, rec.Code, fs.committed)
 		}
 	}
-	// Negative physical on-hand is legal stock; it is not a validation error.
-	neg := `{"onHand":[{"productId":"` + p + `","siteId":"` + s + `","qty":"-3"}]}`
-	fs.pending = []domain.PendingCost{{ProductID: p, SiteID: s, NewCost: dec("2"), PreviousCost: dec("1"), HasPrevious: true}}
-	rec := call(h, http.MethodPost, path, neg, allDuties, nil)
-	if m, _ := decodeMap(rec); rec.Code != http.StatusOK || m["revaluationTotal"] != "-3.00" {
-		t.Errorf("negative on-hand: status %d body %v", rec.Code, m)
-	}
-	if rec := call(h, http.MethodPost, "/v1/costing/versions/nope:preview-activation", `{"onHand":[]}`, allDuties, nil); rec.Code != http.StatusNotFound {
+	if rec := call(h, http.MethodPost, "/v1/costing/versions/nope:preview-activation", `{}`, allDuties, nil); rec.Code != http.StatusNotFound {
 		t.Errorf("malformed version id status %d, want 404", rec.Code)
+	}
+}
+
+func TestActivation_PassesTheLedgerToTheStore(t *testing.T) {
+	fs := &fakeStore{versions: map[string]store.CostingVersion{}}
+	fs.version = draftVersion()
+	fs.pending = []domain.PendingCost{{ProductID: ids.New(), SiteID: ids.New(), NewCost: dec("2"), PreviousCost: dec("1"), HasPrevious: true, OnHandQty: dec("5")}}
+	r := httpx.NewRouter()
+	New(fs).WithLedger(ledgerclient.NewFake()).Register(r)
+	rec := call(r, http.MethodPost, "/v1/costing/versions/"+fs.version.ID+":activate", `{}`, allDuties, map[string]string{"If-Match": `"3"`})
+	if rec.Code != http.StatusOK || fs.activationLedger == nil {
+		t.Fatalf("status %d ledger passed %v, want 200 and the ledger the service was wired with", rec.Code, fs.activationLedger)
 	}
 }
 
@@ -258,10 +253,10 @@ func TestActivation_Duties(t *testing.T) {
 	h, fs := server()
 	fs.version = draftVersion()
 	path := "/v1/costing/versions/" + fs.version.ID
-	if rec := call(h, http.MethodPost, path+":activate", `{"onHand":[]}`, "costing.read,costing.version.write", map[string]string{"If-Match": "3"}); rec.Code != http.StatusForbidden {
+	if rec := call(h, http.MethodPost, path+":activate", `{}`, "costing.read,costing.version.write", map[string]string{"If-Match": "3"}); rec.Code != http.StatusForbidden {
 		t.Errorf("activate without costing.version.activate: status %d, want 403", rec.Code)
 	}
-	if rec := call(h, http.MethodPost, path+":preview-activation", `{"onHand":[]}`, "costing.version.activate", nil); rec.Code != http.StatusForbidden {
+	if rec := call(h, http.MethodPost, path+":preview-activation", `{}`, "costing.version.activate", nil); rec.Code != http.StatusForbidden {
 		t.Errorf("preview without costing.read: status %d, want 403", rec.Code)
 	}
 	if rec := call(h, http.MethodPost, path+"/item-costs:copy", `{}`, "costing.read", nil); rec.Code != http.StatusForbidden {

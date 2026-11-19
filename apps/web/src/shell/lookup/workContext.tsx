@@ -142,7 +142,7 @@ export function ContextPicker() {
     <div
       role="group"
       aria-label="Working context"
-      style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}
+      style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", alignItems: "center" }}
     >
       <EntityLookup
         compact

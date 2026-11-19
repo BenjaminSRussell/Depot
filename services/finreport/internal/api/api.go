@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -27,6 +28,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 
 	"github.com/BenjaminSRussell/depot/services/finreport/internal/config"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/datascope"
 	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
 	"github.com/BenjaminSRussell/depot/services/finreport/internal/store"
 )
@@ -114,6 +116,7 @@ type API struct {
 	maxLag    int                    // lag gate in seconds (REPORTING_MAX_LAG_S)
 	shareDays int                    // default share link lifetime in days (REPORTING_SHARE_LINK_EXPIRY_DAYS)
 	verifier  Verifier               // balance verification against the ledger; nil when LEDGER_URL is not set
+	scopes    datascope.Decider      // dimension security decision; nil when OPA_URL is not set
 }
 
 // New returns the API over st with the default reporting tunables.
@@ -132,6 +135,91 @@ func (a *API) WithConfig(cfg config.Reporting) *API {
 		a.shareDays = cfg.ShareLinkExpiryDays
 	}
 	return a
+}
+
+const (
+	CodeNoPermittedValues = "REPORT-0006"
+	CodeFilteredAmount    = "REPORT-0007"
+	CodeScopeUnavailable  = "REPORT-0055"
+)
+
+func (a *API) WithDataScope(d datascope.Decider) *API {
+	a.scopes = d
+	return a
+}
+
+func (a *API) viewerScope(r *http.Request) (datascope.Scope, error) {
+	p, ok := tenant.FromContext(r.Context())
+	if !ok {
+		return nil, unauthenticated()
+	}
+	if a.scopes == nil {
+		return nil, nil
+	}
+	scope, err := a.scopes.Decide(r.Context(), p)
+	switch {
+	case errors.Is(err, datascope.ErrNoPermittedValues):
+		return nil, httpx.NewProblem(http.StatusForbidden, CodeNoPermittedValues, "you have no permitted dimension values for this report")
+	case err != nil:
+		slog.WarnContext(r.Context(), "dimension scope decision failed", "error", err)
+		return nil, httpx.NewProblem(http.StatusServiceUnavailable, CodeScopeUnavailable, "the dimension permission decision is unavailable")
+	}
+	return scope, nil
+}
+
+func (a *API) runVisible(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "id")
+		if a.scopes == nil || !ids.Valid(id) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		scope, err := a.viewerScope(r)
+		if err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
+		if scope.Restricted() {
+			run, err := a.store.GetRun(r.Context(), id)
+			if err != nil {
+				fail(w, r, err)
+				return
+			}
+			if run.DimensionScope != scope.Key() {
+				httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, store.CodeRunNotFound, "statement run "+id+" does not exist"))
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (a *API) libraryVisible(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "id")
+		if a.scopes == nil || !ids.Valid(id) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		scope, err := a.viewerScope(r)
+		if err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
+		if scope.Restricted() {
+			entry, err := a.store.GetLibraryEntry(r.Context(), id)
+			if err != nil {
+				fail(w, r, err)
+				return
+			}
+			run, err := a.store.GetRun(r.Context(), entry.RunID)
+			if err != nil || run.DimensionScope != scope.Key() {
+				httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, store.CodeLibraryNotFound, "report library entry "+id+" does not exist"))
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // Register mounts the reporting routes on r.
@@ -159,13 +247,13 @@ func (a *API) Register(r chi.Router) {
 		r.With(authz.RequireDuty(DutyMaintain)).Post("/definitions/*", a.definitionAction)
 		r.With(authz.RequireDuty(DutyRun)).Post("/runs", a.createRun)
 		r.With(authz.RequireDuty(DutyView)).Get("/runs", a.listRuns)
-		r.With(authz.RequireDuty(DutyView)).Get("/runs/{id}", a.getRun)
-		r.With(authz.RequireDuty(DutyView)).Get("/runs/{id}/definition", a.runDefinition)
-		r.With(authz.RequireDuty(DutyView)).Get("/runs/{id}/tree", a.runTree)
-		r.With(authz.RequireDuty(DutyView)).Get("/runs/{id}/cells", a.listCells)
-		r.With(authz.RequireDuty(DutyView)).Get("/runs/{id}/cells/{row}/{column}/balances", a.drillBalances)
-		r.With(authz.RequireDuty(DutyLines)).Get("/runs/{id}/cells/{row}/{column}/lines", a.drillLines)
-		r.With(authz.RequireDuty(DutyView)).Get("/runs/{id}/outputs/{format}", a.runOutput)
+		r.With(authz.RequireDuty(DutyView), a.runVisible).Get("/runs/{id}", a.getRun)
+		r.With(authz.RequireDuty(DutyView), a.runVisible).Get("/runs/{id}/definition", a.runDefinition)
+		r.With(authz.RequireDuty(DutyView), a.runVisible).Get("/runs/{id}/tree", a.runTree)
+		r.With(authz.RequireDuty(DutyView), a.runVisible).Get("/runs/{id}/cells", a.listCells)
+		r.With(authz.RequireDuty(DutyView), a.runVisible).Get("/runs/{id}/cells/{row}/{column}/balances", a.drillBalances)
+		r.With(authz.RequireDuty(DutyLines), a.runVisible).Get("/runs/{id}/cells/{row}/{column}/lines", a.drillLines)
+		r.With(authz.RequireDuty(DutyView), a.runVisible).Get("/runs/{id}/outputs/{format}", a.runOutput)
 		r.With(authz.RequireDuty(DutyView)).Get("/lag", a.lag)
 		r.With(authz.RequireDuty(DutyMaintain)).Get("/standard-definitions", a.listStandard)
 		r.With(authz.RequireDuty(DutyMaintain)).Post("/standard-definitions:install", a.installStandard)
@@ -180,10 +268,10 @@ func (a *API) Register(r chi.Router) {
 		r.With(authz.RequireDuty(DutySchedule)).Put("/schedules/{code}", a.putSchedule)
 		r.With(authz.RequireDuty(DutySchedule)).Get("/schedule-firings", a.listFirings)
 		r.With(authz.RequireDuty(DutyView)).Get("/library", a.listLibrary)
-		r.With(authz.RequireDuty(DutyView)).Get("/library/{id}", a.getLibraryEntry)
-		r.With(authz.RequireDuty(DutyView)).Get("/library/{id}/content", a.libraryContent)
-		r.With(authz.RequireDuty(DutyShare)).Get("/library/{id}/share-links", a.listShareLinks)
-		r.With(authz.RequireDuty(DutyShare)).Post("/library/{id}/share-links", a.createShareLink)
+		r.With(authz.RequireDuty(DutyView), a.libraryVisible).Get("/library/{id}", a.getLibraryEntry)
+		r.With(authz.RequireDuty(DutyView), a.libraryVisible).Get("/library/{id}/content", a.libraryContent)
+		r.With(authz.RequireDuty(DutyShare), a.libraryVisible).Get("/library/{id}/share-links", a.listShareLinks)
+		r.With(authz.RequireDuty(DutyShare), a.libraryVisible).Post("/library/{id}/share-links", a.createShareLink)
 		r.With(authz.RequireDuty(DutyShare)).Post("/share-links/*", a.shareAction)
 		r.With(authz.RequireDuty(DutyView)).Get("/legal-holds", a.listHolds)
 		r.With(authz.RequireDuty(DutyHold)).Post("/legal-holds", a.placeHold)
@@ -442,6 +530,11 @@ func (a *API) createRun(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, unauthenticated())
 		return
 	}
+	scope, err := a.viewerScope(r)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
 	key := r.Header.Get("Idempotency-Key")
 	if key == "" {
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusBadRequest, "COM-0003", "Idempotency-Key header is required"))
@@ -490,7 +583,7 @@ func (a *API) createRun(w http.ResponseWriter, r *http.Request) {
 		Code: req.Definition, Version: req.DefinitionVersion, LedgerID: req.LedgerID, LegalEntityID: req.LegalEntityID, CurrencyType: req.CurrencyType,
 		PeriodYear: req.Period.Year, PeriodNo: req.Period.No, IncludeAdjustment: req.IncludeAdjustment, Calendar: cal,
 		RequestedBy: p.UserID, IdempotencyKey: key, RequestHash: hex.EncodeToString(sum[:]),
-		MaxLagSeconds: a.maxLag, AllowStale: req.AllowStale,
+		MaxLagSeconds: a.maxLag, AllowStale: req.AllowStale, DimensionScope: scope,
 	})
 	if err != nil {
 		fail(w, r, err)
@@ -537,7 +630,17 @@ func (a *API) listRuns(w http.ResponseWriter, r *http.Request) {
 		}
 		after = &c
 	}
-	page, err := a.store.ListRunsPage(r.Context(), store.RunQuery{Definition: f.Definition, LedgerID: f.LedgerID, PeriodYear: f.PeriodYear, PeriodNo: f.PeriodNo}, after, limit)
+	scope, err := a.viewerScope(r)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	rq := store.RunQuery{Definition: f.Definition, LedgerID: f.LedgerID, PeriodYear: f.PeriodYear, PeriodNo: f.PeriodNo}
+	if scope.Restricted() {
+		key := scope.Key()
+		rq.DimensionScope = &key
+	}
+	page, err := a.store.ListRunsPage(r.Context(), rq, after, limit)
 	if err != nil {
 		fail(w, r, err)
 		return
@@ -656,6 +759,7 @@ type cellDTO struct {
 	Computed bool   `json:"computed"`
 	Note     string `json:"note,omitempty"`
 	KeyCount int    `json:"keyCount"`
+	Filtered bool   `json:"filtered"`
 }
 
 func (a *API) listCells(w http.ResponseWriter, r *http.Request) {
@@ -674,7 +778,7 @@ func (a *API) listCells(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]cellDTO, 0, len(cells))
 	for _, c := range cells {
-		out = append(out, cellDTO{Row: c.Row, Column: c.Column, Value: c.Value.StringFixed(6), Blank: c.Blank, Computed: c.Computed, Note: c.Note, KeyCount: len(c.Keys)})
+		out = append(out, cellDTO{Row: c.Row, Column: c.Column, Value: c.Value.StringFixed(6), Blank: c.Blank, Computed: c.Computed, Note: c.Note, KeyCount: len(c.Keys), Filtered: !c.FilteredAmount.IsZero()})
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"items": out})
 }
@@ -716,6 +820,7 @@ func (a *API) drillBalances(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"runId": id, "row": cell.Row, "column": cell.Column, "value": cell.Value.StringFixed(6),
 		"blank": cell.Blank, "computed": cell.Computed, "sumOfKeys": sum.StringFixed(6), "keys": keys,
+		"filtered": !cell.FilteredAmount.IsZero(), "warning": filteredWarning(cell.FilteredAmount),
 	})
 }
 
@@ -802,7 +907,17 @@ func (a *API) drillLines(w http.ResponseWriter, r *http.Request) {
 		"sumOfLines": page.SumOfLines.StringFixed(6), "cumulativeSum": page.CumulativeSum.StringFixed(6), "nextCursor": next,
 		"linesTotal": rec.LinesTotal.StringFixed(6), "difference": rec.Difference.StringFixed(6),
 		"unreconciledKeys": rec.UnreconciledKeys, "reconciled": rec.Reconciled(),
+		"filtered": !page.Cell.FilteredAmount.IsZero(), "warning": filteredWarning(page.Cell.FilteredAmount),
 	})
+}
+
+// filteredWarning says that something was left out, never how much: the amount would give a restricted
+// reader the unrestricted total.
+func filteredWarning(amount decimal.Decimal) any {
+	if amount.IsZero() {
+		return nil
+	}
+	return map[string]string{"code": CodeFilteredAmount, "detail": "part of this cell is outside your dimension permissions"}
 }
 
 func (a *API) lag(w http.ResponseWriter, r *http.Request) {

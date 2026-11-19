@@ -77,6 +77,7 @@ import {
 } from "./parts";
 import styles from "./pages.module.css";
 import { ProblemMessage } from "../../shell/errors";
+import { useDefaultCurrency } from "../../shell/defaults/useDefaults";
 
 const APPROVAL_STATUSES: ApprovalStatus[] = ["DRAFT", "IN_REVIEW", "APPROVED", "REJECTED", "CONFIRMED", "FINALIZED", "CANCELLED"];
 const CALCS: { value: ChargeCalc; label: string }[] = [
@@ -700,7 +701,12 @@ export function PurchaseOrderCreatePage() {
   const navigate = useNavigate();
   const [legalEntityId, setLegalEntityId] = useState("");
   const [vendorId, setVendorId] = useState("");
-  const [currency, setCurrency] = useState("USD");
+  const [typedCurrency, setCurrency] = useState("");
+  const derivedCurrency = useDefaultCurrency([
+    { entity: "vendor", id: vendorId.trim() },
+    { entity: "legalEntity", id: legalEntityId.trim() },
+  ]);
+  const currency = typedCurrency || derivedCurrency;
   const [lines, setLines] = useState<LineDraft[]>(() => [emptyLine()]);
   const [charges, setCharges] = useState<ChargeDraft[]>([]);
   const [applyAuto, setApplyAuto] = useState(false);

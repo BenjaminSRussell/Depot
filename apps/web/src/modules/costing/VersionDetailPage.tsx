@@ -35,10 +35,9 @@ import {
 import styles from "./pages.module.css";
 import { DECIMAL } from "./shared";
 import { useLoad } from "./useLoad";
-import { costDelta, dash, Detail, formatDateTime, LoadError, parseOnHandCsv, problemCode } from "./versionParts";
+import { costDelta, dash, Detail, formatDateTime, LoadError, problemCode } from "./versionParts";
 
 const COST_CSV_SAMPLE = "productId,siteId,unitCost\n";
-const ON_HAND_SAMPLE = "productId,siteId,qty,bookValue\n";
 
 function itemColumns(currency: string): DataTableColumn<ItemCostRow>[] {
   return [
@@ -256,36 +255,28 @@ function RevaluationResult({ result }: { result: ActivationResponse }) {
 
 /**
  * Activation (FR-20.5, BR-20.7): the revaluation preview is mandatory, so
- * "Activate version" stays disabled until a preview for the current on-hand
- * text and version has been shown, and the activation is sent at that version.
+ * "Activate version" stays disabled until a preview for the current version
+ * has been shown, and the activation is sent at that version.
  */
 function ActivationCard({ version, onActivated }: { version: CostingVersion; onActivated(message: string): void }) {
-  const [onHand, setOnHand] = useState(ON_HAND_SAMPLE);
   const [result, setResult] = useState<ActivationResponse | null>(null);
   const [previewedFor, setPreviewedFor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [inputError, setInputError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"preview" | "activate" | null>(null);
   const draft = version.status === "DRAFT";
-  const inputKey = `${version.version}|${onHand}`;
+  const inputKey = String(version.version);
   const previewed = result?.status === "PREVIEW" && previewedFor === inputKey;
 
   async function run(commit: boolean) {
     setError(null);
-    const parsed: ReturnType<typeof parseOnHandCsv> = draft ? parseOnHandCsv(onHand) : { ok: true, value: [] };
-    if (!parsed.ok) {
-      setInputError(parsed.error);
-      return;
-    }
-    setInputError(null);
     setBusy(commit ? "activate" : "preview");
     try {
       if (commit && result) {
-        const done = await activateVersion(version.id, result.version, parsed.value);
+        const done = await activateVersion(version.id, result.version);
         setResult(done);
-        onActivated(done.status === "ACTIVATED" ? `Version ${done.versionCode} is active. Revaluation ${done.revaluationTotal} ${done.currency}.` : `Version ${done.versionCode} was already active.`);
+        onActivated(done.status === "ACTIVATED" ? `Version ${done.versionCode} is active. Revaluation ${done.revaluationTotal} ${done.currency}: ${done.vouchers.posted} voucher(s) posted, ${done.vouchers.pending} pending.` : `Version ${done.versionCode} was already active.`);
       } else {
-        setResult(await previewActivation(version.id, parsed.value));
+        setResult(await previewActivation(version.id));
         setPreviewedFor(inputKey);
       }
     } catch (err) {
@@ -317,14 +308,7 @@ function ActivationCard({ version, onActivated }: { version: CostingVersion; onA
                 This version has the block flag set. Activation is refused until the flag is removed.
               </Alert>
             ) : null}
-            <FormField
-              id="activation-onhand"
-              label="On hand at activation (CSV)"
-              hint="Physical on-hand per product and site, revalued at (new − old) × qty. Where a product and site has no standard yet and holds stock, give its current bookValue. Leave only the header if nothing is on hand."
-              error={inputError ?? undefined}
-            >
-              {(c) => <Textarea {...c} mono rows={6} value={onHand} invalid={Boolean(inputError)} onChange={(e) => setOnHand(e.target.value)} />}
-            </FormField>
+            <p className={styles.note}>The on-hand is read from inventory when you preview, and each site's revaluation is posted to the ledger as one voucher on activation.</p>
             <div className={styles.formActions}>
               <Button loading={busy === "preview"} disabled={busy === "activate"} onClick={() => run(false)}>
                 Preview revaluation
@@ -333,7 +317,7 @@ function ActivationCard({ version, onActivated }: { version: CostingVersion; onA
                 Activate version
               </Button>
             </div>
-            {!previewed ? <p className={styles.note}>Preview the revaluation for the on-hand above to enable activation.</p> : null}
+            {!previewed ? <p className={styles.note}>Preview the revaluation to enable activation.</p> : null}
           </>
         ) : (
           <div className={styles.formActions}>

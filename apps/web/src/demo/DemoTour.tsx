@@ -13,8 +13,7 @@ export function DemoTour() {
           Demo tour
         </h2>
         <p className={styles.tourIntro}>
-          Cedar Ridge Pumps is a fictional manufacturer of industrial pumps. The screens below have sample data, grouped by area. Other screens open too, and a screen
-          with no sample data in the demo says so.
+          Cedar Ridge Pumps is a fictional manufacturer of industrial pumps. These screens have sample data. A screen without sample data says so when you open it.
         </p>
         <div className={styles.tourAreas}>
           {areas.map((area) => (

@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/shopspring/decimal"
 
 	"github.com/BenjaminSRussell/depot/platform/events"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
@@ -233,6 +234,9 @@ type PostInput struct {
 	// only where the ledger defines them: on a ledger without one it is dropped
 	// from the lines instead of refused (the vendor group code, #421).
 	OptionalDimensions []string
+	RateOverride       *decimal.Decimal
+	RateOverrideReason string
+	CanOverrideRate    bool
 }
 
 // rules returns the ledger's posting rules for this input: a manual journal
@@ -336,7 +340,14 @@ type Line struct {
 	// DerivedByStepIDs names the derivation steps that filled dimensions on the line (FR-11.22).
 	DerivedByStepIDs []string `json:"derivedByStepIds,omitempty"`
 	// RoundingAdjustment marks the line that absorbed a currency translation rounding difference (BR-12.4).
-	RoundingAdjustment bool `json:"roundingAdjustment,omitempty"`
+	RoundingAdjustment  bool   `json:"roundingAdjustment,omitempty"`
+	TransactionCurrency string `json:"transactionCurrency,omitempty"`
+	TransactionAmount   string `json:"transactionAmount,omitempty"`
+	TransactionRate     string `json:"transactionRate,omitempty"`
+	ReportingCurrency   string `json:"reportingCurrency,omitempty"`
+	ReportingAmount     string `json:"reportingAmount,omitempty"`
+	ReportingRate       string `json:"reportingRate,omitempty"`
+	RateOverrideReason  string `json:"rateOverrideReason,omitempty"`
 }
 
 // BalanceFilter selects balances for a trial balance.

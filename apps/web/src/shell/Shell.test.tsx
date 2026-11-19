@@ -28,13 +28,9 @@ const modules: DepotModule[] = [
   {
     id: "admin",
     title: "Admin",
-    description: "Numbering, audit, alerts, imports and documents.",
+    description: "Numbering and imports.",
     routes: [{ path: "/admin", element: <div>Admin home</div> }],
-    // Audit is a planned route (shell/plannedRoutes.json): the shell leaves it out of the sidebar, workspaces and palette.
-    nav: [
-      { label: "Audit", to: "/admin/audit" },
-      { label: "Import records", to: "/admin/import" },
-    ],
+    nav: [{ label: "Import", to: "/admin/import" }],
   },
 ];
 
@@ -44,7 +40,6 @@ function renderShell(path = "/", identity?: string) {
       <Routes>
         <Route element={<Shell modules={modules} identity={identity} />}>
           <Route path="/" element={<HomePage />} />
-          <Route path="/admin/audit" element={<p>Audit page</p>} />
           <Route path="/admin/import" element={<p>Import page</p>} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
@@ -98,30 +93,26 @@ describe("pages and navigation", () => {
     const home = renderShell();
     const main = within(screen.getByRole("main"));
     expect(main.getByRole("heading", { level: 3, name: "Administration" })).toBeInTheDocument();
-    expect(main.getByRole("link", { name: /Import records/ })).toHaveAttribute("href", "/admin/import");
+    expect(main.getByRole("link", { name: /Import data/ })).toHaveAttribute("href", "/admin/import");
     expect(main.getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
     expect(checkAxeAA(home.container)).toEqual([]);
   });
 
   it("shows the page title as the only h1, a breadcrumb and the current nav item", () => {
     renderShell("/admin/import");
-    expect(screen.getByRole("heading", { level: 1, name: "Import records" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Import" })).toBeInTheDocument();
     expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByRole("link", { name: "Admin" })).toBeInTheDocument();
-    expect(within(screen.getByRole("navigation", { name: "Workspaces" })).getByRole("link", { name: "Import records" })).toHaveAttribute(
+    expect(within(screen.getByRole("navigation", { name: "Workspaces" })).getByRole("link", { name: "Import data" })).toHaveAttribute(
       "aria-current",
       "page",
     );
   });
 
-  it("offers a planned route nowhere, but still opens it with its title", async () => {
-    const user = userEvent.setup();
-    renderShell("/admin/audit");
-    expect(screen.getByRole("heading", { level: 1, name: "Audit" })).toBeInTheDocument();
-    expect(screen.getByText("Audit page")).toBeInTheDocument();
-    expect(within(screen.getByRole("navigation", { name: "Workspaces" })).queryByRole("link", { name: /Audit/ })).not.toBeInTheDocument();
-    await user.keyboard("{Control>}k{/Control}");
-    await user.type(screen.getByLabelText("Find a page"), "audit");
-    expect(screen.queryByRole("option", { name: /Audit/ })).not.toBeInTheDocument();
+  it.each(["/admin/audit", "/admin/audit/42"])("says a planned page is not built yet at %s", (path) => {
+    renderShell(path);
+    expect(screen.getByRole("heading", { level: 1, name: "Page not available" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "This page isn't available yet" })).toBeInTheDocument();
+    expect(screen.getByText(/Nothing is wrong with your account/)).toBeInTheDocument();
   });
 
   it("renders a not-found page for unknown routes", () => {
@@ -135,7 +126,7 @@ describe("pages and navigation", () => {
     renderShell();
     const nav = within(screen.getByRole("navigation", { name: "Workspaces" }));
     expect(nav.getByRole("list", { name: "Administration" })).toBeInTheDocument();
-    expect(nav.getByRole("link", { name: "Import records" })).toHaveAttribute("href", "/admin/import");
+    expect(nav.getByRole("link", { name: "Import data" })).toHaveAttribute("href", "/admin/import");
     expect(nav.getByRole("link", { name: "All features" })).toHaveAttribute("href", "/features");
   });
 
@@ -195,7 +186,7 @@ describe("command palette", () => {
     const user = userEvent.setup();
     renderShell();
     await user.keyboard("{Control>}k{/Control}");
-    expect(within(screen.getByRole("group", { name: "Admin" })).getByRole("option", { name: /Import records/ })).toBeInTheDocument();
+    expect(within(screen.getByRole("group", { name: "Admin" })).getByRole("option", { name: /Import data/ })).toBeInTheDocument();
     await user.type(screen.getByRole("combobox", { name: "Find a page" }), "zzz");
     expect(screen.getByText(/No pages match/)).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Find a page" })).toHaveAttribute("aria-expanded", "false");
@@ -230,7 +221,7 @@ describe("command palette", () => {
     const user = userEvent.setup();
     renderShell();
     await user.keyboard("{Control>}k{/Control}");
-    expect(screen.getByRole("option", { name: "Import records, Admin" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Import data, Admin" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Home, General" })).toBeInTheDocument();
     await user.type(screen.getByRole("combobox", { name: "Find a page" }), "zzz");
     const listbox = document.getElementById("palette-listbox");

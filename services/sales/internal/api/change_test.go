@@ -48,7 +48,7 @@ func (c *changeStore) ListOrderVersions(_ context.Context, id string) ([]store.O
 	return []store.OrderVersion{{Version: 4, Actor: "u1", Reason: "call", Diff: []domain.FieldChange{{LineNo: 10, Field: "quantity", Old: "5", New: "8"}}}}, nil
 }
 
-func serveBody(t *testing.T, s store.Store, method, path, body string, p tenant.Principal, headers map[string]string) *httptest.ResponseRecorder {
+func serveBody(t *testing.T, s store.Store, method, path, body string, p tenant.Principal, headers map[string]string, opts ...func(*API) *API) *httptest.ResponseRecorder {
 	t.Helper()
 	r := chi.NewRouter()
 	r.Use(func(next http.Handler) http.Handler {
@@ -56,7 +56,11 @@ func serveBody(t *testing.T, s store.Store, method, path, body string, p tenant.
 			next.ServeHTTP(w, req.WithContext(tenant.With(req.Context(), p)))
 		})
 	})
-	New(s).WithCustomerGroups(fakeGroups{group: "EU-RETAIL"}).Register(r)
+	a := New(s).WithCustomerGroups(fakeGroups{group: "EU-RETAIL"})
+	for _, opt := range opts {
+		a = opt(a)
+	}
+	a.Register(r)
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")

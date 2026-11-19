@@ -549,6 +549,7 @@ const fulfillment: Record<string, ProblemCatalogEntry> = {
   "FUL-0079": { message: "A parcel went on another manifest at the same time.", action: "Reload the page and close the manifest again." },
   "FUL-0080": { message: "We couldn't find that sales delivery report.", action: "Go back to the list and open it again." },
   "FUL-0081": { message: "A sales delivery report can only be retried while it is parked or pending.", action: "Reload the page to see the report's status." },
+  "FUL-0082": { message: "Inventory values a shipment line in a different currency than the packing slip uses.", action: "Check the currency on the slip and on the product's cost, then post again." },
 };
 
 const billing: Record<string, ProblemCatalogEntry> = {
@@ -761,6 +762,8 @@ const inventoryGaps: Record<string, ProblemCatalogEntry> = {
   "INV-PST-003": { message: "The line this correction refers to hasn't been booked yet.", action: "Wait for the original to be booked, then try again." },
   "INV-PST-004": { message: "The correction doesn't match what was booked for the line.", action: "Contact support with the details below." },
   "INV-PST-005": { message: "The serial or weight details on the line don't add up.", action: "Check each serial number and its weight." },
+  "INV-PST-006": { message: "The vendor invoice was posted before the goods on that line were received.", action: "Receive the goods first, then post the invoice again." },
+  "INV-PST-007": { message: "This vendor invoice line was already recorded with a different quantity or amount.", action: "Check the invoice against the one already posted, then contact support." },
   "INV-REC-001": { message: "We couldn't find that reconciliation.", action: "Go back to the list and open it again." },
   "INV-RES-003": { message: "We couldn't find that reservation.", action: "Go back to the list and open it again." },
   "INV-RES-004": { message: "The stock is reserved against the expected receipt, but less would still be expected.", action: "Release the reservations first." },
@@ -789,6 +792,7 @@ const ledgerPostingGaps: Record<string, ProblemCatalogEntry> = {
   LEDGER_PERIOD_CHECK: { message: "The accounting period couldn't be checked for this posting.", action: TRY_LATER },
   LEDGER_PERIOD_LOCK_BUSY: { message: "Postings were still being saved, so the period's status didn't change.", action: TRY_LATER },
   LEDGER_PERIOD_LOCK_STALE: { message: "The ledger already has a newer status for this period.", action: "Reload the page to see the period's current status." },
+  LEDGER_RATE_OVERRIDE_REASON: { message: "A different exchange rate than the stored one needs a reason.", action: "Enter why the rate was changed, then post again." },
   LEDGER_PERIOD_STATUS_UNAVAILABLE: { message: "The accounting period status isn't available right now.", action: TRY_LATER },
   LEDGER_QUANTITY_INVALID: { message: "A line quantity isn't valid.", action: "Enter a quantity the account allows." },
   LEDGER_TRADING_PARTNER_INVALID: { message: "A line names a trading partner that isn't a legal entity of this company group, or is the entity that owns the ledger.", action: "Choose the other legal entity of the intercompany transaction, or leave the trading partner empty." },
@@ -867,6 +871,7 @@ const tax: Record<string, ProblemCatalogEntry> = {
   "TAX-0012": { message: "The ledger data can't be turned into a valid tax audit file.", action: TRY_LATER },
   "TAX-0013": { message: "This tax setup item is still used by something else, so it can't be deleted.", action: "Remove it from the jurisdictions, tax groups or return boxes that use it, then try again." },
   "TAX-0014": { message: "No withholding is waiting to be remitted in this period.", action: "Check the dates, or record the payments that withheld tax first." },
+  "TAX-0015": { message: "One of the tax codes on this document has no ledger account set up, so its tax line was left out.", action: "Add the tax code to the tax ledger configuration, then calculate again." },
 };
 
 const product: Record<string, ProblemCatalogEntry> = {

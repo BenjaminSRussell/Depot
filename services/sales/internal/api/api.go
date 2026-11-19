@@ -19,6 +19,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/authz"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/productblock"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/sales/internal/store"
 )
@@ -91,9 +92,23 @@ type API struct {
 	groups     CustomerGroupSource
 	names      ProductNamer
 	pricer     PortalPricer
+	blocks     productblock.Checker
 
 	portalWindowDays int
 	opening          *openingDeps
+}
+
+func (a *API) WithProductBlocks(c productblock.Checker) *API {
+	a.blocks = c
+	return a
+}
+
+func (a *API) checkBlocks(ctx context.Context, legalEntityID, process string, lines []store.Line) error {
+	productIDs := make([]string, len(lines))
+	for i, l := range lines {
+		productIDs[i] = l.ProductID
+	}
+	return productblock.CheckAll(ctx, a.blocks, legalEntityID, process, productIDs)
 }
 
 // New returns the API over s.
@@ -122,6 +137,7 @@ func (a *API) Register(r chi.Router) {
 	a.registerOpening(r)
 	r.With(requireAny(dutyWrite, dutyIntake)).Post(orders, a.createOrder)
 	r.With(authz.RequireDuty(dutyRead)).Get(orders, a.listOrders)
+	r.With(authz.RequireDuty(dutyOpenLines)).Get("/v1/sales/open-order-lines", a.listOpenOrderLines)
 	r.With(authz.RequireAnyDuty(dutyRead, "sales.order.lookup")).Get("/v1/sales/order-lines", a.listOrderLines)
 	r.With(authz.RequireAnyDuty(dutyRead, "sales.order.lookup")).Get("/v1/sales/order-lines/{id}", a.getOrderLine)
 	r.With(authz.RequireAnyDuty(dutyRead, "sales.order.lookup")).Get(orders+"/{id}", a.getOrder)

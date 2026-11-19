@@ -1,9 +1,11 @@
 package api_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -49,9 +51,20 @@ func (f *fakeStore) SetLedgerConfig(_ context.Context, cfg store.LedgerConfig) e
 	return nil
 }
 
-func (f *fakeStore) SettleRun(context.Context, domain.Period, func(store.LedgerConfig) domain.GLMovement) (store.Run, error) {
+func (f *fakeStore) LedgerConfig(context.Context) (store.LedgerConfig, error) {
+	if f.config == nil {
+		return store.LedgerConfig{}, store.ErrNoLedgerConfig
+	}
+	return *f.config, nil
+}
+
+func (f *fakeStore) SettleRun(context.Context, domain.Period, string, func(store.LedgerConfig) domain.GLMovement) (store.Run, error) {
 	return store.Run{}, nil
 }
+
+func (f *fakeStore) UnpostedRuns(context.Context) ([]store.Run, error) { return nil, nil }
+
+func (f *fakeStore) MarkRunPosted(context.Context, string, string) error { return nil }
 
 func (f *fakeStore) Totals(context.Context, domain.Period) ([]store.Total, error) {
 	return f.totals, nil
@@ -208,6 +221,7 @@ func TestSettleRequestValidationAndUnconfiguredDependencies(t *testing.T) {
 		{"ledger not configured", valid, nil, http.StatusServiceUnavailable},
 		{"inverted period", strings.Replace(valid, "2026-01-31", "2025-12-31", 1), ledgerclient.NewFake(), http.StatusBadRequest},
 		{"request-supplied ledger id", `{"period_from":"2026-01-01","period_to":"2026-01-31","ledger_id":"` + ids.New() + `"}`, ledgerclient.NewFake(), http.StatusBadRequest},
+		{"malformed settlement account", `{"period_from":"2026-01-01","period_to":"2026-01-31","settlement_account":"29 00;"}`, ledgerclient.NewFake(), http.StatusBadRequest},
 		{"request-supplied accounts", `{"period_from":"2026-01-01","period_to":"2026-01-31","accounts":{"VAT19|output":"2200"}}`, ledgerclient.NewFake(), http.StatusBadRequest},
 	}
 	for _, tc := range tests {
@@ -237,6 +251,7 @@ func TestLedgerConfigValidationAndStorage(t *testing.T) {
 		{"bad ledger id", strings.Replace(valid, `"ledger_id":"`, `"ledger_id":"x`, 1), http.StatusBadRequest},
 		{"no accounts", `{"ledger_id":"` + ids.New() + `","accounts":{}}`, http.StatusBadRequest},
 		{"account key without direction", strings.Replace(valid, "VAT19|output", "VAT19", 1), http.StatusBadRequest},
+		{"malformed settlement account", strings.Replace(valid, `"accounts"`, `"settlement_account":"29 00;","accounts"`, 1), http.StatusBadRequest},
 		{"account number injection", strings.Replace(valid, `"2200"`, `"22 00;"`, 1), http.StatusBadRequest},
 	}
 	for _, tc := range tests {
@@ -285,6 +300,7 @@ func TestSettleThroughTheRouterReconcilesToTheLedger(t *testing.T) {
 	}
 	entity, ledgerID := ids.New(), ids.New()
 	fake := ledgerclient.NewFake()
+	fake.AddLedger(ledgerID, entity)
 	for key, lines := range map[string][]ledgerclient.Line{
 		"sale":     {{Account: "1200", Amount: decimal.RequireFromString("19.00")}, {Account: "2200", Credit: true, Amount: decimal.RequireFromString("19.00")}},
 		"purchase": {{Account: "1400", Amount: decimal.RequireFromString("5.00")}, {Account: "2100", Credit: true, Amount: decimal.RequireFromString("5.00")}},
@@ -320,10 +336,20 @@ func TestSettleThroughTheRouterReconcilesToTheLedger(t *testing.T) {
 	if rec := callMethod(http.MethodPut, "/v1/tax/ledger-config", config); rec.Code != http.StatusOK {
 		t.Fatalf("config: %d %s", rec.Code, rec.Body.String())
 	}
+	if rec := call("/v1/tax/settlements:run", settle); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "COM-0503") {
+		t.Fatalf("settle without a settlement account: %d %s", rec.Code, rec.Body.String())
+	}
+	config = strings.Replace(config, `"accounts"`, `"settlement_account":"2900","accounts"`, 1)
+	if rec := callMethod(http.MethodPut, "/v1/tax/ledger-config", config); rec.Code != http.StatusOK {
+		t.Fatalf("config: %d %s", rec.Code, rec.Body.String())
+	}
 
 	rec := call("/v1/tax/settlements:run", settle)
 	if rec.Code != http.StatusCreated || !strings.Contains(rec.Body.String(), `"net_amount":"14"`) {
 		t.Fatalf("settle: %d %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"posted_entry_id":"`) {
+		t.Fatalf("run carries no ledger entry: %s", rec.Body.String())
 	}
 	if rec := call("/v1/tax/settlements:run", settle); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "TAX-0009") {
 		t.Fatalf("second run: %d %s", rec.Code, rec.Body.String())
@@ -338,6 +364,203 @@ func TestSettleThroughTheRouterReconcilesToTheLedger(t *testing.T) {
 	} else if strings.Contains(rec.Body.String(), "19.0") {
 		t.Fatalf("mismatch response leaks GL amounts: %s", rec.Body.String())
 	}
+}
+
+type settlementHarness struct {
+	ledgerID string
+	t        *testing.T
+	router   http.Handler
+	api      *api.API
+	fake     *ledgerclient.Fake
+	entity   string
+}
+
+func newSettlementHarness(t *testing.T) settlementHarness {
+	t.Helper()
+	admin, app := testkit.DBWithApp(t)
+	if err := dbx.Migrate(context.Background(), admin, migrations.FS); err != nil {
+		t.Fatal(err)
+	}
+	h := settlementHarness{t: t, fake: ledgerclient.NewFake(), entity: ids.New()}
+	ledgerID := ids.New()
+	h.fake.AddLedger(ledgerID, h.entity)
+	h.ledgerID = ledgerID
+	for key, lines := range map[string][]ledgerclient.Line{
+		"sale":     {{Account: "1200", Amount: decimal.RequireFromString("19.00")}, {Account: "2200", Credit: true, Amount: decimal.RequireFromString("19.00")}},
+		"purchase": {{Account: "1400", Amount: decimal.RequireFromString("5.00")}, {Account: "2100", Credit: true, Amount: decimal.RequireFromString("5.00")}},
+	} {
+		if _, err := h.fake.Post(context.Background(), ledgerclient.Entry{LegalEntityID: h.entity, LedgerID: ledgerID, DocumentID: key, PostingDate: "2026-01-15",
+			Currency: "EUR", IdempotencyKey: key, Lines: lines}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h.router, h.api = routerWith(store.New(app), nil, h.fake)
+	config := `{"ledger_id":"` + ledgerID + `","settlement_account":"2900","accounts":{"VAT19|output":"2200","VAT19|input":"1400"}}`
+	if rec := h.call(http.MethodPut, "/v1/tax/ledger-config", config); rec.Code != http.StatusOK {
+		t.Fatalf("config: %d %s", rec.Code, rec.Body.String())
+	}
+	record := `{"transactions":[` +
+		`{"id":"` + ids.New() + `","code":"VAT19","direction":"output","tax_date":"2026-01-15","amount":"19.00"},` +
+		`{"id":"` + ids.New() + `","code":"VAT19","direction":"input","tax_date":"2026-01-15","amount":"5.00"}]}`
+	if rec := h.call(http.MethodPost, "/v1/tax/transactions", record); rec.Code != http.StatusCreated {
+		t.Fatalf("record: %d %s", rec.Code, rec.Body.String())
+	}
+	return h
+}
+
+func (h settlementHarness) call(method, path, body string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	req.Header.Set(tenant.HeaderTenant, testkit.TenantID(7))
+	req.Header.Set(tenant.HeaderLegalEntity, h.entity)
+	req.Header.Set(tenant.HeaderDuties, "tax.transaction.record,tax.settlement.run,tax.ledgerconfig.manage")
+	rec := httptest.NewRecorder()
+	h.router.ServeHTTP(rec, req)
+	return rec
+}
+
+func (h settlementHarness) settlementEntries() []ledgerclient.Stored {
+	var out []ledgerclient.Stored
+	for _, e := range h.fake.Entries() {
+		if e.SourceType == "tax_settlement" {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+const settleJanuary = `{"period_from":"2026-01-01","period_to":"2026-01-31"}`
+
+func TestRunSettlement_PostsBalancedEntry(t *testing.T) {
+	h := newSettlementHarness(t)
+	if rec := h.call(http.MethodPost, "/v1/tax/settlements:run", settleJanuary); rec.Code != http.StatusCreated {
+		t.Fatalf("settle: %d %s", rec.Code, rec.Body.String())
+	}
+	metrics := httptest.NewRecorder()
+	h.api.Metrics().ServeHTTP(metrics, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	if !strings.Contains(metrics.Body.String(), "tax_settlements_posted_total 1") {
+		t.Fatalf("posted settlement not counted: %s", metrics.Body.String())
+	}
+	entries := h.settlementEntries()
+	if len(entries) != 1 {
+		t.Fatalf("got %d settlement entries, want 1", len(entries))
+	}
+	debit, credit := decimal.Zero, decimal.Zero
+	byAccount := map[string]string{}
+	for _, l := range entries[0].Lines {
+		side := "D"
+		if l.Credit {
+			credit, side = credit.Add(l.Amount), "C"
+		} else {
+			debit = debit.Add(l.Amount)
+		}
+		byAccount[l.Account] = side + l.Amount.String()
+	}
+	if !debit.Equal(credit) || entries[0].PostingDate != "2026-01-31" {
+		t.Fatalf("entry debit %s credit %s date %s", debit, credit, entries[0].PostingDate)
+	}
+	if byAccount["2200"] != "D19" || byAccount["1400"] != "C5" || byAccount["2900"] != "C14" {
+		t.Fatalf("output minus input did not reach the settlement account: %v", byAccount)
+	}
+}
+
+func TestRunSettlement_FailedPostStaysPendingAndIsReposted(t *testing.T) {
+	h := newSettlementHarness(t)
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	h.fake.FailPosts(errors.New("ledger down"))
+	if rec := h.call(http.MethodPost, "/v1/tax/settlements:run", settleJanuary); rec.Code != http.StatusBadGateway || !strings.Contains(rec.Body.String(), "COM-0502") {
+		t.Fatalf("failed post: %d %s", rec.Code, rec.Body.String())
+	}
+	if out := logs.String(); !strings.Contains(out, "tax settlement post failed") || !strings.Contains(out, "runId=") || strings.Contains(out, "19.00") {
+		t.Fatalf("failed post log %q", out)
+	}
+	h.fake.FailPosts(nil)
+	if rec := h.call(http.MethodPost, "/v1/tax/settlements:run", settleJanuary); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "TAX-0009") {
+		t.Fatalf("retry: %d %s", rec.Code, rec.Body.String())
+	}
+	if n := len(h.settlementEntries()); n != 1 {
+		t.Fatalf("got %d settlement entries after the retry, want 1", n)
+	}
+}
+
+func TestRunSettlement_ClosedPeriodRefusalIsSurfaced(t *testing.T) {
+	h := newSettlementHarness(t)
+	h.fake.RefuseClosedThrough("2026-01-31")
+	rec := h.call(http.MethodPost, "/v1/tax/settlements:run", settleJanuary)
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), ledgerclient.CodePeriodClosed) {
+		t.Fatalf("closed period: %d %s", rec.Code, rec.Body.String())
+	}
+	if n := len(h.settlementEntries()); n != 0 {
+		t.Fatalf("closed period took %d settlement entries", n)
+	}
+}
+
+func TestRunSettlement_StuckRunDoesNotBlockALaterPeriod(t *testing.T) {
+	h := newSettlementHarness(t)
+	h.fake.RefuseClosedThrough("2026-01-31")
+	if rec := h.call(http.MethodPost, "/v1/tax/settlements:run", settleJanuary); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("january: %d %s", rec.Code, rec.Body.String())
+	}
+	record := `{"transactions":[{"id":"` + ids.New() + `","code":"VAT19","direction":"output","tax_date":"2026-02-10","amount":"10.00"}]}`
+	if rec := h.call(http.MethodPost, "/v1/tax/transactions", record); rec.Code != http.StatusCreated {
+		t.Fatalf("record: %d %s", rec.Code, rec.Body.String())
+	}
+	// The ledger holds the February tax too, so the settlement's reconciliation to the ledger holds.
+	if _, err := h.fake.Post(context.Background(), ledgerclient.Entry{LegalEntityID: h.entity, LedgerID: h.ledgerID, DocumentID: "feb-sale", PostingDate: "2026-02-10",
+		Currency: "EUR", IdempotencyKey: "feb-sale", Lines: []ledgerclient.Line{{Account: "1200", Amount: decimal.RequireFromString("10.00")}, {Account: "2200", Credit: true, Amount: decimal.RequireFromString("10.00")}}}); err != nil {
+		t.Fatal(err)
+	}
+	if rec := h.call(http.MethodPost, "/v1/tax/settlements:run", `{"period_from":"2026-02-01","period_to":"2026-02-28"}`); rec.Code != http.StatusCreated {
+		t.Fatalf("february blocked by the stuck january run: %d %s", rec.Code, rec.Body.String())
+	}
+	if n := len(h.settlementEntries()); n != 1 {
+		t.Fatalf("got %d settlement entries, want only february", n)
+	}
+}
+
+func TestCalculate_ReturnsPostingLines(t *testing.T) {
+	type response struct {
+		PostingLines []struct {
+			Account      string `json:"account"`
+			Credit       bool   `json:"credit"`
+			Amount       string `json:"amount"`
+			TaxCode      string `json:"tax_code"`
+			Jurisdiction string `json:"jurisdiction"`
+		} `json:"posting_lines"`
+		Warnings []domain.Warning `json:"warnings"`
+	}
+	run := func(fs *fakeStore) response {
+		r, _ := routerWith(fs, nil, nil)
+		rec := do(r, http.MethodPost, calculatePath, workedBody, testkit.TenantID(1), duty)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("got %d %s", rec.Code, rec.Body.String())
+		}
+		var out response
+		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+	configured := run(&fakeStore{config: &store.LedgerConfig{Accounts: map[string]string{"VAT|output": "2200"}}})
+	if len(configured.PostingLines) != 1 || configured.PostingLines[0].Account != "2200" || !configured.PostingLines[0].Credit ||
+		configured.PostingLines[0].Amount != "19" || configured.PostingLines[0].TaxCode != "VAT" || configured.PostingLines[0].Jurisdiction != "DE" {
+		t.Fatalf("posting lines %+v", configured.PostingLines)
+	}
+	unmapped := run(&fakeStore{config: &store.LedgerConfig{Accounts: map[string]string{"OTHER|output": "2200"}}})
+	if len(unmapped.PostingLines) != 0 || len(unmapped.Warnings) != 1 || unmapped.Warnings[0].Code != domain.CodeNoPostingAccount {
+		t.Fatalf("unmapped code: %+v", unmapped)
+	}
+	rec := do(mustRouter(&fakeStore{}), http.MethodPost, calculatePath, workedBody, testkit.TenantID(1), duty)
+	if !strings.Contains(rec.Body.String(), `"posting_lines":[]`) {
+		t.Fatalf("no ledger config: %s", rec.Body.String())
+	}
+}
+
+func mustRouter(s api.Store) http.Handler {
+	r, _ := routerWith(s, nil, nil)
+	return r
 }
 
 const saftQuery = "?period_from=2026-01-01&period_to=2026-01-31&company_name=Acme&registration_number=DE1&country=DE&currency=EUR"
@@ -462,5 +685,22 @@ func TestSAFTExportRefusesAnUnbalancedLedgerAndSurfacesLedgerOutages(t *testing.
 	down, _ := routerWith(&fakeStore{}, nil, failingLines{fake})
 	if rec := saftCall(down, entity, query); rec.Code != http.StatusBadGateway {
 		t.Fatalf("ledger outage: got %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestRunSettlement_AccountOverrideNeedsTheLedgerConfigDuty(t *testing.T) {
+	h := newSettlementHarness(t)
+	body := `{"period_from":"2026-01-01","period_to":"2026-01-31","settlement_account":"9999"}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/tax/settlements:run", strings.NewReader(body))
+	req.Header.Set(tenant.HeaderTenant, testkit.TenantID(7))
+	req.Header.Set(tenant.HeaderLegalEntity, h.entity)
+	req.Header.Set(tenant.HeaderDuties, "tax.settlement.run")
+	rec := httptest.NewRecorder()
+	h.router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "AUTH-0003") {
+		t.Fatalf("override without the ledger-config duty: %d %s", rec.Code, rec.Body.String())
+	}
+	if n := len(h.settlementEntries()); n != 0 {
+		t.Fatalf("a refused override posted %d settlement entries", n)
 	}
 }

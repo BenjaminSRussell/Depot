@@ -142,7 +142,7 @@ describe("Scheduling parameters page", () => {
     renderAt("/scheduling/parameters");
     fireEvent.change(await screen.findByLabelText(/Gantt drag snap/), { target: { value: "10" } });
     fireEvent.click(screen.getByRole("button", { name: "Save parameters" }));
-    expect(await screen.findByText(/needs the scheduling.setup.write duty/)).toBeTruthy();
+    expect(await screen.findByText(/needs the Maintain scheduling setup duty/)).toBeTruthy();
   });
 });
 

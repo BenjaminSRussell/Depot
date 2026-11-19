@@ -114,6 +114,7 @@
       {"resource": "/v1/ledger/ledgers/*/open-item-accounts/*", "methods": ["PUT"]}
     ]},
     "ledger.journal.read": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/ledger/ledgers/*", "methods": ["GET"]},
       {"resource": "/v1/ledger/charts/*/accounts", "methods": ["GET"]},
       {"resource": "/v1/ledger/journal-entries/*", "methods": ["GET"]},
@@ -184,6 +185,7 @@
     "ledger.ledger.lookup": {"service_only": true, "permissions": [{"resource": "/v1/ledger/ledgers/*", "methods": ["GET"]}]},
     "ledger.journal.postdirect": {"flag": true, "permissions": []},
     "ledger.journal.postledger": {"flag": true, "permissions": []},
+    "ledger.journal.rateoverride": {"flag": true, "permissions": []},
     "ledger.period.postclosed": {"flag": true, "permissions": []},
     "ledger.period.lock": {"service_only": true, "permissions": [{"resource": "/v1/ledger/ledgers/*/period-locks/*", "methods": ["PUT"]}]},
     "ledger.journal.reverse": {"permissions": [{"resource": "/v1/ledger/journal-entries/*/reverse", "methods": ["POST"]}]},
@@ -231,6 +233,7 @@
     "production.jobcard.shopfloor": {"flag": true, "permissions": []},
     "sales.order.record-delivery": {"service_only": true, "permissions": [{"resource": "/v1/sales/orders/*:record-progress", "methods": ["POST"]}]},
     "sales.order.record-invoice": {"service_only": true, "permissions": [{"resource": "/v1/sales/orders/*:record-progress", "methods": ["POST"]}]},
+    "sales.order.open-lines": {"service_only": true, "permissions": [{"resource": "/v1/sales/open-order-lines", "methods": ["GET"]}]},
     "tax.transaction.record": {"service_only": true, "permissions": [{"resource": "/v1/tax/transactions", "methods": ["POST"]}]},
     "tax.settlement.run": {"permissions": [{"resource": "/v1/tax/settlements:run", "methods": ["POST"]}]},
     "tax.recommit.run": {"permissions": [{"resource": "/v1/tax/recommit:run", "methods": ["POST"]}]},
@@ -545,7 +548,8 @@
     ]},
     "inventory.issue.claim": {"service_only": true, "permissions": [
       {"resource": "/v1/inventory/issue-claims", "methods": ["POST"]},
-      {"resource": "/v1/inventory/issue-claims:release", "methods": ["POST"]}
+      {"resource": "/v1/inventory/issue-claims:release", "methods": ["POST"]},
+      {"resource": "/v1/inventory/issue-cost", "methods": ["GET"]}
     ]},
     "inventory.transaction.apply": {"service_only": true, "permissions": [{"resource": "/internal/v1/inventory/transactions:apply", "methods": ["POST"]}]},
     "inventory.transaction.step": {"permissions": [
@@ -652,6 +656,7 @@
       {"resource": "/v1/procurement/agreement-lines/*", "methods": ["GET"]}
     ]},
     "procurement.purchase-order.inquire": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/procurement/purchase-orders", "methods": ["GET"]},
       {"resource": "/v1/procurement/purchase-orders/*", "methods": ["GET"]},
@@ -801,6 +806,7 @@
       {"resource": "/v1/receiving/ers-vendors/*", "methods": ["PUT"]}
     ]},
     "receiving.receipt.maintain": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/receiving/arrivals", "methods": ["POST"]},
       {"resource": "/v1/receiving/receipts", "methods": ["GET", "POST"]},
@@ -866,6 +872,7 @@
       {"resource": "/v1/receiving/related-documents", "methods": ["GET"]}
     ]},
     "receiving.ap.inquire": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/receiving/grir", "methods": ["GET"]},
       {"resource": "/v1/receiving/invoices", "methods": ["GET"]},
@@ -972,6 +979,7 @@
       {"resource": "/v1/party/partners:tax-registrations", "methods": ["GET"]}
     ]},
     "party.read": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/party/partners:tax-registrations", "methods": ["GET"]},
       {"resource": "/v1/party/parties/*", "methods": ["GET"]},
@@ -1765,6 +1773,7 @@
       {"resource": "/v1/hr/skills", "methods": ["POST"]}
     ]},
     "hr.worker.inquire": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/hr/certifications/expiring", "methods": ["GET"]},
       {"resource": "/v1/hr/checklists/*", "methods": ["GET"]},
@@ -2416,8 +2425,14 @@
     "fulfillment.returnable-packaging.maintain": {"permissions": [{"resource": "/v1/fulfillment/returnable-packaging:adjust", "methods": ["POST"]}]},
     "audit.read": {"tenant_level": true, "permissions": [
       {"resource": "/v1/audit/alerts", "methods": ["GET"]},
+      {"resource": "/v1/audit/records", "methods": ["GET"]},
+      {"resource": "/v1/audit/entities", "methods": ["GET"]},
       {"resource": "/v1/audit/records/*/*", "methods": ["GET"]}
     ]},
+    "audit.export": {"tenant_level": true, "permissions": [
+      {"resource": "/v1/audit/records/*/*:export", "methods": ["GET"]}
+    ]},
+    "audit.auditor": {"flag": true, "tenant_level": true, "permissions": []},
     "audit.read-log.write": {"tenant_level": true, "service_only": true, "permissions": [
       {"resource": "/v1/audit/reads", "methods": ["POST"]}
     ]},
@@ -2471,6 +2486,7 @@
       {"resource": "/v1/billing/tax-reports:backfill", "methods": ["POST"]}
     ]},
     "billing.invoice.view": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/billing/customers/*/billing-rule", "methods": ["GET"]},
       {"resource": "/v1/billing/invoices", "methods": ["GET"]},
@@ -2947,7 +2963,7 @@
       {"resource": "/v1/notify/preferences/me", "methods": ["PUT"]},
       {"resource": "/v1/notify/templates", "methods": ["POST"]}
     ]},
-    "numbering.read": {"permissions": [{"resource": "/v1/numbering/sequences{,/*}", "methods": ["GET"]}]},
+    "numbering.read": {"permissions": [{"resource": "/v1/numbering/sequences{,/**}", "methods": ["GET"]}]},
     "org.address.write": {"permissions": [
       {"resource": "/v1/org/addresses", "methods": ["POST"]},
       {"resource": "/v1/org/addresses/*", "methods": ["PATCH"]}
@@ -3294,6 +3310,7 @@
     "product.configure": {"permissions":[{"resource": "/v1/product/configuration-models/*:solve", "methods": ["POST"]}]},
     "product.gtin.allocate": {"permissions": [{"resource": "/v1/product/gtins", "methods": ["POST"]}]},
     "product.read": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/product/products:customs", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/product/barcodes/*", "methods": ["GET"]},
@@ -3469,6 +3486,7 @@
       {"resource": "/v1/production/orders:auto-end", "methods": ["POST"]}
     ]},
     "production.order.read": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/production/as-built", "methods": ["GET"]},
       {"resource": "/v1/production/journals", "methods": ["GET"]},
@@ -3615,6 +3633,7 @@
       {"resource": "/v1/sales/orders/*/holds/*:release", "methods": ["POST"]}
     ]},
     "sales.order.read": {"permissions": [
+      {"resource": "/v1/audit/records/*/*", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/sales/agreements", "methods": ["GET"]},
       {"resource": "/v1/sales/agreements/*", "methods": ["GET"]},
@@ -4152,13 +4171,14 @@
       "ledger": ["ledger.entry.post", "ledger.ledger.lookup"],
       "revrec": ["revrec.allocation.read"],
       "sales": ["sales.order.record-invoice", "sales.order.record-delivery"],
-      "tax": ["tax.transaction.record"]
+      "tax": ["tax.transaction.record", "tax.tax.calculate"]
     },
     "fulfillment": {
       "sales": ["sales.order.record-delivery"],
       "product": ["product.customs.read"],
       "party": ["party.tax-registration.read"],
       "inventory": ["inventory.issue.claim"],
+      "ledger": ["ledger.entry.post", "ledger.ledger.lookup", "ledger.balance.read"],
       "carrier-gateway": ["carrier.rate.quote", "carrier.label.create", "carrier.tracking.read"]
     },
     "transport": {
@@ -4172,7 +4192,8 @@
       "payables": ["payables.inbox.read"]
     },
     "purchasing": {
-      "budgeting": ["budget.encumbrance.convert", "budget.requisition.check"]
+      "budgeting": ["budget.encumbrance.convert", "budget.requisition.check"],
+      "product": ["product.read"]
     },
     "receiving": {
       "ledger": ["ledger.entry.post", "ledger.journal.reverse"],
@@ -4207,6 +4228,10 @@
     },
     "costing": {
       "ledger": ["ledger.entry.post", "ledger.balance.read", "ledger.ledger.lookup"]
+    },
+    "planning": {
+      "sales": ["sales.order.open-lines"],
+      "inventory": ["inventory.read"]
     },
     "inventory": {
       "ledger": ["ledger.entry.post", "ledger.ledger.lookup"],
@@ -4243,7 +4268,7 @@
       "receivables": ["receivables.forecast.read"]
     },
     "sales": {
-      "product": ["product.configuration.read", "product.names.read"],
+      "product": ["product.configuration.read", "product.names.read", "product.read"],
       "production": ["production.order.create-from-sales"],
       "billing": ["billing.invoice.read"],
       "fulfillment": ["fulfillment.packing-slip.read"],
@@ -4266,7 +4291,7 @@
       "ledger": ["ledger.entry.lookup", "ledger.ledger.lookup"]
     },
     "tax": {
-      "ledger": ["ledger.balance.read", "ledger.entry.lookup", "ledger.ledger.lookup", "ledger.account.lookup"]
+      "ledger": ["ledger.balance.read", "ledger.entry.lookup", "ledger.ledger.lookup", "ledger.account.lookup", "ledger.entry.post"]
     },
     "payables": {
       "ledger": ["ledger.balance.read", "ledger.ledger.lookup", "ledger.entry.lookup", "ledger.entry.post"],
@@ -4392,6 +4417,8 @@
     "fulfillment-order": ["fulfillment.order.sync"],
     "billing-sales-report": ["sales.order.record-invoice"],
     "billing-tax-report": ["tax.transaction.record"],
+    "billing-tax-calc": ["tax.tax.calculate"],
+    "planning-open-inputs": ["sales.order.open-lines", "inventory.read"],
     "fulfillment-sales-report": ["sales.order.record-delivery"],
     "integration-hub": ["migration.outbound.render", "migration.xref.record"],
     "inventory-postings": ["inventory.transaction.apply"],

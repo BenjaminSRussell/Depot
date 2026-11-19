@@ -87,6 +87,7 @@ const set = (label: string | RegExp, value: string) => fireEvent.change(screen.g
 
 function fillOrderBasics() {
   set("Legal entity", LE);
+  set("Currency", "USD");
   set("Customer", CUSTOMER);
   set("Product", PRODUCT);
   set("Quantity", "3");

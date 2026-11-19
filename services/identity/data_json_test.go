@@ -155,3 +155,21 @@ func checkObjectKeys(dec *json.Decoder, path string) error {
 	}
 	return nil
 }
+
+func TestAuditorDutiesAreSeeded(t *testing.T) {
+	s := readSeedDuties(t)
+	var auditor struct {
+		Flag        bool              `json:"flag"`
+		Permissions []json.RawMessage `json:"permissions"`
+	}
+	raw, ok := s.Duties["audit.auditor"]
+	if !ok {
+		t.Fatal("audit.auditor is not seeded")
+	}
+	if err := json.Unmarshal(raw, &auditor); err != nil || !auditor.Flag || len(auditor.Permissions) != 0 {
+		t.Fatalf("audit.auditor must be a flag duty without routes: %s", raw)
+	}
+	if _, ok := s.Duties["audit.export"]; !ok {
+		t.Fatal("audit.export is not seeded")
+	}
+}

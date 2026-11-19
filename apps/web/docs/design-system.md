@@ -1,10 +1,12 @@
 # Depot web design system and shell redesign
 
+Extended by docs/ux/ (UXS-03); where they differ, docs/ux wins.
+
 Implementation spec for `apps/web`. Follow it as written. No new npm dependencies: plain CSS (global `theme.css` + CSS Modules per component, Vite handles both), inline SVG icons, system-ui fonts. Every visual value comes from a token in section 1. No inline styles, no ID selectors, no `!important`. Use logical properties (`margin-inline-start`, `inset-inline-end`, `padding-block`) everywhere so RTL works.
 
 **Hard rules (each one keeps an existing test or contract working):**
-- R1. Pages that tests render without a router (`ProductHome`, `CatalogPage`, `InboxPage`, `EngineeringHome`, `WhereUsedPage`, `FormRenderer`, `MetadataForm`) must not use `Link`, `NavLink` or router hooks. When they need navigation, a `*Route` wrapper in `module.ts` passes a callback, the way `MetadataRoute` already does.
-- R2. Do not add `useQuery` to pages that tests render without a `QueryClientProvider`. A default prop never holds rows, counts or statuses, and a page never shows an empty state, number or progress it did not fetch (UXS-01 honest screens, enforced by `src/shell/honestScreens.test.ts`). A page with no working data source is listed in `src/shell/plannedRoutes.json` and renders `PlannedPage`.
+- R1. Pages that tests render without a router (`ProductHome`, `CatalogPage`, `WorkflowHome`, `InboxPage`, `EngineeringHome`, `WhereUsedPage`, `FormRenderer`, `MetadataForm`) must not use `Link`, `NavLink` or router hooks. When they need navigation, a `*Route` wrapper in `module.ts` passes a callback, the way `MetadataRoute` already does.
+- R2. Pages keep their synchronous default props. Do not add `useQuery` to pages that tests render without a `QueryClientProvider`.
 - R3. A `<label>` element contains only the field name. Put "Optional" and hints in sibling elements, because `getByLabelText("Component")` matches exactly.
 - R4. `StatTile` puts a literal space between label and value (`{label}{" "}{value}`), so `"Masters 50"` still matches.
 - R5. Only the shell live region and the existing page-level `role="status"`/`role="alert"` nodes carry those roles. `StatusPill`, `Skeleton` and `EmptyState` never do.
@@ -104,6 +106,7 @@ Define as `--text-sm-size`/`--text-sm-leading` pairs. Weights: `--weight-regular
   - While open, the sidebar gets `role="dialog" aria-modal="true" aria-label="Navigation"`, shows a top `<button aria-label="Close navigation">` (hidden at 960px and above), traps focus with `useFocusTrap`, and locks body scroll.
   - Open moves focus to "Close navigation". Esc, the scrim, the close button or choosing a link closes the drawer and returns focus to "Open navigation".
   - Transition: `transform var(--duration-slow) var(--ease-out)`.
+- **Below 640px (Context sheet).** The top bar keeps the menu button, the title and one "Context" button (`ContextSheet.tsx`). The button opens a bottom sheet (`role="dialog" aria-modal="true" aria-label="Context and account"`) that holds the legal-entity and site pickers, Help, Compact view and the account menu, so the bar never scrolls sideways (WCAG 1.4.10). The sheet traps focus with `useFocusTrap`, closes on Esc, the scrim or "Close", and returns focus to the "Context" button. `e2e/reflow.demo.spec.ts` checks every route for sideways scrolling at 390 and 320px.
 - **Route change** (`useEffect` on `pathname`, skipped on first render): focus the `h1` with `preventScroll`, scroll the content to the top, and close the drawer. Hide the `h1` focus outline (`h1:focus{outline:none}`), because it is not interactive.
 - **Offline.** `useOnlineStatus()` listens to `online`/`offline`. While offline, show `Alert tone="warning"` under the top bar (copy in section 7).
 
@@ -173,10 +176,12 @@ Every module page uses `PageHeader` (h2). The state matrix applies: **Offline** 
 | `/` (new, shell `HomePage`) | h1 "Home". `PageHeader` "Workspaces", description "Open a workspace, or press ⌘K to jump to any page." `CardGrid as="ul" label="Workspaces"`: one `Card` (h3 = module title, workspace icon tile, `module.description`, `ul` of `Link`s for every nav entry with a `chevronRight`) per module, in registry order. | PageHeader, CardGrid, Card, Icon | Static, no fetch. Empty (no modules): `EmptyState` "No workspaces yet" / "Workspaces appear here once they're installed." |
 | `/notes` (new, shell `NotesPage`) | h1 "Notes". `PageHeader` "Note form", description "A preview of a form generated from entity metadata." `Card` wrapping `<FormRenderer entity={catalog.get(demoNote.id) ?? demoNote}/>`, which moves here from `Shell`. | PageHeader, Card | Synchronous |
 | `*` (shell `NotFoundPage`) | `EmptyState` (h2) "We couldn't find that page" / "Check the address, or search for the page you need." Action: link "Go to home". | EmptyState | — |
-| Any route in `src/shell/plannedRoutes.json` (shell `PlannedPage`) | `Card` → `EmptyState icon="info"` (h2) "This page isn't available yet" with the entry's description, and a "Go to home" link. The h1 stays the nav label. The shell leaves planned routes out of the sidebar, workspaces, All features, home and palette (`withoutPlannedNav`); the route still opens from a bookmark. Today: `/admin/audit`, `/admin/alerts`, `/admin/documents`, `/admin/texts`, `/workflow/designer`, `/workflow/templates`, `/workflow/jobs`. | Card, EmptyState | Static, by design: it shows no data |
-| `/admin` AdminHome | `PageHeader` "Admin", "Number sequences, imports and who can do what, in one place." `CardGrid label="Admin pages"` of `Card`s (h3), each linking to its sub-page with a one-line description (section 7). Cards for planned routes are left out. | PageHeader, CardGrid, Card | Static links |
-| `/admin/sequences` SequencesPage | `ListPage` "Number sequences" on `GET /api/v1/numbering/sequences` (paged by `nextCursor`): Code (mono), Name, Legal entity (`EntityName`), Format (mono), Numbering ("Gap-free", "Continuous", "Non-continuous"), Next number (mono, `nextFormatted`), Starts at (hidden by default). Read-only. | ListPage, EntityName | Loading, no access ("You can't view number sequences"), failure with "Try again", and empty "No number sequences yet" with "Open the setup checklist". A bodiless 404 or 405 (a numbering service without the list route) shows `EmptyState` "Number sequences can't be listed yet" with no retry and no list tools. |
-| `/admin/import` ImportPage | `PageHeader` "Import records". `Card` holding the setup guide's `ImportStep` (what to import, CSV template, row preview, start the import). A muted line says where export lives. | PageHeader, Card, ImportStep | `ImportStep`'s own: loading, no duty, nothing set up, failure with "Try again" |
+| `/admin` AdminHome | `PageHeader` "Admin" + the existing copy. `CardGrid` of 5 `Card`s (h3), each linking to a page that exists: Sequences, Import, Effective permissions, Role assignments, Legal entities (section 7). | PageHeader, CardGrid, Card | Static |
+| `/admin/audit` | Planned until B-23. Not in any menu or workspace. The shell renders `NotAvailablePage` ("This page isn't available yet"); the entry lives in `src/shell/plannedRoutes.json` with its slice and date. | NotAvailablePage | Planned |
+| `/admin/sequences` SequencesPage | `PageHeader` "Sequences". `DataTable label="Number sequences"` (Code, Name, Legal entity by name, Format, Numbering, Starts at) on `GET /api/v1/numbering/sequences`, with "Load more" on a cursor. Loading shows the table skeleton; the empty state shows only after a successful fetch; a 403 is a calm info `Alert`; any other failure is a danger `Alert` with "Try again" and no empty state. Read-only; create and edit are B-35. | PageHeader, DataTable, Alert, Button | Empty after a successful fetch: "No number sequences yet" / "Sequences number your documents without gaps, per legal entity." |
+| `/admin/documents`, `/admin/texts` | Planned until B-35. Shell renders `NotAvailablePage`. | NotAvailablePage | Planned |
+| `/admin/alerts` | Planned until B-35. Shell renders `NotAvailablePage`. | NotAvailablePage | Planned |
+| `/admin/import` ImportPage | `PageHeader` "Import" + `Card` holding the setup guide's `ImportStep` (what to import, check a file, start the import). Needs the migration duties; without them the step says so. | PageHeader, Card | — |
 | `/close`, `/payables`, `/tax` | New `pages.tsx` per module exporting `CloseHome`/`PayablesHome`/`TaxHome` = `WorkspacePlaceholder` (copy in section 7). `module.ts` uses `createElement(…)` in place of `null`. | WorkspacePlaceholder | Static |
 | `/engineering` EngineeringHome | `PageHeader` "Engineering data" (exact) + description. `Card` (h3 "Where-used") explaining the report. No links (R1). | PageHeader, Card | Static |
 | `/engineering/where-used` WhereUsedPage | `Card` holding the form in a row (wraps below `md`): `FormField` "Component" + `Input required`, `FormField` "As of date" `optional` + `Input type=date`, `Button variant="primary" loading={searching}` "Find parents". Below: `Alert tone="danger" live="alert"` (always mounted, holds `error`); `<p role="status">` results summary (muted `--text-sm`); results `DataTable label="Where-used results"` (Product mono, Level end-aligned + indent `level-1` × `--space-4` in the Product cell, BOM version mono, Site). | Card, FormField, Input, Button, Alert, DataTable, EmptyState | Loading: button loading + `DataTable loading` (keep the existing `!searching` table guard; skeleton rows are a table, so they only show while `searching`). Empty: no table. `EmptyState compact` "No parents found" / "Try another component or a different date." Error: Alert text unchanged and no table. Input values survive errors. |
@@ -185,8 +190,9 @@ Every module page uses `PageHeader` (h2). The state matrix applies: **Offline** 
 | `/product/items` CatalogPage | `DataTable label="Products"`: Number (mono), Name, Subtype (`Badge neutral`, "Master"/"Product"), State (`StatusPill`). The optional prop `onOpen(number)` becomes `onRowOpen`. `module.ts` uses a `CatalogRoute` wrapper that calls `navigate(\`/product/${n}\`)`. | DataTable, Badge, StatusPill | Empty: "No products yet" / "Products you create or import appear here." |
 | `/product/released` | `PageHeader` + `Card` → `EmptyState` "No released products yet" / existing sentence as description. | | |
 | `/product/:id` ProductDetail | `PageHeader` = product.name, meta `StatusPill status="active"`. `Card` holding a `<dl>` 2-column grid: Number (mono), GTIN (mono). | PageHeader, Card, StatusPill | — |
-| `/workflow` WorkflowHome | `PageHeader` "Workflow", "Approvals and other work waiting for you." A link "Open My work". No job tiles until the batch service can list runs. | PageHeader | Static link |
+| `/workflow` WorkflowHome | `PageHeader` "Workflow and batch" and a link "Open My work". No tiles and no sample data. | PageHeader | Static |
 | `/workflow/inbox` InboxPage | `DataTable label="Work items"`: Document (mono), Step, Submitted by, Due (`overdue` → `Badge warning` "Overdue"), Status (`StatusPill`). | DataTable, StatusPill, Badge | Empty: "You're all caught up" / "Approvals assigned to you appear here." |
+| `/workflow/designer`, `/workflow/jobs`, `/workflow/templates` | Planned until B-34. Shell renders `NotAvailablePage`. The sample rows these pages showed live in `src/demo/handlers/workflow.ts`, never in a production build. | NotAvailablePage | Planned |
 
 `RouteErrorBoundary` (a class component in `src/shell/`) catches render errors from any page and shows `Alert tone="danger" live="alert" title="This page couldn't load"`, "Something went wrong while showing this page. Your other workspaces still work." plus `Button` "Try again" (resets state) and a "Go to home" link. Add `description?: string` to `DepotModule` (optional, backward compatible) and fill it in for each module.
 
@@ -228,28 +234,23 @@ The full writing rules (voice, task verbs, error messages, glossary) are in [ux-
 
 - **Shell nav:** "Home", "Notes". Module nav labels stay as they are, except two changes: `PIM workspace` → "Overview", and `Engineering workspace` → "Overview". This keeps "one concept, one word" with Admin's "Overview".
 - **Module descriptions:**
-  - Admin: "Number sequences, imports, users and roles."
+  - Admin: "Numbering, imports and security."
   - Period close: "Close your books on time with tasks, reviews and period locks."
   - Engineering data: "Bills of material, routings and change orders."
   - Metadata: "Fields and forms your tenant uses for each record type."
   - Accounts payable: "Plan payment runs and pay vendors on schedule."
   - Product information: "Products, masters and what's released to each legal entity."
   - Tax: "Tax codes, rates and the rules that apply them."
-  - Workflow: "Approvals and other work waiting for you."
+  - Workflow and batch: "Approvals and the work waiting for you."
 - **Placeholders** (EmptyState description):
   - Close: "Period close will bring your close checklist, journal reviews and period locks into one place."
   - Payables: "Payment runs will let you review invoices due, choose what to pay and release payments."
   - Tax: "Tax configuration will let you maintain tax codes, rates and how they apply to transactions."
-- **Admin cards** (planned routes have no card until they ship):
-  - Audit: "See who changed what, and when." (planned)
-  - Number sequences: "See the number sequences of each legal entity and the next number each will give."
-  - Alerts: "Review failures and overdue approvals." (planned)
-  - Import records: "Check and import vendors, customers and products from a CSV file."
-  - Documents: "Check documents in and out, track versions and apply legal holds." (planned)
-  - Standard texts: "Reusable text in every language you support." (planned)
+- **Admin cards:**
+  - Sequences: "See how your documents are numbered, per legal entity."
+  - Import: "Bring your records in from a file."
 - **Empty states not listed elsewhere:**
-  - Number sequences: "No number sequences yet" / "Number sequences give your documents their numbers, for each legal entity. Creating them here isn't available yet, so ask support to set them up. The setup checklist shows what else is missing." Action: "Open the setup checklist".
-  - Planned page: "This page isn't available yet" / the route's description from `plannedRoutes.json`, which says what the page will do ("It will show who changed what, and when.").
+  - Sequences: "No number sequences yet" / "Sequences number your documents without gaps, per legal entity." (shown only after a successful fetch)
 - **Buttons:** "Search", "Close search", "Open navigation", "Close navigation", "Apply saved view", "Compact view", "Find parents", "Save {title}" (FormRenderer "Save Note" unchanged), "Add {line}", "Try again", "Browse workspaces", "Go to home".
 - **Offline banner:** "You're offline. Pages you've opened still work, but searches and saves will fail until you reconnect."
 - **Palette:** the placeholder, no-results and help strings exactly as in section 3.
@@ -264,10 +265,10 @@ The full writing rules (voice, task verbs, error messages, glossary) are in [ux-
   - Link "Skip to content" with `href="#main"`.
   - Clicking button "Search" opens dialog "Search", and "Find a page" has focus.
   - Ctrl+K opens the dialog, and Escape removes it.
-  - Typing "import{Enter}" renders "Import page". A planned route (`/admin/audit`) is in no workspace and no palette option, but opens with its h1.
+  - Typing "import{Enter}" renders "Import page".
   - "Apply saved view" leads to status "Saved view applied".
   - FormRenderer: "Save Note" → alert "Title is required"; type into "Title" → no alert; button "One"; label "Edit Title".
-- `admin` (UXS-01 replaced the fake-data assertions): id, routes > 0, every nav starts with `/admin`, auto-discovered. Each planned admin route shows "This page isn't available yet" and makes no request. Table "Number sequences" lists what `GET /api/v1/numbering/sequences?limit=100` returned, with the next number and the legal entity's name, and pages by `nextCursor`; the no-access, failure, empty and missing-route states are each asserted. `/admin/import` renders the setup import step.
+- `admin`: id, routes > 0, every nav starts with `/admin`, auto-discovered; no route or nav entry serves a planned path.
 - `close`/`payables`/`tax`: id, routes > 0, nav prefix, auto-discovered.
 - `engineering`:
   - Nav prefix plus `duty === "engineering.read"` on every entry.
@@ -278,8 +279,7 @@ The full writing rules (voice, task verbs, error messages, glossary) are in [ux-
   - On empty: status "No active BOM uses this component on that date." and no table.
 - `MetadataForm`: label "Account manager", fetch URL + headers, option "preferred", "Code" required.
 - `product`: heading "Product information management", list "PIM tiles" contains "Masters 50" and "Products 500", table "Products" contains SHIRT.
-- `workflow` (UXS-01 replaced the fake-data assertions): heading "Workflow", link "Open My work", no "Workflow tiles"; the job monitor, designer and templates show "This page isn't available yet", no table and no sample rows, and make no request. Table "Work items" contains PR-1042 (inbox tests).
-- `honestScreens` (`src/shell/honestScreens.test.ts`): the UXS-01 source scan with its mutation fixtures, the planned-route checks (dates, rendering, no workspace, sidebar, All features, home, palette or admin card links them) and a source scan for the production build. The production build itself is checked in CI by `node scripts/check-bundle.mjs dist` after `npm run build`: no workflow sample rows and no demo company in the bundle. The scan and the script read one marker list, `src/shell/demoMarkers.json`.
+- `workflow`: heading "Workflow and batch", a link "Open My work", no "Sample data", routes and nav hold only `/workflow` and `/workflow/inbox`.
 - `registry`: unique ids, sorted titles, routes and nav non-empty.
 - `metadata`, `telemetry`, `vite-federation`: untouched.
 
@@ -297,7 +297,7 @@ The full writing rules (voice, task verbs, error messages, glossary) are in [ux-
 
 **New assertions (in `Shell.test.tsx` unless noted):**
 1. Home lists one `heading level 3` per module title and a link per nav entry. No "Save Note" button is on `/`; it appears at `/notes`, and `checkAxeAA` returns `[]` there.
-2. At `/admin/audit`: `h1` is "Audit", navigation "Breadcrumb" has link "Admin", and link "Audit" inside "Workspaces" has `aria-current="page"`.
+2. At `/admin/import`: `h1` is "Import", navigation "Breadcrumb" has link "Admin", and link "Import data" inside "Workspaces" has `aria-current="page"`. At `/admin/audit` (planned): `h1` is "Page not available" and the message says the page isn't built yet.
 3. Palette: after Ctrl+K and ArrowDown, the input's `aria-activedescendant` equals the id of the 2nd `option`, which has `aria-selected="true"`. Enter navigates to that option's page.
 4. Palette: options sit in a `group` named "Admin". Typing "zzz" shows "No pages match" with `aria-expanded="false"`, and Enter leaves the dialog open.
 5. Palette: Escape after opening from the Search button returns focus to that button.

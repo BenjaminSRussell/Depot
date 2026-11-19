@@ -1,30 +1,33 @@
 // @vitest-environment node
 /**
- * Guards the plain-language rule in apps/web/docs/ux-writing.md: text people
- * read never cites spec ids (FR-, BR-, AC-n.n) or delivery waves and slices.
- * The reference can stay in a code comment; comments are not scanned.
+ * Guards the plain-language rules in apps/web/docs/ux-writing.md: text people
+ * read never cites spec ids or delivery waves, asks for a UUID or an id, shows
+ * a problem code, a duty code or a raw status value. Existing offenders sit in
+ * plainLanguageAllowlist.json, which only shrinks. Comments are not scanned.
  *
  * Every string literal, template literal part and JSX text in the modules'
  * and shell's source counts as user-facing, except import paths, object keys
  * and attributes that are never shown (class names, test ids, routes, ids).
  */
 import { parseAst } from "vite";
-import { DELIVERY_REF, SPEC_REF } from "./plainLanguageRules";
+import authz from "../../../../policies/authz/data.json";
+import allowlist from "./plainLanguageAllowlist.json";
+import { DELIVERY_REF, SPEC_REF, plainRules } from "./plainLanguageRules";
+
+const RULES = plainRules(Object.keys(authz.duties));
+const ALLOWED: Record<string, string[]> = allowlist;
 
 /** Attributes whose values are never shown to people. */
 const HIDDEN_ATTRIBUTES = new Set(["className", "id", "key", "htmlFor", "name", "to", "href", "type", "role", "method", "rel", "target"]);
 
-/**
- * Strings that may keep a reference because they are not shown to people,
- * as `path/relative/to/src:exact text`. Keep it empty unless truly needed.
- */
-const ALLOWLIST = new Set<string>([]);
-
 interface Finding {
+  rule: string;
   file: string;
   line: number;
   text: string;
 }
+
+const PROSE_ONLY = new Set(["DUTY_CODE", "PROBLEM_CODE", "RAW_ENUM"]);
 
 type Node = { type?: unknown; start?: number; [key: string]: unknown };
 
@@ -38,8 +41,7 @@ function attributeName(node: Node): string | undefined {
   return undefined;
 }
 
-/** The user-facing strings of one source file that cite a spec id, wave or slice. */
-export function findReferences(source: string, file: string): Finding[] {
+export function findReferences(source: string, file: string, rules: Record<string, RegExp> = RULES): Finding[] {
   const program = parseAst(source, { lang: file.endsWith(".tsx") ? "tsx" : "ts" }, file);
   const found: Finding[] = [];
   const lineOf = (offset: number) => source.slice(0, offset).split("\n").length;
@@ -61,9 +63,11 @@ export function findReferences(source: string, file: string): Finding[] {
     else if (node.type === "JSXText" && typeof node.value === "string") text = node.value;
     else if (node.type === "TemplateElement" && isNode(node.value)) text = String(node.value.cooked ?? node.value.raw ?? "");
     const isKey = parent?.type === "Property" && key === "key" && parent.computed !== true;
-    if (text !== undefined && !isKey && (SPEC_REF.test(text) || DELIVERY_REF.test(text))) {
+    if (text !== undefined && !isKey) {
       const flat = text.replace(/\s+/g, " ").trim();
-      if (!ALLOWLIST.has(`${file}:${flat}`)) found.push({ file, line: lineOf(node.start ?? 0), text: flat });
+      for (const [rule, pattern] of Object.entries(rules)) {
+        if (pattern.test(text) && !(PROSE_ONLY.has(rule) && !/\s/.test(flat))) found.push({ rule, file, line: lineOf(node.start ?? 0), text: flat });
+      }
     }
     for (const [childKey, child] of Object.entries(node)) {
       if (childKey === "type" || childKey === "start" || childKey === "end") continue;
@@ -93,15 +97,22 @@ describe("plain-language copy", () => {
       "}",
       'const map = { "BR-9.9": "keys are not shown" };',
     ].join("\n");
-    const found = findReferences(sample, "sample.tsx").map((f) => f.text);
+    const found = findReferences(sample, "sample.tsx", { SPEC_REF, DELIVERY_REF }).map((f) => f.text);
     expect(found).toEqual(["Working days each demand moves (FR-22.5).", "Released in wave 7.", "Filled in with the AC-40.6 example."]);
   });
 
-  it("no module or shell string cites a spec id, wave or slice", () => {
+  it("no module or shell string breaks a rule outside the allowlist, and no allowlist entry is stale", () => {
     const files = Object.entries(sources);
     expect(files.length).toBeGreaterThan(100);
     const findings = files.flatMap(([path, source]) => findReferences(source, path.replace(/^\.\.\//, "").replace(/^\.\//, "shell/")));
-    const report = findings.map((f) => `${f.file}:${f.line}  ${f.text}`).join("\n");
-    expect(report, "Rewrite these strings in plain language; keep the reference in a code comment if it helps").toBe("");
+    const listed = (f: Finding) => (ALLOWED[f.rule] ?? []).includes(`${f.file}:${f.text}`);
+    const report = findings
+      .filter((f) => !listed(f))
+      .map((f) => `${f.rule} ${f.file}:${f.line}  ${f.text}`)
+      .join("\n");
+    expect(report, "Rewrite these strings in plain language; the allowlist only shrinks").toBe("");
+    const seen = new Set(findings.map((f) => `${f.rule}|${f.file}:${f.text}`));
+    const stale = Object.keys(RULES).flatMap((rule) => (ALLOWED[rule] ?? []).filter((entry) => !seen.has(`${rule}|${entry}`)).map((entry) => `${rule} ${entry}`));
+    expect(stale.join("\n"), "Remove these entries from plainLanguageAllowlist.json").toBe("");
   }, 60_000);
 });

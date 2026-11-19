@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/productblock"
 	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
 
@@ -105,6 +106,14 @@ func (a *API) patchRequisition(w http.ResponseWriter, r *http.Request) {
 		}
 		req, estimate, err := buildRequisition(resolved, userID)
 		if err != nil {
+			fail(w, r, err)
+			return
+		}
+		productIDs := make([]string, len(req.Lines))
+		for i, l := range req.Lines {
+			productIDs[i] = l.ProductID
+		}
+		if err := productblock.CheckAll(r.Context(), a.blocks, cur.LegalEntityID, productblock.PurchaseRequisition, productIDs); err != nil {
 			fail(w, r, err)
 			return
 		}

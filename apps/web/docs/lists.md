@@ -1,5 +1,7 @@
 # List standard
 
+Extended by docs/ux/ (UXS-04); where they differ, docs/ux wins.
+
 `ListPage` in `src/shell/ui/ListPage.tsx` is the one list screen. It sits on `DataTable` and is exported from `src/shell/ui/index.ts`. Use it for every new list; roll existing lists over with the checklist below (#505).
 
 ## What a page supplies

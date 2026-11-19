@@ -119,7 +119,7 @@ func policyOf(states []LifecycleState, code, process string) string {
 // EvaluateProcessPolicy applies BR-8.12: FR-8.10 block flags win, then the most restrictive state policy.
 func EvaluateProcessPolicy(process string, released ReleasedProduct, productState string, states []LifecycleState) ProcessDecision {
 	if flagBlocks(process, released) {
-		return ProcessDecision{Policy: "block", Code: CodeLCBlocked, Detail: fmt.Sprintf("%s is blocked for state %s", process, released.LifecycleState)}
+		return ProcessDecision{Policy: "block", Code: CodeLCBlocked, Detail: fmt.Sprintf("This product is blocked for %s. Ask a product data steward to lift the block.", blockModule(process))}
 	}
 	releasedPolicy := policyOf(states, released.LifecycleState, process)
 	productPolicy := policyOf(states, productState, process)
@@ -131,6 +131,19 @@ func EvaluateProcessPolicy(process string, released ReleasedProduct, productStat
 		return ProcessDecision{Policy: "warn", Code: CodeLCWarn, Detail: fmt.Sprintf("%s is discouraged for state %s", process, released.LifecycleState)}
 	default:
 		return ProcessDecision{Policy: "allow"}
+	}
+}
+
+func blockModule(process string) string {
+	switch process {
+	case "purchase_requisition", "purchase_order":
+		return "purchasing"
+	case "sales_quotation", "sales_order", "return_order":
+		return "sales"
+	case "inventory_receipt", "inventory_issue", "counting", "transfer_order":
+		return "inventory"
+	default:
+		return "production"
 	}
 }
 

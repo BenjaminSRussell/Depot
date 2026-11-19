@@ -326,6 +326,7 @@ components:
               unit_price: { type: string }
               amount: { type: string }
               grir_cleared_amount: { type: string, description: "decimal string; the GR/IR amount this line cleared (pro rata, the exact remainder on the last quantity)" }
+              service: { type: boolean, description: "true when the line clears a service entry receipt, which books no stock; omitted otherwise" }
     InvoiceSampledData:
       type: object
       required: [invoice_id, legal_entity_id, vendor_id, invoice_number, source, currency, total, sample_rate_pct, rule_version, reason]

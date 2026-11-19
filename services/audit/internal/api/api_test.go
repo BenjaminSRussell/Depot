@@ -25,9 +25,12 @@ type fakeStore struct {
 	records []store.Record
 	alerts  []store.Alert
 	readStore
-	lastFilter  store.ReadFilter
-	chain       store.ChangeChain
-	verifyRange [2]int64
+	lastFilter store.ReadFilter
+	entities   []store.EntitySummary
+
+	lastRecordFilter store.RecordFilter
+	chain            store.ChangeChain
+	verifyRange      [2]int64
 }
 
 func (f *fakeStore) Apply(_ context.Context, change domain.Change) error {
@@ -45,6 +48,31 @@ func (f *fakeStore) Query(context.Context, string, string) ([]store.Record, erro
 		return []store.Record{}, nil
 	}
 	return f.records, nil
+}
+func (f *fakeStore) ListRecords(_ context.Context, flt store.RecordFilter) ([]store.Record, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	f.lastRecordFilter = flt
+	out := []store.Record{}
+	for _, rec := range f.records {
+		match := (flt.Entity == "" || rec.Entity == flt.Entity) && (flt.RecordID == "" || rec.RecordID == flt.RecordID) &&
+			(flt.UserID == "" || rec.UserID == flt.UserID) && (flt.Field == "" || rec.Field == flt.Field) &&
+			(flt.From == nil || !rec.OccurredAt.Before(*flt.From)) && (flt.To == nil || rec.OccurredAt.Before(*flt.To)) && rec.Seq > flt.AfterSeq
+		if match {
+			out = append(out, rec)
+		}
+		if flt.Limit > 0 && len(out) == flt.Limit {
+			break
+		}
+	}
+	return out, nil
+}
+func (f *fakeStore) ListEntities(context.Context) ([]store.EntitySummary, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.entities, nil
 }
 func (f *fakeStore) CreateRule(_ context.Context, rule store.AlertRule) (store.AlertRule, error) {
 	if f.err != nil {

@@ -16,6 +16,8 @@
 
 .toggle {
   inline-size: fit-content;
+  min-block-size: var(--nav-item-height);
+  padding-block: var(--space-1);
   cursor: pointer;
   border-radius: var(--radius-sm);
 }

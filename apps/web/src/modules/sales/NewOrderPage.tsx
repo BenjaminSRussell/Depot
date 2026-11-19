@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { dutyName } from "../../shell/shared/dutyName";
 import { Link, useNavigate } from "react-router-dom";
 import { EntityLookup } from "../../shell/lookup/EntityLookup";
 import {
@@ -26,6 +27,7 @@ import { LinesEditor } from "./LinesEditor";
 import { OrderProposals } from "./OrderProposals";
 import styles from "./pages.module.css";
 import { ProblemMessage } from "../../shell/errors";
+import { useDefaultCurrency } from "../../shell/defaults/useDefaults";
 
 export { emptyLine, type LineValues } from "./lines";
 
@@ -104,7 +106,7 @@ export function NewOrderPage() {
     customerId: "",
     invoiceAccountId: "",
     orderType: "",
-    currency: "USD",
+    currency: "",
     requestedShipDate: start,
     externalRef: "",
     listingOverrideReason: "",
@@ -125,6 +127,11 @@ export function NewOrderPage() {
     );
     return () => controller.abort();
   }, [values.customerId]);
+  const derivedCurrency = useDefaultCurrency([
+    { entity: "customer", id: values.customerId.trim() },
+    { entity: "legalEntity", id: values.legalEntityId.trim() },
+  ]);
+  const effective: OrderValues = { ...values, currency: values.currency || derivedCurrency };
   const [errors, setErrors] = useState<Errors>({});
   const [failure, setFailure] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
@@ -146,7 +153,7 @@ export function NewOrderPage() {
   const { prompt, release } = useUnsavedChanges(useFormBaseline(values));
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const { errors: found, input } = validateOrder(values);
+    const { errors: found, input } = validateOrder(effective);
     setErrors(found);
     setFailure(null);
     if (!input) return;
@@ -172,7 +179,7 @@ export function NewOrderPage() {
           {...control}
           type={extra.type ?? "text"}
           className={extra.mono ? styles.mono : undefined}
-          value={values[name]}
+          value={effective[name]}
           onChange={(e) => update({ [name]: name === "currency" ? e.target.value.toUpperCase() : e.target.value })}
           invalid={Boolean(errors[name])}
         />
@@ -206,24 +213,24 @@ export function NewOrderPage() {
           <FormErrorSummary items={summaryItems(errors, NEW_ORDER_FIELDS, orderRowTarget)} attempt={attempt} />
           {lookup("legalEntityId", "legalEntity", "Legal entity", "The selling legal entity.")}
           {lookup("customerId", "customer", "Customer", "Search by name or account number.", { legalEntityId: values.legalEntityId || undefined })}
-          {lookup("invoiceAccountId", "customer", "Invoice account", "Leave empty to invoice the customer.", { legalEntityId: values.legalEntityId || undefined }, true)}
-          <FormField id="order-orderType" label="Order type" hint="Legal entity default uses the type set in Sales parameters." error={errors.orderType}>
-            {(control) => (
-              <Select {...control} value={values.orderType} onChange={(e) => update({ orderType: e.target.value as OrderType | "" })}>
-                <option value="">Legal entity default</option>
-                {ORDER_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {sentence(t)}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </FormField>
           {header("currency", "Currency")}
           {header("requestedShipDate", "Requested ship date", undefined, { type: "date" })}
           {header("externalRef", "Customer reference", "For example the customer's PO number.", { optional: true })}
           <FormSection collapse="advanced">
-            {header("listingOverrideReason", "Listing override reason", "Needs the sales.order.approve duty. Accepts lines the product listing denies and logs the reason.", { optional: true })}
+            {lookup("invoiceAccountId", "customer", "Invoice account", "Leave empty to invoice the customer.", { legalEntityId: values.legalEntityId || undefined }, true)}
+            <FormField id="order-orderType" label="Order type" hint="Legal entity default uses the type set in Sales parameters." error={errors.orderType}>
+              {(control) => (
+                <Select {...control} value={values.orderType} onChange={(e) => update({ orderType: e.target.value as OrderType | "" })}>
+                  <option value="">Legal entity default</option>
+                  {ORDER_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {sentence(t)}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </FormField>
+            {header("listingOverrideReason", "Listing override reason", `Needs the ${dutyName("sales.order.approve")} duty. Accepts lines the product listing denies and logs the reason.`, { optional: true })}
           </FormSection>
           <FormField id="order-oneTime" label="One-time customer" hint="Walk-in buyer sold to the shared one-time account, with the name and address on the invoice." optional>
             {(control) => (
@@ -240,7 +247,7 @@ export function NewOrderPage() {
             lines={values.lines}
             errors={errors}
             legalEntityId={values.legalEntityId}
-            pricing={{ customerId: values.customerId, customerGroupId: customerGroup, currency: values.currency }}
+            pricing={{ customerId: values.customerId, customerGroupId: customerGroup, currency: effective.currency }}
             newLineDate={values.requestedShipDate}
             onChange={(lines) => update({ lines })}
             withDeliveryControl

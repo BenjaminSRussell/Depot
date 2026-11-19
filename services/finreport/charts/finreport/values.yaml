@@ -38,6 +38,12 @@ serviceIdentity:
   keyId: ""
 serviceUrls:
   ledger: ""
+opa:
+  # The OPA that answers the dimension data-scope decision. Leave empty until a pod runs an OPA sidecar
+  # (deploy/gateway/opa-sidecar.yaml is only a sample) and the bundle with data.dimension_scopes exists:
+  # with a URL set and no OPA behind it every report route answers 503 REPORT-0055; with it empty,
+  # dimension security is off and finreport says so in its startup log.
+  url: ""
 # Kafka consumer of dev.depot.ledger.journal.posted.v1 (FR-15.1): one pod per
 # partition set; ordering across partitions is handled by the read model.
 consumer:

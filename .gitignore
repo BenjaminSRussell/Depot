@@ -28,3 +28,6 @@ deploy/.gateway-schemas/
 
 # local dev stack (make dev, tools/e2e): binaries, logs, generated realm and OPA data
 .run/
+
+/services/billing/billing
+/services/numbering/numbering

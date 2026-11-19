@@ -26,9 +26,9 @@ const (
 	dutyRead       = "numbering.read"
 	dutyWrite      = "numbering.write"
 	dutyAllocate   = "numbering.sequence.allocate"
-
-	defaultListLimit = 100
-	maxListLimit     = 500
+	defaultPage    = 50
+	maxPage        = 200
+	zeroCursor     = "00000000-0000-0000-0000-000000000000"
 )
 
 // API is the numbering HTTP surface.
@@ -36,6 +36,9 @@ type API struct {
 	store     store.Store
 	allocated atomic.Int64
 	failed    atomic.Int64
+	reserved  atomic.Int64
+	confirmed atomic.Int64
+	voided    atomic.Int64
 }
 
 type createRequest struct {
@@ -57,6 +60,7 @@ func (a *API) Register(r chi.Router) {
 	r.With(authz.RequireDuty(dutyRead)).Get("/v1/numbering/sequences", a.list)
 	r.With(authz.RequireDuty(dutyRead)).Get("/v1/numbering/sequences/{code}", a.get)
 	r.With(authz.RequireAnyDuty(dutyWrite, dutyAllocate)).Post("/v1/numbering/sequences/{code}/next", a.allocate)
+	a.RegisterReservations(r)
 }
 
 // Metrics renders Prometheus text.
@@ -66,6 +70,9 @@ func (a *API) Metrics() http.Handler {
 		tenant.WriteReplayMetrics(w)
 		_, _ = fmt.Fprintf(w, "# HELP numbering_allocated_total Numbers issued.\n# TYPE numbering_allocated_total counter\nnumbering_allocated_total %d\n", a.allocated.Load())
 		_, _ = fmt.Fprintf(w, "# HELP numbering_failed_total Failed allocations or creates.\n# TYPE numbering_failed_total counter\nnumbering_failed_total %d\n", a.failed.Load())
+		_, _ = fmt.Fprintf(w, "# HELP numbering_reserved_total Numbers reserved.\n# TYPE numbering_reserved_total counter\nnumbering_reserved_total %d\n", a.reserved.Load())
+		_, _ = fmt.Fprintf(w, "# HELP numbering_confirmed_total Reservations confirmed.\n# TYPE numbering_confirmed_total counter\nnumbering_confirmed_total %d\n", a.confirmed.Load())
+		_, _ = fmt.Fprintf(w, "# HELP numbering_voided_total Reservations voided by a caller.\n# TYPE numbering_voided_total counter\nnumbering_voided_total %d\n", a.voided.Load())
 	})
 }
 
@@ -115,6 +122,49 @@ func (a *API) create(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusCreated, entity)
 }
 
+func (a *API) list(w http.ResponseWriter, r *http.Request) {
+	if !validTenant(w, r) {
+		return
+	}
+	q := r.URL.Query()
+	fields := map[string]string{}
+	limit := defaultPage
+	if raw := q.Get("limit"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 1 || n > maxPage {
+			fields["limit"] = fmt.Sprintf("must be 1 to %d", maxPage)
+		} else {
+			limit = n
+		}
+	}
+	after := q.Get("after")
+	if after == "" {
+		after = zeroCursor
+	} else if !ids.Valid(after) {
+		fields["after"] = "must be a cursor from a previous page"
+	}
+	if len(fields) > 0 {
+		p := httpx.NewProblem(http.StatusBadRequest, "COM-0001", "request failed validation")
+		p.Errors = fields
+		httpx.Fail(w, r, p)
+		return
+	}
+	items, err := a.store.List(r.Context(), after, limit)
+	if err != nil {
+		slog.Error("list sequences failed", "err", err, "correlationId", middleware.GetReqID(r.Context()))
+		httpx.Fail(w, r, err)
+		return
+	}
+	if items == nil {
+		items = []store.Sequence{}
+	}
+	next := ""
+	if len(items) == limit {
+		next = items[len(items)-1].ID
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": items, "next": next})
+}
+
 func (a *API) get(w http.ResponseWriter, r *http.Request) {
 	if !validTenant(w, r) {
 		return
@@ -125,36 +175,6 @@ func (a *API) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, entity)
-}
-
-func (a *API) list(w http.ResponseWriter, r *http.Request) {
-	if !validTenant(w, r) {
-		return
-	}
-	limit := defaultListLimit
-	if raw := r.URL.Query().Get("limit"); raw != "" {
-		n, err := strconv.Atoi(raw)
-		if err != nil || n < 1 || n > maxListLimit {
-			p := httpx.NewProblem(http.StatusBadRequest, "COM-0001", "request failed validation")
-			p.Errors = map[string]string{"limit": fmt.Sprintf("must be a whole number from 1 to %d", maxListLimit)}
-			httpx.Fail(w, r, p)
-			return
-		}
-		limit = n
-	}
-	cursor := r.URL.Query().Get("cursor")
-	if cursor != "" && !ids.Valid(cursor) {
-		p := httpx.NewProblem(http.StatusBadRequest, "COM-0001", "request failed validation")
-		p.Errors = map[string]string{"cursor": "must be the nextCursor of the previous page"}
-		httpx.Fail(w, r, p)
-		return
-	}
-	page, err := a.store.List(r.Context(), cursor, limit)
-	if err != nil {
-		httpx.Fail(w, r, err)
-		return
-	}
-	httpx.JSON(w, http.StatusOK, page)
 }
 
 func (a *API) allocate(w http.ResponseWriter, r *http.Request) {

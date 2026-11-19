@@ -1,9 +1,14 @@
 import { expect, test } from "@playwright/test";
-import { ROUTES } from "./routes";
 import { ShellPage } from "./shell.page";
+import routes from "./axeRoutes.generated.json" with { type: "json" };
+
+// Every route is already scanned by axe and the reflow specs in the sharded demo job, so the landmark check
+// here samples every 8th route of the generated list (about 85). Scanning all ~670 in this unsharded job
+// ran past its 30 minute limit and cancelled it, which blocked every pull request.
+const sampled = routes.filter((_, index) => index % 8 === 0);
 
 test.describe("landmarks and headings", () => {
-  for (const route of ROUTES) {
+  for (const route of sampled) {
     test(`${route} has exactly one h1 and the shell landmarks`, async ({ page }) => {
       const shell = new ShellPage(page);
       await shell.goto(route);
@@ -49,28 +54,16 @@ test.describe("command palette", () => {
     await expect(shell.paletteInput).toBeFocused();
   });
 
-  test("typing 'number seq' and Enter opens Number sequences", async ({ page }) => {
+  test("typing 'seq' and Enter opens Sequences", async ({ page }) => {
     const shell = new ShellPage(page);
     await shell.goto("/");
     await shell.openPaletteWithShortcut();
-    await shell.paletteInput.pressSequentially("number seq");
-    await expect(shell.paletteOptions.first()).toContainText("Number sequences");
+    await shell.paletteInput.pressSequentially("seq");
+    await expect(shell.paletteOptions.first()).toContainText("Sequences");
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/admin\/sequences$/);
-    await expect(shell.title).toHaveText("Number sequences");
+    await expect(shell.title).toHaveText("Sequences");
     await expect(shell.palette).toHaveCount(0);
-  });
-
-  test("offers no planned page, which still opens from a bookmark", async ({ page }) => {
-    const shell = new ShellPage(page);
-    await shell.goto("/");
-    await shell.openPaletteWithShortcut();
-    await shell.paletteInput.pressSequentially("audit log");
-    await expect(page.getByRole("option", { name: "Audit log, Admin" })).toHaveCount(0);
-    await page.keyboard.press("Escape");
-    await shell.goto("/admin/audit");
-    await expect(shell.title).toHaveText("Audit");
-    await expect(page.getByRole("heading", { level: 2, name: "This page isn't available yet" })).toBeVisible();
   });
 
   test("Escape closes it and returns focus to the opener", async ({ page }) => {

@@ -13,6 +13,7 @@ import (
 
 	"github.com/BenjaminSRussell/depot/platform/dbx"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/productblock"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/purchasing/internal/api"
 	"github.com/BenjaminSRussell/depot/services/purchasing/internal/budget"
@@ -103,6 +104,14 @@ func run(ctx context.Context, getenv func(string) string) error {
 	if budgetPort != nil {
 		a.WithBudget(budgetPort, st)
 	}
+	blocks, err := productblock.FromEnv(getenv)
+	if err != nil {
+		return err
+	}
+	if blocks == nil {
+		slog.Warn("PRODUCT_URL is empty: product blocks are not enforced on requisitions and purchase orders")
+	}
+	a.WithProductBlocks(blocks)
 	router := httpx.NewRouter()
 	a.Register(router)
 	admin := http.NewServeMux()
