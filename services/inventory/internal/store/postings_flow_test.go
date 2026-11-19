@@ -190,6 +190,62 @@ func TestReceiptFlow_InvoiceStepsTheReceivedLineToPurchasedWithTheLedgerEntry(t 
 	}
 }
 
+func partInvoice(t *testing.T, invoiceID, ledgerEntry, qty, amount string) events.Event {
+	t.Helper()
+	raw := `{"invoice_id":"` + invoiceID + `","legal_entity_id":"0199f480-0000-7000-8000-00000000001a","posting_date":"2026-10-26","currency":"USD","ledger_entry_id":"` + ledgerEntry +
+		`","lines":[{"line_no":1,"receipt_id":"0199f480-0000-7000-8000-000000000011","receipt_line_no":1,"qty":"` + qty + `","unit_price":"10.5","amount":"` + amount + `"}]}`
+	return flowEvent(t, api.InvoicePostedType, api.ReceiptSource, json.RawMessage(raw))
+}
+
+func TestReceiptFlow_PartInvoicesStepTheLineOnTheSecondInvoice(t *testing.T) {
+	s, _, admin := setup(t)
+	handlers := api.PostingsConsumerHandlers(s, flowUnits{}, domain.NegativePolicy{})
+	consumer := flowConsumerCtx(t)
+	handle := func(evt events.Event) error { return handlers[evt.Type].Handle(consumer, nil, evt) }
+	const product, entity = "0199f480-0000-7000-8000-000000000015", "0199f480-0000-7000-8000-00000000001a"
+	const firstInvoice, secondInvoice = "0199f480-0000-7000-8000-000000000021", "0199f480-0000-7000-8000-0000000000c1"
+	const firstLedger, secondLedger = "0199f480-0000-7000-8000-000000000022", "0199f480-0000-7000-8000-0000000000c2"
+	read := entityCtx(1, entity)
+	if err := handle(receiptFlowEvent(t, api.ReceiptPostedType, "receipt-posted.json")); err != nil {
+		t.Fatal(err)
+	}
+
+	first := partInvoice(t, firstInvoice, firstLedger, "5", "50")
+	if err := handle(first); err != nil {
+		t.Fatalf("first part: %v", err)
+	}
+	if got := flowTransactions(t, s, read, product, "RECEIPT_LINE"); got[0].ReceiptStatus != string(domain.StatusReceived) || got[0].CostAmountPosted != nil {
+		t.Fatalf("after 5 of 10 invoiced %+v, want RECEIVED and nothing posted", got)
+	}
+	if err := handle(partInvoice(t, secondInvoice, secondLedger, "5", "55")); err != nil {
+		t.Fatalf("second part: %v", err)
+	}
+	if err := handle(first); err != nil {
+		t.Fatalf("redelivery of the first part: %v", err)
+	}
+	got := flowTransactions(t, s, read, product, "RECEIPT_LINE")
+	if len(got) != 1 || got[0].ReceiptStatus != string(domain.StatusPurchased) || got[0].CostAmountPosted == nil || !got[0].CostAmountPosted.Equal(dec("105")) {
+		t.Fatalf("after both parts %+v, want PURCHASED at 105", got)
+	}
+	var linked string
+	if err := admin.QueryRow(context.Background(), `select coalesce(ledger_entry_id::text, '') from inventory_transaction where id = $1`, got[0].ID).Scan(&linked); err != nil || linked != secondLedger {
+		t.Fatalf("ledger_entry_id %q (%v), want %s of the invoice that completed the line", linked, err, secondLedger)
+	}
+
+	err := handle(partInvoice(t, firstInvoice, firstLedger, "6", "50"))
+	if !eventing.IsPermanent(err) || !strings.Contains(err.Error(), api.CodePostingInvoiceConflict) {
+		t.Fatalf("first invoice line again with another quantity: %v, want permanent %s", err, api.CodePostingInvoiceConflict)
+	}
+	other := entityCtx(2, entity)
+	lineSource := "0199f480-0000-7000-8000-0000000000d1"
+	if _, err := s.RecordInvoicePart(other, entity, lineSource, firstInvoice, 1, dec("1"), dec("9")); err != nil {
+		t.Fatal(err)
+	}
+	if total, err := s.RecordInvoicePart(read, entity, lineSource, secondInvoice, 1, dec("2"), dec("20")); err != nil || !total.Qty.Equal(dec("2")) || !total.Amount.Equal(dec("20")) {
+		t.Fatalf("totals %+v (%v) after another tenant recorded the same line, want only this tenant's 2 and 20", total, err)
+	}
+}
+
 // flowUnits converts BOX into 12 EA, the inventory unit, and knows no other unit.
 type flowUnits struct{}
 
