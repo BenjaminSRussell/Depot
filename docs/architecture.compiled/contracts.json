@@ -2,7 +2,7 @@
   "version": 3,
   "compiler": "scripts/compile_architecture.py",
   "note": "Generated from the OpenAPI and AsyncAPI specs and scripts/architecture_patterns.json. Do not edit; run python3 scripts/compile_architecture.py --write.",
-  "summary": {"openapiDocuments": 65, "paths": 2642, "operations": 3269, "asyncapiDocuments": 60, "topics": 391, "topicsPublished": 388, "topicsSubscribed": 18, "patterns": 59},
+  "summary": {"openapiDocuments": 65, "paths": 2644, "operations": 3272, "asyncapiDocuments": 60, "topics": 391, "topicsPublished": 388, "topicsSubscribed": 18, "patterns": 59},
   "patterns": [
     {
       "id": "event-envelope",
@@ -605,6 +605,7 @@
       "operations": [
         {"method": "GET", "path": "/api/v1/agents/ai-data-policy", "operationId": "getAiDataPolicy", "duty": "aipolicy.read"},
         {"method": "PUT", "path": "/api/v1/agents/ai-data-policy", "operationId": "putAiDataPolicy", "duty": "aipolicy.write"},
+        {"method": "GET", "path": "/api/v1/agents/availability", "operationId": "getAgentsAvailability", "duty": null},
         {"method": "GET", "path": "/api/v1/agents/budgets", "operationId": "listAgentBudgets", "duty": "agentbudget.read"},
         {"method": "PUT", "path": "/api/v1/agents/budgets/{agentId}", "operationId": "setAgentBudgetCap", "duty": "agentbudget.write"},
         {"method": "GET", "path": "/api/v1/agents/kill-switch", "operationId": "getKillSwitchStatus", "duty": "agents.admin"},
@@ -956,6 +957,8 @@
         {"method": "GET", "path": "/v1/compliance/data-designations/{id}/history", "operationId": "getDataDesignationHistory", "duty": "datadesignation.read"},
         {"method": "POST", "path": "/v1/compliance/data-designations:resolve", "operationId": "resolveDataDesignations", "duty": "datadesignation.read"},
         {"method": "POST", "path": "/v1/compliance/export-governance:evaluate", "operationId": "evaluateExportGovernance", "duty": "compliance.view"},
+        {"method": "GET", "path": "/v1/compliance/need-to-know", "operationId": "getNeedToKnow", "duty": "cui.policy.read"},
+        {"method": "PUT", "path": "/v1/compliance/need-to-know", "operationId": "setNeedToKnow", "duty": "cui.policy.admin"},
         {"method": "POST", "path": "/v1/compliance/read-log:classify", "operationId": "classifyReadLog", "duty": "compliance.view"},
         {"method": "POST", "path": "/v1/privacy/erasures", "operationId": "requestErasure", "duty": "compliance.erasure.request"},
         {"method": "GET", "path": "/v1/privacy/holds", "operationId": "listLegalHolds", "duty": "compliance.legal-hold.read"},
