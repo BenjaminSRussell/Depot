@@ -1,0 +1,18 @@
+[
+  { "message": "apply this payment to invoice INV-1042", "tool": "depot.ar.settlement.propose" },
+  { "message": "settle payment PAY-77 against the open invoices", "tool": "depot.ar.settlement.propose" },
+  { "message": "Allocate this payment to the oldest invoice", "tool": "depot.ar.settlement.propose" },
+  { "message": "code invoice INV-7 for Acme", "tool": "depot.ap.invoice.propose_coding" },
+  { "message": "propose the gl coding for this vendor invoice", "tool": "depot.ap.invoice.propose_coding" },
+  { "message": "recode this bill to the travel account", "tool": "depot.ap.invoice.propose_coding" },
+  { "message": "cancel this planned order", "tool": "depot.mrp.action_message.propose_triage" },
+  { "message": "postpone the action message for supply S-12", "tool": "depot.mrp.action_message.propose_triage" },
+  { "message": "expedite this planned order by two weeks", "tool": "depot.mrp.action_message.propose_triage" },
+  { "message": "draft a dunning letter for Acme's overdue invoices", "tool": "depot.collections.letter.draft" },
+  { "message": "write a reminder for the overdue customer", "tool": "depot.collections.letter.draft" },
+  { "message": "prepare collections outreach for this account", "tool": "depot.collections.letter.draft" },
+  { "message": "flag this journal entry as anomalous", "tool": null },
+  { "message": "post this journal", "tool": null },
+  { "message": "delete the vendor", "tool": null },
+  { "message": "show me overdue invoices", "tool": null }
+]

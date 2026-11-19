@@ -5,6 +5,7 @@ import { assertCanStartRun, type TokenBudget } from "../domain/budget.js";
 import type { ActionRecord } from "../domain/audit.js";
 import { type ActionView, toActionView } from "../domain/reversibility.js";
 import type { Money } from "../domain/money.js";
+import { isTerminal, RUN_STATUSES, type RunStatus } from "../domain/run.js";
 import type { AgentVersion } from "../domain/registry.js";
 import { AGENT_INVOKE_DUTY } from "../agents/catalog.js";
 import { AgentError } from "../errors.js";
@@ -16,6 +17,7 @@ import {
   type AuditPort,
   type BudgetPort,
   type KillSwitchPort,
+  type ApprovalRequest,
   type ModelProvider,
   type RunDeps,
   type RunResult,
@@ -77,6 +79,25 @@ export interface StartedRun {
   status: "RUNNING";
 }
 
+export interface OpenedProposal {
+  actionId: string;
+  req: ApprovalRequest;
+  requestedAtMs: number;
+  expiryHours: number;
+}
+
+export interface ProposalStart {
+  started: StartedRun;
+  opened?: OpenedProposal;
+  endedWith?: string;
+}
+
+type OpenedHook = (actionId: string, info: Omit<OpenedProposal, "actionId">) => void;
+
+export const PROPOSAL_WAIT_MS = 30_000;
+const PROPOSAL_POLL_MS = 100;
+const isFinished = (status: string): boolean => (RUN_STATUSES as readonly string[]).includes(status) && isTerminal(status as RunStatus);
+
 export interface RunView {
   run: StoredRun;
   pendingApprovals: PendingApproval[];
@@ -102,109 +123,143 @@ export function createRunService(deps: RunServiceDeps) {
   const newRunId = deps.newRunId ?? randomUUID;
   const prod = new Map(deps.agents.map((a) => [a.agentId, a]));
 
+  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+
+  const assertStartable = async (caller: Principal, agentId: string): Promise<AgentVersion> => {
+    const agent = prod.get(agentId);
+    if (agent === undefined) throw new ApiError(404, "AGT-0404", `no agent ${agentId}`);
+    requireDuty(caller, AGENT_INVOKE_DUTY, `agent ${agentId}`);
+    for (const duty of agent.requiredDuties) requireDuty(caller, duty, `agent ${agentId}`);
+    if (deps.killSwitch.isHalted(caller.tenantId)) throw new AgentError("AGT-0201", "agent runs are halted by the kill switch");
+    if (!(await deps.evalPassed(agent))) {
+      throw new AgentError("AGT-0204", `agent ${agent.agentId} v${agent.version} has no passing evaluation`);
+    }
+    assertCanStartRun(await deps.store.budgetSnapshot(caller.tenantId, now().toISOString().slice(0, 7)));
+    return agent;
+  };
+
+  const launch = async (caller: Principal, token: string, agent: AgentVersion, prompt: string, onOpened?: OpenedHook): Promise<StartedRun> => {
+    const runId = newRunId();
+    const wf = deps.workflow;
+    if (wf !== undefined) {
+      // v1 has no autonomous posting (9.47.1): every agent runs in suggest mode. The prompt can hold PII and the token is a
+      // credential, so both go to the run's own tables and only the run id travels to Temporal.
+      const input: RunInput = {
+        agentId: agent.agentId,
+        agentVersion: agent.version,
+        invokerUserId: caller.userId,
+        duties: [...caller.duties],
+        prompt,
+        policy: { mode: "SUGGEST", autoThreshold: 1, autoAmountLimit: { amount: "0", currency: deps.config.selfApprovalLimit.currency } },
+        selfApprovalLimit: deps.config.selfApprovalLimit,
+        runTokenCap: deps.config.runTokenCap,
+        ...(deps.config.approvalExpiryHours !== undefined ? { approvalExpiryHours: deps.config.approvalExpiryHours } : {}),
+      };
+      // Opportunistic retention for this tenant: expired credentials and finished runs' state past 24 h.
+      await wf.state.sweep(caller.tenantId, STATE_RETENTION_MS).catch(() => 0);
+      await wf.steps.create(caller.tenantId, runId, input, { kind: "starter", userId: caller.userId, duties: input.duties, token }, tokenExpiryMs(token) ?? now().getTime() + 5 * 60_000);
+      // The workflow id comes from the run id, so starting again is the same run. A refusal is final; a timeout or a dropped
+      // connection is unknown (the workflow may have started), so it is tried again before the start is given up.
+      let started = false;
+      for (let attempt = 0; attempt < 3 && !started; attempt += 1) {
+        try {
+          await wf.gateway.start(caller, runId);
+          started = true;
+        } catch (err) {
+          if (err instanceof WorkflowRefused) break;
+        }
+      }
+      if (!started) {
+        await wf.state.discard(caller.tenantId, runId).catch(() => undefined);
+        throw new ApiError(502, "AGT-0214", "the workflow service is unavailable");
+      }
+      return { runId, agentId: agent.agentId, agentVersion: agent.version, status: "RUNNING" };
+    }
+    let session;
+    try {
+      session = await deps.mcp.connect(caller, token, runId);
+    } catch {
+      throw new ApiError(502, "AGT-0214", "the tool gateway is unavailable");
+    }
+    const nowIso = (): string => now().toISOString();
+    const nowMs = (): number => now().getTime();
+    const cfg = deps.config;
+    const runDeps: RunDeps = {
+      provider: deps.providerFor(agent.modelId),
+      tools: session,
+      approvals: createPersistedApprovalPort({
+        inbox: deps.inbox,
+        tenantId: caller.tenantId,
+        invokerUserId: caller.userId,
+        approvalDuty: (tool) => session.describe(tool)?.requiredDuty ?? AGENT_INVOKE_DUTY,
+        selfApprovalLimit: cfg.selfApprovalLimit,
+        ...(cfg.approvalExpiryHours !== undefined ? { expiryHours: cfg.approvalExpiryHours } : {}),
+        ...(onOpened !== undefined ? { onOpened } : {}),
+        nowMs,
+        now: nowIso,
+        ...(cfg.approvalPollMs !== undefined ? { pollMs: cfg.approvalPollMs } : {}),
+        ...(deps.sleep !== undefined ? { sleep: deps.sleep } : {}),
+      }),
+      // System-side risk facts (amount against the limits, counterparty, segregation of duties and the payment prediction) are read
+      // from the owning domains through the run's own tool session; every proposal still goes to a human (suggest mode).
+      risk: createFactRisk({ tools: session, invokerUserId: caller.userId, selfApprovalLimit: cfg.selfApprovalLimit }),
+      killSwitch: deps.killSwitch,
+      now: nowIso,
+      nowMs,
+      pseudonymTtlMs: cfg.pseudonymTtlMs,
+      audit: deps.store,
+      budgets: deps.store,
+      ...(deps.outputGuard !== undefined ? { outputGuard: deps.outputGuard } : {}),
+    };
+    spawn(
+      runAgent(runDeps, {
+        runId,
+        tenantId: caller.tenantId,
+        invokerUserId: caller.userId,
+        userDuties: caller.duties,
+        agent,
+        evalPassed: true,
+        // v1 has no autonomous posting (9.47.1): every agent runs in suggest mode.
+        policy: { mode: "SUGGEST", autoThreshold: 1, autoAmountLimit: { amount: "0", currency: cfg.selfApprovalLimit.currency } },
+        selfApprovalLimit: cfg.selfApprovalLimit,
+        runTokenCap: cfg.runTokenCap,
+        prompt,
+      }),
+    );
+    return { runId, agentId: agent.agentId, agentVersion: agent.version, status: "RUNNING" };
+  };
+
   return {
     agentIds(): string[] {
       return [...prod.keys()];
     },
 
-    async start(caller: Principal, token: string, agentId: string, prompt: string): Promise<StartedRun> {
-      const agent = prod.get(agentId);
-      if (agent === undefined) throw new ApiError(404, "AGT-0404", `no agent ${agentId}`);
-      requireDuty(caller, AGENT_INVOKE_DUTY, `agent ${agentId}`);
-      for (const duty of agent.requiredDuties) requireDuty(caller, duty, `agent ${agentId}`);
-      if (deps.killSwitch.isHalted(caller.tenantId)) throw new AgentError("AGT-0201", "agent runs are halted by the kill switch");
-      if (!(await deps.evalPassed(agent))) {
-        throw new AgentError("AGT-0204", `agent ${agent.agentId} v${agent.version} has no passing evaluation`);
-      }
-      assertCanStartRun(await deps.store.budgetSnapshot(caller.tenantId, now().toISOString().slice(0, 7)));
+    agent(agentId: string): AgentVersion | undefined {
+      return prod.get(agentId);
+    },
 
-      const runId = newRunId();
-      const wf = deps.workflow;
-      if (wf !== undefined) {
-        // v1 has no autonomous posting (9.47.1): every agent runs in suggest mode. The prompt can hold PII and the token is a
-        // credential, so both go to the run's own tables and only the run id travels to Temporal.
-        const input: RunInput = {
-          agentId: agent.agentId,
-          agentVersion: agent.version,
-          invokerUserId: caller.userId,
-          duties: [...caller.duties],
-          prompt,
-          policy: { mode: "SUGGEST", autoThreshold: 1, autoAmountLimit: { amount: "0", currency: deps.config.selfApprovalLimit.currency } },
-          selfApprovalLimit: deps.config.selfApprovalLimit,
-          runTokenCap: deps.config.runTokenCap,
-          ...(deps.config.approvalExpiryHours !== undefined ? { approvalExpiryHours: deps.config.approvalExpiryHours } : {}),
-        };
-        // Opportunistic retention for this tenant: expired credentials and finished runs' state past 24 h.
-        await wf.state.sweep(caller.tenantId, STATE_RETENTION_MS).catch(() => 0);
-        await wf.steps.create(caller.tenantId, runId, input, { kind: "starter", userId: caller.userId, duties: input.duties, token }, tokenExpiryMs(token) ?? now().getTime() + 5 * 60_000);
-        // The workflow id comes from the run id, so starting again is the same run. A refusal is final; a timeout or a dropped
-        // connection is unknown (the workflow may have started), so it is tried again before the start is given up.
-        let started = false;
-        for (let attempt = 0; attempt < 3 && !started; attempt += 1) {
-          try {
-            await wf.gateway.start(caller, runId);
-            started = true;
-          } catch (err) {
-            if (err instanceof WorkflowRefused) break;
-          }
-        }
-        if (!started) {
-          await wf.state.discard(caller.tenantId, runId).catch(() => undefined);
-          throw new ApiError(502, "AGT-0214", "the workflow service is unavailable");
-        }
-        return { runId, agentId: agent.agentId, agentVersion: agent.version, status: "RUNNING" };
+    assertStartable,
+
+    async start(caller: Principal, token: string, agentId: string, prompt: string): Promise<StartedRun> {
+      return launch(caller, token, await assertStartable(caller, agentId), prompt);
+    },
+
+    async startForProposal(caller: Principal, token: string, agentId: string, prompt: string, tool: string): Promise<ProposalStart> {
+      if (deps.workflow !== undefined) throw new AgentError("AGT-0234", "act mode needs the in-process run engine");
+      const agent = await assertStartable(caller, agentId);
+      let opened: OpenedProposal | undefined;
+      const started = await launch(caller, token, { ...agent, allowedTools: [tool] }, prompt, (actionId, info) => {
+        opened = { actionId, ...info };
+      });
+      const deadline = now().getTime() + PROPOSAL_WAIT_MS;
+      for (;;) {
+        const pending = await deps.inbox.pendingForRun(caller.tenantId, started.runId);
+        if (opened !== undefined && pending.some((p) => p.actionId === opened?.actionId)) return { started, opened };
+        const run = await deps.store.getRun(caller.tenantId, started.runId);
+        if (run !== undefined && isFinished(run.status)) return { started, endedWith: run.code ?? run.status };
+        if (now().getTime() >= deadline) return { started };
+        await sleep(PROPOSAL_POLL_MS);
       }
-      let session;
-      try {
-        session = await deps.mcp.connect(caller, token, runId);
-      } catch {
-        throw new ApiError(502, "AGT-0214", "the tool gateway is unavailable");
-      }
-      const nowIso = (): string => now().toISOString();
-      const nowMs = (): number => now().getTime();
-      const cfg = deps.config;
-      const runDeps: RunDeps = {
-        provider: deps.providerFor(agent.modelId),
-        tools: session,
-        approvals: createPersistedApprovalPort({
-          inbox: deps.inbox,
-          tenantId: caller.tenantId,
-          invokerUserId: caller.userId,
-          approvalDuty: (tool) => session.describe(tool)?.requiredDuty ?? AGENT_INVOKE_DUTY,
-          selfApprovalLimit: cfg.selfApprovalLimit,
-          ...(cfg.approvalExpiryHours !== undefined ? { expiryHours: cfg.approvalExpiryHours } : {}),
-          nowMs,
-          now: nowIso,
-          ...(cfg.approvalPollMs !== undefined ? { pollMs: cfg.approvalPollMs } : {}),
-          ...(deps.sleep !== undefined ? { sleep: deps.sleep } : {}),
-        }),
-        // System-side risk facts (amount against the limits, counterparty, segregation of duties and the payment prediction) are read
-        // from the owning domains through the run's own tool session; every proposal still goes to a human (suggest mode).
-        risk: createFactRisk({ tools: session, invokerUserId: caller.userId, selfApprovalLimit: cfg.selfApprovalLimit }),
-        killSwitch: deps.killSwitch,
-        now: nowIso,
-        nowMs,
-        pseudonymTtlMs: cfg.pseudonymTtlMs,
-        audit: deps.store,
-        budgets: deps.store,
-        ...(deps.outputGuard !== undefined ? { outputGuard: deps.outputGuard } : {}),
-      };
-      spawn(
-        runAgent(runDeps, {
-          runId,
-          tenantId: caller.tenantId,
-          invokerUserId: caller.userId,
-          userDuties: caller.duties,
-          agent,
-          evalPassed: true,
-          // v1 has no autonomous posting (9.47.1): every agent runs in suggest mode.
-          policy: { mode: "SUGGEST", autoThreshold: 1, autoAmountLimit: { amount: "0", currency: cfg.selfApprovalLimit.currency } },
-          selfApprovalLimit: cfg.selfApprovalLimit,
-          runTokenCap: cfg.runTokenCap,
-          prompt,
-        }),
-      );
-      return { runId, agentId: agent.agentId, agentVersion: agent.version, status: "RUNNING" };
     },
 
     /**

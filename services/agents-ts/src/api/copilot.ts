@@ -1,8 +1,9 @@
 import type { ServerResponse } from "node:http";
 import { COPILOT_DUTY, parseChatRequest, type ChatRequest, type ChatResponse, type CopilotService } from "../runtime/copilot.js";
 import { AgentError } from "../errors.js";
+import type { ActService } from "../runtime/act.js";
 import { OUTPUT_GUARD_CODE, OUTPUT_GUARD_MESSAGE } from "../runtime/outputGuard.js";
-import { requireDuty, type Principal } from "./principal.js";
+import { ApiError, requireDuty, type Principal } from "./principal.js";
 
 /** Splits an answer into frames of whole words, at most `size` characters each. */
 export function tokenFrames(answer: string, size = 48): string[] {
@@ -39,6 +40,14 @@ async function answerRoute(input: { principal: Principal; token: string; request
   input.res.end(payload);
 }
 
+async function answerAct(input: { principal: Principal; token: string; request: ChatRequest; act: ActService | undefined; res: ServerResponse }): Promise<void> {
+  if (input.act === undefined) throw new ApiError(404, "AGT-0404", "no such route");
+  const { status, body } = await input.act.act(input.principal, input.token, input.request);
+  const payload = JSON.stringify(body);
+  input.res.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "content-length": Buffer.byteLength(payload).toString() });
+  input.res.end(payload);
+}
+
 const frame = (event: string, data: unknown): string => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 
 /**
@@ -55,12 +64,17 @@ export async function handleChat(input: {
   body: unknown;
   accept: string;
   copilot: CopilotService;
+  act?: ActService;
   res: ServerResponse;
 }): Promise<void> {
   requireDuty(input.principal, COPILOT_DUTY, "the copilot");
   const request = parseChatRequest(input.body);
   if (request.mode === "route") {
     await answerRoute({ principal: input.principal, token: input.token, request, copilot: input.copilot, res: input.res });
+    return;
+  }
+  if (request.mode === "act") {
+    await answerAct({ principal: input.principal, token: input.token, request, act: input.act, res: input.res });
     return;
   }
   const wantsStream = input.accept.toLowerCase().includes("text/event-stream");

@@ -9,6 +9,7 @@ import { COPILOT_DUTY, type CopilotService } from "../runtime/copilot.js";
 import { parseChunks, parseSearch, type KnowledgeService } from "../runtime/knowledge.js";
 import type { ActionService } from "../runtime/actions.js";
 import type { RunService } from "../runtime/service.js";
+import type { ActService } from "../runtime/act.js";
 import { handleChat } from "./copilot.js";
 import type { AgentBudgetService } from "./agentBudgets.js";
 import { type AiPolicyStore, handleGetAiDataPolicy, handlePutAiDataPolicy } from "./aiDataPolicy.js";
@@ -34,6 +35,7 @@ export interface AgentsApiBase {
   actions?: ActionService;
   /** The copilot chat endpoint. */
   copilot?: CopilotService;
+  act?: ActService;
   /** The knowledge index and its hybrid search; absent and the knowledge routes answer 404. */
   knowledge?: KnowledgeService;
   /** The budgets list and per-agent cap routes; absent and they answer 404. */
@@ -241,7 +243,7 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         if (deps.copilot === undefined) throw new ApiError(404, "AGT-0404", "no such route");
         if (req.method !== "POST") throw new MethodNotAllowed("POST");
         const principal = await deps.authenticate(req.headers);
-        await handleChat({ principal, token: bearerToken(req.headers), body: await readBody(req), accept: String(req.headers["accept"] ?? ""), copilot: deps.copilot, res });
+        await handleChat({ principal, token: bearerToken(req.headers), body: await readBody(req), accept: String(req.headers["accept"] ?? ""), copilot: deps.copilot, ...(deps.act !== undefined ? { act: deps.act } : {}), res });
         return;
       }
       if (path === CONVERSATIONS_PATH) {
@@ -255,7 +257,7 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         if (deps.copilot === undefined) throw new ApiError(404, "AGT-0404", "no such route");
         if (req.method !== "POST") throw new MethodNotAllowed("POST");
         const principal = await deps.authenticate(req.headers);
-        await handleChat({ principal, token: bearerToken(req.headers), body: await readBody(req), accept: String(req.headers["accept"] ?? ""), copilot: deps.copilot, res });
+        await handleChat({ principal, token: bearerToken(req.headers), body: await readBody(req), accept: String(req.headers["accept"] ?? ""), copilot: deps.copilot, ...(deps.act !== undefined ? { act: deps.act } : {}), res });
         return;
       }
       if (path === KNOWLEDGE_CHUNKS_PATH || path === KNOWLEDGE_SEARCH_PATH) {

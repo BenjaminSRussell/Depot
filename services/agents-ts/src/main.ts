@@ -22,6 +22,7 @@ import {
 import { createBriefingService } from "./runtime/briefing.js";
 import { PgBriefingFacts, PgBriefingStore } from "./store/briefing.js";
 import { createAiAccessAudit } from "./runtime/aiAccessAudit.js";
+import { createActService } from "./runtime/act.js";
 import { createCopilotService } from "./runtime/copilot.js";
 import { createNeedToKnowClient } from "./runtime/needToKnow.js";
 import { createEgressGuard } from "./runtime/egressGuard.js";
@@ -220,6 +221,7 @@ async function main(): Promise<void> {
     },
     modelId: cfg.copilotModel,
   });
+  const act = createActService({ copilot, runs, mcp, store, outputGuard, modelId: cfg.copilotModel, tokenCap: cfg.copilotTokenCap, pseudonymTtlMs: 24 * 3_600_000, log });
   const api: AgentsApiDeps = {
     authenticate: createAuthenticator({
       issuer: cfg.jwt.issuer,
@@ -251,6 +253,7 @@ async function main(): Promise<void> {
         }
       : {}),
     copilot,
+    act,
     knowledge,
     budgets: createAgentBudgetService({ store: new PgAgentBudgets(store) }),
     briefings: createBriefingService({ store: new PgBriefingStore(store), facts: new PgBriefingFacts(store), log }),

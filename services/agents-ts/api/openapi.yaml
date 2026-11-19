@@ -506,7 +506,7 @@ paths:
               type: object
               required: [mode, message]
               properties:
-                mode: {type: string, enum: [ask, explain, draft, summarize, route]}
+                mode: {type: string, enum: [ask, explain, draft, summarize, route, act]}
                 message: {type: string, minLength: 1, maxLength: 4000}
                 recordRef: {type: string, minLength: 1, maxLength: 200}
               additionalProperties: false
@@ -575,7 +575,7 @@ paths:
               type: object
               required: [mode, message]
               properties:
-                mode: {type: string, enum: [ask, explain, draft, summarize, route]}
+                mode: {type: string, enum: [ask, explain, draft, summarize, route, act]}
                 message: {type: string, minLength: 1, maxLength: 4000}
                 recordRef: {type: string, minLength: 1, maxLength: 200}
               additionalProperties: false
