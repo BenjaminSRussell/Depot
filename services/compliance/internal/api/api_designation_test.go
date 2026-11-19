@@ -26,6 +26,7 @@ type fakeDesignations struct {
 	resolved     []store.ResolveRef
 	cuiRecords   map[string]bool
 	resolveErr   error
+	tenantCUI    bool
 }
 
 func (f *fakeStore) Resolve(_ context.Context, refs []store.ResolveRef) ([]store.ResolvedRef, error) {
@@ -37,6 +38,9 @@ func (f *fakeStore) Resolve(_ context.Context, refs []store.ResolveRef) ([]store
 	out := make([]store.ResolvedRef, len(refs))
 	for i, ref := range refs {
 		out[i] = store.ResolvedRef{EntityType: ref.EntityType, RecordID: ref.RecordID, Class: domain.ClassNONE, Source: domain.SourceDefault}
+		if f.designs.tenantCUI {
+			out[i].Class, out[i].Source = domain.ClassCUI, domain.SourceTenant
+		}
 		if f.designs.cuiRecords[ref.RecordID] {
 			out[i].Class, out[i].Source = domain.ClassCUI, domain.SourceRecord
 		}
@@ -392,5 +396,24 @@ func TestResolve_StoreFailureIsNotAnAnswer(t *testing.T) {
 	rec := serve(t, router(ownerAPI(f, &fakeOwner{legal: map[string]string{record: testLE}})), resolveCall(refsOf("project", record), DutyDataDesignationRead))
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("store failure: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestResolve_ClaimlessCallerSeesTenantCUIAndOtherwiseUnknown(t *testing.T) {
+	record := ids.New()
+	owner := &fakeOwner{legal: map[string]string{record: testLE}}
+	claimless := resolveCall(refsOf("project", record), DutyDataDesignationRead)
+	claimless.legalEntity = ""
+
+	cui := &fakeStore{designs: fakeDesignations{tenantCUI: true}}
+	got := resolveItems(t, serve(t, router(ownerAPI(cui, owner)), claimless))
+	if got[0].Class != domain.ClassCUI || got[0].Source != domain.SourceTenant || owner.calls != 0 {
+		t.Fatalf("tenant CUI must reach a claimless caller without an owner lookup: %v, %d owner calls", got, owner.calls)
+	}
+
+	plain := &fakeStore{}
+	got = resolveItems(t, serve(t, router(ownerAPI(plain, owner)), claimless))
+	if got[0].Class != domain.ClassUNKNOWN || got[0].Source != domain.SourceUnresolved {
+		t.Fatalf("an undesignated tenant must stay UNKNOWN for a claimless caller: %v", got)
 	}
 }

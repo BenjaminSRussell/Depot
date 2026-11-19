@@ -210,7 +210,16 @@ func (a *API) resolveDesignations(w http.ResponseWriter, r *http.Request) {
 			distinct = append(distinct, key)
 		}
 	}
-	owners := a.ownerLegalEntities(r.Context(), distinct)
+	p, _ := tenant.FromContext(r.Context())
+	claimless := len(tenant.LegalEntityScopeList(p)) == 0
+	owners := map[resolveKey]string{}
+	if claimless {
+		for _, key := range distinct {
+			owners[key] = ids.Nil
+		}
+	} else {
+		owners = a.ownerLegalEntities(r.Context(), distinct)
+	}
 	var resolvable []store.ResolveRef
 	for _, key := range distinct {
 		if le, ok := owners[key]; ok {
@@ -234,7 +243,7 @@ func (a *API) resolveDesignations(w http.ResponseWriter, r *http.Request) {
 		if keyOf[i] == nil {
 			continue
 		}
-		if answer, ok := answers[*keyOf[i]]; ok {
+		if answer, ok := answers[*keyOf[i]]; ok && (!claimless || answer.Class == domain.ClassCUI) {
 			items[i].Class, items[i].Source = answer.Class, answer.Source
 		}
 	}

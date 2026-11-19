@@ -370,7 +370,9 @@ paths:
         Effective class of up to 500 records, in request order. A ref with no CUI designation at tenant, legal-entity or record
         level is NONE from DEFAULT; the most restrictive scope wins (source RECORD, LEGAL_ENTITY or TENANT). A ref the service
         cannot determine (unsupported entity type, malformed id, a record unknown to its owner or outside the caller's scope,
-        owner unavailable) is UNKNOWN from UNRESOLVED and a consumer must treat it as CUI. More than 500 refs is 422 COM-1303.
+        owner unavailable) is UNKNOWN from UNRESOLVED and a consumer must treat it as CUI. A caller with no legal-entity claim
+        runs no owner lookup: its refs are CUI from TENANT when the tenant is designated and UNKNOWN otherwise.
+        More than 500 refs is 422 COM-1303.
       requestBody:
         required: true
         content:
