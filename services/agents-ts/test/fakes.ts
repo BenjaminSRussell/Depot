@@ -54,7 +54,7 @@ export class ScriptedProvider implements ModelProvider {
 }
 
 export const openRouter = (provider: ModelProvider): AiRouter => ({
-  plan: async ({ refs }) => ({ routeId: "test", provider, keep: [...refs], excluded: [] }),
+  plan: async ({ refs }) => ({ routeId: "test", provider, keep: [...refs], excluded: [], restricted: [] }),
 });
 
 export class FakeTools implements ToolPort {

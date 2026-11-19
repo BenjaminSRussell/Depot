@@ -732,6 +732,10 @@ components:
             count: {type: integer, minimum: 1}
             kinds: {type: array, items: {type: string}}
             reason: {type: string, enum: [NO_APPROVED_ROUTE]}
+        dataClass:
+          type: string
+          enum: [P0, P1, P2, P3]
+          description: The highest data class the egress guard found in the text sent to the model across the chat (DEPOT-304).
         generated: {type: boolean, enum: [true]}
     KillSwitchCommand:
       type: object

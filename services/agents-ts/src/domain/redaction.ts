@@ -1,18 +1,49 @@
 import { AgentError } from "../errors.js";
+import { ibanChecksumValid, luhnValid, validTaxId } from "./identifiers.js";
 
 /**
  * PII redaction before any provider call (FR-47.12). Categories here are the
  * global core; country packs extend them later (PRD 9.47.20).
  */
-export type PiiCategory = "EMAIL" | "IBAN" | "SSN";
+export type PiiCategory = "EMAIL" | "IBAN" | "CARD" | "SSN" | "TAXID" | "BANKACCT" | "PAY";
 
-const PATTERNS: Readonly<Record<PiiCategory, RegExp>> = {
+interface Pattern {
+  re: RegExp;
+  valid?: (value: string) => boolean;
+  longestValidPrefix?: boolean;
+}
+
+function acceptedPrefix({ valid, longestValidPrefix }: Pattern, value: string): string | null {
+  if (valid === undefined) return value;
+  if (!longestValidPrefix) return valid(value) ? value : null;
+  for (let end = value.length; end > 0; end--) {
+    const candidate = value.slice(0, end);
+    if (candidate.trimEnd() === candidate && valid(candidate)) return candidate;
+  }
+  return null;
+}
+
+const AFTER_LABEL = String.raw`["']?\s{0,3}[:=#]?\s{0,3}"?`;
+
+const PATTERNS: Readonly<Record<PiiCategory, Pattern>> = {
   // The lookbehind starts a match only at the beginning of a local part, so a long
   // run of word characters is scanned once, not once per position (9.47.19 budget).
-  EMAIL: /(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,
-  IBAN: /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b/g,
-  SSN: /\b\d{3}-\d{2}-\d{4}\b/g,
+  EMAIL: { re: /(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g },
+  IBAN: { re: /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b/gi, valid: ibanChecksumValid, longestValidPrefix: true },
+  CARD: { re: /\b(?:\d{13,19}|\d{4}([ -])\d{4}\1\d{4}\1\d{1,7}|\d{4}([ -])\d{6}\2\d{4,5})\b/g, valid: luhnValid },
+  SSN: { re: new RegExp(String.raw`\b\d{3}-\d{2}-\d{4}\b|(?<=\bssn\w{0,12}${AFTER_LABEL})\d{9}\b`, "gi") },
+  TAXID: {
+    re: new RegExp(String.raw`(?<=\b(?:(?:EIN|VAT|GSTIN|RFC|TIN)(?:[ _]?(?:id|number|no|num)\.?)?|tax[ _]?(?:id|number|no|num)\.?)${AFTER_LABEL}(?:[A-Z]{2} )?)[A-Z0-9&][A-Z0-9&.-]{4,20}[A-Z0-9]`, "gi"),
+    valid: validTaxId,
+  },
+  BANKACCT: { re: new RegExp(String.raw`(?<=(?:account|acct)\w{0,12}(?: (?:number|no|num)\.?)?${AFTER_LABEL})\d(?:[ -]?\d){5,16}\b`, "gi") },
+  PAY: {
+    re: new RegExp(String.raw`(?<=(?:salary|wage|pay[ _-]?rate|base[ _-]?pay|hourly[ _-]?rate|bonus|compensation)\w{0,12}["']?(?:\s{0,3}[:=]\s{0,3}|\s(?:is|of)\s)(?:\{[^{}]{0,80}?"(?:amount|value|gross|net|base)"\s{0,3}:\s{0,3})?"?(?:[A-Za-z]{3}\s?|[$€£]\s?)?)\d(?:[\d,.]*\d)?`, "gi"),
+  },
 };
+
+const matchesOf = (category: PiiCategory, text: string): string[] =>
+  [...text.matchAll(PATTERNS[category].re)].flatMap((m) => acceptedPrefix(PATTERNS[category], m[0]) ?? []);
 
 export interface PiiFinding {
   category: PiiCategory;
@@ -23,9 +54,7 @@ export interface PiiFinding {
 export function scanPii(text: string): PiiFinding[] {
   const findings: PiiFinding[] = [];
   for (const category of Object.keys(PATTERNS) as PiiCategory[]) {
-    for (const match of text.matchAll(PATTERNS[category])) {
-      findings.push({ category, value: match[0] });
-    }
+    for (const value of matchesOf(category, text)) findings.push({ category, value });
   }
   return findings;
 }
@@ -44,8 +73,8 @@ interface Entry {
 
 /** The pseudonym map as stored with a run that waits for approval, so a resumed run restores values the same way (FR-47.4). */
 export interface PseudonymSnapshot {
-  entries: Array<{ category: PiiCategory; value: string; pseudonym: string; expiresAt: number }>;
-  counters: Partial<Record<PiiCategory, number>>;
+  entries: Array<{ category: PiiCategory | "AMOUNT"; value: string; pseudonym: string; expiresAt: number }>;
+  counters: Partial<Record<PiiCategory | "AMOUNT", number>>;
 }
 
 /**
@@ -56,7 +85,7 @@ export interface PseudonymSnapshot {
 export class Pseudonymizer {
   private readonly byValue = new Map<string, Entry>();
   private readonly byPseudonym = new Map<string, string>();
-  private readonly counters: Partial<Record<PiiCategory, number>> = {};
+  private readonly counters: Partial<Record<PiiCategory | "AMOUNT", number>> = {};
 
   constructor(
     private readonly tenantId: string,
@@ -70,7 +99,7 @@ export class Pseudonymizer {
     const entries: PseudonymSnapshot["entries"] = [];
     for (const [key, entry] of this.byValue) {
       const [, category = "", value = ""] = key.split("\u0000");
-      entries.push({ category: category as PiiCategory, value, pseudonym: entry.pseudonym, expiresAt: entry.expiresAt });
+      entries.push({ category: category as PiiCategory | "AMOUNT", value, pseudonym: entry.pseudonym, expiresAt: entry.expiresAt });
     }
     return { entries, counters: { ...this.counters } };
   }
@@ -87,7 +116,11 @@ export class Pseudonymizer {
   redact(text: string): string {
     let out = text;
     for (const category of Object.keys(PATTERNS) as PiiCategory[]) {
-      out = out.replace(PATTERNS[category], (value) => this.pseudonymFor(category, value));
+      const pattern = PATTERNS[category];
+      out = out.replace(pattern.re, (value) => {
+        const accepted = acceptedPrefix(pattern, value);
+        return accepted === null ? value : this.pseudonymFor(category, accepted) + value.slice(accepted.length);
+      });
     }
     return out;
   }
@@ -113,7 +146,11 @@ export class Pseudonymizer {
     }
   }
 
-  private pseudonymFor(category: PiiCategory, value: string): string {
+  tokenize(category: "AMOUNT", value: string): string {
+    return this.pseudonymFor(category, value);
+  }
+
+  private pseudonymFor(category: PiiCategory | "AMOUNT", value: string): string {
     this.sweep();
     const key = `${this.tenantId}\u0000${category}\u0000${value}`;
     const existing = this.byValue.get(key);

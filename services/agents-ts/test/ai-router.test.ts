@@ -127,7 +127,7 @@ describe("copilot routing in the standard deployment", () => {
     const headers = h.resolverHeaders[0] ?? {};
     expect(headers["authorization"]).toBeUndefined();
     expect(JSON.stringify(headers)).not.toContain("caller-token");
-    expect(claimsOf(headers["x-depot-service-token"] ?? "")).toMatchObject({ iss: "agents", aud: "compliance", tid: T1, le: LE, act: USER, duties: ["compliance.data-designation.resolve"] });
+    expect(claimsOf(headers["x-depot-service-token"] ?? "")).toMatchObject({ iss: "agents", aud: "compliance", tid: T1, le: LE, act: USER, duties: ["compliance.data-designation.resolve", "compliance.need-to-know.read"] });
   });
 
   it.each([
@@ -185,6 +185,9 @@ describe("copilot routing in the cui boundary", () => {
     expect(h.providerBodies).toEqual([]);
     expect(h.resolverBodies).toEqual([]);
     expect(store.reserved).toEqual([]);
-    expect(store.runs.size).toBe(0);
+    expect(store.runs.size).toBe(1);
+    const rows = [...store.actionRows.values()].flat();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.guardResult).toMatchObject({ decision: "BLOCKED_BOUNDARY", errorCode: "NO_APPROVED_ROUTE", counts: {} });
   });
 });

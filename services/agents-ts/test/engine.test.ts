@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { runAgent } from "../src/runtime/engine.js";
+import { withEgressGuard } from "../src/config.js";
+import { createEgressGuard, EGRESS_GUARD_TOOL } from "../src/runtime/egressGuard.js";
 import { APPROVER, codingDescriptor, FakeApprovals, FakeTools, INVOKER, makeDeps, makeRequest, memoryBudgets, postDescriptor, proposal, REAL_IBAN, ScriptedProvider, usd } from "./fakes.js";
 
 const CODING = "depot.ap.invoice.propose_coding";
@@ -254,5 +256,25 @@ describe("runAgent start rejections and limits", () => {
     expect(result.estimated).toBe(true);
     expect(result.tokensIn).toBeGreaterThan(0);
     expect(result.budgetState).toBe("SOFT");
+  });
+});
+
+describe("runAgent egress guard row (AC7)", () => {
+  it("records a guard row before the proposal row and renumbers the proposal", async () => {
+    const provider = withEgressGuard(new ScriptedProvider([proposal(0.8)]), createEgressGuard());
+    const result = await runAgent(makeDeps({ provider, tools: tools(), approvals: new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER }) }), makeRequest());
+
+    expect(result.status).toBe("COMMITTED");
+    expect(result.actions.map((a) => [a.seq, a.toolName])).toEqual([[1, EGRESS_GUARD_TOOL], [2, "depot.ap.invoice.post"]]);
+    expect(result.actions[0]?.guardResult).toMatchObject({ decision: "ALLOWED", highestClass: "P0" });
+  });
+
+  it("records a BLOCKED guard row and fails the run with AGT-0219 when the analyzer errors", async () => {
+    const analyzer = { scan: () => { throw new Error("down"); } };
+    const provider = withEgressGuard(new ScriptedProvider([proposal(0.8)]), createEgressGuard({ analyzer }));
+    const result = await runAgent(makeDeps({ provider, tools: tools(), approvals: new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER }) }), makeRequest());
+
+    expect(result.status).toBe("FAILED");
+    expect(result.actions).toEqual([expect.objectContaining({ seq: 1, toolName: EGRESS_GUARD_TOOL, decision: "DENIED", guardResult: expect.objectContaining({ decision: "BLOCKED", errorCode: "ANALYZER_ERROR" }) })]);
   });
 });

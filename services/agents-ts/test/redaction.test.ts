@@ -20,6 +20,12 @@ describe("scanPii", () => {
     expect(performance.now() - started).toBeLessThan(250);
   });
 
+  it("scans 100 KB runs of digits and labelled words in linear time", () => {
+    const started = performance.now();
+    for (const text of ["1".repeat(100 * 1024), "1 ".repeat(50 * 1024), "account ".repeat(12_000), "salary".repeat(16_000)]) expect(scanPii(text)).toEqual([]);
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+
   it("finds nothing in ordinary invoice text", () => {
     expect(scanPii("Invoice INV-2026-0042 for 1,200.50 USD, net 30")).toEqual([]);
   });
@@ -32,6 +38,13 @@ describe("Pseudonymizer (BR-47.7)", () => {
     const red = p.redact("pay ap@acme.example then ap@acme.example");
     expect(red).toBe("pay [EMAIL-1] then [EMAIL-1]");
     expect(p.restore(red)).toBe("pay ap@acme.example then ap@acme.example");
+  });
+
+  it("gives a card, a bank account and a salary stable pseudonyms and restores them", () => {
+    const p = new Pseudonymizer("tenant-a", TTL, () => 0);
+    const red = p.redact('card 4111 1111 1111 1111 again 4111111111111111 {"bankAccount":"00123456789","salary":"85000"}');
+    expect(red).toBe('card [CARD-1] again [CARD-2] {"bankAccount":"[BANKACCT-1]","salary":"[PAY-1]"}');
+    expect(p.restore(red)).toContain('"salary":"85000"');
   });
 
   it("forgets mappings after the TTL", () => {

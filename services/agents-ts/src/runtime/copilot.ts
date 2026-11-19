@@ -12,6 +12,7 @@ import {
 } from "../domain/copilot.js";
 import { gateCitations, type Citation } from "../domain/knowledge.js";
 import { exclusionNotice, NO_ROUTE_MESSAGE, permittedOutput, recordsOf } from "../domain/modelRoute.js";
+import { AMOUNT_WITHHELD, AMOUNT_WITHHELD_NOTICE, applyFinancialPolicy } from "../domain/financialFields.js";
 import { assertNoPii, Pseudonymizer } from "../domain/redaction.js";
 import { AgentError } from "../errors.js";
 import { StreamRestorer } from "../providers/stream.js";
@@ -19,6 +20,8 @@ import { ProviderError, proposeTool } from "../providers/wire.js";
 import type { ModelEndpoint } from "../cloudprofile/index.js";
 import type { AuditPort, BudgetPort, KillSwitchPort, ModelUsage, RunRequest, RunResult } from "./engine.js";
 import type { AiPlan, AiRouter } from "./aiRouter.js";
+import { createEgressGuard, EGRESS_GUARD_TOOL, GUARD_POLICY_VERSION, GUARD_REFUSAL_MESSAGE, highestClassOf, type DataClass, type EgressGuard, type GuardResult } from "./egressGuard.js";
+import { CUI_VIEW_DUTY, type NeedToKnowClient } from "./needToKnow.js";
 import type { McpConnector } from "./mcp.js";
 import type { KnowledgeService } from "./knowledge.js";
 
@@ -55,6 +58,7 @@ export interface ChatResponse {
   toolCalls: ChatToolCall[];
   refusal: { code: string; message: string } | null;
   excluded?: { count: number; kinds: string[]; reason: "NO_APPROVED_ROUTE" };
+  dataClass?: DataClass;
   /** Always true: generated text is labelled as such in the UI (FR-47.12). */
   generated: true;
 }
@@ -91,6 +95,8 @@ export interface CopilotDeps {
   modelId: string;
   /** The knowledge index. When set, `depot.knowledge.search` is a read tool of the copilot to everyone who may use the copilot. */
   knowledge?: KnowledgeService;
+  guard?: EgressGuard;
+  needToKnow?: NeedToKnowClient;
   now?: () => Date;
 }
 
@@ -123,6 +129,8 @@ function systemPrompt(mode: CopilotMode, tools: readonly string[]): string {
   return `${MODE_PROMPTS[mode]} Tools you may call: ${tools.join(", ")}. To call one, propose it with its arguments; you will receive its result and may call another. When you have enough, answer in plain language without proposing a tool. ${INJECTION_GUARD}`;
 }
 
+export const TYPED_REPLACED_NOTICE = "I replaced sensitive numbers in your message with placeholders before sending it to the AI model.";
+
 const clip = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n)}...` : s);
 
 /**
@@ -135,6 +143,8 @@ const clip = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n)}
  */
 export function createCopilotService(deps: CopilotDeps) {
   const now = deps.now ?? (() => new Date());
+  const guard = deps.guard ?? createEgressGuard();
+  const needToKnow: NeedToKnowClient = deps.needToKnow ?? { enforced: async (c) => !c.duties.has(CUI_VIEW_DUTY) };
   return {
     async chat(caller: Principal, token: string, req: ChatRequest, hooks: ChatHooks = {}): Promise<ChatResponse> {
       if (deps.killSwitch.isHalted(caller.tenantId)) throw new AgentError("AGT-0201", "agent runs are halted by the kill switch");
@@ -160,7 +170,10 @@ export function createCopilotService(deps: CopilotDeps) {
       try {
         plan = await deps.router.plan({ caller, modelId: deps.modelId, refs: [] });
       } catch (err) {
-        if (err instanceof AgentError && err.code === "AGT-0218") return refusal("AGT-0218", NO_ROUTE_MESSAGE);
+        if (err instanceof AgentError && err.code === "AGT-0218") {
+          await recordBoundaryBlock(deps.store, auditRequest(runId, caller, deps.modelId, deps.config.tokenCap), now());
+          return refusal("AGT-0218", NO_ROUTE_MESSAGE);
+        }
         throw err;
       }
 
@@ -192,10 +205,19 @@ export function createCopilotService(deps: CopilotDeps) {
       let refused: ChatResponse["refusal"] = null;
       let settleSpend = true;
       let provider = plan.provider;
+      let routeId = plan.routeId;
+      let dataClass: DataClass = "P0";
+      let typedReplaced = 0;
       let withheldCount = 0;
+      let amountsWithheld = 0;
+      let needToKnowHidden = 0;
+      let policyDropped = 0;
+      let declared: DataClass = "P0";
+      let policyCell: "tenant" | "default" | undefined;
+      let policyVersion: number | undefined;
       const withheldKinds = new Set<string>();
       const system = systemPrompt(req.mode, gate.allowed);
-      let context = pseudo.redact(prompt);
+      const results: string[] = [];
       const sink = hooks.onToken;
       const restorer = new StreamRestorer((text) => pseudo.restore(text));
       // Text is shown as it is written unless a knowledge result already makes the answer unanswerable.
@@ -221,8 +243,35 @@ export function createCopilotService(deps: CopilotDeps) {
         );
       };
 
+      const guardRow = (r: GuardResult): void => {
+        actions.push(
+          buildActionRecord({
+            runId,
+            seq: actions.length + 1,
+            toolName: EGRESS_GUARD_TOOL,
+            inputRedacted: "{}",
+            outputRedacted: JSON.stringify({ decision: r.decision, highestClass: r.highestClass }),
+            approverUserId: null,
+            decision: r.decision === "BLOCKED" ? "DENIED" : "AUTO",
+            decidedAt: now().toISOString(),
+            guardResult: r,
+            ...(r.errorCode !== undefined ? { reason: r.errorCode } : {}),
+          }),
+        );
+      };
+
       try {
         for (let turn = 0; turn < deps.config.maxTurns; turn += 1) {
+          const verdict = await guard.inspect({ tenantId: caller.tenantId, callId: randomUUID(), routeId, pseudo, system, typed: prompt, results, excluded: Object.fromEntries(Object.entries({ [AMOUNT_WITHHELD]: amountsWithheld, NO_APPROVED_ROUTE: withheldCount, NEED_TO_KNOW: needToKnowHidden, POLICY_DENIED: policyDropped }).filter(([, n]) => n > 0)), declared, ...(policyCell !== undefined ? { policyCell } : {}), ...(policyVersion !== undefined ? { policyVersion } : {}) });
+          guardRow(verdict.result);
+          dataClass = highestClassOf([dataClass, verdict.result.highestClass]);
+          if (verdict.result.decision === "BLOCKED") {
+            refused = { code: "AGT-0219", message: GUARD_REFUSAL_MESSAGE };
+            answer = refused.message;
+            break;
+          }
+          typedReplaced = Math.max(typedReplaced, verdict.typedReplaced);
+          const context = verdict.user;
           assertNoPii(context);
           const toolsText = JSON.stringify(proposeTool(gate.allowed));
           assertPromptWithinCap([system, context, toolsText], deps.config.tokenCap - usage.tokensIn);
@@ -267,7 +316,7 @@ export function createCopilotService(deps: CopilotDeps) {
             const denied = out.code === "AGT-0203";
             toolCalls.push({ tool: p.tool, status: denied ? "DENIED" : "ERROR", code: out.code });
             row(p.tool, p.args, { error: out.code }, denied ? "DENIED" : "AUTO");
-            context += `\n\nTool ${p.tool} failed with ${out.code}.`;
+            results.push(`Tool ${p.tool} failed with ${out.code}.`);
             if (denied) {
               refused = { code: "AGT-0203", message: out.message };
               answer = out.message;
@@ -280,21 +329,45 @@ export function createCopilotService(deps: CopilotDeps) {
           const next = found.length === 0 ? undefined : await deps.router.plan({ caller, modelId: deps.modelId, refs: found });
           answer = "";
           const excludedHere = next?.excluded ?? [];
-          const shown = excludedHere.length === 0 ? out.output : permittedOutput(out.output, excludedHere);
+          const hiddenHere = excludedHere.length === 0 && (next?.restricted.length ?? 0) > 0 && (await needToKnow.enforced(caller)) ? (next?.restricted ?? []) : [];
+          needToKnowHidden += hiddenHere.length;
+          const dropped = [...excludedHere, ...hiddenHere];
+          const shown = dropped.length === 0 ? out.output : permittedOutput(out.output, dropped);
           if (excludedHere.length > 0) {
             withheldCount += excludedHere.length;
             for (const r of excludedHere) withheldKinds.add(r.entityType === "" ? "unidentified" : r.entityType);
           }
           if (shown === undefined) {
-            row(p.tool, p.args, { withheld: "NO_APPROVED_ROUTE" }, "AUTO", "read");
-            context += `\n\nResult of ${p.tool} was withheld: its data has no approved AI route.`;
+            row(p.tool, p.args, excludedHere.length > 0 ? { withheld: "NO_APPROVED_ROUTE" } : { records: 0 }, "AUTO", "read");
+            results.push(excludedHere.length > 0 ? `Result of ${p.tool} was withheld: its data has no approved AI route.` : `Tool ${p.tool} returned no records.`);
             continue;
           }
-          row(p.tool, p.args, shown, "AUTO", "read");
-          if (next !== undefined) provider = next.provider;
+          const governed = applyFinancialPolicy(shown, pseudo);
+          amountsWithheld += governed.withheld;
+          const admission = await guard.admit({ tenantId: caller.tenantId, tool: p.tool, text: JSON.stringify(governed.value) ?? "null" });
+          policyCell = admission.policyCell;
+          policyVersion = admission.policyVersion;
+          if (admission.failure !== undefined) {
+            guardRow({ callId: randomUUID(), highestClass: admission.class, routeId, policyVersion: admission.policyVersion, policyCell: admission.policyCell, counts: {}, excluded: {}, decision: "BLOCKED", errorCode: admission.failure });
+            refused = { code: "AGT-0219", message: GUARD_REFUSAL_MESSAGE };
+            answer = refused.message;
+            break;
+          }
+          if (!admission.pass) {
+            policyDropped += 1;
+            row(p.tool, p.args, { records: 0 }, "AUTO", "read");
+            results.push(`Result of ${p.tool} was left out: the tenant AI data policy does not allow it.`);
+            continue;
+          }
+          declared = highestClassOf([declared, admission.class]);
+          row(p.tool, p.args, governed.value, "AUTO", "read");
+          if (next !== undefined) {
+            provider = next.provider;
+            routeId = next.routeId;
+          }
           if (p.tool === KNOWLEDGE_SEARCH_TOOL) knowledge.push(...knowledgeCitations(out.output));
           else citations.push({ sourceType: "RECORD", sourceRef: out.ref ?? p.tool, label: p.tool });
-          context += `\n\nResult of ${p.tool}: ${pseudo.redact(clip(JSON.stringify(shown) ?? "null", 4000))}`;
+          results.push(`Result of ${p.tool}: ${clip(JSON.stringify(governed.value) ?? "null", 4000)}`);
         }
         if (refused === null && knowledge.length > 0) {
           const g = gateCitations(knowledge);
@@ -307,7 +380,10 @@ export function createCopilotService(deps: CopilotDeps) {
         }
         if (answer === "" && refused === null) answer = "I could not complete the answer within the tool-call limit.";
         const notice = withheldCount > 0 ? `\n\n${exclusionNotice([...withheldKinds], withheldCount)}` : "";
-        const display = (refused !== null ? answer : pseudo.restore(answer)) + notice;
+        const replacedNotice = typedReplaced > 0 ? `\n\n${TYPED_REPLACED_NOTICE}` : "";
+        const policyNotice = policyDropped > 0 ? `\n\n${policyDropped} tool result(s) were left out because your AI data policy does not allow that data.` : "";
+        const amountNotice = amountsWithheld > 0 ? `\n\n${AMOUNT_WITHHELD_NOTICE}` : "";
+        const display = (refused !== null ? answer : pseudo.restore(answer)) + notice + replacedNotice + amountNotice + policyNotice;
         const result = finished(runId, "COMMITTED", actions, usage, display, provider.endpoint);
         await deps.store.finishRun(runReq, result);
         const out: ChatResponse = {
@@ -315,10 +391,11 @@ export function createCopilotService(deps: CopilotDeps) {
           citations,
           toolCalls,
           refusal: refused,
+          dataClass,
           ...(withheldCount > 0 ? { excluded: { count: withheldCount, kinds: [...withheldKinds], reason: "NO_APPROVED_ROUTE" as const } } : {}),
           generated: true,
         };
-        if (refused === null && withheldCount === 0) deps.cache.put(asker, req.mode, prompt, JSON.stringify(out));
+        if (refused === null && withheldCount === 0 && policyDropped === 0 && needToKnowHidden === 0) deps.cache.put(asker, req.mode, prompt, JSON.stringify(out));
         return out;
       } catch (err) {
         await deps.store
@@ -343,6 +420,33 @@ async function searchKnowledge(knowledge: KnowledgeService, tenantId: string, ar
   } catch {
     return { ok: false, code: "AGT-0214", message: "the knowledge search failed" };
   }
+}
+
+async function recordBoundaryBlock(store: CopilotStore, runReq: RunRequest, at: Date): Promise<void> {
+  const result: GuardResult = {
+    callId: randomUUID(),
+    highestClass: "P0",
+    routeId: "none",
+    policyVersion: GUARD_POLICY_VERSION,
+    counts: {},
+    excluded: {},
+    decision: "BLOCKED_BOUNDARY",
+    errorCode: "NO_APPROVED_ROUTE",
+  };
+  const action = buildActionRecord({
+    runId: runReq.runId,
+    seq: 1,
+    toolName: EGRESS_GUARD_TOOL,
+    inputRedacted: "{}",
+    outputRedacted: JSON.stringify({ decision: result.decision, highestClass: result.highestClass }),
+    approverUserId: null,
+    decision: "DENIED",
+    decidedAt: at.toISOString(),
+    guardResult: result,
+    reason: "NO_APPROVED_ROUTE",
+  });
+  await store.startRun(runReq);
+  await store.finishRun(runReq, finished(runReq.runId, "FAILED", [action], { tokensIn: 0, tokensOut: 0 }, NO_ROUTE_MESSAGE));
 }
 
 function refusal(code: string, message: string): ChatResponse {

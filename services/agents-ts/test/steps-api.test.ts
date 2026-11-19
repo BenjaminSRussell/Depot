@@ -243,7 +243,7 @@ describe("agents service grants", () => {
     const root = new URL("../../../", import.meta.url);
     const data = JSON.parse(readFileSync(new URL("policies/authz/data.json", root), "utf8")) as { service_grants: Record<string, Record<string, string[]>> };
     expect(data.service_grants["agents"]?.["compliance"]).toEqual([...COMPLIANCE_GRANT]);
-    expect(readFileSync(new URL("platform/go/tenant/service.go", root), "utf8")).toContain('"compliance":  {"compliance.data-designation.resolve"}');
+    expect(readFileSync(new URL("platform/go/tenant/service.go", root), "utf8")).toContain('"compliance":  {"compliance.data-designation.resolve", "compliance.need-to-know.read"}');
   });
 
   it("match policies/authz/data.json and the Go table", () => {

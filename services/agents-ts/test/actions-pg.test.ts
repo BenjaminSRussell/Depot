@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildActionRecord, type ActionRecord } from "../src/domain/audit.js";
+import { scanPii } from "../src/domain/redaction.js";
 import { PgActionStore } from "../src/store/actions.js";
 import { PgApprovalStore } from "../src/store/approvals.js";
 import { MIGRATIONS_DIR, migrate } from "../src/store/pg.js";
@@ -111,6 +112,34 @@ describe.runIf(ownerUrl)("action decline in Postgres", () => {
     expect(rows[0]?.actionId).toBe(requestId);
     expect(rows[1]?.actionId).toMatch(/^[0-9a-f-]{36}$/);
     expect(rows[1]?.actionId).not.toBe(requestId);
+  });
+});
+
+describe.runIf(ownerUrl)("guard result on agent_action", () => {
+  it("round-trips the guard result and stores no value", async () => {
+    const fx = await fixture();
+    try {
+      const runId = "run-guard-1";
+      const guardResult = {
+        callId: "call-1",
+        highestClass: "P3" as const,
+        routeId: "route-1",
+        policyVersion: 1,
+        counts: { IBAN: 1 },
+        excluded: {},
+        decision: "REDACTED" as const,
+      };
+      await fx.store.startRun(makeRequest({ runId }));
+      await fx.store.recordAction(TENANT, buildActionRecord({ runId, seq: 1, toolName: "egress.guard", inputRedacted: "{}", outputRedacted: "{}", approverUserId: null, decision: "AUTO", decidedAt: AT, guardResult }));
+      await fx.store.recordAction(TENANT, buildActionRecord({ runId, seq: 2, toolName: "depot.ap.invoice.get", inputRedacted: "{}", outputRedacted: "{}", approverUserId: null, decision: "AUTO", decidedAt: AT }));
+      const [guarded, plain] = await fx.store.loadActions(TENANT, runId);
+      expect(guarded?.guardResult).toEqual(guardResult);
+      expect(plain?.guardResult).toBeUndefined();
+      const stored = await fx.owner.query<{ guard_result: unknown }>("select guard_result from agent_action where run_id = $1 and guard_result is not null", [runId]);
+      expect(scanPii(JSON.stringify(stored.rows))).toEqual([]);
+    } finally {
+      await fx.close();
+    }
   });
 });
 

@@ -20,6 +20,8 @@ import {
   createConfiguredRouter,
 } from "./runtime/aiRouter.js";
 import { createCopilotService } from "./runtime/copilot.js";
+import { createNeedToKnowClient } from "./runtime/needToKnow.js";
+import { createEgressGuard } from "./runtime/egressGuard.js";
 import { createKnowledgeService } from "./runtime/knowledge.js";
 import { PgKeywordIndex } from "./store/knowledge.js";
 import { createMcpConnector } from "./runtime/mcp.js";
@@ -88,7 +90,7 @@ async function main(): Promise<void> {
     },
   };
   const mcp = createMcpConnector({ baseUrl: cfg.mcpUrl });
-  const providerFor = createRunProviderFactory(cfg);
+  const providerFor = createRunProviderFactory(cfg, undefined, createEgressGuard({ log }));
   const agents = agentCatalog(cfg);
   // Every definition this pod runs is in agent_version; a run starts only when its newest eval_run passed (AGT-0204).
   const versions = new PgVersionStore(pool);
@@ -177,9 +179,20 @@ async function main(): Promise<void> {
       "DEPOT_SERVICE_SIGNING_KEY is not set: agents cannot sign its call to compliance, so every record is UNKNOWN and is withheld from AI calls",
       { boundary: cfg.boundary },
     );
+  const metrics = new Metrics();
   const copilot = createCopilotService({
+    guard: createEgressGuard({ log, policy: aiPolicyGuard, observe: (seconds, decision) => metrics.observeGuard(seconds, decision) }),
     knowledge,
     router: createConfiguredRouter(cfg, { log, ...(serviceSigner !== undefined ? { signer: serviceSigner } : {}) }),
+    needToKnow: createNeedToKnowClient({
+      baseUrl: cfg.complianceUrl,
+      authHeaders: (caller) => {
+        if (serviceSigner === undefined) throw new Error("no service signing key is configured");
+        if (caller.legalEntityId === undefined) throw new Error("the caller's token names no legal entity");
+        return { "x-depot-service-token": serviceSigner.mintForCompliance({ tenantId: caller.tenantId, legalEntityId: caller.legalEntityId, actor: caller.userId }) };
+      },
+      log,
+    }),
     mcp,
     store,
     killSwitch: registry,
@@ -225,7 +238,6 @@ async function main(): Promise<void> {
     knowledge,
     budgets: createAgentBudgetService({ store: new PgAgentBudgets(store) }),
   };
-  const metrics = new Metrics();
   const handler = createRequestHandler({
     api,
     metrics,
