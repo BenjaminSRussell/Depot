@@ -3823,6 +3823,18 @@ test_designation_duties_do_not_hold_cui_view if {
 	held == {"datadesignation.write", "datadesignation.read"}
 }
 
+test_cui_need_to_know_policy_duties_split_read_and_admin if {
+	allowed("cui.policy.read", "GET", "/v1/compliance/need-to-know")
+	not allowed("cui.policy.read", "PUT", "/v1/compliance/need-to-know")
+	allowed("cui.policy.admin", "PUT", "/v1/compliance/need-to-know")
+	not allowed("cui.policy.admin", "GET", "/v1/compliance/need-to-know")
+	not allowed("datadesignation.write", "PUT", "/v1/compliance/need-to-know")
+	every duty in ["cui.policy.read", "cui.policy.admin"] {
+		not data.duties[duty].flag
+	}
+	not allowed("cui.policy.admin", "GET", "/v1/compliance/data-designations")
+}
+
 test_cui_view_is_grantable_per_legal_entity if {
 	scoped := {"tenant-a": {"user-a": {"le-a": ["cui.view"]}}}
 	"cui.view" in held_duties with input as cui_input("le-a") with data.scoped_assignments as scoped
