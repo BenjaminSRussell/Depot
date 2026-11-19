@@ -20,7 +20,7 @@ import type { ModelEndpoint } from "../cloudprofile/index.js";
 import type { AuditPort, BudgetPort, KillSwitchPort, ModelUsage, RunRequest, RunResult } from "./engine.js";
 import type { AiPlan, AiRouter } from "./aiRouter.js";
 import { EGRESS_GUARD_TOOL, GUARD_POLICY_VERSION, GUARD_REFUSAL_MESSAGE, highestClassOf, type DataClass, type EgressGuard, type GuardContext, type GuardResult, type OutputGuardReason } from "./egressGuard.js";
-import { createChunkReleaser, createOutputGuard, OUTPUT_GUARD_CODE, OUTPUT_GUARD_MESSAGE, OUTPUT_GUARD_TOOL, type OutputGuard } from "./outputGuard.js";
+import { createChunkReleaser, createOutputGuard, OUTPUT_GUARD_CODE, OUTPUT_GUARD_MESSAGE, OUTPUT_GUARD_TOOL, stripUnreadableCitations, type OutputGuard } from "./outputGuard.js";
 import { CUI_VIEW_DUTY, type NeedToKnowClient } from "./needToKnow.js";
 import type { McpConnector } from "./mcp.js";
 import type { KnowledgeService } from "./knowledge.js";
@@ -237,6 +237,7 @@ export function createCopilotService(deps: CopilotDeps) {
         }
         return false;
       };
+      const present = (text: string): string => stripUnreadableCitations(pseudo.restoreFor(text, caller.duties), guardContext.inputRecordIds);
       // Text is shown a sentence at a time, after the output guard passed it, unless a knowledge result already makes the answer unanswerable.
       const streamable = (): boolean => knowledge.length === 0 || gateCitations(knowledge).answerable;
       const releaser =
@@ -245,7 +246,7 @@ export function createCopilotService(deps: CopilotDeps) {
           : createChunkReleaser(async (chunk) => {
               if (!streamable()) return true;
               if (!(await verify(chunk))) return false;
-              sink(pseudo.restoreFor(chunk, caller.duties));
+              sink(present(chunk));
               return true;
             });
       const row = (tool: string, input: unknown, output: unknown, decision: Decision, why?: string): void => {
@@ -386,7 +387,7 @@ export function createCopilotService(deps: CopilotDeps) {
             routeId = next.routeId;
           }
           if (out.ref !== undefined) recordIds.add(out.ref);
-          for (const r of found) if (r.recordId !== "" && !excludedHere.some((e) => e.recordId === r.recordId)) recordIds.add(r.recordId);
+          for (const r of found) if (r.recordId !== "" && !dropped.some((e) => e.recordId === r.recordId)) recordIds.add(r.recordId);
           if (p.tool === KNOWLEDGE_SEARCH_TOOL) knowledge.push(...knowledgeCitations(out.output));
           else citations.push({ sourceType: "RECORD", sourceRef: out.ref ?? p.tool, label: p.tool });
           results.push(`Result of ${p.tool}: ${clip(JSON.stringify(governed.value) ?? "null", 4000)}`);
@@ -415,7 +416,7 @@ export function createCopilotService(deps: CopilotDeps) {
         const replacedNotice = typedReplaced > 0 ? `\n\n${TYPED_REPLACED_NOTICE}` : "";
         const policyNotice = policyDropped > 0 ? `\n\n${policyDropped} tool result(s) were left out because your AI data policy does not allow that data.` : "";
         const amountNotice = amountsWithheld > 0 ? `\n\n${AMOUNT_WITHHELD_NOTICE}` : "";
-        const display = outcome.failure !== undefined ? answer : (refused !== null ? answer : pseudo.restoreFor(answer, caller.duties)) + notice + replacedNotice + amountNotice + policyNotice;
+        const display = outcome.failure !== undefined ? answer : (refused !== null ? answer : present(answer)) + notice + replacedNotice + amountNotice + policyNotice;
         const result = finished(runId, "COMMITTED", actions, usage, display, provider.endpoint);
         await deps.store.finishRun(runReq, result);
         const out: ChatResponse = {

@@ -257,6 +257,16 @@ describe("output guard on the chat", () => {
     expect(((await (await chat(own.srv.base, { mode: "ask", message: "invoice?" })).json()) as { refusal: unknown }).refusal).toBeNull();
   });
 
+  it("marks one unreadable citation among many as unverified and never shows its id", async () => {
+    const text = `${"See [[cite:INV-7]]. ".repeat(5)}Also [[cite:SECRET-9]].`;
+    const mixed = await setup([call(GET, { invoiceId: "INV-7" }), answer(text)]);
+    close = mixed.srv.close;
+    const body = (await (await chat(mixed.srv.base, { mode: "ask", message: "invoice?" })).json()) as { answer: string; refusal: unknown };
+    expect(body.refusal).toBeNull();
+    expect(body.answer).toContain("[unverified]");
+    expect(body.answer).not.toContain("SECRET-9");
+  });
+
   it("fails closed with the safe message when the guard errors, and leaves the run committed", async () => {
     const outputGuard = createOutputGuard({ analyzer: { scan: () => { throw new Error("analyzer down"); } } });
     const s = await setup([answer("Fine.")], undefined, false, undefined, outputGuard);

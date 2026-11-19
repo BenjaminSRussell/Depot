@@ -10,6 +10,12 @@ export const OUTPUT_GUARD_DEADLINE_MS = 2000;
 const CITE_RE = /\[\[cite:([^\]]*)\]\]/g;
 const SENTENCE_END = /[.!?]\s|\n/g;
 const MIN_LEAK_LENGTH = 4;
+export const UNVERIFIED_MARK = "[unverified]";
+export const UNVERIFIED_LIMIT = 0.2;
+
+export function stripUnreadableCitations(text: string, readable: ReadonlySet<string>): string {
+  return text.replace(CITE_RE, (marker, id: string) => (readable.has(id) ? marker : UNVERIFIED_MARK));
+}
 
 export interface OutputInput {
   tenantId: string;
@@ -76,7 +82,9 @@ export function createOutputGuard(deps: { analyzer?: Analyzer; log?: LogFn; obse
   async function violation(input: OutputInput): Promise<OutputGuardReason | undefined> {
     const { text, context, pseudo, duties } = input;
     if ([...text.matchAll(PSEUDONYM_RE)].some((m) => !context.inputTokens.has(m[0]))) return "TOKEN_NOT_IN_INPUT";
-    if ([...text.matchAll(CITE_RE)].some((m) => !context.inputRecordIds.has(m[1] ?? ""))) return "RECORD_NOT_IN_INPUT";
+    const cited = [...text.matchAll(CITE_RE)].map((m) => m[1] ?? "");
+    const unverified = cited.filter((id) => !context.inputRecordIds.has(id)).length;
+    if (unverified > 0 && unverified / cited.length > UNVERIFIED_LIMIT) return "RECORD_NOT_IN_INPUT";
     const entries = pseudo.snapshot().entries;
     const shown = pseudo.restoreFor(text, duties);
     const hidden = entries.filter((e) => !mayViewValue(e.category, duties) && e.value.length >= MIN_LEAK_LENGTH).map((e) => e.value);

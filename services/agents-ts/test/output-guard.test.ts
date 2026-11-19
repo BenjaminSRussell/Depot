@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Pseudonymizer } from "../src/domain/redaction.js";
 import type { GuardContext } from "../src/runtime/egressGuard.js";
-import { createChunkReleaser, createOutputGuard, type OutputInput } from "../src/runtime/outputGuard.js";
+import { createChunkReleaser, createOutputGuard, stripUnreadableCitations, UNVERIFIED_MARK, type OutputInput } from "../src/runtime/outputGuard.js";
 
 const IBAN = "DE89370400440532013000";
 const HOLDER = new Set(["ViewSensitivePayroll"]);
@@ -35,6 +35,18 @@ describe("output guard checks", () => {
     expect(await reasonOf("Open [IBAN-1].")).toBe("TOKEN_NOT_IN_INPUT");
     expect(await reasonOf("See [[cite:INV-99]].")).toBe("RECORD_NOT_IN_INPUT");
     expect(await reasonOf("See [[cite:]].")).toBe("RECORD_NOT_IN_INPUT");
+  });
+
+  it("allows up to 20 percent unverified citations and suppresses above it", async () => {
+    const own = "[[cite:INV-7]] ".repeat(4);
+    expect(await reasonOf(`${own}[[cite:INV-99]].`)).toBeUndefined();
+    expect(await reasonOf(`${own}[[cite:INV-98]] [[cite:INV-99]].`)).toBe("RECORD_NOT_IN_INPUT");
+  });
+
+  it("replaces a citation the user cannot read with the unverified mark and never keeps its id", () => {
+    const shown = stripUnreadableCitations("A [[cite:INV-7]] B [[cite:SECRET-9]].", new Set(["INV-7"]));
+    expect(shown).toBe(`A [[cite:INV-7]] B ${UNVERIFIED_MARK}.`);
+    expect(shown).not.toContain("SECRET-9");
   });
 
   it("verifies the final text against the viewer's duties: a raw value they may not see is a leak, a held one is not", async () => {

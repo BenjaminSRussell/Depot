@@ -39,11 +39,15 @@ export const toolCallSchema = z.object({
   code: z.string().optional(),
 });
 
+const excludedSchema = z.object({ reason: z.string(), count: z.number() });
+
 export const chatResponseSchema = z.object({
   answer: z.string(),
   citations: z.array(citationSchema),
   toolCalls: z.array(toolCallSchema),
   refusal: z.object({ code: z.string(), message: z.string() }).nullable().optional(),
+  dataClass: z.string().optional(),
+  excluded: z.union([z.array(excludedSchema), excludedSchema]).optional(),
   generated: z.literal(true),
 });
 

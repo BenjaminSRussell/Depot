@@ -7,7 +7,8 @@ import {
   type KeyboardEvent,
 } from "react";
 import { Link } from "react-router-dom";
-import { Input } from "../ui";
+import { DataMarking, Input } from "../ui";
+import { useDesignation } from "../useDesignation";
 import styles from "./EntityLookup.module.css";
 import {
   formatOption,
@@ -203,6 +204,7 @@ export function EntityLookup({
           ),
         ]
       : results;
+  const designations = useDesignation(open && entity === "project" ? listed.map((entry) => ({ entityType: "project", recordId: entry.id })) : []);
 
   const openList = useCallback(() => {
     setRecent(readRecent(work.identity, entity));
@@ -367,6 +369,7 @@ export function EntityLookup({
               {entry.number ? (
                 <span className={styles.number}>{entry.number}</span>
               ) : null}
+              {entity === "project" ? <DataMarking marking={designations.markingOf({ entityType: "project", recordId: entry.id })} variant="badge" /> : null}
             </li>
           ))}
           <li role="presentation" className={styles.status}>

@@ -1,14 +1,28 @@
 import { useId, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { usePrincipalDuties } from "../../shell/principal";
+import { copy } from "../../shell/copy";
 import { Badge, Button } from "../../shell/ui";
 import styles from "./AiSuggestion.module.css";
 import { GENERATED_BADGE } from "./domain";
 import {
+  carriesCui,
+  leftOutNotice,
   resolveRecord,
+  type LeftOutInput,
   type SuggestionHost,
   type SuggestionViewModel,
 } from "./suggestionModel";
+
+export function AiMarking({ dataClass, excluded }: { dataClass?: string | undefined; excluded?: LeftOutInput | undefined }) {
+  const notice = leftOutNotice(excluded);
+  return (
+    <>
+      {carriesCui(dataClass) ? <Badge tone="warning">{copy.marking.badge}</Badge> : null}
+      {notice === undefined ? null : <p>{notice}</p>}
+    </>
+  );
+}
 
 export interface AiSuggestionProps {
   host: SuggestionHost;
@@ -60,7 +74,7 @@ export function AiSuggestion({
       data-host={host}
     >
       <div>
-        <Badge tone="info">{GENERATED_BADGE}</Badge>
+        <Badge tone="info">{GENERATED_BADGE}</Badge> <AiMarking dataClass={suggestion.dataClass} excluded={suggestion.excluded} />
       </div>
       {children}
       <Disclosure label="Why this?">
