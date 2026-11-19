@@ -1410,6 +1410,17 @@ export function formatOption(entry: LookupOption): string {
   return entry.number ? `${entry.name} (${entry.number})` : entry.name;
 }
 
+export async function findByNumber(
+  entity: LookupEntityKey,
+  number: string,
+  signal?: AbortSignal,
+): Promise<LookupOption | null> {
+  const wanted = number.trim().toLowerCase();
+  if (wanted === "") return null;
+  const found = await lookupDefs[entity].search(number.trim(), {}, signal);
+  return found.find((entry) => entry.number?.toLowerCase() === wanted) ?? null;
+}
+
 /** How long a lookup that found nothing, or failed, is remembered before it is asked again. */
 const FAILED_LOOKUP_TTL_MS = 5000;
 

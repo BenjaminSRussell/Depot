@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest";
 import allowlist from "./rawIdAllowlist.json";
 
-const ID_TEXT = String.raw`(["'\x60])((?:(?!\1)[^\n]){0,60}?\s[iI][dD])\1`;
-const RAW_ID_LABEL = new RegExp(
-  String.raw`(?:\b(?:label|placeholder)=\{?\s*|\blabel:\s*|\b[A-Za-z_]\w*\(\s*(?:[^()\n]*?,\s*)?)${ID_TEXT}`,
-  "g",
-);
+const RAW_ID_INPUT = /<(?:Input|Textarea|input)\b(?:(?!\/>|<\/)[\s\S]){0,400}?\bvalue=\{[^}\n]*?\b(\w*Ids?)\b[^}\n]*\}/g;
+const KEEPS_IDS = /^modules\/(admin|integration|migration|migration-factory)\//;
 
 const sources = import.meta.glob<string>(["../../**/*.tsx", "!../../**/*.test.tsx", "!../../shell/lookup/**"], {
   query: "?raw",
@@ -13,52 +10,55 @@ const sources = import.meta.glob<string>(["../../**/*.tsx", "!../../**/*.test.ts
   eager: true,
 });
 
-function rawIdLabels(): Record<string, string[]> {
-  const found: Record<string, string[]> = {};
-  for (const [path, source] of Object.entries(sources)) {
-    const labels = [...source.matchAll(RAW_ID_LABEL)].map((match) => match[2]).sort();
-    if (labels.length > 0) found[path.replace("../../", "")] = labels;
-  }
-  return found;
+function rawIdFields(source: string): string[] {
+  return [...new Set([...source.matchAll(RAW_ID_INPUT)].map((match) => match[1]))].sort();
 }
 
-const allowed = allowlist.entries as Record<string, { labels: string[]; reason: string }>;
+function found(): Record<string, string[]> {
+  const files: Record<string, string[]> = {};
+  for (const [path, source] of Object.entries(sources)) {
+    const fields = rawIdFields(source);
+    if (fields.length > 0) files[path.replace("../../", "")] = fields;
+  }
+  return files;
+}
+
+const listed: Record<string, string[]> = { ...allowlist.permanent.files, ...allowlist.pending.files };
 
 describe("raw id inputs", () => {
-  it("has no label, placeholder or helper-built \"... id\" field outside the allowlist", () => {
-    const unlisted = Object.entries(rawIdLabels()).filter(([file, labels]) => {
-      const listed = [...(allowed[file]?.labels ?? [])];
-      return labels.some((label) => {
-        const at = listed.indexOf(label);
-        if (at === -1) return true;
-        listed.splice(at, 1);
-        return false;
-      });
-    });
-    expect(unlisted.map(([file, labels]) => `${file}: ${labels.join(", ")}`)).toEqual([]);
+  it("has no text input bound to an id field outside the allowlist", () => {
+    const unlisted = Object.entries(found()).filter(([file, fields]) => fields.some((field) => !listed[file]?.includes(field)));
+    expect(unlisted.map(([file, fields]) => `${file}: ${fields.join(", ")}`)).toEqual([]);
   });
 
-  it("catches helper-built, template, object and placeholder id labels", () => {
-    const samples = [
-      'label="Vendor id"',
-      'text("vendorId", "Vendor id", { mono: true })',
-      'label={`${name} id`}',
-      'placeholder="Product id"',
-      '{ name: "vendor", label: "Vendor ID" }',
+  it("flags an input bound to an id however its label reads, and leaves pickers and names alone", () => {
+    const flagged = [
+      '<Input {...a11y} value={draft.siteId} onChange={(e) => set("siteId")(e.target.value)} />',
+      '<Textarea\n  rows={3}\n  value={form.itemIds ?? ""}\n/>',
+      '<input value={legalEntityId} />',
     ];
-    expect(samples.map((sample) => [...sample.matchAll(RAW_ID_LABEL)].length)).toEqual([1, 1, 1, 1, 1]);
-    expect([...'throw new Error("Missing record.")'.matchAll(RAW_ID_LABEL)]).toEqual([]);
+    expect(flagged.map((sample) => rawIdFields(sample))).toEqual([["siteId"], ["itemIds"], ["legalEntityId"]]);
+    const clean = [
+      '<EntityLookup entity="site" value={draft.siteId} onChange={pick} />',
+      '<EntityMultiLookup entity="product" value={draft.scopeItemIds} onChange={pick} />',
+      '<Input value={draft.name} />\n<EntityLookup value={draft.siteId} />',
+      '<Input {...a11y} value={row.id} />',
+    ];
+    expect(clean.map((sample) => rawIdFields(sample))).toEqual([[], [], [], []]);
   });
 
-  it("lists only fields that still exist, so the allowlist shrinks as fields are converted", () => {
-    const found = rawIdLabels();
-    const stale = Object.entries(allowed)
-      .filter(([file, entry]) => JSON.stringify([...entry.labels].sort()) !== JSON.stringify(found[file] ?? []))
-      .map(([file]) => file);
-    expect(stale).toEqual([]);
+  it("lists only inputs that still exist, so the allowlist shrinks as screens are converted", () => {
+    const current = found();
+    const stale = Object.entries(listed).filter(([file, fields]) => JSON.stringify(fields) !== JSON.stringify(current[file] ?? []));
+    expect(stale.map(([file]) => file)).toEqual([]);
   });
 
-  it("gives every exception a reason", () => {
-    expect(Object.entries(allowed).filter(([, entry]) => entry.reason.trim() === "")).toEqual([]);
+  it("keeps ids only on admin, integration and migration screens, apart from the screens still to convert", () => {
+    expect(Object.keys(allowlist.permanent.files).filter((file) => !KEEPS_IDS.test(file))).toEqual([]);
+    expect(Object.keys(allowlist.pending.files).filter((file) => KEEPS_IDS.test(file))).toEqual([]);
+  });
+
+  it("gives each allowlist group a reason", () => {
+    expect([allowlist.permanent.reason, allowlist.pending.reason].filter((reason) => reason.trim() === "")).toEqual([]);
   });
 });

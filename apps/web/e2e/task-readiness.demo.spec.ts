@@ -31,6 +31,10 @@ test.describe("task readiness: every task can start in the demo build", () => {
       await shell.goto(`.${route}`);
 
       await expect(shell.title.first()).toBeVisible();
+      // The heading renders with the loading skeleton, so wait for the page to finish loading before
+      // checking for the error: a query that fails after first paint must fail this task. No catch: a page
+      // that never finishes loading is a failure too.
+      await page.getByText("Loading…").first().waitFor({ state: "detached", timeout: 10_000 });
       await expect(page.getByText("This page couldn't load")).toHaveCount(0);
     });
   }

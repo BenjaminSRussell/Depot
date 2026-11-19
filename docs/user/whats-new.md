@@ -2,6 +2,12 @@
 
 Changes to Depot in plain language, newest first. Add an entry here for every change a user will notice. The "What's new" page in the app shows this file.
 
+## 2026-11-18
+
+- **Run plan** and **Supply schedule** under **Planning** now take items by name or item number. Paste a list of item numbers, separated by commas, spaces or new lines, and each one becomes a named item you can remove; numbers that match nothing are listed so you can fix them.
+- **Duplicate candidates** under **Party** asks you to choose two parties by name.
+- Searching for a party lists the closest names first.
+
 ## 2026-11-17
 
 - On a phone the top bar no longer runs off the side of the screen. A "Context" button opens a panel with the legal entity and site, Help, compact view and your account.

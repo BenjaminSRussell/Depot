@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"strings"
@@ -55,7 +56,7 @@ func TestSearchRoutes_PassTheLegalEntityFilter(t *testing.T) {
 }
 
 func TestSearchRoutes_CursorRoundTrips(t *testing.T) {
-	f := &fakeSearch{page: store.SearchPage{Items: []store.SearchHit{{ID: knownID, Name: "Contoso Ltd"}}, Next: &store.SearchKey{Name: "Contoso Ltd", ID: knownID}}}
+	f := &fakeSearch{page: store.SearchPage{Items: []store.SearchHit{{ID: knownID, Name: "Contoso Ltd"}}, Next: &store.SearchKey{Name: "Contoso Ltd", ID: knownID, Score: 0.45}}}
 	r := searchRouter(f)
 	first := do(r, http.MethodGet, "/v1/party/parties:search", "", "party.read", true)
 	cursor := between(first.Body.String(), `"nextCursor":"`, `"`)
@@ -63,9 +64,13 @@ func TestSearchRoutes_CursorRoundTrips(t *testing.T) {
 		t.Fatalf("first page = %d %s limit %d", first.Code, first.Body, f.limit)
 	}
 	do(r, http.MethodGet, "/v1/party/parties:search?cursor="+cursor, "", "party.read", true)
-	if f.after != (store.SearchKey{Name: "Contoso Ltd", ID: knownID}) {
+	if f.after != (store.SearchKey{Name: "Contoso Ltd", ID: knownID, Score: 0.45}) {
 		t.Fatalf("the cursor must resume after the last hit; got %+v", f.after)
 	}
+}
+
+func cursorOf(name, id, score string) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(name + "\x00" + id + "\x00" + score))
 }
 
 func between(s, open, close string) string {
@@ -84,15 +89,20 @@ func TestSearchRoutes_Refusals(t *testing.T) {
 		tenant        bool
 		want          int
 	}{
-		"limit zero":    {"?limit=0", "party.read", true, http.StatusBadRequest},
-		"limit too big": {"?limit=51", "party.read", true, http.StatusBadRequest},
-		"limit not int": {"?limit=x", "party.read", true, http.StatusBadRequest},
-		"bad cursor":    {"?cursor=!!", "party.read", true, http.StatusBadRequest},
-		"cursor no id":  {"?cursor=Q29udG9zbw", "party.read", true, http.StatusBadRequest},
-		"bad entity":    {"?legalEntityId=x", "party.read", true, http.StatusBadRequest},
-		"text too long": {"?q=" + strings.Repeat("a", 101), "party.read", true, http.StatusBadRequest},
-		"write only":    {"", "party.write", true, http.StatusForbidden},
-		"no tenant":     {"", "party.read", false, http.StatusUnauthorized},
+		"limit zero":          {"?limit=0", "party.read", true, http.StatusBadRequest},
+		"limit too big":       {"?limit=51", "party.read", true, http.StatusBadRequest},
+		"limit not int":       {"?limit=x", "party.read", true, http.StatusBadRequest},
+		"bad cursor":          {"?cursor=!!", "party.read", true, http.StatusBadRequest},
+		"cursor no id":        {"?cursor=Q29udG9zbw", "party.read", true, http.StatusBadRequest},
+		"cursor no score":     {"?cursor=" + base64.RawURLEncoding.EncodeToString([]byte("Contoso\x00"+knownID)), "party.read", true, http.StatusBadRequest},
+		"cursor score text":   {"?cursor=" + cursorOf("Contoso", knownID, "high"), "party.read", true, http.StatusBadRequest},
+		"cursor score NaN":    {"?cursor=" + cursorOf("Contoso", knownID, "NaN"), "party.read", true, http.StatusBadRequest},
+		"cursor score range":  {"?cursor=" + cursorOf("Contoso", knownID, "1.5"), "party.read", true, http.StatusBadRequest},
+		"cursor score signed": {"?cursor=" + cursorOf("Contoso", knownID, "-0.1"), "party.read", true, http.StatusBadRequest},
+		"bad entity":          {"?legalEntityId=x", "party.read", true, http.StatusBadRequest},
+		"text too long":       {"?q=" + strings.Repeat("a", 101), "party.read", true, http.StatusBadRequest},
+		"write only":          {"", "party.write", true, http.StatusForbidden},
+		"no tenant":           {"", "party.read", false, http.StatusUnauthorized},
 	} {
 		if rec := do(r, http.MethodGet, "/v1/party/vendors:search"+tc.query, "", tc.duties, tc.tenant); rec.Code != tc.want {
 			t.Fatalf("%s = %d %s; want %d", name, rec.Code, rec.Body, tc.want)

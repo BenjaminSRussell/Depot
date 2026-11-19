@@ -54,7 +54,7 @@ export function SequencesPage() {
   return (
     <>
       <PageHeader title="Sequences" description="How your documents are numbered, for each legal entity. You can see them here; changing them is not available yet." />
-      {sequences.isError ? (
+      {sequences.isError && rows.length === 0 ? (
         forbidden ? (
           <Alert tone="info" title="You can't see the number sequences">
             Your account doesn't have access to them. Ask an administrator if you should.
@@ -83,6 +83,20 @@ export function SequencesPage() {
             loading={sequences.isPending}
             empty={{ title: "No number sequences yet", description: "Sequences number your documents without gaps, per legal entity." }}
           />
+          {sequences.isFetchNextPageError ? (
+            <Alert
+              tone="danger"
+              live="alert"
+              title="Could not load more number sequences"
+              action={
+                <Button variant="secondary" loading={sequences.isFetchingNextPage} onClick={() => void sequences.fetchNextPage()}>
+                  Try again
+                </Button>
+              }
+            >
+              The sequences shown so far are still here.
+            </Alert>
+          ) : null}
           {sequences.hasNextPage ? (
             <Button variant="secondary" loading={sequences.isFetchingNextPage} onClick={() => void sequences.fetchNextPage()}>
               Load more

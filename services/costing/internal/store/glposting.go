@@ -22,17 +22,20 @@ import (
 )
 
 const (
-	MaxVouchersPerRun  = 200
-	CodeGLFailed       = "CST-GL-001"
-	CodeNoProfile      = "CST-GL-002"
-	glSourceType       = "costing-voucher"
-	invoicePPVPrefix   = "ppv:INVOICE:"
-	CodeVoucherParked  = "CST-GL-004"
-	CodeLedgerForeign  = "CST-GL-005"
-	CodeUnbalanced     = "CST-GL-006"
-	MaxVoucherAttempts = 5
-	voucherPosted      = "POSTED"
-	voucherParked      = "PARKED"
+	MaxVouchersPerRun    = 200
+	CodeGLFailed         = "CST-GL-001"
+	CodeNoProfile        = "CST-GL-002"
+	glSourceType         = "costing-voucher"
+	invoicePPVPrefix     = "ppv:INVOICE:"
+	revaluationKeyPrefix = "reval:"
+	adjustmentKeyPrefix  = "adj:"
+	voucherPending       = "PENDING"
+	CodeVoucherParked    = "CST-GL-004"
+	CodeLedgerForeign    = "CST-GL-005"
+	CodeUnbalanced       = "CST-GL-006"
+	MaxVoucherAttempts   = 5
+	voucherPosted        = "POSTED"
+	voucherParked        = "PARKED"
 )
 
 // PostingProfile is the stored configuration of a legal entity's vouchers: the general ledger they post in
@@ -118,22 +121,27 @@ func (v voucher) entry() ledgerclient.Entry {
 	return e
 }
 
+func insertVoucher(ctx context.Context, tx pgx.Tx, tenantID string, v voucher) error {
+	raw, err := json.Marshal(v.lines)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `insert into costing_gl_voucher (tenant_id, id, legal_entity_id, source_key, gl_ledger_id, currency, posting_date, idempotency_key, lines)
+		values ($1, $2, $3, $4, $5, $6, $7::date, $8, $9)
+		on conflict (tenant_id, source_key) do update set lines = excluded.lines, gl_ledger_id = excluded.gl_ledger_id, currency = excluded.currency,
+			posting_date = excluded.posting_date, idempotency_key = excluded.idempotency_key || '-' || (costing_gl_voucher.rebuild_count + 1),
+				rebuild_count = costing_gl_voucher.rebuild_count + 1, rebuild = false
+			where costing_gl_voucher.rebuild and costing_gl_voucher.status = 'PENDING'`,
+		tenantID, ids.New(), v.legalEntityID, v.sourceKey, v.glLedgerID, v.currency, v.date, v.key, raw)
+	return err
+}
+
 // stageVoucher stores v as PENDING unless its source key already has a voucher, and returns the stored one with its
 // status and journal entry id: a retry resends what the first attempt stored.
 func (s *Postgres) stageVoucher(ctx context.Context, v voucher) (stored voucher, status, entryID string, err error) {
 	t, _ := tenant.FromContext(ctx)
-	raw, err := json.Marshal(v.lines)
-	if err != nil {
-		return voucher{}, "", "", err
-	}
 	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `insert into costing_gl_voucher (tenant_id, id, legal_entity_id, source_key, gl_ledger_id, currency, posting_date, idempotency_key, lines)
-			values ($1, $2, $3, $4, $5, $6, $7::date, $8, $9)
-			on conflict (tenant_id, source_key) do update set lines = excluded.lines, gl_ledger_id = excluded.gl_ledger_id, currency = excluded.currency,
-				posting_date = excluded.posting_date, idempotency_key = excluded.idempotency_key || '-' || (costing_gl_voucher.rebuild_count + 1),
-					rebuild_count = costing_gl_voucher.rebuild_count + 1, rebuild = false
-				where costing_gl_voucher.rebuild and costing_gl_voucher.status = 'PENDING'`,
-			t.TenantID, ids.New(), v.legalEntityID, v.sourceKey, v.glLedgerID, v.currency, v.date, v.key, raw); err != nil {
+		if err := insertVoucher(ctx, tx, t.TenantID, v); err != nil {
 			return err
 		}
 		stored = voucher{legalEntityID: v.legalEntityID, sourceKey: v.sourceKey}
@@ -232,12 +240,14 @@ type GLPostRequest struct {
 
 type GLBooked struct {
 	CostTransactionID string `json:"costTransactionId"`
+	VoucherKey        string `json:"voucherKey,omitempty"`
 	EntryID           string `json:"entryId"`
 	Lines             int    `json:"lines"`
 }
 
 type GLFailed struct {
 	CostTransactionID string `json:"costTransactionId"`
+	VoucherKey        string `json:"voucherKey,omitempty"`
 	Code              string `json:"code"`
 }
 
@@ -332,5 +342,59 @@ func (s *Postgres) PostCostVouchers(ctx context.Context, ledger ledgerclient.Led
 		}
 		res.Booked = append(res.Booked, GLBooked{CostTransactionID: c.id, EntryID: entryID, Lines: len(v.lines)})
 	}
+	booked, failed, err := s.postStaged(ctx, ledger, in.LegalEntityID, revaluationKeyPrefix)
+	if err != nil {
+		return GLPostResult{}, err
+	}
+	res.Booked, res.Failed = append(res.Booked, booked...), append(res.Failed, failed...)
+	booked, failed, err = s.postStaged(ctx, ledger, in.LegalEntityID, adjustmentKeyPrefix)
+	if err != nil {
+		return GLPostResult{}, err
+	}
+	res.Booked, res.Failed = append(res.Booked, booked...), append(res.Failed, failed...)
 	return res, nil
+}
+
+// postStaged books the due PENDING vouchers of the legal entity whose source key starts with keyPrefix, as staged: the stored lines are resent
+// unchanged, and a refusal counts an attempt in postVoucher and is reported without stopping the rest.
+func (s *Postgres) postStaged(ctx context.Context, ledger ledgerclient.Ledger, legalEntityID, keyPrefix string) ([]GLBooked, []GLFailed, error) {
+	t, _ := tenant.FromContext(ctx)
+	var due []voucher
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `select source_key, gl_ledger_id::text, currency, posting_date::text, idempotency_key, lines
+			from costing_gl_voucher
+			where tenant_id = $1 and legal_entity_id = $2 and status = 'PENDING' and next_attempt_at <= now() and starts_with(source_key, $3)
+			order by posting_date, source_key limit $4`, t.TenantID, legalEntityID, keyPrefix, MaxVouchersPerRun)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			v := voucher{legalEntityID: legalEntityID}
+			var lines []byte
+			if err := rows.Scan(&v.sourceKey, &v.glLedgerID, &v.currency, &v.date, &v.key, &lines); err != nil {
+				return err
+			}
+			if err := json.Unmarshal(lines, &v.lines); err != nil {
+				return err
+			}
+			due = append(due, v)
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	var booked []GLBooked
+	var failed []GLFailed
+	for _, v := range due {
+		entryID, err := s.postVoucher(ctx, ledger, v)
+		if err != nil {
+			slog.ErrorContext(ctx, "costing staged voucher failed", "sourceKey", v.sourceKey, "code", glCode(err), "err", err, "correlationId", middleware.GetReqID(ctx))
+			failed = append(failed, GLFailed{VoucherKey: v.sourceKey, Code: glCode(err)})
+			continue
+		}
+		booked = append(booked, GLBooked{VoucherKey: v.sourceKey, EntryID: entryID, Lines: len(v.lines)})
+	}
+	return booked, failed, nil
 }

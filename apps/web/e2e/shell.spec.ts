@@ -2,8 +2,13 @@ import { expect, test } from "@playwright/test";
 import { ShellPage } from "./shell.page";
 import routes from "./axeRoutes.generated.json" with { type: "json" };
 
+// Every route is already scanned by axe and the reflow specs in the sharded demo job, so the landmark check
+// here samples every 8th route of the generated list (about 85). Scanning all ~670 in this unsharded job
+// ran past its 30 minute limit and cancelled it, which blocked every pull request.
+const sampled = routes.filter((_, index) => index % 8 === 0);
+
 test.describe("landmarks and headings", () => {
-  for (const route of routes) {
+  for (const route of sampled) {
     test(`${route} has exactly one h1 and the shell landmarks`, async ({ page }) => {
       const shell = new ShellPage(page);
       await shell.goto(route);

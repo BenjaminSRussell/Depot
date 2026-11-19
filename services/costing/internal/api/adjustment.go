@@ -200,7 +200,7 @@ func (a *API) createAdjustment(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	out, created, err := a.store.CreateAdjustment(r.Context(), in, strings.TrimSpace(r.Header.Get(idempotencyKey)), requestHash(in))
+	out, created, err := a.store.CreateAdjustment(r.Context(), in, strings.TrimSpace(r.Header.Get(idempotencyKey)), requestHash(in), a.ledger)
 	if err != nil {
 		a.fail(w, r, "post cost adjustment", err)
 		return
@@ -210,6 +210,9 @@ func (a *API) createAdjustment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.adjustmentsPosted.Add(1)
+	if out.Voucher == "POSTED" {
+		a.vouchersPosted.Add(1)
+	}
 	httpx.JSON(w, http.StatusCreated, out)
 }
 

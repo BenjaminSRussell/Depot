@@ -124,9 +124,9 @@ export function DuplicatesPage() {
     const a = draft.a.trim();
     const b = draft.b.trim();
     const next: Record<string, string> = {};
-    if (!isUuid(a)) next.a = "Enter the first party id (a UUID).";
-    if (!isUuid(b)) next.b = "Enter the second party id (a UUID).";
-    if (isUuid(a) && isUuid(b) && a === b) next.b = "Enter a different party id to compare.";
+    if (!isUuid(a)) next.a = "Choose the first party.";
+    if (!isUuid(b)) next.b = "Choose the second party.";
+    if (isUuid(a) && isUuid(b) && a === b) next.b = "Choose a different party to compare.";
     setErrors(next);
     if (Object.keys(next).length > 0) return;
     setParams({ a, b });
