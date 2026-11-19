@@ -224,7 +224,7 @@ describe("output guard on the chat", () => {
     const other = await setup([answer("The pay is [PAY-1].")]);
     close = other.srv.close;
     const otherBody = (await (await chat(other.srv.base, ask)).json()) as { answer: string };
-    expect(otherBody.answer).toContain("The pay is ****5000.");
+    expect(otherBody.answer).toContain("The pay is ****.");
     expect(JSON.stringify([otherBody, ...other.store.actionRows.values()])).not.toContain("85000");
   });
 

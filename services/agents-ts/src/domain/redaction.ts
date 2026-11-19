@@ -50,7 +50,14 @@ export const SENSITIVE_DUTY = { payroll: "ViewSensitivePayroll", worker: "ViewSe
 
 const P3_DOMAIN: Partial<Record<PiiCategory, keyof typeof SENSITIVE_DUTY>> = { PAY: "payroll", SSN: "worker", TAXID: "worker" };
 
-export const maskValue = (value: string): string => (value.length <= 4 ? "****" : `****${value.slice(-4)}`);
+const IDENTIFIER_CATEGORIES: readonly (PiiCategory | "AMOUNT")[] = ["SSN", "TAXID", "CARD", "IBAN", "BANKACCT"];
+const MIN_SIGNIFICANT_FOR_SUFFIX = 8;
+
+export function maskValue(value: string, category: PiiCategory | "AMOUNT"): string {
+  const significant = value.replace(/[^A-Za-z0-9]/g, "");
+  if (!IDENTIFIER_CATEGORIES.includes(category) || significant.length < MIN_SIGNIFICANT_FOR_SUFFIX) return "****";
+  return `****${significant.slice(-4)}`;
+}
 
 export function mayViewValue(category: PiiCategory | "AMOUNT", duties: ReadonlySet<string>): boolean {
   if (category === "AMOUNT" || !P3_CATEGORIES.includes(category)) return true;
@@ -156,7 +163,7 @@ export class Pseudonymizer {
     let out = text;
     for (const [pseudonym, value] of this.byPseudonym) {
       const category = pseudonym.slice(1, pseudonym.indexOf("-")) as PiiCategory;
-      out = out.split(pseudonym).join(mayViewValue(category, duties) ? value : maskValue(value));
+      out = out.split(pseudonym).join(mayViewValue(category, duties) ? value : maskValue(value, category));
     }
     return out;
   }

@@ -89,7 +89,7 @@ describe("Pseudonymizer.restoreFor", () => {
     const { p, text } = redacted();
     const worker = p.restoreFor(text, new Set([SENSITIVE_DUTY.worker]));
     expect(worker).toContain("123-45-6789");
-    expect(worker).toContain('"salary":"****5000"');
+    expect(worker).toContain('"salary":"****"');
     const payroll = p.restoreFor(text, new Set([SENSITIVE_DUTY.payroll]));
     expect(payroll).toContain('"salary":"85000"');
     expect(payroll).not.toContain("123-45-6789");
@@ -112,10 +112,22 @@ describe("Pseudonymizer.restoreFor", () => {
 });
 
 describe("maskValue", () => {
-  it("keeps the last four characters and masks a value of four or fewer entirely", () => {
-    expect(maskValue("123456789")).toBe("****6789");
-    expect(maskValue("12345")).toBe("****2345");
-    expect(maskValue("1234")).toBe("****");
-    expect(maskValue("")).toBe("****");
+  it("fully masks pay and any amount, whatever the length", () => {
+    expect(maskValue("85000", "PAY")).toBe("****");
+    expect(maskValue("1234567890", "PAY")).toBe("****");
+    expect(maskValue("1234567890", "AMOUNT")).toBe("****");
+  });
+
+  it("fully masks an identifier with fewer than eight significant characters", () => {
+    expect(maskValue("1234567", "BANKACCT")).toBe("****");
+    expect(maskValue("12345", "TAXID")).toBe("****");
+    expect(maskValue("12-34-567", "TAXID")).toBe("****");
+    expect(maskValue("", "SSN")).toBe("****");
+  });
+
+  it("keeps the last four of an identifier with at least eight significant characters", () => {
+    expect(maskValue("4111111111111111", "CARD")).toBe("****1111");
+    expect(maskValue("123-45-6789", "SSN")).toBe("****6789");
+    expect(maskValue("DE89370400440532013000", "IBAN")).toBe("****3000");
   });
 });

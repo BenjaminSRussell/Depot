@@ -24,6 +24,7 @@ export interface OutputInput {
   pseudo: Pseudonymizer;
   duties: ReadonlySet<string>;
   declaredClass: DataClass;
+  partial?: boolean;
 }
 
 export type OutputVerdict = { ok: true; dataClass: DataClass } | { ok: false; reason: OutputGuardReason; dataClass: DataClass };
@@ -82,9 +83,11 @@ export function createOutputGuard(deps: { analyzer?: Analyzer; log?: LogFn; obse
   async function violation(input: OutputInput): Promise<OutputGuardReason | undefined> {
     const { text, context, pseudo, duties } = input;
     if ([...text.matchAll(PSEUDONYM_RE)].some((m) => !context.inputTokens.has(m[0]))) return "TOKEN_NOT_IN_INPUT";
-    const cited = [...text.matchAll(CITE_RE)].map((m) => m[1] ?? "");
-    const unverified = cited.filter((id) => !context.inputRecordIds.has(id)).length;
-    if (unverified > 0 && unverified / cited.length > UNVERIFIED_LIMIT) return "RECORD_NOT_IN_INPUT";
+    if (input.partial !== true) {
+      const cited = [...text.matchAll(CITE_RE)].map((m) => m[1] ?? "");
+      const unverified = cited.filter((id) => !context.inputRecordIds.has(id)).length;
+      if (unverified > 0 && unverified / cited.length > UNVERIFIED_LIMIT) return "RECORD_NOT_IN_INPUT";
+    }
     const entries = pseudo.snapshot().entries;
     const shown = pseudo.restoreFor(text, duties);
     const hidden = entries.filter((e) => !mayViewValue(e.category, duties) && e.value.length >= MIN_LEAK_LENGTH).map((e) => e.value);

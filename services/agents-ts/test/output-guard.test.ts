@@ -52,7 +52,7 @@ describe("output guard checks", () => {
   it("verifies the final text against the viewer's duties: a raw value they may not see is a leak, a held one is not", async () => {
     expect(await reasonOf("The pay is 85000.")).toBe("DUTY_LEAK");
     expect(await reasonOf("The pay is 85000.", { duties: HOLDER })).toBeUndefined();
-    expect(await reasonOf("The pay is ****5000.")).toBeUndefined();
+    expect(await reasonOf("The pay is ****.")).toBeUndefined();
   });
 
   it("suppresses a raw identifier that did not come from allowed re-hydration", async () => {
@@ -84,6 +84,36 @@ describe("output guard checks", () => {
     await guard.check(turn({ text: "ok" }));
     await guard.check(turn({ text: "[EMAIL-7]" }));
     expect(seen).toEqual(["ALLOWED", "OUTPUT_BLOCKED"]);
+  });
+});
+
+describe("streamed answers and the unverified-citation share", () => {
+  const streamed = async (sentences: string[]) => {
+    const guard = createOutputGuard();
+    const releaser = createChunkReleaser(async (chunk) => (await guard.check(turn({ text: chunk, partial: true }))).ok);
+    for (const s of sentences) releaser.push(s);
+    const chunksPassed = await releaser.end();
+    const final = await guard.check(turn({ text: sentences.join("") }));
+    return { chunksPassed, final };
+  };
+  const own = "Invoice [[cite:INV-7]] is due. ";
+  const owned = Array.from({ length: 5 }, () => own);
+
+  it("does not withdraw per chunk: one unverified citation among six passes every chunk and the final check", async () => {
+    const { chunksPassed, final } = await streamed([...owned, "Also [[cite:INV-99]] is odd. "]);
+    expect(chunksPassed).toBe(true);
+    expect(final.ok).toBe(true);
+  });
+
+  it("withdraws at the final check when two of six are unverified, though each chunk passed", async () => {
+    const { chunksPassed, final } = await streamed([...owned.slice(0, 4), "Also [[cite:INV-98]] is odd. ", "And [[cite:INV-99]] too. "]);
+    expect(chunksPassed).toBe(true);
+    expect(final).toMatchObject({ ok: false, reason: "RECORD_NOT_IN_INPUT" });
+  });
+
+  it("still applies the other rules to a partial chunk", async () => {
+    const verdict = await createOutputGuard().check(turn({ text: "Write to [EMAIL-9]. ", partial: true }));
+    expect(verdict).toMatchObject({ ok: false, reason: "TOKEN_NOT_IN_INPUT" });
   });
 });
 

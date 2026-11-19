@@ -227,8 +227,8 @@ export function createCopilotService(deps: CopilotDeps) {
       const recordIds = new Set<string>();
       let guardContext: GuardContext = { inputTokens: new Set(), inputRecordIds: new Set(), highestClass: "P0" };
       const outcome: { failure?: OutputGuardReason } = {};
-      const verify = async (text: string): Promise<boolean> => {
-        const verdict = await outputGuard.check({ tenantId: caller.tenantId, text, context: guardContext, pseudo, duties: caller.duties, declaredClass: dataClass });
+      const verify = async (text: string, partial: boolean): Promise<boolean> => {
+        const verdict = await outputGuard.check({ tenantId: caller.tenantId, text, context: guardContext, pseudo, duties: caller.duties, declaredClass: dataClass, partial });
         dataClass = verdict.dataClass;
         if (verdict.ok) return true;
         if (outcome.failure === undefined) {
@@ -245,7 +245,7 @@ export function createCopilotService(deps: CopilotDeps) {
           ? undefined
           : createChunkReleaser(async (chunk) => {
               if (!streamable()) return true;
-              if (!(await verify(chunk))) return false;
+              if (!(await verify(chunk, true))) return false;
               sink(present(chunk));
               return true;
             });
@@ -402,7 +402,7 @@ export function createCopilotService(deps: CopilotDeps) {
           }
         }
         if (answer === "" && refused === null) answer = "I could not complete the answer within the tool-call limit.";
-        if (refused === null && outcome.failure === undefined) await verify(answer);
+        if (refused === null && outcome.failure === undefined) await verify(answer, false);
         if (outcome.failure !== undefined) {
           refused = { code: OUTPUT_GUARD_CODE, message: OUTPUT_GUARD_MESSAGE };
           answer = refused.message;
