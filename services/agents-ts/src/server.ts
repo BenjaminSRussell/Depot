@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { createAgentsHandler, type AgentsApiDeps } from "./api/router.js";
 import type { GuardDecision } from "./runtime/egressGuard.js";
 
-const ROUTES = ["healthz", "readyz", "kill-switch", "ai-data-policy", "start-run", "run", "chat", "conversations", "messages", "decision", "budgets", "briefings", "other"] as const;
+const ROUTES = ["healthz", "readyz", "kill-switch", "ai-data-policy", "start-run", "run", "chat", "conversations", "messages", "decision", "budgets", "definitions", "briefings", "other"] as const;
 type Route = (typeof ROUTES)[number];
 
 /** Bounded route label so metric cardinality cannot grow with caller input. */
@@ -15,6 +15,7 @@ export function routeLabel(path: string): Route {
   if (/^\/api\/v1\/agents\/briefings([/:]|$)/.test(path)) return "briefings";
   if (path === "/api/v1/agents/copilot/conversations") return "conversations";
   if (/^\/api\/v1\/agents\/copilot\/conversations\/[0-9a-fA-F-]{36}\/messages$/.test(path)) return "messages";
+  if (/^\/api\/v1\/agents\/definitions(\/[a-z][a-z0-9_]*:(disable|enable))?$/.test(path)) return "definitions";
   if (/^\/api\/v1\/agents\/budgets(\/[a-z][a-z0-9_]*)?$/.test(path)) return "budgets";
   if (/^\/api\/v1\/agents\/[a-z][a-z0-9_]*\/runs$/.test(path)) return "start-run";
   if (/\/decision$/.test(path)) return "decision";

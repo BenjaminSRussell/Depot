@@ -1190,6 +1190,9 @@
     "agents.admin": {"tenant_level": true, "permissions": [
       {"resource": "/api/v1/agents/*/versions/*/promote", "methods": ["PUT"]},
       {"resource": "/api/v1/agents/budgets/*", "methods": ["GET"]},
+      {"resource": "/api/v1/agents/definitions", "methods": ["GET"]},
+      {"resource": "/api/v1/agents/definitions/*:disable", "methods": ["POST"]},
+      {"resource": "/api/v1/agents/definitions/*:enable", "methods": ["POST"]},
       {"resource": "/api/v1/agents/kill-switch", "methods": ["GET", "POST"]},
       {"resource": "/api/v1/predictions/payment/accuracy", "methods": ["GET"]},
       {"resource": "/api/v1/predictions/payment/retrain", "methods": ["POST"]},

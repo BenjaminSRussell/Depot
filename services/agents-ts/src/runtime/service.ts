@@ -1,5 +1,6 @@
 import type { OutputGuard } from "./outputGuard.js";
 import { randomUUID } from "node:crypto";
+import type { DisabledAgents } from "../api/agentDefinitions.js";
 import { ApiError, requireDuty, type Principal } from "../api/principal.js";
 import { assertCanStartRun, type TokenBudget } from "../domain/budget.js";
 import type { ActionRecord } from "../domain/audit.js";
@@ -57,6 +58,7 @@ export interface RunServiceDeps {
   store: RunStore;
   inbox: ApprovalInbox & { pendingForRun(tenantId: string, runId: string): Promise<PendingApproval[]> };
   killSwitch: KillSwitchPort;
+  disabledAgents: DisabledAgents;
   config: RunServiceConfig;
   now?: () => Date;
   sleep?: (ms: number) => Promise<void>;
@@ -113,6 +115,7 @@ export function createRunService(deps: RunServiceDeps) {
       requireDuty(caller, AGENT_INVOKE_DUTY, `agent ${agentId}`);
       for (const duty of agent.requiredDuties) requireDuty(caller, duty, `agent ${agentId}`);
       if (deps.killSwitch.isHalted(caller.tenantId)) throw new AgentError("AGT-0201", "agent runs are halted by the kill switch");
+      if ((await deps.disabledAgents(caller.tenantId)).has(agentId)) throw new AgentError("AGT-0235", `agent ${agentId} is disabled by an administrator`);
       if (!(await deps.evalPassed(agent))) {
         throw new AgentError("AGT-0204", `agent ${agent.agentId} v${agent.version} has no passing evaluation`);
       }

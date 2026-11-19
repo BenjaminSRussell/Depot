@@ -11,6 +11,7 @@ import type { ActionService } from "../runtime/actions.js";
 import type { RunService } from "../runtime/service.js";
 import { handleChat } from "./copilot.js";
 import type { AgentBudgetService } from "./agentBudgets.js";
+import type { AgentDefinitionService } from "./agentDefinitions.js";
 import { type AiPolicyStore, handleGetAiDataPolicy, handlePutAiDataPolicy } from "./aiDataPolicy.js";
 import type { Authenticate } from "./auth.js";
 import { ApiError, requireDuty, toApiError } from "./principal.js";
@@ -38,6 +39,8 @@ export interface AgentsApiBase {
   knowledge?: KnowledgeService;
   /** The budgets list and per-agent cap routes; absent and they answer 404. */
   budgets?: AgentBudgetService;
+  /** The agent definitions list and the disable and enable routes; absent and they answer 404. */
+  definitions?: AgentDefinitionService;
   /** On-demand briefings; absent and their routes answer 404. */
   briefings?: BriefingService;
   /** The tenant AI data policy; absent and its route answers 404. */
@@ -60,6 +63,8 @@ const BRIEFING_PATH = new RegExp(`^/api/v1/agents/briefings/(${UUID})$`);
 const BRIEFING_READ_PATH = new RegExp(`^/api/v1/agents/briefings/(${UUID}):mark-read$`);
 const BUDGETS_PATH = "/api/v1/agents/budgets";
 const BUDGET_AGENT_PATH = /^\/api\/v1\/agents\/budgets\/([a-z][a-z0-9_]{0,63})$/;
+const DEFINITIONS_PATH = "/api/v1/agents/definitions";
+const DEFINITION_ACTION_PATH = /^\/api\/v1\/agents\/definitions\/([a-z][a-z0-9_]{0,63}):(disable|enable)$/;
 const CHAT_PATH = "/api/v1/copilot/chat";
 const CONVERSATIONS_PATH = "/api/v1/agents/copilot/conversations";
 const MESSAGES_PATH = new RegExp(`^/api/v1/agents/copilot/conversations/(${UUID})/messages$`);
@@ -296,6 +301,19 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
           if (req.method !== "PUT") throw new MethodNotAllowed("PUT");
           const principal = await deps.authenticate(req.headers);
           send(res, 200, await deps.budgets.setCap(principal, budgetAgent[1] ?? "", await readBody(req)));
+        }
+        return;
+      }
+      const definitionAction = DEFINITION_ACTION_PATH.exec(path);
+      if (path === DEFINITIONS_PATH || definitionAction !== null) {
+        if (deps.definitions === undefined) throw new ApiError(404, "AGT-0404", "no such route");
+        const method = definitionAction === null ? "GET" : "POST";
+        if (req.method !== method) throw new MethodNotAllowed(method);
+        const principal = await deps.authenticate(req.headers);
+        if (definitionAction === null) send(res, 200, await deps.definitions.list(principal));
+        else {
+          const act = definitionAction[2] === "disable" ? deps.definitions.disable : deps.definitions.enable;
+          send(res, 200, await act(principal, definitionAction[1] ?? "", await readBody(req, true)));
         }
         return;
       }

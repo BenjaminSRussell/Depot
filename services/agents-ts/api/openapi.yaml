@@ -648,6 +648,77 @@ paths:
         "404": {$ref: "#/components/responses/Problem"}
         "413": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/definitions:
+    get:
+      operationId: listAgentDefinitions
+      summary: The tenant's agents with an enabled flag (DEPOT-278)
+      description: |
+        One entry per registered agent. An agent an administrator disabled
+        reports enabled false with who disabled it, when and why. Needs
+        agents.admin.
+      x-depot-duty: agents.admin
+      x-depot-approval: none
+      responses:
+        "200":
+          description: The agent definitions.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AgentDefinitionList"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/definitions/{agentId}:disable:
+    post:
+      operationId: disableAgent
+      summary: Disable an agent for the tenant (DEPOT-278)
+      description: |
+        A disabled agent's runs are refused with 422 AGT-0235 and a briefing
+        leaves out its items and states that it is disabled. Repeating the call
+        is a 200 and writes no second agent_disabled_change row. An unknown
+        agent is 404 AGT-0404; a reason over 500 characters or not a string is
+        422 AGT-0422. Runs already started continue; the kill switch halts them.
+      x-depot-duty: agents.admin
+      x-depot-approval: none
+      parameters:
+        - {name: agentId, in: path, required: true, schema: {type: string, pattern: "^[a-z][a-z0-9_]{0,63}$"}}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/DisableAgentCommand"}
+      responses:
+        "200":
+          description: The agent's definition, now disabled.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AgentDefinition"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "413": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/definitions/{agentId}:enable:
+    post:
+      operationId: enableAgent
+      summary: Enable a disabled agent for the tenant (DEPOT-278)
+      description: |
+        Takes no body keys. Enabling an agent that is not disabled is a 200 and
+        writes no agent_disabled_change row. An unknown agent is 404 AGT-0404.
+      x-depot-duty: agents.admin
+      x-depot-approval: none
+      parameters:
+        - {name: agentId, in: path, required: true, schema: {type: string, pattern: "^[a-z][a-z0-9_]{0,63}$"}}
+      responses:
+        "200":
+          description: The agent's definition, now enabled.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AgentDefinition"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "413": {$ref: "#/components/responses/Problem"}
   /api/v1/agents/briefings:generate:
     post:
       operationId: generateAgentBriefing
@@ -912,6 +983,26 @@ components:
         agents:
           type: array
           items: {$ref: "#/components/schemas/BudgetEntry"}
+    AgentDefinition:
+      type: object
+      required: [agentId, version, enabled, disabledBy, disabledAt, reason]
+      properties:
+        agentId: {type: string}
+        version: {type: integer, minimum: 1}
+        enabled: {type: boolean}
+        disabledBy: {type: [string, "null"]}
+        disabledAt: {type: [string, "null"], format: date-time}
+        reason: {type: [string, "null"]}
+    AgentDefinitionList:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/AgentDefinition"}}
+    DisableAgentCommand:
+      type: object
+      properties:
+        reason: {type: string, maxLength: 500}
+      additionalProperties: false
     BudgetCapCommand:
       type: object
       required: [limitIn, limitOut]
@@ -1069,7 +1160,7 @@ components:
     AgentErrorCode:
       type: string
       description: Stable codes from PRD 9.47.18 raised by this slice.
-      enum: [AGT-0201, AGT-0202, AGT-0203, AGT-0204, AGT-0208, AGT-0209, AGT-0210, AGT-0214]
+      enum: [AGT-0201, AGT-0202, AGT-0203, AGT-0204, AGT-0208, AGT-0209, AGT-0210, AGT-0214, AGT-0235]
     RunResult:
       type: object
       description: Returned by runAgent. Mirrors RunResult in src/runtime/engine.ts.

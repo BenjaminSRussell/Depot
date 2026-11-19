@@ -97,6 +97,18 @@ describe("buildBriefing", () => {
     expect(out.risks).toEqual([]);
   });
 
+  it("drops a disabled agent's items and count and states it is disabled, leaving other agents untouched", () => {
+    const input = facts({
+      pending: [pending({ agentId: "ap_coding" }), pending({ agentId: "cash_app", actionId: "keep" })],
+      runs: [{ agentId: "ap_coding", runId: "r1", status: "FAILED", createdAt: "2026-11-19T07:00:00.000Z" }],
+    });
+    const out = buildBriefing(input, NOW, new Set(["ap_coding", "not_an_agent"]));
+    expect([...out.changes, ...out.risks, ...out.recommendedActions].map((i) => i.agentId)).toEqual(["cash_app"]);
+    expect(Object.keys(out.counts)).toEqual(AGENT_IDS.filter((id) => id !== "ap_coding"));
+    expect(out.notes).toEqual(["ap_coding is disabled by your administrator"]);
+    expect(buildBriefing(input, NOW, new Set(["not_an_agent"]))).toEqual(buildBriefing(input, NOW));
+  });
+
   it("is an empty briefing with zero counts when there are no facts", () => {
     const out = buildBriefing(facts(), NOW);
     expect([out.changes, out.risks, out.recommendedActions, out.notes]).toEqual([[], [], [], []]);
@@ -125,7 +137,7 @@ describe("briefing routes", () => {
     const store = new FakeStore();
     const read = vi.fn(over.facts ?? (async () => facts({ pending: [pending()] })));
     const logs: string[] = [];
-    const briefings = createBriefingService({ store, facts: { read }, now: () => NOW, log: (_l, message) => void logs.push(message) });
+    const briefings = createBriefingService({ store, facts: { read }, disabledAgents: async () => new Set(), now: () => NOW, log: (_l, message) => void logs.push(message) });
     const srv = await serve({ approvals: new MemoryStore(), ...(over.wired === false ? {} : { briefings }) });
     close = srv.close;
     return { base: srv.base, store, read, logs };
