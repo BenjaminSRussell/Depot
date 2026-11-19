@@ -341,6 +341,16 @@ func TestReverseApplication_ARefusedPendingApplyJournalChangesNothing(t *testing
 		t.Fatalf("pending apply journal: %v", err)
 	}
 	f.unchanged(t)
+	req := ReverseApplicationRequest{ApplicationID: f.applied.ApplicationID, Reason: "wrong invoice"}
+	if got, err := f.s.CheckReverseApplication(f.ctx, f.pay.ID, req); err != nil || got.Eligible || got.Code != CodeReversalLedgerUnavailable {
+		t.Fatalf("dryRun with a pending apply journal: %+v %v", got, err)
+	}
+	execAdmin(t, f.s, `update gl_journal set parked = true where source_id = $1 and status = 'PENDING'`, f.pay.ID)
+	if _, err := f.reverse("ra-parked", f.applied.Payment.Version); problemCode(err) != CodeReversalLedgerUnavailable {
+		t.Fatalf("parked apply journal: %v", err)
+	}
+	f.unchanged(t)
+	execAdmin(t, f.s, `update gl_journal set parked = false where source_id = $1 and status = 'PENDING'`, f.pay.ID)
 	if _, err := f.s.PostDueJournals(f.ctx, time.Now().UTC(), 50); err != nil {
 		t.Fatal(err)
 	}

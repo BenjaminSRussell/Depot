@@ -52,7 +52,11 @@ type ReverseEligibility struct {
 }
 
 func (e ReverseEligibility) problem() *httpx.Problem {
-	pr := httpx.NewProblem(http.StatusConflict, e.Code, e.Reason)
+	status := http.StatusConflict
+	if e.Code == CodeReversalLedgerUnavailable {
+		status = http.StatusServiceUnavailable
+	}
+	pr := httpx.NewProblem(status, e.Code, e.Reason)
 	if len(e.Items) > 0 {
 		pr.Errors = make(map[string]string, len(e.Items))
 		for _, it := range e.Items {
@@ -83,9 +87,6 @@ func (s *Postgres) ReverseApplication(ctx context.Context, paymentID string, ver
 		}
 		if !eligibility.Eligible {
 			return eligibility.problem()
-		}
-		if err := requireJournalsPosted(ctx, tx, p.TenantID, pay.ID); err != nil {
-			return err
 		}
 		var res UnapplyResult
 		if err := s.unapplyRows(ctx, tx, p, pay, req.Reason, "", &app, &res); err != nil {
@@ -142,6 +143,13 @@ func reverseGuards(ctx context.Context, tx pgx.Tx, p tenant.Principal, pay Payme
 	if len(items) > 0 {
 		return refuse(CodeReversalItemChanged, "an item of the application was touched since it was applied", items)
 	}
+	unposted, err := applyJournalsUnposted(ctx, tx, p.TenantID, pay.ID)
+	if err != nil {
+		return app, ReverseEligibility{}, err
+	}
+	if unposted {
+		return refuse(CodeReversalLedgerUnavailable, "the application's own journal is not posted to the ledger yet; retry with the same Idempotency-Key", nil)
+	}
 	return app, ReverseEligibility{Eligible: true}, nil
 }
 
@@ -191,16 +199,11 @@ func changedItems(ctx context.Context, tx pgx.Tx, tenantID, paymentID, applicati
 	return out, rows.Err()
 }
 
-func requireJournalsPosted(ctx context.Context, tx pgx.Tx, tenantID, paymentID string) error {
+func applyJournalsUnposted(ctx context.Context, tx pgx.Tx, tenantID, paymentID string) (bool, error) {
 	var pending bool
-	if err := tx.QueryRow(ctx, `select exists (select 1 from gl_journal where tenant_id = $1 and source_id = $2 and status = 'PENDING'
-		and source_key ~ '^(apply|fx):')`, tenantID, paymentID).Scan(&pending); err != nil {
-		return err
-	}
-	if pending {
-		return httpx.NewProblem(http.StatusServiceUnavailable, CodeReversalLedgerUnavailable, "the application's own journal is not posted to the ledger yet; retry with the same Idempotency-Key")
-	}
-	return nil
+	err := tx.QueryRow(ctx, `select exists (select 1 from gl_journal where tenant_id = $1 and source_id = $2 and status = 'PENDING'
+		and source_key ~ '^(apply|fx):')`, tenantID, paymentID).Scan(&pending)
+	return pending, err
 }
 
 func (s *Postgres) postApplicationReversal(ctx context.Context, pay Payment, app *appReversal, currency, suffix string, lines []journalLine) (string, error) {
