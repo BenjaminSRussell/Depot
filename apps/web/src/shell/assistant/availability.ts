@@ -11,7 +11,7 @@ export const AVAILABILITY_PATH = "/api/v1/agents/availability";
 export const BUDGET_REFUSAL_CODE = "AGT-0202";
 
 export const availabilitySchema = z.object({
-  killSwitch: killSwitchStatusSchema.omit({ tenantId: true }),
+  killSwitch: killSwitchStatusSchema.pick({ halted: true, stale: true }),
   budgetStatus: z.enum(["OK", "SOFT", "HARD"]),
   copilotEnabled: z.boolean(),
 });
