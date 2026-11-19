@@ -506,7 +506,7 @@ paths:
               type: object
               required: [mode, message]
               properties:
-                mode: {type: string, enum: [ask, explain, draft, summarize, route, act]}
+                mode: {type: string, enum: [ask, explain, draft, summarize, route, act, task]}
                 message: {type: string, minLength: 1, maxLength: 4000}
                 recordRef: {type: string, minLength: 1, maxLength: 200}
               additionalProperties: false
@@ -515,9 +515,12 @@ paths:
           description: The answer.
           content:
             application/json:
-              schema: {$ref: "#/components/schemas/ChatResponse"}
+              schema:
+                oneOf:
+                  - {$ref: "#/components/schemas/ChatResponse"}
+                  - {$ref: "#/components/schemas/TaskResponse"}
             text/event-stream:
-              schema: {type: string, description: "token frames, optionally one answer.withdrawn frame, then one done frame"}
+              schema: {type: string, description: "token frames, optionally one answer.withdrawn frame, then one done frame; never for mode=task"}
         "400": {$ref: "#/components/responses/Problem"}
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
@@ -563,6 +566,13 @@ paths:
         switch, budget stop, provider failure, missing AI route or guard block
         answers HTTP 200 with a RefusalResponse and no kind. A route call is
         never cached and counts against the budget and the kill switch.
+        With mode=task the model resolves the prompt to one screen of the
+        server route catalog with no tool and no write: the answer is a
+        navigationIntent (routeKey, path, params, draft, summary), a
+        clarifyingQuestion or a refusal. The path comes only from the catalog,
+        never from model text; a screen the caller lacks the duty for is a
+        refusal AGT-0203 that names nothing restricted. A task answer is always
+        JSON, never cached and counts against the budget and the kill switch.
       x-depot-duty: mcp.copilot.use
       x-depot-approval: none
       parameters:
@@ -575,7 +585,7 @@ paths:
               type: object
               required: [mode, message]
               properties:
-                mode: {type: string, enum: [ask, explain, draft, summarize, route, act]}
+                mode: {type: string, enum: [ask, explain, draft, summarize, route, act, task]}
                 message: {type: string, minLength: 1, maxLength: 4000}
                 recordRef: {type: string, minLength: 1, maxLength: 200}
               additionalProperties: false
@@ -588,6 +598,7 @@ paths:
                 oneOf:
                   - {$ref: "#/components/schemas/ChatResponse"}
                   - {$ref: "#/components/schemas/RouteResponse"}
+                  - {$ref: "#/components/schemas/TaskResponse"}
                   - {$ref: "#/components/schemas/RefusalResponse"}
             text/event-stream:
               schema: {type: string, description: "token frames, optionally one answer.withdrawn frame, then one done frame; never for mode=route"}
@@ -1064,6 +1075,37 @@ components:
           maxItems: 2
           items: {type: string, enum: [ask, navigate, act]}
         generated: {type: boolean, enum: [true]}
+    TaskResponse:
+      description: The answer of a mode=task call. Exactly one of navigationIntent, clarifyingQuestion or refusal is present.
+      oneOf:
+        - type: object
+          required: [navigationIntent, generated]
+          additionalProperties: false
+          properties:
+            navigationIntent:
+              type: object
+              required: [routeKey, path, params, draft, summary]
+              properties:
+                routeKey: {type: string, description: A key of the server route catalog.}
+                path: {type: string, pattern: "^/[^/?#:]", description: An app path taken from the route catalog, never from model text.}
+                params:
+                  type: object
+                  description: List filters declared by the catalog entry, such as overdue and amountGt.
+                  additionalProperties: {type: [boolean, number, string]}
+                draft:
+                  type: object
+                  description: Form values declared by the catalog entry, such as vendor, product and qty; names to resolve, never ids.
+                  additionalProperties: {type: [boolean, number, string]}
+                summary: {type: string, description: Plain-language statement of what was resolved, built from the validated values.}
+            generated: {type: boolean, enum: [true]}
+        - type: object
+          required: [clarifyingQuestion, generated]
+          additionalProperties: false
+          properties:
+            clarifyingQuestion: {type: string}
+            candidates: {type: array, items: {type: string}}
+            generated: {type: boolean, enum: [true]}
+        - {$ref: "#/components/schemas/RefusalResponse"}
     RefusalResponse:
       type: object
       required: [refusal, generated]

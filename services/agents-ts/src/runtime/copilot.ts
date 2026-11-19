@@ -13,6 +13,7 @@ import {
 import { gateCitations, type Citation } from "../domain/knowledge.js";
 import { exclusionNotice, NO_ROUTE_MESSAGE, permittedOutput, recordsOf } from "../domain/modelRoute.js";
 import { AMOUNT_WITHHELD, AMOUNT_WITHHELD_NOTICE, applyFinancialPolicy } from "../domain/financialFields.js";
+import { taskInstruction } from "../domain/routeCatalog.js";
 import { classifyByRules, decideRoute, type RouteResult } from "../domain/promptClass.js";
 import { assertNoPii, Pseudonymizer } from "../domain/redaction.js";
 import { AgentError } from "../errors.js";
@@ -116,6 +117,7 @@ const MODE_PROMPTS: Record<CopilotMode, string> = {
   summarize: "Summarize the workflow or case history the user names. Use the read tools; state only what they show.",
   route:
     'Classify the user\'s message as exactly one of ask (a question about data), navigate (open, list, find or create a screen or record) or act (change a record or amount). Call no tool. Answer with only this JSON: {"kind":"ask|navigate|act","confidence":0 to 1,"runnerUp":{"kind":"ask|navigate|act","confidence":0 to 1}}.',
+  task: taskInstruction(),
   act: "Extract the parameters of one action from the user's request. Use the read tools to look up what the request names; never invent an id. You do not run the action: a person approves it later.",
 };
 
@@ -138,7 +140,7 @@ export function parseChatRequest(raw: unknown): ChatRequest {
 }
 
 function systemPrompt(mode: CopilotMode, tools: readonly string[], act?: ChatHooks["act"]): string {
-  if (mode === "route") return `${MODE_PROMPTS.route} ${INJECTION_GUARD}`;
+  if (mode === "route" || mode === "task") return `${MODE_PROMPTS[mode]} ${INJECTION_GUARD}`;
   const actTail =
     act === undefined
       ? ""
@@ -169,12 +171,13 @@ export function createCopilotService(deps: CopilotDeps) {
       const prompt = req.recordRef === undefined ? req.message : `${req.message}\n[record: ${req.recordRef}]`;
       const asker = { tenantId: caller.tenantId, userId: caller.userId, duties: caller.duties };
       const rules = req.mode === "route" ? classifyByRules(req.message) : undefined;
-      const cacheable = rules === undefined && hooks.act === undefined;
+      const toolless = req.mode === "route" || req.mode === "task";
+      const cacheable = !toolless && hooks.act === undefined;
       const cached = cacheable ? deps.cache.get(asker, req.mode, prompt) : undefined;
       if (cached !== undefined) return JSON.parse(cached) as ChatResponse;
 
       const runId = randomUUID();
-      const session = rules === undefined ? await deps.mcp.connect(caller, token, runId) : undefined;
+      const session = toolless ? undefined : await deps.mcp.connect(caller, token, runId);
       const candidates = session === undefined ? [] : session.tools.filter((t) => t.approvalMode === "none" && READ_TOOL.test(t.name));
       if (session !== undefined && deps.knowledge !== undefined && !candidates.some((t) => t.name === KNOWLEDGE_SEARCH_TOOL)) {
         candidates.push({ name: KNOWLEDGE_SEARCH_TOOL, requiredDuty: KNOWLEDGE_READ_DUTY, approvalMode: "none" } as (typeof candidates)[number]);
@@ -300,7 +303,7 @@ export function createCopilotService(deps: CopilotDeps) {
       };
 
       try {
-        const turns = rules === undefined ? (hooks.act?.maxTurns ?? deps.config.maxTurns) : rules.status === "decided" ? 0 : 1;
+        const turns = rules === undefined ? (toolless ? 1 : (hooks.act?.maxTurns ?? deps.config.maxTurns)) : rules.status === "decided" ? 0 : 1;
         for (let turn = 0; turn < turns; turn += 1) {
           const verdict = await guard.inspect({ tenantId: caller.tenantId, callId: randomUUID(), routeId, pseudo, system, typed: prompt, results, recordIds, excluded: Object.fromEntries(Object.entries({ [AMOUNT_WITHHELD]: amountsWithheld, NO_APPROVED_ROUTE: withheldCount, NEED_TO_KNOW: needToKnowHidden, TENANT_POLICY: policyDropped }).filter(([, n]) => n > 0)), declared, ...(policyCell !== undefined ? { policyCell } : {}), ...(policyVersion !== undefined ? { policyVersion } : {}) });
           guardRow(verdict.result);
@@ -341,7 +344,7 @@ export function createCopilotService(deps: CopilotDeps) {
           guardContext = verdict.context;
           const context = verdict.user;
           assertNoPii(context);
-          const toolsText = JSON.stringify(proposeTool(gate.allowed, rules !== undefined));
+          const toolsText = JSON.stringify(proposeTool(gate.allowed, toolless));
           assertPromptWithinCap([system, context, toolsText], deps.config.tokenCap - usage.tokensIn);
           const maxOutputTokens = outputBudgetForCall(
             deps.config.tokenCap,
@@ -350,7 +353,7 @@ export function createCopilotService(deps: CopilotDeps) {
           );
           let response;
           try {
-            const call = { system, user: context, allowedTools: gate.allowed, maxOutputTokens, ...(rules !== undefined ? { answerOnly: true } : {}), ...(hooks.signal !== undefined ? { signal: hooks.signal } : {}) };
+            const call = { system, user: context, allowedTools: gate.allowed, maxOutputTokens, ...(toolless ? { answerOnly: true } : {}), ...(hooks.signal !== undefined ? { signal: hooks.signal } : {}) };
             response = releaser !== undefined && provider.stream !== undefined ? await provider.stream(call, (delta) => releaser.push(delta)) : await provider.complete(call);
             await releaser?.end();
           } catch (err) {
@@ -453,7 +456,7 @@ export function createCopilotService(deps: CopilotDeps) {
             for (const c of g.citations) citations.push({ sourceType: c.sourceType, sourceRef: c.sourceRef, label: c.section });
           }
         }
-        if (answer === "" && refused === null && rules === undefined) answer = "I could not complete the answer within the tool-call limit.";
+        if (answer === "" && refused === null && !toolless) answer = "I could not complete the answer within the tool-call limit.";
         if (refused === null && outcome.failure === undefined && answer !== "") await verify(answer, false);
         if (outcome.failure !== undefined) {
           refused = { code: OUTPUT_GUARD_CODE, message: OUTPUT_GUARD_MESSAGE };
@@ -464,7 +467,7 @@ export function createCopilotService(deps: CopilotDeps) {
             OUTPUT_GUARD_TOOL,
           );
         }
-        const noticed = hooks.act === undefined;
+        const noticed = hooks.act === undefined && req.mode !== "task";
         const notice = noticed && withheldCount > 0 ? `\n\n${exclusionNotice([...withheldKinds], withheldCount)}` : "";
         const replacedNotice = noticed && typedReplaced > 0 ? `\n\n${TYPED_REPLACED_NOTICE}` : "";
         const policyNotice = noticed && policyDropped > 0 ? `\n\n${policyDropped} tool result(s) were left out because your AI data policy does not allow that data.` : "";

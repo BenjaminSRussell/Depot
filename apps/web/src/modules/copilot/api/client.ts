@@ -91,6 +91,44 @@ export async function postRoute(message: string, fetchFn: typeof fetch = apiFetc
   }
 }
 
+const taskValues = z.record(z.string(), z.union([z.boolean(), z.number(), z.string()]));
+
+export const taskResponseSchema = z.union([
+  z.strictObject({
+    navigationIntent: z.strictObject({
+      routeKey: z.string().min(1),
+      path: z.string().regex(/^\/(?!\/)[^?#:\\]*$/),
+      params: taskValues,
+      draft: taskValues,
+      summary: z.string(),
+    }),
+    generated: z.literal(true),
+  }),
+  z.strictObject({ clarifyingQuestion: z.string().min(1), candidates: z.array(z.string()).optional(), generated: z.literal(true) }),
+  z.strictObject({ refusal: z.object({ code: z.string(), message: z.string() }), generated: z.literal(true) }),
+]);
+
+export type TaskResponse = z.infer<typeof taskResponseSchema>;
+
+export async function postTask(message: string, fetchFn: typeof fetch = apiFetch): Promise<TaskResponse> {
+  const deadline = withDeadline(AI_REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetchFn("/api/v1/copilot/chat", {
+      method: "POST",
+      cache: "no-store",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ mode: "task", message }),
+      signal: deadline.signal,
+    });
+    if (!res.ok) throw await failedCopilotCall(res);
+    return taskResponseSchema.parse(await res.json());
+  } catch (err) {
+    throw deadline.expired() ? new CopilotError(COPILOT_TIMEOUT_MESSAGE) : err;
+  } finally {
+    deadline.clear();
+  }
+}
+
 const CONVERSATIONS_PATH = "/api/v1/agents/copilot/conversations";
 
 const conversationSchema = z.object({ conversationId: z.string().uuid() });

@@ -4,6 +4,7 @@ import type { Principal } from "../../src/api/principal.js";
 import { CopilotAnswerCache } from "../../src/domain/copilot.js";
 import { NO_ROUTE_MESSAGE, type ModelRoute } from "../../src/domain/modelRoute.js";
 import type { BriefingContent, BriefingStore, StoredBriefing } from "../../src/domain/briefing.js";
+import { taskBody } from "../../src/domain/routeCatalog.js";
 import { classifyByRules } from "../../src/domain/promptClass.js";
 import { AgentError } from "../../src/errors.js";
 import { createActService } from "../../src/runtime/act.js";
@@ -174,6 +175,11 @@ export async function runCase(profile: Profile, c: RedTeamCase, responderFor: Re
         say(r.answer);
         if (r.refusal !== null) refusals.push(r.refusal.code);
         if (r.route !== undefined) routeKind = r.route.kind;
+      } else if (c.path === "task") {
+        const r = await copilot.chat(caller, TOKEN, { mode: "task", message });
+        const body = taskBody(r, caller.duties);
+        say(JSON.stringify(body));
+        if ("refusal" in body) refusals.push(body.refusal.code);
       } else if (c.path === "act") {
         const { body } = await act.act(caller, TOKEN, { mode: "act", message, recordRef: "PAY-1" });
         say(JSON.stringify(body));

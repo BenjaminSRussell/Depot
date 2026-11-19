@@ -1,0 +1,170 @@
+import { afterEach, describe, expect, it } from "vitest";
+import { CopilotAnswerCache } from "../src/domain/copilot.js";
+import { CLARIFY_FALLBACK } from "../src/domain/routeCatalog.js";
+import { AgentError } from "../src/errors.js";
+import { providerUnavailable } from "../src/providers/wire.js";
+import { createCopilotService } from "../src/runtime/copilot.js";
+import type { createEgressGuard } from "../src/runtime/egressGuard.js";
+import { GUARD_REFUSAL_MESSAGE } from "../src/runtime/egressGuard.js";
+import type { ModelProvider, ModelResponse } from "../src/runtime/engine.js";
+import { createOutputGuard, OUTPUT_GUARD_MESSAGE } from "../src/runtime/outputGuard.js";
+import { allowAiAccess, openRouter, ScriptedProvider, testGuard } from "./fakes.js";
+import { FakeMcp, headers, MemoryStore, serve, tool } from "./surface-fakes.js";
+
+const DUTIES = "mcp.copilot.use,receivables.view,procurement.purchase-order.inquire";
+const verdict = (text: unknown): ModelResponse => ({ text: typeof text === "string" ? text : JSON.stringify(text), usage: { tokensIn: 50, tokensOut: 10 } });
+
+class BudgetStopStore extends MemoryStore {
+  override async reserve(): Promise<never> {
+    throw new AgentError("AGT-0202", "token budget exhausted for this month");
+  }
+}
+
+interface Options {
+  provider?: ModelProvider;
+  killed?: boolean;
+  store?: MemoryStore;
+  guard?: ReturnType<typeof createEgressGuard>;
+  outputGuard?: ReturnType<typeof createOutputGuard>;
+}
+
+let close: (() => Promise<void>) | undefined;
+afterEach(async () => {
+  await close?.();
+  close = undefined;
+});
+
+const setup = async (script: ModelResponse[], options: Options = {}) => {
+  const store = options.store ?? new MemoryStore();
+  const provider = new ScriptedProvider(script);
+  const mcp = new FakeMcp([tool("depot.ap.invoice.get", "ap.invoice.read")]);
+  const copilot = createCopilotService({
+    router: openRouter(options.provider ?? provider),
+    mcp,
+    store,
+    killSwitch: { isHalted: () => options.killed ?? false },
+    cache: new CopilotAnswerCache(),
+    config: { tokenCap: 20_000, maxTurns: 3, pseudonymTtlMs: 60_000 },
+    modelId: "claude-haiku-5-5",
+    guard: options.guard ?? testGuard(),
+    aiAccess: allowAiAccess(),
+    ...(options.outputGuard !== undefined ? { outputGuard: options.outputGuard } : {}),
+  });
+  const srv = await serve({ approvals: store, copilot });
+  close = srv.close;
+  return { store, provider, mcp, base: srv.base };
+};
+
+const task = (base: string, message: unknown, duties = DUTIES, accept = "application/json") =>
+  fetch(`${base}/api/v1/copilot/chat`, { method: "POST", headers: { ...headers(duties), accept }, body: JSON.stringify({ mode: "task", message }) });
+
+describe("mode=task", () => {
+  it("answers a navigation intent from the catalog with no tool, no gateway session and no write", async () => {
+    const s = await setup([verdict({ routeKey: "receivables.openItems", params: { overdue: true, amountGt: "10000" }, path: "https://evil.example" })]);
+    const res = await task(s.base, "show me overdue invoices over $10k", DUTIES, "text/event-stream");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("application/json");
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    const text = await res.text();
+    expect(text).not.toContain("evil.example");
+    expect(JSON.parse(text)).toEqual({
+      navigationIntent: { routeKey: "receivables.openItems", path: "/receivables/open-items", params: { overdue: true, amountGt: 10000 }, draft: {}, summary: "Showing open invoices that are overdue and above 10000." },
+      generated: true,
+    });
+    expect(s.provider.seen).toHaveLength(1);
+    expect(s.provider.seen[0]?.allowedTools).toEqual([]);
+    expect(s.provider.seen[0]?.system).toContain("receivables.openItems");
+    expect(s.provider.seen[0]?.system).not.toContain("Tools you may call");
+    expect(s.mcp.connects).toHaveLength(0);
+    expect(s.mcp.calls).toHaveLength(0);
+    expect([...s.store.runs.values()]).toEqual([expect.objectContaining({ agentId: "copilot", status: "COMMITTED" })]);
+  });
+
+  it("does not cache a task answer, so every call is counted against the budget", async () => {
+    const intent = { routeKey: "purchasing.purchaseOrder.new", draft: { vendor: "Acme" } };
+    const s = await setup([verdict(intent), verdict(intent)]);
+    await task(s.base, "create a PO from Acme");
+    await task(s.base, "create a PO from Acme");
+    expect(s.store.reserved).toHaveLength(2);
+    expect(s.provider.seen).toHaveLength(2);
+  });
+
+  it("ignores a tool the model proposes and answers a clarifying question", async () => {
+    const named: ModelResponse = { text: "", proposal: { tool: "depot.ap.invoice.get", args: {}, confidence: 1, amount: { amount: "0", currency: "USD" } } };
+    const s = await setup([named]);
+    expect(await (await task(s.base, "hmm")).json()).toEqual({ clarifyingQuestion: CLARIFY_FALLBACK, generated: true });
+    expect(s.mcp.calls).toHaveLength(0);
+  });
+
+  it("refuses with AGT-0203 and a generic message when the caller lacks the screen's duty", async () => {
+    const s = await setup([verdict({ routeKey: "purchasing.purchaseOrder.new", draft: { vendor: "Acme" } })]);
+    const text = await (await task(s.base, "create a PO from Acme", "mcp.copilot.use")).text();
+    expect(JSON.parse(text)).toEqual({ refusal: { code: "AGT-0203", message: "You do not have access to that page." }, generated: true });
+    expect(text).not.toContain("Acme");
+  });
+
+  it("answers 403 AGT-0203 with no model call for a caller without the copilot duty", async () => {
+    const s = await setup([]);
+    const res = await task(s.base, "x", "ap.vendor.read");
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { code: string }).code).toBe("AGT-0203");
+    expect(s.provider.seen).toHaveLength(0);
+  });
+
+  it.each([
+    ["an empty message", { mode: "task", message: "" }],
+    ["a mistyped message", { mode: "task", message: 5 }],
+    ["an over-long message", { mode: "task", message: "x".repeat(4001) }],
+    ["an unknown field", { mode: "task", message: "x", extra: 1 }],
+    ["a mode in capitals", { mode: "TASK", message: "x" }],
+    ["a misspelt mode", { mode: "tasks", message: "x" }],
+  ])("answers 400 AGT-0400 for %s", async (_name, body) => {
+    const s = await setup([]);
+    const res = await fetch(`${s.base}/api/v1/copilot/chat`, { method: "POST", headers: headers(DUTIES), body: JSON.stringify(body) });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { code: string }).code).toBe("AGT-0400");
+    expect(s.provider.seen).toHaveLength(0);
+  });
+
+  it("answers 200 {refusal} with no navigationIntent for a halted tenant", async () => {
+    const s = await setup([], { killed: true });
+    const body = (await (await task(s.base, "show me invoices")).json()) as Record<string, unknown>;
+    expect(body).toMatchObject({ refusal: { code: "AGT-0201" }, generated: true });
+    expect(body).not.toHaveProperty("navigationIntent");
+    expect(s.provider.seen).toHaveLength(0);
+  });
+
+  it("answers 200 {refusal} AGT-0202 when the budget is stopped", async () => {
+    const s = await setup([], { store: new BudgetStopStore() });
+    const res = await task(s.base, "show me invoices");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ refusal: { code: "AGT-0202" } });
+  });
+
+  it("answers 200 {refusal} AGT-0206 with a fixed message when the provider is down", async () => {
+    const failing: ModelProvider = { complete: async () => { throw providerUnavailable("upstream 503 secret-detail"); } };
+    const s = await setup([], { provider: failing });
+    const res = await task(s.base, "hmm");
+    const text = await res.text();
+    expect(res.status).toBe(200);
+    expect(JSON.parse(text)).toMatchObject({ refusal: { code: "AGT-0206" } });
+    expect(text).not.toContain("secret-detail");
+  });
+
+  it("answers the guard refusal with no navigationIntent and no provider call when the egress guard blocks", async () => {
+    const guard = testGuard({ analyzer: { scan: () => { throw new Error("analyzer down"); } } });
+    const s = await setup([verdict({ routeKey: "receivables.openItems" })], { guard });
+    const body = (await (await task(s.base, "hmm")).json()) as Record<string, unknown>;
+    expect(body).toMatchObject({ refusal: { code: "AGT-0219", message: GUARD_REFUSAL_MESSAGE } });
+    expect(body).not.toHaveProperty("navigationIntent");
+    expect(s.provider.seen).toHaveLength(0);
+  });
+
+  it("answers AGT-0220 with no navigationIntent when the output guard withdraws the model text", async () => {
+    const outputGuard = createOutputGuard({ analyzer: { scan: () => { throw new Error("analyzer down"); } } });
+    const s = await setup([verdict({ routeKey: "receivables.openItems" })], { outputGuard });
+    const body = (await (await task(s.base, "hmm")).json()) as Record<string, unknown>;
+    expect(body).toMatchObject({ refusal: { code: "AGT-0220", message: OUTPUT_GUARD_MESSAGE } });
+    expect(body).not.toHaveProperty("navigationIntent");
+  });
+});

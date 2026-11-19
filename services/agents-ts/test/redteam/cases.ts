@@ -48,8 +48,7 @@ export const isCase = (v: unknown): v is RedTeamCase =>
   (v["replay"] === undefined || typeof v["replay"] === "string") &&
   (v["forbidden"] === undefined || isStringArray(v["forbidden"])) &&
   oneOf(v["expectKind"], ["ask", "navigate", "act"]) &&
-  (v["skip"] === undefined || typeof v["skip"] === "string") &&
-  (v["path"] === "task") === (v["skip"] !== undefined);
+  (v["skip"] === undefined || typeof v["skip"] === "string");
 
 export function parseDataset(text: string, name: string, minCases = MIN_CASES): Dataset {
   const cases = parseJsonl(text, isCase, `${name}.jsonl`);

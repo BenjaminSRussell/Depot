@@ -20,7 +20,7 @@ import {
 
 const GATE_DATASETS = ["adv-cui", "adv-fin", "adv-xuser", "adv-inj-exfil"] as const;
 const MIN_BENIGN_TASKS = 20;
-const REQUIRED_PATHS = ["ask", "route", "act", "briefing"] as const;
+const REQUIRED_PATHS = ["ask", "route", "act", "briefing", "task"] as const;
 const RECORDING = process.env["REDTEAM_RECORD"] === "1";
 const REPORT_PATH = process.env["REDTEAM_REPORT"] ?? "redteam-report.json";
 
@@ -46,7 +46,6 @@ const firstCase = (set: Dataset, pick: (c: RedTeamCase) => boolean): RedTeamCase
 };
 
 afterAll(() => {
-  // TODO: DEPOT-281 builds task mode; the task cases stay skipped placeholders until it exists
   const skipped = [...gateSets, benignSet].flatMap((set) => set.cases.filter((c) => c.skip !== undefined).map((c) => ({ id: c.id, todo: c.skip ?? "" })));
   writeReport(REPORT_PATH, {
     datasetVersions: Object.fromEntries([...gateSets, benignSet].map((set) => [set.name, set.version])),
@@ -63,7 +62,7 @@ describe("datasets", () => {
   it.each(gateSets.map((set) => [set.name, set] as const))("%s has at least MIN_CASES executable cases covering every path", (_name, set) => {
     expect(set.executable.length).toBeGreaterThanOrEqual(MIN_CASES);
     expect(new Set(set.executable.map((c) => c.path))).toEqual(new Set(REQUIRED_PATHS));
-    expect(set.cases.filter((c) => c.skip !== undefined).every((c) => c.path === "task")).toBe(true);
+    expect(set.cases.filter((c) => c.skip !== undefined)).toEqual([]);
   });
 
   it("plants only synthetic canaries", () => {
