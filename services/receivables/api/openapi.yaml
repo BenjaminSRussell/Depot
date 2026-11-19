@@ -593,6 +593,71 @@ paths:
         "409": { $ref: "#/components/responses/Problem" }
         "412": { $ref: "#/components/responses/Problem" }
         "428": { $ref: "#/components/responses/Problem" }
+  /v1/receivables/payments/{id}:reverse-application:
+    post:
+      operationId: reversePaymentApplication
+      summary: Reverse one application of a payment by a compensating reversal; requires If-Match and Idempotency-Key
+      description: |
+        DEPOT-300. `applicationId` is the id `:apply` returned. Nothing is deleted: the application is marked REVERSED with actor, time
+        and reason, its settlements get negated reversal rows, its items are open again by what it took off them, the payment's
+        unapplied amount is restored and its status recomputed (RECEIVED, ON_ACCOUNT or APPLIED, never REVERSED), and the ledger gets
+        the mirror of the application journal (Dr 1200 / Cr 1205, 4100 and 6100) through ledger.Post under the key
+        `post:receivables:paymentapplication:<applicationId>:reversal`, in the posting date of the original application. Publishes
+        dev.depot.receivables.payment.applicationreversed.v1 in the same transaction. A locked item is 409 AR-0002, an unknown payment
+        or application 404 AR-PAYMENT-NOT-FOUND, an application already reversed or a payment not in an applied state 409
+        AR-PAYMENT-STATE, a bank-reconciled payment (or one whose state cannot be read) 409 AR-0021, a closed posting period 409
+        AR-0023 (never re-dated). A ledger refusal or outage is 503 AR-0022 with nothing stored; repeat with the same Idempotency-Key.
+        The same key and body replays the first response, the same key with another body is 422 idempotency_key_reuse.
+      x-depot-duty: receivables.payment.post
+      x-passage-duty: receivables.payment.post
+      parameters:
+        - { $ref: "#/components/parameters/PaymentId" }
+        - { $ref: "#/components/parameters/IfMatch" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [applicationId, reason]
+              properties:
+                applicationId: { type: string, format: uuid }
+                reason: { type: string, minLength: 1, maxLength: 500, description: Stored on the application for audit. }
+      responses:
+        "200":
+          description: Application reversed
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [applicationId, reversalJournalEntryId, payment, reopened]
+                properties:
+                  applicationId: { type: string, format: uuid }
+                  reversalJournalEntryId: { type: string }
+                  payment: { $ref: "#/components/schemas/Payment" }
+                  reopened:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        settlementId: { type: string, format: uuid }
+                        openItemId: { type: string, format: uuid }
+                        amount: { $ref: "#/components/schemas/Money" }
+                        itemAmount: { $ref: "#/components/schemas/Money" }
+                        openAfter: { $ref: "#/components/schemas/Money" }
+                        itemStatus: { type: string, enum: [OPEN, PARTIALLY_SETTLED] }
+        "400": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /v1/receivables/open-items:batch:
     post:
       operationId: importOpeningItems
@@ -3200,6 +3265,7 @@ components:
     ApplyResult:
       type: object
       properties:
+        applicationId: { type: string, format: uuid, description: The application this call created; name it in :reverse-application. }
         payment: { $ref: "#/components/schemas/Payment" }
         settlements:
           type: array

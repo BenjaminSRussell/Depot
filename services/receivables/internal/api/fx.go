@@ -2,6 +2,8 @@ package api
 
 import (
 	"net/http"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
 
@@ -134,5 +136,49 @@ func (a *API) reversePayment(w http.ResponseWriter, r *http.Request, id string) 
 		return
 	}
 	w.Header().Set("ETag", etag(out.Version))
+	httpx.JSON(w, http.StatusOK, out)
+}
+
+type reverseApplicationRequest struct {
+	ApplicationID string `json:"applicationId"`
+	Reason        string `json:"reason"`
+}
+
+func (a *API) reverseApplication(w http.ResponseWriter, r *http.Request, id string) {
+	if !require(w, r, dutyPayment) {
+		return
+	}
+	version, err := ifMatch(r)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	key, ok := requiredKey(w, r)
+	if !ok {
+		return
+	}
+	var in reverseApplicationRequest
+	if err := httpx.Decode(r, &in); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	fields := map[string]string{}
+	applicationID, validID := ids.Canonical(in.ApplicationID)
+	if !validID {
+		fields["applicationId"] = "must be a UUID"
+	}
+	if n := utf8.RuneCountInString(in.Reason); strings.TrimSpace(in.Reason) == "" || n > 500 {
+		fields["reason"] = "must be 1 to 500 characters"
+	}
+	if len(fields) > 0 {
+		writeFields(w, r, fields)
+		return
+	}
+	out, err := a.store.ReverseApplication(r.Context(), id, version, store.ReverseApplicationRequest{ApplicationID: applicationID, Reason: in.Reason}, key)
+	if err != nil {
+		a.fail("reverse payment application", w, r, err)
+		return
+	}
+	w.Header().Set("ETag", etag(out.Payment.Version))
 	httpx.JSON(w, http.StatusOK, out)
 }
