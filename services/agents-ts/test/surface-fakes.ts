@@ -18,12 +18,13 @@ export const USER = "00000000-0000-7000-8000-0000000000c1";
 export const OTHER = "00000000-0000-7000-8000-0000000000c2";
 
 /** A tool as the gateway lists it. */
-export const tool = (name: string, requiredDuty: string, approvalMode: McpToolInfo["approvalMode"] = "none"): McpToolInfo => ({
+export const tool = (name: string, requiredDuty: string, approvalMode: McpToolInfo["approvalMode"] = "none", inputSchema?: Record<string, unknown>): McpToolInfo => ({
   name,
   description: name,
   requiredDuty,
   approvalMode,
   readOnly: approvalMode === "none",
+  ...(inputSchema !== undefined ? { inputSchema } : {}),
 });
 
 /** A gateway fake: lists what it is given and answers calls from `answers` (or the default). */

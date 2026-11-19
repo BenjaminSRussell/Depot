@@ -78,6 +78,7 @@ export interface ChatHooks {
   onWithdraw?: () => void;
   /** Aborts the model call when the caller is gone. */
   signal?: AbortSignal;
+  act?: { tool: string; inputSchema: Record<string, unknown> | undefined; maxTurns: number };
 }
 
 export interface CopilotStore extends AuditPort, BudgetPort {}
@@ -115,6 +116,7 @@ const MODE_PROMPTS: Record<CopilotMode, string> = {
   summarize: "Summarize the workflow or case history the user names. Use the read tools; state only what they show.",
   route:
     'Classify the user\'s message as exactly one of ask (a question about data), navigate (open, list, find or create a screen or record) or act (change a record or amount). Call no tool. Answer with only this JSON: {"kind":"ask|navigate|act","confidence":0 to 1,"runnerUp":{"kind":"ask|navigate|act","confidence":0 to 1}}.',
+  act: "Extract the parameters of one action from the user's request. Use the read tools to look up what the request names; never invent an id. You do not run the action: a person approves it later.",
 };
 
 const READ_TOOL = /\.(get|list|search)$/;
@@ -135,9 +137,13 @@ export function parseChatRequest(raw: unknown): ChatRequest {
   return { mode: mode as CopilotMode, message, ...(recordRef !== undefined ? { recordRef } : {}) };
 }
 
-function systemPrompt(mode: CopilotMode, tools: readonly string[]): string {
+function systemPrompt(mode: CopilotMode, tools: readonly string[], act?: ChatHooks["act"]): string {
   if (mode === "route") return `${MODE_PROMPTS.route} ${INJECTION_GUARD}`;
-  return `${MODE_PROMPTS[mode]} Tools you may call: ${tools.join(", ")}. To call one, propose it with its arguments; you will receive its result and may call another. When you have enough, answer in plain language without proposing a tool. ${INJECTION_GUARD}`;
+  const actTail =
+    act === undefined
+      ? ""
+      : ` The action is ${act.tool}; its input schema is ${JSON.stringify(act.inputSchema ?? {})}. When you have enough, answer with only this JSON: {"params":{...}} using the schema's field names, or {"clarifyingQuestion":"..."} when a required value or the record the request means is missing or ambiguous. Use an entity id only if it appears in the request or its record reference.`;
+  return `${MODE_PROMPTS[mode]}${actTail} Tools you may call: ${tools.join(", ")}. To call one, propose it with its arguments; you will receive its result and may call another. When you have enough, answer in plain language without proposing a tool. ${INJECTION_GUARD}`;
 }
 
 export const TYPED_REPLACED_NOTICE = "I replaced sensitive numbers in your message with placeholders before sending it to the AI model.";
@@ -163,7 +169,8 @@ export function createCopilotService(deps: CopilotDeps) {
       const prompt = req.recordRef === undefined ? req.message : `${req.message}\n[record: ${req.recordRef}]`;
       const asker = { tenantId: caller.tenantId, userId: caller.userId, duties: caller.duties };
       const rules = req.mode === "route" ? classifyByRules(req.message) : undefined;
-      const cached = rules === undefined ? deps.cache.get(asker, req.mode, prompt) : undefined;
+      const cacheable = rules === undefined && hooks.act === undefined;
+      const cached = cacheable ? deps.cache.get(asker, req.mode, prompt) : undefined;
       if (cached !== undefined) return JSON.parse(cached) as ChatResponse;
 
       const runId = randomUUID();
@@ -230,7 +237,7 @@ export function createCopilotService(deps: CopilotDeps) {
       let policyCell: "tenant" | "default" | undefined;
       let policyVersion: number | undefined;
       const withheldKinds = new Set<string>();
-      const system = systemPrompt(req.mode, gate.allowed);
+      const system = systemPrompt(req.mode, gate.allowed, hooks.act);
       const results: string[] = [];
       const pending: Pick<AiAccessRow, "tool" | "entityType" | "recordIds" | "recordClasses">[] = [];
       const sink = hooks.onToken;
@@ -293,7 +300,7 @@ export function createCopilotService(deps: CopilotDeps) {
       };
 
       try {
-        const turns = rules === undefined ? deps.config.maxTurns : rules.status === "decided" ? 0 : 1;
+        const turns = rules === undefined ? (hooks.act?.maxTurns ?? deps.config.maxTurns) : rules.status === "decided" ? 0 : 1;
         for (let turn = 0; turn < turns; turn += 1) {
           const verdict = await guard.inspect({ tenantId: caller.tenantId, callId: randomUUID(), routeId, pseudo, system, typed: prompt, results, recordIds, excluded: Object.fromEntries(Object.entries({ [AMOUNT_WITHHELD]: amountsWithheld, NO_APPROVED_ROUTE: withheldCount, NEED_TO_KNOW: needToKnowHidden, TENANT_POLICY: policyDropped }).filter(([, n]) => n > 0)), declared, ...(policyCell !== undefined ? { policyCell } : {}), ...(policyVersion !== undefined ? { policyVersion } : {}) });
           guardRow(verdict.result);
@@ -457,10 +464,11 @@ export function createCopilotService(deps: CopilotDeps) {
             OUTPUT_GUARD_TOOL,
           );
         }
-        const notice = withheldCount > 0 ? `\n\n${exclusionNotice([...withheldKinds], withheldCount)}` : "";
-        const replacedNotice = typedReplaced > 0 ? `\n\n${TYPED_REPLACED_NOTICE}` : "";
-        const policyNotice = policyDropped > 0 ? `\n\n${policyDropped} tool result(s) were left out because your AI data policy does not allow that data.` : "";
-        const amountNotice = amountsWithheld > 0 ? `\n\n${AMOUNT_WITHHELD_NOTICE}` : "";
+        const noticed = hooks.act === undefined;
+        const notice = noticed && withheldCount > 0 ? `\n\n${exclusionNotice([...withheldKinds], withheldCount)}` : "";
+        const replacedNotice = noticed && typedReplaced > 0 ? `\n\n${TYPED_REPLACED_NOTICE}` : "";
+        const policyNotice = noticed && policyDropped > 0 ? `\n\n${policyDropped} tool result(s) were left out because your AI data policy does not allow that data.` : "";
+        const amountNotice = noticed && amountsWithheld > 0 ? `\n\n${AMOUNT_WITHHELD_NOTICE}` : "";
         const display = outcome.failure !== undefined ? answer : (refused !== null ? answer : present(answer)) + notice + replacedNotice + amountNotice + policyNotice;
         const result = finished(runId, "COMMITTED", actions, usage, display, provider.endpoint);
         await deps.store.finishRun(runReq, result);
@@ -474,7 +482,7 @@ export function createCopilotService(deps: CopilotDeps) {
           ...(withheldCount > 0 ? { excluded: { count: withheldCount, kinds: [...withheldKinds], reason: "NO_APPROVED_ROUTE" as const } } : {}),
           generated: true,
         };
-        if (refused === null && withheldCount === 0 && policyDropped === 0 && needToKnowHidden === 0 && !cuiDerived && rules === undefined) deps.cache.put(asker, req.mode, prompt, JSON.stringify(out));
+        if (refused === null && withheldCount === 0 && policyDropped === 0 && needToKnowHidden === 0 && !cuiDerived && cacheable) deps.cache.put(asker, req.mode, prompt, JSON.stringify(out));
         return out;
       } catch (err) {
         await deps.store
@@ -556,7 +564,7 @@ function knowledgeCitations(output: unknown): Citation[] {
   return out;
 }
 
-function auditRequest(runId: string, caller: Principal, modelId: string, cap: number): RunRequest {
+export function auditRequest(runId: string, caller: Principal, modelId: string, cap: number): RunRequest {
   return {
     runId,
     tenantId: caller.tenantId,
@@ -572,7 +580,7 @@ function auditRequest(runId: string, caller: Principal, modelId: string, cap: nu
   };
 }
 
-function finished(runId: string, status: "COMMITTED" | "FAILED", actions: ActionRecord[], usage: ModelUsage, displayText: string, endpoint?: ModelEndpoint): RunResult {
+export function finished(runId: string, status: "COMMITTED" | "FAILED", actions: ActionRecord[], usage: ModelUsage, displayText: string, endpoint?: ModelEndpoint): RunResult {
   return { runId, status, actions, tokensIn: usage.tokensIn, tokensOut: usage.tokensOut, estimated: false, budgetState: "OK", displayText, ...(endpoint !== undefined ? { modelEndpoint: endpoint } : {}) };
 }
 

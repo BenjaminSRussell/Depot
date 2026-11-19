@@ -8,6 +8,7 @@ export interface McpToolInfo {
   requiredDuty: string;
   approvalMode: ToolDescriptor["approvalMode"];
   readOnly: boolean;
+  inputSchema?: Record<string, unknown>;
 }
 
 /** The runtime's view of the MCP gateway for one caller: the tool port plus the catalog it was built from. */
@@ -89,6 +90,7 @@ export function createMcpConnector(cfg: McpClientConfig): McpConnector {
           requiredDuty: duty,
           approvalMode: mode,
           readOnly: ann.readOnlyHint === true,
+          ...(isRecord(t.inputSchema) ? { inputSchema: t.inputSchema } : {}),
         });
       }
       const byName = new Map(tools.map((t) => [t.name, t]));
