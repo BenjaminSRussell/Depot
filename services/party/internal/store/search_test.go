@@ -102,3 +102,39 @@ func TestSearch_VendorHitsFilterByLegalEntityAndCarryIt(t *testing.T) {
 		t.Fatalf("filter on another legal entity must hide the vendor: %+v, %v", other, err)
 	}
 }
+
+func TestSearch_OrdersBySimilarityToTheQueryAndPagesInThatOrder(t *testing.T) {
+	app := migratedApp(t)
+	s := store.New(app)
+	ctx := asUser(1, legalEntityA, "buyer")
+	insertNamedParty(t, ctx, app, "P-00070", "Contoso Holdings International Group")
+	closest := insertNamedParty(t, ctx, app, "P-00071", "Contoso Ltd")
+	insertNamedParty(t, ctx, app, "P-00072", "Contoso Group Services")
+
+	all, err := s.Search(ctx, store.SearchParties, "contoso", "", store.SearchKey{}, 10)
+	if err != nil || len(all.Items) != 3 || all.Items[0].ID != closest {
+		t.Fatalf("search = %+v, %v; want the closest name first", all, err)
+	}
+	for i := 1; i < len(all.Items); i++ {
+		if all.Items[i].Score > all.Items[i-1].Score {
+			t.Fatalf("scores must not rise down the list: %+v", all.Items)
+		}
+	}
+	var paged []string
+	after := store.SearchKey{}
+	for range all.Items {
+		page, err := s.Search(ctx, store.SearchParties, "contoso", "", after, 1)
+		if err != nil || len(page.Items) != 1 {
+			t.Fatalf("page after %+v = %+v, %v", after, page, err)
+		}
+		paged = append(paged, page.Items[0].ID)
+		if page.Next != nil {
+			after = *page.Next
+		}
+	}
+	for i, hit := range all.Items {
+		if paged[i] != hit.ID {
+			t.Fatalf("paging one at a time = %v; want the order of one page %+v", paged, all.Items)
+		}
+	}
+}

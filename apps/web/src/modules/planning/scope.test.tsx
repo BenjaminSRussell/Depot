@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { setLookupFetcher } from "../../shell/lookup/entities";
 import { findStatus } from "../../test-utils";
 import planning from "./module";
 import { validateRun } from "./RunPlanPage";
@@ -45,7 +46,7 @@ describe("plan scope and planning horizon on the run form", () => {
   });
 
   it("builds the scope from the filled fields", () => {
-    const r = validateRun({ ...base, horizonDays: "180", scopeGroups: "FIN, SEMI", scopePlanners: "ANN", scopeItemIds: item, llcMin: "0", llcMax: "2" });
+    const r = validateRun({ ...base, horizonDays: "180", scopeGroups: "FIN, SEMI", scopePlanners: "ANN", scopeItemIds: [item], llcMin: "0", llcMax: "2" });
     expect(r.errors).toEqual({});
     expect(r.horizonDays).toBe(180);
     expect(r.scope).toEqual({ itemGroups: ["FIN", "SEMI"], planners: ["ANN"], itemIds: [item], llcMin: 0, llcMax: 2 });
@@ -57,11 +58,11 @@ describe("plan scope and planning horizon on the run form", () => {
     expect(validateRun({ ...base, scopePlanners: "x".repeat(65) }).errors.scopePlanners).toBeDefined();
   });
 
-  it("rejects an out-of-range horizon, bad ids and a reversed code range", () => {
+  it("rejects an out-of-range horizon, too many items and a reversed code range", () => {
     expect(validateRun({ ...base, horizonDays: "10" }).errors.horizonDays).toMatch(/30 to 1095/);
     expect(validateRun({ ...base, horizonDays: "2000" }).errors.horizonDays).toMatch(/30 to 1095/);
     expect(validateRun({ ...base, horizonDays: "abc" }).errors.horizonDays).toBeDefined();
-    expect(validateRun({ ...base, scopeItemIds: "nope" }).errors.scopeItemIds).toBeDefined();
+    expect(validateRun({ ...base, scopeItemIds: Array.from({ length: 1001 }, () => item) }).errors.scopeItemIds).toMatch(/at most 1000/);
     expect(validateRun({ ...base, llcMin: "3", llcMax: "1" }).errors.llcMax).toMatch(/at least/);
     expect(validateRun({ ...base, llcMax: "100" }).errors.llcMax).toBeDefined();
   });
@@ -79,6 +80,27 @@ describe("plan scope and planning horizon on the run form", () => {
     const body = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
     expect(body).toMatchObject({ horizonDays: 90, scope: { itemGroups: ["FIN"], llcMax: 0 } });
     expect(body.scope).not.toHaveProperty("llcMin");
+  });
+
+  it("scopes the run by pasted item numbers and reports the ones it cannot find", async () => {
+    const catalog: Record<string, string> = { "A-100": item, "B-200": "00000000-0000-0000-0000-0000000000c2" };
+    setLookupFetcher(async (url) => {
+      const q = new URL(url, "http://x").searchParams.get("q") ?? "";
+      const id = catalog[q];
+      return new Response(JSON.stringify({ items: id ? [{ id, name: `Item ${q}`, productNumber: q }] : [] }), { status: 200 });
+    });
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(version), { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+    renderRun();
+    fireEvent.change(screen.getByLabelText("Site"), { target: { value: site } });
+    fireEvent.paste(screen.getByLabelText("Items in scope"), { clipboardData: { getData: () => "A-100, B-200\nZ-999" } });
+    expect(await screen.findByText("Item A-100 (A-100)")).toBeInTheDocument();
+    expect(screen.getByText("Item B-200 (B-200)")).toBeInTheDocument();
+    expect(screen.getByText("Not found: Z-999")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Run plan" }));
+    expect(await screen.findByText("Version 1 of plan MAIN is current")).toBeInTheDocument();
+    const post = fetchMock.mock.calls.map((c) => c as unknown as [string, RequestInit]).find(([, init]) => init?.method === "POST");
+    expect(JSON.parse(post?.[1].body as string).scope).toEqual({ itemIds: [item, catalog["B-200"]] });
   });
 
   it("shows field errors instead of calling the service", async () => {

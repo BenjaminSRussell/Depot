@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlanProjection } from "./api/client";
+import { setLookupFetcher } from "../../shell/lookup/entities";
 import planning from "./module";
 import { daysCell, periodCell, readSelection, validateDraft } from "./SupplySchedulePage";
 
@@ -101,13 +102,13 @@ describe("Supply schedule page", () => {
     expect(fetchMock).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Show schedule" }));
-    expect(await screen.findByText("Enter at least one item id.")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Items"), { target: { value: "RM-300" } });
-    fireEvent.click(screen.getByRole("button", { name: "Show schedule" }));
-    expect(await screen.findByText(/Every item id must be a UUID/)).toBeInTheDocument();
+    expect(await screen.findByText("Choose at least one item.")).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
 
-    fireEvent.change(screen.getByLabelText("Items"), { target: { value: fg } });
+    setLookupFetcher(async () => json({ items: [{ id: fg, name: "Widget", productNumber: "RM-300" }] }));
+    fireEvent.paste(screen.getByLabelText("Items"), { clipboardData: { getData: () => "RM-300 RM-300" } });
+    expect(await screen.findByText("Widget (RM-300)")).toBeInTheDocument();
+    fetchMock.mockClear();
     fireEvent.change(screen.getByLabelText("Plan"), { target: { value: "nightly" } });
     fireEvent.click(screen.getByRole("button", { name: "Show schedule" }));
     await waitFor(() =>
@@ -134,14 +135,14 @@ describe("Supply schedule page", () => {
   });
 
   it("validates the selection and reads the URL defensively", () => {
-    expect(validateDraft({ plan: "main", items: fg, bucket: "week", horizon: "84", cost: "", currency: "" })).toEqual({});
-    expect(validateDraft({ plan: "m", items: fg, bucket: "week", horizon: "0", cost: "x", currency: "" })).toMatchObject({
+    expect(validateDraft({ plan: "main", items: [fg], bucket: "week", horizon: "84", cost: "", currency: "" })).toEqual({});
+    expect(validateDraft({ plan: "m", items: [fg], bucket: "week", horizon: "0", cost: "x", currency: "" })).toMatchObject({
       plan: expect.any(String),
       horizon: expect.any(String),
       cost: expect.any(String),
     });
-    expect(validateDraft({ plan: "MAIN", items: fg, bucket: "week", horizon: "84", cost: "2", currency: "" }).currency).toMatch(/together/);
-    const many = Array.from({ length: 21 }, (_, i) => `00000000-0000-0000-0000-${String(i).padStart(12, "0")}`).join(",");
+    expect(validateDraft({ plan: "MAIN", items: [fg], bucket: "week", horizon: "84", cost: "2", currency: "" }).currency).toMatch(/together/);
+    const many = Array.from({ length: 21 }, (_, i) => `00000000-0000-0000-0000-${String(i).padStart(12, "0")}`);
     expect(validateDraft({ plan: "MAIN", items: many, bucket: "week", horizon: "84", cost: "", currency: "" }).items).toMatch(/at most 20/);
     const read = readSelection(new URLSearchParams(`plan=x&items=${fg},nope,${fg.toUpperCase()}&bucket=year&horizon=9999&cost=-1&currency=eur`));
     expect(read).toEqual({ plan: "MAIN", items: [fg], bucket: "week", horizon: 84, cost: "", currency: "" });

@@ -68,7 +68,7 @@ for (const [kind, rows] of [
 }
 route("GET", "/api/v1/party/parties:search", ({ query }) => ({
   items: limit(
-    [...CUSTOMERS, ...VENDORS].filter((p) => matches(query.get("q"), p.name, p.number)).map((p) => ({ id: p.id, name: p.name, partyNumber: p.number })),
+    rankBySearch([...CUSTOMERS, ...VENDORS], query.get("q") ?? "", (p) => ({ number: p.number, name: p.name })).map((p) => ({ id: p.id, name: p.name, partyNumber: p.number })),
     query,
   ),
 }));
