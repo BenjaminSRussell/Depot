@@ -118,7 +118,8 @@ type OnHandRow struct {
 	Blocked decimal.Decimal
 	// Currency of PostedValue. Every group is split by currency, so value
 	// totals never mix currencies (legal entities may keep different ones).
-	Currency string
+	Currency    string
+	EnteredUnit string
 	// Negative is true when any underlying row has negative physical stock, so
 	// a negative row is flagged even when the group total is positive (FR-16.4).
 	Negative bool
@@ -227,6 +228,34 @@ func (s *Postgres) ListOnHand(ctx context.Context, f OnHandFilter) (OnHandResult
 		res.Rows, res.Truncated = out[:limit], true
 	}
 	return res, nil
+}
+
+func attachEnteredUnits(ctx context.Context, tx pgx.Tx, tenantID string, groups []string, rows []OnHandRow) error {
+	if !slices.Contains(groups, GroupProduct) || len(rows) == 0 {
+		return nil
+	}
+	products := make([]string, 0, len(rows))
+	for _, r := range rows {
+		products = append(products, r.Group[GroupProduct])
+	}
+	units, err := tx.Query(ctx, `select distinct on (product_id) product_id::text, entered_unit from inventory_transaction
+		where tenant_id = $1 and product_id = any($2::uuid[]) order by product_id, created_at desc, id desc`, tenantID, products)
+	if err != nil {
+		return err
+	}
+	defer units.Close()
+	latest := map[string]string{}
+	for units.Next() {
+		var product, unit string
+		if err := units.Scan(&product, &unit); err != nil {
+			return err
+		}
+		latest[product] = unit
+	}
+	for i := range rows {
+		rows[i].EnteredUnit = latest[rows[i].Group[GroupProduct]]
+	}
+	return units.Err()
 }
 
 // groupExpr maps a grouping name to a SQL expression. Only "product" and the

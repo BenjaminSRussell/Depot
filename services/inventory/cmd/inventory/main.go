@@ -148,7 +148,11 @@ func run(ctx context.Context, getenv func(string) string) error {
 		return err
 	}
 	s := store.New(pool).WithRules(cfg.rules)
-	a := api.New(s, cfg.post).WithTruckStock(s).WithOpeningBatches(s)
+	units, err := postingsUnits(getenv)
+	if err != nil {
+		return fmt.Errorf("product unit conversion: %w", err)
+	}
+	a := api.New(s, cfg.post).WithTruckStock(s).WithOpeningBatches(s).WithUnits(units)
 	// Optional: without LEDGER_URL the GL sweep answers 503 INV-GL-005; with it, a signing key is required.
 	ledger, err := ledgerclient.FromEnv(getenv, "inventory")
 	if err != nil {

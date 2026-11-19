@@ -73,7 +73,7 @@ func serve(body string) http.HandlerFunc {
 }
 
 func line(product, qty string) string {
-	return `{"orderNumber":"SO-7","lineNo":2,"productId":"` + product + `","openQty":` + qty + `,"dueDate":"2026-11-30"}`
+	return `{"orderNumber":"SO-7","lineNo":2,"productId":"` + product + `","openQty":` + qty + `,"unit":"box","dueDate":"2026-11-30"}`
 }
 
 func TestOpenSalesLines_FollowsCursorsAndSignsWithTheOneDuty(t *testing.T) {
@@ -94,7 +94,7 @@ func TestOpenSalesLines_FollowsCursorsAndSignsWithTheOneDuty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(lines) != 2 || lines[0].ProductID != itemA || !lines[0].Qty.Equal(decimal.NewFromInt(120)) || lines[0].Ref != "SO-7/2" || lines[0].Date != "2026-11-30" ||
+	if len(lines) != 2 || lines[0].ProductID != itemA || !lines[0].Qty.Equal(decimal.NewFromInt(120)) || lines[0].Ref != "SO-7/2" || lines[0].Date != "2026-11-30" || lines[0].Unit != "BOX" ||
 		lines[1].ProductID != itemB || !lines[1].Qty.Equal(decimal.RequireFromString("3.5")) {
 		t.Fatalf("lines = %+v", lines)
 	}
@@ -112,14 +112,14 @@ func TestOnHand_ReadsTheSiteByProductAndSignsWithTheReadDuty(t *testing.T) {
 	var query string
 	inventory := func(w http.ResponseWriter, r *http.Request) {
 		query = r.URL.RawQuery
-		serve(`{"items":[{"group":{"product":"`+itemA+`"},"physicalInvent":"20"},{"group":{"product":"`+itemB+`"},"physicalInvent":"-2"}],"truncated":false}`)(w, r)
+		serve(`{"items":[{"group":{"product":"`+itemA+`"},"physicalInvent":"20","unit":"ea"},{"group":{"product":"`+itemB+`"},"physicalInvent":"-2","unit":"EA"}],"truncated":false}`)(w, r)
 	}
 	p := newPeers(t, serve(`{}`), inventory, time.Second)
 	onHand, err := p.client.OnHand(context.Background(), tenantID, entityID, siteID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(onHand) != 2 || !onHand[itemA].Equal(decimal.NewFromInt(20)) || !onHand[itemB].Equal(decimal.NewFromInt(-2)) {
+	if len(onHand) != 2 || !onHand[itemA].Qty.Equal(decimal.NewFromInt(20)) || onHand[itemA].Unit != "EA" || !onHand[itemB].Qty.Equal(decimal.NewFromInt(-2)) {
 		t.Fatalf("on-hand = %v", onHand)
 	}
 	if !strings.Contains(query, "site="+siteID) || !strings.Contains(query, "groupBy=product") {
@@ -150,6 +150,8 @@ func TestOpenSalesLines_FailClosed(t *testing.T) {
 		"qty as number":         serve(`{"items":[` + line(itemA, `120`) + `]}`),
 		"qty not a decimal":     serve(`{"items":[` + line(itemA, `"abc"`) + `]}`),
 		"qty NaN":               serve(`{"items":[` + line(itemA, `"NaN"`) + `]}`),
+		"unit missing":          serve(`{"items":[` + strings.Replace(line(itemA, `"1"`), `"unit":"box",`, ``, 1) + `]}`),
+		"unit blank":            serve(`{"items":[` + strings.Replace(line(itemA, `"1"`), `"box"`, `" "`, 1) + `]}`),
 		"qty zero":              serve(`{"items":[` + line(itemA, `"0"`) + `]}`),
 		"qty negative":          serve(`{"items":[` + line(itemA, `"-1"`) + `]}`),
 		"product not a uuid":    serve(`{"items":[` + line("nope", `"1"`) + `]}`),
@@ -165,12 +167,14 @@ func TestOpenSalesLines_FailClosed(t *testing.T) {
 
 func TestOnHand_FailClosed(t *testing.T) {
 	cases := map[string]string{
-		"truncated":         `{"items":[],"truncated":true}`,
-		"not json":          `<html>`,
-		"physical a number": `{"items":[{"group":{"product":"` + itemA + `"},"physicalInvent":20}]}`,
-		"not a decimal":     `{"items":[{"group":{"product":"` + itemA + `"},"physicalInvent":"abc"}]}`,
-		"product not uuid":  `{"items":[{"group":{"product":"nope"},"physicalInvent":"1"}]}`,
-		"no product group":  `{"items":[{"group":{},"physicalInvent":"1"}]}`,
+		"truncated":                `{"items":[],"truncated":true}`,
+		"not json":                 `<html>`,
+		"unit missing":             `{"items":[{"group":{"product":"` + itemA + `"},"physicalInvent":"1"}]}`,
+		"one product in two units": `{"items":[{"group":{"product":"` + itemA + `"},"physicalInvent":"1","unit":"EA"},{"group":{"product":"` + itemA + `"},"physicalInvent":"1","unit":"BOX"}]}`,
+		"physical a number":        `{"items":[{"group":{"product":"` + itemA + `"},"physicalInvent":20}]}`,
+		"not a decimal":            `{"items":[{"group":{"product":"` + itemA + `"},"physicalInvent":"abc"}]}`,
+		"product not uuid":         `{"items":[{"group":{"product":"nope"},"physicalInvent":"1"}]}`,
+		"no product group":         `{"items":[{"group":{},"physicalInvent":"1"}]}`,
 	}
 	for name, body := range cases {
 		p := newPeers(t, serve(`{}`), serve(body), time.Second)
