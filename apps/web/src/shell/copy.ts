@@ -226,6 +226,17 @@ export const copy = {
       "AGT-0201": "The assistant is paused, so it can't answer right now. Every page and workflow still works.",
     } as Readonly<Record<string, string>>,
   },
+  answer: {
+    agentLabel: "Copilot",
+    why: "The copilot read the records listed under Data used and wrote this answer from them. Check it before you rely on it.",
+    inProgress: "Copilot answer in progress",
+    finished: "Copilot answer",
+    sources: "Sources",
+    noSources: "This answer lists no sources.",
+    tryAgain: "Try again",
+    done: "The copilot has finished answering.",
+    failed: "The copilot could not answer. Try again.",
+  },
   myWork: {
     title: "My work",
     description: "Everything waiting for you to approve or review, in one place.",

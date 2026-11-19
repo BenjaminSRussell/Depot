@@ -28,6 +28,19 @@ function renderHost(host: SuggestionHost, duties: string[] = []) {
 }
 
 describe("AiSuggestion", () => {
+  it("names no version when the producer has none", async () => {
+    const { agentVersion: _omitted, ...withoutVersion } = suggestionFixtures.answer.suggestion;
+    render(
+      <MemoryRouter>
+        <PrincipalProvider duties={[]}>
+          <AiSuggestion host="answer" suggestion={{ ...withoutVersion, agentLabel: "Copilot" }} />
+        </PrincipalProvider>
+      </MemoryRouter>,
+    );
+    await userEvent.setup().click(screen.getByRole("button", { name: "Why this?" }));
+    expect(screen.getByText("Produced by Copilot.")).toBeInTheDocument();
+  });
+
   it.each(HOSTS)(
     "%s: shows the badge and the host body with and without duties",
     (host) => {
