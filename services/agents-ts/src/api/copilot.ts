@@ -1,6 +1,7 @@
 import type { ServerResponse } from "node:http";
 import { COPILOT_DUTY, parseChatRequest, type ChatResponse, type CopilotService } from "../runtime/copilot.js";
 import { AgentError } from "../errors.js";
+import { OUTPUT_GUARD_CODE, OUTPUT_GUARD_MESSAGE } from "../runtime/outputGuard.js";
 import { requireDuty, type Principal } from "./principal.js";
 
 /** Splits an answer into frames of whole words, at most `size` characters each. */
@@ -54,6 +55,7 @@ export async function handleChat(input: {
   });
   let open = false;
   let streamed = false;
+  let withdrawn = false;
   const begin = (): void => {
     if (open) return;
     open = true;
@@ -67,9 +69,14 @@ export async function handleChat(input: {
         streamed = true;
         res.write(frame("token", { text }));
       },
+      onWithdraw: () => {
+        begin();
+        withdrawn = true;
+        res.write(frame("answer.withdrawn", { code: OUTPUT_GUARD_CODE, message: OUTPUT_GUARD_MESSAGE }));
+      },
     });
     begin();
-    if (!streamed) for (const text of tokenFrames(reply.answer)) res.write(frame("token", { text }));
+    if (!streamed && !withdrawn) for (const text of tokenFrames(reply.answer)) res.write(frame("token", { text }));
     res.end(frame("done", reply));
   } catch (err) {
     if (!open) throw err;

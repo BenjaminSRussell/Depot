@@ -20,7 +20,7 @@ describe("copilot requests are never stored by the browser HTTP cache", () => {
   it.each([
     ["postChat", (f: typeof fetch) => postChat(request, f)],
     ["streamChat", (f: typeof fetch) => streamChat(request, f).next()],
-    ["askCopilot", (f: typeof fetch) => askCopilot(request, undefined, f)],
+    ["askCopilot", (f: typeof fetch) => askCopilot(request, undefined, undefined, f)],
     ["getKillSwitch", (f: typeof fetch) => getKillSwitch(undefined, f)],
     ["setKillSwitch", (f: typeof fetch) => setKillSwitch({ scope: "GLOBAL", active: true }, f)],
     ["getAvailability", (f: typeof fetch) => getAvailability(undefined, f)],

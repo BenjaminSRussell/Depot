@@ -1,5 +1,5 @@
 import type { LogFn } from "../logging/pseudonymize.js";
-import { scanPii, type PiiCategory, type PiiFinding, type Pseudonymizer } from "../domain/redaction.js";
+import { PSEUDONYM_RE, scanPii, type PiiCategory, type PiiFinding, type Pseudonymizer } from "../domain/redaction.js";
 
 export const EGRESS_GUARD_TOOL = "egress.guard";
 export const GUARD_POLICY_VERSION = 1;
@@ -8,8 +8,9 @@ export const GUARD_REFUSAL_MESSAGE =
   "I could not check this request for sensitive data, so I did not send it to the AI model. Your ERP work is not affected; please try again later.";
 
 export type DataClass = "P0" | "P1" | "P2" | "P3";
-export type GuardDecision = "ALLOWED" | "REDACTED" | "BLOCKED";
+export type GuardDecision = "ALLOWED" | "REDACTED" | "BLOCKED" | "OUTPUT_BLOCKED";
 export type GuardErrorCode = "ANALYZER_ERROR" | "ANALYZER_TIMEOUT" | "RESIDUAL_PII";
+export type OutputGuardReason = "TOKEN_NOT_IN_INPUT" | "RECORD_NOT_IN_INPUT" | "DUTY_LEAK" | "RAW_IDENTIFIER" | "GUARD_TIMEOUT" | "GUARD_ERROR";
 
 export interface GuardResult {
   callId: string;
@@ -19,7 +20,7 @@ export interface GuardResult {
   counts: Record<string, number>;
   excluded: Record<string, number>;
   decision: GuardDecision;
-  errorCode?: GuardErrorCode;
+  errorCode?: GuardErrorCode | OutputGuardReason;
 }
 
 export interface Analyzer {
@@ -34,10 +35,18 @@ export interface EgressInput {
   system: string;
   typed: string;
   results: readonly string[];
+  recordIds?: ReadonlySet<string>;
+}
+
+export interface GuardContext {
+  inputTokens: Set<string>;
+  inputRecordIds: Set<string>;
+  highestClass: DataClass;
 }
 
 export interface EgressVerdict {
   user: string;
+  context: GuardContext;
   result: GuardResult;
   typedReplaced: number;
 }
@@ -104,7 +113,7 @@ export function createEgressGuard(
         const [left = []] = await scan([`${input.system}\n\n${user}`]);
         if (left.length > 0) throw new GuardFailure("RESIDUAL_PII");
         result.decision = found.length > 0 ? "REDACTED" : "ALLOWED";
-        return { user, result, typedReplaced: (perText[0] ?? []).filter((f) => f.category !== "EMAIL").length };
+        return { user, context: { inputTokens: new Set(user.match(PSEUDONYM_RE)), inputRecordIds: new Set(input.recordIds), highestClass: result.highestClass }, result, typedReplaced: (perText[0] ?? []).filter((f) => f.category !== "EMAIL").length };
       } catch (err) {
         result.errorCode = err instanceof GuardFailure ? err.code : "ANALYZER_ERROR";
         deps.log?.("warn", "egress guard blocked the provider call", {
@@ -114,7 +123,7 @@ export function createEgressGuard(
           error: err instanceof Error ? err.name : "unknown",
           counts: result.counts,
         });
-        return { user: "", result, typedReplaced: 0 };
+        return { user: "", context: { inputTokens: new Set(), inputRecordIds: new Set(), highestClass: result.highestClass }, result, typedReplaced: 0 };
       } finally {
         deps.observe?.((performance.now() - started) / 1000, result.decision);
       }

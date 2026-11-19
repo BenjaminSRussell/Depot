@@ -21,6 +21,7 @@ import {
 } from "./runtime/aiRouter.js";
 import { createCopilotService } from "./runtime/copilot.js";
 import { createEgressGuard } from "./runtime/egressGuard.js";
+import { createOutputGuard } from "./runtime/outputGuard.js";
 import { createKnowledgeService } from "./runtime/knowledge.js";
 import { PgKeywordIndex } from "./store/knowledge.js";
 import { createMcpConnector } from "./runtime/mcp.js";
@@ -181,6 +182,7 @@ async function main(): Promise<void> {
   const metrics = new Metrics();
   const copilot = createCopilotService({
     guard: createEgressGuard({ log, observe: (seconds, decision) => metrics.observeGuard(seconds, decision) }),
+    outputGuard: createOutputGuard({ log, observe: (seconds, decision) => metrics.observeGuard(seconds, decision), deadlineMs: cfg.outputGuardTimeoutMs }),
     knowledge,
     router: createConfiguredRouter(cfg, { log, ...(serviceSigner !== undefined ? { signer: serviceSigner } : {}) }),
     mcp,
