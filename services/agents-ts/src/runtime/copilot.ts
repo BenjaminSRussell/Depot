@@ -293,7 +293,7 @@ export function createCopilotService(deps: CopilotDeps) {
       try {
         const turns = rules === undefined ? deps.config.maxTurns : rules.status === "decided" ? 0 : 1;
         for (let turn = 0; turn < turns; turn += 1) {
-          const verdict = await guard.inspect({ tenantId: caller.tenantId, callId: randomUUID(), routeId, pseudo, system, typed: prompt, results, recordIds, excluded: Object.fromEntries(Object.entries({ [AMOUNT_WITHHELD]: amountsWithheld, NO_APPROVED_ROUTE: withheldCount, NEED_TO_KNOW: needToKnowHidden, POLICY_DENIED: policyDropped }).filter(([, n]) => n > 0)), declared, ...(policyCell !== undefined ? { policyCell } : {}), ...(policyVersion !== undefined ? { policyVersion } : {}) });
+          const verdict = await guard.inspect({ tenantId: caller.tenantId, callId: randomUUID(), routeId, pseudo, system, typed: prompt, results, recordIds, excluded: Object.fromEntries(Object.entries({ [AMOUNT_WITHHELD]: amountsWithheld, NO_APPROVED_ROUTE: withheldCount, NEED_TO_KNOW: needToKnowHidden, TENANT_POLICY: policyDropped }).filter(([, n]) => n > 0)), declared, ...(policyCell !== undefined ? { policyCell } : {}), ...(policyVersion !== undefined ? { policyVersion } : {}) });
           guardRow(verdict.result);
           dataClass = highestClassOf([dataClass, verdict.result.highestClass]);
           if (pending.length > 0) {
