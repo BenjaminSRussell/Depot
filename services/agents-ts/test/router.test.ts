@@ -262,3 +262,59 @@ describe("api/openapi.yaml matches the router", () => {
     }
   });
 });
+
+describe("agents availability sign-off gate", () => {
+  const COPILOT = {} as CopilotService;
+  const serve = async (aiEnabled: boolean | undefined) => {
+    let version = 0;
+    const handler = createAgentsHandler({
+      authenticate: testAuthenticate,
+      registry: new KillSwitchRegistry(() => Date.now()),
+      versions: { next: () => ++version },
+      approvals: { find: async () => undefined, record: async (_t, _r, _a, decision: RecordedDecision) => decision },
+      publish: async () => {},
+      now: () => NOW,
+      copilot: COPILOT,
+      ...(aiEnabled === undefined ? {} : { aiEnabled }),
+    });
+    const server = createServer((req, res) => {
+      void handler(req, res);
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    return { server, base: `http://127.0.0.1:${(server.address() as AddressInfo).port}` };
+  };
+  const closeServer = (server: Server) => new Promise<void>((resolve) => server.close(() => resolve()));
+  const read = async (aiEnabled: boolean | undefined, duty = "mcp.copilot.use") => {
+    const { server, base } = await serve(aiEnabled);
+    try {
+      const res = await fetch(`${base}/api/v1/agents/availability`, { headers: edgeHeaders(T1, CLERK, duty) });
+      return { status: res.status, body: await res.json() };
+    } finally {
+      await closeServer(server);
+    }
+  };
+
+  it("reports the assistant off and the sign-off pending while the gate is closed", async () => {
+    const out = await read(false);
+    expect(out.status).toBe(200);
+    expect(out.body).toEqual({ killSwitch: { halted: false, stale: false }, budgetStatus: "OK", copilotEnabled: false, signoffPending: true });
+  });
+
+  it("reports the assistant on without a sign-off flag once the gate is open", async () => {
+    const out = await read(true);
+    expect(out.body).toEqual({ killSwitch: { halted: false, stale: false }, budgetStatus: "OK", copilotEnabled: true });
+  });
+
+  it("leaves a process with no gate configured as it was", async () => {
+    const out = await read(undefined);
+    expect(out.body).toMatchObject({ copilotEnabled: true });
+    expect(out.body).not.toHaveProperty("signoffPending");
+  });
+
+  it("answers 403 before disclosing the gate to a caller without the copilot duty", async () => {
+    const out = await read(false, "");
+    expect(out.status).toBe(403);
+    expect(out.body).toMatchObject({ code: "AGT-0203" });
+    expect(out.body).not.toHaveProperty("signoffPending");
+  });
+});

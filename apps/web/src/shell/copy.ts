@@ -174,6 +174,7 @@ export const copy = {
     assistantUnavailable: {
       paused: "The assistant is paused. Pages and records still work.",
       off: "The assistant is turned off for your company. Pages and records still work.",
+      signoff: "The assistant is not available in this deployment until sign-off. Pages and records still work.",
       budget: "The assistant has reached its usage limit. Pages and records still work.",
       unreachable: "The assistant can't be reached right now. Pages and records still work.",
       noAccess: "You don't have access to the assistant. Pages and records still work.",
@@ -227,6 +228,8 @@ export const copy = {
     pausedBody: "An administrator has paused it. Every page and workflow below works as usual.",
     offTitle: "The assistant is turned off",
     offBody: "It is not turned on for your company. Every page and workflow below works as usual.",
+    signoffTitle: "The assistant is not available in this deployment until sign-off",
+    signoffBody: "It stays off until the required review is signed off. Every page and workflow below works as usual.",
     budgetTitle: "The assistant has reached its usage limit",
     budgetBody: "It comes back when an administrator raises the limit or the next period starts. Every page and workflow below works as usual.",
     unreachableTitle: "The assistant can't be reached right now",

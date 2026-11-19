@@ -14,6 +14,7 @@ The table is `deploy/cloud-profiles/profiles.json`. Nothing else spells an Azure
 | `gcc` | Microsoft 365 GCC. A Microsoft 365 environment on the worldwide Entra ID, so the authority and Graph are the commercial ones (`login.microsoftonline.com`, `graph.microsoft.com`), never `.us`. Depot adds FIPS builds, US-only regions, a mirror-only registry and a restricted egress allowlist. See [gcc.md](gcc.md). |
 | `gcc-high` | GCC High on Azure Government: `login.microsoftonline.us`, `graph.microsoft.us`. |
 | `dod` | DoD on Azure Government: `login.microsoftonline.us`, `dod-graph.microsoft.us`. |
+| `cui` | The isolated CUI deployment (DEPOT-310, `docs/runbooks/cui-deployment.md`): `boundary: cui`, AI off until sign-off, Bedrock in AWS GovCloud the only AI host, own stack name `depot-cui`. Its Azure endpoint table is a copy of `gcc-high`; the AWS substrate is a follow-up. |
 | `china` | Azure operated by 21Vianet: `login.partner.microsoftonline.cn` (alias `login.chinacloudapi.cn`), `microsoftgraph.chinacloudapi.cn`. |
 | `+eu-data-boundary` | Overlay: only EU or EFTA regions. Cannot be combined with a profile whose regions are all elsewhere. |
 | `+hipaa` | Overlay: removes egress to SaaS without a recorded business associate agreement (paging, hosted LLMs other than Azure OpenAI) and sets six-year audit retention. |

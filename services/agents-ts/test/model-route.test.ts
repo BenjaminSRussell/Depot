@@ -82,6 +82,15 @@ describe("loadConfig boundary and compliance URL", () => {
   it.each(["CUI", "other"])("refuses AGENTS_BOUNDARY=%s", (value) => {
     expect(() => loadConfig({ ...base, AGENTS_BOUNDARY: value })).toThrow(/AGENTS_BOUNDARY/);
   });
+  it("keeps the AI sign-off gate closed unless AGENTS_AI_ENABLED is exactly true", () => {
+    expect(loadConfig(base).aiEnabled).toBe(false);
+    expect(loadConfig({ ...base, AGENTS_AI_ENABLED: "" }).aiEnabled).toBe(false);
+    expect(loadConfig({ ...base, AGENTS_AI_ENABLED: "false" }).aiEnabled).toBe(false);
+    expect(loadConfig({ ...base, AGENTS_AI_ENABLED: "true" }).aiEnabled).toBe(true);
+  });
+  it.each(["yes", "1", "TRUE", " true"])("refuses AGENTS_AI_ENABLED=%s", (value) => {
+    expect(() => loadConfig({ ...base, AGENTS_AI_ENABLED: value })).toThrow("AGENTS_AI_ENABLED must be true or false");
+  });
   it("refuses a non-http compliance URL", () => {
     expect(() => loadConfig({ ...base, AGENTS_COMPLIANCE_URL: "ftp://x" })).toThrow(/AGENTS_COMPLIANCE_URL/);
   });

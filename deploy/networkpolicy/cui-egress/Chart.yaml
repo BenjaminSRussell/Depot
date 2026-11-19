@@ -1,0 +1,6 @@
+apiVersion: v2
+name: cui-egress
+description: Egress deny-by-default NetworkPolicies for the isolated CUI deployment (DEPOT-310); renders nothing unless global.boundary is cui
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

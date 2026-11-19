@@ -27,6 +27,7 @@ describe("deriveAvailability", () => {
     ["a halted kill switch", read(kill({ halted: true })), { status: "unavailable", reason: "paused" }],
     ["a stale kill switch", read(kill({ stale: true })), { status: "unavailable", reason: "paused" }],
     ["the assistant off for the company", read({ ...enabled, copilotEnabled: false }), { status: "unavailable", reason: "off" }],
+    ["the assistant waiting for sign-off", read({ ...enabled, copilotEnabled: false, signoffPending: true }), { status: "unavailable", reason: "signoff" }],
     ["a hard budget", read({ ...enabled, budgetStatus: "HARD" }), { status: "degraded", reason: "budget" }],
     ["a network error", { ok: false as const, cause: "network" as const }, { status: "degraded", reason: "unreachable" }],
     ["an invalid body", { ok: false as const, cause: "invalid" as const }, { status: "degraded", reason: "unreachable" }],
@@ -58,6 +59,7 @@ describe("getAvailability", () => {
   it.each([
     ["null", null],
     ["a missing copilotEnabled", { killSwitch: enabled.killSwitch, budgetStatus: "OK" }],
+    ["a signoffPending that is not a boolean", { ...enabled, signoffPending: "true" }],
   ])("fails closed on %s", async (_name, body) => {
     expect(await getAvailability(undefined, reply(200, body))).toEqual({ ok: false, cause: "invalid" });
   });

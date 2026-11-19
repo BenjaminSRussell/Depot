@@ -44,6 +44,8 @@ DEPLOYMENT_KEYS = (
     "azureEnvironment", "privateCluster", "customerManagedKeys", "managedHsm", "isolatedNodes", "isolatedNodesRegions",
     "postgresSslMode", "source",
 )
+OPTIONAL_PROFILE_KEYS = ("boundary", "aiEnabled", "deploymentName")
+BOUNDARIES = ("standard", "cui")
 AZURE_ENVIRONMENTS = ("public", "usgovernment", "china")
 LLM_HOSTS = {
     "anthropic": "api.anthropic.com",
@@ -107,6 +109,12 @@ def check_parity(doc: dict[str, Any]) -> list[str]:
         for field in ("cloud", "fips", "allowedRegions", "registry", "egress", "keycloak", "description", "deployment"):
             if field not in profile:
                 problems.append(f"{name}: {field} is missing")
+        if profile.get("boundary", "standard") not in BOUNDARIES:
+            problems.append(f"{name}: boundary {profile.get('boundary')!r} is not one of {BOUNDARIES}")
+        if not isinstance(profile.get("aiEnabled", True), bool):
+            problems.append(f"{name}: aiEnabled {profile.get('aiEnabled')!r} is not a boolean")
+        if not isinstance(profile.get("deploymentName", ""), str):
+            problems.append(f"{name}: deploymentName {profile.get('deploymentName')!r} is not a string")
         dep = profile.get("deployment", {})
         if sorted(dep) != sorted(DEPLOYMENT_KEYS):
             problems.append(f"{name}: deployment keys are {sorted(dep)}, expected {sorted(DEPLOYMENT_KEYS)}")
@@ -116,7 +124,7 @@ def check_parity(doc: dict[str, Any]) -> list[str]:
             problems.append(f"{name}: deployment.managedHsm needs customerManagedKeys")
         if dep.get("isolatedNodesRegions") and not set(dep["isolatedNodesRegions"]) <= set(profile.get("allowedRegions", [])):
             problems.append(f"{name}: deployment.isolatedNodesRegions must be allowedRegions")
-    shapes = {n: sorted(doc["profiles"][n]) for n in names}
+    shapes = {n: sorted(k for k in doc["profiles"][n] if k not in OPTIONAL_PROFILE_KEYS) for n in names}
     if len({json.dumps(s) for s in shapes.values()}) > 1:
         problems.append("profiles do not have the same top-level keys")
     return problems
@@ -169,6 +177,9 @@ def resolve(doc: dict[str, Any], base: str, overlays: list[str] | None = None) -
     out: dict[str, Any] = {
         "name": base,
         "overlays": overlays,
+        "boundary": p.get("boundary", "standard"),
+        "aiEnabled": p.get("aiEnabled", True),
+        "deploymentName": p.get("deploymentName", ""),
         "cloud": p["cloud"],
         "fips": fips,
         "allowedRegions": regions,
@@ -229,9 +240,15 @@ def helm_values(r: dict[str, Any], registry: str = "") -> str:
     mirror = registry.split("/")[0]
     if mirror and not host_allowed(mirror, allow):
         allow = allow + [mirror]
+    boundary = (
+        {"boundary": r["boundary"], "aiEnabled": r["aiEnabled"], "deploymentName": r["deploymentName"]}
+        if r["boundary"] != "standard"
+        else {}
+    )
     doc = {
         "global": {
             "cloudProfile": r["name"],
+            **boundary,
             "cloudOverlays": r["overlays"],
             "cloudName": r["cloud"],
             "fips": r["fips"],
@@ -271,6 +288,7 @@ def tofu_vars(r: dict[str, Any]) -> str:
         "isolated_nodes_regions": r["deployment"]["isolatedNodesRegions"],
         "hipaa": "hipaa" in r["overlays"],
         "azure_policy_initiative_id": r["azurePolicyInitiative"],
+        **({"name": r["deploymentName"]} if r["deploymentName"] else {}),
     }
     return json.dumps(doc, indent=2) + "\n"
 
