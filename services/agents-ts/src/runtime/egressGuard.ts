@@ -65,6 +65,7 @@ export interface Admission {
   policyCell: "tenant" | "default";
   policyVersion: number;
   failure?: GuardErrorCode;
+  reason?: "TENANT_POLICY";
 }
 
 export interface EgressGuard {
@@ -117,9 +118,12 @@ export function createEgressGuard(
       try {
         const [found = []] = await scan([text]);
         const cls = highestClassOf([declared satisfies ToolClass, ...found.map((f) => CATEGORY_CLASS[f.category])]);
+        if (policyCell === "default") return { ...base, pass: true, class: cls };
+        const [p0, p1] = await Promise.all([deps.policy.check({ tenantId, module, dataClass: "P0" }), deps.policy.check({ tenantId, module, dataClass: "P1" })]);
+        if (!p0.allowed && !p1.allowed) return { ...base, pass: false, class: cls, policyVersion: p1.policyVersion, reason: "TENANT_POLICY" };
         // P2 and P3 values are pseudonymized later in inspect(), which throws RESIDUAL_PII on any leftover.
-        if (policyCell === "default" || cls === "P2" || cls === "P3") return { ...base, pass: true, class: cls };
-        const decision = await deps.policy.check({ tenantId, module, dataClass: cls });
+        if (cls === "P2" || cls === "P3") return { ...base, pass: true, class: cls, policyVersion: p1.policyVersion };
+        const decision = cls === "P0" ? p0 : p1;
         return { ...base, pass: decision.allowed, class: cls, policyVersion: decision.policyVersion };
       } catch (err) {
         const failure = err instanceof GuardFailure ? err.code : err instanceof Error && err.name === "AgentError" ? "POLICY_UNREADABLE" : "ANALYZER_ERROR";
