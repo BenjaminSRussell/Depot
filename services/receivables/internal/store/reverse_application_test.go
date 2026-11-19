@@ -548,6 +548,15 @@ func TestReverseApplication_CrossCurrencyPostsTheFXMirrorInTheSameRequest(t *tes
 	if got, err := s.GetOpenItem(ctx, item.ID); err != nil || !got.OpenAmount.Equal(amt("900.00")) {
 		t.Fatalf("a refused fx leg changed the item: %+v %v", got, err)
 	}
+	mainLegOnly := 0
+	for _, e := range fake.Entries() {
+		if strings.HasPrefix(e.IdempotencyKey, "post:receivables:paymentapplication:") {
+			mainLegOnly++
+		}
+	}
+	if mainLegOnly != 1 {
+		t.Fatalf("a refused fx leg left %d ledger reversal entries, want only the main leg that the retry converges on", mainLegOnly)
+	}
 	fake.FailPostsIn("USD", nil)
 	out, err := s.ReverseApplication(ctx, pay.ID, applied.Payment.Version, req, "ra-fx-1")
 	if err != nil || out.Payment.Status != "RECEIVED" {
