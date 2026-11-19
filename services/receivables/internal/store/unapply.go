@@ -3,10 +3,8 @@ package store
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
@@ -77,16 +75,26 @@ func (s *Postgres) unapply(ctx context.Context, id string, version int, reason, 
 		if pay.Version != version {
 			return httpx.NewProblem(http.StatusPreconditionFailed, CodeVersionConflict, "payment changed since it was read")
 		}
-		return s.unapplyRows(ctx, tx, p, pay, reason, onlySettlement, nil, &out)
+		u, err := unapplyRows(ctx, tx, p, pay, onlySettlement, "")
+		if err != nil {
+			return err
+		}
+		out = u.UnapplyResult
+		return u.enqueueUnapply(ctx, tx, p, reason)
 	})
 	return out, mapWriteErr(err)
 }
 
-func (s *Postgres) unapplyRows(ctx context.Context, tx pgx.Tx, p tenant.Principal, pay Payment, reason, onlySettlement string, app *appReversal, out *UnapplyResult) error {
-	applicationID := ""
-	if app != nil {
-		applicationID = app.id
-	}
+type unapplied struct {
+	UnapplyResult
+	settled    []rcvevents.SettlementData
+	main       []journalLine
+	fxLines    []journalLine
+	fxCurrency string
+}
+
+func unapplyRows(ctx context.Context, tx pgx.Tx, p tenant.Principal, pay Payment, onlySettlement, applicationID string) (unapplied, error) {
+	var out unapplied
 	rows, err := tx.Query(ctx, `select s.id::text, s.open_item_id::text, s.settled_amount::text, s.cash_discount_taken::text, s.write_off_amount::text,
 			s.item_currency::text, coalesce(s.item_amount, s.settled_amount + s.cash_discount_taken + s.write_off_amount)::text, s.fx_gain_loss::text,
 			s.item_amount is not null
@@ -95,7 +103,7 @@ func (s *Postgres) unapplyRows(ctx context.Context, tx pgx.Tx, p tenant.Principa
 		  and not exists (select 1 from settlement r where r.tenant_id = s.tenant_id and r.reversal_of_id = s.id)
 		order by s.settled_at, s.id`, p.TenantID, pay.ID, onlySettlement, applicationID)
 	if err != nil {
-		return err
+		return out, err
 	}
 	var live []liveSettlement
 	for rows.Next() {
@@ -103,7 +111,7 @@ func (s *Postgres) unapplyRows(ctx context.Context, tx pgx.Tx, p tenant.Principa
 		var amount, discount, off, itemAmount, fx string
 		if err := rows.Scan(&l.id, &l.openItemID, &amount, &discount, &off, &l.itemCurrency, &itemAmount, &fx, &l.crossCurrency); err != nil {
 			rows.Close()
-			return err
+			return out, err
 		}
 		l.amount, l.discount, l.writeOff = decimal.RequireFromString(amount), decimal.RequireFromString(discount), decimal.RequireFromString(off)
 		l.itemAmount, l.fxGainLoss = decimal.RequireFromString(itemAmount), decimal.RequireFromString(fx)
@@ -111,19 +119,19 @@ func (s *Postgres) unapplyRows(ctx context.Context, tx pgx.Tx, p tenant.Principa
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
-		return err
+		return out, err
 	}
 	if len(live) == 0 && onlySettlement != "" {
 		var known, reversed bool
 		if err := tx.QueryRow(ctx, `select true, exists (select 1 from settlement r where r.tenant_id = $1 and r.reversal_of_id = s.id)
 			from settlement s where s.tenant_id = $1 and s.payment_id = $2 and s.id::text = $3 and s.reversal_of_id is null`,
 			p.TenantID, pay.ID, onlySettlement).Scan(&known, &reversed); err != nil || !known {
-			return httpx.NewProblem(http.StatusNotFound, CodeSettlementNotFound, "settlement not found on this payment")
+			return out, httpx.NewProblem(http.StatusNotFound, CodeSettlementNotFound, "settlement not found on this payment")
 		}
-		return httpx.NewProblem(http.StatusConflict, CodePaymentState, "the settlement is already reversed")
+		return out, httpx.NewProblem(http.StatusConflict, CodePaymentState, "the settlement is already reversed")
 	}
 	if len(live) == 0 {
-		return httpx.NewProblem(http.StatusConflict, CodePaymentState, "the payment has no application to reverse (status "+pay.Status+")")
+		return out, httpx.NewProblem(http.StatusConflict, CodePaymentState, "the payment has no application to reverse (status "+pay.Status+")")
 	}
 	cash, disc, off := decimal.Zero, decimal.Zero, decimal.Zero
 	gain, loss := decimal.Zero, decimal.Zero
@@ -133,21 +141,20 @@ func (s *Postgres) unapplyRows(ctx context.Context, tx pgx.Tx, p tenant.Principa
 	}
 	partners, err := itemPartners(ctx, tx, liveIDs)
 	if err != nil {
-		return err
+		return out, err
 	}
 	var order []string
 	recvByPartner := map[string]decimal.Decimal{}
 	gainBy, lossBy := map[string]decimal.Decimal{}, map[string]decimal.Decimal{}
 	out.Reversed = []UnappliedSettlement{}
-	settled := []rcvevents.SettlementData{}
 	for _, l := range live {
 		item, err := lockAnyOpenItem(ctx, tx, l.openItemID)
 		if err != nil {
-			return err
+			return out, err
 		}
 		newOpen := item.OpenAmount.Add(l.itemAmount)
 		if newOpen.GreaterThan(item.Amount) {
-			return httpx.NewProblem(http.StatusConflict, CodePaymentState, fmt.Sprintf("open item %s would be open for more than its amount", item.DocumentNumber))
+			return out, httpx.NewProblem(http.StatusConflict, CodePaymentState, fmt.Sprintf("open item %s would be open for more than its amount", item.DocumentNumber))
 		}
 		status := domain.ApplyStatus(newOpen)
 		if newOpen.Equal(item.Amount) {
@@ -155,7 +162,7 @@ func (s *Postgres) unapplyRows(ctx context.Context, tx pgx.Tx, p tenant.Principa
 		}
 		if _, err := tx.Exec(ctx, `update open_item set open_amount = $3::numeric, status = $4, version = version + 1, updated_at = now()
 			where tenant_id = $1 and id = $2`, p.TenantID, item.ID, newOpen.String(), status); err != nil {
-			return err
+			return out, err
 		}
 		var negItem any
 		if l.crossCurrency {
@@ -165,7 +172,7 @@ func (s *Postgres) unapplyRows(ctx context.Context, tx pgx.Tx, p tenant.Principa
 				write_off_amount, item_currency, item_amount, fx_gain_loss, reversal_of_id, application_id)
 			values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::numeric, $11, $12, nullif($13, '')::uuid)`, p.TenantID, ids.New(), pay.LegalEntityID, pay.ID, item.ID,
 			l.amount.Neg().String(), l.discount.Neg().String(), l.writeOff.Neg().String(), l.itemCurrency, negItem, l.fxGainLoss.Neg().String(), l.id, applicationID); err != nil {
-			return err
+			return out, err
 		}
 		cash, disc, off = cash.Add(l.amount), disc.Add(l.discount), off.Add(l.writeOff)
 		pt := partners[l.openItemID]
@@ -186,78 +193,65 @@ func (s *Postgres) unapplyRows(ctx context.Context, tx pgx.Tx, p tenant.Principa
 		if l.crossCurrency && l.itemCurrency != nil {
 			sd.ItemCurrency, sd.ItemAmount = *l.itemCurrency, l.itemAmount
 		}
-		settled = append(settled, sd)
+		out.settled = append(out.settled, sd)
 	}
 	var standing int
 	if err := tx.QueryRow(ctx, `select count(*) from settlement s where s.tenant_id = $1 and s.payment_id = $2 and s.reversal_of_id is null
 		and not exists (select 1 from settlement r where r.tenant_id = s.tenant_id and r.reversal_of_id = s.id)`, p.TenantID, pay.ID).Scan(&standing); err != nil {
-		return err
+		return out, err
 	}
 	status := "RECEIVED"
 	if standing > 0 {
 		status = "ON_ACCOUNT"
-		if app != nil && pay.UnappliedAmount.Add(cash).IsZero() {
+		if applicationID != "" && pay.UnappliedAmount.Add(cash).IsZero() {
 			status = "APPLIED"
 		}
 	}
 	pay, err = scanPayment(tx.QueryRow(ctx, `update payment set unapplied_amount = unapplied_amount + $3::numeric, status = $4, version = version + 1
 		where tenant_id = $1 and id = $2 returning `+paymentColumns, p.TenantID, pay.ID, cash.String(), status))
 	if err != nil {
-		return err
+		return out, err
 	}
 	out.Payment = pay
-	key := fmt.Sprintf("unapply:%s:%d", pay.ID, pay.Version)
-	unapplyJournal := unapplyLines(order, recvByPartner, cash, disc, off)
-	var fxLines []journalLine
-	var fxCurrency string
+	out.main = unapplyLines(order, recvByPartner, cash, disc, off)
 	if gain.IsPositive() || loss.IsPositive() {
 		set, err := loadFXSetting(ctx, tx, pay.LegalEntityID)
 		if err != nil {
-			return err
+			return out, err
 		}
 		if set, err = fxSettingAtPosting(ctx, tx, p.TenantID, pay.LegalEntityID, pay.ID, "fx:"+pay.ID+":", set); err != nil {
-			return err
+			return out, err
 		}
-		fxCurrency = set.FunctionalCurrency
+		out.fxCurrency = set.FunctionalCurrency
 		for _, pt := range order {
 			if g := gainBy[pt]; g.IsPositive() {
-				fxLines = append(fxLines, debit(set.GainAccount, g, "Realized exchange gain reversed"), withPartner(credit(domain.AccountReceivable, g, "Realized exchange gain reversed"), pt))
+				out.fxLines = append(out.fxLines, debit(set.GainAccount, g, "Realized exchange gain reversed"), withPartner(credit(domain.AccountReceivable, g, "Realized exchange gain reversed"), pt))
 			}
 		}
 		for _, pt := range order {
 			if l := lossBy[pt]; l.IsPositive() {
-				fxLines = append(fxLines, withPartner(debit(domain.AccountReceivable, l, "Realized exchange loss reversed"), pt), credit(set.LossAccount, l, "Realized exchange loss reversed"))
+				out.fxLines = append(out.fxLines, withPartner(debit(domain.AccountReceivable, l, "Realized exchange loss reversed"), pt), credit(set.LossAccount, l, "Realized exchange loss reversed"))
 			}
 		}
 	}
-	if app != nil {
-		if app.entryID, err = s.postApplicationReversal(ctx, pay, app, pay.Currency, "", unapplyJournal); err != nil {
-			return err
-		}
-		if fxLines != nil {
-			if _, err := s.postApplicationReversal(ctx, pay, app, fxCurrency, "-fx", fxLines); err != nil {
-				slog.ErrorContext(ctx, "payment application reversal fx leg not posted after the main leg", "application", app.id, "postedEntry", app.entryID,
-					"err", err, "correlationId", middleware.GetReqID(ctx))
-				return err
-			}
-		}
-	} else {
-		if err := enqueueJournal(ctx, tx, p.TenantID, journalSpec{LegalEntityID: pay.LegalEntityID, SourceType: JournalPaymentUnapply, SourceID: pay.ID,
-			SourceKey: key, DocumentID: "PAY-" + pay.ID + "-UNAPPLY", PostingDate: today(), Currency: pay.Currency, Lines: unapplyJournal}); err != nil {
-			return err
-		}
-		if fxLines != nil {
-			if err := enqueueJournal(ctx, tx, p.TenantID, journalSpec{LegalEntityID: pay.LegalEntityID, SourceType: JournalRealizedFX, SourceID: pay.ID,
-				SourceKey: "fx-" + key, DocumentID: "PAY-" + pay.ID + "-UNAPPLY", PostingDate: today(), Currency: fxCurrency, Lines: fxLines}); err != nil {
-				return err
-			}
-		}
+	return out, nil
+}
+
+func (u unapplied) enqueueUnapply(ctx context.Context, tx pgx.Tx, p tenant.Principal, reason string) error {
+	pay := u.Payment
+	key := fmt.Sprintf("unapply:%s:%d", pay.ID, pay.Version)
+	if err := enqueueJournal(ctx, tx, p.TenantID, journalSpec{LegalEntityID: pay.LegalEntityID, SourceType: JournalPaymentUnapply, SourceID: pay.ID,
+		SourceKey: key, DocumentID: "PAY-" + pay.ID + "-UNAPPLY", PostingDate: today(), Currency: pay.Currency, Lines: u.main}); err != nil {
+		return err
 	}
-	if app != nil {
-		return finishApplicationReversal(ctx, tx, p, pay, app, reason, out.Reversed)
+	if u.fxLines != nil {
+		if err := enqueueJournal(ctx, tx, p.TenantID, journalSpec{LegalEntityID: pay.LegalEntityID, SourceType: JournalRealizedFX, SourceID: pay.ID,
+			SourceKey: "fx-" + key, DocumentID: "PAY-" + pay.ID + "-UNAPPLY", PostingDate: today(), Currency: u.fxCurrency, Lines: u.fxLines}); err != nil {
+			return err
+		}
 	}
 	return enqueue(ctx, tx, "payment", pay.ID, rcvevents.PaymentUnapplied, p.TenantID, rcvevents.PaymentUnappliedData{
-		PaymentID: pay.ID, LegalEntityID: pay.LegalEntityID, CustomerID: pay.CustomerID, Currency: pay.Currency, Settlements: settled, Reason: reason,
+		PaymentID: pay.ID, LegalEntityID: pay.LegalEntityID, CustomerID: pay.CustomerID, Currency: pay.Currency, Settlements: u.settled, Reason: reason,
 	})
 }
 

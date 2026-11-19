@@ -91,11 +91,17 @@ func (s *Postgres) ReverseApplication(ctx context.Context, paymentID string, ver
 		if !eligibility.Eligible {
 			return eligibility.problem()
 		}
-		var res UnapplyResult
-		if err := s.unapplyRows(ctx, tx, p, pay, req.Reason, "", &app, &res); err != nil {
+		u, err := unapplyRows(ctx, tx, p, pay, "", app.id)
+		if err != nil {
 			return err
 		}
-		out = ReverseApplicationResult{ApplicationID: app.id, ReversalJournalEntryID: app.entryID, Payment: res.Payment, Reopened: res.Reversed}
+		if err := s.postApplicationLegs(ctx, u, &app); err != nil {
+			return err
+		}
+		if err := finishApplicationReversal(ctx, tx, p, u.Payment, &app, req.Reason, u.Reversed); err != nil {
+			return err
+		}
+		out = ReverseApplicationResult{ApplicationID: app.id, ReversalJournalEntryID: app.entryID, Payment: u.Payment, Reopened: u.Reversed}
 		return rememberJSON(ctx, tx, p.TenantID, idempotencyKey, hash, out)
 	})
 	return out, mapWriteErr(err)
@@ -245,6 +251,22 @@ func applyJournalsUnposted(ctx context.Context, tx pgx.Tx, tenantID, paymentID s
 	err := tx.QueryRow(ctx, `select exists (select 1 from gl_journal where tenant_id = $1 and source_id = $2 and status = 'PENDING'
 		and source_key ~ '^(apply|fx):')`, tenantID, paymentID).Scan(&pending)
 	return pending, err
+}
+
+func (s *Postgres) postApplicationLegs(ctx context.Context, u unapplied, app *appReversal) error {
+	var err error
+	if app.entryID, err = s.postApplicationReversal(ctx, u.Payment, app, u.Payment.Currency, "", u.main); err != nil {
+		return err
+	}
+	if u.fxLines == nil {
+		return nil
+	}
+	if _, err := s.postApplicationReversal(ctx, u.Payment, app, u.fxCurrency, "-fx", u.fxLines); err != nil {
+		slog.ErrorContext(ctx, "payment application reversal fx leg not posted after the main leg", "application", app.id, "postedEntry", app.entryID,
+			"err", err, "correlationId", middleware.GetReqID(ctx))
+		return err
+	}
+	return nil
 }
 
 func (s *Postgres) postApplicationReversal(ctx context.Context, pay Payment, app *appReversal, currency, suffix string, lines []journalLine) (string, error) {
