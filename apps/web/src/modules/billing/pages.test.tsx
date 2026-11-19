@@ -2,6 +2,7 @@ import { findAlert, findTable } from "../../test-utils";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { AllocationPreview, Invoice } from "./api/client";
+import { currencyLookups } from "../../shell/defaults/testLookup";
 import { emptyPreview, toPreviewInput, validatePreview } from "./AllocationPreviewPage";
 import { emptyFreeText, toFreeTextInput, validateFreeText } from "./NewFreeTextInvoicePage";
 import { idempotencyKey, json, pageViolations, renderAt, server, useFakeServer } from "./testServer";
@@ -196,6 +197,7 @@ describe("New free-text invoice", () => {
     };
     renderAt("/billing/free-text-invoices/new");
     fill("Legal entity", LE);
+    fill("Currency", "EUR");
     fill("Customer", CUST);
     fill("Invoice account", ACCT);
     fill("Invoice date", "2027-03-10");
@@ -218,6 +220,49 @@ describe("New free-text invoice", () => {
     });
   });
 
+  describe("currency default", () => {
+    function open(currencies: Record<string, string>) {
+      server.handler = (_, init) => (init.method === "POST" ? json(201, proposal) : undefined);
+      renderAt("/billing/free-text-invoices/new");
+      currencyLookups(currencies);
+      fill("Legal entity", LE);
+      fill("Customer", CUST);
+    }
+
+    it.each([
+      ["the customer", { [CUST]: "CHF", [LE]: "USD" }, "CHF"],
+      ["the legal entity", { [LE]: "GBP" }, "GBP"],
+    ])("follows %s", async (_source, currencies, expected) => {
+      open(currencies);
+      await waitFor(() => expect(screen.getByLabelText("Currency")).toHaveValue(expected));
+    });
+
+    it("sends the derived currency, and a typed one instead when the clerk changes it", async () => {
+      open({ [CUST]: "CHF" });
+      await waitFor(() => expect(screen.getByLabelText("Currency")).toHaveValue("CHF"));
+      fill("Invoice account", ACCT);
+      fill("Description", "x");
+      fill("Unit price", "1");
+      fill("Revenue account", "4900");
+      fill("Tax code", "DE19");
+      fireEvent.click(screen.getByRole("button", { name: "Save proposal" }));
+      await waitFor(() => expect(server.calls.filter((c) => c.method === "POST")).toHaveLength(1));
+      expect(server.calls.find((c) => c.method === "POST")?.body).toMatchObject({ currency: "CHF" });
+    });
+
+    it("blocks the save with a field error when no source resolves", async () => {
+      open({});
+      fill("Invoice account", ACCT);
+      fill("Description", "x");
+      fill("Unit price", "1");
+      fill("Revenue account", "4900");
+      fill("Tax code", "DE19");
+      fireEvent.click(screen.getByRole("button", { name: "Save proposal" }));
+      expect((await screen.findAllByText("Enter a three-letter currency code such as EUR.")).length).toBeGreaterThan(0);
+      expect(server.calls).toHaveLength(0);
+    });
+  });
+
   it("adds and removes lines", () => {
     renderAt("/billing/free-text-invoices/new");
     fireEvent.click(screen.getByRole("button", { name: "Add line" }));
@@ -229,6 +274,7 @@ describe("New free-text invoice", () => {
   it("shows service field errors next to the fields and a tax outage as an alert", async () => {
     const values = {
       ...emptyFreeText("2027-03-10"),
+      currency: "EUR",
       legalEntityId: LE,
       customerId: CUST,
       invoiceAccountId: ACCT,
@@ -240,6 +286,7 @@ describe("New free-text invoice", () => {
     server.handler = () => json(400, { code: "COM-0001", detail: "request failed validation", errors: { "lines[0].taxCode": "must be a tax code" } });
     renderAt("/billing/free-text-invoices/new");
     fill("Legal entity", LE);
+    fill("Currency", "EUR");
     fill("Customer", CUST);
     fill("Invoice account", ACCT);
     fill("Description", "x");

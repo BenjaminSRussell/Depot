@@ -177,7 +177,7 @@ func TestAgentsRoute_StreamsSSEWithoutBuffering(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), streamDeadline)
 	defer cancel()
 	resp := agentsPost(ctx, t, front.Client(), front.URL+messagesPath, "POST")
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK || resp.Header.Get("Content-Type") != "text/event-stream" {
 		t.Fatalf("status %d content-type %q", resp.StatusCode, resp.Header.Get("Content-Type"))
 	}
@@ -223,7 +223,7 @@ func TestAgentsRoute_PassesRefusalsAndErrorsThrough(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), streamDeadline)
 			defer cancel()
 			resp := agentsPost(ctx, t, front.Client(), front.URL+messagesPath, "POST")
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			got, err := io.ReadAll(resp.Body)
 			if err != nil || resp.StatusCode != c.status || resp.Header.Get("Content-Type") != contentType || string(got) != body {
 				t.Fatalf("got %d %q %q (%v), want %d %q %q", resp.StatusCode, resp.Header.Get("Content-Type"), got, err, c.status, contentType, body)
@@ -243,7 +243,7 @@ func TestAgentsRoute_PassesRefusalsAndErrorsThrough(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), streamDeadline)
 		defer cancel()
 		resp := agentsPost(ctx, t, front.Client(), front.URL+messagesPath, "POST")
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		body, err := io.ReadAll(resp.Body)
 		if err != nil || resp.StatusCode != http.StatusOK || string(body) != want {
 			t.Fatalf("got %d %q (%v), want %q", resp.StatusCode, body, err, want)
@@ -258,7 +258,7 @@ func TestAgentsRoute_PassesRefusalsAndErrorsThrough(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), streamDeadline)
 		defer cancel()
 		resp := agentsPost(ctx, t, front.Client(), front.URL+conversationsPath, "POST")
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		body, _ := io.ReadAll(resp.Body)
 		if resp.StatusCode != http.StatusBadGateway || !strings.Contains(string(body), "GW-0502") {
 			t.Fatalf("got %d %s", resp.StatusCode, body)

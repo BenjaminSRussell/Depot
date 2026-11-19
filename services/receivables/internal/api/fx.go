@@ -146,7 +146,7 @@ type reverseApplicationRequest struct {
 }
 
 func (a *API) reverseApplication(w http.ResponseWriter, r *http.Request, id string) {
-	if !require(w, r, dutyPayment) {
+	if !require(w, r, dutyPaymentReverse) {
 		return
 	}
 	var in reverseApplicationRequest

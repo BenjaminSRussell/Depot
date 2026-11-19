@@ -2,7 +2,7 @@
   "version": 3,
   "compiler": "scripts/compile_architecture.py",
   "note": "Generated from the OpenAPI and AsyncAPI specs and scripts/architecture_patterns.json. Do not edit; run python3 scripts/compile_architecture.py --write.",
-  "summary": {"openapiDocuments": 65, "paths": 2633, "operations": 3257, "asyncapiDocuments": 60, "topics": 388, "topicsPublished": 385, "topicsSubscribed": 18, "patterns": 59},
+  "summary": {"openapiDocuments": 65, "paths": 2642, "operations": 3269, "asyncapiDocuments": 60, "topics": 391, "topicsPublished": 388, "topicsSubscribed": 18, "patterns": 59},
   "patterns": [
     {
       "id": "event-envelope",
@@ -603,11 +603,16 @@
       "openapi": "3.1.0",
       "title": "Depot agent runtime",
       "operations": [
+        {"method": "GET", "path": "/api/v1/agents/ai-data-policy", "operationId": "getAiDataPolicy", "duty": "aipolicy.read"},
+        {"method": "PUT", "path": "/api/v1/agents/ai-data-policy", "operationId": "putAiDataPolicy", "duty": "aipolicy.write"},
+        {"method": "GET", "path": "/api/v1/agents/budgets", "operationId": "listAgentBudgets", "duty": "agentbudget.read"},
+        {"method": "PUT", "path": "/api/v1/agents/budgets/{agentId}", "operationId": "setAgentBudgetCap", "duty": "agentbudget.write"},
         {"method": "GET", "path": "/api/v1/agents/kill-switch", "operationId": "getKillSwitchStatus", "duty": "agents.admin"},
         {"method": "POST", "path": "/api/v1/agents/kill-switch", "operationId": "toggleKillSwitch", "duty": "agents.admin"},
         {"method": "GET", "path": "/api/v1/agents/runs/{runId}", "operationId": "getAgentRun", "duty": "agents.run.read"},
         {"method": "GET", "path": "/api/v1/agents/runs/{runId}/actions", "operationId": "listAgentRunActions", "duty": "agents.run.read"},
         {"method": "POST", "path": "/api/v1/agents/runs/{runId}/actions/{actionId}/decision", "operationId": "decideAgentAction", "duty": "AgentApprove"},
+        {"method": "POST", "path": "/api/v1/agents/runs/{runId}/actions/{actionId}:undo", "operationId": "undoAgentAction", "duty": "agents.run.read"},
         {"method": "POST", "path": "/api/v1/agents/runs/{runId}/steps/{step}", "operationId": "runAgentStep", "duty": "agents.run.workflow"},
         {"method": "POST", "path": "/api/v1/agents/{agentId}/runs", "operationId": "startAgentRun", "duty": "agents.invoke"},
         {"method": "POST", "path": "/api/v1/copilot/chat", "operationId": "copilotChat", "duty": "mcp.copilot.use"},
@@ -944,6 +949,12 @@
         {"method": "GET", "path": "/v1/compliance/audit-policies/{id}", "operationId": "getAuditPolicy", "duty": "compliance.audit-policy.run"},
         {"method": "PATCH", "path": "/v1/compliance/audit-policies/{id}", "operationId": "updateAuditPolicy", "duty": "compliance.audit-policy.maintain"},
         {"method": "POST", "path": "/v1/compliance/audit-policies:evaluate", "operationId": "evaluateAuditPolicy", "duty": "compliance.audit-policy.run"},
+        {"method": "GET", "path": "/v1/compliance/data-designations", "operationId": "listDataDesignations", "duty": "datadesignation.read"},
+        {"method": "POST", "path": "/v1/compliance/data-designations", "operationId": "createDataDesignation", "duty": "datadesignation.write"},
+        {"method": "GET", "path": "/v1/compliance/data-designations/{id}", "operationId": "getDataDesignation", "duty": "datadesignation.read"},
+        {"method": "PATCH", "path": "/v1/compliance/data-designations/{id}", "operationId": "changeDataDesignation", "duty": "datadesignation.write"},
+        {"method": "GET", "path": "/v1/compliance/data-designations/{id}/history", "operationId": "getDataDesignationHistory", "duty": "datadesignation.read"},
+        {"method": "POST", "path": "/v1/compliance/data-designations:resolve", "operationId": "resolveDataDesignations", "duty": "datadesignation.read"},
         {"method": "POST", "path": "/v1/compliance/export-governance:evaluate", "operationId": "evaluateExportGovernance", "duty": "compliance.view"},
         {"method": "POST", "path": "/v1/compliance/read-log:classify", "operationId": "classifyReadLog", "duty": "compliance.view"},
         {"method": "POST", "path": "/v1/privacy/erasures", "operationId": "requestErasure", "duty": "compliance.erasure.request"},
@@ -3659,6 +3670,7 @@
         {"method": "POST", "path": "/v1/receivables/payments/{id}:apply", "operationId": "applyPayment", "duty": "receivables.payment.post"},
         {"method": "POST", "path": "/v1/receivables/payments/{id}:match", "operationId": "matchPayment", "duty": "receivables.payment.post"},
         {"method": "POST", "path": "/v1/receivables/payments/{id}:reverse", "operationId": "reversePayment", "duty": "receivables.payment.reverse"},
+        {"method": "POST", "path": "/v1/receivables/payments/{id}:reverse-application", "operationId": "reversePaymentApplication", "duty": "receivables.payment.reverse"},
         {"method": "POST", "path": "/v1/receivables/payments/{id}:unapply", "operationId": "unapplyPayment", "duty": "receivables.payment.reverse"},
         {"method": "GET", "path": "/v1/receivables/prediction-invoices", "operationId": "listPredictionInvoices", "duty": "receivables.prediction.read"},
         {"method": "GET", "path": "/v1/receivables/promises", "operationId": "listPromises", "duty": "receivables.view"},
@@ -4499,6 +4511,8 @@
       "asyncapi": "3.0.0",
       "title": "Depot agent runtime events",
       "publishes": [
+        {"topic": "depot.agent.action", "types": ["dev.depot.agent.action.declined.v1"]},
+        {"topic": "depot.agent.aipolicy", "types": ["dev.depot.agent.aipolicy.changed.v1"]},
         {"topic": "depot.agent.approval", "types": ["dev.depot.agent.approval.requested.v1"]},
         {"topic": "depot.agent.budget", "types": ["dev.depot.agent.budget.threshold.v1"]},
         {"topic": "depot.agent.killswitch", "types": ["dev.depot.agent.killswitch.changed.v1"]},
@@ -4615,6 +4629,7 @@
       "asyncapi": "3.0.0",
       "title": "Depot compliance events",
       "publishes": [
+        {"topic": "depot.compliance.datadesignation", "types": ["dev.depot.compliance.datadesignation.changed.v1"]},
         {"topic": "depot.privacy.erasure", "types": ["dev.depot.privacy.erasure.requested.v1"]},
         {"topic": "depot.privacy.hold", "types": ["dev.depot.privacy.hold.placed.v1", "dev.depot.privacy.hold.released.v1"]},
         {"topic": "depot.privacy.request", "types": ["dev.depot.privacy.request.completed.v1"]},
@@ -5349,7 +5364,10 @@
         {"topic": "depot.receivables.downpayment", "types": ["dev.depot.receivables.downpayment.cleared.v1", "dev.depot.receivables.downpayment.received.v1", "dev.depot.receivables.downpayment.released.v1"]},
         {"topic": "depot.receivables.dunningletter", "types": ["dev.depot.receivables.dunningletter.issued.v1"]},
         {"topic": "depot.receivables.openitem", "types": ["dev.depot.receivables.openitem.imported.v1"]},
-        {"topic": "depot.receivables.payment", "types": ["dev.depot.receivables.payment.applied.v1", "dev.depot.receivables.payment.received.v1", "dev.depot.receivables.payment.unapplied.v1"]}
+        {
+          "topic": "depot.receivables.payment",
+          "types": ["dev.depot.receivables.payment.applicationreversed.v1", "dev.depot.receivables.payment.applied.v1", "dev.depot.receivables.payment.received.v1", "dev.depot.receivables.payment.unapplied.v1"]
+        }
       ],
       "subscribes": []
     },
@@ -5579,6 +5597,8 @@
     }
   ],
   "topics": [
+    {"topic": "depot.agent.action", "publishers": ["services/agents-ts"], "subscribers": []},
+    {"topic": "depot.agent.aipolicy", "publishers": ["services/agents-ts"], "subscribers": []},
     {"topic": "depot.agent.approval", "publishers": ["services/agents-ts"], "subscribers": []},
     {"topic": "depot.agent.budget", "publishers": ["services/agents-ts"], "subscribers": []},
     {"topic": "depot.agent.killswitch", "publishers": ["services/agents-ts"], "subscribers": []},
@@ -5609,6 +5629,7 @@
     {"topic": "depot.close.run", "publishers": ["services/close"], "subscribers": []},
     {"topic": "depot.close.task", "publishers": ["services/close"], "subscribers": []},
     {"topic": "depot.close.yearend", "publishers": ["services/close"], "subscribers": []},
+    {"topic": "depot.compliance.datadesignation", "publishers": ["services/compliance"], "subscribers": []},
     {"topic": "depot.consol.run", "publishers": ["services/consolidation"], "subscribers": []},
     {"topic": "depot.controlling.allocation", "publishers": ["services/costacct"], "subscribers": []},
     {"topic": "depot.controlling.costentry", "publishers": ["services/costacct"], "subscribers": []},

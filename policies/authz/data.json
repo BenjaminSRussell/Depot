@@ -1116,7 +1116,7 @@
     "receivables.aging.run": {"permissions": [{"resource": "/v1/receivables/aging-snapshots", "methods": ["POST"]}]},
     "receivables.bankaccount.manage": {"permissions": [{"resource": "/v1/receivables/bank-accounts", "methods": ["PUT", "DELETE"]}]},
     "receivables.fxsetting.manage": {"permissions": [{"resource": "/v1/receivables/fx-settings", "methods": ["PUT"]}]},
-    "receivables.payment.reverse": {"permissions": [{"resource": "/v1/receivables/payments/*:reverse", "methods": ["POST"]}, {"resource": "/v1/receivables/payments/*:unapply", "methods": ["POST"]}, {"resource": "/v1/receivables/credit-settlements/*:reverse", "methods": ["POST"]}]},
+    "receivables.payment.reverse": {"permissions": [{"resource": "/v1/receivables/payments/*:reverse", "methods": ["POST"]}, {"resource": "/v1/receivables/payments/*:unapply", "methods": ["POST"]}, {"resource": "/v1/receivables/payments/*:reverse-application", "methods": ["POST"]}, {"resource": "/v1/receivables/credit-settlements/*:reverse", "methods": ["POST"]}]},
     "receivables.payment-file.import": {"permissions": [
       {"resource": "/v1/receivables/bank-statements/imports", "methods": ["POST"]},
       {"resource": "/v1/receivables/lockbox/imports", "methods": ["POST"]}
@@ -1128,7 +1128,6 @@
       {"resource": "/v1/receivables/payments", "methods": ["POST"]},
       {"resource": "/v1/receivables/payments/*:apply", "methods": ["POST"]},
       {"resource": "/v1/receivables/payments/*:match", "methods": ["POST"]},
-      {"resource": "/v1/receivables/payments/*:reverse-application", "methods": ["POST"]},
       {"resource": "/v1/receivables/remittance-advices", "methods": ["POST"]},
       {"resource": "/v1/receivables/rma-credits/*:backfill-reservation", "methods": ["POST"]},
       {"resource": "/v1/receivables/rma-credits/*:cancel", "methods": ["POST"]},

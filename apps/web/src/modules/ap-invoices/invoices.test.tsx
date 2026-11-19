@@ -1,5 +1,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { currencyLookups } from "../../shell/defaults/testLookup";
+import { setLookupFetcher } from "../../shell/lookup/entities";
 import type { GrirItem, Invoice } from "./api/client";
 import { validateFilters } from "./GrirPage";
 import { subtractDecimal } from "./parts";
@@ -76,6 +78,7 @@ describe("client-side checks", () => {
     invoiceNumber: " INV-1 ",
     invoiceDate: "2026-10-26",
     postingDate: "2026-10-26",
+    currency: "USD",
     ledgerId: UUID_A,
     lines: [{ receiptId: RECEIPT, receiptLineNo: "1", qty: "6", unitPrice: "2.5", standardCost: true }],
   };
@@ -177,6 +180,7 @@ describe("post vendor invoice", () => {
     fill("Invoice number", "INV-1");
     fill("Invoice date", "2026-10-26");
     fill("Posting date", "2026-10-26");
+    fill("Currency", "USD");
     fill("Ledger", UUID_A);
     fill("Line 1 receipt", RECEIPT);
     fill("Line 1 quantity", "6");
@@ -239,6 +243,83 @@ describe("post vendor invoice", () => {
     const field = await screen.findByLabelText("Line 1 quantity");
     await waitFor(() => expect(field).toBeInvalid());
     expect(within(field.closest("div") as HTMLElement).getByText("must be greater than zero")).toBeInTheDocument();
+  });
+
+  describe("currency default", () => {
+    async function pickSources(currencies: Record<string, string>) {
+      server.handler = (_, init) => (init.method === "POST" ? json(201, invoice({ currency: "EUR" })) : undefined);
+      renderAt("/ap-invoices/post");
+      currencyLookups(currencies);
+      fill("Vendor", UUID_A);
+      fill("Legal entity", UUID_B);
+    }
+
+    function fillRest() {
+      fill("Invoice number", "INV-1");
+      fill("Invoice date", "2026-10-26");
+      fill("Posting date", "2026-10-26");
+      fill("Ledger", UUID_A);
+      fill("Line 1 receipt", RECEIPT);
+      fill("Line 1 quantity", "6");
+      fill("Line 1 unit price", "2.5");
+    }
+
+    it.each([
+      ["the vendor", { [UUID_A]: "EUR", [UUID_B]: "USD" }, "EUR"],
+      ["the legal entity", { [UUID_B]: "CHF" }, "CHF"],
+    ])("follows %s", async (_source, currencies, expected) => {
+      await pickSources(currencies);
+      await waitFor(() => expect(screen.getByLabelText("Currency")).toHaveValue(expected));
+    });
+
+    it("posts a EUR vendor's invoice in EUR without typing the currency", async () => {
+      await pickSources({ [UUID_A]: "EUR", [UUID_B]: "USD" });
+      await waitFor(() => expect(screen.getByLabelText("Currency")).toHaveValue("EUR"));
+      fillRest();
+      fireEvent.click(screen.getByRole("button", { name: "Post invoice" }));
+      await screen.findByText("Invoice INV-1 posted");
+      expect(server.calls[0].body).toMatchObject({ currency: "EUR" });
+    });
+
+    it("keeps a typed currency over the derived one", async () => {
+      await pickSources({ [UUID_A]: "EUR" });
+      await waitFor(() => expect(screen.getByLabelText("Currency")).toHaveValue("EUR"));
+      fill("Currency", "GBP");
+      fillRest();
+      fireEvent.click(screen.getByRole("button", { name: "Post invoice" }));
+      await screen.findByText("Invoice INV-1 posted");
+      expect(server.calls[0].body).toMatchObject({ currency: "GBP" });
+    });
+
+    it("posts to the legal entity's only ledger without choosing one", async () => {
+      server.handler = (_, init) => (init.method === "POST" ? json(201, invoice()) : undefined);
+      renderAt("/ap-invoices/post");
+      setLookupFetcher(async (url) =>
+        new Response(JSON.stringify(url.includes("/ledger/ledgers") ? { items: [{ id: UUID_C, name: "Main ledger", code: "ML" }] } : { items: [] }), { status: 200 }),
+      );
+      fill("Legal entity", UUID_B);
+      await waitFor(() => expect(screen.getByLabelText("Ledger")).toHaveAttribute("data-value", UUID_C));
+      fill("Vendor", UUID_A);
+      fill("Currency", "USD");
+      fill("Invoice number", "INV-1");
+      fill("Invoice date", "2026-10-26");
+      fill("Posting date", "2026-10-26");
+      fill("Line 1 receipt", RECEIPT);
+      fill("Line 1 quantity", "6");
+      fill("Line 1 unit price", "2.5");
+      fireEvent.click(screen.getByRole("button", { name: "Post invoice" }));
+      await screen.findByText("Invoice INV-1 posted");
+      expect(server.calls[0].body).toMatchObject({ ledgerId: UUID_C });
+    });
+
+    it("blocks the post with a field error when no source resolves", async () => {
+      await pickSources({});
+      fillRest();
+      fireEvent.click(screen.getByRole("button", { name: "Post invoice" }));
+      expect((await screen.findAllByText("Use a 3-letter upper-case currency code.")).length).toBeGreaterThan(0);
+      expect(screen.getByLabelText("Currency")).toBeInvalid();
+      expect(server.calls).toHaveLength(0);
+    });
   });
 
   it("adds and removes lines with unique labels", () => {

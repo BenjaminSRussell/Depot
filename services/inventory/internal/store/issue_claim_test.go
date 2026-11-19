@@ -166,3 +166,18 @@ func TestWarehouseIssueCost_ValuesTheDeliveryRowOfTheWarehouseAndIgnoresOthers(t
 		t.Fatalf("a warehouse with no stock: %q %s, %v; want no currency and cost 0", currency, cost, err)
 	}
 }
+
+func TestWarehouseIssueCost_ValuesBatchOnlyStockFromAllSplitsAndNoStockStaysEmpty(t *testing.T) {
+	s, _, _ := setup(t)
+	ctx := entityCtx(1, ids.New())
+	product := ids.New()
+	post(t, ctx, s, domain.JournalOpeningBalance, line(product, "10", "9", dims("site", "S1", "warehouse", "W4", "batch", "B1")),
+		line(product, "10", "3", dims("site", "S1", "warehouse", "W4", "batch", "B2")))
+	currency, cost, err := s.WarehouseIssueCost(ctx, legalEntityOf(ctx), product, "W4")
+	if err != nil || currency == "" || !cost.Equal(dec("6")) {
+		t.Fatalf("W4 holds only batch stock: %q %s, %v; want a currency and the average 6 of all splits", currency, cost, err)
+	}
+	if currency, cost, err = s.WarehouseIssueCost(ctx, legalEntityOf(ctx), product, "W3"); err != nil || currency != "" || !cost.IsZero() {
+		t.Fatalf("a warehouse with no stock: %q %s, %v; want no currency and cost 0", currency, cost, err)
+	}
+}
