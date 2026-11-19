@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/shopspring/decimal"
 
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
@@ -23,15 +22,9 @@ const (
 	ifMatchHeader       = "If-Match"
 	codePrecondition    = "COM-0428"
 	topDeltaCount       = 20
-	maxOnHandLines      = 50000
-	// maxQty bounds an on-hand quantity to numeric(28,6): 22 integer digits.
-	maxQtyDigits = 22
 )
 
-var (
-	versionStatuses = map[string]bool{"DRAFT": true, "ACTIVE": true, "ARCHIVED": true}
-	maxQty          = decimal.New(1, maxQtyDigits)
-)
+var versionStatuses = map[string]bool{"DRAFT": true, "ACTIVE": true, "ARCHIVED": true}
 
 // ---- reads ----
 
@@ -159,19 +152,7 @@ func (a *API) listItemCosts(w http.ResponseWriter, r *http.Request) {
 
 // ---- activation ----
 
-// onHandDTO is the physical on-hand of one product x site that the revaluation
-// applies to (BR-20.7). bookValue is its current inventory value and is needed
-// only where the product x site has no active standard cost yet.
-type onHandDTO struct {
-	ProductID string  `json:"productId"`
-	SiteID    string  `json:"siteId"`
-	Qty       string  `json:"qty"`
-	BookValue *string `json:"bookValue,omitempty"`
-}
-
-type activateRequest struct {
-	OnHand []onHandDTO `json:"onHand"`
-}
+type activateRequest struct{}
 
 type lineDTO struct {
 	ProductID    string  `json:"productId"`
@@ -201,6 +182,12 @@ type activationResponse struct {
 	RevaluationTotal string               `json:"revaluationTotal"`
 	Sites            []siteRevaluationDTO `json:"sites"`
 	TopDeltas        []lineDTO            `json:"topDeltas"`
+	Vouchers         voucherCountsDTO     `json:"vouchers"`
+}
+
+type voucherCountsDTO struct {
+	Posted  int `json:"posted"`
+	Pending int `json:"pending"`
 }
 
 func (a *API) previewActivation(w http.ResponseWriter, r *http.Request) {
@@ -224,43 +211,6 @@ func ifMatchVersion(r *http.Request) (int, error) {
 	return v, nil
 }
 
-// parseOnHand validates the on-hand lines into the store's map.
-func parseOnHand(fields map[string]string, lines []onHandDTO) store.OnHand {
-	if len(lines) > maxOnHandLines {
-		fields["onHand"] = fmt.Sprintf("must hold at most %d lines", maxOnHandLines)
-		return nil
-	}
-	out := make(store.OnHand, len(lines))
-	for i, oh := range lines {
-		key := fmt.Sprintf("onHand[%d]", i)
-		if !ids.Valid(oh.ProductID) {
-			fields[key+".productId"] = "must be a UUID"
-		}
-		if !ids.Valid(oh.SiteID) {
-			fields[key+".siteId"] = "must be a UUID"
-		}
-		// Physical on-hand can be negative (negative stock); it must fit numeric(28,6).
-		qty := parseDecimal(fields, key+".qty", oh.Qty, false)
-		if _, bad := fields[key+".qty"]; !bad && (!qty.Equal(qty.Truncate(6)) || qty.Abs().GreaterThanOrEqual(maxQty)) {
-			fields[key+".qty"] = fmt.Sprintf("must have at most %d integer digits and 6 decimal places", maxQtyDigits)
-		}
-		entry := store.OnHandQty{Qty: qty}
-		if oh.BookValue != nil {
-			bv := parseDecimal(fields, key+".bookValue", *oh.BookValue, false)
-			if _, bad := fields[key+".bookValue"]; !bad && (!bv.Equal(bv.Truncate(6)) || bv.Abs().GreaterThanOrEqual(domain.MaxUnitCost)) {
-				fields[key+".bookValue"] = "must have at most 14 integer digits and 6 decimal places"
-			}
-			entry.BookValue = &bv
-		}
-		k := store.OnHandKey(strings.ToLower(oh.ProductID), strings.ToLower(oh.SiteID))
-		if _, dup := out[k]; dup {
-			fields[key] = "duplicates an earlier product and site"
-		}
-		out[k] = entry
-	}
-	return out
-}
-
 // activation previews (commit=false) or commits an activation. Both run the
 // same plan; only the commit writes rows and cost.changed events.
 func (a *API) activation(w http.ResponseWriter, r *http.Request, commit bool) {
@@ -281,20 +231,14 @@ func (a *API) activation(w http.ResponseWriter, r *http.Request, commit bool) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	fields := map[string]string{}
-	onHand := parseOnHand(fields, req.OnHand)
-	if len(fields) > 0 {
-		validationFailed(w, r, fields)
-		return
-	}
 	var (
 		res store.ActivationResult
 		err error
 	)
 	if commit {
-		res, err = a.store.ActivateVersion(r.Context(), id, expected, onHand)
+		res, err = a.store.ActivateVersion(r.Context(), id, expected, a.ledger)
 	} else {
-		res, err = a.store.PreviewActivation(r.Context(), id, onHand)
+		res, err = a.store.PreviewActivation(r.Context(), id)
 	}
 	if err != nil {
 		a.fail(w, r, "activate costing version", err)
@@ -308,6 +252,7 @@ func (a *API) activation(w http.ResponseWriter, r *http.Request, commit bool) {
 		status = "ACTIVATED"
 		a.activations.Add(1)
 		a.costsActivated.Add(int64(len(res.Plan.Lines)))
+		a.vouchersPosted.Add(int64(res.VouchersPosted))
 	}
 	setETag(w, res.Version.Version)
 	httpx.JSON(w, http.StatusOK, activationDTO(res, status))
@@ -317,7 +262,7 @@ func activationDTO(res store.ActivationResult, status string) activationResponse
 	scale := money.MinorUnits(res.Version.Currency)
 	out := activationResponse{VersionID: res.Version.ID, VersionCode: res.Version.Code, Version: res.Version.Version, Status: status,
 		Currency: res.Version.Currency, LineCount: len(res.Plan.Lines), RevaluationTotal: res.Plan.Total.StringFixed(scale),
-		Sites: []siteRevaluationDTO{}, TopDeltas: []lineDTO{}}
+		Sites: []siteRevaluationDTO{}, TopDeltas: []lineDTO{}, Vouchers: voucherCountsDTO{Posted: res.VouchersPosted, Pending: res.VouchersPending}}
 	for _, s := range res.Plan.Sites {
 		out.Sites = append(out.Sites, siteRevaluationDTO{SiteID: s.SiteID, Revaluation: s.Amount.StringFixed(scale)})
 	}

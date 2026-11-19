@@ -143,7 +143,7 @@ func (a *API) Metrics() http.Handler {
 		fmt.Fprintf(w, "# HELP costing_adjustments_posted_total Manual cost adjustments posted; idempotent replays are not counted.\n# TYPE costing_adjustments_posted_total counter\ncosting_adjustments_posted_total %d\n", a.adjustmentsPosted.Load())
 		fmt.Fprintf(w, "# HELP costing_reconciliations_total Reconciliation runs stored; idempotent replays are not counted.\n# TYPE costing_reconciliations_total counter\ncosting_reconciliations_total %d\n", a.reconciliations.Load())
 		fmt.Fprintf(w, "# HELP costing_reconciliation_diffs_total Differing groups of stored reconciliation runs (one reconciliation.diff event each).\n# TYPE costing_reconciliation_diffs_total counter\ncosting_reconciliation_diffs_total %d\n", a.reconciliationDiffs.Load())
-		fmt.Fprintf(w, "# HELP costing_gl_vouchers_posted_total PPV vouchers confirmed by the ledger.\n# TYPE costing_gl_vouchers_posted_total counter\ncosting_gl_vouchers_posted_total %d\n", a.vouchersPosted.Load())
+		fmt.Fprintf(w, "# HELP costing_gl_vouchers_posted_total PPV, revaluation and adjustment vouchers confirmed by the ledger.\n# TYPE costing_gl_vouchers_posted_total counter\ncosting_gl_vouchers_posted_total %d\n", a.vouchersPosted.Load())
 		fmt.Fprintf(w, "# HELP costing_closes_completed_total Inventory closes completed.\n# TYPE costing_closes_completed_total counter\ncosting_closes_completed_total %d\n", a.closesCompleted.Load())
 	})
 }

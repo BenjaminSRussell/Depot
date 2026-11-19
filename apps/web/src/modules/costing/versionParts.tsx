@@ -1,10 +1,9 @@
 import type { ReactNode } from "react";
 import { Alert, Button } from "../../shell/ui";
-import { CostingApiError, describeError, type OnHandLine } from "./api/client";
+import { CostingApiError, describeError } from "./api/client";
 import styles from "./pages.module.css";
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const SIGNED_DECIMAL = /^-?\d+(\.\d{1,6})?$/;
 
 export const dash = "—";
 
@@ -72,38 +71,4 @@ export function costDelta(a: string, b: string | undefined): string {
   const diff = toMicros(a) - toMicros(b);
   const text = fromMicros(diff);
   return diff > 0n ? `+${text}` : text;
-}
-
-/**
- * Parses the on-hand CSV the activation revalues: a header naming productId,
- * siteId and qty (bookValue optional, any order), then one row per product and
- * site. Empty text means no stock anywhere.
- */
-export function parseOnHandCsv(text: string): { ok: true; value: OnHandLine[] } | { ok: false; error: string } {
-  const rows = text
-    .split(/\r?\n/)
-    .map((line, i) => ({ line: i + 1, cells: line.split(",").map((c) => c.trim()) }))
-    .filter((r) => r.cells.some((c) => c !== ""));
-  if (rows.length === 0) return { ok: true, value: [] };
-  const header = rows[0].cells.map((c) => c.toLowerCase());
-  const at = { productId: header.indexOf("productid"), siteId: header.indexOf("siteid"), qty: header.indexOf("qty"), bookValue: header.indexOf("bookvalue") };
-  if (at.productId < 0 || at.siteId < 0 || at.qty < 0) {
-    return { ok: false, error: "The first line must name the columns productId, siteId and qty (bookValue is optional)." };
-  }
-  const seen = new Set<string>();
-  const value: OnHandLine[] = [];
-  for (const { line, cells } of rows.slice(1)) {
-    const productId = cells[at.productId] ?? "";
-    const siteId = cells[at.siteId] ?? "";
-    const qty = cells[at.qty] ?? "";
-    const bookValue = at.bookValue >= 0 ? cells[at.bookValue] ?? "" : "";
-    if (!UUID.test(productId) || !UUID.test(siteId)) return { ok: false, error: `Line ${line}: productId and siteId must be UUIDs.` };
-    if (!SIGNED_DECIMAL.test(qty)) return { ok: false, error: `Line ${line}: qty must be a number with at most 6 decimals.` };
-    if (bookValue !== "" && !SIGNED_DECIMAL.test(bookValue)) return { ok: false, error: `Line ${line}: bookValue must be a number with at most 6 decimals.` };
-    const key = `${productId.toLowerCase()}|${siteId.toLowerCase()}`;
-    if (seen.has(key)) return { ok: false, error: `Line ${line}: this product and site is already listed.` };
-    seen.add(key);
-    value.push(bookValue === "" ? { productId, siteId, qty } : { productId, siteId, qty, bookValue });
-  }
-  return { ok: true, value };
 }
