@@ -12,7 +12,7 @@ const STALE = new ApiError(412, "AGT-0412", "the policy changed since you read i
 
 async function readCurrent(c: Pick<pg.PoolClient, "query">, tenantId: string): Promise<AiDataPolicy> {
   const res = await c.query<{ version: number; after_modules: unknown }>(
-    "select version, after_modules from ai_data_policy_change where tenant_id = $1 and legal_entity_id is null order by version desc limit 1",
+    "select version, after_modules from ai_data_policy_change where tenant_id = $1 order by version desc limit 1",
     [tenantId],
   );
   const row = res.rows[0];

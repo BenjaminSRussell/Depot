@@ -232,6 +232,8 @@ paths:
                 reason: {type: string, maxLength: 500}
               additionalProperties: false
       responses:
+        "204":
+          description: "The compensating reversal was applied. Not returned in this slice: no registry entry is wired yet, so every action answers 409."
         "400": {$ref: "#/components/responses/Problem"}
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}

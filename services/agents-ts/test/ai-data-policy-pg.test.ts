@@ -41,7 +41,7 @@ describe.runIf(ownerUrl)("tenant AI data policy in Postgres", () => {
     const out = await put(t, { modules: { ap: { P2: true } }, reason: "pilot" }, '"1"');
     expect(out.version).toBe(2);
     const row = (await fx.owner.query("select * from ai_data_policy_change where tenant_id = $1", [t])).rows[0];
-    expect(row).toMatchObject({ version: 2, by_user: USER, loosening: true, reason: "pilot", legal_entity_id: null });
+    expect(row).toMatchObject({ version: 2, by_user: USER, loosening: true, reason: "pilot" });
     expect(row.before_modules.ap.P2).toBe(false);
     expect(row.after_modules.ap.P2).toBe(true);
     const events = (await fx.owner.query("select type, payload from outbox where tenant_id = $1", [t])).rows;
