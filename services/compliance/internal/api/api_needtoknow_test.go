@@ -57,8 +57,9 @@ func TestNeedToKnowGet_DeploymentDefaultFollowsTheBoundaryAndCarriesTheNeverSetE
 			Enabled   bool
 			Source    string
 			Overrides json.RawMessage
+			Enforced  *bool
 		}
-		if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &out) != nil || out.Enabled != want || out.Source != domain.SourceDeploymentDefault || string(out.Overrides) != "[]" {
+		if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &out) != nil || out.Enabled != want || out.Source != domain.SourceDeploymentDefault || string(out.Overrides) != "[]" || out.Enforced == nil || *out.Enforced {
 			t.Fatalf("%s: %d %s", boundary, rec.Code, rec.Body.String())
 		}
 		if rec.Header().Get("ETag") != `"1"` {

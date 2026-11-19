@@ -40,6 +40,7 @@ export interface AgentBudgetStore {
 
 export interface AgentBudgetService {
   list(principal: Principal): Promise<BudgetList>;
+  status(principal: Principal): Promise<BudgetState>;
   setCap(principal: Principal, agentId: string, body: unknown): Promise<BudgetEntry>;
 }
 
@@ -91,6 +92,9 @@ export function createAgentBudgetService(deps: { store: AgentBudgetStore; now?: 
   }
 
   return {
+    async status(principal) {
+      return (await build(principal.tenantId)).tenant.status;
+    },
     async list(principal) {
       requireDuty(principal, BUDGET_READ_DUTY, "the agent budgets");
       return build(principal.tenantId);

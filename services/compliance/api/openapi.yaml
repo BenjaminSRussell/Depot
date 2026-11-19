@@ -539,7 +539,7 @@ paths:
             ETag: { schema: { type: string } }
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/NeedToKnowSetting" }
+              schema: { $ref: "#/components/schemas/NeedToKnowChanged" }
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
@@ -1734,11 +1734,19 @@ components:
         changedBy: { type: string }
         changedAt: { type: string, format: date-time }
         version: { type: integer, minimum: 2 }
+    NeedToKnowChanged:
+      allOf:
+        - { $ref: "#/components/schemas/NeedToKnowSetting" }
+        - type: object
+          required: [enforced]
+          properties:
+            enforced: { type: boolean, description: "False until the switch is enforced on reads; today it only records the setting." }
     NeedToKnow:
       type: object
-      required: [enabled, source, tenant, overrides]
+      required: [enabled, source, tenant, overrides, enforced]
       properties:
         enabled: { type: boolean }
+        enforced: { type: boolean, description: "False until the switch is enforced on reads; today it only records the setting." }
         source: { type: string, enum: [DEPLOYMENT_DEFAULT, TENANT, LEGAL_ENTITY] }
         tenant:
           nullable: true

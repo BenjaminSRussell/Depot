@@ -24,6 +24,7 @@ const E2E_DUTIES = [
   "numbering.read",
   "numbering.write",
   "open-item.read",
+  "party.approve",
   "sales.order.read",
   "sales.order.write",
   "fulfillment.warehouse.view",

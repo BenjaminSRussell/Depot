@@ -87,7 +87,7 @@ describe("copilot routing in the standard deployment", () => {
     expect(h.resolverBodies[0]).toContain("cui-1");
   });
 
-  it("keeps the permitted result and withholds the CUI one in a mixed turn, counting the records of the withheld result", async () => {
+  it("filters only the CUI record out of a mixed list and counts just that record", async () => {
     const cfg = loadConfig({ ...base, ...adapters.anthropic });
     const h = harness("anthropic", [callTool("depot.ap.invoice.get"), callTool("depot.ap.vendor.list"), finalText("Invoice summary.")]);
     const mcpResults = { "depot.ap.invoice.get": { id: "ok-1", note: OK_MARKER }, "depot.ap.vendor.list": { items: [{ id: "cui-2", note: CUI_MARKER }, { id: "ok-3", note: OK_MARKER }] } };
@@ -96,8 +96,9 @@ describe("copilot routing in the standard deployment", () => {
     expect(h.providerBodies).toHaveLength(3);
     expect(h.providerBodies[1]).toContain(OK_MARKER);
     for (const body of h.providerBodies) expect(body).not.toContain(CUI_MARKER);
-    expect(res.excluded).toEqual({ count: 2, kinds: ["vendor"], reason: "NO_APPROVED_ROUTE" });
-    expect(res.citations).toEqual([{ sourceType: "RECORD", sourceRef: "depot.ap.invoice.get", label: "depot.ap.invoice.get" }]);
+    expect(h.providerBodies[2]).toContain("ok-3");
+    expect(res.excluded).toEqual({ count: 1, kinds: ["vendor"], reason: "NO_APPROVED_ROUTE" });
+    expect(res.citations.map((c) => c.sourceRef)).toEqual(["depot.ap.invoice.get", "depot.ap.vendor.list"]);
     expect(JSON.stringify([...store.actionRows.values()])).not.toContain(CUI_MARKER);
   });
 

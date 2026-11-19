@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loadConfig } from "../src/config.js";
+import { assertBoundarySupported } from "../src/runtime/aiRouter.js";
 import { exclusionNotice, recordsOf, routeCarries, selectRoute, type Attestation, type Boundary, type ModelRoute } from "../src/domain/modelRoute.js";
 import type { EffectiveClass } from "../src/runtime/cuiDesignation.js";
 
@@ -83,5 +84,12 @@ describe("loadConfig boundary and compliance URL", () => {
   });
   it("refuses a non-http compliance URL", () => {
     expect(() => loadConfig({ ...base, AGENTS_COMPLIANCE_URL: "ftp://x" })).toThrow(/AGENTS_COMPLIANCE_URL/);
+  });
+});
+
+describe("boundary startup guard", () => {
+  it("refuses cui until agent runs are routed", () => {
+    expect(() => assertBoundarySupported({ boundary: "cui" })).toThrow(/AGENTS_BOUNDARY=cui/);
+    expect(() => assertBoundarySupported({ boundary: "standard" })).not.toThrow();
   });
 });

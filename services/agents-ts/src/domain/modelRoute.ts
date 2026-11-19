@@ -46,6 +46,20 @@ export function recordsOf(tool: string, output: unknown): DataRef[] {
   return list === undefined ? [refOf(entityType, undefined)] : list.map((element) => refOf(entityType, element));
 }
 
+export function permittedOutput(output: unknown, excluded: readonly DataRef[]): unknown {
+  if (excluded.some((r) => r.recordId === "")) return undefined;
+  const ids = new Set(excluded.map((r) => r.recordId));
+  const keep = (list: unknown[]): unknown[] | undefined => {
+    const kept = list.filter((e) => !ids.has((e as { id?: unknown } | null)?.id as string));
+    return kept.length === 0 ? undefined : kept;
+  };
+  if (Array.isArray(output)) return keep(output);
+  const items = (output as { items?: unknown } | null | undefined)?.items;
+  if (!Array.isArray(items)) return undefined;
+  const kept = keep(items);
+  return kept === undefined ? undefined : { ...(output as object), items: kept };
+}
+
 export function exclusionNotice(kinds: readonly string[], count: number): string {
   const what = kinds.length === 0 ? "records" : `${kinds.join(", ")} records`;
   return `I left out ${count} of the ${what} it found because no approved AI route exists for that data. The rest of the answer uses only data that is allowed.`;

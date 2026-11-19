@@ -39,6 +39,7 @@ export function createAiRouter(deps: AiRouterDeps): AiRouter {
     if (client === undefined) return refs.map(() => "UNKNOWN");
     try {
       const resolved = await client.resolve(caller, refs);
+      if (resolved.length !== refs.length) return refs.map(() => "UNKNOWN");
       return refs.map((_, i) => resolved[i]?.class ?? "UNKNOWN");
     } catch (err) {
       deps.log?.("warn", "data designation resolve failed, refs are UNKNOWN", { tenantId: caller.tenantId, error: err instanceof Error ? err.name : "unknown" });
@@ -65,6 +66,10 @@ export function createAiRouter(deps: AiRouterDeps): AiRouter {
       return { routeId: route.routeId, provider: deps.providerFor(modelId), keep: cuiRoute === undefined ? permitted : [...refs], excluded: dropped };
     },
   };
+}
+
+export function assertBoundarySupported(cfg: Pick<Config, "boundary">): void {
+  if (cfg.boundary === "cui") throw new Error("AGENTS_BOUNDARY=cui is refused: agent runs and run steps are not routed through an attested route yet (DEPOT-303 slice 2)");
 }
 
 export function envRoute(cfg: Pick<Config, "provider" | "openai" | "providerRegion" | "bedrock">): ModelRoute {

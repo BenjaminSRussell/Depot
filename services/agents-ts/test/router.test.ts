@@ -87,6 +87,12 @@ describe("agents HTTP surface", () => {
     expect(await status.json()).toMatchObject({ tenantId: T1, halted: true, tenant: { active: true, version: 1, byUser: ADMIN }, global: { active: false } });
   });
 
+  it("GET availability answers a caller with no duties, reporting the halt and no copilot when none is wired", async () => {
+    const res = await fetch(`${base}/api/v1/agents/availability`, { headers: edgeHeaders(T1, ADMIN, "") });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ killSwitch: { tenantId: T1, halted: true }, budgetStatus: "OK", copilotEnabled: false });
+  });
+
   it("returns an RFC 9457 problem with a stable code for a refused caller", async () => {
     const res = await kill(false, edgeHeaders(T1, ADMIN, ""));
     expect(res.status).toBe(403);
@@ -188,6 +194,7 @@ describe("api/openapi.yaml matches the router", () => {
   it("documents exactly the operations the router serves", async () => {
     expect(documentedOperations()).toEqual([
       "GET /api/v1/agents/ai-data-policy",
+      "GET /api/v1/agents/availability",
       "GET /api/v1/agents/budgets",
       "GET /api/v1/agents/kill-switch",
       "GET /api/v1/agents/runs/{runId}",

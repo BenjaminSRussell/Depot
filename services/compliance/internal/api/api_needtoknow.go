@@ -23,9 +23,17 @@ func (a *API) registerNeedToKnow(r chi.Router) {
 	r.With(authz.RequireDuty(domain.DutyCUIPolicyAdmin)).Put(needToKnowPath, a.setNeedToKnow)
 }
 
+const needToKnowEnforced = false
+
 type needToKnowView struct {
 	domain.NeedToKnowState
 	store.NeedToKnowSettings
+	Enforced bool `json:"enforced"`
+}
+
+type needToKnowChanged struct {
+	store.NeedToKnowSetting
+	Enforced bool `json:"enforced"`
 }
 
 type needToKnowBody struct {
@@ -56,7 +64,7 @@ func (a *API) getNeedToKnow(w http.ResponseWriter, r *http.Request) {
 	}
 	tenantFlag, overrideFlag := settings.Flags(legalEntityID)
 	setETag(w, settings.VersionOf(legalEntityID))
-	httpx.JSON(w, http.StatusOK, needToKnowView{domain.ResolveNeedToKnow(a.cfg.Boundary, tenantFlag, overrideFlag), settings})
+	httpx.JSON(w, http.StatusOK, needToKnowView{domain.ResolveNeedToKnow(a.cfg.Boundary, tenantFlag, overrideFlag), settings, needToKnowEnforced})
 }
 
 func (a *API) setNeedToKnow(w http.ResponseWriter, r *http.Request) {
@@ -100,5 +108,5 @@ func (a *API) setNeedToKnow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setETag(w, out.Version)
-	httpx.JSON(w, http.StatusOK, out)
+	httpx.JSON(w, http.StatusOK, needToKnowChanged{out, needToKnowEnforced})
 }

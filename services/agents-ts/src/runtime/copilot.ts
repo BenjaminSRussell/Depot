@@ -11,13 +11,12 @@ import {
   type CopilotMode,
 } from "../domain/copilot.js";
 import { gateCitations, type Citation } from "../domain/knowledge.js";
-import { exclusionNotice, NO_ROUTE_MESSAGE, recordsOf } from "../domain/modelRoute.js";
+import { exclusionNotice, NO_ROUTE_MESSAGE, permittedOutput, recordsOf } from "../domain/modelRoute.js";
 import { assertNoPii, Pseudonymizer } from "../domain/redaction.js";
 import { AgentError } from "../errors.js";
 import { StreamRestorer } from "../providers/stream.js";
 import { ProviderError, proposeTool } from "../providers/wire.js";
 import type { ModelEndpoint } from "../cloudprofile/index.js";
-import type { DataRef } from "./cuiDesignation.js";
 import type { AuditPort, BudgetPort, KillSwitchPort, ModelUsage, RunRequest, RunResult } from "./engine.js";
 import type { AiPlan, AiRouter } from "./aiRouter.js";
 import type { McpConnector } from "./mcp.js";
@@ -193,7 +192,6 @@ export function createCopilotService(deps: CopilotDeps) {
       let refused: ChatResponse["refusal"] = null;
       let settleSpend = true;
       let provider = plan.provider;
-      let keptRefs: DataRef[] = [];
       let withheldCount = 0;
       const withheldKinds = new Set<string>();
       const system = systemPrompt(req.mode, gate.allowed);
@@ -279,23 +277,24 @@ export function createCopilotService(deps: CopilotDeps) {
           }
           toolCalls.push({ tool: p.tool, status: "OK" });
           const found = p.tool === KNOWLEDGE_SEARCH_TOOL ? [] : recordsOf(p.tool, out.output);
-          const next = found.length === 0 ? undefined : await deps.router.plan({ caller, token, modelId: deps.modelId, refs: [...keptRefs, ...found] });
+          const next = found.length === 0 ? undefined : await deps.router.plan({ caller, token, modelId: deps.modelId, refs: found });
           answer = "";
-          if (next !== undefined && next.excluded.length > 0) {
+          const excludedHere = next?.excluded ?? [];
+          const shown = excludedHere.length === 0 ? out.output : permittedOutput(out.output, excludedHere);
+          if (excludedHere.length > 0) {
+            withheldCount += excludedHere.length;
+            for (const r of excludedHere) withheldKinds.add(r.entityType === "" ? "unidentified" : r.entityType);
+          }
+          if (shown === undefined) {
             row(p.tool, p.args, { withheld: "NO_APPROVED_ROUTE" }, "AUTO", "read");
-            withheldCount += found.length;
-            for (const r of found) withheldKinds.add(r.entityType === "" ? "unidentified" : r.entityType);
             context += `\n\nResult of ${p.tool} was withheld: its data has no approved AI route.`;
             continue;
           }
-          row(p.tool, p.args, out.output, "AUTO", "read");
-          if (next !== undefined) {
-            keptRefs = next.keep;
-            provider = next.provider;
-          }
+          row(p.tool, p.args, shown, "AUTO", "read");
+          if (next !== undefined) provider = next.provider;
           if (p.tool === KNOWLEDGE_SEARCH_TOOL) knowledge.push(...knowledgeCitations(out.output));
           else citations.push({ sourceType: "RECORD", sourceRef: out.ref ?? p.tool, label: p.tool });
-          context += `\n\nResult of ${p.tool}: ${pseudo.redact(clip(JSON.stringify(out.output) ?? "null", 4000))}`;
+          context += `\n\nResult of ${p.tool}: ${pseudo.redact(clip(JSON.stringify(shown) ?? "null", 4000))}`;
         }
         if (refused === null && knowledge.length > 0) {
           const g = gateCitations(knowledge);

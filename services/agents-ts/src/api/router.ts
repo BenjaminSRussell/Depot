@@ -3,7 +3,7 @@ import type { KillSwitchRegistry } from "../domain/killswitch.js";
 import { type ApprovalStore, handleApprovalDecision } from "./decision.js";
 import { HEADER as SERVICE_TOKEN_HEADER, ServiceTokenError, type ServiceTokenVerifier } from "./serviceToken.js";
 import { StepRefusal, type RunSteps } from "../runtime/steps.js";
-import { handleKillSwitchCommand, type KillSwitchWiring, readKillSwitchStatus } from "./killswitch.js";
+import { handleKillSwitchCommand, type KillSwitchWiring, killSwitchStatusOf, readKillSwitchStatus } from "./killswitch.js";
 import { COPILOT_DUTY, type CopilotService } from "../runtime/copilot.js";
 import { parseChunks, parseSearch, type KnowledgeService } from "../runtime/knowledge.js";
 import type { ActionService } from "../runtime/actions.js";
@@ -44,6 +44,7 @@ export interface AgentsApiBase {
 
 const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const KILL_PATH = "/api/v1/agents/kill-switch";
+const AVAILABILITY_PATH = "/api/v1/agents/availability";
 const AI_POLICY_PATH = "/api/v1/agents/ai-data-policy";
 const START_PATH = /^\/api\/v1\/agents\/([a-z][a-z0-9_]{0,63})\/runs$/;
 const RUN_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})$`);
@@ -197,6 +198,16 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
           ...("log" in deps ? { log: deps.log } : { versions: deps.versions, publish: deps.publish }),
         });
         send(res, 200, out.body);
+        return;
+      }
+      if (path === AVAILABILITY_PATH) {
+        if (req.method !== "GET") throw new MethodNotAllowed("GET");
+        const principal = await deps.authenticate(req.headers);
+        send(res, 200, {
+          killSwitch: killSwitchStatusOf(principal, deps.registry),
+          budgetStatus: deps.budgets === undefined ? "OK" : await deps.budgets.status(principal),
+          copilotEnabled: deps.copilot !== undefined,
+        });
         return;
       }
       if (path === AI_POLICY_PATH) {

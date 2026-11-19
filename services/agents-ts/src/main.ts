@@ -12,7 +12,7 @@ import { KILL_PROPAGATION_MS, KillSwitchRegistry } from "./domain/killswitch.js"
 import { createLogger } from "./logging/pseudonymize.js";
 import { createAiPolicyGuard } from "./runtime/aiPolicyGuard.js";
 import { PgAiDataPolicyStore } from "./store/aiDataPolicy.js";
-import { createConfiguredRouter } from "./runtime/aiRouter.js";
+import { assertBoundarySupported, createConfiguredRouter } from "./runtime/aiRouter.js";
 import { createCopilotService } from "./runtime/copilot.js";
 import { createKnowledgeService } from "./runtime/knowledge.js";
 import { PgKeywordIndex } from "./store/knowledge.js";
@@ -44,6 +44,7 @@ const log = createLogger(process.env, "agents-ts");
 
 async function main(): Promise<void> {
   const cfg = loadConfig(process.env);
+  assertBoundarySupported(cfg);
   const { pool, store } = await openAgentStore(process.env);
   const inbox = new PgApprovalStore(store);
   // Every pod polls kill_switch_change (AC-47.6); a pod that cannot read it for 10 s fails closed, and a pod that has
