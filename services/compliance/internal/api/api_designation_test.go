@@ -139,3 +139,12 @@ func TestDesignation_CUIBoundaryStoresAndReturnsETag(t *testing.T) {
 		t.Fatalf("tenant scope: %d %s", tenantWide.Code, tenantWide.Body.String())
 	}
 }
+
+func TestDesignation_CategoryLimitCountsCharactersNotBytes(t *testing.T) {
+	f := &fakeStore{}
+	body := map[string]any{"scope": "TENANT", "class": "CUI", "reason": "r", "category": strings.Repeat("я", 100)}
+	rec := serve(t, router(boundaryAPI(f, domain.BoundaryCUI)), designationCall(body, "", DutyDataDesignationWrite))
+	if rec.Code != http.StatusCreated || f.designs.calls != 1 {
+		t.Fatalf("100-rune category: %d %s", rec.Code, rec.Body.String())
+	}
+}

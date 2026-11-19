@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -60,7 +61,7 @@ func validDesignation(in DesignationInput) bool {
 	scopeShape := (in.Scope == domain.ScopeTenant && in.LegalEntityID == "") ||
 		(in.Scope == domain.ScopeLegalEntity && ids.Valid(in.LegalEntityID) && in.LegalEntityID != ids.Nil)
 	return scopeShape && in.Class == domain.ClassCUI && domain.ValidDesignationReason(in.Reason) &&
-		len(in.Category) <= domain.MaxDesignationCategory
+		utf8.RuneCountInString(in.Category) <= domain.MaxDesignationCategory
 }
 
 func (s *Postgres) Designate(ctx context.Context, in DesignationInput, key string, now time.Time) (Designation, error) {

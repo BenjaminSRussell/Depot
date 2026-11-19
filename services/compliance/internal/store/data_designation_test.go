@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -193,5 +194,19 @@ func TestDesignate_AppRoleCannotDeleteDesignationsOrAuditEvents(t *testing.T) {
 		if err == nil {
 			t.Errorf("depot_app deleted from %s", table)
 		}
+	}
+}
+
+func TestDesignate_CategoryLimitCountsCharactersNotBytes(t *testing.T) {
+	s, _ := migrated(t)
+	ctx := asEntity(ids.New(), "", ids.New(), tenantAdminDuty, domain.DutyDataDesignationWrite)
+	in := designationInput(domain.ScopeTenant, "")
+	in.Category = strings.Repeat("я", domain.MaxDesignationCategory)
+	if d, err := s.Designate(ctx, in, "k-max", t0); err != nil || d.Category != in.Category {
+		t.Fatalf("100-rune category refused: %v", err)
+	}
+	in.Category += "я"
+	if _, err := s.Designate(ctx, in, "k-over", t0); code(err) != "COM-0002" {
+		t.Fatalf("101-rune category: %v", err)
 	}
 }
