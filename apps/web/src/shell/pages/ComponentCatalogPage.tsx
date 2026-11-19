@@ -85,7 +85,7 @@ export const catalogEntries: Entry[] = [
     example: (
       <div className={styles.catalogRow}>
         <FormField id="cat-name" label="Name" hint="As it appears on invoices.">
-          {(control) => <Input {...control} defaultValue="Cedar Ridge Pumps" />}
+          {(control) => <Input {...control} defaultValue="Harbor Valve Works" />}
         </FormField>
         <FormField id="cat-status" label="Status" optional>
           {(control) => (

@@ -1,0 +1,36 @@
+# Session store of the portal BFFs (customer-portal-ts, supplier-portal-ts) when they run more than one replica (ADR-0014
+# decision 2, D26). Portal sessions map to tokens, so they are bearer secrets: unlike the rate-limit counter store
+# (deploy/envoy-gateway/ratelimit-valkey.yaml) this one has
+#   - auth: the default user is off; each client signs in as its own ACL user, limited to its key prefix and to the
+#     commands the BFF sends (src/redisStore.ts), with a password from the secret store;
+#   - TLS only: the plain port is closed (--port 0) and clients connect with rediss://, to a cert-manager certificate;
+#   - no persistence: no RDB snapshots, no AOF, no volume claim (a restart signs everyone out, which ADR-0014 accepts);
+#   - a NetworkPolicy: ingress only from the listed clients' pods on the TLS port, and no egress at all.
+# deploy/session-valkey/test_session_valkey.py renders the chart and checks all four.
+image: docker.io/valkey/valkey:8.1.9-alpine@sha256:4934d214fd7e091d4ee77b398945b3fd62c6dd0ac71d8b79e2e3cbad8364f3b1
+port: 6379
+maxmemory: 256mb
+resources:
+  requests: { cpu: 25m, memory: 64Mi }
+  limits: { memory: 384Mi }
+
+# cert-manager ClusterIssuer of the server certificate (depot-stage-ca in stage). Required.
+tls:
+  issuer: ""
+
+# Each client: the ACL user it signs in as (also the Secret written in its namespace, <name>-session-store, with keys
+# password and url), the namespace and app.kubernetes.io/name of its pods (the NetworkPolicy admits exactly those), and the
+# key prefix its store uses (redisStore.ts: "<name>:"). Required: a store nobody may reach is a mistake.
+clients: []
+#  - { name: customer-portal, namespace: hello-ledger, podName: customer-portal, keyPrefix: "customer-portal:" }
+
+# The commands a client user may run: what redisStore.ts and resp.ts send. Everything else (KEYS, FLUSHALL, CONFIG, ...) is
+# refused.
+commands: [auth, hello, ping, select, get, set, del, getdel, pexpire, incr, sadd, smembers]
+
+externalSecret:
+  storeName: depot
+  environment: ""
+  # Vault keys: <prefix>/session-valkey/<client>-password and <prefix>/session-valkey/probe-password.
+  pathPrefix: depot/{env}
+  refreshInterval: 1h

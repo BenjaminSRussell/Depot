@@ -1170,6 +1170,8 @@ components:
       required: [order_id, customer_id, order_type, currency, lines, net_total, version]
       properties:
         order_id: {type: string, format: uuid}
+        order_number: {type: string, description: "the order's number; the search index lists the order under it (#506, B-05c). Omitted only when empty"}
+        legal_entity_id: {type: string, format: uuid, description: "the order's legal entity; the search index scopes the order by it (#506, B-05c). Omitted only when empty"}
         customer_id: {type: string, format: uuid}
         order_type: {type: string, enum: [JOURNAL, ORDER, SUBSCRIPTION, RETURNED], description: a JOURNAL order never reserves or consumes ATP (BR-27.7); inventory and planning skip its lines}
         currency: {type: string, pattern: "^[A-Z]{3}$"}

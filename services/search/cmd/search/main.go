@@ -29,8 +29,10 @@ func main() {
 	switch {
 	case len(os.Args) > 1 && os.Args[1] == "consume":
 		start = consume
+	case len(os.Args) > 1 && os.Args[1] == "reconcile":
+		os.Exit(reconcileArgs(context.Background(), os.Getenv, os.Args[2:], os.Stdout))
 	case len(os.Args) > 1:
-		slog.Error("search stopped", "err", fmt.Errorf("unknown command %q (use no argument to serve or \"consume\" to run the index consumer)", os.Args[1]))
+		slog.Error("search stopped", "err", fmt.Errorf("unknown command %q (use no argument to serve, \"consume\" to run the index consumer or \"reconcile <report.json>\" to compare index counts with a source report)", os.Args[1]))
 		os.Exit(2)
 	}
 	if err := start(context.Background(), os.Getenv); err != nil {

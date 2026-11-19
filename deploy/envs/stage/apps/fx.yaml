@@ -11,15 +11,17 @@ spec:
   project: default
   source:
     repoURL: https://github.com/BenjaminSRussell/Depot.git
-    targetRevision: main
+    targetRevision: v0.2.0
     path: services/fx/charts/fx
     helm:
       valuesObject:
         image:
           repository: ghcr.io/benjaminsrussell/fx
-          digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
         replicaCount: 2
       releaseName: fx
+      parameters:
+      - name: image.tag
+        value: 0.2.0
   destination:
     name: stage
     namespace: hello-ledger

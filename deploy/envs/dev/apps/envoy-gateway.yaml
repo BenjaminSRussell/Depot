@@ -26,6 +26,12 @@ spec:
             envoyGateway:
               # The global rate-limit service, needed by every rate limit in deploy/gateway; its backend is the second source.
               rateLimit:
+                # Fail open (B-09b, ADR-0014): when the rate-limit service or its Valkey cannot answer within the timeout,
+                # Envoy lets the request through unlimited instead of answering 500. The limits share capacity fairly; they
+                # are not an access control (JWT and the ext_authz OPA fail closed). Runbook:
+                # docs/ops/runbooks/ratelimit-valkey-down.md. stage_apps.py copies this to stage.
+                failClosed: false
+                timeout: 20ms
                 backend:
                   type: Redis
                   redis:

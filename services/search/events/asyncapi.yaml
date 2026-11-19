@@ -1,0 +1,179 @@
+asyncapi: 3.0.0
+info:
+  title: Depot search index events
+  version: 1.0.0
+  description: |
+    The events the search index consumes (ADR-0013). Search publishes nothing. The consumer `search consume`
+    (cmd/search/consumer.go, group search-index, dead-letter topic depot.search.index.dlq) reads every channel below
+    through the kernel's eventing.Consumer and upserts one index row per record (internal/index).
+
+    Each message is the producer's: its payload is a $ref to the producer's message payload, so this document never
+    restates a schema. deploy/scripts/test_event_contracts.py checks that the channels are exactly the topics the
+    consumer subscribes to, that the messages are exactly the types its handlers index, that each producer has an
+    outbox connector relaying the type to that channel (by event type, or by the aggregate type its code enqueues), and
+    that every field a handler decodes is declared by the producer's schema and written by its code.
+defaultContentType: application/cloudevents+json
+channels:
+  party:
+    address: depot.party.party
+    messages:
+      partyCreated:
+        $ref: '#/components/messages/PartyCreated'
+      partyUpdated:
+        $ref: '#/components/messages/PartyUpdated'
+      partyMerged:
+        $ref: '#/components/messages/PartyMerged'
+  product:
+    address: depot.product.product
+    messages:
+      productCreated:
+        $ref: '#/components/messages/ProductCreated'
+      productUpdated:
+        $ref: '#/components/messages/ProductUpdated'
+  purchaseOrder:
+    address: depot.procurement.po
+    messages:
+      poConfirmed:
+        $ref: '#/components/messages/POConfirmed'
+      poCancelled:
+        $ref: '#/components/messages/POCancelled'
+  receipt:
+    address: depot.receiving.receipt
+    messages:
+      receiptPosted:
+        $ref: '#/components/messages/ReceiptPosted'
+      receiptCorrected:
+        $ref: '#/components/messages/ReceiptCorrected'
+  vendorInvoice:
+    address: depot.receiving.vendorinvoice
+    messages:
+      vendorInvoicePosted:
+        $ref: '#/components/messages/VendorInvoicePosted'
+  salesOrder:
+    address: depot.sales.order
+    messages:
+      orderConfirmed:
+        $ref: '#/components/messages/SalesOrderConfirmed'
+  packingSlip:
+    address: depot.fulfillment.packingslip
+    messages:
+      packingSlipPosted:
+        $ref: '#/components/messages/PackingSlipPosted'
+      packingSlipCancelled:
+        $ref: '#/components/messages/PackingSlipCancelled'
+  billingInvoice:
+    address: depot.billing.invoice
+    messages:
+      invoicePosted:
+        $ref: '#/components/messages/CustomerInvoicePosted'
+      creditNotePosted:
+        $ref: '#/components/messages/CreditNotePosted'
+  productionOrder:
+    address: depot.production.order
+    messages:
+      orderCreated:
+        $ref: '#/components/messages/ProductionOrderCreated'
+      orderStatusChanged:
+        $ref: '#/components/messages/ProductionOrderStatusChanged'
+  worker:
+    address: depot.hr.worker
+    messages:
+      workerCreated:
+        $ref: '#/components/messages/WorkerCreated'
+operations:
+  receiveParty:
+    action: receive
+    channel: { $ref: '#/channels/party' }
+    summary: Index a party by number and name; a merge indexes the survivor and removes the merged parties.
+  receiveProduct:
+    action: receive
+    channel: { $ref: '#/channels/product' }
+    summary: Index a product by number and name.
+  receivePurchaseOrder:
+    action: receive
+    channel: { $ref: '#/channels/purchaseOrder' }
+    summary: Index a confirmed purchase order; a cancellation marks it cancelled (and adds nothing for an order never confirmed).
+  receiveReceipt:
+    action: receive
+    channel: { $ref: '#/channels/receipt' }
+    summary: Index a posted receipt; a cancellation marks it cancelled, a quantity correction changes nothing.
+  receiveVendorInvoice:
+    action: receive
+    channel: { $ref: '#/channels/vendorInvoice' }
+    summary: Index a posted vendor invoice.
+  receiveSalesOrder:
+    action: receive
+    channel: { $ref: '#/channels/salesOrder' }
+    summary: Index a confirmed sales order.
+  receivePackingSlip:
+    action: receive
+    channel: { $ref: '#/channels/packingSlip' }
+    summary: Index a posted packing slip; a cancellation marks it cancelled.
+  receiveBillingInvoice:
+    action: receive
+    channel: { $ref: '#/channels/billingInvoice' }
+    summary: Index a posted customer invoice or credit note, each under its own id and number.
+  receiveProductionOrder:
+    action: receive
+    channel: { $ref: '#/channels/productionOrder' }
+    summary: Index a production order and keep its status.
+  receiveWorker:
+    action: receive
+    channel: { $ref: '#/channels/worker' }
+    summary: Index a worker by personnel number, titled with its party person's name.
+components:
+  messages:
+    PartyCreated:
+      name: dev.depot.party.party.created.v1
+      payload: { $ref: '../../party/events/asyncapi.yaml#/components/messages/partyCreated/payload' }
+    PartyUpdated:
+      name: dev.depot.party.party.updated.v1
+      payload: { $ref: '../../party/events/asyncapi.yaml#/components/messages/partyUpdated/payload' }
+    PartyMerged:
+      name: dev.depot.party.party.merged.v1
+      payload: { $ref: '../../party/events/asyncapi.yaml#/components/messages/partyMerged/payload' }
+    ProductCreated:
+      name: dev.depot.product.product.created.v1
+      payload: { $ref: '../../product/events/asyncapi.yaml#/components/messages/created/payload' }
+    ProductUpdated:
+      name: dev.depot.product.product.updated.v1
+      payload: { $ref: '../../product/events/asyncapi.yaml#/components/messages/updated/payload' }
+    POConfirmed:
+      name: dev.depot.procurement.po.confirmed.v1
+      payload: { $ref: '../../purchasing/events/asyncapi.yaml#/components/messages/POConfirmed/payload' }
+    POCancelled:
+      name: dev.depot.procurement.po.cancelled.v1
+      payload: { $ref: '../../purchasing/events/asyncapi.yaml#/components/messages/POCancelled/payload' }
+    ReceiptPosted:
+      name: dev.depot.receiving.receipt.posted.v1
+      payload: { $ref: '../../receiving/events/asyncapi.yaml#/components/messages/ReceiptPosted/payload' }
+    ReceiptCorrected:
+      name: dev.depot.receiving.receipt.corrected.v1
+      payload: { $ref: '../../receiving/events/asyncapi.yaml#/components/messages/ReceiptCorrected/payload' }
+    VendorInvoicePosted:
+      name: dev.depot.payables.invoice.posted.v1
+      payload: { $ref: '../../receiving/events/asyncapi.yaml#/components/messages/InvoicePosted/payload' }
+    SalesOrderConfirmed:
+      name: dev.depot.sales.order.confirmed.v1
+      payload: { $ref: '../../sales/events/asyncapi.yaml#/components/messages/OrderConfirmed/payload' }
+    PackingSlipPosted:
+      name: dev.depot.fulfillment.packingslip.posted.v1
+      payload: { $ref: '../../fulfillment/events/asyncapi.yaml#/components/messages/PackingSlipPosted/payload' }
+    PackingSlipCancelled:
+      name: dev.depot.fulfillment.packingslip.cancelled.v1
+      payload: { $ref: '../../fulfillment/events/asyncapi.yaml#/components/messages/PackingSlipCancelled/payload' }
+    CustomerInvoicePosted:
+      name: dev.depot.billing.invoice.posted.v1
+      payload: { $ref: '../../billing/events/asyncapi.yaml#/components/messages/InvoicePosted/payload' }
+    CreditNotePosted:
+      name: dev.depot.billing.creditnote.posted.v1
+      payload: { $ref: '../../billing/events/asyncapi.yaml#/components/messages/CreditNotePosted/payload' }
+    ProductionOrderCreated:
+      name: dev.depot.production.order.created.v1
+      payload: { $ref: '../../production/events/asyncapi.yaml#/components/messages/orderCreated/payload' }
+    ProductionOrderStatusChanged:
+      name: dev.depot.production.order.statuschanged.v1
+      payload: { $ref: '../../production/events/asyncapi.yaml#/components/messages/orderStatusChanged/payload' }
+    WorkerCreated:
+      name: dev.depot.hr.worker.created.v1
+      payload: { $ref: '../../hr/events/asyncapi.yaml#/components/messages/WorkerCreated/payload' }

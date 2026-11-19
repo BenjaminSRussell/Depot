@@ -393,6 +393,43 @@ func TestDocumentTypesAreScopedToTheCallersLegalEntities(t *testing.T) {
 	}
 }
 
+// Counts (the reconciliation's index side, ADR-0013) counts live rows per type
+// and legal entity as row-level security shows them: removed rows, other
+// legal entities and other tenants are not counted.
+func TestCountsAreLiveRowsPerTypeAndLegalEntity(t *testing.T) {
+	st := setup(t)
+	tid := testkit.TenantID(1)
+	for _, r := range []Record{po(entityA, "PO-1", t0), po(entityA, "PO-2", t0), po(entityB, "PO-3", t0)} {
+		if _, err := st.Apply(asScope(tid, r.LegalEntityID), r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	live := Record{Type: TypeParty, ID: ids.New(), Number: "P-1", Title: "Contoso", At: t0}
+	merged := Record{Type: TypeParty, ID: ids.New(), Number: "P-2", Title: "Fabrikam", At: t0}
+	for _, r := range []Record{live, merged, {Type: TypeParty, ID: merged.ID, Removed: true, MergedInto: live.ID, At: t0}} {
+		if _, err := st.Apply(asScope(tid, ""), r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := st.Apply(asScope(testkit.TenantID(2), entityA), po(entityA, "PO-9", t0)); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.Counts(asScope(tid, entityA))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Count{{Type: TypeParty, N: 1}, {Type: TypePurchaseOrder, LegalEntityID: entityA, N: 2}}
+	if !slices.Equal(got, want) {
+		t.Fatalf("Counts as entity A = %+v, want %+v", got, want)
+	}
+	if got, err := st.Counts(asScope(tid, entityB)); err != nil || !slices.Equal(got, []Count{{Type: TypeParty, N: 1}, {Type: TypePurchaseOrder, LegalEntityID: entityB, N: 1}}) {
+		t.Fatalf("Counts as entity B = %+v, %v", got, err)
+	}
+	if _, err := st.Counts(context.Background()); err == nil {
+		t.Fatal("Counts without a principal succeeded")
+	}
+}
+
 // A worker is tenant-wide like HR's worker list: every legal entity of the
 // tenant finds it, another tenant does not.
 func TestWorkersAreTenantWide(t *testing.T) {

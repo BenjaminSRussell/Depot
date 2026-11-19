@@ -1,0 +1,16 @@
+# Stage release pin (FR-1.3, FR-1.4; B-09 part b). Not an Argo CD manifest: deploy/scripts/stage_apps.py reads it and writes
+# it into every stage Application (python3 deploy/scripts/stage_apps.py; test_argocd_apps.py and
+# services/platform-health/internal/api/delivery_test.go fail when a stage Application disagrees with it).
+#
+# revision: the git release tag every stage Application reads its chart, manifests and value files from (`targetRevision`).
+#   Never a branch. root-stage itself tracks main, so a reviewed merge that changes this line is what promotes stage.
+#   To release: cut the tag on the reviewed main commit (git tag -s vX.Y.Z && git push origin vX.Y.Z), set it here, run
+#   stage_apps.py and merge. Until the tag exists Argo CD reports the stage Applications as unable to resolve the revision.
+revision: v0.2.0
+# digests: signed image digests (sha256:<64 hex>) by Application release name, for example
+#   ledger: sha256:<digest the CI image job prints under "Record the signed digest">
+#   An image with a digest here is pinned to it. An image without one is pinned to the release version tag (the revision
+#   without its v, e.g. ghcr.io/benjaminsrussell/depot-ledger:0.2.0); Kyverno's verify-signed-images refuses a tag in
+#   stage, so that service does not start until its digest is recorded. All-zero digests are refused. hello-ledger's digest
+#   is not here: deploy/scripts/stage_release.py promotes it in deploy/envs/stage/apps/hello-ledger.yaml.
+digests: {}

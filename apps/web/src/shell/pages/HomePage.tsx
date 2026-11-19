@@ -1,8 +1,8 @@
+import { lazy, Suspense } from "react";
 import { Link, useNavigate, useOutletContext } from "react-router-dom";
 import { AssistantNotice, useAiAvailability } from "../assistant/AvailabilityProvider";
 import { handOffPrompt } from "../assistant/session";
 import { copy } from "../copy";
-import { DemoTour } from "../../demo/DemoTour";
 import { holdsDuty } from "../dutyGate";
 import { AssistantPrompt } from "../home/AssistantPrompt";
 import { ASSISTANT_DUTY, COPILOT_PATH } from "../home/assistantRouter";
@@ -20,6 +20,10 @@ import { useWorkspaceNav } from "../workspaces/WorkspaceNav";
 import styles from "./pages.module.css";
 
 const SETUP_PATH = "/setup";
+
+// Loaded only in the demo build, like the banner in main.tsx: a static import would put the demo company and its tour
+// in every production bundle even though nothing renders them there (UXS-01).
+const DemoTour = import.meta.env.MODE === "demo" ? lazy(() => import("../../demo/DemoTour").then((m) => ({ default: m.DemoTour }))) : null;
 
 function SetupBanner() {
   const { setup } = useTenantSettings();
@@ -116,7 +120,11 @@ export function HomePage() {
       <Link to={ALL_FEATURES_PATH}>{copy.home.seeAll}</Link>
     </p>
   );
-  const demoTour = import.meta.env.MODE === "demo" ? <DemoTour /> : null;
+  const demoTour = DemoTour ? (
+    <Suspense fallback={null}>
+      <DemoTour />
+    </Suspense>
+  ) : null;
   if (!assistant) {
     return (
       <>

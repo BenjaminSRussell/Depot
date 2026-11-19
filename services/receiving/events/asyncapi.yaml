@@ -8,7 +8,11 @@ info:
     state change it announces, so a rolled-back change emits nothing. Types follow
     dev.depot.<context>.<entity>.<verb>.v<n>. Additive-only schema evolution.
     The invoice event uses the payables context named by the PRD (3.18.5) although
-    the receiving service posts the invoice today.
+    the receiving service posts the invoice today. outbox-receiving routes by
+    aggregate type, so each channel address is depot.receiving.<aggregate> of the
+    aggregate the store enqueues the message under (vendorinvoice,
+    invoiceadjustment, settlement, ...), not the type's context;
+    deploy/scripts/test_event_contracts.py checks it for every consumed type.
 defaultContentType: application/cloudevents+json
 channels:
   receiptEvents:
@@ -19,23 +23,32 @@ channels:
       receiptCorrected:
         $ref: "#/components/messages/ReceiptCorrected"
   invoiceEvents:
-    address: depot.payables.invoice
+    address: depot.receiving.vendorinvoice
     messages:
       invoicePosted:
         $ref: "#/components/messages/InvoicePosted"
-      invoiceAdjusted:
-        $ref: "#/components/messages/InvoiceAdjusted"
       invoiceSampled:
         $ref: "#/components/messages/InvoiceSampled"
       invoiceRejected:
         $ref: "#/components/messages/InvoiceRejected"
-  policyEvents:
-    address: depot.receiving.policy
+  invoiceAdjustmentEvents:
+    address: depot.receiving.invoiceadjustment
+    messages:
+      invoiceAdjusted:
+        $ref: "#/components/messages/InvoiceAdjusted"
+  auditPolicyEvents:
+    address: depot.receiving.auditpolicy
     messages:
       auditPolicyChanged:
         $ref: "#/components/messages/AuditPolicyChanged"
+  ersVendorEvents:
+    address: depot.receiving.ersvendor
+    messages:
       ersVendorChanged:
         $ref: "#/components/messages/ErsVendorChanged"
+  ersPriceConfirmationEvents:
+    address: depot.receiving.erspriceconfirmation
+    messages:
       ersPriceConfirmed:
         $ref: "#/components/messages/ErsPriceConfirmed"
   serviceEntryEvents:
@@ -49,7 +62,7 @@ channels:
       ersSelfBillIssued:
         $ref: "#/components/messages/ErsSelfBillIssued"
   settlementEvents:
-    address: depot.payables.settlement
+    address: depot.receiving.settlement
     messages:
       settlementPosted:
         $ref: "#/components/messages/SettlementPosted"
@@ -71,9 +84,9 @@ operations:
       - { $ref: "#/channels/invoiceEvents/messages/invoicePosted" }
   publishInvoiceAdjusted:
     action: send
-    channel: { $ref: "#/channels/invoiceEvents" }
+    channel: { $ref: "#/channels/invoiceAdjustmentEvents" }
     messages:
-      - { $ref: "#/channels/invoiceEvents/messages/invoiceAdjusted" }
+      - { $ref: "#/channels/invoiceAdjustmentEvents/messages/invoiceAdjusted" }
   publishInvoiceSampled:
     action: send
     channel: { $ref: "#/channels/invoiceEvents" }
@@ -86,19 +99,19 @@ operations:
       - { $ref: "#/channels/invoiceEvents/messages/invoiceRejected" }
   publishAuditPolicyChanged:
     action: send
-    channel: { $ref: "#/channels/policyEvents" }
+    channel: { $ref: "#/channels/auditPolicyEvents" }
     messages:
-      - { $ref: "#/channels/policyEvents/messages/auditPolicyChanged" }
+      - { $ref: "#/channels/auditPolicyEvents/messages/auditPolicyChanged" }
   publishErsVendorChanged:
     action: send
-    channel: { $ref: "#/channels/policyEvents" }
+    channel: { $ref: "#/channels/ersVendorEvents" }
     messages:
-      - { $ref: "#/channels/policyEvents/messages/ersVendorChanged" }
+      - { $ref: "#/channels/ersVendorEvents/messages/ersVendorChanged" }
   publishErsPriceConfirmed:
     action: send
-    channel: { $ref: "#/channels/policyEvents" }
+    channel: { $ref: "#/channels/ersPriceConfirmationEvents" }
     messages:
-      - { $ref: "#/channels/policyEvents/messages/ersPriceConfirmed" }
+      - { $ref: "#/channels/ersPriceConfirmationEvents/messages/ersPriceConfirmed" }
   publishServiceSheetDecided:
     action: send
     channel: { $ref: "#/channels/serviceEntryEvents" }

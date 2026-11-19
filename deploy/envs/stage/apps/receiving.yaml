@@ -11,13 +11,12 @@ spec:
   project: default
   source:
     repoURL: https://github.com/BenjaminSRussell/Depot.git
-    targetRevision: main
+    targetRevision: v0.2.0
     path: services/receiving/charts/receiving
     helm:
       valuesObject:
         image:
           repository: ghcr.io/benjaminsrussell/receiving
-          digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
         serviceUrls:
           ledger: http://ledger.hello-ledger.svc:8080
           close: http://close.hello-ledger.svc:8080
@@ -32,6 +31,9 @@ spec:
           inputTaxAccount: "1570"
         replicaCount: 2
       releaseName: receiving
+      parameters:
+      - name: image.tag
+        value: 0.2.0
   destination:
     name: stage
     namespace: hello-ledger

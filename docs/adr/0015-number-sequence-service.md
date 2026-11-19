@@ -48,5 +48,5 @@ designed.
   name overstates it.
 - Done (B-35): reserve / confirm / void with a voided-number log in `numbering`, and `gap_free` `next` refused for service callers (D21).
 - Done (B-35): every fiscal document number allocation is listed in `services/numbering/internal/store/fiscal_numbers.json` and `TestFiscalNumberInventory` fails on an unclassified one (D21).
-- Backlog: provision `depot_numbering` and its Secret in every environment, and give hr and party a timeout and a clear error when numbering is unavailable (D4, D21).
+- Backlog: provision `depot_numbering` and its Secret in every environment, and give hr and party a timeout and a clear error when numbering is unavailable (D4, D21). *B-09 part b:* stage has `depot_numbering` and its Secrets (`deploy/envs/stage/databases`); hr and party give up after 3 s with `*-NUMBERING-TIMEOUT` and name the cause of any other failure; prod is part c.
 - Backlog: remove party's header-forwarding fallback, so the call always uses a service token (D1).

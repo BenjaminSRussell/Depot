@@ -87,11 +87,16 @@ test-gateway: validate-gateway-schema
 # coverage and Secret references; renders every dev chart when helm is on PATH. test_kafka_consumers.py (D34, B-05b): every
 # consumer in the code has a KafkaUser whose ACLs are exactly its topics, groups and dead-letter topics, and dev runs the
 # consumers it can start.
+# Stage (B-09 part b): stage_apps.py and gen_databases.py --check (the stage Applications, their release pins, the platform
+# copies, every service database and Secret) and the session Valkey chart test (D26).
 test-argocd:
 	$(PYTHON) -m unittest scripts/test_argocd_apps.py -v
 	$(PYTHON) -m unittest scripts/test_kafka_consumers.py -v
 	$(PYTHON) scripts/gen_migrate_jobs.py --check
+	$(PYTHON) scripts/stage_apps.py --check
+	$(PYTHON) scripts/gen_databases.py --check
 	$(PYTHON) -m unittest scripts/test_migrate_jobs.py -v
+	$(PYTHON) -m unittest discover -s session-valkey -v
 
 # Live check of D34 on the dev cluster (#213): produces one event to a topic of each consumer group dev turns on, as a
 # temporary KafkaUser, and waits for the group's committed offset to move past it. Needs kubectl with a context on the dev

@@ -838,6 +838,7 @@ const party: Record<string, ProblemCatalogEntry> = {
   "PTY-MERGE-SELF-APPROVAL": { message: "You can't decide a merge you requested yourself.", action: "Ask another approver to decide it." },
   "PTY-MERGE-STALE": { message: "One of the parties changed after the merge was requested.", action: "Reject this request and request the merge again." },
   "PTY-NUMBERING-UNAVAILABLE": { message: "A party number can't be given out right now.", action: TRY_LATER },
+  "PTY-NUMBERING-TIMEOUT": { message: "The number service didn't answer in time, so nothing was saved.", action: TRY_LATER },
   "PTY-PARTY-ID-TAKEN": { message: "A party with this ID already exists.", action: "Open the existing party, or leave the ID empty to get a new one." },
   "PTY-PARTY-INVALID": { message: "Some of the party details aren't valid.", action: "Check the fields marked in the form, correct them and try again." },
   "PTY-PARTY-MERGED": { message: "This party was merged into another one.", action: "Use the party that was kept after the merge." },
@@ -1259,6 +1260,13 @@ const phiReadLog: Record<string, ProblemCatalogEntry> = {
   "HCM-BREAK-GLASS-UNAUDITED": { message: "Emergency access to health information is off, because reads of it aren't being logged here.", action: "Ask your administrator to turn on health-information read auditing, or ask someone with regular access." },
 };
 
+/** HR recruiting (services/hr): requisition numbers from the numbering service (B-09b). */
+const hrRecruiting: Record<string, ProblemCatalogEntry> = {
+  "HCM-NUMBERING-UNAVAILABLE": { message: "A requisition number can't be given out right now, so the requisition wasn't saved.", action: TRY_LATER },
+  "HCM-NUMBERING-TIMEOUT": { message: "The number service didn't answer in time, so nothing was saved.", action: TRY_LATER },
+  "HCM-LEGAL-ENTITY-REQUIRED": { message: "A requisition number needs exactly one legal entity.", action: "Choose a single legal entity, then try again." },
+};
+
 /** The B2B exchange (edi): e-invoices, the cXML exchange and self-billing (#35). */
 const b2b: Record<string, ProblemCatalogEntry> = {
   "EDI-0027": { message: "The seller or buyer details needed for an e-invoice haven't been entered yet.", action: "Enter the seller's profile for the legal entity and the buyer's profile for the customer, then build the e-invoice again." },
@@ -1336,6 +1344,7 @@ export const problemCatalog: Readonly<Record<string, ProblemCatalogEntry>> = Obj
   ...shared,
   ...fieldService,
   ...phiReadLog,
+  ...hrRecruiting,
   ...b2b,
   ...processManufacturing,
   ...lookupReads,

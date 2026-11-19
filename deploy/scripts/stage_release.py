@@ -33,6 +33,8 @@ OIDC_ISSUER = "https://token.actions.githubusercontent.com"
 IDENTITY_REGEXP = r"^https://github\.com/BenjaminSRussell/Depot/\.github/workflows/ci\.yml@refs/(heads/main|tags/v.+)$"
 GIT_SHA = re.compile(r"[0-9a-f]{40}")
 DIGEST_LINE = re.compile(r"""(?m)^(\s*digest:\s*)(["']?)(sha256:[0-9a-f]{64})\2(\s*)$""")
+RELEASE_TAG_PARAM = re.compile(r"(?m)^\s*- name: image\.tag\n\s+value: ")
+IMAGE_REPOSITORY_LINE = re.compile(rf"(?m)^(\s*)repository: {re.escape(IMAGE_REPOSITORY)}\s*$")
 
 
 class ReleaseError(Exception):
@@ -53,8 +55,13 @@ def _git(root, *args):
 
 
 def read_digest(manifest):
-    """Return the one SHA-256 image digest pinned by an environment app manifest."""
+    """Return the one SHA-256 image digest pinned by an environment app manifest.
+
+    A manifest pinned to its release tag instead (an `image.tag` parameter and no digest line, as stage is before its first
+    promotion, B-09b) reads as PLACEHOLDER_DIGEST: nothing has been promoted yet."""
     matches = list(DIGEST_LINE.finditer(manifest))
+    if not matches and RELEASE_TAG_PARAM.search(manifest) and IMAGE_REPOSITORY_LINE.search(manifest):
+        return PLACEHOLDER_DIGEST
     if len(matches) != 1:
         raise ReleaseError(
             f"app manifest must contain exactly one lowercase sha256 digest; found {len(matches)}"
@@ -95,9 +102,16 @@ def _require_working_branch(root):
 
 
 def _write_digest(path, text, digest):
-    updated, replacements = DIGEST_LINE.subn(
-        lambda match: match.group(1) + match.group(2) + digest + match.group(2) + match.group(4), text, count=1
-    )
+    if not DIGEST_LINE.search(text) and read_digest(text) == PLACEHOLDER_DIGEST:
+        # First promotion of a release-tag-pinned manifest: add the digest under the image repository (the chart uses the
+        # digest when both are set, so the release tag parameter can stay).
+        updated, replacements = IMAGE_REPOSITORY_LINE.subn(
+            lambda match: match.group(0) + "\n" + match.group(1) + "digest: " + digest, text, count=1
+        )
+    else:
+        updated, replacements = DIGEST_LINE.subn(
+            lambda match: match.group(1) + match.group(2) + digest + match.group(2) + match.group(4), text, count=1
+        )
     if replacements != 1:
         raise ReleaseError("could not update the image digest safely")
     try:

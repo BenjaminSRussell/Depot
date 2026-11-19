@@ -1,0 +1,4 @@
+{
+  "$comment": "Strings that exist only in demo data (src/demo/): the job monitor's old sample rows and the demo company. No production build may contain them. Read by scripts/check-bundle.mjs (the built bundle, in CI) and src/shell/honestScreens.test.ts (the sources).",
+  "markers": ["rows-1m", "400000 / 1000000", "workflow.workitem.escalated", "Cedar Ridge", "cedarridgepumps.example", "Jordan Avery"]
+}

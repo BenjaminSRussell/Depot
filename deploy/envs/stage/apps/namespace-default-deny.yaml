@@ -29,7 +29,7 @@ spec:
       project: default
       source:
         repoURL: https://github.com/BenjaminSRussell/Depot.git
-        targetRevision: main
+        targetRevision: v0.2.0
         path: deploy/networkpolicy
       destination:
         name: stage
