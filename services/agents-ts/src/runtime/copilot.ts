@@ -19,6 +19,7 @@ import { AgentError } from "../errors.js";
 import { ProviderError, proposeTool } from "../providers/wire.js";
 import type { ModelEndpoint } from "../cloudprofile/index.js";
 import type { AuditPort, BudgetPort, KillSwitchPort, ModelUsage, RunRequest, RunResult } from "./engine.js";
+import type { AiAccessAudit, AiAccessRow } from "./aiAccessAudit.js";
 import type { AiPlan, AiRouter } from "./aiRouter.js";
 import { EGRESS_GUARD_TOOL, GUARD_POLICY_VERSION, GUARD_REFUSAL_MESSAGE, highestClassOf, type DataClass, type EgressGuard, type GuardContext, type GuardResult, type OutputGuardReason } from "./egressGuard.js";
 import { createChunkReleaser, createOutputGuard, OUTPUT_GUARD_CODE, OUTPUT_GUARD_MESSAGE, OUTPUT_GUARD_TOOL, type OutputGuard } from "./outputGuard.js";
@@ -102,6 +103,8 @@ export interface CopilotDeps {
   guard: EgressGuard;
   outputGuard?: OutputGuard;
   needToKnow?: NeedToKnowClient;
+  /** Every tool result is written to the AI data-access audit before the model sees it; a failed write refuses the call. */
+  aiAccess: AiAccessAudit;
   now?: () => Date;
 }
 
@@ -228,6 +231,7 @@ export function createCopilotService(deps: CopilotDeps) {
       const withheldKinds = new Set<string>();
       const system = systemPrompt(req.mode, gate.allowed);
       const results: string[] = [];
+      const pending: Pick<AiAccessRow, "tool" | "entityType" | "recordIds" | "recordClasses">[] = [];
       const sink = hooks.onToken;
       const recordIds = new Set<string>();
       let guardContext: GuardContext = { inputTokens: new Set(), inputRecordIds: new Set(), highestClass: "P0" };
@@ -292,6 +296,33 @@ export function createCopilotService(deps: CopilotDeps) {
           const verdict = await guard.inspect({ tenantId: caller.tenantId, callId: randomUUID(), routeId, pseudo, system, typed: prompt, results, recordIds, excluded: Object.fromEntries(Object.entries({ [AMOUNT_WITHHELD]: amountsWithheld, NO_APPROVED_ROUTE: withheldCount, NEED_TO_KNOW: needToKnowHidden, POLICY_DENIED: policyDropped }).filter(([, n]) => n > 0)), declared, ...(policyCell !== undefined ? { policyCell } : {}), ...(policyVersion !== undefined ? { policyVersion } : {}) });
           guardRow(verdict.result);
           dataClass = highestClassOf([dataClass, verdict.result.highestClass]);
+          if (pending.length > 0) {
+            const g = verdict.result;
+            const occurredAt = now().toISOString();
+            try {
+              await deps.aiAccess.record(
+                caller,
+                pending.map((r) => ({
+                  ...r,
+                  agentId: COPILOT_AGENT_ID,
+                  runId,
+                  highestClass: g.highestClass,
+                  routeId: g.routeId,
+                  redactionCounts: g.counts,
+                  excludedCounts: g.excluded,
+                  policyVersion: g.policyVersion,
+                  decision: g.decision,
+                  traceId: runId,
+                  occurredAt,
+                })),
+              );
+            } catch {
+              refused = { code: "AGT-0232", message: GUARD_REFUSAL_MESSAGE };
+              answer = refused.message;
+              break;
+            }
+            pending.length = 0;
+          }
           if (verdict.result.decision === "BLOCKED") {
             refused = { code: "AGT-0219", message: GUARD_REFUSAL_MESSAGE };
             answer = refused.message;
@@ -386,6 +417,13 @@ export function createCopilotService(deps: CopilotDeps) {
           }
           declared = highestClassOf([declared, admission.class]);
           row(p.tool, p.args, governed.value, "AUTO", "read");
+          const shownRefs = found.flatMap((ref, i) => (dropped.includes(ref) || ref.recordId === "" ? [] : [{ id: ref.recordId, class: next?.classes[i] ?? "UNKNOWN" }]));
+          pending.push({
+            tool: p.tool,
+            entityType: (p.tool === KNOWLEDGE_SEARCH_TOOL ? "knowledge" : found[0]?.entityType) || "unidentified",
+            recordIds: shownRefs.map((r) => auditableId(r.id)),
+            recordClasses: shownRefs.map((r) => r.class),
+          });
           if (next !== undefined) {
             provider = next.provider;
             routeId = next.routeId;
@@ -485,6 +523,10 @@ async function recordBoundaryBlock(store: CopilotStore, runReq: RunRequest, at: 
   });
   await store.startRun(runReq);
   await store.finishRun(runReq, finished(runReq.runId, "FAILED", [action], { tokensIn: 0, tokensOut: 0 }, NO_ROUTE_MESSAGE));
+}
+
+function auditableId(id: string): string {
+  return id.replace(/[^\w.:/#@+=~%-]/g, "_").replace(/^[^A-Za-z0-9]/, "n").slice(0, 128);
 }
 
 function refusal(code: string, message: string): ChatResponse {

@@ -78,6 +78,7 @@ export interface Config {
   servicePublicKeys: string;
   boundary: Boundary;
   complianceUrl: string | undefined;
+  auditUrl: string | undefined;
 }
 
 export function parseAddr(
@@ -217,6 +218,9 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
   const complianceUrl = env["AGENTS_COMPLIANCE_URL"] || undefined;
   if (complianceUrl !== undefined && !/^https?:\/\//.test(complianceUrl))
     throw new Error("AGENTS_COMPLIANCE_URL must be an http(s) URL");
+  const auditUrl = env["AGENTS_AUDIT_URL"] || undefined;
+  if (auditUrl !== undefined && !/^https?:\/\//.test(auditUrl))
+    throw new Error("AGENTS_AUDIT_URL must be an http(s) URL");
   return {
     host: http.host,
     port: http.port,
@@ -267,6 +271,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     servicePublicKeys,
     boundary,
     complianceUrl,
+    auditUrl,
   };
 }
 

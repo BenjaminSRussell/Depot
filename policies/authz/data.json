@@ -2455,6 +2455,9 @@
     "audit.read-log.write": {"tenant_level": true, "service_only": true, "permissions": [
       {"resource": "/v1/audit/reads", "methods": ["POST"]}
     ]},
+    "audit.ai-access.write": {"tenant_level": true, "service_only": true, "permissions": [
+      {"resource": "/v1/audit/ai-data-access", "methods": ["POST"]}
+    ]},
     "audit.read-log.view": {"tenant_level": true, "permissions": [
       {"resource": "/v1/audit/reads", "methods": ["GET"]}
     ]},
@@ -4347,7 +4350,8 @@
     },
     "agents": {
       "workflow-ts": ["agents.run.signal"],
-      "compliance": ["compliance.data-designation.resolve", "compliance.need-to-know.read"]
+      "compliance": ["compliance.data-designation.resolve", "compliance.need-to-know.read"],
+      "audit": ["audit.ai-access.write"]
     },
     "party": {
       "numbering": ["numbering.sequence.allocate"]

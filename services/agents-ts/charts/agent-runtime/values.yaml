@@ -15,6 +15,7 @@ boundary: standard
 # (grant agents -> compliance, serviceIdentity below; the compliance chart needs agents's public key in serviceIdentity.publicKeys).
 # Empty, or no signing key: every record is UNKNOWN and withheld.
 complianceUrl: ""
+auditUrl: ""
 model:
   # anthropic, openai (OpenAI-compatible and Azure OpenAI) or bedrock.
   provider: anthropic

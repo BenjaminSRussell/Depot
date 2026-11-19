@@ -8,7 +8,7 @@ import { GUARD_REFUSAL_MESSAGE } from "../src/runtime/egressGuard.js";
 import type { ModelProvider, ModelResponse } from "../src/runtime/engine.js";
 import type { AiRouter } from "../src/runtime/aiRouter.js";
 import { createOutputGuard, OUTPUT_GUARD_MESSAGE } from "../src/runtime/outputGuard.js";
-import { openRouter, ScriptedProvider, testGuard } from "./fakes.js";
+import { allowAiAccess, openRouter, ScriptedProvider, testGuard } from "./fakes.js";
 import { FakeMcp, headers, MemoryStore, serve, tool } from "./surface-fakes.js";
 
 const DUTIES = "mcp.copilot.use";
@@ -50,6 +50,7 @@ const setup = async (script: ModelResponse[], options: Options = {}) => {
     config: { tokenCap: 20_000, maxTurns: 3, pseudonymTtlMs: 60_000 },
     modelId: "claude-haiku-5-5",
     guard: options.guard ?? testGuard(),
+    aiAccess: allowAiAccess(),
     ...(options.outputGuard !== undefined ? { outputGuard: options.outputGuard } : {}),
   });
   const srv = await serve({ approvals: store, copilot });

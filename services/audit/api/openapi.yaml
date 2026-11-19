@@ -183,6 +183,28 @@ paths:
       responses:
         '200': { description: Alert inbox. }
         default: { $ref: '#/components/responses/Problem' }
+  /v1/audit/ai-data-access:
+    post:
+      operationId: recordAiDataAccess
+      summary: "Record an AI read of business data"
+      description: >-
+        Appends one row to the tenant's hash-chained AI data-access log: which tool result entered a model context, as record ids
+        only (at most 200 per row, never values or prompt text), per-record class (CUI, NONE or UNKNOWN designation), highest
+        data class (P0 to P3), route, redaction and exclusion counts, policy version and guard decision. The actor is built from
+        the verified service token (user:<sub>, or agent:<id>@user:<sub> from the agent runtime); a body that names userId or
+        actor is refused with AUD-0002. A caller must not proceed to the model call unless this returns 201.
+      x-depot-duty: audit.ai-access.write
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/AiDataAccessInput' } } }
+      responses:
+        '201':
+          description: Row appended to the hash chain.
+          content: { application/json: { schema: { $ref: '#/components/schemas/AiDataAccess' } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Problem' }
   /v1/audit/reads:
     post:
       operationId: recordPhiRead
@@ -340,6 +362,38 @@ paths:
         '503': { description: Database unreachable. }
 components:
   schemas:
+    AiDataAccessInput:
+      type: object
+      additionalProperties: false
+      required: [kind, runId, tool, entityType, recordIds, recordClasses, highestClass, routeId, policyVersion, decision, traceId]
+      properties:
+        kind: { type: string, enum: [READ] }
+        agentId: { type: string, pattern: '^[a-z][a-z0-9_-]{0,63}$', description: Required from the agent runtime. }
+        runId: { type: string, maxLength: 128 }
+        tool: { type: string, maxLength: 128 }
+        entityType: { type: string, maxLength: 128 }
+        recordIds: { type: array, maxItems: 200, items: { type: string, maxLength: 128, pattern: '^[A-Za-z0-9][A-Za-z0-9_.:/#@+=~%-]*$' } }
+        recordClasses: { type: array, maxItems: 200, items: { type: string, maxLength: 16 }, description: One designation class per record id. }
+        highestClass: { type: string, enum: [P0, P1, P2, P3] }
+        routeId: { type: string, maxLength: 128 }
+        region: { type: string, maxLength: 64 }
+        redactionCounts: { type: object, additionalProperties: { type: integer, minimum: 0 } }
+        excludedCounts: { type: object, additionalProperties: { type: integer, minimum: 0 } }
+        policyVersion: { type: integer, minimum: 1 }
+        decision: { type: string, enum: [ALLOWED, REDACTED, WITHHELD, BLOCKED] }
+        reason: { type: string, maxLength: 128 }
+        traceId: { type: string, maxLength: 128 }
+        occurredAt: { type: string, format: date-time, description: Defaults to now. }
+        userId: { type: string, description: Never accepted; refused with AUD-0002. }
+        actor: { type: string, description: Never accepted; refused with AUD-0002. }
+    AiDataAccess:
+      type: object
+      required: [id, seq, prevHash, hash]
+      properties:
+        id: { type: string, format: uuid }
+        seq: { type: integer, format: int64 }
+        prevHash: { type: string }
+        hash: { type: string }
     Change:
       type: object
       additionalProperties: false

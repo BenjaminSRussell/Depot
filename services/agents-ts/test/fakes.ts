@@ -1,5 +1,6 @@
 import { addUsage, assertCanStartRun, budgetStatus, type BudgetState, type TokenBudget } from "../src/domain/budget.js";
 import type { AgentVersion } from "../src/domain/registry.js";
+import { chunkIds, type AiAccessAudit, type AiAccessRow } from "../src/runtime/aiAccessAudit.js";
 import type { Money } from "../src/domain/money.js";
 import type {
   RiskAssessment,
@@ -62,9 +63,19 @@ export const allowAllPolicy: AiPolicyGuard = {
 
 export const testGuard = (deps: Omit<Parameters<typeof createEgressGuard>[0], "policy"> = {}) => createEgressGuard({ policy: allowAllPolicy, ...deps });
 
-export const openRouter =(provider: ModelProvider): AiRouter => ({
-  plan: async ({ refs }) => ({ routeId: "test", provider, keep: [...refs], excluded: [], restricted: [] }),
+export const openRouter = (provider: ModelProvider): AiRouter => ({
+  plan: async ({ refs }) => ({ routeId: "test", provider, keep: [...refs], excluded: [], restricted: [], classes: refs.map(() => "NONE" as const) }),
 });
+
+export const allowAiAccess = (): AiAccessAudit & { rows: AiAccessRow[] } => {
+  const rows: AiAccessRow[] = [];
+  return {
+    rows,
+    record: async (_caller, batch) => {
+      rows.push(...batch.flatMap(chunkIds));
+    },
+  };
+};
 
 export class FakeTools implements ToolPort {
   readonly calls: Array<{ name: string; args: Record<string, unknown> }> = [];

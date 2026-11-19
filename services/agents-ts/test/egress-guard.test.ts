@@ -9,7 +9,7 @@ import { PROPOSE_TOOL_NAME } from "../src/providers/wire.js";
 import { AgentError } from "../src/errors.js";
 import { EGRESS_GUARD_TOOL, type Analyzer, type EgressInput, type GuardDecision } from "../src/runtime/egressGuard.js";
 import { Metrics } from "../src/server.js";
-import { openRouter, ScriptedProvider, testGuard } from "./fakes.js";
+import { openRouter, ScriptedProvider, testGuard, allowAiAccess } from "./fakes.js";
 import { FakeMcp, headers, MemoryStore, serve, tool } from "./surface-fakes.js";
 
 const GET = "depot.ap.invoice.get";
@@ -50,6 +50,7 @@ const chatWith = async (analyzer?: Analyzer, observe?: (seconds: number, decisio
   const store = new MemoryStore();
   const provider = new ScriptedProvider([call(), answer("Done.")]);
   const copilot = createCopilotService({
+    aiAccess: allowAiAccess(),
     router: openRouter(provider),
     mcp: new FakeMcp([tool(GET, "ap.invoice.read")], { [GET]: { ok: true, output: toolOutput, ref: "INV-7" } }),
     store,

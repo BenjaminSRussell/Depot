@@ -8,7 +8,7 @@ import type { ModelResponse } from "../src/runtime/engine.js";
 import { createEgressGuard, EGRESS_GUARD_TOOL } from "../src/runtime/egressGuard.js";
 import { createNeedToKnowClient } from "../src/runtime/needToKnow.js";
 import type { AiRouter } from "../src/runtime/aiRouter.js";
-import { ScriptedProvider, testGuard } from "./fakes.js";
+import { allowAiAccess, ScriptedProvider, testGuard } from "./fakes.js";
 import { FakeMcp, headers, MemoryStore, serve, tool } from "./surface-fakes.js";
 
 const GET = "depot.ap.invoice.get";
@@ -74,9 +74,10 @@ const chatWithCui = async (duties: string, enforced: boolean) => {
     { text: "", proposal: { tool: GET, args: {}, confidence: 1, amount: { amount: "0", currency: "USD" } }, usage: { tokensIn: 10, tokensOut: 1 } } as ModelResponse,
     { text: "Done.", usage: { tokensIn: 10, tokensOut: 1 } },
   ]);
-  const router: AiRouter = { plan: async ({ refs }) => ({ routeId: "cui", provider, keep: [...refs], excluded: [], restricted: [...refs] }) };
+  const router: AiRouter = { plan: async ({ refs }) => ({ routeId: "cui", provider, keep: [...refs], excluded: [], restricted: [...refs], classes: refs.map(() => "CUI" as const) }) };
   const copilot = createCopilotService({
     guard: testGuard(),
+    aiAccess: allowAiAccess(),
     router,
     needToKnow: { enforced: async () => enforced },
     mcp: new FakeMcp([tool(GET, "ap.invoice.read")], { [GET]: { ok: true, output: { id: "CUI-INV-9", note: "secret-cui-note" }, ref: "CUI-INV-9" } }),

@@ -5,7 +5,7 @@ import { createServiceSigner } from "../src/api/serviceSigner.js";
 import { createConfiguredRouter } from "../src/runtime/aiRouter.js";
 import { createCopilotService, type ChatResponse } from "../src/runtime/copilot.js";
 import { PROPOSE_TOOL_NAME } from "../src/providers/wire.js";
-import { testGuard } from "./fakes.js";
+import { testGuard, allowAiAccess } from "./fakes.js";
 import { FakeMcp, MemoryStore, T1, tool, USER } from "./surface-fakes.js";
 
 const GET = "depot.ap.invoice.get";
@@ -66,6 +66,7 @@ async function ask(cfg: Config, fetchFn: typeof fetch, results: Record<string, u
   );
   const copilot = createCopilotService({
     guard: testGuard(),
+    aiAccess: allowAiAccess(),
     router: createConfiguredRouter(cfg, { fetchFn, ...(opts.signer !== undefined ? { signer: opts.signer } : {}) }),
     mcp,
     store,
