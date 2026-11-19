@@ -215,6 +215,22 @@ components:
         resolvedAt: { type: [string, "null"], format: date-time }
         resolvedBy: { type: [string, "null"] }
         resolutionNote: { type: [string, "null"] }
+    SlipGlJournal:
+      type: object
+      required: [slipId, legalEntityId, status, attempts, nextAttemptAt, parked, updatedAt]
+      description: >
+        The ledger journal a posted packing slip (or the reversing slip of a cancel) owes the
+        ledger. A reversing slip's journal waits, PENDING, until the journal of the slip it
+        reverses is POSTED.
+      properties:
+        slipId: { type: string, format: uuid }
+        legalEntityId: { type: string, format: uuid }
+        status: { type: string, enum: [PENDING, POSTED] }
+        attempts: { type: integer, minimum: 0 }
+        nextAttemptAt: { type: string, format: date-time }
+        parked: { type: boolean, description: The ledger refused the journal; :release-gl queues it again. }
+        lastError: { type: string }
+        updatedAt: { type: string, format: date-time }
     SalesDeliveryReport:
       type: object
       required: [id, legalEntityId, packingSlipId, sourceRef, orderId, status, attempts, createdAt]
@@ -1993,6 +2009,30 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "404": { description: FUL-0080 report not found, content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } } }
         "409": { description: "FUL-0081 the report is REPORTED or WITHDRAWN", content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } } }
+        "422": { description: idempotency_key_reuse, content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } } }
+  /v1/fulfillment/packing-slips/{id}:release-gl:
+    post:
+      operationId: releaseSlipGlJournal
+      summary: Release a parked packing slip journal to the ledger poster
+      description: >
+        A packing slip journal the ledger refused (a closed period) is parked and never retried.
+        This puts it back in the poster's queue: unparked, due now, attempts counted from zero.
+        Open the period first, or the journal parks again. A slip with no journal row is 404;
+        a journal that is not parked is 409. No request body.
+      x-depot-duty: fulfillment.slip-gl.release
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200":
+          description: The journal row, PENDING and due now
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SlipGlJournal" }
+        "400": { description: "FUL-0051 Idempotency-Key", content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } } }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { description: FUL-0083 no journal row for this slip, content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } } }
+        "409": { description: "FUL-0084 the journal is not parked", content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } } }
         "422": { description: idempotency_key_reuse, content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } } }
   /v1/fulfillment/release-rules:
     get:

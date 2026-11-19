@@ -746,6 +746,12 @@ test_payment_status_parse_duty_does_not_open_file_preview if {
 	not allowed("payment-status.parse", "POST", "/v1/payables/payment-files:preview")
 }
 
+test_fulfillment_slip_gl_release if {
+	allowed("fulfillment.slip-gl.release", "POST", "/v1/fulfillment/packing-slips/p1:release-gl")
+	not allowed("fulfillment.packing-slip.post", "POST", "/v1/fulfillment/packing-slips/p1:release-gl")
+	not allowed("fulfillment.slip-gl.release", "POST", "/v1/fulfillment/packing-slips/p1:cancel")
+}
+
 test_fulfillment_carrier_manifests if {
 	allowed("fulfillment.warehouse.view", "GET", "/v1/fulfillment/manifest-candidates")
 	allowed("fulfillment.warehouse.view", "GET", "/v1/fulfillment/manifests")

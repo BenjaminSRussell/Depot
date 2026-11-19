@@ -1965,6 +1965,7 @@
       {"resource": "/v1/costing/versions/*", "methods": ["GET"]},
       {"resource": "/v1/costing/products/*/cost", "methods": ["GET"]}
     ]},
+    "fulfillment.slip-gl.release": {"permissions": [{"resource": "/v1/fulfillment/packing-slips/*:release-gl", "methods": ["POST"]}]},
     "compliance.privacy-request.create": {"permissions": [{"resource": "/v1/privacy/requests", "methods": ["POST"]}]},
     "compliance.privacy-request.process": {"permissions": [
       {"resource": "/v1/privacy/requests", "methods": ["GET"]},

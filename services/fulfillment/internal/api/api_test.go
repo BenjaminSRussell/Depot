@@ -56,6 +56,7 @@ type fakeStore struct {
 	resolvedVersion int
 	heldOrders      map[string]bool
 	salesReports    salesReportCalls
+	slipGL          slipGLCalls
 }
 
 func (f *fakeStore) RunRelease(_ context.Context, warehouseID string, groups []domain.ReleaseGroup, idem store.Idem) (store.ReleaseResult, error) {
@@ -148,7 +149,7 @@ func do(t *testing.T, h http.Handler, method, path, body string, headers map[str
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Depot-Tenant", tenant)
-	req.Header.Set("X-Depot-Duties", "fulfillment.warehouse.release,fulfillment.warehouse.view,fulfillment.warehouse.pick,fulfillment.warehouse.pack,fulfillment.packing-slip.post")
+	req.Header.Set("X-Depot-Duties", "fulfillment.warehouse.release,fulfillment.warehouse.view,fulfillment.warehouse.pick,fulfillment.warehouse.pack,fulfillment.packing-slip.post,fulfillment.slip-gl.release")
 	req.Header.Set("X-Depot-User", "00000000-0000-0000-0000-000000000009")
 	for k, v := range headers {
 		req.Header.Set(k, v)
