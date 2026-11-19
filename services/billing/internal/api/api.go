@@ -396,6 +396,7 @@ func (a *API) createProposal(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusOK, toDTO(existing))
 		return
 	}
+	dropUntrustedTax(r.Context(), lines)
 	if !allSupplied(lines) {
 		inv.ShipTo = &domain.ShipTo{}
 	}
@@ -698,7 +699,7 @@ func (a *API) postInvoice(w http.ResponseWriter, r *http.Request) {
 	lines := make([]domain.Line, len(inv.Lines))
 	for i, l := range inv.Lines {
 		lines[i] = l.Line
-		if inv.ShipTo == nil {
+		if inv.ShipTo == nil && suppliedTaxTrusted(r.Context()) {
 			supplied := l.Tax
 			lines[i].SuppliedTax = &supplied
 		}
