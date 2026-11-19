@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { KillSwitchRegistry } from "../domain/killswitch.js";
 import { type ApprovalStore, handleApprovalDecision } from "./decision.js";
@@ -52,6 +53,8 @@ const ACTIONS_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/actions$`);
 const BUDGETS_PATH = "/api/v1/agents/budgets";
 const BUDGET_AGENT_PATH = /^\/api\/v1\/agents\/budgets\/([a-z][a-z0-9_]{0,63})$/;
 const CHAT_PATH = "/api/v1/copilot/chat";
+const CONVERSATIONS_PATH = "/api/v1/agents/copilot/conversations";
+const MESSAGES_PATH = new RegExp(`^/api/v1/agents/copilot/conversations/(${UUID})/messages$`);
 const KNOWLEDGE_CHUNKS_PATH = "/api/v1/knowledge/chunks";
 const KNOWLEDGE_SEARCH_PATH = "/api/v1/knowledge/search";
 const STEP_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/steps/(begin|plan|resolve|commit|abort)$`);
@@ -224,6 +227,20 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         return;
       }
       if (path === CHAT_PATH) {
+        if (deps.copilot === undefined) throw new ApiError(404, "AGT-0404", "no such route");
+        if (req.method !== "POST") throw new MethodNotAllowed("POST");
+        const principal = await deps.authenticate(req.headers);
+        await handleChat({ principal, token: bearerToken(req.headers), body: await readBody(req), accept: String(req.headers["accept"] ?? ""), copilot: deps.copilot, res });
+        return;
+      }
+      if (path === CONVERSATIONS_PATH) {
+        if (deps.copilot === undefined) throw new ApiError(404, "AGT-0404", "no such route");
+        if (req.method !== "POST") throw new MethodNotAllowed("POST");
+        requireDuty(await deps.authenticate(req.headers), COPILOT_DUTY, "the copilot");
+        send(res, 201, { conversationId: randomUUID() });
+        return;
+      }
+      if (MESSAGES_PATH.test(path)) {
         if (deps.copilot === undefined) throw new ApiError(404, "AGT-0404", "no such route");
         if (req.method !== "POST") throw new MethodNotAllowed("POST");
         const principal = await deps.authenticate(req.headers);

@@ -31,7 +31,7 @@ describe("gateCopilotTools (BR-47.11, AGT-0203)", () => {
   });
 
   it("exposes the four PRD modes", () => {
-    expect([...COPILOT_MODES]).toEqual(["ask", "explain", "draft", "summarize"]);
+    expect([...COPILOT_MODES]).toEqual(["ask", "explain", "draft", "summarize", "route"]);
   });
 });
 
