@@ -334,7 +334,7 @@ export function createCopilotService(deps: CopilotDeps) {
           guardContext = verdict.context;
           const context = verdict.user;
           assertNoPii(context);
-          const toolsText = JSON.stringify(proposeTool(gate.allowed));
+          const toolsText = JSON.stringify(proposeTool(gate.allowed, rules !== undefined));
           assertPromptWithinCap([system, context, toolsText], deps.config.tokenCap - usage.tokensIn);
           const maxOutputTokens = outputBudgetForCall(
             deps.config.tokenCap,
@@ -343,7 +343,7 @@ export function createCopilotService(deps: CopilotDeps) {
           );
           let response;
           try {
-            const call = { system, user: context, allowedTools: gate.allowed, maxOutputTokens, ...(hooks.signal !== undefined ? { signal: hooks.signal } : {}) };
+            const call = { system, user: context, allowedTools: gate.allowed, maxOutputTokens, ...(rules !== undefined ? { answerOnly: true } : {}), ...(hooks.signal !== undefined ? { signal: hooks.signal } : {}) };
             response = releaser !== undefined && provider.stream !== undefined ? await provider.stream(call, (delta) => releaser.push(delta)) : await provider.complete(call);
             await releaser?.end();
           } catch (err) {

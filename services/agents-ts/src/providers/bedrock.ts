@@ -51,7 +51,7 @@ export function createBedrockProvider(cfg: BedrockConfig): ModelProvider {
     endpoint: describeEndpoint("bedrock", base, cfg.egress?.region ?? cfg.region),
     async complete(req): Promise<ModelResponse> {
       assertNoPii(req.user);
-      const tool = proposeTool(req.allowedTools);
+      const tool = proposeTool(req.allowedTools, req.answerOnly === true);
       const body = {
         system: [{ text: req.system }],
         messages: [{ role: "user", content: [{ text: req.user }] }],

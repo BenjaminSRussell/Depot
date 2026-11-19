@@ -123,6 +123,19 @@ describe("provider parity (FR-47.13, AC-47.10)", () => {
     expect(limits(seenO)).toEqual([300, 1024]);
   });
 
+  it("an answer-only call with no tools builds an enum of the empty choice alone, and an engine call with no tools is refused", async () => {
+    const seenA: Seen[] = [];
+    const seenO: Seen[] = [];
+    for (const { provider } of providers(seenA, seenO)) {
+      await expect(provider.complete({ system: "s", user: "u", allowedTools: [] })).rejects.toThrow("an agent needs at least one allowed tool");
+      await expect(provider.complete({ system: "s", user: "u", allowedTools: [], answerOnly: true })).rejects.toThrow("tool");
+    }
+    const a = JSON.parse(String(seenA[0]?.init.body)) as { tools: Array<{ input_schema: { properties: { tool: { enum: string[] } } } }> };
+    const o = JSON.parse(String(seenO[0]?.init.body)) as { tools: Array<{ function: { parameters: { properties: { tool: { enum: string[] } } } } }> };
+    expect(a.tools[0]?.input_schema.properties.tool.enum).toEqual([""]);
+    expect(o.tools[0]?.function.parameters.properties.tool.enum).toEqual([""]);
+  });
+
   it("authenticates each adapter with its own header and sends no tenant id", async () => {
     const seenA: Seen[] = [];
     const seenO: Seen[] = [];

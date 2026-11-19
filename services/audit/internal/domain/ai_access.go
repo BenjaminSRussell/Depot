@@ -160,7 +160,7 @@ func AIAccessHash(prevHash string, a AIAccess) string {
 	}
 	a = a.Normalize()
 	payload, _ := json.Marshal([]any{
-		prevHash, a.Kind, a.LegalEntityID, a.Actor, a.RunID, a.Tool, a.EntityType, a.RecordIDs, a.RecordClasses,
+		prevHash, a.Kind, a.LegalEntityID, a.Actor, a.UserID, a.AgentID, a.RunID, a.Tool, a.EntityType, a.RecordIDs, a.RecordClasses,
 		a.HighestClass, a.RouteID, a.Region, a.RedactionCounts, a.ExcludedCounts, a.PolicyVersion, a.Decision,
 		a.Reason, a.TraceID, a.OccurredAt.Format(time.RFC3339Nano),
 	})

@@ -51,6 +51,7 @@ export interface ModelRequest {
   system: string;
   user: string;
   allowedTools: readonly string[];
+  answerOnly?: boolean;
   /** Hard ceiling on generated tokens, so one call cannot spend past the run's hold. */
   maxOutputTokens?: number;
   /** Aborts the call when the caller is gone; a provider that streams passes it to the request. */

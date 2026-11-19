@@ -15,7 +15,8 @@ export interface ProposeToolSpec {
   inputSchema: Record<string, unknown>;
 }
 
-export function proposeTool(allowedTools: readonly string[]): ProposeToolSpec {
+export function proposeTool(allowedTools: readonly string[], answerOnly = false): ProposeToolSpec {
+  if (allowedTools.length === 0 && !answerOnly) throw new Error("an agent needs at least one allowed tool");
   return {
     name: PROPOSE_TOOL_NAME,
     description: "Propose one governed action for human approval, or explain without proposing.",
