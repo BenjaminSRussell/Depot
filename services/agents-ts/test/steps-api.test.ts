@@ -63,6 +63,7 @@ const setup = async () => {
     store,
     inbox: store,
     killSwitch: { isHalted: () => false },
+    disabledAgents: async () => new Set(),
     config: { runTokenCap: 50_000, selfApprovalLimit: { amount: "0", currency: "USD" }, pseudonymTtlMs: 60_000 },
     workflow: { steps, state, gateway },
   });

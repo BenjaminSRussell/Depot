@@ -62,7 +62,7 @@ export interface BriefingContent {
   risks: BriefingItem[];
   recommendedActions: BriefingItem[];
   notes: string[];
-  counts: Record<AgentId, AgentCounts>;
+  counts: Record<string, AgentCounts>;
 }
 
 export interface StoredBriefing {
@@ -123,23 +123,25 @@ function amountAboveLimit(p: PendingFact): boolean {
   }
 }
 
-export function buildBriefing(facts: BriefingFacts, now: Date): BriefingContent {
-  const counts = Object.fromEntries(AGENT_IDS.map((id) => [id, { pending: 0, decided: 0, committedRuns: 0, failedRuns: 0 }])) as Record<AgentId, AgentCounts>;
+export function buildBriefing(facts: BriefingFacts, now: Date, disabled: ReadonlySet<string> = new Set()): BriefingContent {
+  const all = Object.fromEntries(AGENT_IDS.map((id) => [id, { pending: 0, decided: 0, committedRuns: 0, failedRuns: 0 }])) as Record<AgentId, AgentCounts>;
+  const counts = Object.fromEntries(AGENT_IDS.filter((id) => !disabled.has(id)).map((id) => [id, all[id]]));
   const content: BriefingContent = { changes: [], risks: [], recommendedActions: [], notes: [], counts };
   const horizon = now.getTime() + DAY_MS;
+  const enabled = <T extends { agentId: AgentId }>(rows: T[]): T[] => rows.filter((r) => !disabled.has(r.agentId));
 
-  for (const d of facts.decided) {
-    counts[d.agentId].decided += 1;
+  for (const d of enabled(facts.decided)) {
+    all[d.agentId].decided += 1;
     content.changes.push({ agentId: d.agentId, factId: d.actionId, text: `${d.tool} was ${d.decision.toLowerCase()} at ${d.decidedAt}` });
   }
-  for (const r of facts.runs) {
-    counts[r.agentId][r.status === "FAILED" ? "failedRuns" : "committedRuns"] += 1;
+  for (const r of enabled(facts.runs)) {
+    all[r.agentId][r.status === "FAILED" ? "failedRuns" : "committedRuns"] += 1;
     const item = { agentId: r.agentId, factId: r.runId, text: `Run ${r.runId} ${r.status.toLowerCase()} at ${r.createdAt}` };
     content.changes.push(item);
     if (r.status === "FAILED") content.risks.push(item);
   }
-  for (const p of facts.pending) {
-    counts[p.agentId].pending += 1;
+  for (const p of enabled(facts.pending)) {
+    all[p.agentId].pending += 1;
     const expiresAt = new Date(Date.parse(p.requestedAt) + (p.expiryHours ?? DEFAULT_EXPIRY_HOURS) * 3_600_000);
     if (expiresAt.getTime() <= horizon) {
       content.risks.push({ agentId: p.agentId, factId: p.actionId, text: `${p.tool} expires at ${expiresAt.toISOString()}` });
@@ -155,6 +157,7 @@ export function buildBriefing(facts: BriefingFacts, now: Date): BriefingContent 
       route: actionRoute(p.actionId),
     });
   }
+  for (const id of AGENT_IDS) if (disabled.has(id)) content.notes.push(`${id} is disabled by your administrator`);
   const capped = [facts.pending, facts.decided, facts.runs].some((rows) => rows.length >= FACT_ROW_CAP);
   if (capped) content.notes.push(`Only the first ${FACT_ROW_CAP} items of a list are shown.`);
   return content;

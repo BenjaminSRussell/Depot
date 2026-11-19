@@ -79,7 +79,7 @@ describe.runIf(ownerUrl)("briefings in Postgres", () => {
   it("generates a READY briefing whose actions exist and changes no approval or action row", async () => {
     const mine = await seed({ user: "user-gen", duty: "ap.gen.approve" });
     const before = [await count("approval_request"), await count("agent_action")];
-    const briefings = createBriefingService({ store, facts });
+    const briefings = createBriefingService({ store, facts, disabledAgents: async () => new Set() });
     const principal = { userId: "user-gen", tenantId: TENANT_A, duties: new Set(["agents.invoke"]) };
     const { id } = await briefings.generate(principal);
     await vi.waitFor(async () => expect((await briefings.get(principal, id))?.status).toBe("READY"));

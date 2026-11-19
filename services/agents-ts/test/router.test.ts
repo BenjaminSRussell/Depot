@@ -10,6 +10,7 @@ import type { CopilotService } from "../src/runtime/copilot.js";
 import type { KnowledgeService } from "../src/runtime/knowledge.js";
 import type { BriefingService } from "../src/runtime/briefing.js";
 import type { AgentBudgetService } from "../src/api/agentBudgets.js";
+import type { AgentDefinitionService } from "../src/api/agentDefinitions.js";
 import type { ActionService } from "../src/runtime/actions.js";
 import type { RunService } from "../src/runtime/service.js";
 import type { AgentEvent } from "../src/domain/events.js";
@@ -207,6 +208,7 @@ describe("api/openapi.yaml matches the router", () => {
       "GET /api/v1/agents/briefings",
       "GET /api/v1/agents/briefings/{id}",
       "GET /api/v1/agents/budgets",
+      "GET /api/v1/agents/definitions",
       "GET /api/v1/agents/kill-switch",
       "GET /api/v1/agents/runs/{runId}",
       "GET /api/v1/agents/runs/{runId}/actions",
@@ -214,6 +216,8 @@ describe("api/openapi.yaml matches the router", () => {
       "POST /api/v1/agents/briefings:generate",
       "POST /api/v1/agents/copilot/conversations",
       "POST /api/v1/agents/copilot/conversations/{conversationId}/messages",
+      "POST /api/v1/agents/definitions/{agentId}:disable",
+      "POST /api/v1/agents/definitions/{agentId}:enable",
       "POST /api/v1/agents/kill-switch",
       "POST /api/v1/agents/runs/{runId}/actions/{actionId}/decision",
       "POST /api/v1/agents/runs/{runId}/actions/{actionId}:undo",
@@ -237,6 +241,7 @@ describe("api/openapi.yaml matches the router", () => {
       copilot: {} as CopilotService,
       knowledge: {} as KnowledgeService,
       budgets: {} as AgentBudgetService,
+      definitions: {} as AgentDefinitionService,
       briefings: {} as BriefingService,
       aiPolicy: {} as AiPolicyStore,
       steps: { service: {} as never, verifier: { verify: () => { throw new Error("no"); } } },
