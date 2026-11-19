@@ -23,6 +23,8 @@ services:
     # agents-ts verifies the caller's bearer token itself, so the gateway forwards Authorization on its route (and only there).
     # The sign-in settings come from depot.yaml (oidcIssuer, oidcAudience, oidcJwksUrl) and MCP_URL from mcpUrl: the MCP gateway
     # (mcp-ts) is not bundled, so mcpUrl must name one; agents-ts stops with a clear message while it is empty.
+    route: agents
+    keepApiPrefix: true
     forwardAuthorization: true
     env:
       AGENTS_JWT_ISSUER: "{oidcIssuer}"

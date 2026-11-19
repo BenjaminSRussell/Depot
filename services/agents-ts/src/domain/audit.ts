@@ -7,8 +7,17 @@ export const OUTPUT_CAP_BYTES = 64 * 1024;
 /** APPROVED and AUTO commit; REJECTED and DENIED never do. */
 export type Decision = "APPROVED" | "REJECTED" | "AUTO" | "DENIED";
 
+export interface ActionDecline {
+  by: string;
+  reason: string | null;
+  at: string;
+}
+
 export interface ActionRecord {
   runId: string;
+  /** The id the decision and undo endpoints take; set when the row is read from the store. */
+  actionId?: string;
+  declined?: ActionDecline;
   seq: number;
   toolName: string;
   inputJson: string;

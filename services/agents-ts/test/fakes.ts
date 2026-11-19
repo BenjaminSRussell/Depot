@@ -15,6 +15,7 @@ import type {
   ToolPort,
   ToolResult,
 } from "../src/runtime/engine.js";
+import type { AiRouter } from "../src/runtime/aiRouter.js";
 
 export const TENANT = "00000000-0000-7000-8000-0000000000aa";
 export const INVOKER = "00000000-0000-7000-8000-000000000001";
@@ -51,6 +52,10 @@ export class ScriptedProvider implements ModelProvider {
     return next;
   }
 }
+
+export const openRouter = (provider: ModelProvider): AiRouter => ({
+  plan: async ({ refs }) => ({ routeId: "test", provider, keep: [...refs], excluded: [] }),
+});
 
 export class FakeTools implements ToolPort {
   readonly calls: Array<{ name: string; args: Record<string, unknown> }> = [];

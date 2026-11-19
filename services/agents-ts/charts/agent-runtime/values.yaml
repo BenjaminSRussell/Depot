@@ -9,6 +9,12 @@ replicaCount: 2
 killSwitchPollMs: 1000
 # The MCP gateway every tool call goes through, with the caller's own token.
 mcpUrl: http://mcp-gateway.depot.svc.cluster.local:8080
+# Deployment profile: standard (CUI and unclassified records never reach a model) or cui (only attested in-boundary routes).
+boundary: standard
+# Gateway base URL of services/compliance, where record data classes are resolved under this service's own signed service token
+# (grant agents -> compliance, serviceIdentity below; the compliance chart needs agents's public key in serviceIdentity.publicKeys).
+# Empty, or no signing key: every record is UNKNOWN and withheld.
+complianceUrl: ""
 model:
   # anthropic, openai (OpenAI-compatible and Azure OpenAI) or bedrock.
   provider: anthropic

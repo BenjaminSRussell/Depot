@@ -155,6 +155,8 @@ var Allowlist = map[string]string{
 	"audit.audit_entry:" + problemNullEntity:                      "permanent: NULL legal_entity_id is a tenant-level audit entry (a tenant-level record such as a role assignment, or a row written before B-07) that every reader of the tenant may see; the hash chain itself is tenant-wide (0009_cdc_change_feed, B-07)",
 	"audit.alert_inbox:" + problemNullEntity:                      "permanent: NULL legal_entity_id is an alert on a tenant-level audit entry, scoped as the entry is (0009_cdc_change_feed, B-07)",
 	"print.print_output_rule:" + problemNullEntity:                "permanent: NULL legal_entity_id is a tenant-wide output rule; only callers with tenant-wide authority may create or delete one (#622 review)",
+	"compliance.data_designation:" + problemNullEntity:            "permanent: NULL legal_entity_id is a tenant-wide CUI designation (0011_data_designation, DEPOT-301); an entity-scoped caller must still see it, or the effective class of its own records would resolve as unclassified",
+	"compliance.need_to_know_setting:" + problemNullEntity:        "permanent: NULL legal_entity_id is the tenant-level need-to-know setting (0013_need_to_know, DEPOT-311); an entity-scoped caller must still read it, or the tenant default that applies beneath its entity override would resolve as never set",
 	"org.address_purpose:" + problemNullEntity:                    "permanent: NULL legal_entity_id is tenant-wide reference data",
 	"org.currency_rounding:" + problemNullEntity:                  "permanent: NULL legal_entity_id is tenant-wide reference data",
 	"org.org_unit_translation:" + problemNullEntity:               "permanent: NULL legal_entity_id is tenant-wide reference data",
@@ -177,7 +179,7 @@ const (
 	d17HubConfig         = "permanent: integration administration (API clients, subscriptions, event catalog, rate-limit buckets and usage, coexistence adapters) is tenant-level configuration under the integration duties, not business data of a legal entity (B-03b)"
 	d17HubDelivery       = "interim: webhook deliveries and attempts hold the payloads of events of any legal entity, read only by the tenant's integration administrators; a subscription can filter on the event's legal entity (event_filter), but the delivery log is not scoped until it records the event's legal entity (tracked in #725, B-03b)"
 	d17AgentsPlatform    = "permanent: the platform's agent catalog and eval results, the same for every tenant and no tenant data (0006_versions_evals_partitions, B-03b)"
-	d17AgentsTenant      = "permanent: tenant-level agent controls (monthly token budget, holds against it, kill-switch changes) and the tenant's knowledge base indexed for the copilot span the tenant's legal entities by design; no business data of one legal entity (B-03b)"
+	d17AgentsTenant      = "permanent: tenant-level agent controls (monthly token budget, holds against it, kill-switch changes, the AI data policy change log) and the tenant's knowledge base indexed for the copilot span the tenant's legal entities by design; no business data of one legal entity (B-03b)"
 	d17AgentsRuns        = "interim: an agent run, its actions, approvals, state and credentials belong to the invoking user, and act on business services only through tools that call them with the invoker's token and legal-entity scope; the run log itself is readable across legal entities by agents.run.read holders until runs record the invoker's legal entity (tracked in #725, B-03b)"
 )
 
@@ -203,7 +205,7 @@ var d17TenantWide = map[string]map[string][]string{
 	},
 	"agents-ts": {
 		d17AgentsPlatform: {"agent_version", "eval_run"},
-		d17AgentsTenant:   {"token_budget", "budget_hold", "kill_switch_change", "knowledge_chunk"},
+		d17AgentsTenant:   {"token_budget", "budget_hold", "agent_budget_change", "kill_switch_change", "knowledge_chunk", "ai_data_policy_change"},
 		d17AgentsRuns:     {"agent_run", "agent_action", "approval_request", "agent_run_state", "agent_run_credential"},
 	},
 }

@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
 	"github.com/BenjaminSRussell/depot/services/receivables/internal/store"
 )
@@ -35,6 +37,19 @@ func (f *fakeStore) UnapplyPayment(_ context.Context, id string, version int, re
 func (f *fakeStore) UnapplySettlement(_ context.Context, paymentID, settlementID string, version int, reason string) (store.UnapplyResult, error) {
 	f.reversed, f.lastVersion, f.lastSettlement = paymentID, version, settlementID
 	return store.UnapplyResult{Payment: store.Payment{ID: paymentID, Status: "ON_ACCOUNT", Version: version + 1}}, nil
+}
+
+func (f *fakeStore) ReverseApplication(_ context.Context, paymentID string, version int, req store.ReverseApplicationRequest, key string) (store.ReverseApplicationResult, error) {
+	f.reversed, f.lastVersion, f.lastSettlement, f.lastKey = paymentID, version, req.ApplicationID, key
+	if f.reverseErr != nil {
+		return store.ReverseApplicationResult{}, f.reverseErr
+	}
+	return store.ReverseApplicationResult{ApplicationID: req.ApplicationID, ReversalJournalEntryID: "je-1", Payment: store.Payment{ID: paymentID, Version: version + 1}}, nil
+}
+
+func (f *fakeStore) CheckReverseApplication(_ context.Context, paymentID string, req store.ReverseApplicationRequest) (store.ReverseEligibility, error) {
+	f.reversed, f.lastSettlement = paymentID, req.ApplicationID
+	return f.eligibility, f.reverseErr
 }
 
 func (f *fakeStore) ReverseCreditSettlement(_ context.Context, batchID, reason string) (store.CreditReversalResult, error) {
@@ -153,5 +168,81 @@ func TestApplyPayment_ItemAmountReachesTheStore(t *testing.T) {
 	rec := do(h, http.MethodPost, "/v1/receivables/payments/"+ids.New()+":apply", body, "receivables.payment.post", map[string]string{"If-Match": `"1"`})
 	if rec.Code != http.StatusOK || len(f.lastPlan.Allocations) != 1 || f.lastPlan.Allocations[0].ItemCurrencyAmount.String() != "100" {
 		t.Fatalf("apply: %d %s %+v", rec.Code, rec.Body.String(), f.lastPlan)
+	}
+}
+
+func TestReverseApplication_NeedsTheDutyVersionKeyAndAValidBody(t *testing.T) {
+	f := &fakeStore{}
+	h := router(f)
+	path := "/v1/receivables/payments/" + ids.New() + ":reverse-application"
+	appID := ids.New()
+	body := `{"applicationId":"` + appID + `","reason":"applied to the wrong invoice"}`
+	headers := map[string]string{"If-Match": `"3"`, "Idempotency-Key": "rev-key-1"}
+	if code := do(h, http.MethodPost, path, body, "receivables.payment.post", headers).Code; code != http.StatusForbidden {
+		t.Errorf("with only receivables.payment.post: %d", code)
+	}
+	if code := do(h, http.MethodPost, path, body, "receivables.payment.reverse", map[string]string{"Idempotency-Key": "rev-key-1"}).Code; code != http.StatusPreconditionRequired {
+		t.Errorf("without If-Match: %d", code)
+	}
+	if code := do(h, http.MethodPost, path, body, "receivables.payment.reverse", map[string]string{"If-Match": `"3"`}).Code; code != http.StatusBadRequest {
+		t.Errorf("without Idempotency-Key: %d", code)
+	}
+	for name, bad := range map[string]string{
+		"application id not a uuid": `{"applicationId":"nope","reason":"x"}`,
+		"reason missing":            `{"applicationId":"` + appID + `"}`,
+		"reason blank":              `{"applicationId":"` + appID + `","reason":"   "}`,
+		"reason too long":           `{"applicationId":"` + appID + `","reason":"` + strings.Repeat("x", 501) + `"}`,
+		"dryRun with a bad id":      `{"applicationId":"nope","reason":"x","dryRun":true}`,
+	} {
+		if code := do(h, http.MethodPost, path, bad, "receivables.payment.reverse", headers).Code; code != http.StatusBadRequest {
+			t.Errorf("%s: %d", name, code)
+		}
+	}
+	rec := do(h, http.MethodPost, path, body, "receivables.payment.reverse", headers)
+	if rec.Code != http.StatusOK || rec.Header().Get("ETag") != `"4"` || f.lastVersion != 3 || f.lastSettlement != appID || f.lastKey != "rev-key-1" {
+		t.Fatalf("reverse application: %d %s etag %s (v%d app %s key %s)", rec.Code, rec.Body.String(), rec.Header().Get("ETag"), f.lastVersion, f.lastSettlement, f.lastKey)
+	}
+}
+
+func TestReverseApplication_ProblemCodesKeepTheirStatus(t *testing.T) {
+	appID := ids.New()
+	body := `{"applicationId":"` + appID + `","reason":"x"}`
+	headers := map[string]string{"If-Match": `"3"`, "Idempotency-Key": "rev-key-1"}
+	for _, tt := range []struct {
+		code   string
+		status int
+	}{
+		{store.CodeReversalReconciled, http.StatusConflict},
+		{store.CodeReversalLedgerUnavailable, http.StatusServiceUnavailable},
+		{store.CodeReversalPeriodClosed, http.StatusConflict},
+		{store.CodeReversalItemChanged, http.StatusConflict},
+	} {
+		f := &fakeStore{reverseErr: httpx.NewProblem(tt.status, tt.code, "refused")}
+		rec := do(router(f), http.MethodPost, "/v1/receivables/payments/"+ids.New()+":reverse-application", body, "receivables.payment.reverse", headers)
+		var got httpx.Problem
+		if rec.Code != tt.status || json.Unmarshal(rec.Body.Bytes(), &got) != nil || got.Code != tt.code {
+			t.Errorf("%s: %d %s", tt.code, rec.Code, rec.Body.String())
+		}
+	}
+}
+
+func TestReverseApplication_DryRunNeedsNoVersionOrKeyAndAnswersEligibility(t *testing.T) {
+	appID := ids.New()
+	body := `{"applicationId":"` + appID + `","reason":"x","dryRun":true}`
+	path := "/v1/receivables/payments/" + ids.New() + ":reverse-application"
+	f := &fakeStore{eligibility: store.ReverseEligibility{Code: store.CodeReversalItemChanged, Reason: "touched", Items: []store.ItemChange{{OpenItemID: ids.New(), Cause: "DUNNED"}}}}
+	h := router(f)
+	if code := do(h, http.MethodPost, path, body, "receivables.payment.post", nil).Code; code != http.StatusForbidden {
+		t.Errorf("dryRun without the duty: %d", code)
+	}
+	var got store.ReverseEligibility
+	rec := do(h, http.MethodPost, path, body, "receivables.payment.reverse", nil)
+	if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &got) != nil || got.Eligible || got.Code != store.CodeReversalItemChanged || len(got.Items) != 1 || f.lastSettlement != appID || f.lastVersion != 0 {
+		t.Fatalf("dryRun: %d %s", rec.Code, rec.Body.String())
+	}
+	f.eligibility = store.ReverseEligibility{Eligible: true}
+	rec = do(h, http.MethodPost, path, body, "receivables.payment.reverse", nil)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"eligible":true`) {
+		t.Errorf("eligible dryRun: %d %s", rec.Code, rec.Body.String())
 	}
 }

@@ -6,15 +6,15 @@ info:
     PRD 9.47.5 events, CloudEvents 1.0 envelope; the schemas below are the
     data member, with snake_case field names as in the PRD and the other
     services' events. `src/domain/events.ts` builds and validates the payloads
-    of four events (run.completed, approval.requested, budget.threshold,
-    killswitch.changed); the schemas below mirror those payloads. Three are
+    of five events (run.completed, approval.requested, budget.threshold,
+    killswitch.changed, action.declined); the schemas below mirror those payloads. Four are
     written to the outbox inside the business transaction, as CloudEvents
     envelopes (src/store/outbox.ts), and relayed by the `outbox-agents-ts`
     connector (deploy/kafka/connect.yaml), which routes
     dev.depot.agent.<entity>.<verb>.v<n> to depot.agent.<entity>:
     approval.requested (src/store/approvals.ts), budget.threshold
     (`PgAgentStore.settle`) and killswitch.changed (`POST
-    /api/v1/agents/kill-switch`, src/store/killswitch.ts). run.completed is
+    /api/v1/agents/kill-switch`, src/store/killswitch.ts) and action.declined (src/store/actions.ts). run.completed is
     built but not written yet (see NOT-IMPLEMENTED.md); its channel
     depot.agent.run and the connector's ACL already exist, so the wiring needs
     no deploy change. `version.promoted` is still planned. Agent workers do not consume killswitch.changed
@@ -47,6 +47,18 @@ channels:
     messages:
       killSwitchChanged:
         $ref: "#/components/messages/KillSwitchChanged"
+  aiPolicyChanged:
+    address: depot.agent.aipolicy
+    description: Outbox relay topic for changes to a tenant's AI data policy.
+    messages:
+      aiPolicyChanged:
+        $ref: "#/components/messages/AiPolicyChanged"
+  actionDeclined:
+    address: depot.agent.action
+    description: Outbox relay topic for the decline of an action that had no approval gate.
+    messages:
+      actionDeclined:
+        $ref: "#/components/messages/ActionDeclined"
 operations:
   publishRunCompleted:
     action: send
@@ -76,6 +88,20 @@ operations:
     summary: Written with the toggle and its version in one transaction (src/store/killswitch.ts).
     messages:
       - $ref: "#/channels/killSwitchChanged/messages/killSwitchChanged"
+  publishAiPolicyChanged:
+    action: send
+    channel:
+      $ref: "#/channels/aiPolicyChanged"
+    summary: Written with the policy change row in one transaction (src/store/aiDataPolicy.ts).
+    messages:
+      - $ref: "#/channels/aiPolicyChanged/messages/aiPolicyChanged"
+  publishActionDeclined:
+    action: send
+    channel:
+      $ref: "#/channels/actionDeclined"
+    summary: Written with the decline of an ungated action in one transaction, only when the decline changed the row (src/store/actions.ts).
+    messages:
+      - $ref: "#/channels/actionDeclined/messages/actionDeclined"
 components:
   messages:
     RunCompleted:
@@ -102,6 +128,18 @@ components:
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/KillSwitchChangedData"
+    AiPolicyChanged:
+      name: dev.depot.agent.aipolicy.changed.v1
+      summary: A tenant's AI data policy changed
+      contentType: application/cloudevents+json
+      payload:
+        $ref: "#/components/schemas/AiPolicyChangedData"
+    ActionDeclined:
+      name: dev.depot.agent.action.declined.v1
+      summary: An action that had no approval gate was declined
+      contentType: application/cloudevents+json
+      payload:
+        $ref: "#/components/schemas/ActionDeclinedData"
   schemas:
     PlannedEventTypes:
       type: string
@@ -111,6 +149,8 @@ components:
         - dev.depot.agent.approval.requested.v1
         - dev.depot.agent.budget.threshold.v1
         - dev.depot.agent.killswitch.changed.v1
+        - dev.depot.agent.aipolicy.changed.v1
+        - dev.depot.agent.action.declined.v1
         - dev.depot.agent.version.promoted.v1
     RunCompletedData:
       type: object
@@ -175,3 +215,26 @@ components:
         by_user: { type: string, format: uuid }
         version: { type: integer, minimum: 1 }
         changed_at: { type: string, format: date-time }
+    AiPolicyChangedData:
+      type: object
+      description: One change to a tenant's AI data policy. Carries no cell values and no reason text; read the policy for those.
+      required: [tenant_id, legal_entity_id, version, loosening, by_user, changed_at]
+      additionalProperties: false
+      properties:
+        tenant_id: { type: string, format: uuid }
+        legal_entity_id: { type: [string, "null"], format: uuid }
+        version: { type: integer, minimum: 2 }
+        loosening: { type: boolean }
+        by_user: { type: string, format: uuid }
+        changed_at: { type: string, format: date-time }
+    ActionDeclinedData:
+      type: object
+      description: One decline of an ungated action. Ids, tool and actor only; the decline reason stays in agent_action.
+      required: [run_id, action_id, tool_name, declined_by, declined_at]
+      additionalProperties: false
+      properties:
+        run_id: { type: string, minLength: 1 }
+        action_id: { type: string, format: uuid }
+        tool_name: { type: string, minLength: 1 }
+        declined_by: { type: string, minLength: 1 }
+        declined_at: { type: string, format: date-time }

@@ -1,0 +1,44 @@
+{
+  "entries": [
+    {
+      "t": 1767000000000,
+      "method": "GET",
+      "url": "https://app.depot.example/api/v1/agents/briefings"
+    },
+    {
+      "t": 1767000000500,
+      "method": "POST",
+      "url": "https://app.depot.example/api/v1/agents/briefings:generate",
+      "postData": "{}"
+    },
+    {
+      "t": 1767000000900,
+      "method": "POST",
+      "url": "https://app.depot.example/api/v1/agents/briefings/b-1:mark-read",
+      "postData": "{}"
+    },
+    {
+      "t": 1767000002000,
+      "method": "POST",
+      "url": "https://app.depot.example/api/v1/agents/copilot/conversations",
+      "postData": "{}"
+    },
+    {
+      "t": 1767000002600,
+      "method": "POST",
+      "url": "https://app.depot.example/api/v1/agents/copilot/conversations/c-1/messages",
+      "postData": "{\"message\": \"what is due\"}"
+    },
+    {
+      "t": 1767000003000,
+      "method": "GET",
+      "url": "https://app.depot.example/api/v1/ap/invoices"
+    },
+    {
+      "t": 1767000003500,
+      "method": "POST",
+      "url": "https://app.depot.example/bff/session/heartbeat"
+    }
+  ],
+  "events": []
+}

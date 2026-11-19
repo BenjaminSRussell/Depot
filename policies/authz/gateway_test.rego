@@ -149,6 +149,50 @@ test_envoy_decides_a_d22_route_on_the_service_base if {
 	answer.record.route == "POST /api/v1/agents/**"
 }
 
+test_envoy_decides_the_copilot_conversation_paths if {
+	every public in ["/api/v1", "/v1"] {
+		every rest in ["/agents/copilot/conversations", "/agents/copilot/conversations/c1/messages"] {
+			path := concat("", [public, rest])
+			allowed := envoy with input as envoy_input("POST", path, {"x-depot-tenant": "t", "x-depot-user": "u"})
+				with data.assignments as {"t": {"u": ["mcp.copilot.use"]}}
+			allowed.allowed == true
+			allowed.record.duty == "mcp.copilot.use"
+			allowed.record.route == "POST /api/v1/agents/**"
+			refused := envoy with input as envoy_input("POST", path, {"x-depot-tenant": "t", "x-depot-user": "u"})
+				with data.assignments as {"t": {"u": ["agents.invoke", "agents.run.read"]}}
+			refused.allowed == false
+			refused.http_status == 403
+			anonymous := envoy with input as envoy_input("POST", path, {})
+				with data.assignments as {"t": {"u": ["mcp.copilot.use"]}}
+			anonymous.allowed == false
+			anonymous.record.reason == "unauthenticated"
+		}
+	}
+}
+
+test_envoy_decides_the_agent_budget_paths if {
+	every public in ["/api/v1", "/v1"] {
+		every case in [
+			{"method": "GET", "rest": "/agents/budgets", "duty": "agentbudget.read"},
+			{"method": "PUT", "rest": "/agents/budgets/ap_coding", "duty": "agentbudget.write"},
+		] {
+			path := concat("", [public, case.rest])
+			allowed := envoy with input as envoy_input(case.method, path, {"x-depot-tenant": "t", "x-depot-user": "u"})
+				with data.assignments as {"t": {"u": [case.duty]}}
+			allowed.allowed == true
+			allowed.record.duty == case.duty
+			refused := envoy with input as envoy_input(case.method, path, {"x-depot-tenant": "t", "x-depot-user": "u"})
+				with data.assignments as {"t": {"u": ["agents.run.read"]}}
+			refused.allowed == false
+			refused.http_status == 403
+			anonymous := envoy with input as envoy_input(case.method, path, {})
+				with data.assignments as {"t": {"u": [case.duty]}}
+			anonymous.allowed == false
+			anonymous.record.reason == "unauthenticated"
+		}
+	}
+}
+
 # One request for each D22 prefix (the routes Envoy rewrites to a base that is not /v1/<prefix>), with a duty the
 # catalogue grants under that base. Both public paths are allowed with the duty and refused without it.
 d22_cases := {

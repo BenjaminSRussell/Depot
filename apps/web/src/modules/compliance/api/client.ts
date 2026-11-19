@@ -881,3 +881,70 @@ export function evaluateExportPolicy(input: { classification: ExportClassificati
 export function classifyRead(fields: string[]): Promise<ReadClassification> {
   return json<ReadClassification>(`${complianceBase}/read-log:classify`, { method: "POST", body: JSON.stringify({ fields }) });
 }
+
+export type DesignationClass = "CUI" | "NONE";
+export type EffectiveDesignationClass = DesignationClass | "UNKNOWN";
+export type DesignationSource = "RECORD" | "LEGAL_ENTITY" | "TENANT" | "PARENT_RECORD" | "DEFAULT" | "UNRESOLVED";
+
+export interface DataDesignation {
+  designationId: string;
+  scope: "TENANT" | "LEGAL_ENTITY" | "RECORD";
+  legalEntityId?: string;
+  entityType?: string;
+  recordId?: string;
+  class: DesignationClass;
+  reason: string;
+  designatedBy: string;
+  designatedAt: string;
+  version: number;
+}
+
+export interface ResolvedDesignation {
+  entityType: string;
+  recordId: string;
+  class: EffectiveDesignationClass;
+  source: DesignationSource;
+}
+
+export interface DesignationHistoryEntry {
+  auditId: string;
+  action: "DESIGNATE" | "UPGRADE" | "DOWNGRADE";
+  scope: DataDesignation["scope"];
+  actor: string;
+  occurredAt: string;
+  reason: string;
+  before?: { class?: DesignationClass };
+  after?: { class?: DesignationClass };
+}
+
+const designationsBase = `${complianceBase}/data-designations`;
+
+export async function resolveDesignation(entityType: string, recordId: string, signal?: AbortSignal): Promise<ResolvedDesignation> {
+  const out = await json<{ items: ResolvedDesignation[] }>(`${designationsBase}:resolve`, { method: "POST", body: JSON.stringify({ refs: [{ entityType, recordId }] }) }, signal);
+  return out.items?.[0] ?? { entityType, recordId, class: "UNKNOWN", source: "UNRESOLVED" };
+}
+
+export async function findDesignation(entityType: string, recordId: string, signal?: AbortSignal): Promise<Versioned<DataDesignation> | null> {
+  const rows = (await json<{ items: DataDesignation[] }>(`${designationsBase}${query({ scope: "RECORD", entityType, recordId })}`, {}, signal)).items ?? [];
+  return rows[0] ? { value: rows[0], etag: `"${rows[0].version}"` } : null;
+}
+
+export async function listDesignations(signal?: AbortSignal): Promise<DataDesignation[]> {
+  return (await json<{ items: DataDesignation[] }>(designationsBase, {}, signal)).items ?? [];
+}
+
+export function designateRecord(entityType: string, recordId: string, reason: string, key: string = newKey()): Promise<Versioned<DataDesignation>> {
+  return versioned<DataDesignation>(designationsBase, {
+    method: "POST",
+    headers: { "Idempotency-Key": key },
+    body: JSON.stringify({ scope: "RECORD", entityType, recordId, class: "CUI", reason }),
+  });
+}
+
+export async function changeDesignation(id: string, etag: string, to: DesignationClass, reason: string): Promise<Versioned<DataDesignation>> {
+  return versioned<DataDesignation>(`${designationsBase}/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "If-Match": etag }, body: JSON.stringify({ class: to, reason }) });
+}
+
+export async function designationHistory(id: string, signal?: AbortSignal): Promise<DesignationHistoryEntry[]> {
+  return (await json<{ items: DesignationHistoryEntry[] }>(`${designationsBase}/${encodeURIComponent(id)}/history`, {}, signal)).items ?? [];
+}

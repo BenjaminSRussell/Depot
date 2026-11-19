@@ -5,6 +5,8 @@ services:
   - name: agents-ts
     exe: "{install}/runtime/node/node.exe"
     args: ["{install}/runtime/node/apps/agents-ts/dist/main.js"]
+    route: agents
+    keepApiPrefix: true
     forwardAuthorization: true
     env:
       AGENTS_JWT_ISSUER: "{oidcIssuer}"

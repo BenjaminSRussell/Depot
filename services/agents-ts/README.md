@@ -48,6 +48,10 @@ deterministic in tests.
 | `src/store/approvals.ts`, `src/runtime/approvals.ts`, `migrations/0002_approvals.sql` | Persisted approvals. `approval_request` holds each request under tenant RLS; `PgApprovalStore.record` is first-writer-wins (`UPDATE ... WHERE decided_at IS NULL`) behind the decision endpoint. `createPersistedApprovalPort` is the engine's approval gate: it stores the request (PII-free: tool, confidence, amount), polls for the first decision and, past `agent.approval_expiry_h`, records REJECTED/EXPIRED (BR-47.3) as `system:expiry` |
 | `src/runtime/copilot.ts`, `src/api/copilot.ts` | Copilot chat backend, `POST /api/v1/copilot/chat` (duty `mcp.copilot.use`). Up to `AGENTS_COPILOT_MAX_TURNS` model turns with read tools only (`get`, `list`, `search`): each call goes to the gateway as the user, results are redacted and fed back. A tool outside the user's allowed set is answered AGT-0203 and never called (BR-47.11); a knowledge answer must pass the 0.75 citation gate or it is AGT-0212; answers are cached per tenant, user, duty set and mode for 5 minutes. A budget hold is reserved and settled per turn, and each turn is one audited run of agent `copilot` with an action row per tool call. `Accept: text/event-stream` gets `token` frames and one `done` frame (the panel's contract); anything else gets JSON |
 
+## Reaching the API from the shell (DEPOT-294)
+
+There is no web BFF (ADR-0009): the shell reaches `/api/v1/agents/**`, copilot conversations included, through the API gateway (HTTPRoute `agents` on `depot-api`, see `deploy/gateway/README.md`) or the depot-server proxy. There is no cookie session and no token exchange: the gateway verifies the bearer token and the OPA duty check, and `createAuthenticator` verifies the token again here. Streamed responses and upstream problem bodies pass through unchanged. The handlers for conversations, definitions, availability, the approvals list and briefings are not served by this service yet (`NOT-IMPLEMENTED.md`); each story that adds one must add its duty to `policies/authz/data.json` with a Rego case, because the gateway answers 403 for a path no duty names. Only `mcp.copilot.use` for the two conversation POSTs is in place.
+
 ## Configuration
 
 | Variable | Meaning | Default |
@@ -57,6 +61,8 @@ deterministic in tests.
 | `AGENTS_JWT_ISSUER`, `AGENTS_JWT_AUDIENCE` | Issuer (realm URL) and audience of the callers' bearer tokens; the issuer is required | audience `depot-api` |
 | `AGENTS_JWKS_URL` or `AGENTS_JWKS_FILE` | The realm's signing keys: its certs endpoint, or a mounted key set (chart `auth.jwksConfigMap`); one is required | |
 | `AGENTS_PROVIDER` | `anthropic`, `openai` (OpenAI-compatible, Azure) or `bedrock` | `anthropic` |
+| `AGENTS_BOUNDARY` | `standard` or `cui`. The copilot routes each call by the highest data class in its context: in `standard` no CUI or UNKNOWN record reaches a model, `cui` is refused at startup until agent runs and run steps are routed (DEPOT-303 slice 2) | `standard` |
+| `AGENTS_COMPLIANCE_URL` | Gateway base URL of services/compliance, where record data classes are resolved with agents' own signed service token (needs `DEPOT_SERVICE_SIGNING_KEY` or `DEPOT_SERVICE_SIGNING_KEY_FILE`, `DEPOT_SERVICE_NAME=agents` and a caller token with one `le` claim). Unset, or any of those missing: every record is UNKNOWN and is withheld from the model | unset |
 | `AGENTS_MODEL`, `AGENTS_COPILOT_MODEL`, `AGENTS_MODEL_OVERRIDES` | Model ids; the overrides are a JSON object of agent id to model id | `claude-sonnet-5-5` |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` + `AGENTS_OPENAI_BASE_URL`, `AWS_REGION` + `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` | Provider credentials, from a secret; a missing one fails the first run naming the variable | |
 | `AGENTS_RUN_TOKEN_CAP`, `AGENTS_COPILOT_TOKEN_CAP`, `AGENTS_COPILOT_MAX_TURNS` | Per-run and per-chat token caps, chat turns | 20000, 8000, 4 |

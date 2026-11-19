@@ -353,6 +353,10 @@ spec:
         operations: [Create, Describe, Write, DescribeConfigs]
       - resource: {type: topic, name: depot.agent.killswitch, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.agent.aipolicy, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.agent.action, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
       # analytics: one literal per AsyncAPI channel of services/analytics/events/asyncapi.yaml (outbox-analytics routes by event type).
       - resource: {type: topic, name: depot.analytics.metric, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
@@ -401,6 +405,8 @@ spec:
       - resource: {type: topic, name: depot.privacy.hold, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       - resource: {type: topic, name: depot.privacy.erasure, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.compliance.datadesignation, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       # consolidation: one literal per AsyncAPI channel of services/consolidation/events/asyncapi.yaml (outbox-consolidation routes by event type).
       - resource: {type: topic, name: depot.consol.run, patternType: literal}
@@ -2039,8 +2045,8 @@ spec:
     producer.override.enable.idempotence: true
 ---
 # Agents-ts routes by event type: dev.depot.agent.<entity>.<verb>.v<n> goes to depot.agent.<entity>, the AsyncAPI channels in
-# services/agents-ts/events/asyncapi.yaml (3 of them).
-# Also: approval.requested, budget.threshold and killswitch.changed are written to the outbox as CloudEvents envelopes
+# services/agents-ts/events/asyncapi.yaml (5 of them).
+# Also: approval.requested, budget.threshold, killswitch.changed and action.declined are written to the outbox as CloudEvents envelopes
 # (src/store/outbox.ts); run.completed is built but not written yet (services/agents-ts/NOT-IMPLEMENTED.md), and its channel
 # depot.agent.run and ACL are here already so wiring it needs no deploy change.
 # A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
@@ -2324,7 +2330,7 @@ spec:
 ---
 # Compliance routes by event type: dev.depot.<context>.<entity>.<verb>.v<n> goes to depot.<context>.<entity>, the AsyncAPI
 # channels in services/compliance/events/asyncapi.yaml.
-# Also: it publishes under three contexts (sod, trade and privacy), so the route keeps <context>.<entity>.
+# Also: it publishes under four contexts (sod, trade, privacy and compliance), so the route keeps <context>.<entity>.
 # A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
 # elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
 # message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
@@ -2366,7 +2372,7 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: type
-    transforms.outbox.route.topic.regex: 'dev\.depot\.(?<routedByValue>(?:sod|trade|privacy)\.[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.regex: 'dev\.depot\.(?<routedByValue>(?:sod|trade|privacy|compliance)\.[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
     transforms.outbox.route.topic.replacement: depot.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid

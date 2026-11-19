@@ -24,6 +24,7 @@ type Process struct {
 	ReadyPath string
 	// ForwardAuthorization: the gateway passes the caller's verified bearer token to this service.
 	ForwardAuthorization bool
+	KeepAPIPrefix        bool
 }
 
 // Handle is a running child.

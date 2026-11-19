@@ -47,7 +47,22 @@ channels:
     messages:
       erasureRequested:
         $ref: "#/components/messages/ErasureRequested"
+  designationChanged:
+    address: depot.compliance.datadesignation
+    messages:
+      designationChanged:
+        $ref: "#/components/messages/DesignationChanged"
 operations:
+  publishDesignationChanged:
+    action: send
+    channel: {$ref: "#/channels/designationChanged"}
+    summary: >-
+      A data designation was set or its class changed (DEPOT-301, AC6), written in the
+      same transaction as the change. One event per change, keyed by the designation
+      id. The reason stays in the store and the audit trail. Consumers - agents-ts and
+      the web shell refresh their effective-class view within the 10-second propagation window.
+    messages:
+      - {$ref: "#/channels/designationChanged/messages/designationChanged"}
   publishConflictDetected:
     action: send
     channel: {$ref: "#/channels/conflictDetected"}
@@ -159,6 +174,13 @@ components:
         $ref: "#/components/schemas/CloudEventHeaders"
       payload:
         $ref: "#/components/schemas/ErasureRequestedData"
+    DesignationChanged:
+      name: dev.depot.compliance.datadesignation.changed.v1
+      contentType: application/cloudevents+json
+      headers:
+        $ref: "#/components/schemas/CloudEventHeaders"
+      payload:
+        $ref: "#/components/schemas/DesignationChangedData"
   schemas:
     CloudEventHeaders:
       type: object
@@ -222,6 +244,20 @@ components:
         delivered_at: {type: string, format: date-time}
         closed_at: {type: string, format: date-time}
         late: {type: boolean}
+    DesignationChangedData:
+      type: object
+      required: [designation_id, scope, class, version, changed_by, changed_at]
+      properties:
+        designation_id: {type: string, format: uuid}
+        scope: {type: string, enum: [TENANT, LEGAL_ENTITY, RECORD]}
+        legal_entity_id: {type: string, format: uuid, description: present for LEGAL_ENTITY and RECORD scope}
+        entity_type: {type: string, description: present for RECORD scope, example: project}
+        record_id: {type: string, description: present for RECORD scope}
+        class: {type: string, enum: [CUI, NONE]}
+        previous_class: {type: string, enum: [CUI, NONE], description: absent on the first designation}
+        version: {type: integer, minimum: 1}
+        changed_by: {type: string}
+        changed_at: {type: string, format: date-time}
     HoldPlacedData:
       type: object
       required: [hold_id, legal_entity_id, placed_by, placed_at]

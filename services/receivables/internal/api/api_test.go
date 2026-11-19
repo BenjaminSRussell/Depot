@@ -34,6 +34,8 @@ type fakeStore struct {
 	banks              []store.BankAccount
 	fx                 store.FXSetting
 	reversed           string
+	reverseErr         error
+	eligibility        store.ReverseEligibility
 	backfill           store.BackfillRequest
 	deletedBank        string
 	seenFiles          map[string]bool

@@ -10,6 +10,7 @@ export interface Principal {
   userId: string;
   tenantId: string;
   duties: ReadonlySet<string>;
+  legalEntityId?: string;
 }
 
 /**
@@ -23,7 +24,11 @@ export type ApiCode =
   | "AGT-0404" // no such route or resource
   | "AGT-0405" // method not allowed on the route
   | "AGT-0409" // the action was already decided differently
+  | "AGT-0412" // If-Match names a version that is not the current one
   | "AGT-0413" // request body too large
+  | "AGT-0422" // a field value the API cannot accept
+  | "AGT-0428" // If-Match is required
+  | "NOT_REVERSIBLE" // the action cannot be undone
   | "AGT-0500" // unexpected error, never echoed
   | "AGT-0503"; // the signing keys could not be read
 
@@ -55,7 +60,7 @@ export function requireDuty(principal: Principal, duty: string, subject: string)
 export function toApiError(err: unknown): ApiError {
   if (err instanceof ApiError) return err;
   if (err instanceof AgentError) {
-    const status = err.code === "AGT-0203" || err.code === "AGT-0209" ? 403 : 422;
+    const status = err.code === "AGT-0203" || err.code === "AGT-0209" ? 403 : err.code === "AGT-0216" ? 503 : 422;
     return new ApiError(status, err.code, err.message);
   }
   return new ApiError(500, "AGT-0500", "unexpected error");

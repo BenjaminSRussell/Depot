@@ -219,7 +219,7 @@ export const DEFAULT_BUDGET: BudgetLimits = { limitIn: 50_000_000, limitOut: 10_
 
 const SEVERITY: Record<BudgetState, number> = { OK: 0, SOFT: 1, HARD: 2 };
 
-interface ActionRow {
+export interface ActionRow {
   run_id: string;
   seq: number;
   tool_name: string;
@@ -232,7 +232,28 @@ interface ActionRow {
   decided_at: Date;
   committed_entity_ref: string | null;
   reason: string | null;
+  action_id: string;
+  declined_at: Date | null;
+  declined_by: string | null;
+  decline_reason: string | null;
 }
+
+export const rowToAction = (r: ActionRow): ActionRecord => ({
+  runId: r.run_id,
+  actionId: r.action_id,
+  seq: r.seq,
+  toolName: r.tool_name,
+  inputJson: r.input_json,
+  outputHash: r.output_hash,
+  outputJson: r.output_json,
+  outputTruncated: r.output_truncated,
+  approverUserId: r.approver_user_id,
+  decision: r.decision,
+  decidedAt: r.decided_at.toISOString(),
+  committedEntityRef: r.committed_entity_ref,
+  reason: r.reason,
+  ...(r.declined_at !== null && r.declined_by !== null ? { declined: { by: r.declined_by, reason: r.decline_reason, at: r.declined_at.toISOString() } } : {}),
+});
 
 interface BudgetRow {
   limit_in: string;
@@ -257,8 +278,9 @@ const assertTokens = (what: string, n: number, min: number): void => {
 
 async function insertAction(c: pg.PoolClient, tenantId: string, runMonth: string, a: ActionRecord): Promise<void> {
   await c.query(
-    `insert into agent_action (tenant_id, run_id, run_month, seq, tool_name, input_json, output_hash, output_json, output_truncated, approver_user_id, decision, decided_at, committed_entity_ref, reason)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    `insert into agent_action (tenant_id, run_id, run_month, seq, tool_name, input_json, output_hash, output_json, output_truncated, approver_user_id, decision, decided_at, committed_entity_ref, reason, action_id)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+       coalesce((select action_id from approval_request where tenant_id = $1 and run_id = $2 and seq = $4), gen_random_uuid()))
      on conflict (tenant_id, run_id, seq, run_month) do nothing`,
     [tenantId, a.runId, runMonth, a.seq, a.toolName, a.inputJson, a.outputHash, a.outputJson, a.outputTruncated, a.approverUserId, a.decision, a.decidedAt, a.committedEntityRef, a.reason],
   );
@@ -390,20 +412,7 @@ export class PgAgentStore implements AuditPort, BudgetPort {
   async loadActions(tenantId: string, runId: string): Promise<ActionRecord[]> {
     return this.withTenant(tenantId, async (c) => {
       const res = await c.query<ActionRow>("select * from agent_action where run_id = $1 order by seq", [runId]);
-      return res.rows.map((r) => ({
-        runId: r.run_id,
-        seq: r.seq,
-        toolName: r.tool_name,
-        inputJson: r.input_json,
-        outputHash: r.output_hash,
-        outputJson: r.output_json,
-        outputTruncated: r.output_truncated,
-        approverUserId: r.approver_user_id,
-        decision: r.decision,
-        decidedAt: r.decided_at.toISOString(),
-        committedEntityRef: r.committed_entity_ref,
-        reason: r.reason,
-      }));
+      return res.rows.map(rowToAction);
     });
   }
 

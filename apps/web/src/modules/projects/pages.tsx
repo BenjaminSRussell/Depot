@@ -33,6 +33,7 @@ import { dash, stageLabel, stageTone, typeLabel } from "./labels";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { DataDesignationPanel } from "../compliance/DataDesignationPanel";
 
 /** The largest page the service returns; tiles show "100+" beyond it. */
 const TILE_LIMIT = 100;
@@ -360,6 +361,7 @@ export function ProjectDetailPage() {
           </>
         }
       />
+      <DataDesignationPanel entityType="project" recordId={current.id} />
       <Alert tone="success" live="status">
         {moved}
       </Alert>

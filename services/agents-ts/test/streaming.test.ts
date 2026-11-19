@@ -7,7 +7,7 @@ import { providerUnavailable } from "../src/providers/wire.js";
 import { createCopilotService } from "../src/runtime/copilot.js";
 import { createKnowledgeService } from "../src/runtime/knowledge.js";
 import type { ModelProvider, ModelRequest, ModelResponse } from "../src/runtime/engine.js";
-import { REAL_IBAN } from "./fakes.js";
+import { openRouter, REAL_IBAN } from "./fakes.js";
 import { FakeMcp, headers, MemoryStore, serve, tool } from "./surface-fakes.js";
 
 const GET = "depot.ap.invoice.get";
@@ -221,7 +221,7 @@ afterEach(async () => {
 async function setup(provider: ModelProvider) {
   const store = new MemoryStore();
   const copilot = createCopilotService({
-    providerFor: () => provider,
+    router: openRouter(provider),
     mcp: new FakeMcp([tool(GET, "ap.invoice.read")]),
     store,
     killSwitch: { isHalted: () => false },
@@ -323,7 +323,7 @@ describe("copilot streaming: refused answers and gone clients", () => {
     });
     const store = new MemoryStore();
     const copilot = createCopilotService({
-      providerFor: () => provider,
+      router: openRouter(provider),
       mcp: new FakeMcp([]),
       store,
       killSwitch: { isHalted: () => false },

@@ -251,7 +251,7 @@ test_all_seeded_duties_allow_their_declared_permissions if {
 }
 
 test_flag_duties_grant_no_routes if {
-	flag_duties := {"ledger.journal.rateoverride", "audit.auditor", "audit.cdc.apply", "audit.chain.anchor", "receivables.write-off.approve","purchasing.inbound.apply", "edi.pii.view", "edi.outbound.from-event", "tax.code.maintain", "fulfillment.order.sync", "budget.override", "inventory.blocking.scrap", "ledger.journal.postdirect", "ledger.journal.postledger", "ledger.period.postclosed", "org.hierarchy.backdate", "party.merge", "pii.read", "pricing.cache.invalidate", "production.batch.consume-expired", "production.journal.over-consume", "production.order.bom-after-release", "production.order.rework", "production.planned.intake", "receivables.openitem.from-billing", "billing.iccharge.from-event", "payables.iccharge.from-event", "intercompany.charge.from-event", "revrec.creditnote.reverse", "revrec.contract.from-invoice", "production.order.zero-output", "production.jobcard.shopfloor", "scheduling.constraints.override", "scheduling.order.import", "search.index.write", "shopfloor.job.sync", "tenant.administer", "treasury.facility.override"}
+	flag_duties := {"ledger.journal.rateoverride", "audit.auditor", "audit.cdc.apply", "audit.chain.anchor", "receivables.write-off.approve","purchasing.inbound.apply", "edi.pii.view", "edi.outbound.from-event", "tax.code.maintain", "fulfillment.order.sync", "budget.override", "inventory.blocking.scrap", "ledger.journal.postdirect", "ledger.journal.postledger", "ledger.period.postclosed", "org.hierarchy.backdate", "party.merge", "pii.read", "pricing.cache.invalidate", "production.batch.consume-expired", "production.journal.over-consume", "production.order.bom-after-release", "production.order.rework", "production.planned.intake", "receivables.openitem.from-billing", "billing.iccharge.from-event", "payables.iccharge.from-event", "intercompany.charge.from-event", "revrec.creditnote.reverse", "revrec.contract.from-invoice", "production.order.zero-output", "production.jobcard.shopfloor", "scheduling.constraints.override", "scheduling.order.import", "search.index.write", "shopfloor.job.sync", "tenant.administer", "treasury.facility.override", "cui.view", "agentapproval.decide"}
 	{d | some d, spec in data.duties; spec.flag == true} == flag_duties
 	every duty in flag_duties {
 		count(data.duties[duty].permissions) == 0
@@ -3353,7 +3353,11 @@ test_agent_run_duties_open_only_their_routes if {
 	allowed("agents.run.read", "GET", "/api/v1/agents/runs/r1")
 	allowed("agents.run.read", "GET", "/api/v1/agents/runs/r1/actions")
 	not allowed("agents.run.read", "POST", "/api/v1/agents/ap_coding/runs")
-	not allowed("agents.run.read", "POST", "/api/v1/agents/runs/r1/actions/a1/decision")
+	allowed("agents.run.read", "POST", "/api/v1/agents/runs/r1/actions/a1/decision")
+	allowed("agents.run.read", "POST", "/api/v1/agents/runs/r1/actions/a1:undo")
+	not allowed("agents.run.read", "GET", "/api/v1/agents/runs/r1/actions/a1:undo")
+	not allowed("agents.invoke", "POST", "/api/v1/agents/runs/r1/actions/a1:undo")
+	not allowed("agentapproval.decide", "POST", "/api/v1/agents/runs/r1/actions/a1/decision")
 	allowed("mcp.copilot.use", "POST", "/api/v1/copilot/chat")
 	not allowed("agents.run.read", "POST", "/api/v1/copilot/chat")
 	not allowed("mcp.copilot.use", "POST", "/api/v1/agents/ap_coding/runs")
@@ -3362,6 +3366,34 @@ test_agent_run_duties_open_only_their_routes if {
 	allowed("knowledge.write", "POST", "/api/v1/knowledge/chunks")
 	not allowed("knowledge.write", "POST", "/api/v1/knowledge/search")
 	not allowed("knowledge.write", "POST", "/api/v1/copilot/chat")
+}
+
+test_agent_budget_duties_open_only_their_routes if {
+	allowed("agentbudget.read", "GET", "/api/v1/agents/budgets")
+	not allowed("agentbudget.read", "PUT", "/api/v1/agents/budgets/ap_coding")
+	not allowed("agentbudget.read", "POST", "/api/v1/agents/budgets")
+	allowed("agentbudget.write", "PUT", "/api/v1/agents/budgets/ap_coding")
+	not allowed("agentbudget.write", "GET", "/api/v1/agents/budgets")
+	not allowed("agentbudget.write", "PUT", "/api/v1/agents/budgets")
+	not allowed("agentbudget.write", "PUT", "/api/v1/agents/budgets/ap_coding/x")
+	not allowed("agents.run.read", "GET", "/api/v1/agents/budgets")
+	not allowed("agents.invoke", "PUT", "/api/v1/agents/budgets/ap_coding")
+}
+
+test_copilot_use_opens_the_streamed_conversation_routes_and_nothing_else_under_agents if {
+	allowed("mcp.copilot.use", "POST", "/api/v1/agents/copilot/conversations")
+	allowed("mcp.copilot.use", "POST", "/api/v1/agents/copilot/conversations/c1/messages")
+	allowed("mcp.copilot.use", "GET", "/api/v1/agents/availability")
+	not allowed("mcp.copilot.use", "POST", "/api/v1/agents/availability")
+	not allowed("agents.run.read", "GET", "/api/v1/agents/availability")
+	not allowed("mcp.copilot.use", "GET", "/api/v1/agents/copilot/conversations")
+	not allowed("mcp.copilot.use", "GET", "/api/v1/agents/copilot/conversations/c1/messages")
+	not allowed("mcp.copilot.use", "POST", "/api/v1/agents/copilot/conversations/c1/x/messages")
+	not allowed("mcp.copilot.use", "POST", "/api/v1/agents/copilot/conversations/c1/messages:cancel")
+	not allowed("mcp.copilot.use", "POST", "/api/v1/agents/runs/r1/actions/a1/decision")
+	not allowed("agents.run.read", "POST", "/api/v1/agents/copilot/conversations")
+	not allowed("agents.invoke", "POST", "/api/v1/agents/copilot/conversations/c1/messages")
+	not allowed("knowledge.write", "POST", "/api/v1/agents/copilot/conversations")
 }
 
 test_opening_stock_and_bank_import_duties_are_service_only_and_cover_only_their_route if {
@@ -3625,6 +3657,12 @@ test_receivables_unapply_is_the_reversal_duty if {
 	not allowed("receivables.view", "POST", "/v1/receivables/payments/p1:unapply")
 }
 
+test_receivables_reverse_application_is_the_reversal_duty if {
+	allowed("receivables.payment.reverse", "POST", "/v1/receivables/payments/p1:reverse-application")
+	not allowed("receivables.payment.post", "POST", "/v1/receivables/payments/p1:reverse-application")
+	not allowed("receivables.view", "POST", "/v1/receivables/payments/p1:reverse-application")
+}
+
 test_payables_withholding_reporter_holds_only_the_record_duty if {
 	data.service_principals["payables-withholding"] == ["tax.withholding.record"]
 	"tax.withholding.record" in data.service_grants.payables.tax
@@ -3746,6 +3784,85 @@ test_compliance_audit_policy_master_duties if {
 	allowed("compliance.audit-policy.run", "POST", "/v1/compliance/audit-policies:evaluate")
 	not allowed("compliance.audit-policy.run", "POST", "/v1/compliance/audit-policies")
 	not allowed("compliance.audit-policy.run", "PATCH", "/v1/compliance/audit-policies/p1")
+}
+
+test_agents_ai_data_policy_duties if {
+	allowed("aipolicy.read", "GET", "/api/v1/agents/ai-data-policy")
+	not allowed("aipolicy.read", "PUT", "/api/v1/agents/ai-data-policy")
+	allowed("aipolicy.write", "PUT", "/api/v1/agents/ai-data-policy")
+	not allowed("aipolicy.write", "GET", "/api/v1/agents/ai-data-policy")
+	not allowed("aipolicy.write", "POST", "/api/v1/agents/ai-data-policy")
+	not allowed("agents.invoke", "PUT", "/api/v1/agents/ai-data-policy")
+}
+
+test_compliance_data_designation_duties if {
+	allowed("datadesignation.write", "POST", "/v1/compliance/data-designations")
+	not allowed("datadesignation.write", "GET", "/v1/compliance/data-designations")
+	allowed("datadesignation.read", "POST", "/v1/compliance/data-designations:resolve")
+	not allowed("datadesignation.read", "POST", "/v1/compliance/data-designations")
+	not allowed("datadesignation.write", "POST", "/v1/compliance/data-designations:resolve")
+	not allowed("datadesignation.write", "POST", "/v1/compliance/audit-policies")
+	not allowed("compliance.audit-policy.maintain", "POST", "/v1/compliance/data-designations")
+}
+
+test_agents_service_resolves_designations_and_copilot_users_do_not_read_them if {
+	allowed("compliance.data-designation.resolve", "POST", "/v1/compliance/data-designations:resolve")
+	not allowed("compliance.data-designation.resolve", "GET", "/v1/compliance/data-designations")
+	not allowed("compliance.data-designation.resolve", "GET", "/v1/compliance/data-designations/d1")
+	not allowed("compliance.data-designation.resolve", "POST", "/v1/compliance/data-designations")
+	not allowed("compliance.data-designation.resolve", "PATCH", "/v1/compliance/data-designations/d1")
+	data.duties["compliance.data-designation.resolve"].service_only
+	data.service_grants.agents.compliance == ["compliance.data-designation.resolve"]
+	not allowed("mcp.copilot.use", "POST", "/v1/compliance/data-designations:resolve")
+	not allowed("mcp.copilot.use", "GET", "/v1/compliance/data-designations")
+	not allowed("mcp.copilot.use", "GET", "/v1/compliance/data-designations/d1")
+	not allowed("mcp.copilot.use", "GET", "/v1/compliance/data-designations/d1/history")
+}
+
+test_compliance_data_designation_change_and_history_duties if {
+	allowed("datadesignation.write", "PATCH", "/v1/compliance/data-designations/d1")
+	not allowed("datadesignation.read", "PATCH", "/v1/compliance/data-designations/d1")
+	not allowed("datadesignation.write", "DELETE", "/v1/compliance/data-designations/d1")
+	allowed("datadesignation.read", "GET", "/v1/compliance/data-designations/d1")
+	allowed("datadesignation.read", "GET", "/v1/compliance/data-designations/d1/history")
+	not allowed("datadesignation.write", "GET", "/v1/compliance/data-designations/d1/history")
+}
+
+test_cui_view_is_a_flag_duty_no_designation_duty_grants if {
+	data.duties["cui.view"].flag == true
+	count(data.duties["cui.view"].permissions) == 0
+	not data.duties["cui.view"].tenant_level
+	not data.duties["cui.view"].operator_only
+	not data.duties["datadesignation.write"].flag
+	not data.duties["datadesignation.read"].flag
+}
+
+cui_input(legal_entity) := {"subject": {"tenant_id": "tenant-a", "user_id": "user-a", "legal_entity_id": legal_entity}, "action": "GET", "resource": "/v1/compliance/data-designations"}
+
+test_designation_duties_do_not_hold_cui_view if {
+	held := held_duties with input as cui_input("")
+		with data.assignments as {"tenant-a": {"user-a": ["datadesignation.write", "datadesignation.read"]}}
+	not "cui.view" in held
+	held == {"datadesignation.write", "datadesignation.read"}
+}
+
+test_cui_need_to_know_policy_duties_split_read_and_admin if {
+	allowed("cui.policy.read", "GET", "/v1/compliance/need-to-know")
+	not allowed("cui.policy.read", "PUT", "/v1/compliance/need-to-know")
+	allowed("cui.policy.admin", "PUT", "/v1/compliance/need-to-know")
+	not allowed("cui.policy.admin", "GET", "/v1/compliance/need-to-know")
+	not allowed("datadesignation.write", "PUT", "/v1/compliance/need-to-know")
+	every duty in ["cui.policy.read", "cui.policy.admin"] {
+		not data.duties[duty].flag
+	}
+	not allowed("cui.policy.admin", "GET", "/v1/compliance/data-designations")
+}
+
+test_cui_view_is_grantable_per_legal_entity if {
+	scoped := {"tenant-a": {"user-a": {"le-a": ["cui.view"]}}}
+	"cui.view" in held_duties with input as cui_input("le-a") with data.scoped_assignments as scoped
+	not "cui.view" in held_duties with input as cui_input("le-b") with data.scoped_assignments as scoped
+	not "cui.view" in held_duties with input as cui_input("") with data.scoped_assignments as scoped
 }
 
 test_analytics_saved_queries_are_for_viewers_and_authors if {

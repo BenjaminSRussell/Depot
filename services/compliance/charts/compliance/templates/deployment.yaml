@@ -21,14 +21,22 @@ spec:
       {{- with include "depot.wiServiceAccount" (dict "root" $ "name" "depot-compliance") }}{{ . | nindent 6 }}{{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-        {{- if .Values.fieldCrypt.keysSecret }}
+        {{- if or .Values.fieldCrypt.keysSecret .Values.serviceIdentity.signingKeySecret }}
         fsGroup: 65532
         {{- end }}
-{{- if .Values.fieldCrypt.keysSecret }}
+{{- if or .Values.fieldCrypt.keysSecret .Values.serviceIdentity.signingKeySecret }}
       volumes:
+{{- end }}
+{{- if .Values.fieldCrypt.keysSecret }}
         - name: field-crypt
           secret:
             secretName: {{ .Values.fieldCrypt.keysSecret }}
+            defaultMode: 0440
+{{- end }}
+{{- if .Values.serviceIdentity.signingKeySecret }}
+        - name: service-identity
+          secret:
+            secretName: {{ .Values.serviceIdentity.signingKeySecret }}
             defaultMode: 0440
 {{- end }}
       containers:
@@ -72,10 +80,21 @@ spec:
               value: {{ .Values.config.screeningThreshold | quote }}
             - name: TRADE_LICENSE_CHECK
               value: {{ .Values.config.tradeLicenseCheck | quote }}
+            - name: COMPLIANCE_BOUNDARY
+              value: {{ .Values.config.boundary | quote }}
             - name: DEPOT_SERVICE_NAME
               value: compliance
 {{- if .Values.serviceIdentity.publicKeys }}
             - { name: DEPOT_SERVICE_PUBLIC_KEYS, value: {{ .Values.serviceIdentity.publicKeys | quote }} }
+{{- end }}
+{{- if .Values.projectsUrl }}
+            - { name: PROJECTS_URL, value: {{ .Values.projectsUrl | quote }} }
+{{- end }}
+{{- if .Values.serviceIdentity.signingKeySecret }}
+            - { name: DEPOT_SERVICE_SIGNING_KEY_FILE, value: /var/run/depot/service-identity/signing-key }
+{{- if .Values.serviceIdentity.keyId }}
+            - { name: DEPOT_SERVICE_KEY_ID, value: {{ .Values.serviceIdentity.keyId | quote }} }
+{{- end }}
 {{- end }}
 {{- if .Values.fieldCrypt.keysSecret }}
             - { name: FIELDCRYPT_KEYS_FILE, value: /var/run/depot/field-crypt/keys }
@@ -96,9 +115,14 @@ spec:
               path: /readyz
               port: http
             periodSeconds: 5
-{{- if .Values.fieldCrypt.keysSecret }}
+{{- if or .Values.fieldCrypt.keysSecret .Values.serviceIdentity.signingKeySecret }}
           volumeMounts:
+{{- end }}
+{{- if .Values.fieldCrypt.keysSecret }}
             - { name: field-crypt, mountPath: /var/run/depot/field-crypt, readOnly: true }
+{{- end }}
+{{- if .Values.serviceIdentity.signingKeySecret }}
+            - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
 {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

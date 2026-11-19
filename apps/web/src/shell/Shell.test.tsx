@@ -6,7 +6,7 @@ import type { DepotModule } from "../modules/registry";
 import { checkAxeAA } from "./a11y";
 import { FormRenderer } from "./forms";
 import { demoNote } from "./metadata";
-import { pageViolations } from "./testing/fakeServer";
+import { availableAssistant, pageViolations } from "./testing/fakeServer";
 import { HomePage } from "./pages/HomePage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { usePrincipalDuties } from "./principal";
@@ -34,11 +34,11 @@ const modules: DepotModule[] = [
   },
 ];
 
-function renderShell(path = "/", identity?: string) {
+function renderShell(path = "/", identity?: string, duties?: string[]) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route element={<Shell modules={modules} identity={identity} />}>
+        <Route element={<Shell modules={modules} identity={identity} duties={duties} />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/admin/import" element={<p>Import page</p>} />
           <Route path="*" element={<NotFoundPage />} />
@@ -95,6 +95,17 @@ describe("pages and navigation", () => {
     expect(main.getByRole("heading", { level: 3, name: "Administration" })).toBeInTheDocument();
     expect(main.getByRole("link", { name: /Import data/ })).toHaveAttribute("href", "/admin/import");
     expect(main.getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
+    expect(checkAxeAA(home.container)).toEqual([]);
+  });
+
+  it("leads with the assistant prompt for a user with the copilot duty and keeps the workspaces in a secondary region", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(availableAssistant), { status: 200, headers: { "Content-Type": "application/json" } })));
+    const home = renderShell("/", undefined, ["mcp.copilot.use"]);
+    const main = within(screen.getByRole("main"));
+    expect(await main.findByRole("textbox", { name: "Ask or do anything..." })).toBeInTheDocument();
+    const region = within(main.getByRole("region", { name: "Browse workspaces" }));
+    expect(region.getByRole("heading", { level: 3, name: "Administration" })).toBeInTheDocument();
+    expect(region.getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
     expect(checkAxeAA(home.container)).toEqual([]);
   });
 

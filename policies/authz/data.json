@@ -1116,7 +1116,7 @@
     "receivables.aging.run": {"permissions": [{"resource": "/v1/receivables/aging-snapshots", "methods": ["POST"]}]},
     "receivables.bankaccount.manage": {"permissions": [{"resource": "/v1/receivables/bank-accounts", "methods": ["PUT", "DELETE"]}]},
     "receivables.fxsetting.manage": {"permissions": [{"resource": "/v1/receivables/fx-settings", "methods": ["PUT"]}]},
-    "receivables.payment.reverse": {"permissions": [{"resource": "/v1/receivables/payments/*:reverse", "methods": ["POST"]}, {"resource": "/v1/receivables/payments/*:unapply", "methods": ["POST"]}, {"resource": "/v1/receivables/credit-settlements/*:reverse", "methods": ["POST"]}]},
+    "receivables.payment.reverse": {"permissions": [{"resource": "/v1/receivables/payments/*:reverse", "methods": ["POST"]}, {"resource": "/v1/receivables/payments/*:unapply", "methods": ["POST"]}, {"resource": "/v1/receivables/payments/*:reverse-application", "methods": ["POST"]}, {"resource": "/v1/receivables/credit-settlements/*:reverse", "methods": ["POST"]}]},
     "receivables.payment-file.import": {"permissions": [
       {"resource": "/v1/receivables/bank-statements/imports", "methods": ["POST"]},
       {"resource": "/v1/receivables/lockbox/imports", "methods": ["POST"]}
@@ -1298,6 +1298,19 @@
       {"resource": "/v1/compliance/audit-policies/*", "methods": ["GET", "PATCH"]}
     ]},
     "compliance.audit-policy.run": {"permissions": [{"resource": "/v1/compliance/audit-policies:evaluate", "methods": ["POST"]}, {"resource": "/v1/compliance/audit-policies", "methods": ["GET"]}, {"resource": "/v1/compliance/audit-policies/*", "methods": ["GET"]}]},
+    "datadesignation.write": {"permissions": [
+      {"resource": "/v1/compliance/data-designations", "methods": ["POST"]},
+      {"resource": "/v1/compliance/data-designations/*", "methods": ["PATCH"]}
+    ]},
+    "datadesignation.read": {"permissions": [
+      {"resource": "/v1/compliance/data-designations:resolve", "methods": ["POST"]},
+      {"resource": "/v1/compliance/data-designations", "methods": ["GET"]},
+      {"resource": "/v1/compliance/data-designations/*", "methods": ["GET"]},
+      {"resource": "/v1/compliance/data-designations/*/history", "methods": ["GET"]}
+    ]},
+    "cui.view": {"flag": true, "permissions": []},
+    "cui.policy.read": {"permissions": [{"resource": "/v1/compliance/need-to-know", "methods": ["GET"]}]},
+    "cui.policy.admin": {"permissions": [{"resource": "/v1/compliance/need-to-know", "methods": ["PUT"]}]},
     "receivables.balance-confirmation.run": {"permissions": [
       {"resource": "/v1/receivables/balance-confirmations", "methods": ["POST"]},
       {"resource": "/v1/receivables/balance-confirmations/*:reply", "methods": ["POST"]}
@@ -1407,6 +1420,9 @@
     ]},
     "mcp.copilot.use": {"permissions": [
       {"resource": "/api/v1/copilot/chat", "methods": ["POST"]},
+      {"resource": "/api/v1/agents/availability", "methods": ["GET"]},
+      {"resource": "/api/v1/agents/copilot/conversations", "methods": ["POST"]},
+      {"resource": "/api/v1/agents/copilot/conversations/*/messages", "methods": ["POST"]},
       {"resource": "/api/v1/knowledge/search", "methods": ["POST"]},
       {"resource": "/mcp", "methods": ["POST"]}
     ]},
@@ -4135,14 +4151,22 @@
       {"resource": "/v1/privacy/holds/*", "methods": ["GET"]}
     ]},
     "compliance.legal-hold.check": {"service_only": true, "permissions": [{"resource": "/v1/privacy/holds:check", "methods": ["GET"]}]},
+    "compliance.data-designation.resolve": {"service_only": true, "permissions": [{"resource": "/v1/compliance/data-designations:resolve", "methods": ["POST"]}]},
     "compliance.erasure.request": {"permissions": [{"resource": "/v1/privacy/erasures", "methods": ["POST"]}]},
     "compliance.retention.read": {"permissions": [{"resource": "/v1/privacy/retention-policies", "methods": ["GET"]}]},
     "receiving.payee.erase": {"permissions": [{"resource": "/v1/receiving/one-time-payees:erase", "methods": ["POST"]}]},
     "agents.invoke": {"permissions": [{"resource": "/api/v1/agents/*/runs", "methods": ["POST"]}]},
+    "aipolicy.read": {"permissions": [{"resource": "/api/v1/agents/ai-data-policy", "methods": ["GET"]}]},
+    "aipolicy.write": {"permissions": [{"resource": "/api/v1/agents/ai-data-policy", "methods": ["PUT"]}]},
     "agents.run.read": {"permissions": [
       {"resource": "/api/v1/agents/runs/*", "methods": ["GET"]},
-      {"resource": "/api/v1/agents/runs/*/actions", "methods": ["GET"]}
+      {"resource": "/api/v1/agents/runs/*/actions", "methods": ["GET"]},
+      {"resource": "/api/v1/agents/runs/*/actions/*/decision", "methods": ["POST"]},
+      {"resource": "/api/v1/agents/runs/*/actions/*:undo", "methods": ["POST"]}
     ]},
+    "agentbudget.read": {"permissions": [{"resource": "/api/v1/agents/budgets", "methods": ["GET"]}]},
+    "agentbudget.write": {"permissions": [{"resource": "/api/v1/agents/budgets/*", "methods": ["PUT"]}]},
+    "agentapproval.decide": {"flag": true, "permissions": []},
     "agents.run.signal": {"service_only": true, "permissions": [
       {"resource": "/v1/workflows/agent-runs/*:start", "methods": ["POST"]},
       {"resource": "/v1/workflows/agent-runs/*:approval-decided", "methods": ["POST"]}
@@ -4243,6 +4267,9 @@
     "projects": {
       "ledger": ["ledger.entry.post", "ledger.balance.read"]
     },
+    "compliance": {
+      "projects": ["projects.inquire"]
+    },
     "engineering": {
       "audit": ["audit.write"]
     },
@@ -4309,7 +4336,8 @@
       "agents": ["agents.run.workflow"]
     },
     "agents": {
-      "workflow-ts": ["agents.run.signal"]
+      "workflow-ts": ["agents.run.signal"],
+      "compliance": ["compliance.data-designation.resolve"]
     },
     "party": {
       "numbering": ["numbering.sequence.allocate"]

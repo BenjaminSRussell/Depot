@@ -179,6 +179,9 @@ var serviceGrants = map[string]map[string][]string{
 	"projects": {
 		"ledger": {"ledger.entry.post", "ledger.balance.read"},
 	},
+	"compliance": {
+		"projects": {"projects.inquire"},
+	},
 	"engineering": {
 		"audit": {"audit.write"},
 	},
@@ -241,6 +244,7 @@ var serviceGrants = map[string]map[string][]string{
 	// agents starts and wakes an agent run's workflow in workflow-ts on behalf of the run's user (#47).
 	"agents": {
 		"workflow-ts": {"agents.run.signal"},
+		"compliance":  {"compliance.data-designation.resolve"},
 	},
 	"party": {
 		"numbering": {"numbering.sequence.allocate"},

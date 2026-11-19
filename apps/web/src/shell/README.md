@@ -25,3 +25,24 @@ The sidebar shows one persona workspace at a time, not every module. All of it i
 - Duty gating runs first: the shell hands the workspace code only the modules the principal's duties allow, so a curated entry the user may not open never appears in a workspace, All features or search.
 - A user holds several workspaces (every one with a visible entry, minus the ones they dropped, so workspaces gained later appear on their own) and switches with the Workspace selector. The default is the workspace with the most duty-gated entries the user can see; home shows at most four. The choice is kept in this browser only (`localStorage`).
 - Labels in the sidebar, All features and search are task labels. The page title stays the module's own label.
+
+## Assistant storage (#309)
+
+Prompts, answers, citations, tool results, proposals and briefings are held in memory only. They are never written to `localStorage`, `sessionStorage`, IndexedDB or the Cache API, never placed in a URL, history state or document title, and never sent in a telemetry event. The home page hands a typed prompt to the copilot through `shell/assistant/session.ts` (memory, read once, expires after 10 seconds) instead of router state.
+
+The only browser storage an assistant surface may use is `shell/assistant/assistantStorage.ts`:
+
+- `createAssistantStore(storage?)` returns `read(kind, identity)` and `write(kind, identity, rows)`. `kind` is `pins` (`{id, at}`) or `activity` (`{id, route, at, count}`); keys are `depot.assistant.<kind>.v1.<identity>`.
+- Rows are strict objects: an `id` is a token with no spaces (up to 128 characters), `route` a path with no query, `at` an ISO timestamp, `count` a non-negative integer. A write with any other field or shape returns `{ ok: false, reason: "schema" }` and stores nothing; an empty identity returns `"no-identity"`.
+- A corrupt or wrong-shaped stored value reads as an empty list. When the browser refuses storage, the store keeps working from memory and shows no error.
+- Copilot requests send `cache: "no-store"`; the agent runtime answers `Cache-Control: no-store`. The app registers no service worker.
+
+`shell/assistant/storageScan.test.ts` fails the build when a non-test source under `modules/copilot`, `shell/assistant` or `shell/home` uses those browser stores directly or imports `preferenceStorage` outside the wrapper, or when a service worker appears.
+
+## Assistant availability (DEPOT-277)
+
+No ERP flow depends on the assistant (ADR-0001). `shell/assistant/AvailabilityProvider.tsx` reads `GET /api/v1/agents/availability` for users who hold `mcp.copilot.use` and keeps one state in memory: `enabled`, `degraded` (budget used up, or the read failed) or `unavailable` (paused, or turned off for the company). Anything but `enabled` shows the classic home with a status notice, hides the Copilot and Tool catalog entries, and leaves every other page alone. A failed, slow, unreadable or 404 read counts as not enabled.
+
+- `AVAILABILITY_POLL_MS` (10 seconds) is the single poll interval. The read repeats while the tab is visible, not while it is hidden, and runs at once on window focus, when the tab becomes visible and after a copilot refusal or failure. Each read replaces the whole state, so a lifted pause or a raised budget returns the assistant-led home on the next read.
+- `AI_REQUEST_TIMEOUT_MS` (10 seconds) bounds the availability read and non-streamed chat; `AI_FIRST_TOKEN_TIMEOUT_MS` (30 seconds) bounds the wait for the first streamed token.
+- A copilot refusal with code `AGT-0202` shows the code and a plain message in the answer and switches the home to classic at once. Nothing retries.
