@@ -18,7 +18,6 @@ import (
 
 	"github.com/BenjaminSRussell/depot/platform/dbx"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
-	"github.com/BenjaminSRussell/depot/platform/ids"
 	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
@@ -85,8 +84,10 @@ func (s *Postgres) ReverseApplication(ctx context.Context, paymentID string, ver
 	var pay Payment
 	var app appReversal
 	var posted []postedLeg
+	var ambiguous, bodyDone bool
+	var generation int
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		posted = nil
+		posted, ambiguous, bodyDone = nil, false, false
 		var err error
 		pay, err = scanPayment(tx.QueryRow(ctx, `select `+paymentColumns+` from payment where id = $1 for update`, paymentID))
 		if err != nil {
@@ -111,9 +112,12 @@ func (s *Postgres) ReverseApplication(ctx context.Context, paymentID string, ver
 		if err != nil {
 			return err
 		}
-		ledgerCtx, cancel := context.WithTimeout(ctx, reversalLedgerBudget)
+		if generation, err = compensatedAttempts(ctx, tx, p.TenantID, app.id); err != nil {
+			return err
+		}
+		ledgerCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), reversalLedgerBudget)
 		defer cancel()
-		posted, err = s.postApplicationLegs(ledgerCtx, u, pay, app)
+		posted, ambiguous, err = s.postApplicationLegs(ledgerCtx, u, pay, app, generation)
 		if err != nil {
 			return err
 		}
@@ -121,15 +125,57 @@ func (s *Postgres) ReverseApplication(ctx context.Context, paymentID string, ver
 			return err
 		}
 		out = ReverseApplicationResult{ApplicationID: app.id, ReversalJournalEntryID: posted[0].entryID, Payment: u.Payment, Reopened: u.Reversed}
-		return rememberJSON(ctx, tx, p.TenantID, idempotencyKey, hash, out)
+		if err := rememberJSON(ctx, tx, p.TenantID, idempotencyKey, hash, out); err != nil {
+			return err
+		}
+		bodyDone = true
+		return nil
 	})
 	if err != nil && len(posted) > 0 {
-		s.compensateReversalLegs(ctx, p, pay, app, posted)
+		s.settleFailedReversal(ctx, p, pay, app, generation, posted, ambiguous, bodyDone)
 	}
 	return out, mapWriteErr(err)
 }
 
-func (s *Postgres) compensateReversalLegs(ctx context.Context, p tenant.Principal, pay Payment, app appReversal, legs []postedLeg) {
+func compensatedAttempts(ctx context.Context, tx pgx.Tx, tenantID, applicationID string) (int, error) {
+	var n int
+	err := tx.QueryRow(ctx, `select count(*) from gl_journal where tenant_id = $1 and source_type = $2 and source_key like $3`,
+		tenantID, JournalReversalCompensation, compensationKeyPrefix(applicationID, "main")+"%").Scan(&n)
+	return n, err
+}
+
+func compensationKeyPrefix(applicationID, leg string) string {
+	return "reversal-compensation:" + applicationID + ":" + leg + ":"
+}
+
+func (s *Postgres) settleFailedReversal(ctx context.Context, p tenant.Principal, pay Payment, app appReversal, generation int, legs []postedLeg, ambiguous, commitPhase bool) {
+	detached := context.WithoutCancel(ctx)
+	if ambiguous {
+		slog.ErrorContext(ctx, "payment application reversal ledger leg outcome unknown; not compensating, a retry with the same Idempotency-Key reuses the same ledger keys",
+			"application", app.id, "postedEntry", legs[0].entryID, "ledgerKey", legs[0].key, "correlationId", middleware.GetReqID(ctx))
+		return
+	}
+	if commitPhase {
+		var persisted bool
+		err := dbx.WithTenantTx(detached, s.pool, func(tx pgx.Tx) error {
+			return tx.QueryRow(detached, `select exists (select 1 from payment_application where tenant_id = $1 and id = $2 and status = 'REVERSED' and reversal_journal_entry_id = $3)`,
+				p.TenantID, app.id, legs[0].entryID).Scan(&persisted)
+		})
+		if err != nil {
+			slog.ErrorContext(ctx, "payment application reversal commit outcome unknown and not readable; not compensating, check the application and the ledger entries by hand",
+				"application", app.id, "entry", legs[0].entryID, "err", err, "correlationId", middleware.GetReqID(ctx))
+			return
+		}
+		if persisted {
+			slog.WarnContext(ctx, "payment application reversal commit reported an error but the reversal is stored; not compensating",
+				"application", app.id, "entry", legs[0].entryID, "correlationId", middleware.GetReqID(ctx))
+			return
+		}
+	}
+	s.compensateReversalLegs(ctx, p, pay, app, generation, legs)
+}
+
+func (s *Postgres) compensateReversalLegs(ctx context.Context, p tenant.Principal, pay Payment, app appReversal, generation int, legs []postedLeg) {
 	detached := context.WithoutCancel(ctx)
 	for _, leg := range legs {
 		flipped := make([]journalLine, len(leg.lines))
@@ -139,7 +185,7 @@ func (s *Postgres) compensateReversalLegs(ctx context.Context, p tenant.Principa
 		}
 		err := dbx.WithTenantTx(detached, s.pool, func(tx pgx.Tx) error {
 			return insertJournal(detached, tx, p.TenantID, journalSpec{LegalEntityID: pay.LegalEntityID, SourceType: JournalReversalCompensation, SourceID: pay.ID,
-				SourceKey: "reversal-compensation:" + leg.entryID, DocumentID: "PAY-" + pay.ID + "-APP-REVERSAL-COMPENSATION" + leg.suffix,
+				SourceKey: compensationKeyPrefix(app.id, legName(leg.suffix)) + strconv.Itoa(generation), DocumentID: "PAY-" + pay.ID + "-APP-REVERSAL-COMPENSATION" + leg.suffix,
 				PostingDate: app.postingDate, Currency: leg.currency, Lines: flipped}, flipped)
 		})
 		if err != nil {
@@ -298,48 +344,55 @@ func applyJournalsUnposted(ctx context.Context, tx pgx.Tx, tenantID, paymentID s
 	return pending, err
 }
 
-func (s *Postgres) postApplicationLegs(ctx context.Context, u unapplied, pay Payment, app appReversal) ([]postedLeg, error) {
-	attempt := ids.New()
-	main, err := s.postApplicationReversal(ctx, pay, app, pay.Currency, "", attempt, u.main)
+func legName(suffix string) string {
+	if suffix == "" {
+		return "main"
+	}
+	return "fx"
+}
+
+func (s *Postgres) postApplicationLegs(ctx context.Context, u unapplied, pay Payment, app appReversal, generation int) ([]postedLeg, bool, error) {
+	main, ambiguous, err := s.postApplicationReversal(ctx, pay, app, pay.Currency, "", generation, u.main)
 	if err != nil {
-		return nil, err
+		return nil, ambiguous, err
 	}
 	legs := []postedLeg{main}
 	if u.fxLines == nil {
-		return legs, nil
+		return legs, false, nil
 	}
-	fx, err := s.postApplicationReversal(ctx, pay, app, u.fxCurrency, "-fx", attempt, u.fxLines)
+	fx, ambiguous, err := s.postApplicationReversal(ctx, pay, app, u.fxCurrency, "-fx", generation, u.fxLines)
 	if err != nil {
 		slog.ErrorContext(ctx, "payment application reversal fx leg not posted after the main leg", "application", app.id, "postedEntry", main.entryID,
-			"err", err, "correlationId", middleware.GetReqID(ctx))
-		return legs, err
+			"ambiguous", ambiguous, "err", err, "correlationId", middleware.GetReqID(ctx))
+		return legs, ambiguous, err
 	}
-	return append(legs, fx), nil
+	return append(legs, fx), false, nil
 }
 
-func (s *Postgres) postApplicationReversal(ctx context.Context, pay Payment, app appReversal, currency, suffix, attempt string, lines []journalLine) (postedLeg, error) {
+func (s *Postgres) postApplicationReversal(ctx context.Context, pay Payment, app appReversal, currency, suffix string, generation int, lines []journalLine) (postedLeg, bool, error) {
 	lines = slices.DeleteFunc(lines, func(l journalLine) bool { return !l.Amount.IsPositive() })
 	ledgerID := s.journalLedger(pay.LegalEntityID)
 	if s.ledger == nil || ledgerID == "" {
 		slog.ErrorContext(ctx, "payment application reversal not posted: ledger not configured", "application", app.id, "correlationId", middleware.GetReqID(ctx))
-		return postedLeg{}, httpx.NewProblem(http.StatusServiceUnavailable, CodeReversalLedgerUnavailable, "the ledger is not available; retry with the same Idempotency-Key")
+		return postedLeg{}, false, httpx.NewProblem(http.StatusServiceUnavailable, CodeReversalLedgerUnavailable, "the ledger is not available; retry with the same Idempotency-Key")
 	}
 	started := time.Now()
-	key := "post:receivables:paymentapplication:" + app.id + ":reversal" + suffix + ":" + attempt
+	key := "post:receivables:paymentapplication:" + app.id + ":reversal" + suffix + ":" + strconv.Itoa(generation)
 	id, err := s.postLedgerEntry(ctx, ledgerEntry{legalEntityID: pay.LegalEntityID, ledgerID: ledgerID, documentID: "PAY-" + pay.ID + "-APP-REVERSAL" + suffix,
 		postingDate: app.postingDate, currency: currency, key: key,
 		sourceType: "receivables-payment_application_reversal"}, lines)
 	if err != nil {
+		definitive := ledgerclient.Rejected(err)
 		slog.ErrorContext(ctx, "payment application reversal not posted", "application", app.id, "leg", suffix, "ledgerKey", key, "durationMs", time.Since(started).Milliseconds(),
-			"err", err, "correlationId", middleware.GetReqID(ctx))
+			"ambiguous", !definitive, "err", err, "correlationId", middleware.GetReqID(ctx))
 		if ledgerclient.CodeOf(err) == ledgerclient.CodePeriodClosed {
-			return postedLeg{}, httpx.NewProblem(http.StatusConflict, CodeReversalPeriodClosed, "the posting period of the application is closed; the reversal is not re-dated")
+			return postedLeg{}, false, httpx.NewProblem(http.StatusConflict, CodeReversalPeriodClosed, "the posting period of the application is closed; the reversal is not re-dated")
 		}
-		return postedLeg{}, httpx.NewProblem(http.StatusServiceUnavailable, CodeReversalLedgerUnavailable, "the ledger refused or could not be reached; retry with the same Idempotency-Key")
+		return postedLeg{}, !definitive, httpx.NewProblem(http.StatusServiceUnavailable, CodeReversalLedgerUnavailable, "the ledger refused or could not be reached; retry with the same Idempotency-Key")
 	}
 	slog.InfoContext(ctx, "payment application reversal posted", "application", app.id, "leg", suffix, "ledgerKey", key, "entry", id, "durationMs", time.Since(started).Milliseconds(),
 		"correlationId", middleware.GetReqID(ctx))
-	return postedLeg{entryID: id, key: key, currency: currency, suffix: suffix, lines: lines}, nil
+	return postedLeg{entryID: id, key: key, currency: currency, suffix: suffix, lines: lines}, false, nil
 }
 
 func finishApplicationReversal(ctx context.Context, tx pgx.Tx, p tenant.Principal, pay Payment, app appReversal, entryID, reason string, reopened []UnappliedSettlement) error {
