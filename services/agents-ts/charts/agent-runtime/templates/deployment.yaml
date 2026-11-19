@@ -41,6 +41,12 @@ spec:
               value: {{ .Values.migrateOnStart | quote }}
             - name: MCP_URL
               value: {{ .Values.mcpUrl | quote }}
+            - name: AGENTS_BOUNDARY
+              value: {{ .Values.boundary | quote }}
+            {{- if .Values.complianceUrl }}
+            - name: AGENTS_COMPLIANCE_URL
+              value: {{ .Values.complianceUrl | quote }}
+            {{- end }}
             - name: HTTP_ADDR
               value: "0.0.0.0:8080"
             - name: ADMIN_ADDR

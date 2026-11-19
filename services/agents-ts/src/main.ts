@@ -12,6 +12,7 @@ import { KILL_PROPAGATION_MS, KillSwitchRegistry } from "./domain/killswitch.js"
 import { createLogger } from "./logging/pseudonymize.js";
 import { createAiPolicyGuard } from "./runtime/aiPolicyGuard.js";
 import { PgAiDataPolicyStore } from "./store/aiDataPolicy.js";
+import { createConfiguredRouter } from "./runtime/aiRouter.js";
 import { createCopilotService } from "./runtime/copilot.js";
 import { createKnowledgeService } from "./runtime/knowledge.js";
 import { PgKeywordIndex } from "./store/knowledge.js";
@@ -117,9 +118,10 @@ async function main(): Promise<void> {
   });
   // Keyword half of the hybrid search only until an embedding port and a vector index are configured (NOT-IMPLEMENTED.md).
   const knowledge = createKnowledgeService({ keywords: new PgKeywordIndex(store) });
+  if (cfg.complianceUrl === undefined) log("warn", "AGENTS_COMPLIANCE_URL is not set: every record is UNKNOWN and is withheld from AI calls", { boundary: cfg.boundary });
   const copilot = createCopilotService({
     knowledge,
-    providerFor,
+    router: createConfiguredRouter(cfg, { log }),
     mcp,
     store,
     killSwitch: registry,

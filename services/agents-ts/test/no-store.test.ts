@@ -3,7 +3,7 @@ import { defaultCatalog } from "../src/agents/catalog.js";
 import { CopilotAnswerCache } from "../src/domain/copilot.js";
 import { createCopilotService } from "../src/runtime/copilot.js";
 import { createRunService } from "../src/runtime/service.js";
-import { proposal, ScriptedProvider } from "./fakes.js";
+import { openRouter, proposal, ScriptedProvider } from "./fakes.js";
 import { FakeMcp, headers, MemoryStore, serve, tool } from "./surface-fakes.js";
 
 const PROPOSE = "depot.ap.invoice.propose_coding";
@@ -35,7 +35,7 @@ const setup = async (opts: { copilot?: boolean; runs?: boolean } = {}) => {
     spawn: (p) => void p.catch(() => undefined),
   });
   const copilot = createCopilotService({
-    providerFor: () => new ScriptedProvider([{ text: "Cash is steady.", usage: { tokensIn: 10, tokensOut: 5 } }]),
+    router: openRouter(new ScriptedProvider([{ text: "Cash is steady.", usage: { tokensIn: 10, tokensOut: 5 } }])),
     mcp,
     store,
     killSwitch: { isHalted: () => false },

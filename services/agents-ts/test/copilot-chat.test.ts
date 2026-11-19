@@ -3,7 +3,7 @@ import { tokenFrames } from "../src/api/copilot.js";
 import { CopilotAnswerCache } from "../src/domain/copilot.js";
 import { createCopilotService } from "../src/runtime/copilot.js";
 import type { ModelResponse } from "../src/runtime/engine.js";
-import { REAL_IBAN, ScriptedProvider } from "./fakes.js";
+import { openRouter, REAL_IBAN, ScriptedProvider } from "./fakes.js";
 import { tokenFor } from "./jwt.js";
 import { FakeMcp, headers, MemoryStore, serve, T1, tool, USER } from "./surface-fakes.js";
 
@@ -23,7 +23,7 @@ const setup = async (script: ModelResponse[], mcp = new FakeMcp([tool(GET, "ap.i
   const provider = new ScriptedProvider(script);
   const cache = new CopilotAnswerCache();
   const copilot = createCopilotService({
-    providerFor: () => provider,
+    router: openRouter(provider),
     mcp,
     store,
     killSwitch: { isHalted: () => killed },
