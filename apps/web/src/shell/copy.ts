@@ -191,7 +191,7 @@ export const copy = {
     assistantBlocked: "The assistant can't make changes for you. You can still go to the page and do it yourself.",
     assistantBlockedAction: "Take me there",
     assistantSearchNote: "The assistant could not help with that right now. Here are all features, so you can find what you need.",
-    assistantClarify: "Do you want an answer to a question, or to be taken to a page? Choose one and send again.",
+    assistantClarify: "Do you want an answer to a question, or to be taken to a page? Say which, then send again.",
     assistantRefused: (code: string, message: string) => `${message} (${code})`,
     browseTitle: "Browse workspaces",
     shortcutsLabel: "Common actions",

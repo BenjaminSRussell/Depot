@@ -96,9 +96,9 @@ export function HomePage() {
         getAvailability: () => availabilityRef.current,
         hasDuty: (duty) => holdsDuty(duties, duty),
         postRoute,
-        searchFallback: () => {
+        searchFallback: (text) => {
           announce?.(copy.home.assistantSearchNote);
-          navigate(ALL_FEATURES_PATH);
+          navigate({ pathname: ALL_FEATURES_PATH, search: `?${new URLSearchParams({ q: text })}` });
         },
       }),
     [announce, duties, navigate],

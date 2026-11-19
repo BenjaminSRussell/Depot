@@ -8,6 +8,7 @@ import { loadModules, type DepotModule } from "../../modules/registry";
 import { Shell } from "../Shell";
 import { AVAILABILITY_PATH } from "../assistant/availability";
 import { availableAssistant, json, pageViolations, server, useFakeServer, type Reply } from "../testing/fakeServer";
+import { AllFeaturesPage } from "./AllFeaturesPage";
 import { HomePage } from "./HomePage";
 import { workspaceKpis } from "./kpi";
 
@@ -54,6 +55,7 @@ function renderHome(duties: string[], shellModules: DepotModule[] = modules, ent
         <Route element={<Shell modules={shellModules} duties={duties} features={features} />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/copilot" element={<CopilotHome />} />
+          <Route path="/features" element={<AllFeaturesPage />} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -266,7 +268,7 @@ describe("role home", () => {
       server.handler = chat();
       renderHome([COPILOT_DUTY]);
       await user.type(await askBox(), "apply this payment to invoice INV-1042{Enter}");
-      await waitFor(() => expect(screen.queryByRole("textbox", { name: "Ask or do anything..." })).not.toBeInTheDocument());
+      expect(await screen.findByRole("searchbox", { name: "Filter features" })).toHaveValue("apply this payment to invoice INV-1042");
       expect(chats().map((c) => (c.body as { mode: string }).mode)).toEqual(["route"]);
     });
 
