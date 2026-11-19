@@ -18,16 +18,16 @@ const PATTERNS: Readonly<Record<PiiCategory, Pattern>> = {
   // The lookbehind starts a match only at the beginning of a local part, so a long
   // run of word characters is scanned once, not once per position (9.47.19 budget).
   EMAIL: { re: /(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g },
-  IBAN: { re: /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b/g, valid: ibanChecksumValid },
+  IBAN: { re: /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b/gi, valid: ibanChecksumValid },
   CARD: { re: /\b(?:\d{13,19}|\d{4}([ -])\d{4}\1\d{4}\1\d{1,7}|\d{4}([ -])\d{6}\2\d{4,5})\b/g, valid: luhnValid },
-  SSN: { re: /\b\d{3}-\d{2}-\d{4}\b/g },
+  SSN: { re: new RegExp(String.raw`\b\d{3}-\d{2}-\d{4}\b|(?<=\bssn\w{0,12}${AFTER_LABEL})\d{9}\b`, "gi") },
   TAXID: {
-    re: new RegExp(String.raw`(?<=\b(?:EIN|VAT|GSTIN|RFC|TIN|tax id|tax number)\b${AFTER_LABEL}(?:[A-Z]{2} )?)[A-Z0-9&][A-Z0-9&.-]{4,20}[A-Z0-9]`, "gi"),
+    re: new RegExp(String.raw`(?<=\b(?:(?:EIN|VAT|GSTIN|RFC|TIN)(?:[ _]?(?:id|number|no|num)\.?)?|tax[ _]?(?:id|number|no|num)\.?)${AFTER_LABEL}(?:[A-Z]{2} )?)[A-Z0-9&][A-Z0-9&.-]{4,20}[A-Z0-9]`, "gi"),
     valid: validTaxId,
   },
-  BANKACCT: { re: new RegExp(String.raw`(?<=(?:account|acct)\w{0,12}(?: (?:number|no|num)\.?)?${AFTER_LABEL})\d{6,17}\b`, "gi") },
+  BANKACCT: { re: new RegExp(String.raw`(?<=(?:account|acct)\w{0,12}(?: (?:number|no|num)\.?)?${AFTER_LABEL})\d(?:[ -]?\d){5,16}\b`, "gi") },
   PAY: {
-    re: new RegExp(String.raw`(?<=(?:salary|wage|pay ?rate|bonus|compensation)\w{0,12}["']?(?:\s{0,3}[:=]\s{0,3}|\s(?:is|of)\s)"?)\d(?:[\d,.]*\d)?`, "gi"),
+    re: new RegExp(String.raw`(?<=(?:salary|wage|pay ?rate|bonus|compensation)\w{0,12}["']?(?:\s{0,3}[:=]\s{0,3}|\s(?:is|of)\s)(?:\{[^{}]{0,80}?"(?:amount|value|gross|net|base)"\s{0,3}:\s{0,3})?"?(?:[A-Za-z]{3}\s?|[$€£]\s?)?)\d(?:[\d,.]*\d)?`, "gi"),
   },
 };
 

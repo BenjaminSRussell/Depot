@@ -43,6 +43,19 @@ describe("financial identifiers in text", () => {
     ["PAY", '{"salary":"85,000.50"}'],
     ["PAY", "salary: 85000"],
     ["PAY", '{"bonus":1200}'],
+    ["TAXID", '{"taxId":"12-3456789"}'],
+    ["TAXID", '{"tax_id":"12-3456789"}'],
+    ["TAXID", '{"taxNumber":"123456789"}'],
+    ["TAXID", '{"vatNumber":"DE123456789"}'],
+    ["TAXID", '{"vatId":"DE123456789"}'],
+    ["SSN", '{"ssn":"123456789"}'],
+    ["IBAN", "pay to de89 3704 0044 0532 0130 00 today"],
+    ["BANKACCT", '{"accountNumber":"1234 5678 9012"}'],
+    ["BANKACCT", "account number 1234-5678-9012"],
+    ["PAY", '{"salary":{"amount":85000}}'],
+    ["PAY", '{"salary":{"currency":"USD","amount":85000}}'],
+    ["PAY", '{"salary":"USD 85000"}'],
+    ["PAY", "salary: $85,000"],
   ] as const)("finds %s in %s", (category, text) => {
     expect(categories(text)).toContain(category);
   });
