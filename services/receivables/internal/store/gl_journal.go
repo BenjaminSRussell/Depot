@@ -340,7 +340,8 @@ func (s *Postgres) GLJournalLegalEntities(ctx context.Context) ([]string, error)
 	p, _ := tenant.FromContext(ctx)
 	var out []string
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `select distinct legal_entity_id::text from gl_journal where tenant_id = $1 and status = 'PENDING' and not parked`, p.TenantID)
+		rows, err := tx.Query(ctx, `select legal_entity_id::text from gl_journal where tenant_id = $1 and status = 'PENDING' and not parked
+			union select legal_entity_id::text from payment_application_reversal_attempt where tenant_id = $1 and state in ('PENDING', 'POSTED', 'AMBIGUOUS', 'COMPENSATING')`, p.TenantID)
 		if err != nil {
 			return err
 		}
@@ -364,6 +365,9 @@ func (s *Postgres) PostDueJournals(ctx context.Context, now time.Time, limit int
 	p, _ := tenant.FromContext(ctx)
 	if limit < 1 || limit > MaxJournalSweepBatch {
 		limit = MaxJournalSweepBatch
+	}
+	if _, err := s.resolveReversalAttempts(ctx, reversalAttemptSettleAfter); err != nil {
+		slog.ErrorContext(ctx, "payment application reversal attempts not resolved", "err", err, "correlationId", middleware.GetReqID(ctx))
 	}
 	var due []GLJournalView
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {

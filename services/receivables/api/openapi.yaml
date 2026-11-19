@@ -602,14 +602,14 @@ paths:
         and reason, its settlements get negated reversal rows, its items are open again by what it took off them, the payment's
         unapplied amount is restored and its status recomputed (RECEIVED, ON_ACCOUNT or APPLIED, never REVERSED), and the ledger gets
         the mirror of the application journal (Dr 1200 / Cr 1205, 4100 and 6100) through ledger.Post under the key
-        `post:receivables:paymentapplication:<applicationId>:reversal:<generation>` (the generation moves on only after a failed attempt was compensated by a queued journal, so a retry reuses its keys), in the posting date of the original application. Publishes
+        `post:receivables:paymentapplication:<applicationId>:reversal:<generation>` (each attempt is recorded and committed before its first ledger post; a retry reuses the open attempt's keys, and the generation moves on only once the failed attempt is COMPENSATED), in the posting date of the original application. Publishes
         dev.depot.receivables.payment.applicationreversed.v1 in the same transaction. A locked item is 409 AR-0002, an unknown payment
         or application 404 AR-PAYMENT-NOT-FOUND, an application already reversed or a payment not in an applied state 409
         AR-PAYMENT-STATE, a bank-reconciled payment (or one whose state cannot be read) 409 AR-0021, a closed posting period 409
         AR-0023 (never re-dated), an item dunned, cleared, settled by another payment or whose payment has a later application since the
         application was made 409 AR-0024 (`errors` maps each openItemId to DUNNED, CLEARED, FURTHER_SETTLED or LATER_APPLICATION). A ledger
         refusal or outage, or an application journal not posted to the ledger yet, is 503 AR-0022 with nothing stored; repeat with the same
-        Idempotency-Key. With `dryRun: true` the same guards run through one shared function, nothing changes, If-Match and Idempotency-Key
+        Idempotency-Key. A repeat while the sweeper is compensating an earlier attempt is 503 AR-0022 as well, until that attempt is resolved. With `dryRun: true` the same guards run through one shared function, nothing changes, If-Match and Idempotency-Key
         are not needed, and the answer is 200 `{ eligible, code?, reason?, items? }` carrying the code the real call would return (a closed
         period and a ledger outage are not detected by dryRun, which answers eligible for them; the real call refuses with 409 AR-0023
         or 503 AR-0022. A locked item is 409 AR-0002 on the real call and 200 `{ eligible: false, code: AR-0002 }` on dryRun).

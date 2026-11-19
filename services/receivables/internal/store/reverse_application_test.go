@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -715,9 +716,10 @@ func TestReverseApplication_ALostLedgerAnswerIsRetriedUnderTheSameKeyAndPostsOnc
 	f.ledger.LoseAnswers(nil)
 	out, err := f.reverse("ra-lost", f.applied.Payment.Version)
 	entries := f.reversalEntries()
-	if err != nil || len(entries) != 1 || entries[0].ID != out.ReversalJournalEntryID {
+	if err != nil || len(entries) != 1 || entries[0].ID != out.ReversalJournalEntryID || !strings.HasSuffix(entries[0].IdempotencyKey, ":0") {
 		t.Fatalf("retry: %+v %v, entries %d", out, err, len(entries))
 	}
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "COMMITTED")
 	if _, err := f.s.PostDueJournals(f.ctx, time.Now().UTC(), 50); err != nil {
 		t.Fatal(err)
 	}
@@ -746,45 +748,127 @@ func TestReverseApplication_AnAmbiguousFXLegIsNotCompensatedAndTheRetryConverges
 	}
 }
 
-func TestReverseApplication_ACommitPhaseFailureIsCompensatedOnlyWhenTheReversalIsNotStored(t *testing.T) {
+func attemptStates(t *testing.T, s *Postgres, ctx context.Context, applicationID string) []string {
+	t.Helper()
+	var out []string
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `select state from payment_application_reversal_attempt where application_id = $1 order by generation`, applicationID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var st string
+			if err := rows.Scan(&st); err != nil {
+				return err
+			}
+			out = append(out, st)
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func wantStates(t *testing.T, s *Postgres, ctx context.Context, applicationID string, want ...string) {
+	t.Helper()
+	if got := attemptStates(t, s, ctx, applicationID); !slices.Equal(got, want) {
+		t.Fatalf("attempt states %v, want %v", got, want)
+	}
+}
+
+func TestReverseApplication_AnAmbiguousCommitIsResolvedByTheSweeperFromTheTransactionStatus(t *testing.T) {
 	f := appliedSetup(t)
 	execAdmin(t, f.s, `create function fail_reversal_commit() returns trigger language plpgsql as $$ begin raise exception 'commit refused'; end $$`)
 	execAdmin(t, f.s, `create constraint trigger fail_reversal_commit after update on payment_application deferrable initially deferred for each row when (new.status = 'REVERSED') execute function fail_reversal_commit()`)
 	if _, err := f.reverse("ra-commit", f.applied.Payment.Version); err == nil {
 		t.Fatal("the commit failed but the reversal succeeded")
 	}
-	if status, _ := f.application(t); status != "APPLIED" || len(f.reversalEntries()) != 1 {
-		t.Fatalf("status %s, entries %d", status, len(f.reversalEntries()))
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "AMBIGUOUS")
+	if n := len(compensationsIn(f.ledger)); n != 0 {
+		t.Fatalf("compensated inline on an ambiguous commit: %d", n)
 	}
+	if n, err := f.s.resolveReversalAttempts(f.ctx, 0); err != nil || n != 1 {
+		t.Fatalf("resolve: %d %v", n, err)
+	}
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "COMPENSATED")
 	if _, err := f.s.PostDueJournals(f.ctx, time.Now().UTC(), 50); err != nil {
 		t.Fatal(err)
 	}
 	if net := netOf(f.reversalEntries(), compensationsIn(f.ledger)); len(net) != 0 {
-		t.Fatalf("a failed commit left a reversal entry in the ledger: %v", net)
+		t.Fatalf("a rolled-back commit left a reversal entry in the ledger: %v", net)
 	}
 	execAdmin(t, f.s, `drop trigger fail_reversal_commit on payment_application`)
 
-	out, err := f.reverse("ra-commit-2", f.applied.Payment.Version)
-	if err != nil {
+	if _, err := f.reverse("ra-commit-2", f.applied.Payment.Version); err != nil {
 		t.Fatal(err)
 	}
-	p, _ := tenant.FromContext(f.ctx)
-	app := appReversal{id: f.applied.ApplicationID, postingDate: originalPostingDate}
-	leg := postedLeg{entryID: out.ReversalJournalEntryID, suffix: "", currency: f.pay.Currency, lines: []journalLine{debit("1200", amt("1.00"), ""), credit("1205", amt("1.00"), "")}}
-	f.s.settleFailedReversal(f.ctx, p, f.pay, app, 5, []postedLeg{leg}, false, true)
-	var queued int
-	if err := dbx.WithTenantTx(f.ctx, f.s.pool, func(tx pgx.Tx) error {
-		return tx.QueryRow(f.ctx, `select count(*) from gl_journal where source_key like 'reversal-compensation:%:5'`).Scan(&queued)
-	}); err != nil || queued != 0 {
-		t.Fatalf("a stored reversal was compensated: %d %v", queued, err)
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "COMPENSATED", "COMMITTED")
+	execAdmin(t, f.s, `update payment_application_reversal_attempt set state = 'AMBIGUOUS' where application_id = $1 and generation = 1`, f.applied.ApplicationID)
+	if n, err := f.s.resolveReversalAttempts(f.ctx, 0); err != nil || n != 1 {
+		t.Fatalf("resolve: %d %v", n, err)
 	}
-	leg.entryID = "not-the-stored-entry"
-	f.s.settleFailedReversal(f.ctx, p, f.pay, app, 5, []postedLeg{leg}, false, true)
-	if err := dbx.WithTenantTx(f.ctx, f.s.pool, func(tx pgx.Tx) error {
-		return tx.QueryRow(f.ctx, `select count(*) from gl_journal where source_key like 'reversal-compensation:%:5'`).Scan(&queued)
-	}); err != nil || queued != 1 {
-		t.Fatalf("an unstored reversal was not compensated: %d %v", queued, err)
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "COMPENSATED", "COMMITTED")
+	if _, err := f.s.PostDueJournals(f.ctx, time.Now().UTC(), 50); err != nil {
+		t.Fatal(err)
 	}
+	if n := len(compensationsIn(f.ledger)); n != 1 {
+		t.Fatalf("a committed reversal was compensated: %d compensation entries", n)
+	}
+}
+
+func TestReverseApplication_AnAmbiguousFXLegWithAConfirmedMainLegIsCompensatedBySweeperWithoutARetry(t *testing.T) {
+	f := crossCurrencyApplied(t)
+	f.fake.FailPostsIn("USD", errors.New("timeout"))
+	if _, err := f.reverse(t, "ra-fx-sweep"); problemCode(err) != CodeReversalLedgerUnavailable {
+		t.Fatalf("fx leg timeout: %v", err)
+	}
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "AMBIGUOUS")
+	f.fake.FailPostsIn("USD", nil)
+	if n, err := f.s.resolveReversalAttempts(f.ctx, 0); err != nil || n != 1 {
+		t.Fatalf("resolve: %d %v", n, err)
+	}
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "COMPENSATED")
+	f.sweep(t)
+	if net := netOf(f.reversalEntries(), f.compensationEntries()); len(net) != 0 || len(f.compensationEntries()) != 2 {
+		t.Fatalf("the sweeper left a reversal entry: net %v, compensations %d", net, len(f.compensationEntries()))
+	}
+	out, err := f.reverse(t, "ra-fx-sweep")
+	if err != nil || !strings.HasSuffix(f.reversalEntries()[len(f.reversalEntries())-1].IdempotencyKey, ":1") {
+		t.Fatalf("a new attempt after COMPENSATED: %+v %v", out, err)
+	}
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "COMPENSATED", "COMMITTED")
+}
+
+func TestReverseApplication_CompensatingTwoLegsIsAtomic(t *testing.T) {
+	f := crossCurrencyApplied(t)
+	execAdmin(t, f.s, `create function fail_reversal() returns trigger language plpgsql as $$ begin raise exception 'reversal finish failed'; end $$`)
+	execAdmin(t, f.s, `create trigger fail_reversal before update on payment_application for each row when (new.status = 'REVERSED') execute function fail_reversal()`)
+	execAdmin(t, f.s, `create function fail_fx_compensation() returns trigger language plpgsql as $$ begin raise exception 'second compensation refused'; end $$`)
+	execAdmin(t, f.s, `create trigger fail_fx_compensation before insert on gl_journal for each row when (new.source_key like 'reversal-compensation:%:fx:%') execute function fail_fx_compensation()`)
+	if _, err := f.reverse(t, "ra-atomic"); err == nil {
+		t.Fatal("the finish step failed but the reversal succeeded")
+	}
+	count := func() (n int) {
+		if err := dbx.WithTenantTx(f.ctx, f.s.pool, func(tx pgx.Tx) error {
+			return tx.QueryRow(f.ctx, `select count(*) from gl_journal where source_type = $1`, JournalReversalCompensation).Scan(&n)
+		}); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	if n := count(); n != 0 {
+		t.Fatalf("one of two compensations was written: %d", n)
+	}
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "AMBIGUOUS")
+	execAdmin(t, f.s, `drop trigger fail_fx_compensation on gl_journal`)
+	if n, err := f.s.resolveReversalAttempts(f.ctx, 0); err != nil || n != 1 || count() != 2 {
+		t.Fatalf("resolve: %d %v, compensations %d", n, err, count())
+	}
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "COMPENSATED")
+	execAdmin(t, f.s, `drop trigger fail_reversal on payment_application`)
 }
 
 func TestPaymentApplication_IsolatedByTenantAndLegalEntityAndGrantedToTheAppRole(t *testing.T) {
