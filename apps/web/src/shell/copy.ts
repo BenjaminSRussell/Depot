@@ -290,6 +290,37 @@ export const copy = {
     shareUsage: "Share anonymous usage data",
     opensInNewTab: "(opens in a new tab)",
     shareUsageHint: "Which steps people finish and where forms fail, so we can make them easier. It holds no names or record details.",
+    takeTour: "Take the tour",
+  },
+  onboarding: {
+    stepOf: (step: number, total: number) => `Step ${step} of ${total}`,
+    announceStep: (step: number, total: number, title: string) => `Step ${step} of ${total}: ${title}`,
+    next: "Next",
+    back: "Back",
+    skip: "Skip tour",
+    finish: "Finish",
+    steps: {
+      prompt: {
+        title: "Ask or do anything",
+        body: "Type what you need in the box at the top of the home page. The assistant can find pages, answer questions and start tasks for you.",
+      },
+      feed: {
+        title: "Your work in one place",
+        body: "The My work card on the home page lists what is waiting for you, such as approvals and overdue items. Open an item to deal with it.",
+      },
+      commandBar: {
+        title: "Jump anywhere from the keyboard",
+        body: `Press ${shortcutHint} on any page to open the command bar. Type a page, a record or a task, then press Enter.`,
+      },
+      approvals: {
+        title: "Approvals and limits",
+        body: "The assistant can't do more than your own permissions allow. Anything that posts or touches money needs your approval first.",
+      },
+      classicNav: {
+        title: "Menus and settings",
+        body: "The menu on the left lists every workspace you can use. Use the question mark in the top bar for help on the page you are on, and to take this tour again.",
+      },
+    },
   },
   whatsNew: {
     pageTitle: "What's new",
