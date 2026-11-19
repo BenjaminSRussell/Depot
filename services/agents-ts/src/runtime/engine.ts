@@ -525,7 +525,7 @@ async function executeRun(
       });
     } catch (err) {
       // An HTTP error status or a connection never made: the hold is released with zero.
-      if ((err instanceof ProviderError && err.unbilled) || (err instanceof AgentError && err.code === "AGT-0215")) ledger.mayHaveSpent = false;
+      if ((err instanceof ProviderError && err.unbilled) || (err instanceof AgentError && (err.code === "AGT-0215" || err.code === "AGT-0219"))) ledger.mayHaveSpent = false;
       throw err;
     }
 

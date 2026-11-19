@@ -185,6 +185,9 @@ describe("copilot routing in the cui boundary", () => {
     expect(h.providerBodies).toEqual([]);
     expect(h.resolverBodies).toEqual([]);
     expect(store.reserved).toEqual([]);
-    expect(store.runs.size).toBe(0);
+    expect(store.runs.size).toBe(1);
+    const rows = [...store.actionRows.values()].flat();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.guardResult).toMatchObject({ decision: "BLOCKED_BOUNDARY", errorCode: "NO_APPROVED_ROUTE", counts: {} });
   });
 });

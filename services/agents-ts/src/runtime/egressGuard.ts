@@ -8,8 +8,8 @@ export const GUARD_REFUSAL_MESSAGE =
   "I could not check this request for sensitive data, so I did not send it to the AI model. Your ERP work is not affected; please try again later.";
 
 export type DataClass = "P0" | "P1" | "P2" | "P3";
-export type GuardDecision = "ALLOWED" | "REDACTED" | "BLOCKED";
-export type GuardErrorCode = "ANALYZER_ERROR" | "ANALYZER_TIMEOUT" | "RESIDUAL_PII";
+export type GuardDecision = "ALLOWED" | "REDACTED" | "BLOCKED" | "BLOCKED_BOUNDARY";
+export type GuardErrorCode = "ANALYZER_ERROR" | "ANALYZER_TIMEOUT" | "RESIDUAL_PII" | "NO_APPROVED_ROUTE";
 
 export interface GuardResult {
   callId: string;
@@ -34,6 +34,7 @@ export interface EgressInput {
   system: string;
   typed: string;
   results: readonly string[];
+  excluded?: Record<string, number>;
 }
 
 export interface EgressVerdict {
@@ -92,7 +93,7 @@ export function createEgressGuard(
         routeId: input.routeId,
         policyVersion: GUARD_POLICY_VERSION,
         counts: {},
-        excluded: {},
+        excluded: { ...input.excluded },
         decision: "BLOCKED",
       };
       try {

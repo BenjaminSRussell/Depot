@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createAnthropicProvider } from "./providers/anthropic.js";
 import { createBedrockProvider } from "./providers/bedrock.js";
@@ -6,6 +7,8 @@ import { createPhiGuard, parsePhiFields, type PhiGuard } from "./domain/phi.js";
 import { NO_ROUTE_MESSAGE, type Boundary } from "./domain/modelRoute.js";
 import { AgentError } from "./errors.js";
 import type { ModelProvider } from "./runtime/engine.js";
+import { createEgressGuard, GUARD_REFUSAL_MESSAGE, type EgressGuard } from "./runtime/egressGuard.js";
+import { Pseudonymizer } from "./domain/redaction.js";
 
 /** The Claude models Depot defaults to; every one is overridable by configuration. */
 export const MODEL_OPUS = "claude-opus-5-5";
@@ -265,12 +268,47 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
 export function createRunProviderFactory(
   cfg: Config,
   fetchFn?: typeof fetch,
+  guard: EgressGuard = createEgressGuard(),
 ): (modelId: string) => ModelProvider {
   const direct = createProviderFactory(cfg, fetchFn);
   return (modelId) => {
     if (cfg.boundary === "cui")
       throw new AgentError("AGT-0218", NO_ROUTE_MESSAGE);
-    return direct(modelId);
+    return withEgressGuard(direct(modelId), guard);
+  };
+}
+
+export function withEgressGuard(
+  provider: ModelProvider,
+  guard: EgressGuard,
+): ModelProvider {
+  const check = async (system: string, user: string): Promise<void> => {
+    const verdict = await guard.inspect({
+      tenantId: "run",
+      callId: randomUUID(),
+      routeId: "run",
+      pseudo: new Pseudonymizer("run", 1000, Date.now),
+      system,
+      typed: user,
+      results: [],
+    });
+    if (verdict.result.decision !== "ALLOWED")
+      throw new AgentError("AGT-0219", GUARD_REFUSAL_MESSAGE);
+  };
+  return {
+    ...(provider.endpoint !== undefined ? { endpoint: provider.endpoint } : {}),
+    complete: async (req) => {
+      await check(req.system, req.user);
+      return provider.complete(req);
+    },
+    ...(provider.stream !== undefined
+      ? {
+          stream: async (req, onText) => {
+            await check(req.system, req.user);
+            return provider.stream!(req, onText);
+          },
+        }
+      : {}),
   };
 }
 

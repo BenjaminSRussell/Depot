@@ -395,7 +395,7 @@ export function createRunSteps(deps: StepsDeps) {
           try {
             response = await provider.complete({ system: agent.systemPrompt, user: prompt, allowedTools: agent.allowedTools, maxOutputTokens });
           } catch (err) {
-            if ((err instanceof ProviderError && err.unbilled) || (err instanceof AgentError && err.code === "AGT-0215")) s.mayHaveSpent = false;
+            if ((err instanceof ProviderError && err.unbilled) || (err instanceof AgentError && (err.code === "AGT-0215" || err.code === "AGT-0219"))) s.mayHaveSpent = false;
             throw err;
           }
           const metered = response.usage !== undefined && isMetered(response.usage);
