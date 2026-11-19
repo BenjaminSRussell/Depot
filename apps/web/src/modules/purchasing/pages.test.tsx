@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { checkAxeAA } from "../../shell/a11y";
+import { currencyLookups } from "../../shell/defaults/testLookup";
 import { setLookupFetcher } from "../../shell/lookup/entities";
 import { WorkContextProvider } from "../../shell/lookup/workContext";
 import { WorkContext } from "../../shell/lookup/workContextState";
@@ -421,6 +422,7 @@ describe("purchase orders", () => {
     const fetchMock = stubFetch((_url, init) => (init.method === "POST" ? json(purchaseOrder, 201) : json(purchaseOrder)));
     const { router } = renderAt("/purchasing/purchase-orders/new");
     fireEvent.change(await screen.findByLabelText("Legal entity"), { target: { value: LE } });
+    fireEvent.change(await screen.findByLabelText("Currency"), { target: { value: "USD" } });
     fireEvent.change(screen.getByLabelText("Vendor"), { target: { value: VENDOR } });
     fireEvent.change(screen.getByLabelText("Product"), { target: { value: PRODUCT } });
     fireEvent.change(screen.getByLabelText("Quantity"), { target: { value: "100" } });
@@ -434,11 +436,58 @@ describe("purchase orders", () => {
     expect(body.charges).toEqual([{ calc: "FIXED", value: "25" }]);
   });
 
+  describe("currency default", () => {
+    function open(currencies: Record<string, string>) {
+      const fetchMock = stubFetch((_url, init) => (init.method === "POST" ? json(purchaseOrder, 201) : json(purchaseOrder)));
+      const { router } = renderAt("/purchasing/purchase-orders/new");
+      currencyLookups(currencies);
+      fireEvent.change(screen.getByLabelText("Legal entity"), { target: { value: LE } });
+      fireEvent.change(screen.getByLabelText("Vendor"), { target: { value: VENDOR } });
+      return { fetchMock, router };
+    }
+
+    it.each([
+      ["the vendor", { [VENDOR]: "EUR", [LE]: "USD" }, "EUR"],
+      ["the legal entity", { [LE]: "CHF" }, "CHF"],
+    ])("follows %s", async (_source, currencies, expected) => {
+      open(currencies);
+      await waitFor(() => expect(screen.getByLabelText("Currency")).toHaveValue(expected));
+    });
+
+    it("orders from a EUR vendor in EUR without typing the currency", async () => {
+      const { fetchMock, router } = open({ [VENDOR]: "EUR", [LE]: "USD" });
+      await waitFor(() => expect(screen.getByLabelText("Currency")).toHaveValue("EUR"));
+      fireEvent.change(screen.getByLabelText("Product"), { target: { value: PRODUCT } });
+      fireEvent.change(screen.getByLabelText("Quantity"), { target: { value: "100" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save purchase order" }));
+      await waitFor(() => expect(router.state.location.pathname).toBe(`/purchasing/purchase-orders/${PO_ID}`));
+      const post = fetchMock.mock.calls.find(([, i]) => (i as RequestInit).method === "POST") as [string, RequestInit];
+      expect(JSON.parse(String(post[1].body))).toMatchObject({ currency: "EUR" });
+    });
+
+    it("keeps a typed currency over the derived one", async () => {
+      open({ [VENDOR]: "EUR" });
+      await waitFor(() => expect(screen.getByLabelText("Currency")).toHaveValue("EUR"));
+      fireEvent.change(screen.getByLabelText("Currency"), { target: { value: "gbp" } });
+      expect(screen.getByLabelText("Currency")).toHaveValue("GBP");
+    });
+
+    it("blocks the save and sends nothing when no source resolves", async () => {
+      const { fetchMock } = open({});
+      fireEvent.change(screen.getByLabelText("Product"), { target: { value: PRODUCT } });
+      fireEvent.change(screen.getByLabelText("Quantity"), { target: { value: "100" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save purchase order" }));
+      expect((await screen.findAllByText("Use a three-letter ISO code such as USD.")).length).toBeGreaterThan(0);
+      expect(fetchMock.mock.calls.filter(([, i]) => (i as RequestInit).method === "POST")).toHaveLength(0);
+    });
+  });
+
   it("takes the unit from the picked product's base unit and still lets the person change it", async () => {
     setLookupFetcher(async () => json({ items: [{ id: PRODUCT, productNumber: "BOLT", name: "Hex bolt", baseUom: "KG" }] }));
     const fetchMock = stubFetch((_url, init) => (init.method === "POST" ? json(purchaseOrder, 201) : json(purchaseOrder)));
     const { router } = renderAt("/purchasing/purchase-orders/new");
     fireEvent.change(await screen.findByLabelText("Legal entity"), { target: { value: LE } });
+    fireEvent.change(await screen.findByLabelText("Currency"), { target: { value: "USD" } });
     fireEvent.change(screen.getByLabelText("Vendor"), { target: { value: VENDOR } });
     expect(screen.getByLabelText("Unit")).toHaveValue("EA");
     fireEvent.change(screen.getByLabelText("Product"), { target: { value: "bolt" } });
@@ -486,6 +535,7 @@ describe("purchase orders", () => {
     stubFetch(() => problem(422, "PRC-PRICE-001", "no trade agreement price; enter a unit price"));
     renderAt("/purchasing/purchase-orders/new");
     fireEvent.change(await screen.findByLabelText("Legal entity"), { target: { value: LE } });
+    fireEvent.change(await screen.findByLabelText("Currency"), { target: { value: "USD" } });
     fireEvent.change(screen.getByLabelText("Vendor"), { target: { value: VENDOR } });
     fireEvent.change(screen.getByLabelText("Product"), { target: { value: PRODUCT } });
     fireEvent.click(screen.getByRole("button", { name: "Save purchase order" }));
@@ -502,6 +552,7 @@ describe("purchase orders", () => {
     const fetchMock = stubFetch((_url, init) => (init.method === "POST" ? json(released, 201) : json(released)));
     const { router } = renderAt("/purchasing/purchase-orders/new");
     fireEvent.change(await screen.findByLabelText("Legal entity"), { target: { value: LE } });
+    fireEvent.change(await screen.findByLabelText("Currency"), { target: { value: "USD" } });
     fireEvent.change(screen.getByLabelText("Vendor"), { target: { value: VENDOR } });
     fireEvent.change(screen.getByLabelText("Product"), { target: { value: PRODUCT } });
     fireEvent.change(screen.getByLabelText("Agreement line"), { target: { value: AGR_LINE } });

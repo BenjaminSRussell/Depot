@@ -19,6 +19,7 @@ import { BillingApiError, createFreeTextInvoice, describeProblem, newKey, type F
 import { ACCOUNT, CURRENCY, DAY, DECIMAL, TAX_CODE, today, UUID } from "./format";
 import styles from "./pages.module.css";
 import { ProblemMessage } from "../../shell/errors";
+import { useDefaultCurrency } from "../../shell/defaults/useDefaults";
 import { LookupFormField } from "../../shell/lookup/LookupFormField";
 
 type Errors = Record<string, string>;
@@ -59,7 +60,7 @@ export function emptyFreeText(day = today()): FreeTextValues {
     legalEntityId: "",
     customerId: "",
     invoiceAccountId: "",
-    currency: "EUR",
+    currency: "",
     invoiceDate: day,
     paymentTermDays: "30",
     chargeAmount: "",
@@ -168,6 +169,12 @@ export function NewFreeTextInvoicePage() {
   const key = useRef(newKey());
   const attempt = useSubmitAttempt(errors);
 
+  const derivedCurrency = useDefaultCurrency([
+    { entity: "customer", id: values.customerId.trim() },
+    { entity: "legalEntity", id: values.legalEntityId.trim() },
+  ]);
+  const effective: FreeTextValues = { ...values, currency: values.currency || derivedCurrency };
+
   function update(patch: Partial<FreeTextValues>) {
     setValues((prev) => ({ ...prev, ...patch }));
     key.current = newKey();
@@ -202,13 +209,13 @@ export function NewFreeTextInvoicePage() {
   const { prompt, release } = useUnsavedChanges(useFormBaseline(values));
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const found = validateFreeText(values);
+    const found = validateFreeText(effective);
     setErrors(found);
     setFailure(null);
     if (Object.keys(found).length > 0) return;
     setBusy(true);
     try {
-      const created = await createFreeTextInvoice(toFreeTextInput(values), key.current);
+      const created = await createFreeTextInvoice(toFreeTextInput(effective), key.current);
       release();
       navigate(`/billing/invoices/${created.id}`);
     } catch (error) {
@@ -231,7 +238,7 @@ export function NewFreeTextInvoicePage() {
             type={opts.type}
             className={opts.mono ? styles.mono : undefined}
             inputMode={opts.decimal ? "decimal" : undefined}
-            value={values[field]}
+            value={effective[field]}
             onChange={(e) => update({ [field]: e.target.value } as Partial<FreeTextValues>)}
             invalid={Boolean(errors[field])}
           />

@@ -363,6 +363,7 @@ describe("Order holds and listing overrides", () => {
     handler = () => ({ status: 422, body: { code: "SLS-0011", detail: "PRODUCT_NOT_LISTED: the product is not listed for this customer on line 1 (CUSTOMER_DENY)" } });
     renderAt("/sales/orders/new");
     fill("Legal entity", LE);
+    fill("Currency", "USD");
     fill("Customer", CUSTOMER);
     expect(screen.queryByLabelText(/Customer group/)).not.toBeInTheDocument();
     fill(/Listing override reason/, "replacement for recalled batch");

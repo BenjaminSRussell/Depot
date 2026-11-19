@@ -107,6 +107,7 @@ describe("Mandatory supplementary lines on a new order (FR-27.14, AC-27.10)", ()
     renderAt("/sales/orders/new");
     const set = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
     set("Legal entity", LE);
+    set("Currency", "USD");
     set("Customer", CUSTOMER);
     set("Product", FG100);
     set("Quantity", "25");
