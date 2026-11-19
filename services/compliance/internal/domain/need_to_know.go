@@ -2,6 +2,7 @@ package domain
 
 const (
 	DutyCUIPolicyRead  = "cui.policy.read"
+	DutyNeedToKnowRead = "compliance.need-to-know.read"
 	DutyCUIPolicyAdmin = "cui.policy.admin"
 
 	SourceDeploymentDefault = "DEPLOYMENT_DEFAULT"

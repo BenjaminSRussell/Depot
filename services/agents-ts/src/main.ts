@@ -20,6 +20,7 @@ import {
   createConfiguredRouter,
 } from "./runtime/aiRouter.js";
 import { createCopilotService } from "./runtime/copilot.js";
+import { createNeedToKnowClient } from "./runtime/needToKnow.js";
 import { createEgressGuard } from "./runtime/egressGuard.js";
 import { createKnowledgeService } from "./runtime/knowledge.js";
 import { PgKeywordIndex } from "./store/knowledge.js";
@@ -180,9 +181,18 @@ async function main(): Promise<void> {
     );
   const metrics = new Metrics();
   const copilot = createCopilotService({
-    guard: createEgressGuard({ log, observe: (seconds, decision) => metrics.observeGuard(seconds, decision) }),
+    guard: createEgressGuard({ log, policy: aiPolicyGuard, observe: (seconds, decision) => metrics.observeGuard(seconds, decision) }),
     knowledge,
     router: createConfiguredRouter(cfg, { log, ...(serviceSigner !== undefined ? { signer: serviceSigner } : {}) }),
+    needToKnow: createNeedToKnowClient({
+      baseUrl: cfg.complianceUrl,
+      authHeaders: (caller) => {
+        if (serviceSigner === undefined) throw new Error("no service signing key is configured");
+        if (caller.legalEntityId === undefined) throw new Error("the caller's token names no legal entity");
+        return { "x-depot-service-token": serviceSigner.mintForCompliance({ tenantId: caller.tenantId, legalEntityId: caller.legalEntityId, actor: caller.userId }) };
+      },
+      log,
+    }),
     mcp,
     store,
     killSwitch: registry,

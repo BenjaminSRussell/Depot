@@ -127,7 +127,7 @@ describe("copilot routing in the standard deployment", () => {
     const headers = h.resolverHeaders[0] ?? {};
     expect(headers["authorization"]).toBeUndefined();
     expect(JSON.stringify(headers)).not.toContain("caller-token");
-    expect(claimsOf(headers["x-depot-service-token"] ?? "")).toMatchObject({ iss: "agents", aud: "compliance", tid: T1, le: LE, act: USER, duties: ["compliance.data-designation.resolve"] });
+    expect(claimsOf(headers["x-depot-service-token"] ?? "")).toMatchObject({ iss: "agents", aud: "compliance", tid: T1, le: LE, act: USER, duties: ["compliance.data-designation.resolve", "compliance.need-to-know.read"] });
   });
 
   it.each([

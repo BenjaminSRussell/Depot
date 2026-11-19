@@ -19,7 +19,7 @@ import (
 const needToKnowPath = "/v1/compliance/need-to-know"
 
 func (a *API) registerNeedToKnow(r chi.Router) {
-	r.With(authz.RequireDuty(domain.DutyCUIPolicyRead)).Get(needToKnowPath, a.getNeedToKnow)
+	r.With(authz.RequireAnyDuty(domain.DutyCUIPolicyRead, domain.DutyNeedToKnowRead)).Get(needToKnowPath, a.getNeedToKnow)
 	r.With(authz.RequireDuty(domain.DutyCUIPolicyAdmin)).Put(needToKnowPath, a.setNeedToKnow)
 }
 

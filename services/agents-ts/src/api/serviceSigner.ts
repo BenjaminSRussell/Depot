@@ -13,7 +13,8 @@ export const DUTY_RUN_SIGNAL = "agents.run.signal";
 export const WORKFLOW_GRANT: readonly string[] = [DUTY_RUN_SIGNAL];
 export const COMPLIANCE_AUDIENCE = "compliance";
 export const DUTY_DESIGNATION_RESOLVE = "compliance.data-designation.resolve";
-export const COMPLIANCE_GRANT: readonly string[] = [DUTY_DESIGNATION_RESOLVE];
+export const DUTY_NEED_TO_KNOW_READ = "compliance.need-to-know.read";
+export const COMPLIANCE_GRANT: readonly string[] = [DUTY_DESIGNATION_RESOLVE, DUTY_NEED_TO_KNOW_READ];
 
 const TOKEN_CONTEXT = "depot.service-token.v1.";
 const PKCS8_ED25519_PREFIX = Buffer.from("302e020100300506032b657004220420", "hex");

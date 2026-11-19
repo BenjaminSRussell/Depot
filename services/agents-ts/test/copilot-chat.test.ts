@@ -57,7 +57,7 @@ describe("POST /api/v1/copilot/chat", () => {
       citations: [{ sourceType: "RECORD", sourceRef: "INV-7", label: GET }],
       toolCalls: [{ tool: GET, status: "OK" }],
       refusal: null,
-      dataClass: "P0",
+      dataClass: "P2",
       generated: true,
     });
     expect(s.mcp.connects[0]).toMatchObject({ userId: USER, token: tokenFor(T1, USER, DUTIES) });

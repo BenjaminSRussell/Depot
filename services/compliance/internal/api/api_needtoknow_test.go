@@ -97,6 +97,20 @@ func TestNeedToKnowGet_OverrideWinsForItsLegalEntityOnly(t *testing.T) {
 	}
 }
 
+func TestNeedToKnowGet_ServiceOnlyDutyReadsButNeverWrites(t *testing.T) {
+	h := router(boundaryAPI(&fakeStore{}, domain.BoundaryCUI))
+	read := needToKnowGet("?legalEntityId="+testLE, domain.DutyNeedToKnowRead)
+	read.legalEntity = testLE
+	if rec := serve(t, h, read); rec.Code != http.StatusOK {
+		t.Fatalf("service read: %d %s", rec.Code, rec.Body.String())
+	}
+	write := needToKnowPut(map[string]any{"enabled": false, "reason": "x"}, "", `"1"`, domain.DutyNeedToKnowRead)
+	write.legalEntity = testLE
+	if rec := serve(t, h, write); rec.Code != http.StatusForbidden {
+		t.Fatalf("service write: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestNeedToKnowGet_Refusals(t *testing.T) {
 	for name, tc := range map[string]struct {
 		c      call
