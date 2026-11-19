@@ -85,7 +85,6 @@ export function HomePage() {
   const conversation = useCopilotConversation();
   const conversationRef = useRef(conversation);
   conversationRef.current = conversation;
-  // TODO DEPOT-283: the command bar calls router.submit
   // TODO DEPOT-281, DEPOT-282, DEPOT-297: register the navigate and act handlers
   const router = useMemo(
     () =>

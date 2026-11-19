@@ -20,9 +20,11 @@ function renderTopBar() {
         page={{ title: "Orders" }}
         titleRef={createRef<HTMLHeadingElement>()}
         menuRef={createRef<HTMLButtonElement>()}
+        searchRef={createRef<HTMLButtonElement>()}
         drawerOpen={false}
         compact={false}
         onOpenDrawer={() => undefined}
+        onOpenSearch={() => undefined}
         onToggleCompact={() => undefined}
       />
     </MemoryRouter>,

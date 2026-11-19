@@ -49,7 +49,7 @@ No ERP flow depends on the assistant (ADR-0001). `shell/assistant/AvailabilityPr
 
 ## Assistant prompt router (DEPOT-296)
 
-`shell/assistant/router.ts` is the only code path from prompt text to a copilot call. `createPromptRouter({handlers, getAvailability, hasDuty, postRoute, searchFallback})` returns `submit(text, mode?)`. The home prompt submits through it; the command bar will call the same `submit` (DEPOT-283). `phrases.ts` exports the canonical phrases for the E1-S4, S6 and S7 fixtures.
+`shell/assistant/router.ts` is the only code path from prompt text to a copilot call. `createPromptRouter({handlers, getAvailability, hasDuty, postRoute, searchFallback})` returns `submit(text, mode?)`. The home prompt submits through it; the command bar's Assistant row calls the same `submit`. `phrases.ts` exports the canonical phrases for the E1-S4, S6 and S7 fixtures.
 
 - With no mode, `postRoute` sends `POST /api/v1/copilot/chat` with `{mode: "route", message}` (10 second deadline) and dispatches by the returned kind. An explicit mode (`ask`, `navigate`, `act`) skips the call.
 - When availability is not `enabled`, nothing is sent: `searchFallback(text)` runs. A timeout, network error, HTTP error or unreadable body also falls back to search, never to act. A refusal such as AGT-0202 shows its code and message.

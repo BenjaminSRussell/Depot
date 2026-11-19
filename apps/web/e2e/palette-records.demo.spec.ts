@@ -19,7 +19,7 @@ test.describe("palette record search", () => {
 
   test("finds a vendor by a misspelt name and opens it", async ({ page }) => {
     await shell.paletteInput.fill("ironbrige foundry");
-    await expect(group("Customers and vendors").getByRole("option", { name: /V-20004 Ironbridge Foundry/ })).toBeVisible();
+    await expect(group("Records").getByRole("option", { name: /V-20004 Ironbridge Foundry/ })).toBeVisible();
     await page.keyboard.press("Enter");
     await expect(shell.palette).toHaveCount(0);
     await expect(page).toHaveURL(/\/party\/[^/]+$/);
@@ -28,7 +28,7 @@ test.describe("palette record search", () => {
 
   test("finds production orders by the start of the number, not by digits from its middle", async () => {
     await shell.paletteInput.fill("mo-2461");
-    const orders = group("Production orders");
+    const orders = group("Records");
     await expect(orders.getByRole("option", { name: /^Production order MO-24611, Started/ })).toBeVisible();
     await expect(orders.getByRole("option", { name: /^Production order MO-24615, Released/ })).toBeVisible();
     // The exact number comes first.
@@ -41,7 +41,7 @@ test.describe("palette record search", () => {
 
   test("opens records from the keyboard and keeps them as recent records", async ({ page }) => {
     await shell.paletteInput.fill("mo-24611");
-    await expect(group("Production orders").getByRole("option")).toHaveCount(1);
+    await expect(group("Records").getByRole("option")).toHaveCount(1);
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/production\/MO-24611$/);
     await expect(page.getByRole("heading", { name: "Production order MO-24611" })).toBeVisible();
@@ -50,7 +50,7 @@ test.describe("palette record search", () => {
     await expect(group("Recent records").getByRole("option", { name: /^Production order MO-24611/ })).toBeVisible();
 
     await shell.paletteInput.fill("keystone seals");
-    await expect(group("Customers and vendors").getByRole("option", { name: /V-20017 Keystone Seals & Gaskets/ })).toBeVisible();
+    await expect(group("Records").getByRole("option", { name: /V-20017 Keystone Seals & Gaskets/ })).toBeVisible();
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/party\/[^/]+$/);
 
@@ -63,7 +63,7 @@ test.describe("palette record search", () => {
 
   test("keeps a favourite record at the top of the empty palette", async ({ page }) => {
     await shell.paletteInput.fill("v-20011");
-    await expect(group("Customers and vendors").getByRole("option", { name: /V-20011 Volta Motor Works/ })).toBeVisible();
+    await expect(group("Records").getByRole("option", { name: /V-20011 Volta Motor Works/ })).toBeVisible();
     await page.keyboard.press("Alt+f");
     await expect(shell.status.filter({ hasText: "V-20011" }).first()).toBeAttached();
     await shell.paletteInput.fill("");

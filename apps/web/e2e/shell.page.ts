@@ -8,6 +8,7 @@ export class ShellPage {
   readonly workspaceNav: Locator;
   readonly status: Locator;
   readonly searchButton: Locator;
+  readonly commandBarButton: Locator;
   readonly menuButton: Locator;
   readonly closeNavButton: Locator;
   readonly drawer: Locator;
@@ -22,6 +23,7 @@ export class ShellPage {
     this.workspaceNav = page.getByRole("navigation", { name: "Workspaces" });
     this.status = page.getByRole("status");
     this.searchButton = page.getByRole("button", { name: "Search", exact: true });
+    this.commandBarButton = page.getByRole("button", { name: "Search or ask", exact: true });
     this.menuButton = page.getByRole("button", { name: "Open navigation" });
     this.closeNavButton = page.getByRole("button", { name: "Close navigation" });
     this.drawer = page.getByRole("dialog", { name: "Navigation" });
