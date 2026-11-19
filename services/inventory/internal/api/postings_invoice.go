@@ -85,7 +85,7 @@ func netBookedQty(bookings map[string][]store.TransactionRow, tenantID, receiptI
 			mirrorValue = mirrorValue.Add(m.CostAmountPhysical)
 		}
 	}
-	return net, mirrorValue.Abs()
+	return net, mirrorValue
 }
 
 func stepInvoiceLine(ctx context.Context, s PostingsStore, d invoicePostedData, lineNo int, receiptID string, amount decimal.Decimal, rows []store.TransactionRow,
@@ -178,7 +178,7 @@ func bookInvoice(ctx context.Context, s PostingsStore, evt events.Event) error {
 				"invoicedQty", total.Qty.String(), "bookedQty", net.String(), "eventId", evt.ID)
 			continue
 		}
-		n, err := stepInvoiceLine(ctx, s, d, l.LineNo, l.ReceiptID, total.Amount.Add(mirrorValue), rows, evt)
+		n, err := stepInvoiceLine(ctx, s, d, l.LineNo, l.ReceiptID, total.Amount.Sub(mirrorValue), rows, evt)
 		stepped += n
 		if err != nil {
 			slog.ErrorContext(ctx, "step the invoiced receipt line failed", "invoiceId", d.InvoiceID, "receiptId", l.ReceiptID, "lineNo", l.LineNo, "err", err, "eventId", evt.ID)

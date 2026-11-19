@@ -233,6 +233,29 @@ func TestInvoicePosted_AfterAReceiptCorrectionStepsTheLineAtTheNetQuantity(t *te
 	}
 }
 
+func TestInvoicePosted_AfterAnUpwardReceiptCorrectionNetsTheMirrorOutOfThePostedValue(t *testing.T) {
+	b, ctx := newStockBooks(), postingsCtx(t)
+	h := flowHandlers(b)
+	if err := h[ReceiptPostedType].Handle(ctx, nil, flowEvent(t, ReceiptPostedType, ReceiptSource, "receipt-posted.json")); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(flowDir + "receipt-corrected.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	up := strings.NewReplacer(`"-2"`, `"2"`, `"-20"`, `"20"`).Replace(string(raw))
+	if err := h[ReceiptCorrectedType].Handle(ctx, nil, postingEvent(t, ReceiptCorrectedType, ReceiptSource, up)); err != nil {
+		t.Fatal(err)
+	}
+	if err := h[InvoicePostedType].Handle(ctx, nil, postingEvent(t, InvoicePostedType, ReceiptSource, invoiceWith(flowLedger, invoiceLine("1", "12", "124")))); err != nil {
+		t.Fatal(err)
+	}
+	row, mirror := b.status(t, flowReceipt, 1), b.rows[1]
+	if row.ReceiptStatus != "PURCHASED" || row.CostAmountPosted == nil || !row.CostAmountPosted.Equal(d("104")) || !row.CostAmountPosted.Add(mirror.CostAmountPhysical).Equal(d("124")) {
+		t.Fatalf("line at %s posted at %v with the mirror at %s, want 104 so the net value equals the invoice amount 124", row.ReceiptStatus, row.CostAmountPosted, mirror.CostAmountPhysical)
+	}
+}
+
 func TestInvoicePosted_TwoPartInvoicesMoveTheLineToPurchasedAtTheSecondOne(t *testing.T) {
 	const secondInvoice, secondLedger = "0199f480-0000-7000-8000-0000000000c1", "0199f480-0000-7000-8000-0000000000c2"
 	b, ctx := newStockBooks(), postingsCtx(t)
