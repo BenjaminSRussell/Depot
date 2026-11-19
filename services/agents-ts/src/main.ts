@@ -19,6 +19,9 @@ import {
   assertBoundarySupported,
   createConfiguredRouter,
 } from "./runtime/aiRouter.js";
+import { createBriefingService } from "./runtime/briefing.js";
+import { PgBriefingFacts, PgBriefingStore } from "./store/briefing.js";
+import { createAiAccessAudit } from "./runtime/aiAccessAudit.js";
 import { createCopilotService } from "./runtime/copilot.js";
 import { createNeedToKnowClient } from "./runtime/needToKnow.js";
 import { createEgressGuard } from "./runtime/egressGuard.js";
@@ -184,7 +187,14 @@ async function main(): Promise<void> {
       "DEPOT_SERVICE_SIGNING_KEY is not set: agents cannot sign its call to compliance, so every record is UNKNOWN and is withheld from AI calls",
       { boundary: cfg.boundary },
     );
+  if (cfg.auditUrl === undefined || serviceSigner === undefined)
+    log(
+      "warn",
+      "AGENTS_AUDIT_URL or DEPOT_SERVICE_SIGNING_KEY is not set: AI data access cannot be audited, so every copilot read is refused",
+      { boundary: cfg.boundary },
+    );
   const copilot = createCopilotService({
+    aiAccess: createAiAccessAudit({ baseUrl: cfg.auditUrl, signer: serviceSigner, log }),
     guard: createEgressGuard({ log, policy: aiPolicyGuard, observe: (seconds, decision) => metrics.observeGuard(seconds, decision) }),
     outputGuard,
     knowledge,
@@ -243,6 +253,7 @@ async function main(): Promise<void> {
     copilot,
     knowledge,
     budgets: createAgentBudgetService({ store: new PgAgentBudgets(store) }),
+    briefings: createBriefingService({ store: new PgBriefingStore(store), facts: new PgBriefingFacts(store), log }),
   };
   const handler = createRequestHandler({
     api,

@@ -8,6 +8,7 @@ import { createAgentsHandler, MAX_BODY_BYTES } from "../src/api/router.js";
 import { edgeHeaders, testAuthenticate } from "./jwt.js";
 import type { CopilotService } from "../src/runtime/copilot.js";
 import type { KnowledgeService } from "../src/runtime/knowledge.js";
+import type { BriefingService } from "../src/runtime/briefing.js";
 import type { AgentBudgetService } from "../src/api/agentBudgets.js";
 import type { ActionService } from "../src/runtime/actions.js";
 import type { RunService } from "../src/runtime/service.js";
@@ -203,10 +204,16 @@ describe("api/openapi.yaml matches the router", () => {
     expect(documentedOperations()).toEqual([
       "GET /api/v1/agents/ai-data-policy",
       "GET /api/v1/agents/availability",
+      "GET /api/v1/agents/briefings",
+      "GET /api/v1/agents/briefings/{id}",
       "GET /api/v1/agents/budgets",
       "GET /api/v1/agents/kill-switch",
       "GET /api/v1/agents/runs/{runId}",
       "GET /api/v1/agents/runs/{runId}/actions",
+      "POST /api/v1/agents/briefings/{id}:mark-read",
+      "POST /api/v1/agents/briefings:generate",
+      "POST /api/v1/agents/copilot/conversations",
+      "POST /api/v1/agents/copilot/conversations/{conversationId}/messages",
       "POST /api/v1/agents/kill-switch",
       "POST /api/v1/agents/runs/{runId}/actions/{actionId}/decision",
       "POST /api/v1/agents/runs/{runId}/actions/{actionId}:undo",
@@ -230,6 +237,7 @@ describe("api/openapi.yaml matches the router", () => {
       copilot: {} as CopilotService,
       knowledge: {} as KnowledgeService,
       budgets: {} as AgentBudgetService,
+      briefings: {} as BriefingService,
       aiPolicy: {} as AiPolicyStore,
       steps: { service: {} as never, verifier: { verify: () => { throw new Error("no"); } } },
     });
@@ -239,7 +247,7 @@ describe("api/openapi.yaml matches the router", () => {
       const base = `http://127.0.0.1:${(s.address() as AddressInfo).port}`;
       for (const op of documentedOperations()) {
         const [method, template] = op.split(" ") as [string, string];
-        const url = template.replace("{runId}", RUN).replace("{actionId}", ACT).replace("{agentId}", "ap_coding").replace("{step}", "plan");
+        const url = template.replace("{runId}", RUN).replace("{id}", RUN).replace("{actionId}", ACT).replace("{agentId}", "ap_coding").replace("{conversationId}", RUN).replace("{step}", "plan");
         // Anonymous: a served route answers 401, an unserved one 404 or 405.
         const res = await fetch(`${base}${url}`, { method, ...(method === "GET" ? {} : { body: "{}" }) });
         expect(res.status, op).toBe(401);

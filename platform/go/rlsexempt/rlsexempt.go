@@ -181,6 +181,7 @@ const (
 	d17AgentsPlatform    = "permanent: the platform's agent catalog and eval results, the same for every tenant and no tenant data (0006_versions_evals_partitions, B-03b)"
 	d17AgentsTenant      = "permanent: tenant-level agent controls (monthly token budget, holds against it, kill-switch changes, the AI data policy change log) and the tenant's knowledge base indexed for the copilot span the tenant's legal entities by design; no business data of one legal entity (B-03b)"
 	d17AgentsRuns        = "interim: an agent run, its actions, approvals, state and credentials belong to the invoking user, and act on business services only through tools that call them with the invoker's token and legal-entity scope; the run log itself is readable across legal entities by agents.run.read holders until runs record the invoker's legal entity (tracked in #725, B-03b)"
+	d17AgentsBriefing    = "permanent: a per-user briefing summarising the invoking user's approval requests and agent runs, tenant-scoped like those tables and with no legal entity column by design; the tenant RLS policy and the owning-user filter bound it (0014_agent_briefing)"
 )
 
 var d17TenantWide = map[string]map[string][]string{
@@ -207,6 +208,7 @@ var d17TenantWide = map[string]map[string][]string{
 		d17AgentsPlatform: {"agent_version", "eval_run"},
 		d17AgentsTenant:   {"token_budget", "budget_hold", "agent_budget_change", "kill_switch_change", "knowledge_chunk", "ai_data_policy_change"},
 		d17AgentsRuns:     {"agent_run", "agent_action", "approval_request", "agent_run_state", "agent_run_credential"},
+		d17AgentsBriefing: {"agent_briefing"},
 	},
 }
 

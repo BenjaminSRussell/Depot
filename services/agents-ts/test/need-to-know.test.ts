@@ -8,7 +8,7 @@ import type { ModelResponse } from "../src/runtime/engine.js";
 import { createEgressGuard, EGRESS_GUARD_TOOL } from "../src/runtime/egressGuard.js";
 import { createNeedToKnowClient } from "../src/runtime/needToKnow.js";
 import type { AiRouter } from "../src/runtime/aiRouter.js";
-import { ScriptedProvider, testGuard } from "./fakes.js";
+import { allowAiAccess, ScriptedProvider, testGuard } from "./fakes.js";
 import { FakeMcp, headers, MemoryStore, serve, tool } from "./surface-fakes.js";
 
 const GET = "depot.ap.invoice.get";
@@ -109,9 +109,10 @@ const chatWithCui = async (duties: string, enforced: boolean, cache = new Copilo
     { text: "", proposal: { tool: GET, args: {}, confidence: 1, amount: { amount: "0", currency: "USD" } }, usage: { tokensIn: 10, tokensOut: 1 } } as ModelResponse,
     { text: "Done.", usage: { tokensIn: 10, tokensOut: 1 } },
   ]);
-  const router: AiRouter = { plan: async ({ refs }) => ({ routeId: "cui", provider, keep: [...refs], excluded: [], restricted: [...refs] }) };
+  const router: AiRouter = { plan: async ({ refs }) => ({ routeId: "cui", provider, keep: [...refs], excluded: [], restricted: [...refs], classes: refs.map(() => "CUI" as const) }) };
   const copilot = createCopilotService({
     guard: testGuard(),
+    aiAccess: allowAiAccess(),
     router,
     needToKnow: { enforced: async () => enforced },
     mcp: new FakeMcp([tool(GET, "ap.invoice.read")], { [GET]: { ok: true, output: { id: "CUI-INV-9", note: "secret-cui-note" }, ref: "CUI-INV-9" } }),
@@ -138,7 +139,8 @@ describe("tenant-denied module in the copilot", () => {
     const denied = createAiPolicyGuard({ read: async () => ({ ...defaultPolicy(), modules: { ap: { ...defaultPolicy().modules.ap, P0: false, P1: false }, ar: defaultPolicy().modules.ar } }) });
     const copilot = createCopilotService({
       guard: createEgressGuard({ policy: denied }),
-      router: { plan: async ({ refs }) => ({ routeId: "test", provider, keep: [...refs], excluded: [], restricted: [] }) },
+      aiAccess: allowAiAccess(),
+      router: { plan: async ({ refs }) => ({ routeId: "test", provider, keep: [...refs], excluded: [], restricted: [], classes: refs.map(() => "NONE" as const) }) },
       needToKnow: { enforced: async () => false },
       mcp: new FakeMcp([tool(GET, "ap.invoice.read")], { [GET]: { ok: true, output: { id: "INV-9", note: "canary-denied-note" }, ref: "INV-9" } }),
       store,

@@ -15,6 +15,9 @@ export const COMPLIANCE_AUDIENCE = "compliance";
 export const DUTY_DESIGNATION_RESOLVE = "compliance.data-designation.resolve";
 export const DUTY_NEED_TO_KNOW_READ = "compliance.need-to-know.read";
 export const COMPLIANCE_GRANT: readonly string[] = [DUTY_DESIGNATION_RESOLVE, DUTY_NEED_TO_KNOW_READ];
+export const AUDIT_AUDIENCE = "audit";
+export const DUTY_AI_ACCESS_WRITE = "audit.ai-access.write";
+export const AUDIT_GRANT: readonly string[] = [DUTY_AI_ACCESS_WRITE];
 
 const TOKEN_CONTEXT = "depot.service-token.v1.";
 const PKCS8_ED25519_PREFIX = Buffer.from("302e020100300506032b657004220420", "hex");
@@ -25,6 +28,7 @@ const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 export interface ServiceSigner {
   mintForWorkflow(subject: { tenantId: string; actor: string }): string;
   mintForCompliance(subject: { tenantId: string; legalEntityId: string; actor: string }): string;
+  mintForAudit(subject: { tenantId: string; legalEntityId: string; actor: string }): string;
 }
 
 export function createServiceSigner(o: { seedBase64: string; keyId?: string; now?: () => number; newJti?: () => string }): ServiceSigner {
@@ -49,6 +53,11 @@ export function createServiceSigner(o: { seedBase64: string; keyId?: string; now
       if (!tenantId || !actor) throw new TypeError("a service token needs a tenant and the acting user");
       if (!CANONICAL_UUID.test(legalEntityId) || legalEntityId === NIL_UUID) throw new TypeError("a compliance service token needs exactly one legal entity");
       return mint(COMPLIANCE_AUDIENCE, COMPLIANCE_GRANT, { tid: tenantId, act: actor, le: legalEntityId });
+    },
+    mintForAudit({ tenantId, legalEntityId, actor }) {
+      if (!tenantId || !actor) throw new TypeError("a service token needs a tenant and the acting user");
+      if (!CANONICAL_UUID.test(legalEntityId) || legalEntityId === NIL_UUID) throw new TypeError("an audit service token needs exactly one legal entity");
+      return mint(AUDIT_AUDIENCE, AUDIT_GRANT, { tid: tenantId, act: actor, le: legalEntityId });
     },
   };
 }

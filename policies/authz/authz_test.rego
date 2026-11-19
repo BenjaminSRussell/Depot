@@ -3357,6 +3357,14 @@ test_agent_run_duties_open_only_their_routes if {
 	allowed("agents.run.read", "POST", "/api/v1/agents/runs/r1/actions/a1:undo")
 	not allowed("agents.run.read", "GET", "/api/v1/agents/runs/r1/actions/a1:undo")
 	not allowed("agents.invoke", "POST", "/api/v1/agents/runs/r1/actions/a1:undo")
+	allowed("agents.invoke", "POST", "/api/v1/agents/briefings:generate")
+	allowed("agents.run.read", "GET", "/api/v1/agents/briefings")
+	allowed("agents.run.read", "GET", "/api/v1/agents/briefings/b1")
+	allowed("agents.run.read", "POST", "/api/v1/agents/briefings/b1:mark-read")
+	not allowed("agents.run.read", "POST", "/api/v1/agents/briefings:generate")
+	not allowed("agents.invoke", "GET", "/api/v1/agents/briefings")
+	not allowed("agents.invoke", "POST", "/api/v1/agents/briefings/b1:mark-read")
+	not allowed("agents.run.read", "GET", "/api/v1/agents/briefings/b1:mark-read")
 	not allowed("agentapproval.decide", "POST", "/api/v1/agents/runs/r1/actions/a1/decision")
 	allowed("mcp.copilot.use", "POST", "/api/v1/copilot/chat")
 	not allowed("agents.run.read", "POST", "/api/v1/copilot/chat")
@@ -3556,6 +3564,17 @@ test_lookup_reads_reach_the_form_fillers if {
 	not allowed("fulfillment.packing-slip.post", "GET", "/v1/costing/valuation-ledgers")
 	allowed("sales.order.write", "POST", "/v1/pricing/resolve")
 	not allowed("sales.order.write", "GET", "/v1/pricing/condition-records")
+}
+
+test_audit_ai_access_write_is_service_only_and_opens_only_the_record_route if {
+	data.duties["audit.ai-access.write"].service_only
+	data.service_grants.agents.audit == ["audit.ai-access.write"]
+	allowed("audit.ai-access.write", "POST", "/v1/audit/ai-data-access")
+	not allowed("audit.ai-access.write", "GET", "/v1/audit/ai-data-access")
+	not allowed("audit.ai-access.write", "POST", "/v1/audit/reads")
+	not allowed("audit.ai-access.write", "POST", "/v1/audit/changes")
+	not allowed("audit.write", "POST", "/v1/audit/ai-data-access")
+	not allowed("audit.read-log.write", "POST", "/v1/audit/ai-data-access")
 }
 
 # HIPAA overlay (#606): reads of protected health information are recorded by the service that returned them (hr, under a

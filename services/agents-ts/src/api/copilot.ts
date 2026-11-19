@@ -1,5 +1,5 @@
 import type { ServerResponse } from "node:http";
-import { COPILOT_DUTY, parseChatRequest, type ChatResponse, type CopilotService } from "../runtime/copilot.js";
+import { COPILOT_DUTY, parseChatRequest, type ChatRequest, type ChatResponse, type CopilotService } from "../runtime/copilot.js";
 import { AgentError } from "../errors.js";
 import { OUTPUT_GUARD_CODE, OUTPUT_GUARD_MESSAGE } from "../runtime/outputGuard.js";
 import { requireDuty, type Principal } from "./principal.js";
@@ -17,6 +17,26 @@ export function tokenFrames(answer: string, size = 48): string[] {
   }
   if (cur !== "") out.push(cur);
   return out;
+}
+
+const ROUTE_REFUSAL_MESSAGES: Readonly<Record<string, string>> = {
+  "AGT-0201": "The assistant is paused for your organization.",
+  "AGT-0202": "The assistant's usage limit has been reached.",
+};
+const ROUTE_REFUSAL_FALLBACK = "The assistant could not classify this request right now.";
+
+async function answerRoute(input: { principal: Principal; token: string; request: ChatRequest; copilot: CopilotService; res: ServerResponse }): Promise<void> {
+  let body: unknown;
+  try {
+    const reply = await input.copilot.chat(input.principal, input.token, input.request);
+    body = reply.route !== undefined ? { ...reply.route, generated: true } : { refusal: reply.refusal, generated: true };
+  } catch (err) {
+    if (!(err instanceof AgentError)) throw err;
+    body = { refusal: { code: err.code, message: ROUTE_REFUSAL_MESSAGES[err.code] ?? ROUTE_REFUSAL_FALLBACK }, generated: true };
+  }
+  const payload = JSON.stringify(body);
+  input.res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "content-length": Buffer.byteLength(payload).toString() });
+  input.res.end(payload);
 }
 
 const frame = (event: string, data: unknown): string => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -39,6 +59,10 @@ export async function handleChat(input: {
 }): Promise<void> {
   requireDuty(input.principal, COPILOT_DUTY, "the copilot");
   const request = parseChatRequest(input.body);
+  if (request.mode === "route") {
+    await answerRoute({ principal: input.principal, token: input.token, request, copilot: input.copilot, res: input.res });
+    return;
+  }
   const wantsStream = input.accept.toLowerCase().includes("text/event-stream");
   const res = input.res;
   if (!wantsStream) {

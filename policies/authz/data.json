@@ -2455,6 +2455,9 @@
     "audit.read-log.write": {"tenant_level": true, "service_only": true, "permissions": [
       {"resource": "/v1/audit/reads", "methods": ["POST"]}
     ]},
+    "audit.ai-access.write": {"tenant_level": true, "service_only": true, "permissions": [
+      {"resource": "/v1/audit/ai-data-access", "methods": ["POST"]}
+    ]},
     "audit.read-log.view": {"tenant_level": true, "permissions": [
       {"resource": "/v1/audit/reads", "methods": ["GET"]}
     ]},
@@ -4159,14 +4162,20 @@
     "compliance.erasure.request": {"permissions": [{"resource": "/v1/privacy/erasures", "methods": ["POST"]}]},
     "compliance.retention.read": {"permissions": [{"resource": "/v1/privacy/retention-policies", "methods": ["GET"]}]},
     "receiving.payee.erase": {"permissions": [{"resource": "/v1/receiving/one-time-payees:erase", "methods": ["POST"]}]},
-    "agents.invoke": {"permissions": [{"resource": "/api/v1/agents/*/runs", "methods": ["POST"]}]},
+    "agents.invoke": {"permissions": [
+      {"resource": "/api/v1/agents/*/runs", "methods": ["POST"]},
+      {"resource": "/api/v1/agents/briefings:generate", "methods": ["POST"]}
+    ]},
     "aipolicy.read": {"permissions": [{"resource": "/api/v1/agents/ai-data-policy", "methods": ["GET"]}]},
     "aipolicy.write": {"permissions": [{"resource": "/api/v1/agents/ai-data-policy", "methods": ["PUT"]}]},
     "agents.run.read": {"permissions": [
       {"resource": "/api/v1/agents/runs/*", "methods": ["GET"]},
       {"resource": "/api/v1/agents/runs/*/actions", "methods": ["GET"]},
       {"resource": "/api/v1/agents/runs/*/actions/*/decision", "methods": ["POST"]},
-      {"resource": "/api/v1/agents/runs/*/actions/*:undo", "methods": ["POST"]}
+      {"resource": "/api/v1/agents/runs/*/actions/*:undo", "methods": ["POST"]},
+      {"resource": "/api/v1/agents/briefings", "methods": ["GET"]},
+      {"resource": "/api/v1/agents/briefings/*", "methods": ["GET"]},
+      {"resource": "/api/v1/agents/briefings/*:mark-read", "methods": ["POST"]}
     ]},
     "agentbudget.read": {"permissions": [{"resource": "/api/v1/agents/budgets", "methods": ["GET"]}]},
     "agentbudget.write": {"permissions": [{"resource": "/api/v1/agents/budgets/*", "methods": ["PUT"]}]},
@@ -4341,7 +4350,8 @@
     },
     "agents": {
       "workflow-ts": ["agents.run.signal"],
-      "compliance": ["compliance.data-designation.resolve", "compliance.need-to-know.read"]
+      "compliance": ["compliance.data-designation.resolve", "compliance.need-to-know.read"],
+      "audit": ["audit.ai-access.write"]
     },
     "party": {
       "numbering": ["numbering.sequence.allocate"]

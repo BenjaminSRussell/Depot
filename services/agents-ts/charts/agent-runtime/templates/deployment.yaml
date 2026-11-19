@@ -44,6 +44,10 @@ spec:
               value: {{ .Values.mcpUrl | quote }}
             - name: AGENTS_BOUNDARY
               value: {{ .Values.boundary | quote }}
+            {{- if .Values.auditUrl }}
+            - name: AGENTS_AUDIT_URL
+              value: {{ .Values.auditUrl | quote }}
+            {{- end }}
             {{- if .Values.complianceUrl }}
             - name: AGENTS_COMPLIANCE_URL
               value: {{ .Values.complianceUrl | quote }}

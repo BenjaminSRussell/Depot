@@ -25,6 +25,7 @@ type fakeStore struct {
 	records []store.Record
 	alerts  []store.Alert
 	readStore
+	aiAccess   []domain.AIAccess
 	lastFilter store.ReadFilter
 	entities   []store.EntitySummary
 

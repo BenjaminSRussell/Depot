@@ -506,7 +506,7 @@ paths:
               type: object
               required: [mode, message]
               properties:
-                mode: {type: string, enum: [ask, explain, draft, summarize]}
+                mode: {type: string, enum: [ask, explain, draft, summarize, route]}
                 message: {type: string, minLength: 1, maxLength: 4000}
                 recordRef: {type: string, minLength: 1, maxLength: 200}
               additionalProperties: false
@@ -521,6 +521,80 @@ paths:
         "400": {$ref: "#/components/responses/Problem"}
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/copilot/conversations:
+    post:
+      operationId: createCopilotConversation
+      summary: Start a copilot conversation
+      description: |
+        Stateless: nothing is stored, the id only names the conversation in the
+        messages path.
+      x-depot-duty: mcp.copilot.use
+      x-depot-approval: none
+      responses:
+        "201":
+          description: The conversation id.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [conversationId]
+                properties:
+                  conversationId: {type: string, format: uuid}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/copilot/conversations/{conversationId}/messages:
+    post:
+      operationId: postCopilotMessage
+      summary: One copilot message; mode=route classifies the prompt without a tool
+      description: |
+        Same body and behaviour as /api/v1/copilot/chat. With mode=route the
+        prompt is classified as ask, navigate, act or clarify and no tool is
+        called. Rules are checked in order and the first match wins: an action
+        verb (apply, cancel, release, pay, post, approve, reject, settle,
+        reverse, postpone, advance, send) applied to a record or amount is act;
+        a start of show me, list, open, go to, find, create, new or start is
+        navigate; a question mark at the end or a start of what, which, who,
+        why, how many, how much, when, compare, explain, total or trend is ask.
+        Only a prompt no rule decides goes to one model call with no tools,
+        whose answer is clarify (with the two top kinds as candidates) when its
+        confidence is below 0.6 or its top two kinds are within 0.15. A route
+        answer is always JSON, even with Accept: text/event-stream. A kill
+        switch, budget stop, provider failure, missing AI route or guard block
+        answers HTTP 200 with a RefusalResponse and no kind. A route call is
+        never cached and counts against the budget and the kill switch.
+      x-depot-duty: mcp.copilot.use
+      x-depot-approval: none
+      parameters:
+        - {name: conversationId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode, message]
+              properties:
+                mode: {type: string, enum: [ask, explain, draft, summarize, route]}
+                message: {type: string, minLength: 1, maxLength: 4000}
+                recordRef: {type: string, minLength: 1, maxLength: 200}
+              additionalProperties: false
+      responses:
+        "200":
+          description: The answer, the route classification or the refusal.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - {$ref: "#/components/schemas/ChatResponse"}
+                  - {$ref: "#/components/schemas/RouteResponse"}
+                  - {$ref: "#/components/schemas/RefusalResponse"}
+            text/event-stream:
+              schema: {type: string, description: "token frames, optionally one answer.withdrawn frame, then one done frame; never for mode=route"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
   /api/v1/agents/budgets:
     get:
@@ -574,6 +648,109 @@ paths:
         "404": {$ref: "#/components/responses/Problem"}
         "413": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/briefings:generate:
+    post:
+      operationId: generateAgentBriefing
+      summary: Start an on-demand briefing of the five business agents for the caller (DEPOT-285)
+      description: |
+        Stores a RUNNING briefing for the caller and builds it in the
+        background from the agents' own tables: pending proposals, decisions
+        and finished runs of the last 24 hours, only what the caller may read.
+        Nothing is committed, posted or sent. At most 3 requests per user per
+        rolling hour (429 AGT-0230 with Retry-After) and one in flight (409
+        AGT-0231, body briefingId). The ticket's agent names map to the catalog
+        ids used here: cash_application = cash_app, collections_outreach =
+        collections, journal_anomaly = anomaly.
+      x-depot-duty: agents.invoke
+      x-depot-approval: none
+      responses:
+        "202":
+          description: The briefing was accepted; poll GET /api/v1/agents/briefings/{id} until status is READY or FAILED.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, status]
+                properties:
+                  id: {type: string, format: uuid}
+                  status: {type: string, enum: [RUNNING]}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409":
+          description: A briefing of the caller is already being generated; the body carries briefingId.
+          content:
+            application/problem+json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ProblemBody"
+                  - type: object
+                    properties:
+                      briefingId: {type: string, format: uuid}
+        "429":
+          description: Three briefings were already requested in the last hour.
+          headers:
+            Retry-After: {schema: {type: integer, minimum: 1}, description: Seconds until the oldest request leaves the window.}
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/ProblemBody"}
+  /api/v1/agents/briefings:
+    get:
+      operationId: listAgentBriefings
+      summary: The caller's briefings, newest first
+      description: |
+        Only the caller's own briefings. limit is 1 to 100 (default 20); cursor
+        is the opaque nextCursor of the previous page. nextScheduledAt is null
+        until scheduled delivery exists (E1-S18).
+      x-depot-duty: agents.run.read
+      x-depot-approval: none
+      parameters:
+        - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+        - {name: cursor, in: query, required: false, schema: {type: string}}
+      responses:
+        "200":
+          description: One page of briefings.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/BriefingList"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/briefings/{id}:
+    get:
+      operationId: getAgentBriefing
+      summary: One of the caller's briefings
+      description: Another user's or another tenant's briefing is never found (404 AGT-0404).
+      x-depot-duty: agents.run.read
+      x-depot-approval: none
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: The briefing.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Briefing"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/briefings/{id}:mark-read:
+    post:
+      operationId: markAgentBriefingRead
+      summary: Mark one of the caller's briefings as read
+      description: Sets readAt once for the caller's own briefing; a second call keeps the first value. Another user's id is 404 AGT-0404 and nothing changes.
+      x-depot-duty: agents.run.read
+      x-depot-approval: none
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: The briefing with readAt set.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Briefing"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
 components:
   responses:
     Problem:
@@ -591,6 +768,46 @@ components:
               detail: {type: string}
               instance: {type: string}
   schemas:
+    ProblemBody:
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type: {type: string, format: uri}
+        title: {type: string}
+        status: {type: integer}
+        code: {type: string, pattern: "^AGT-[0-9]{4}$"}
+        detail: {type: string}
+        instance: {type: string}
+    BriefingItem:
+      type: object
+      required: [agentId, factId, text]
+      properties:
+        agentId: {type: string, enum: [ap_coding, cash_app, mrp_triage, collections, anomaly]}
+        factId: {type: string}
+        text: {type: string}
+        actionId: {type: string, format: uuid, description: "The approval_request action id the decision endpoint takes."}
+        route: {type: string, description: "/assistant/proposals/{actionId}"}
+    Briefing:
+      type: object
+      required: [id, status, narrative, createdAt, completedAt, readAt, changes, risks, recommendedActions, notes]
+      properties:
+        id: {type: string, format: uuid}
+        status: {type: string, enum: [RUNNING, READY, FAILED]}
+        narrative: {type: boolean}
+        createdAt: {type: string, format: date-time}
+        completedAt: {type: [string, "null"], format: date-time}
+        readAt: {type: [string, "null"], format: date-time}
+        changes: {type: array, items: {$ref: "#/components/schemas/BriefingItem"}}
+        risks: {type: array, items: {$ref: "#/components/schemas/BriefingItem"}}
+        recommendedActions: {type: array, items: {$ref: "#/components/schemas/BriefingItem"}}
+        notes: {type: array, items: {type: string}}
+    BriefingList:
+      type: object
+      required: [items, nextCursor, nextScheduledAt]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/Briefing"}}
+        nextCursor: {type: [string, "null"]}
+        nextScheduledAt: {type: "null"}
     AiDataPolicyCells:
       type: object
       properties:
@@ -742,6 +959,31 @@ components:
           type: string
           enum: [P0, P1, P2, P3]
           description: The highest data class the egress guard found in the text sent to the model across the chat (DEPOT-304).
+        generated: {type: boolean, enum: [true]}
+    RouteResponse:
+      type: object
+      required: [kind, confidence, generated]
+      properties:
+        kind: {type: string, enum: [ask, navigate, act, clarify]}
+        confidence: {type: number, minimum: 0, maximum: 1}
+        candidates:
+          type: array
+          description: Present only for kind clarify; the two most likely kinds.
+          minItems: 2
+          maxItems: 2
+          items: {type: string, enum: [ask, navigate, act]}
+        generated: {type: boolean, enum: [true]}
+    RefusalResponse:
+      type: object
+      required: [refusal, generated]
+      description: The standard refusal of a route call; it never carries kind or candidates.
+      properties:
+        refusal:
+          type: object
+          required: [code, message]
+          properties:
+            code: {type: string, description: "AGT-0201, AGT-0202, AGT-0206, AGT-0218, AGT-0219 or AGT-0220"}
+            message: {type: string}
         generated: {type: boolean, enum: [true]}
     KillSwitchCommand:
       type: object

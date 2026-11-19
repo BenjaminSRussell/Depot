@@ -19,6 +19,7 @@ export interface AiPlan {
   keep: DataRef[];
   excluded: DataRef[];
   restricted: DataRef[];
+  classes: EffectiveClass[];
 }
 
 export interface AiRouter {
@@ -64,7 +65,7 @@ export function createAiRouter(deps: AiRouterDeps): AiRouter {
           kinds: [...new Set(dropped.map((r) => r.entityType))],
         });
       }
-      return { routeId: route.routeId, provider: deps.providerFor(modelId), keep: cuiRoute === undefined ? permitted : [...refs], excluded: dropped, restricted: excluded };
+      return { routeId: route.routeId, provider: deps.providerFor(modelId), keep: cuiRoute === undefined ? permitted : [...refs], excluded: dropped, restricted: excluded, classes };
     },
   };
 }

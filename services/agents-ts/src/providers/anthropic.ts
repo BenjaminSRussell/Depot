@@ -24,7 +24,7 @@ export function createAnthropicProvider(cfg: AnthropicConfig): ModelProvider {
   const base = (cfg.baseUrl ?? "https://api.anthropic.com").replace(/\/$/, "");
   assertProviderEndpoint(base, cfg.egress);
   const body = (req: ModelRequest, stream: boolean): Record<string, unknown> => {
-    const tool = proposeTool(req.allowedTools);
+    const tool = proposeTool(req.allowedTools, req.answerOnly === true);
     return {
       model: cfg.model,
       max_tokens: outputLimit(cfg.maxTokens, req.maxOutputTokens),
@@ -46,7 +46,7 @@ export function createAnthropicProvider(cfg: AnthropicConfig): ModelProvider {
     async complete(req): Promise<ModelResponse> {
       // Defence in depth: the engine redacts first; the adapter refuses raw PII too.
       assertNoPii(req.user);
-      const tool = proposeTool(req.allowedTools);
+      const tool = proposeTool(req.allowedTools, req.answerOnly === true);
       const json = await postJson(
         `${base}/v1/messages`,
         { "x-api-key": cfg.apiKey, "anthropic-version": "2023-06-01" },

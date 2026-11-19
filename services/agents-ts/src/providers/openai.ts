@@ -36,7 +36,7 @@ export function createOpenAICompatibleProvider(cfg: OpenAICompatibleConfig): Mod
     endpoint: describeEndpoint(/\.openai\.azure\./.test(url.hostname) ? "azure-openai" : "openai-compatible", url.toString(), cfg.egress?.region),
     async complete(req): Promise<ModelResponse> {
       assertNoPii(req.user);
-      const tool = proposeTool(req.allowedTools);
+      const tool = proposeTool(req.allowedTools, req.answerOnly === true);
       const json = await postJson(
         url.toString(),
         headers,

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { KillSwitchRegistry } from "../domain/killswitch.js";
 import { type ApprovalStore, handleApprovalDecision } from "./decision.js";
@@ -13,6 +14,8 @@ import type { AgentBudgetService } from "./agentBudgets.js";
 import { type AiPolicyStore, handleGetAiDataPolicy, handlePutAiDataPolicy } from "./aiDataPolicy.js";
 import type { Authenticate } from "./auth.js";
 import { ApiError, requireDuty, toApiError } from "./principal.js";
+import { handleGenerate, handleGet, handleList, handleMarkRead } from "./briefings.js";
+import type { BriefingService } from "../runtime/briefing.js";
 import { bearerToken, handleGetRun, handleListActions, handleStartRun } from "./runs.js";
 
 /** 64 KiB is far above any control payload in this API. */
@@ -35,6 +38,8 @@ export interface AgentsApiBase {
   knowledge?: KnowledgeService;
   /** The budgets list and per-agent cap routes; absent and they answer 404. */
   budgets?: AgentBudgetService;
+  /** On-demand briefings; absent and their routes answer 404. */
+  briefings?: BriefingService;
   /** The tenant AI data policy; absent and its route answers 404. */
   aiPolicy?: AiPolicyStore;
   now?: () => Date;
@@ -49,9 +54,15 @@ const AI_POLICY_PATH = "/api/v1/agents/ai-data-policy";
 const START_PATH = /^\/api\/v1\/agents\/([a-z][a-z0-9_]{0,63})\/runs$/;
 const RUN_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})$`);
 const ACTIONS_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/actions$`);
+const BRIEFINGS_PATH = "/api/v1/agents/briefings";
+const BRIEFING_GENERATE_PATH = "/api/v1/agents/briefings:generate";
+const BRIEFING_PATH = new RegExp(`^/api/v1/agents/briefings/(${UUID})$`);
+const BRIEFING_READ_PATH = new RegExp(`^/api/v1/agents/briefings/(${UUID}):mark-read$`);
 const BUDGETS_PATH = "/api/v1/agents/budgets";
 const BUDGET_AGENT_PATH = /^\/api\/v1\/agents\/budgets\/([a-z][a-z0-9_]{0,63})$/;
 const CHAT_PATH = "/api/v1/copilot/chat";
+const CONVERSATIONS_PATH = "/api/v1/agents/copilot/conversations";
+const MESSAGES_PATH = new RegExp(`^/api/v1/agents/copilot/conversations/(${UUID})/messages$`);
 const KNOWLEDGE_CHUNKS_PATH = "/api/v1/knowledge/chunks";
 const KNOWLEDGE_SEARCH_PATH = "/api/v1/knowledge/search";
 const STEP_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/steps/(begin|plan|resolve|commit|abort)$`);
@@ -104,6 +115,7 @@ const TITLES: Readonly<Record<number, string>> = {
   413: "Content Too Large",
   422: "Unprocessable Content",
   428: "Precondition Required",
+  429: "Too Many Requests",
   500: "Internal Server Error",
   503: "Service Unavailable",
 };
@@ -111,6 +123,7 @@ const TITLES: Readonly<Record<number, string>> = {
 /** RFC 9457 problem details in the kernel's shape: type, title, status, code, detail. */
 function problem(res: ServerResponse, err: ApiError, path: string, extra: Record<string, string> = {}): void {
   const payload = JSON.stringify({
+    ...err.members,
     type: `https://depot.dev/problems/${err.code}`,
     title: TITLES[err.status] ?? "Error",
     status: err.status,
@@ -123,6 +136,7 @@ function problem(res: ServerResponse, err: ApiError, path: string, extra: Record
     "cache-control": "no-store",
     "content-length": Buffer.byteLength(payload).toString(),
     "x-content-type-options": "nosniff",
+    ...err.headers,
     ...extra,
   });
   res.end(payload);
@@ -230,6 +244,20 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         await handleChat({ principal, token: bearerToken(req.headers), body: await readBody(req), accept: String(req.headers["accept"] ?? ""), copilot: deps.copilot, res });
         return;
       }
+      if (path === CONVERSATIONS_PATH) {
+        if (deps.copilot === undefined) throw new ApiError(404, "AGT-0404", "no such route");
+        if (req.method !== "POST") throw new MethodNotAllowed("POST");
+        requireDuty(await deps.authenticate(req.headers), COPILOT_DUTY, "the copilot");
+        send(res, 201, { conversationId: randomUUID() });
+        return;
+      }
+      if (MESSAGES_PATH.test(path)) {
+        if (deps.copilot === undefined) throw new ApiError(404, "AGT-0404", "no such route");
+        if (req.method !== "POST") throw new MethodNotAllowed("POST");
+        const principal = await deps.authenticate(req.headers);
+        await handleChat({ principal, token: bearerToken(req.headers), body: await readBody(req), accept: String(req.headers["accept"] ?? ""), copilot: deps.copilot, res });
+        return;
+      }
       if (path === KNOWLEDGE_CHUNKS_PATH || path === KNOWLEDGE_SEARCH_PATH) {
         if (deps.knowledge === undefined) throw new ApiError(404, "AGT-0404", "no such route");
         if (req.method !== "POST") throw new MethodNotAllowed("POST");
@@ -242,6 +270,20 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
           const q = parseSearch(await readBody(req));
           send(res, 200, await deps.knowledge.search(principal.tenantId, q.query, q.limit));
         }
+        return;
+      }
+      const briefingGet = BRIEFING_PATH.exec(path);
+      const briefingRead = BRIEFING_READ_PATH.exec(path);
+      if (path === BRIEFINGS_PATH || path === BRIEFING_GENERATE_PATH || briefingGet !== null || briefingRead !== null) {
+        if (deps.briefings === undefined) throw new ApiError(404, "AGT-0404", "no such route");
+        const method = path === BRIEFING_GENERATE_PATH || briefingRead !== null ? "POST" : "GET";
+        if (req.method !== method) throw new MethodNotAllowed(method);
+        const principal = await deps.authenticate(req.headers);
+        const briefings = deps.briefings;
+        if (path === BRIEFING_GENERATE_PATH) send(res, 202, await handleGenerate({ principal, briefings }));
+        else if (briefingRead !== null) send(res, 200, await handleMarkRead({ principal, id: (briefingRead[1] ?? "").toLowerCase(), briefings }));
+        else if (briefingGet !== null) send(res, 200, await handleGet({ principal, id: (briefingGet[1] ?? "").toLowerCase(), briefings }));
+        else send(res, 200, await handleList({ principal, params: new URL(req.url ?? "/", "http://agents.internal").searchParams, briefings }));
         return;
       }
       const budgetAgent = BUDGET_AGENT_PATH.exec(path);

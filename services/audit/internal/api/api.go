@@ -31,12 +31,14 @@ type API struct {
 	applied atomic.Int64
 	failed  atomic.Int64
 	// Read-log counters (#606).
-	reads         atomic.Int64
-	readsFailed   atomic.Int64
-	exports       atomic.Int64
-	reviews       atomic.Int64
-	queries       atomic.Int64
-	queriesFailed atomic.Int64
+	reads          atomic.Int64
+	readsFailed    atomic.Int64
+	exports        atomic.Int64
+	reviews        atomic.Int64
+	queries        atomic.Int64
+	queriesFailed  atomic.Int64
+	aiAccess       atomic.Int64
+	aiAccessFailed atomic.Int64
 }
 
 // ingestRequest is the body of POST /v1/audit/changes. UserID exists only so a request that names the actor is
@@ -90,6 +92,7 @@ func (a *API) Register(r chi.Router) {
 	r.With(authz.RequireDuty(dutyReadLogView)).Get("/v1/audit/reads", a.listReads)
 	r.With(authz.RequireDuty(dutyReadLogExport)).Get("/v1/audit/reads:export", a.exportReads)
 	r.With(authz.RequireDuty(dutyReadLogExport)).Get("/v1/audit/reads:verify", a.verifyReads)
+	r.With(authz.RequireDuty(dutyAIAccessWrite)).Post("/v1/audit/ai-data-access", a.recordAIAccess)
 	// Break-glass reads (purpose BREAK-GLASS) are reviewed by a second person (#606).
 	r.With(authz.RequireDuty(dutyReadLogReview)).Get("/v1/audit/reads:break-glass", a.listBreakGlass)
 	r.With(authz.RequireDuty(dutyReadLogReview)).Post("/v1/audit/reads/{id}:review", a.reviewRead)
@@ -107,6 +110,8 @@ func (a *API) Metrics() http.Handler {
 		_, _ = fmt.Fprintf(w, "# HELP audit_phi_reads_failed_total PHI read records that were not stored.\n# TYPE audit_phi_reads_failed_total counter\naudit_phi_reads_failed_total %d\n", a.readsFailed.Load())
 		_, _ = fmt.Fprintf(w, "# HELP audit_phi_read_exports_total Read-log exports delivered.\n# TYPE audit_phi_read_exports_total counter\naudit_phi_read_exports_total %d\n", a.exports.Load())
 		_, _ = fmt.Fprintf(w, "# HELP audit_phi_break_glass_reviews_total Break-glass reads reviewed.\n# TYPE audit_phi_break_glass_reviews_total counter\naudit_phi_break_glass_reviews_total %d\n", a.reviews.Load())
+		_, _ = fmt.Fprintf(w, "# HELP audit_ai_data_access_recorded_total AI data-access records appended.\n# TYPE audit_ai_data_access_recorded_total counter\naudit_ai_data_access_recorded_total %d\n", a.aiAccess.Load())
+		_, _ = fmt.Fprintf(w, "# HELP audit_ai_data_access_failed_total AI data-access records that were not stored.\n# TYPE audit_ai_data_access_failed_total counter\naudit_ai_data_access_failed_total %d\n", a.aiAccessFailed.Load())
 	})
 }
 
