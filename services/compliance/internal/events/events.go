@@ -29,11 +29,29 @@ var (
 	HoldPlaced       = events.Type(PrivacyContext, "hold", "placed", 1)
 	HoldReleased     = events.Type(PrivacyContext, "hold", "released", 1)
 	ErasureRequested = events.Type(PrivacyContext, "erasure", "requested", 1)
+
+	DesignationChanged = events.Type(DesignationContext, "datadesignation", "changed", 1)
 )
+
+// DesignationContext is the event context of CUI data designations (DEPOT-301).
+const DesignationContext = "compliance"
 
 // All lists every event type this service publishes.
 func All() []string {
-	return []string{ConflictDetected, MitigationApproved, ScreeningHit, RequestCompleted, HoldPlaced, HoldReleased, ErasureRequested}
+	return []string{ConflictDetected, MitigationApproved, ScreeningHit, RequestCompleted, HoldPlaced, HoldReleased, ErasureRequested, DesignationChanged}
+}
+
+type DesignationChangedData struct {
+	DesignationID string    `json:"designation_id"`
+	Scope         string    `json:"scope"`
+	LegalEntityID string    `json:"legal_entity_id,omitempty"`
+	EntityType    string    `json:"entity_type,omitempty"`
+	RecordID      string    `json:"record_id,omitempty"`
+	Class         string    `json:"class"`
+	PreviousClass string    `json:"previous_class,omitempty"`
+	Version       int       `json:"version"`
+	ChangedBy     string    `json:"changed_by"`
+	ChangedAt     time.Time `json:"changed_at"`
 }
 
 type HoldPlacedData struct {

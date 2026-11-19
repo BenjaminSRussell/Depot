@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/compliance/internal/domain"
@@ -27,6 +28,12 @@ type fakeDesignations struct {
 	cuiRecords   map[string]bool
 	resolveErr   error
 	tenantCUI    bool
+	changeCalls  int
+	changedID    string
+	changedIn    store.DesignationChange
+	changeErr    error
+	history      []store.DesignationHistoryEntry
+	listed       store.DesignationFilter
 }
 
 func (f *fakeStore) Resolve(_ context.Context, refs []store.ResolveRef) ([]store.ResolvedRef, error) {
@@ -201,7 +208,11 @@ func TestDesignation_StandardBoundaryRefusesEveryScopeWith409(t *testing.T) {
 			f, owner := &fakeStore{}, &fakeOwner{}
 			a := boundaryAPI(f, boundary)
 			a.cfg.Owner = owner
-			rec := serve(t, router(a), designationCall(body, le, DutyDataDesignationWrite))
+			caller := designationCall(body, le, DutyDataDesignationWrite)
+			if body["scope"] == "TENANT" {
+				caller = designationCall(body, "", DutyDataDesignationWrite, tenant.DutyTenantAdmin)
+			}
+			rec := serve(t, router(a), caller)
 			if rec.Code != http.StatusConflict || problemCode(t, rec) != domain.CodeCUIBoundary || f.designs.calls != 0 || owner.calls != 0 {
 				t.Errorf("%s %v: %d %s, store calls %d", name, body["scope"], rec.Code, rec.Body.String(), f.designs.calls)
 			}
@@ -227,7 +238,7 @@ func TestDesignation_CUIBoundaryStoresAndReturnsETag(t *testing.T) {
 	if f.designs.lastKey != "k-1" || f.designs.last.LegalEntityID != le || f.designs.last.Scope != domain.ScopeLegalEntity {
 		t.Fatalf("store input: %+v key %q", f.designs.last, f.designs.lastKey)
 	}
-	tenantWide := serve(t, router(boundaryAPI(&fakeStore{}, domain.BoundaryCUI)), designationCall(designationBody("TENANT", ""), "", DutyDataDesignationWrite))
+	tenantWide := serve(t, router(boundaryAPI(&fakeStore{}, domain.BoundaryCUI)), designationCall(designationBody("TENANT", ""), "", DutyDataDesignationWrite, tenant.DutyTenantAdmin))
 	if tenantWide.Code != http.StatusCreated {
 		t.Fatalf("tenant scope: %d %s", tenantWide.Code, tenantWide.Body.String())
 	}
@@ -236,7 +247,7 @@ func TestDesignation_CUIBoundaryStoresAndReturnsETag(t *testing.T) {
 func TestDesignation_CategoryLimitCountsCharactersNotBytes(t *testing.T) {
 	f := &fakeStore{}
 	body := map[string]any{"scope": "TENANT", "class": "CUI", "reason": "r", "category": strings.Repeat("я", 100)}
-	rec := serve(t, router(boundaryAPI(f, domain.BoundaryCUI)), designationCall(body, "", DutyDataDesignationWrite))
+	rec := serve(t, router(boundaryAPI(f, domain.BoundaryCUI)), designationCall(body, "", DutyDataDesignationWrite, tenant.DutyTenantAdmin))
 	if rec.Code != http.StatusCreated || f.designs.calls != 1 {
 		t.Fatalf("100-rune category: %d %s", rec.Code, rec.Body.String())
 	}
@@ -401,7 +412,7 @@ func TestResolve_SlowOwnerHitsTheOverallDeadlineAndResolvesUnknown(t *testing.T)
 	previous := resolveDeadline
 	resolveDeadline = 50 * time.Millisecond
 	defer func() { resolveDeadline = previous }()
-	recordIDs := make([]string, 100)
+	recordIDs := make([]string, domain.MaxResolveRefs)
 	for i := range recordIDs {
 		recordIDs[i] = ids.New()
 	}
@@ -443,5 +454,151 @@ func TestResolve_ClaimlessCallerSeesTenantCUIAndOtherwiseUnknown(t *testing.T) {
 	got = resolveItems(t, serve(t, router(ownerAPI(plain, owner)), claimless))
 	if got[0].Class != domain.ClassUNKNOWN || got[0].Source != domain.SourceUnresolved {
 		t.Fatalf("an undesignated tenant must stay UNKNOWN for a claimless caller: %v", got)
+	}
+}
+
+func stateOf(f *fakeStore) *fakeDesignations { return &f.designs }
+
+func (f *fakeStore) ChangeDesignation(_ context.Context, id string, expected int, in store.DesignationChange, at time.Time) (store.Designation, error) {
+	s := stateOf(f)
+	s.changeCalls++
+	s.changedID, s.changedIn = id, in
+	if s.changeErr != nil {
+		return store.Designation{}, s.changeErr
+	}
+	return store.Designation{DesignationID: id, Scope: domain.ScopeLegalEntity, Class: in.Class, Reason: in.Reason, DesignatedAt: at, Version: expected + 1}, nil
+}
+
+func (f *fakeStore) GetDesignation(_ context.Context, id string) (store.Designation, error) {
+	return store.Designation{DesignationID: id, Scope: domain.ScopeLegalEntity, Class: domain.ClassCUI, Version: 3}, nil
+}
+
+func (f *fakeStore) ListDesignations(_ context.Context, filter store.DesignationFilter) ([]store.Designation, error) {
+	stateOf(f).listed = filter
+	return []store.Designation{{DesignationID: ids.New(), Scope: domain.ScopeRecord, Class: domain.ClassCUI, Version: 1}}, nil
+}
+
+func (f *fakeStore) DesignationHistory(_ context.Context, _ string) ([]store.DesignationHistoryEntry, error) {
+	return stateOf(f).history, nil
+}
+
+func TestDesignation_TenantScopeNeedsTenantAdministerAndNoLegalEntityClaim(t *testing.T) {
+	for name, c := range map[string]call{
+		"write duty only":                  designationCall(designationBody("TENANT", ""), "", DutyDataDesignationWrite),
+		"legal-entity scoped tenant admin": designationCall(designationBody("TENANT", ""), testLE, DutyDataDesignationWrite, tenant.DutyTenantAdmin),
+		"legal-entity scoped write only":   designationCall(designationBody("TENANT", ""), testLE, DutyDataDesignationWrite),
+		"tenant admin without write duty":  designationCall(designationBody("TENANT", ""), "", tenant.DutyTenantAdmin),
+	} {
+		f := &fakeStore{}
+		rec := serve(t, router(boundaryAPI(f, domain.BoundaryCUI)), c)
+		if rec.Code != http.StatusForbidden || problemCode(t, rec) != "AUTH-0003" || f.designs.calls != 0 {
+			t.Errorf("%s: %d %s, store calls %d", name, rec.Code, rec.Body.String(), f.designs.calls)
+		}
+	}
+}
+
+func changeCall(id, version string, body any, le string, duties ...string) call {
+	headers := map[string]string{}
+	if version != "" {
+		headers["If-Match"] = version
+	}
+	return call{method: http.MethodPatch, path: "/v1/compliance/data-designations/" + id, body: body, duties: duties, legalEntity: le, headers: headers}
+}
+
+func TestChangeDesignation_DowngradeNeedsReasonAndIfMatch(t *testing.T) {
+	id := ids.New()
+	f := &fakeStore{}
+	h := router(boundaryAPI(f, domain.BoundaryCUI))
+	rec := serve(t, h, changeCall(id, `"2"`, map[string]any{"class": "NONE", "reason": "released to the public"}, testLE, DutyDataDesignationWrite))
+	if rec.Code != http.StatusOK || rec.Header().Get("ETag") != `"3"` || stateOf(f).changedID != id || stateOf(f).changedIn.Class != domain.ClassNONE {
+		t.Fatalf("downgrade: %d %s", rec.Code, rec.Body.String())
+	}
+	for name, tc := range map[string]struct {
+		version string
+		body    map[string]any
+		status  int
+	}{
+		"reason absent":     {`"2"`, map[string]any{"class": "NONE"}, http.StatusBadRequest},
+		"reason whitespace": {`"2"`, map[string]any{"class": "NONE", "reason": "  "}, http.StatusBadRequest},
+		"reason 501":        {`"2"`, map[string]any{"class": "NONE", "reason": strings.Repeat("r", 501)}, http.StatusBadRequest},
+		"class P3":          {`"2"`, map[string]any{"class": "P3", "reason": "r"}, http.StatusBadRequest},
+		"class absent":      {`"2"`, map[string]any{"reason": "r"}, http.StatusBadRequest},
+		"no If-Match":       {"", map[string]any{"class": "NONE", "reason": "r"}, http.StatusPreconditionRequired},
+		"bad If-Match":      {"abc", map[string]any{"class": "NONE", "reason": "r"}, http.StatusBadRequest},
+	} {
+		g := &fakeStore{}
+		rec := serve(t, router(boundaryAPI(g, domain.BoundaryCUI)), changeCall(id, tc.version, tc.body, testLE, DutyDataDesignationWrite))
+		if rec.Code != tc.status || stateOf(g).changeCalls != 0 {
+			t.Errorf("%s: %d %s", name, rec.Code, rec.Body.String())
+		}
+	}
+}
+
+func TestChangeDesignation_NeedsTheWriteDutyAndStandardBoundaryRefusesCUI(t *testing.T) {
+	id := ids.New()
+	g := &fakeStore{}
+	rec := serve(t, router(boundaryAPI(g, domain.BoundaryCUI)), changeCall(id, `"1"`, map[string]any{"class": "NONE", "reason": "r"}, testLE, DutyDataDesignationRead))
+	if rec.Code != http.StatusForbidden || stateOf(g).changeCalls != 0 {
+		t.Fatalf("read duty must not change: %d", rec.Code)
+	}
+	f := &fakeStore{}
+	rec = serve(t, router(boundaryAPI(f, domain.BoundaryStandard)), changeCall(id, `"1"`, map[string]any{"class": "CUI", "reason": "r"}, testLE, DutyDataDesignationWrite))
+	if rec.Code != http.StatusConflict || problemCode(t, rec) != domain.CodeCUIBoundary || stateOf(f).changeCalls != 0 {
+		t.Fatalf("standard boundary: %d %s", rec.Code, rec.Body.String())
+	}
+	h := &fakeStore{}
+	rec = serve(t, router(boundaryAPI(h, domain.BoundaryStandard)), changeCall(id, `"1"`, map[string]any{"class": "NONE", "reason": "r"}, testLE, DutyDataDesignationWrite))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("a downgrade is allowed outside the CUI boundary: %d", rec.Code)
+	}
+}
+
+func TestChangeDesignation_StoreProblemsPassThrough(t *testing.T) {
+	for status, err := range map[int]error{http.StatusPreconditionFailed: httpx.NewProblem(http.StatusPreconditionFailed, store.CodeVersionConflict, "stale"), http.StatusNotFound: httpx.NewProblem(http.StatusNotFound, store.CodeDesignationNotFound, "none"), http.StatusForbidden: httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "tenant")} {
+		f := &fakeStore{}
+		stateOf(f).changeErr = err
+		rec := serve(t, router(boundaryAPI(f, domain.BoundaryCUI)), changeCall(ids.New(), `"1"`, map[string]any{"class": "NONE", "reason": "r"}, testLE, DutyDataDesignationWrite))
+		if rec.Code != status {
+			t.Errorf("%d: got %d %s", status, rec.Code, rec.Body.String())
+		}
+	}
+}
+
+func TestDesignationReads_NeedTheReadDutyAndValidateFilters(t *testing.T) {
+	id := ids.New()
+	f := &fakeStore{}
+	h := router(boundaryAPI(f, domain.BoundaryCUI))
+	for _, path := range []string{"/v1/compliance/data-designations", "/v1/compliance/data-designations/" + id, "/v1/compliance/data-designations/" + id + "/history"} {
+		if rec := serve(t, h, call{method: http.MethodGet, path: path, duties: []string{DutyDataDesignationWrite}, legalEntity: testLE}); rec.Code != http.StatusForbidden {
+			t.Errorf("%s with the write duty only: %d", path, rec.Code)
+		}
+		if rec := serve(t, h, call{method: http.MethodGet, path: path, duties: []string{DutyDataDesignationRead}, legalEntity: testLE}); rec.Code != http.StatusOK {
+			t.Errorf("%s with the read duty: %d %s", path, rec.Code, rec.Body.String())
+		}
+	}
+	record := ids.New()
+	rec := serve(t, h, call{method: http.MethodGet, path: "/v1/compliance/data-designations?entityType=Project&recordId=" + strings.ToUpper(record), duties: []string{DutyDataDesignationRead}, legalEntity: testLE})
+	if got := stateOf(f).listed; rec.Code != http.StatusOK || got.EntityType != "project" || got.RecordID != record {
+		t.Fatalf("filter: %d %+v", rec.Code, got)
+	}
+	for _, query := range []string{"?scope=ALL", "?entityType=widget", "?recordId=nope"} {
+		if rec := serve(t, h, call{method: http.MethodGet, path: "/v1/compliance/data-designations" + query, duties: []string{DutyDataDesignationRead}, legalEntity: testLE}); rec.Code != http.StatusBadRequest {
+			t.Errorf("%s: %d", query, rec.Code)
+		}
+	}
+}
+
+func TestDesignationHistory_ListsEveryChangeWithActorReasonAndBeforeAfter(t *testing.T) {
+	f := &fakeStore{}
+	stateOf(f).history = []store.DesignationHistoryEntry{{AuditID: ids.New(), Action: "DOWNGRADE", Scope: domain.ScopeRecord, Actor: "u-1", Reason: "public release", Before: json.RawMessage(`{"class":"CUI"}`), After: json.RawMessage(`{"class":"NONE"}`)}}
+	rec := serve(t, router(boundaryAPI(f, domain.BoundaryCUI)), call{method: http.MethodGet, path: "/v1/compliance/data-designations/" + ids.New() + "/history", duties: []string{DutyDataDesignationRead}, legalEntity: testLE})
+	var body struct{ Items []map[string]any }
+	if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &body) != nil || len(body.Items) != 1 {
+		t.Fatalf("history: %d %s", rec.Code, rec.Body.String())
+	}
+	for _, key := range []string{"actor", "occurredAt", "scope", "reason", "before", "after"} {
+		if _, ok := body.Items[0][key]; !ok {
+			t.Errorf("history entry lacks %s: %v", key, body.Items[0])
+		}
 	}
 }

@@ -33,7 +33,114 @@ var resolveDeadline = 8 * time.Second
 
 func (a *API) registerDesignations(r chi.Router) {
 	r.With(authz.RequireDuty(DutyDataDesignationWrite)).Post("/v1/compliance/data-designations", a.createDesignation)
+	r.With(authz.RequireDuty(DutyDataDesignationWrite)).Patch("/v1/compliance/data-designations/{id}", a.changeDesignation)
 	r.With(authz.RequireDuty(DutyDataDesignationRead)).Post("/v1/compliance/data-designations:resolve", a.resolveDesignations)
+	r.With(authz.RequireDuty(DutyDataDesignationRead)).Get("/v1/compliance/data-designations", a.listDesignations)
+	r.With(authz.RequireDuty(DutyDataDesignationRead)).Get("/v1/compliance/data-designations/{id}", a.getDesignation)
+	r.With(authz.RequireDuty(DutyDataDesignationRead)).Get("/v1/compliance/data-designations/{id}/history", a.designationHistory)
+}
+
+func tenantWideCaller(w http.ResponseWriter, r *http.Request) bool {
+	p, _ := tenant.FromContext(r.Context())
+	if tenant.IsTenantAdmin(p) && p.HasDuty(DutyDataDesignationWrite) {
+		return true
+	}
+	slog.WarnContext(r.Context(), "tenant data designation refused", "tenantId", p.TenantID, "actor", p.UserID)
+	httpx.Fail(w, r, httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "a tenant-wide designation needs the tenant.administer duty, the designation duty and no legal-entity scope"))
+	return false
+}
+
+func (a *API) changeDesignation(w http.ResponseWriter, r *http.Request) {
+	id, ok := conflictID(w, r)
+	if !ok {
+		return
+	}
+	version, ok := ifMatch(w, r)
+	if !ok {
+		return
+	}
+	var in store.DesignationChange
+	if err := httpx.Decode(r, &in); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	fields := map[string]string{}
+	if in.Class != domain.ClassCUI && in.Class != domain.ClassNONE {
+		fields["class"] = "must be CUI or NONE"
+	}
+	if !domain.ValidDesignationReason(in.Reason) {
+		fields["reason"] = fmt.Sprintf("is required (1..%d characters)", domain.MaxDesignationReason)
+	}
+	if len(fields) > 0 {
+		httpx.Fail(w, r, invalid(fields))
+		return
+	}
+	if in.Class == domain.ClassCUI && a.cfg.Boundary != domain.BoundaryCUI {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusConflict, domain.CodeCUIBoundary, "CUI data belongs in the isolated CUI deployment"))
+		return
+	}
+	out, err := a.store.ChangeDesignation(r.Context(), id, version, in, a.now())
+	if err != nil {
+		httpx.Fail(w, r, domainProblem(err))
+		return
+	}
+	setETag(w, out.Version)
+	httpx.JSON(w, http.StatusOK, out)
+}
+
+func (a *API) getDesignation(w http.ResponseWriter, r *http.Request) {
+	id, ok := conflictID(w, r)
+	if !ok {
+		return
+	}
+	out, err := a.store.GetDesignation(r.Context(), id)
+	if err != nil {
+		httpx.Fail(w, r, domainProblem(err))
+		return
+	}
+	setETag(w, out.Version)
+	httpx.JSON(w, http.StatusOK, out)
+}
+
+func (a *API) designationHistory(w http.ResponseWriter, r *http.Request) {
+	id, ok := conflictID(w, r)
+	if !ok {
+		return
+	}
+	items, err := a.store.DesignationHistory(r.Context(), id)
+	if err != nil {
+		httpx.Fail(w, r, domainProblem(err))
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (a *API) listDesignations(w http.ResponseWriter, r *http.Request) {
+	if !validTenant(w, r) {
+		return
+	}
+	q := r.URL.Query()
+	f := store.DesignationFilter{Scope: strings.ToUpper(strings.TrimSpace(q.Get("scope"))), EntityType: strings.ToLower(strings.TrimSpace(q.Get("entityType"))), RecordID: strings.ToLower(strings.TrimSpace(q.Get("recordId")))}
+	fields := map[string]string{}
+	if f.Scope != "" && f.Scope != domain.ScopeTenant && f.Scope != domain.ScopeLegalEntity && f.Scope != domain.ScopeRecord {
+		fields["scope"] = "must be TENANT, LEGAL_ENTITY or RECORD"
+	}
+	if f.EntityType != "" && !domain.SupportedEntityTypes[f.EntityType] {
+		fields["entityType"] = "is not a designatable entity type"
+	}
+	if f.RecordID != "" && !ids.Valid(f.RecordID) {
+		fields["recordId"] = "must be a UUID"
+	}
+	if len(fields) > 0 {
+		httpx.Fail(w, r, invalid(fields))
+		return
+	}
+	items, err := a.store.ListDesignations(r.Context(), f)
+	if err != nil {
+		httpx.Fail(w, r, domainProblem(err))
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
 func designationFields(in *store.DesignationInput) map[string]string {
@@ -95,6 +202,9 @@ func (a *API) createDesignation(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, invalid(fields))
 		return
 	}
+	if in.Scope == domain.ScopeTenant && !tenantWideCaller(w, r) {
+		return
+	}
 	if a.cfg.Boundary != domain.BoundaryCUI {
 		p, _ := tenant.FromContext(r.Context())
 		slog.WarnContext(r.Context(), "CUI designation refused outside the CUI deployment", "tenantId", p.TenantID, "actor", p.UserID, "scope", in.Scope)
@@ -152,7 +262,7 @@ func (a *API) ownerLegalEntities(ctx context.Context, keys []resolveKey) map[res
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	var failed atomic.Int64
-	ctx, cancel := context.WithTimeout(ctx, resolveDeadline)
+	ctx, cancel := context.WithTimeout(withOwnerBudget(ctx), resolveDeadline)
 	defer cancel()
 	slots := make(chan struct{}, resolveConcurrency)
 	for _, key := range keys {

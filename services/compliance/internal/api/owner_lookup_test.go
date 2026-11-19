@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/BenjaminSRussell/depot/platform/ids"
@@ -72,6 +73,29 @@ func TestOwnerClient_TriesEachScopeAndMapsNotFound(t *testing.T) {
 	defer missing.Close()
 	if _, err := ownerClient(t, missing.URL).LegalEntity(ownerCtx(first), "project", record); !errors.Is(err, ErrOwnerNotFound) {
 		t.Fatalf("404: %v", err)
+	}
+}
+
+func TestOwnerClient_CapsOutboundCallsPerRequest(t *testing.T) {
+	var calls atomic.Int64
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+	c := ownerClient(t, srv.URL)
+	ctx := withOwnerBudget(ownerCtx(ids.New() + "," + ids.New() + "," + ids.New()))
+	var unavailable int
+	for range 600 {
+		if _, err := c.LegalEntity(ctx, "project", ids.New()); errors.Is(err, errOwnerUnavailable) {
+			unavailable++
+		}
+	}
+	if calls.Load() != ownerCallBudget || unavailable == 0 {
+		t.Fatalf("%d outbound calls (cap %d), %d refs refused after the cap", calls.Load(), ownerCallBudget, unavailable)
+	}
+	if _, err := c.LegalEntity(ownerCtx(ids.New()), "project", ids.New()); !errors.Is(err, ErrOwnerNotFound) {
+		t.Fatalf("a context without a budget must not be capped: %v", err)
 	}
 }
 
