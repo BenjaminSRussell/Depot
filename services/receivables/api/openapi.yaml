@@ -602,7 +602,7 @@ paths:
         and reason, its settlements get negated reversal rows, its items are open again by what it took off them, the payment's
         unapplied amount is restored and its status recomputed (RECEIVED, ON_ACCOUNT or APPLIED, never REVERSED), and the ledger gets
         the mirror of the application journal (Dr 1200 / Cr 1205, 4100 and 6100) through ledger.Post under the key
-        `post:receivables:paymentapplication:<applicationId>:reversal`, in the posting date of the original application. Publishes
+        `post:receivables:paymentapplication:<applicationId>:reversal:<attempt>` (a fresh key per attempt; a reversal that fails after a leg posted is compensated by a queued journal), in the posting date of the original application. Publishes
         dev.depot.receivables.payment.applicationreversed.v1 in the same transaction. A locked item is 409 AR-0002, an unknown payment
         or application 404 AR-PAYMENT-NOT-FOUND, an application already reversed or a payment not in an applied state 409
         AR-PAYMENT-STATE, a bank-reconciled payment (or one whose state cannot be read) 409 AR-0021, a closed posting period 409
