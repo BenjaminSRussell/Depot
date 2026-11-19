@@ -17,9 +17,10 @@ var (
 	PaymentReceived = events.Type(Context, "payment", "received", 1)
 	PaymentApplied  = events.Type(Context, "payment", "applied", 1)
 	// PaymentUnapplied is published when a payment's applications are reversed (#30): the items it settled are open again.
-	PaymentUnapplied = events.Type(Context, "payment", "unapplied", 1)
-	DisputeOpened    = events.Type(Context, "dispute", "opened", 1)
-	DisputeResolved  = events.Type(Context, "dispute", "resolved", 1)
+	PaymentUnapplied           = events.Type(Context, "payment", "unapplied", 1)
+	PaymentApplicationReversed = events.Type(Context, "payment", "applicationreversed", 1)
+	DisputeOpened              = events.Type(Context, "dispute", "opened", 1)
+	DisputeResolved            = events.Type(Context, "dispute", "resolved", 1)
 	// DunningLetterIssued is the PRD's dunning-letter.issued.v1; the kernel's
 	// naming rule allows no hyphen, so the entity is "dunningletter".
 	DunningLetterIssued = events.Type(Context, "dunningletter", "issued", 1)
@@ -273,4 +274,13 @@ type PaymentUnappliedData struct {
 	Currency      string           `json:"currency"`
 	Settlements   []SettlementData `json:"settlements"`
 	Reason        string           `json:"reason,omitempty"`
+}
+
+type PaymentApplicationReversedData struct {
+	PaymentID              string   `json:"payment_id"`
+	ApplicationID          string   `json:"application_id"`
+	LegalEntityID          string   `json:"legal_entity_id"`
+	ReversalJournalEntryID string   `json:"reversal_journal_entry_id"`
+	ReopenedItemIDs        []string `json:"reopened_item_ids"`
+	Reason                 string   `json:"reason"`
 }
