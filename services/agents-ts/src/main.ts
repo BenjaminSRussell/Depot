@@ -20,6 +20,7 @@ import {
   createConfiguredRouter,
 } from "./runtime/aiRouter.js";
 import { createCopilotService } from "./runtime/copilot.js";
+import { createEgressGuard } from "./runtime/egressGuard.js";
 import { createKnowledgeService } from "./runtime/knowledge.js";
 import { PgKeywordIndex } from "./store/knowledge.js";
 import { createMcpConnector } from "./runtime/mcp.js";
@@ -177,7 +178,9 @@ async function main(): Promise<void> {
       "DEPOT_SERVICE_SIGNING_KEY is not set: agents cannot sign its call to compliance, so every record is UNKNOWN and is withheld from AI calls",
       { boundary: cfg.boundary },
     );
+  const metrics = new Metrics();
   const copilot = createCopilotService({
+    guard: createEgressGuard({ log, observe: (seconds, decision) => metrics.observeGuard(seconds, decision) }),
     knowledge,
     router: createConfiguredRouter(cfg, { log, ...(serviceSigner !== undefined ? { signer: serviceSigner } : {}) }),
     mcp,
@@ -225,7 +228,6 @@ async function main(): Promise<void> {
     knowledge,
     budgets: createAgentBudgetService({ store: new PgAgentBudgets(store) }),
   };
-  const metrics = new Metrics();
   const handler = createRequestHandler({
     api,
     metrics,

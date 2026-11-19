@@ -4,7 +4,7 @@ import { createAnthropicProvider } from "../src/providers/anthropic.js";
 import { createFailoverProvider } from "../src/providers/failover.js";
 import { sseEvents, StreamRestorer, TextFieldExtractor } from "../src/providers/stream.js";
 import { providerUnavailable } from "../src/providers/wire.js";
-import { createCopilotService } from "../src/runtime/copilot.js";
+import { createCopilotService, TYPED_REPLACED_NOTICE } from "../src/runtime/copilot.js";
 import { createKnowledgeService } from "../src/runtime/knowledge.js";
 import type { ModelProvider, ModelRequest, ModelResponse } from "../src/runtime/engine.js";
 import { openRouter, REAL_IBAN } from "./fakes.js";
@@ -274,7 +274,7 @@ describe("copilot token streaming (FR-47.3)", () => {
     const tokens = all.filter((f) => f.event === "token").map((f) => f.data.text);
     expect(tokens.join("")).toBe(`Pay to ${REAL_IBAN} by Friday.`);
     expect(tokens.length).toBeGreaterThan(1);
-    expect(all.at(-1)).toMatchObject({ event: "done", data: { answer: `Pay to ${REAL_IBAN} by Friday.`, refusal: null, generated: true } });
+    expect(all.at(-1)).toMatchObject({ event: "done", data: { answer: `Pay to ${REAL_IBAN} by Friday.\n\n${TYPED_REPLACED_NOTICE}`, refusal: null, generated: true } });
     expect(provider.completeCalls).toBe(0);
   });
 

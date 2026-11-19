@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { GuardResult } from "../runtime/egressGuard.js";
 import { assertNoPii } from "./redaction.js";
 
 /** 9.47.4 agent_action.output_json cap. */
@@ -29,6 +30,7 @@ export interface ActionRecord {
   decidedAt: string;
   committedEntityRef: string | null;
   reason: string | null;
+  guardResult?: GuardResult;
 }
 
 export interface ActionInput {
@@ -44,6 +46,7 @@ export interface ActionInput {
   decidedAt: string;
   committedEntityRef?: string | null;
   reason?: string;
+  guardResult?: GuardResult;
 }
 
 /**
@@ -72,5 +75,6 @@ export function buildActionRecord(a: ActionInput): ActionRecord {
     decidedAt: a.decidedAt,
     committedEntityRef: committed,
     reason: a.reason ?? null,
+    ...(a.guardResult !== undefined ? { guardResult: a.guardResult } : {}),
   };
 }

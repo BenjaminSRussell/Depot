@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { createAgentsHandler, type AgentsApiDeps } from "./api/router.js";
+import type { GuardDecision } from "./runtime/egressGuard.js";
 
 const ROUTES = ["healthz", "readyz", "kill-switch", "ai-data-policy", "start-run", "run", "chat", "decision", "budgets", "other"] as const;
 type Route = (typeof ROUTES)[number];
@@ -19,8 +20,21 @@ export function routeLabel(path: string): Route {
 }
 
 /** In-process counters served on the admin listener (kernel convention: /metrics on :9090, never on the public port). */
+const GUARD_BUCKETS = [0.005, 0.025, 0.1, 0.5, 2];
+
 export class Metrics {
   private readonly http = new Map<string, number>();
+  private readonly guard = new Map<string, { buckets: number[]; sum: number; count: number }>();
+
+  observeGuard(seconds: number, decision: GuardDecision): void {
+    const h = this.guard.get(decision) ?? { buckets: GUARD_BUCKETS.map(() => 0), sum: 0, count: 0 };
+    GUARD_BUCKETS.forEach((le, i) => {
+      if (seconds <= le) h.buckets[i] = (h.buckets[i] ?? 0) + 1;
+    });
+    h.sum += seconds;
+    h.count += 1;
+    this.guard.set(decision, h);
+  }
 
   record(route: Route, status: number): void {
     const key = `${route}\u0000${status}`;
@@ -32,6 +46,14 @@ export class Metrics {
     for (const key of [...this.http.keys()].sort()) {
       const [route, status] = key.split("\u0000");
       lines.push(`agents_http_requests_total{route="${route}",status="${status}"} ${this.http.get(key) ?? 0}`);
+    }
+    lines.push("# HELP agents_egress_guard_duration_seconds Egress guard duration by decision.", "# TYPE agents_egress_guard_duration_seconds histogram");
+    for (const decision of [...this.guard.keys()].sort()) {
+      const h = this.guard.get(decision);
+      if (h === undefined) continue;
+      GUARD_BUCKETS.forEach((le, i) => lines.push(`agents_egress_guard_duration_seconds_bucket{decision="${decision}",le="${le}"} ${h.buckets[i] ?? 0}`));
+      lines.push(`agents_egress_guard_duration_seconds_bucket{decision="${decision}",le="+Inf"} ${h.count}`);
+      lines.push(`agents_egress_guard_duration_seconds_sum{decision="${decision}"} ${h.sum}`, `agents_egress_guard_duration_seconds_count{decision="${decision}"} ${h.count}`);
     }
     return `${lines.join("\n")}\n`;
   }
