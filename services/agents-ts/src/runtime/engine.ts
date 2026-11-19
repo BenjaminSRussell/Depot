@@ -23,6 +23,7 @@ import type { AgentVersion } from "../domain/registry.js";
 import { assertNoPii, Pseudonymizer, scanPii } from "../domain/redaction.js";
 import { isTerminal, transition, type RunStatus } from "../domain/run.js";
 import { AgentError } from "../errors.js";
+import { EGRESS_GUARD_TOOL, type GuardResult } from "./egressGuard.js";
 
 export interface ModelUsage {
   tokensIn: number;
@@ -53,6 +54,23 @@ export interface ModelRequest {
   maxOutputTokens?: number;
   /** Aborts the call when the caller is gone; a provider that streams passes it to the request. */
   signal?: AbortSignal;
+  /** Names the tenant the egress guard inspects for and receives its result, so the run can record it. */
+  guard?: { tenantId: string; report: (result: GuardResult) => void };
+}
+
+export function guardActionRecord(runId: string, seq: number, r: GuardResult, decidedAt: string): ActionRecord {
+  return buildActionRecord({
+    runId,
+    seq,
+    toolName: EGRESS_GUARD_TOOL,
+    inputRedacted: "{}",
+    outputRedacted: JSON.stringify({ decision: r.decision, highestClass: r.highestClass }),
+    approverUserId: null,
+    decision: r.decision === "ALLOWED" || r.decision === "REDACTED" ? "AUTO" : "DENIED",
+    decidedAt,
+    guardResult: r,
+    ...(r.errorCode !== undefined ? { reason: r.errorCode } : {}),
+  });
 }
 
 export interface ModelProvider {
@@ -472,7 +490,7 @@ async function executeRun(
   // Set once the tool call has committed, so a row written after that names the commit.
   let committed: { ref: string | null } | undefined;
   const closePending = (output: unknown, why: string): void => {
-    if (pending === undefined || actions.length > 0) return;
+    if (pending === undefined || actions.some((a) => a.toolName !== EGRESS_GUARD_TOOL)) return;
     try {
       record(
         pending.tool,
@@ -516,14 +534,23 @@ async function executeRun(
     ledger.mayHaveSpent = true;
     ledger.called = true;
     let response: ModelResponse;
+    let guardResult: GuardResult | undefined;
+    const recordGuard = (): void => {
+      if (guardResult === undefined) return;
+      actions.push(guardActionRecord(req.runId, seq + 1, guardResult, deps.now()));
+      seq += 1;
+    };
     try {
       response = await deps.provider.complete({
         system: req.agent.systemPrompt,
         user: prompt,
         allowedTools: req.agent.allowedTools,
         maxOutputTokens,
+        guard: { tenantId: req.tenantId, report: (r) => { guardResult = r; } },
       });
+      recordGuard();
     } catch (err) {
+      recordGuard();
       // An HTTP error status or a connection never made: the hold is released with zero.
       if ((err instanceof ProviderError && err.unbilled) || (err instanceof AgentError && (err.code === "AGT-0215" || err.code === "AGT-0219"))) ledger.mayHaveSpent = false;
       throw err;

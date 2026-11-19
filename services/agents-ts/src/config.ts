@@ -6,7 +6,7 @@ import { createOpenAICompatibleProvider } from "./providers/openai.js";
 import { createPhiGuard, parsePhiFields, type PhiGuard } from "./domain/phi.js";
 import { NO_ROUTE_MESSAGE, type Boundary } from "./domain/modelRoute.js";
 import { AgentError } from "./errors.js";
-import type { ModelProvider } from "./runtime/engine.js";
+import type { ModelProvider, ModelRequest } from "./runtime/engine.js";
 import { createEgressGuard, GUARD_REFUSAL_MESSAGE, type EgressGuard } from "./runtime/egressGuard.js";
 import { Pseudonymizer } from "./domain/redaction.js";
 
@@ -282,29 +282,31 @@ export function withEgressGuard(
   provider: ModelProvider,
   guard: EgressGuard,
 ): ModelProvider {
-  const check = async (system: string, user: string): Promise<void> => {
+  const check = async (req: ModelRequest): Promise<void> => {
+    const tenantId = req.guard?.tenantId ?? "run";
     const verdict = await guard.inspect({
-      tenantId: "run",
+      tenantId,
       callId: randomUUID(),
-      routeId: "run",
-      pseudo: new Pseudonymizer("run", 1000, Date.now),
-      system,
-      typed: user,
+      routeId: provider.endpoint?.provider ?? "run",
+      pseudo: new Pseudonymizer(tenantId, 1000, Date.now),
+      system: req.system,
+      typed: req.user,
       results: [],
     });
+    req.guard?.report(verdict.result);
     if (verdict.result.decision !== "ALLOWED")
       throw new AgentError("AGT-0219", GUARD_REFUSAL_MESSAGE);
   };
   return {
     ...(provider.endpoint !== undefined ? { endpoint: provider.endpoint } : {}),
     complete: async (req) => {
-      await check(req.system, req.user);
+      await check(req);
       return provider.complete(req);
     },
     ...(provider.stream !== undefined
       ? {
           stream: async (req, onText) => {
-            await check(req.system, req.user);
+            await check(req);
             return provider.stream!(req, onText);
           },
         }

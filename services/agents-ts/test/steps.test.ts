@@ -3,6 +3,8 @@ import type { ApprovalRequest, RecordedDecision } from "../src/api/decision.js";
 import type { ActionRecord } from "../src/domain/audit.js";
 import type { McpConnector } from "../src/runtime/mcp.js";
 import type { RunRequest } from "../src/runtime/engine.js";
+import { withEgressGuard } from "../src/config.js";
+import { createEgressGuard, EGRESS_GUARD_TOOL } from "../src/runtime/egressGuard.js";
 import { createRunSteps, initialStepState, type RunInput, type StepAudit, type StepsDeps } from "../src/runtime/steps.js";
 import type { RunCredential } from "../src/store/runstate.js";
 import { MemState } from "./memstate.js";
@@ -169,6 +171,18 @@ describe("resumable run steps", () => {
     expect(s.rows[0]?.inputJson).not.toContain(REAL_IBAN);
     expect(s.finished).toEqual([{ status: "COMMITTED", code: undefined }]);
     expect(s.state.creds.size).toBe(0);
+  });
+
+  it("records a guard row before the proposal row, and the approval commit writes the next seq (AC7)", async () => {
+    const inner = new ScriptedProvider([proposal(0.8)]);
+    const s = setup({ provider: Object.assign(withEgressGuard(inner, createEgressGuard()), { seen: inner.seen }) as ScriptedProvider });
+    await toAwaiting(s);
+    s.inbox.decided = { decision: "APPROVED", approverUserId: APPROVER, decidedAt: "2026-10-21T01:00:00.000Z" };
+    await s.state.putCredential(TENANT, RUN, approverCred(), far);
+    await s.pod().resolve(TENANT, RUN, false);
+    expect(await s.pod().commit(TENANT, RUN)).toEqual({ next: "done", status: "COMMITTED" });
+    expect(s.rows.map((r) => [r.seq, r.toolName])).toEqual([[1, EGRESS_GUARD_TOOL], [2, "depot.ap.invoice.post"]]);
+    expect(s.rows[0]?.guardResult).toMatchObject({ decision: "ALLOWED" });
   });
 
   it("every step is idempotent: a retried step answers from the stored state and posts once", async () => {
