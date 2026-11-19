@@ -1,4 +1,5 @@
 import { act, render, renderHook, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PrincipalProvider } from "../principal";
 import { AssistantNotice, AvailabilityProvider, useAvailabilityController } from "./AvailabilityProvider";
@@ -116,7 +117,9 @@ describe("AssistantNotice", () => {
     return (
       <PrincipalProvider duties={duties}>
         <AvailabilityProvider value={availability}>
-          <AssistantNotice />
+          <MemoryRouter>
+            <AssistantNotice />
+          </MemoryRouter>
         </AvailabilityProvider>
       </PrincipalProvider>
     );
@@ -132,5 +135,17 @@ describe("AssistantNotice", () => {
     body = enabled;
     await tick(AVAILABILITY_POLL_MS);
     expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it.each(["SOFT", "HARD"])("links an administrator to the budgets screen at %s and shows a non-administrator no link", async (budgetStatus) => {
+    body = { ...enabled, budgetStatus };
+    const admin = render(<Harness duties={["agents.admin"]} />);
+    await settle();
+    expect(screen.getByRole("link", { name: "Review AI budgets" })).toHaveAttribute("href", "/copilot/budgets");
+    admin.unmount();
+    render(<Harness duties={[]} />);
+    await settle();
+    expect(screen.queryByRole("link", { name: "Review AI budgets" })).toBeNull();
+    expect(screen.queryByText("The assistant is close to its usage limit")).toBeNull();
   });
 });

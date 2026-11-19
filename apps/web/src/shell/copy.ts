@@ -223,6 +223,7 @@ export const copy = {
     unreachableBody: "Every page and workflow below works as usual. We check again every few seconds.",
     softTitle: "The assistant is close to its usage limit",
     softBody: "Ask an administrator to raise the limit before it stops answering.",
+    budgetsLink: "Review AI budgets",
     refusals: {
       "AGT-0202": "The assistant has reached its usage limit, so it can't answer right now. Every page and workflow still works.",
       "AGT-0220": "This answer could not be shown. Try again or ask your administrator.",
