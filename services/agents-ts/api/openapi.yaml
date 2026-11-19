@@ -453,7 +453,12 @@ paths:
         With Accept: text/event-stream the answer arrives as `token` frames
         ({text}) and one terminal `done` frame (the JSON body); otherwise as
         JSON. Failures before the first byte are ordinary problems. Answers are
-        cached per tenant, user, duty set and mode for 5 minutes.
+        cached per tenant, user, duty set and mode for 5 minutes. The route is chosen
+        per call from the highest effective data class of the records in the
+        context (UNKNOWN counts as CUI). A tool result whose records have no
+        approved route is withheld from the model, a note says so, and `excluded`
+        reports the count and kinds. When no route exists even for permitted data
+        the answer is a refusal with code AGT-0218 and no model is called.
       x-depot-duty: mcp.copilot.use
       x-depot-approval: none
       requestBody:
@@ -688,6 +693,14 @@ components:
           properties:
             code: {type: string}
             message: {type: string}
+        excluded:
+          type: object
+          description: Present when records were withheld from the model because no approved route carries their data class.
+          required: [count, kinds, reason]
+          properties:
+            count: {type: integer, minimum: 1}
+            kinds: {type: array, items: {type: string}}
+            reason: {type: string, enum: [NO_APPROVED_ROUTE]}
         generated: {type: boolean, enum: [true]}
     KillSwitchCommand:
       type: object

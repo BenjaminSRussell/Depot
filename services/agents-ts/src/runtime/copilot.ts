@@ -11,12 +11,15 @@ import {
   type CopilotMode,
 } from "../domain/copilot.js";
 import { gateCitations, type Citation } from "../domain/knowledge.js";
+import { exclusionNotice, NO_ROUTE_MESSAGE, recordsOf } from "../domain/modelRoute.js";
 import { assertNoPii, Pseudonymizer } from "../domain/redaction.js";
 import { AgentError } from "../errors.js";
 import { StreamRestorer } from "../providers/stream.js";
 import { ProviderError, proposeTool } from "../providers/wire.js";
 import type { ModelEndpoint } from "../cloudprofile/index.js";
-import type { AuditPort, BudgetPort, KillSwitchPort, ModelProvider, ModelUsage, RunRequest, RunResult } from "./engine.js";
+import type { DataRef } from "./cuiDesignation.js";
+import type { AuditPort, BudgetPort, KillSwitchPort, ModelUsage, RunRequest, RunResult } from "./engine.js";
+import type { AiPlan, AiRouter } from "./aiRouter.js";
 import type { McpConnector } from "./mcp.js";
 import type { KnowledgeService } from "./knowledge.js";
 
@@ -52,6 +55,7 @@ export interface ChatResponse {
   citations: ChatCitation[];
   toolCalls: ChatToolCall[];
   refusal: { code: string; message: string } | null;
+  excluded?: { count: number; kinds: string[]; reason: "NO_APPROVED_ROUTE" };
   /** Always true: generated text is labelled as such in the UI (FR-47.12). */
   generated: true;
 }
@@ -79,7 +83,7 @@ export interface CopilotConfig {
 }
 
 export interface CopilotDeps {
-  providerFor: (modelId: string) => ModelProvider;
+  router: AiRouter;
   mcp: McpConnector;
   store: CopilotStore;
   killSwitch: KillSwitchPort;
@@ -152,6 +156,15 @@ export function createCopilotService(deps: CopilotDeps) {
         return refusal(first !== undefined ? "AGT-0203" : "AGT-0212", first?.message ?? "No tool is available to answer this.");
       }
 
+      // TODO: DEPOT-306 createAiPolicyGuard.check is still unwired
+      let plan: AiPlan;
+      try {
+        plan = await deps.router.plan({ caller, token, modelId: deps.modelId, refs: [] });
+      } catch (err) {
+        if (err instanceof AgentError && err.code === "AGT-0218") return refusal("AGT-0218", NO_ROUTE_MESSAGE);
+        throw err;
+      }
+
       const month = now().toISOString().slice(0, 7);
       const hold = await deps.store.reserve({
         tenantId: caller.tenantId,
@@ -179,7 +192,10 @@ export function createCopilotService(deps: CopilotDeps) {
       let answer = "";
       let refused: ChatResponse["refusal"] = null;
       let settleSpend = true;
-      const provider = deps.providerFor(deps.modelId);
+      let provider = plan.provider;
+      let keptRefs: DataRef[] = [];
+      let withheldCount = 0;
+      const withheldKinds = new Set<string>();
       const system = systemPrompt(req.mode, gate.allowed);
       let context = pseudo.redact(prompt);
       const sink = hooks.onToken;
@@ -262,11 +278,24 @@ export function createCopilotService(deps: CopilotDeps) {
             continue;
           }
           toolCalls.push({ tool: p.tool, status: "OK" });
+          const found = p.tool === KNOWLEDGE_SEARCH_TOOL ? [] : recordsOf(p.tool, out.output);
+          const next = found.length === 0 ? undefined : await deps.router.plan({ caller, token, modelId: deps.modelId, refs: [...keptRefs, ...found] });
+          answer = "";
+          if (next !== undefined && next.excluded.length > 0) {
+            row(p.tool, p.args, { withheld: "NO_APPROVED_ROUTE" }, "AUTO", "read");
+            withheldCount += found.length;
+            for (const r of found) withheldKinds.add(r.entityType === "" ? "unidentified" : r.entityType);
+            context += `\n\nResult of ${p.tool} was withheld: its data has no approved AI route.`;
+            continue;
+          }
           row(p.tool, p.args, out.output, "AUTO", "read");
+          if (next !== undefined) {
+            keptRefs = next.keep;
+            provider = next.provider;
+          }
           if (p.tool === KNOWLEDGE_SEARCH_TOOL) knowledge.push(...knowledgeCitations(out.output));
           else citations.push({ sourceType: "RECORD", sourceRef: out.ref ?? p.tool, label: p.tool });
           context += `\n\nResult of ${p.tool}: ${pseudo.redact(clip(JSON.stringify(out.output) ?? "null", 4000))}`;
-          answer = "";
         }
         if (refused === null && knowledge.length > 0) {
           const g = gateCitations(knowledge);
@@ -278,11 +307,19 @@ export function createCopilotService(deps: CopilotDeps) {
           }
         }
         if (answer === "" && refused === null) answer = "I could not complete the answer within the tool-call limit.";
-        const display = refused !== null ? answer : pseudo.restore(answer);
+        const notice = withheldCount > 0 ? `\n\n${exclusionNotice([...withheldKinds], withheldCount)}` : "";
+        const display = (refused !== null ? answer : pseudo.restore(answer)) + notice;
         const result = finished(runId, "COMMITTED", actions, usage, display, provider.endpoint);
         await deps.store.finishRun(runReq, result);
-        const out: ChatResponse = { answer: display, citations, toolCalls, refusal: refused, generated: true };
-        if (refused === null) deps.cache.put(asker, req.mode, prompt, JSON.stringify(out));
+        const out: ChatResponse = {
+          answer: display,
+          citations,
+          toolCalls,
+          refusal: refused,
+          ...(withheldCount > 0 ? { excluded: { count: withheldCount, kinds: [...withheldKinds], reason: "NO_APPROVED_ROUTE" as const } } : {}),
+          generated: true,
+        };
+        if (refused === null && withheldCount === 0) deps.cache.put(asker, req.mode, prompt, JSON.stringify(out));
         return out;
       } catch (err) {
         await deps.store

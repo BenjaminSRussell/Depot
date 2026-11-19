@@ -3,6 +3,7 @@ import { createAnthropicProvider } from "./providers/anthropic.js";
 import { createBedrockProvider } from "./providers/bedrock.js";
 import { createOpenAICompatibleProvider } from "./providers/openai.js";
 import { createPhiGuard, parsePhiFields, type PhiGuard } from "./domain/phi.js";
+import type { Boundary } from "./domain/modelRoute.js";
 import type { ModelProvider } from "./runtime/engine.js";
 
 /** The Claude models Depot defaults to; every one is overridable by configuration. */
@@ -55,6 +56,8 @@ export interface Config {
   workflowUrl: string | undefined;
   /** Public keys of the services allowed to call the run-step routes (DEPOT_SERVICE_PUBLIC_KEYS, `name[:kid]=base64` comma separated); required with `temporal`. */
   servicePublicKeys: string;
+  boundary: Boundary;
+  complianceUrl: string | undefined;
 }
 
 export function parseAddr(value: string, name: string): { host: string; port: number } {
@@ -133,6 +136,10 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     if (workflowUrl === undefined || !/^https?:\/\//.test(workflowUrl)) throw new Error("AGENTS_WORKFLOW_URL must be workflow-ts's http(s) URL when AGENTS_RUN_ENGINE=temporal");
     if (servicePublicKeys.trim() === "") throw new Error("DEPOT_SERVICE_PUBLIC_KEYS must hold workflow-ts's public key when AGENTS_RUN_ENGINE=temporal");
   }
+  const boundary = env["AGENTS_BOUNDARY"] || "standard";
+  if (boundary !== "standard" && boundary !== "cui") throw new Error("AGENTS_BOUNDARY must be standard or cui");
+  const complianceUrl = env["AGENTS_COMPLIANCE_URL"] || undefined;
+  if (complianceUrl !== undefined && !/^https?:\/\//.test(complianceUrl)) throw new Error("AGENTS_COMPLIANCE_URL must be an http(s) URL");
   return {
     host: http.host,
     port: http.port,
@@ -169,6 +176,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     runEngine,
     workflowUrl,
     servicePublicKeys,
+    boundary,
+    complianceUrl,
   };
 }
 
