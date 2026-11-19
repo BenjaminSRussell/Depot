@@ -41,6 +41,7 @@ Applying the fixture is the single `writeGuard` fixture option on the test; spec
 | `POST /api/v1/agents/briefings:generate` | generate a briefing |
 | `POST /api/v1/agents/briefings/{id}:mark-read` | mark a briefing read |
 | `POST /api/v1/agents/runs` | proposal creation |
+| `POST /api/v1/copilot/chat` | interim ask route used by the home prompt until the panel moves to the conversations endpoints |
 
 Decline calls are allowed by a separate rule: `POST /api/v1/agents/approvals/{id}:decide` and `POST /api/v1/agents/runs/{runId}/actions/{id}/decision` count as allowlisted only when the JSON body has `decision` exactly `"REJECTED"`. A missing, non-JSON or differently valued body is treated as a domain write. `HEAD` and `OPTIONS` on `/api/v1/*` are writes too (anything that is not `GET`).
 

@@ -31,7 +31,7 @@ test.describe("duty gating", () => {
 test.describe("skip link", () => {
   test("is the first focusable element and moves focus to main", async ({ page }) => {
     const shell = new ShellPage(page);
-    await shell.goto("/");
+    await shell.goto("/features");
     await page.keyboard.press("Tab");
     await expect(shell.skipLink).toBeFocused();
     await page.keyboard.press("Enter");

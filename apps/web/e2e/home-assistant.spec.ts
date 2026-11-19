@@ -55,6 +55,10 @@ test.describe("assistant-led home", () => {
   test("keeps the skip link working with the prompt focused", async ({ page }) => {
     const shell = new ShellPage(page);
     await shell.goto("/");
-    await expect(shell.skipLink).toHaveAttribute("href", "#main");
+    await expect(page.getByRole("textbox", { name: PROMPT_NAME })).toBeFocused();
+    while (!(await shell.skipLink.evaluate((el) => el === document.activeElement))) await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Enter");
+    await expect(shell.main).toBeFocused();
+    await expect(page).toHaveURL(/#main$/);
   });
 });

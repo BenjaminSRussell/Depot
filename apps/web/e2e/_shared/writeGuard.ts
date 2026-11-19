@@ -19,6 +19,7 @@ export const WRITE_ALLOWLIST: readonly AllowRule[] = [
   { id: "briefing-generate", method: "POST", path: /^\/api\/v1\/agents\/briefings:generate$/ },
   { id: "briefing-mark-read", method: "POST", path: /^\/api\/v1\/agents\/briefings\/[^/]+:mark-read$/ },
   { id: "proposal-create", method: "POST", path: /^\/api\/v1\/agents\/runs$/ },
+  { id: "copilot-chat-interim", method: "POST", path: /^\/api\/v1\/copilot\/chat$/ },
 ];
 
 const DECLINE_PATHS: readonly RegExp[] = [

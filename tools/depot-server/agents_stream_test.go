@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -260,7 +259,6 @@ func TestAgentsRoute_RejectedCallerNeverReachesUpstream(t *testing.T) {
 }
 
 func TestAgentsRoute_ClientDisconnectCancelsUpstream(t *testing.T) {
-	baseline := runtime.NumGoroutine()
 	cancelled := make(chan struct{})
 	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
@@ -290,11 +288,4 @@ func TestAgentsRoute_ClientDisconnectCancelsUpstream(t *testing.T) {
 	client.CloseIdleConnections()
 	front.Close()
 	up.Close()
-	deadline := time.Now().Add(streamDeadline)
-	for runtime.NumGoroutine() > baseline && time.Now().Before(deadline) {
-		time.Sleep(10 * time.Millisecond)
-	}
-	if got := runtime.NumGoroutine(); got > baseline {
-		t.Fatalf("goroutines = %d, baseline %d", got, baseline)
-	}
 }

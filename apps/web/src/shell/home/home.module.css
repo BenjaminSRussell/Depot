@@ -37,7 +37,8 @@
 }
 
 .status:empty {
-  display: none;
+  block-size: 0;
+  overflow: hidden;
 }
 
 .browse {

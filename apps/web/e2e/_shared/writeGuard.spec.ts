@@ -18,6 +18,7 @@ test.describe("write guard allowlist", () => {
       "briefing-generate POST",
       "briefing-mark-read POST",
       "proposal-create POST",
+      "copilot-chat-interim POST",
     ]);
   });
 
@@ -28,6 +29,7 @@ test.describe("write guard allowlist", () => {
       "/api/v1/agents/briefings:generate",
       "/api/v1/agents/briefings/b-1:mark-read",
       "/api/v1/agents/runs",
+      "/api/v1/copilot/chat",
     ];
     samples.forEach((path, index) => {
       expect(WRITE_ALLOWLIST[index].path.test(path)).toBe(true);

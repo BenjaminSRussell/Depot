@@ -136,7 +136,6 @@ export function HomePage() {
       />
       {demoTour}
       <SetupBanner />
-      {/* TODO: E1-S5 fills the attention area; until then it shows My work and the workspace numbers. */}
       <MyWorkSummary />
       <WorkspaceKpis workspace={active} />
       <section aria-labelledby="home-browse-title" className={homeStyles.browse}>
