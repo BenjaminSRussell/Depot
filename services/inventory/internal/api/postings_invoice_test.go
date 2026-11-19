@@ -35,10 +35,32 @@ type stockBooks struct {
 	steps     []store.StatusStepInput
 	ledgerIDs map[string]string
 	stepErr   error
+	recordErr error
+	parts     map[string]store.InvoicedTotal
+	partKeys  map[string]store.InvoicedTotal
 }
 
 func newStockBooks() *stockBooks {
-	return &stockBooks{bySource: map[string][]*store.TransactionRow{}, corrects: map[string]string{}, changes: map[string]store.StatusChange{}, ledgerIDs: map[string]string{}}
+	return &stockBooks{bySource: map[string][]*store.TransactionRow{}, corrects: map[string]string{}, changes: map[string]store.StatusChange{}, ledgerIDs: map[string]string{},
+		parts: map[string]store.InvoicedTotal{}, partKeys: map[string]store.InvoicedTotal{}}
+}
+
+func (b *stockBooks) RecordInvoicePart(_ context.Context, _, lineSourceID, invoiceID string, invoiceLineNo int, qty, amount decimal.Decimal) (store.InvoicedTotal, error) {
+	if b.recordErr != nil {
+		return store.InvoicedTotal{}, b.recordErr
+	}
+	key := lineSourceID + "|" + invoiceID + "|" + strconv.Itoa(invoiceLineNo)
+	if prev, ok := b.partKeys[key]; ok {
+		if !prev.Qty.Equal(qty) || !prev.Amount.Equal(amount) {
+			return store.InvoicedTotal{}, httpx.NewProblem(409, store.CodeInvoiceConflict, "recorded with another quantity or amount")
+		}
+		return b.parts[lineSourceID], nil
+	}
+	b.partKeys[key] = store.InvoicedTotal{Qty: qty, Amount: amount}
+	total := b.parts[lineSourceID]
+	total.Qty, total.Amount = total.Qty.Add(qty), total.Amount.Add(amount)
+	b.parts[lineSourceID] = total
+	return total, nil
 }
 
 func (b *stockBooks) CreateTransaction(_ context.Context, in store.CreateTransactionInput) (store.StatusChange, bool, error) {
@@ -201,8 +223,52 @@ func TestInvoicePosted_AfterAReceiptCorrectionStepsTheLineAtTheNetQuantity(t *te
 	if row.ReceiptStatus != "PURCHASED" || b.ledgerIDs[row.ID] != flowLedger || len(b.steps) != 1 {
 		t.Fatalf("line at %s with ledger %q after %d steps, want PURCHASED with %s after one", row.ReceiptStatus, b.ledgerIDs[row.ID], len(b.steps), flowLedger)
 	}
-	if err := h[InvoicePostedType].Handle(ctx, nil, postingEvent(t, InvoicePostedType, ReceiptSource, invoiceWith(flowLedger, invoiceLine("1", "5", "50")))); err != nil || len(b.steps) != 1 {
-		t.Fatalf("a part invoice after the correction: %v, %d steps, want acked and no new step", err, len(b.steps))
+	mirror := b.rows[1]
+	if row.CostAmountPosted == nil || !row.CostAmountPosted.Equal(d("104")) || !row.CostAmountPosted.Add(mirror.CostAmountPhysical).Equal(d("84")) {
+		t.Fatalf("line posted at %v with the mirror at %s, want 104 so the net value equals the invoice amount 84", row.CostAmountPosted, mirror.CostAmountPhysical)
+	}
+	other := invoiceFor("0199f480-0000-7000-8000-0000000000c1", flowLedger, invoiceLine("1", "5", "50"))
+	if err := h[InvoicePostedType].Handle(ctx, nil, postingEvent(t, InvoicePostedType, ReceiptSource, other)); err != nil || len(b.steps) != 1 {
+		t.Fatalf("a later invoice after the line is PURCHASED: %v, %d steps, want acked and no new step", err, len(b.steps))
+	}
+}
+
+func TestInvoicePosted_TwoPartInvoicesMoveTheLineToPurchasedAtTheSecondOne(t *testing.T) {
+	const secondInvoice, secondLedger = "0199f480-0000-7000-8000-0000000000c1", "0199f480-0000-7000-8000-0000000000c2"
+	b, ctx := newStockBooks(), postingsCtx(t)
+	h := flowHandlers(b)
+	if err := h[ReceiptPostedType].Handle(ctx, nil, flowEvent(t, ReceiptPostedType, ReceiptSource, "receipt-posted.json")); err != nil {
+		t.Fatal(err)
+	}
+	first := postingEvent(t, InvoicePostedType, ReceiptSource, invoiceWith(flowLedger, invoiceLine("1", "5", "50")))
+	second := postingEvent(t, InvoicePostedType, ReceiptSource, invoiceFor(secondInvoice, secondLedger, invoiceLine("1", "5", "55")))
+	if err := h[InvoicePostedType].Handle(ctx, nil, first); err != nil || len(b.steps) != 0 || b.status(t, flowReceipt, 1).ReceiptStatus != "RECEIVED" {
+		t.Fatalf("first part: %v with %d steps, want acked and the line at RECEIVED", err, len(b.steps))
+	}
+	if err := h[InvoicePostedType].Handle(ctx, nil, second); err != nil || len(b.steps) != 1 {
+		t.Fatalf("second part: %v with %d steps, want one step", err, len(b.steps))
+	}
+	row := b.status(t, flowReceipt, 1)
+	if row.ReceiptStatus != "PURCHASED" || row.CostAmountPosted == nil || !row.CostAmountPosted.Equal(d("105")) || b.ledgerIDs[row.ID] != secondLedger {
+		t.Fatalf("after both parts: %s posted %v ledger %q, want PURCHASED at 105 with %s", row.ReceiptStatus, row.CostAmountPosted, b.ledgerIDs[row.ID], secondLedger)
+	}
+	if err := h[InvoicePostedType].Handle(ctx, nil, first); err != nil || len(b.steps) != 1 {
+		t.Fatalf("redelivery of the first part: %v, %d steps, want acked and no new step", err, len(b.steps))
+	}
+}
+
+func TestInvoicePosted_SameInvoiceLineWithAnotherQuantityIsParked(t *testing.T) {
+	b, ctx := newStockBooks(), postingsCtx(t)
+	h := flowHandlers(b)
+	if err := h[ReceiptPostedType].Handle(ctx, nil, flowEvent(t, ReceiptPostedType, ReceiptSource, "receipt-posted.json")); err != nil {
+		t.Fatal(err)
+	}
+	if err := h[InvoicePostedType].Handle(ctx, nil, postingEvent(t, InvoicePostedType, ReceiptSource, invoiceWith(flowLedger, invoiceLine("1", "4", "42")))); err != nil {
+		t.Fatal(err)
+	}
+	err := h[InvoicePostedType].Handle(ctx, nil, postingEvent(t, InvoicePostedType, ReceiptSource, invoiceWith(flowLedger, invoiceLine("1", "10", "105"))))
+	if !eventing.IsPermanent(err) || !strings.Contains(err.Error(), CodePostingInvoiceConflict) || len(b.steps) != 0 {
+		t.Fatalf("same invoice line with another quantity: %v with %d steps, want permanent %s and none", err, len(b.steps), CodePostingInvoiceConflict)
 	}
 }
 
@@ -284,7 +350,11 @@ func invoiceLine(receiptLineNo, qty, amount string) string {
 }
 
 func invoiceWith(ledgerEntry string, lines ...string) string {
-	return `{"invoice_id":"` + postReceipt + `","legal_entity_id":"` + flowEntity + `","posting_date":"2026-10-26","currency":"USD","ledger_entry_id":"` + ledgerEntry +
+	return invoiceFor(postReceipt, ledgerEntry, lines...)
+}
+
+func invoiceFor(invoiceID, ledgerEntry string, lines ...string) string {
+	return `{"invoice_id":"` + invoiceID + `","legal_entity_id":"` + flowEntity + `","posting_date":"2026-10-26","currency":"USD","ledger_entry_id":"` + ledgerEntry +
 		`","lines":[` + strings.Join(lines, ",") + `]}`
 }
 
@@ -330,9 +400,14 @@ func TestInvoicePosted_ParksRetriesAndSkipsWhatItCannotStep(t *testing.T) {
 	if err := handle(h, t, ReceiptSource, invoiceWith(flowLedger)); err != nil {
 		t.Errorf("no lines: %v, want acked", err)
 	}
-	if err := handle(h, t, ReceiptSource, invoiceWith(flowLedger, invoiceLine("1", "4", "42"))); err != nil || len(b.steps) != 0 || b.status(t, flowReceipt, 1).ReceiptStatus != "RECEIVED" {
-		t.Errorf("partial invoice: %v with %d steps, want acked and the line left at RECEIVED", err, len(b.steps))
+	if err := handle(h, t, ReceiptSource, invoiceFor("0199f480-0000-7000-8000-0000000000c1", flowLedger, invoiceLine("1", "4", "42"))); err != nil || len(b.steps) != 0 || b.status(t, flowReceipt, 1).ReceiptStatus != "RECEIVED" {
+		t.Errorf("part invoice: %v with %d steps, want acked and the line left at RECEIVED", err, len(b.steps))
 	}
+	b.recordErr = fmt.Errorf("connection reset")
+	if err := handle(h, t, ReceiptSource, invoiceWith(flowLedger, invoiceLine("1", "10", "105"))); err == nil || eventing.IsPermanent(err) || len(b.steps) != 0 {
+		t.Errorf("record failure: %v with %d steps, want a retryable error and none", err, len(b.steps))
+	}
+	b.recordErr = nil
 
 	b.stepErr = fmt.Errorf("connection reset")
 	if err := handle(h, t, ReceiptSource, invoiceWith(flowLedger, invoiceLine("1", "10", "105"))); err == nil || eventing.IsPermanent(err) {

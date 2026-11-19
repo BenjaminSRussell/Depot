@@ -107,6 +107,9 @@ const (
 	// given (a serial that is not one inventory unit, serials on a
 	// catch-weight receipt line, tracking entries that do not add up).
 	CodePostingTracking = "INV-PST-005"
+	// CodePostingInvoiceConflict: an invoice line is delivered again with
+	// another quantity or amount than the one recorded for it.
+	CodePostingInvoiceConflict = store.CodeInvoiceConflict
 
 	sourceReceiptLine   = "RECEIPT_LINE"
 	sourceSalesLine     = "SALES_LINE"
@@ -126,6 +129,7 @@ type PostingsStore interface {
 	IssueBasis(ctx context.Context, legalEntityID, productID string, dims domain.Dimensions) (string, decimal.Decimal, error)
 	LineBookings(ctx context.Context, legalEntityID, sourceType string, lineSourceIDs []string) (map[string][]store.TransactionRow, error)
 	ApplyStatusStep(ctx context.Context, in store.StatusStepInput) (store.StatusChange, bool, error)
+	RecordInvoicePart(ctx context.Context, legalEntityID, lineSourceID, invoiceID string, invoiceLineNo int, qty, amount decimal.Decimal) (store.InvoicedTotal, error)
 }
 
 // UnitConverter converts a document quantity into the product's inventory
