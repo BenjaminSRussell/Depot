@@ -3,6 +3,7 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -172,6 +173,9 @@ func (f *fakeStore) PostJournal(_ context.Context, id string, version int, _ sto
 
 func (f *fakeStore) ListOnHand(_ context.Context, flt store.OnHandFilter) (store.OnHandResult, error) {
 	f.onHand = flt
+	if len(flt.GroupBy) == 1 && flt.GroupBy[0] == store.GroupProduct {
+		return store.OnHandResult{Rows: []store.OnHandRow{{Group: map[string]string{"product": ids.New()}, PhysicalInvent: decimal.NewFromInt(100), EnteredUnit: "BOX"}}}, nil
+	}
 	// The group total is positive but an underlying row is negative: the API
 	// must pass the store's flag through rather than recompute it from the total.
 	return store.OnHandResult{Truncated: true, AsOf: flt.AsOf, Rows: []store.OnHandRow{{Group: map[string]string{"site": "S1"}, PhysicalInvent: decimal.NewFromInt(3),
@@ -606,6 +610,32 @@ func TestOnHandGroupsByAnyDimensionSubset(t *testing.T) {
 	}
 	if len(out.Items) != 1 || !out.Items[0].Negative || out.Items[0].Currency != "USD" || out.Items[0].Blocked != "2" || !out.Truncated {
 		t.Fatalf("negative flag, currency, blocked quantity or truncation not passed through: %s", rec.Body.String())
+	}
+}
+
+type baseUnits struct{ err error }
+
+func (u *baseUnits) ToInventoryUnit(context.Context, string, string, string, decimal.Decimal) (decimal.Decimal, string, error) {
+	return decimal.NewFromInt(12), "EA", u.err
+}
+
+func TestOnHandNamesTheInventoryUnitOfEachProduct(t *testing.T) {
+	get := func(units api.UnitConverter) string {
+		r := chi.NewRouter()
+		api.New(&fakeStore{}, store.PostParams{}).WithUnits(units).Register(r)
+		rec := do(t, r, http.MethodGet, "/v1/inventory/onhand?groupBy=product", "", []string{"inventory.read"}, nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
+		}
+		return rec.Body.String()
+	}
+	if body := get(&baseUnits{err: nil}); !strings.Contains(body, `"unit":"EA"`) {
+		t.Fatalf("a product posted in BOX is counted in EA: %s", body)
+	}
+	for name, units := range map[string]api.UnitConverter{"no converter": nil, "product call fails": &baseUnits{err: errors.New("product down")}} {
+		if body := get(units); strings.Contains(body, `"unit"`) {
+			t.Fatalf("%s: the unit is left out, not guessed: %s", name, body)
+		}
 	}
 }
 

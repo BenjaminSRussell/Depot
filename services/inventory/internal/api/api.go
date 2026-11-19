@@ -5,6 +5,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -66,11 +68,17 @@ type API struct {
 	truck TruckStock
 	// opening serves the opening stock import (WithOpeningBatches); nil answers 503.
 	opening OpeningBatches
+	units   UnitConverter
 }
 
 // New builds the API with the posting parameters from configuration.
 func New(s store.Store, post store.PostParams) *API {
 	return &API{store: s, post: post}
+}
+
+func (a *API) WithUnits(c UnitConverter) *API {
+	a.units = c
+	return a
 }
 
 // Register mounts the routes on r.
@@ -189,6 +197,7 @@ type journalResponse struct {
 type onHandItem struct {
 	Group            map[string]string `json:"group"`
 	PhysicalInvent   string            `json:"physicalInvent"`
+	Unit             string            `json:"unit,omitempty"`
 	AvailPhysical    *string           `json:"availPhysical,omitempty"`
 	AvailOrdered     *string           `json:"availOrdered,omitempty"`
 	PostedValue      string            `json:"postedValue"`
@@ -494,9 +503,10 @@ func (a *API) onHand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.onhand.Add(1)
+	units := a.inventoryUnits(r.Context(), res.Rows)
 	items := make([]onHandItem, 0, len(res.Rows))
-	for _, row := range res.Rows {
-		item := onHandItem{Group: row.Group, PhysicalInvent: row.PhysicalInvent.String(), PostedValue: row.PostedValue.String(),
+	for i, row := range res.Rows {
+		item := onHandItem{Group: row.Group, PhysicalInvent: row.PhysicalInvent.String(), Unit: units[i], PostedValue: row.PostedValue.String(),
 			Blocked: row.Blocked.String(), Currency: row.Currency, Negative: row.Negative}
 		if res.AsOf == "" {
 			avail, ordered, reserved := row.AvailPhysical.String(), row.AvailOrdered.String(), row.ReservedPhysical.String()
@@ -511,6 +521,36 @@ func (a *API) onHand(w http.ResponseWriter, r *http.Request) {
 		body["asOf"] = res.AsOf
 	}
 	httpx.JSON(w, http.StatusOK, body)
+}
+
+const unitLookups = 8
+
+func (a *API) inventoryUnits(ctx context.Context, rows []store.OnHandRow) []string {
+	out := make([]string, len(rows))
+	if a.units == nil {
+		return out
+	}
+	p, _ := tenant.FromContext(ctx)
+	var wg sync.WaitGroup
+	slots := make(chan struct{}, unitLookups)
+	for i, row := range rows {
+		if row.EnteredUnit == "" {
+			continue
+		}
+		wg.Add(1)
+		slots <- struct{}{}
+		go func() {
+			defer func() { <-slots; wg.Done() }()
+			_, unit, err := a.units.ToInventoryUnit(ctx, p.LegalEntityID, row.Group[store.GroupProduct], row.EnteredUnit, decimal.NewFromInt(1))
+			if err != nil {
+				slog.ErrorContext(ctx, "inventory unit unavailable", "err", err, "correlationId", middleware.GetReqID(ctx))
+				return
+			}
+			out[i] = unit
+		}()
+	}
+	wg.Wait()
+	return out
 }
 
 func splitList(raw string) []string {

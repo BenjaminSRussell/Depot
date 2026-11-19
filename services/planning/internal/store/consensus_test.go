@@ -207,3 +207,29 @@ func TestListForecastModels(t *testing.T) {
 		t.Fatalf("limit = %+v, %v", got, err)
 	}
 }
+
+func TestRunPlan_StoresWarningsAndReadsThemBackAsAnEmptyListWhenNone(t *testing.T) {
+	st, _, _ := setup(t)
+	ctx := testkit.Ctx(testkit.TenantID(1), "planning.run", "planning.read")
+	res, err := domain.Run(0, []domain.Item{{ID: ids.New(), Coverage: domain.CoverageRequirement, OrderType: domain.OrderPurchase,
+		Demand: []domain.Requirement{{Ref: "SO-1", RefType: domain.RefSales, Date: 3, Qty: decimal.NewFromInt(5), Priority: domain.PrioritySales}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	warned := runRequest(res, "run-1", "in-1")
+	warned.Warnings = []store.Warning{{Code: "PLAN-LIVE-SUPPLY-NOT-READ", Message: "not read"}}
+	first, _, err := st.RunPlan(ctx, warned)
+	if err != nil || len(first.Warnings) != 1 {
+		t.Fatalf("run with a warning: %v %+v", err, first.Warnings)
+	}
+	second, _, err := st.RunPlan(ctx, runRequest(res, "run-2", "in-2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for number, want := range map[int]int{first.Number: 1, second.Number: 0} {
+		v, err := st.GetVersion(ctx, "MAIN", number)
+		if err != nil || v.Warnings == nil || len(v.Warnings) != want {
+			t.Fatalf("version %d read back %v %+v, want %d warnings and never null", number, err, v.Warnings, want)
+		}
+	}
+}

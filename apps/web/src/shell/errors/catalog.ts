@@ -396,6 +396,7 @@ const sales: Record<string, ProblemCatalogEntry> = {
   "SLS-0048": { message: "Product configurations can't be checked right now.", action: TRY_LATER },
   "SLS-0049": { message: "Only a confirmed order can be planned for production.", action: "Confirm the order first." },
   "SLS-0050": { message: "Production planning isn't available right now.", action: TRY_LATER },
+  "PLAN-LIVE-UNIT": { message: "The open sales quantity and the stock for a product are counted in different units, so the plan can't compare them.", action: "Have the product's sales and stock units aligned, or send the items yourself. The product and both units are listed under Details." },
   "SLS-0052": { message: "The sales agreement is closed.", action: "Choose another agreement." },
   "SLS-0053": { message: "The commitment can't go below what has already been released.", action: "Enter an amount at least equal to the released amount." },
   "SLS-0055": { message: "This alternative product is already set up.", action: "Edit the existing one instead." },

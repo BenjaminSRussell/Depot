@@ -137,7 +137,7 @@ func (f *fakeStore) RunPlan(ctx context.Context, req store.RunRequest) (store.Ve
 	f.inputs[req.IdempotencyKey] = req.InputHash
 	v := store.Version{ID: testkit.TenantID(9), PlanCode: req.PlanCode, Number: len(f.runs) + 1, Status: "current",
 		AsOf: req.AsOf.Format("2006-01-02"), ItemsPlanned: req.ItemsPlanned, PlannedOrders: len(req.Result.Orders),
-		Messages: len(req.Result.Messages), PlanHash: req.Result.Hash}
+		Messages: len(req.Result.Messages), PlanHash: req.Result.Hash, Warnings: req.Warnings}
 	f.runs[req.IdempotencyKey] = v
 	return v, false, nil
 }

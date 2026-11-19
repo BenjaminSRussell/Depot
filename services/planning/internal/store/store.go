@@ -166,10 +166,23 @@ type RunRequest struct {
 	Result         domain.Result
 	// RunID is the asynchronous plan run this persists (#479), empty for a
 	// synchronous run; any other live run of the plan refuses it with 409.
-	RunID string
+	RunID    string
+	Warnings []Warning
 	// Progress, when set, is called with the number of rows written so far
 	// each time a batch of rows has been sent.
 	Progress func(rows int64)
+}
+
+type Warning struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+func nonNilWarnings(w []Warning) []Warning {
+	if w == nil {
+		return []Warning{}
+	}
+	return w
 }
 
 // Version is a plan version as the API shows it.
@@ -189,8 +202,9 @@ type Version struct {
 	ApprovedFirmed int `json:"approvedFirmed"`
 	// Kind is static or simulation (FR-22.15); a simulation version names the
 	// scenario that produced it and is never the plan's current version.
-	Kind         string `json:"kind"`
-	ScenarioCode string `json:"scenarioCode,omitempty"`
+	Kind         string    `json:"kind"`
+	ScenarioCode string    `json:"scenarioCode,omitempty"`
+	Warnings     []Warning `json:"warnings"`
 	inputHash    string
 }
 
@@ -414,9 +428,13 @@ func (s *Postgres) RunPlan(ctx context.Context, req RunRequest) (Version, bool, 
 		}); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `insert into plan_version (tenant_id, id, plan_id, number, site_id, as_of, status, items_planned, planned_orders_count, messages_count, duration_ms, plan_hash, input_hash, idempotency_key, legal_entity_id, approved_firmed_count)
-			values ($1, $2, $3, $4, $5, $6::date, 'current', $7, $8, $9, $10, $11, $12, $13, nullif($14, '')::uuid, $15)`,
-			p.TenantID, versionID, planID, number, req.SiteID, asOf, req.ItemsPlanned, len(r.Orders), len(r.Messages), req.DurationMs, r.Hash, req.InputHash, key, planEntity, approvedFirmed); err != nil {
+		warningsJSON, err := json.Marshal(nonNilWarnings(req.Warnings))
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `insert into plan_version (tenant_id, id, plan_id, number, site_id, as_of, status, items_planned, planned_orders_count, messages_count, duration_ms, plan_hash, input_hash, idempotency_key, legal_entity_id, approved_firmed_count, warnings)
+			values ($1, $2, $3, $4, $5, $6::date, 'current', $7, $8, $9, $10, $11, $12, $13, nullif($14, '')::uuid, $15, $16)`,
+			p.TenantID, versionID, planID, number, req.SiteID, asOf, req.ItemsPlanned, len(r.Orders), len(r.Messages), req.DurationMs, r.Hash, req.InputHash, key, planEntity, approvedFirmed, warningsJSON); err != nil {
 			return err
 		}
 		// Rows go out in pipelined batches of runBatchRows instead of one round
@@ -557,7 +575,7 @@ func (s *Postgres) RunPlan(ctx context.Context, req RunRequest) (Version, bool, 
 			return err
 		}
 		v = Version{ID: versionID, PlanCode: req.PlanCode, Number: number, Status: "current", AsOf: asOf, ItemsPlanned: req.ItemsPlanned,
-			PlannedOrders: len(r.Orders), Messages: len(r.Messages), DurationMs: req.DurationMs, PlanHash: r.Hash, ApprovedFirmed: approvedFirmed, Kind: planKindStatic, inputHash: req.InputHash}
+			PlannedOrders: len(r.Orders), Messages: len(r.Messages), DurationMs: req.DurationMs, PlanHash: r.Hash, ApprovedFirmed: approvedFirmed, Kind: planKindStatic, Warnings: nonNilWarnings(req.Warnings), inputHash: req.InputHash}
 		return enqueue(ctx, tx, planevents.PlanCompleted, planID, p.TenantID, versionID, planevents.PlanCompletedData{
 			PlanID: planID, PlanCode: req.PlanCode, VersionID: versionID, VersionNumber: number, ItemsPlanned: req.ItemsPlanned,
 			PlannedOrders: counts, Messages: len(r.Messages), DurationMs: req.DurationMs, PlanHash: r.Hash,
@@ -727,13 +745,18 @@ func requireModelEntity(ctx context.Context, tx pgx.Tx, tenantID, modelCode, pla
 }
 
 const versionSelect = `select v.id::text, p.code, v.number, v.status, to_char(v.as_of, 'YYYY-MM-DD'), v.items_planned,
-	v.planned_orders_count, v.messages_count, v.duration_ms, v.plan_hash, v.input_hash, v.kind, coalesce(sc.code, ''), v.approved_firmed_count
+	v.planned_orders_count, v.messages_count, v.duration_ms, v.plan_hash, v.input_hash, v.kind, coalesce(sc.code, ''), v.approved_firmed_count, v.warnings
 	from plan_version v join plan p on p.tenant_id = v.tenant_id and p.id = v.plan_id
 	left join planning_scenario sc on sc.tenant_id = v.tenant_id and sc.id = v.scenario_id`
 
 func scanVersion(row pgx.Row) (Version, error) {
 	var v Version
-	err := row.Scan(&v.ID, &v.PlanCode, &v.Number, &v.Status, &v.AsOf, &v.ItemsPlanned, &v.PlannedOrders, &v.Messages, &v.DurationMs, &v.PlanHash, &v.inputHash, &v.Kind, &v.ScenarioCode, &v.ApprovedFirmed)
+	var warnings []byte
+	if err := row.Scan(&v.ID, &v.PlanCode, &v.Number, &v.Status, &v.AsOf, &v.ItemsPlanned, &v.PlannedOrders, &v.Messages, &v.DurationMs, &v.PlanHash, &v.inputHash, &v.Kind, &v.ScenarioCode, &v.ApprovedFirmed, &warnings); err != nil {
+		return v, err
+	}
+	err := json.Unmarshal(warnings, &v.Warnings)
+	v.Warnings = nonNilWarnings(v.Warnings)
 	return v, err
 }
 
