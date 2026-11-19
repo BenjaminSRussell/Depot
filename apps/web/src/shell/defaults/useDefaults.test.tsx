@@ -15,7 +15,10 @@ const sources: DefaultSource[] = [
 ];
 
 function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 describe("resolveCurrency", () => {
@@ -46,6 +49,29 @@ describe("useDefaultCurrency", () => {
     setLookupFetcher(fetcher);
     const { result } = renderHook(() => useDefaultCurrency(sources));
     await waitFor(() => expect(fetcher).toHaveBeenCalled());
+    expect(result.current).toBe("");
+  });
+
+  it("stays empty when a higher source fails and a lower one holds a currency", async () => {
+    const fetcher = vi.fn(async (url: string) =>
+      url.includes(VENDOR)
+        ? json({}, 500)
+        : json({
+            id: ENTITY,
+            name: "Entity",
+            currency: "USD",
+            currencyCode: "USD",
+          }),
+    );
+    setLookupFetcher(fetcher);
+    const { result } = renderHook(() =>
+      useDefaultCurrency([
+        { entity: "vendor", id: VENDOR },
+        { entity: "legalEntity", id: ENTITY },
+      ]),
+    );
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    await new Promise((resolve) => setTimeout(resolve, 20));
     expect(result.current).toBe("");
   });
 
@@ -82,7 +108,11 @@ describe("useDefaultCurrency", () => {
 });
 
 describe("useDefaultLedger", () => {
-  const ledger = (id: string) => ({ id, name: `Ledger ${id}`, code: id.slice(0, 2) });
+  const ledger = (id: string) => ({
+    id,
+    name: `Ledger ${id}`,
+    code: id.slice(0, 2),
+  });
 
   it("returns the ledger of a legal entity that has exactly one", async () => {
     setLookupFetcher(async () => json({ items: [ledger("a1")] }));

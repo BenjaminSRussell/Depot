@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { UUID } from "../api/http";
-import { lookupDefs, resolveOption, type LookupEntityKey } from "../lookup/entities";
+import { isOptionMissing, lookupDefs, resolveOption, type LookupEntityKey } from "../lookup/entities";
 
 const CURRENCY = /^[A-Z]{3}$/;
 
@@ -26,8 +26,19 @@ export function useDefaultCurrency(sources: DefaultSource[]): string {
   useEffect(() => {
     if (key === "") return;
     let live = true;
-    void Promise.all(usable.map((source) => resolveOption(source.entity, source.id as string))).then((options) => {
-      if (live) setDerived({ key, value: resolveCurrency(options.map((option) => option?.currency)) });
+    const settled = usable.map(async (source) => {
+      const option = await resolveOption(source.entity, source.id as string);
+      const failed = option === null && !(await isOptionMissing(source.entity, source.id as string));
+      return { currency: option?.currency, failed };
+    });
+    void Promise.all(settled).then((results) => {
+      const firstFailure = results.findIndex((result) => result.failed);
+      const reachable = firstFailure === -1 ? results : results.slice(0, firstFailure);
+      if (live)
+        setDerived({
+          key,
+          value: resolveCurrency(reachable.map((result) => result.currency)),
+        });
     });
     return () => {
       live = false;
@@ -45,7 +56,11 @@ export function useDefaultLedger(legalEntityId: string | undefined): string {
     const controller = new AbortController();
     lookupDefs.ledger.search("", { legalEntityId: entity }, controller.signal).then(
       (ledgers) => {
-        if (!controller.signal.aborted) setDerived({ key: entity, value: ledgers.length === 1 ? ledgers[0].id : "" });
+        if (!controller.signal.aborted)
+          setDerived({
+            key: entity,
+            value: ledgers.length === 1 ? ledgers[0].id : "",
+          });
       },
       () => undefined,
     );
