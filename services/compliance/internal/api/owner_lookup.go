@@ -81,6 +81,9 @@ func (c *OwnerClient) LegalEntity(ctx context.Context, entityType, recordID stri
 		return "", fmt.Errorf("%w: the caller has no legal-entity scope", errOwnerUnavailable)
 	}
 	for _, scope := range scopes {
+		if err := ctx.Err(); err != nil {
+			return "", fmt.Errorf("%w: %v", errOwnerUnavailable, err)
+		}
 		le, err := c.project(ctx, p, scope, recordID)
 		if errors.Is(err, ErrOwnerNotFound) {
 			continue

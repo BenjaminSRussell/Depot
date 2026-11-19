@@ -390,6 +390,34 @@ func TestResolve_OwnerFailureIsUnknown(t *testing.T) {
 	}
 }
 
+type blockingOwner struct{}
+
+func (blockingOwner) LegalEntity(ctx context.Context, _, _ string) (string, error) {
+	<-ctx.Done()
+	return "", errOwnerUnavailable
+}
+
+func TestResolve_SlowOwnerHitsTheOverallDeadlineAndResolvesUnknown(t *testing.T) {
+	previous := resolveDeadline
+	resolveDeadline = 50 * time.Millisecond
+	defer func() { resolveDeadline = previous }()
+	recordIDs := make([]string, 100)
+	for i := range recordIDs {
+		recordIDs[i] = ids.New()
+	}
+	f := &fakeStore{designs: fakeDesignations{tenantCUI: true}}
+	started := time.Now()
+	got := resolveItems(t, serve(t, router(ownerAPI(f, blockingOwner{})), resolveCall(refsOf("project", recordIDs...), DutyDataDesignationRead)))
+	if time.Since(started) > 2*time.Second {
+		t.Fatalf("resolve ran past its deadline: %s", time.Since(started))
+	}
+	for _, item := range got {
+		if item.Class != domain.ClassUNKNOWN {
+			t.Fatalf("unresolved ref must be UNKNOWN: %v", item)
+		}
+	}
+}
+
 func TestResolve_StoreFailureIsNotAnAnswer(t *testing.T) {
 	record := ids.New()
 	f := &fakeStore{designs: fakeDesignations{resolveErr: errors.New("db down")}}

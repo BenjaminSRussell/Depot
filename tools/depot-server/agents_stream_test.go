@@ -63,25 +63,26 @@ func agentsFront(t *testing.T, target *url.URL, guard Guard) *httptest.Server {
 	if guard == nil {
 		guard = func(next http.Handler) http.Handler { return next }
 	}
-	cfg, _ := shippedProcesses(t)
-	upstreams := map[string]*url.URL{"agents": target}
-	front := httptest.NewServer(NewGateway(guard, upstreams, nil, func() (bool, []Status) { return true, nil }, "gw-secret", cfg.Features, map[string]bool{"agents": true}))
+	cfg, procs := shippedProcesses(t)
+	port, err := strconv.Atoi(target.Port())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range procs {
+		if procs[i].Route == "agents" {
+			procs[i].Port = port
+		}
+	}
+	front := httptest.NewServer(NewGateway(guard, upstreamsOf(procs), nil, func() (bool, []Status) { return true, nil }, "gw-secret", cfg.Features, forwardAuthOf(procs)))
 	t.Cleanup(front.Close)
 	return front
 }
 
-func TestShippedConfig_DoesNotYetRouteTheAgentsPrefix(t *testing.T) {
-	cfg, procs := shippedProcesses(t)
+func TestShippedConfig_RoutesTheAgentsPrefixWithTheAPIPrefixRestored(t *testing.T) {
+	_, procs := shippedProcesses(t)
 	upstreams := upstreamsOf(procs)
-	if upstreams["agents-ts"] == nil || upstreams["agents"] != nil {
-		t.Fatalf("upstreams %v", upstreams)
-	}
-	front := httptest.NewServer(NewGateway(func(next http.Handler) http.Handler { return next }, upstreams, nil, func() (bool, []Status) { return true, nil }, "gw-secret", cfg.Features, forwardAuthOf(procs)))
-	t.Cleanup(front.Close)
-	resp := agentsPost(context.Background(), t, front.Client(), front.URL+"/api/v1/agents/runs", "GET")
-	_ = resp.Body.Close()
-	if resp.StatusCode != http.StatusNotFound {
-		t.Fatalf("/api/v1/agents status %d, want 404 until the gateway restores the /api prefix agents-ts serves", resp.StatusCode)
+	if upstreams["agents"] == nil || upstreams["agents"].Path != "/api" || !forwardAuthOf(procs)["agents"] {
+		t.Fatalf("upstreams %v forwardAuth %v", upstreams, forwardAuthOf(procs))
 	}
 }
 
@@ -147,7 +148,7 @@ func TestAgentsRoute_RoutesEveryTicketPath(t *testing.T) {
 			if resp.StatusCode != http.StatusNoContent || got == nil {
 				t.Fatalf("status %d, upstream saw %v", resp.StatusCode, got)
 			}
-			if got.method != c.method || got.path != "/v1/agents"+c.rest || got.authorization != bearer {
+			if got.method != c.method || got.path != "/api/v1/agents"+c.rest || got.authorization != bearer {
 				t.Fatalf("upstream saw %+v", *got)
 			}
 			seen.Store(nil)

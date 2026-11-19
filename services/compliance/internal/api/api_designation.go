@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
@@ -27,6 +28,8 @@ const (
 
 	resolveConcurrency = 8
 )
+
+var resolveDeadline = 8 * time.Second
 
 func (a *API) registerDesignations(r chi.Router) {
 	r.With(authz.RequireDuty(DutyDataDesignationWrite)).Post("/v1/compliance/data-designations", a.createDesignation)
@@ -149,9 +152,16 @@ func (a *API) ownerLegalEntities(ctx context.Context, keys []resolveKey) map[res
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	var failed atomic.Int64
+	ctx, cancel := context.WithTimeout(ctx, resolveDeadline)
+	defer cancel()
 	slots := make(chan struct{}, resolveConcurrency)
 	for _, key := range keys {
-		slots <- struct{}{}
+		select {
+		case slots <- struct{}{}:
+		case <-ctx.Done():
+			failed.Add(1)
+			continue
+		}
 		wg.Add(1)
 		go func() {
 			defer func() { <-slots; wg.Done() }()

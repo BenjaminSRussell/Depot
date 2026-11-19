@@ -40,7 +40,7 @@ type appReversal struct {
 	id, postingDate, entryID string
 }
 
-const reversalLedgerTimeout = 3 * time.Second
+const reversalLedgerTimeout = time.Second
 
 type ItemChange struct {
 	OpenItemID string `json:"openItemId"`
