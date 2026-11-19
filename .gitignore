@@ -31,3 +31,4 @@ deploy/.gateway-schemas/
 
 /services/billing/billing
 /services/numbering/numbering
+services/agents-ts/redteam-report.json

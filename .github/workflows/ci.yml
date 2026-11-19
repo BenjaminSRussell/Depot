@@ -372,6 +372,14 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      - if: matrix.package == 'services/agents-ts'
+        run: npm run redteam
+      - if: always() && matrix.package == 'services/agents-ts'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: redteam-report
+          path: services/agents-ts/redteam-report.json
+          if-no-files-found: warn
       - run: npm run build
 
   # Temporal worker (services/workflow-ts): typecheck, the event-schema compatibility gate and the workflow tests, which
