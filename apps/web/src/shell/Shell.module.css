@@ -539,6 +539,35 @@
 }
 
 /* A touch screen gets the 44px touch target on the density toggle, which is a small button elsewhere (#508). */
+.searchTrigger {
+  gap: var(--space-2);
+}
+
+.searchTrigger kbd {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs-size);
+}
+
+@media (max-width: 639px) {
+  .searchTriggerLabel {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .searchTrigger kbd {
+    display: none;
+  }
+
+  .searchTrigger {
+    min-inline-size: 44px;
+    min-block-size: 44px;
+  }
+}
+
 @media (pointer: coarse) {
   .topbarActions .compactToggle {
     min-block-size: 44px;

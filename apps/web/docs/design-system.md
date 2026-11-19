@@ -112,7 +112,7 @@ Define as `--text-sm-size`/`--text-sm-leading` pairs. Weights: `--weight-regular
 
 ## 3. Command palette (`src/shell/CommandPalette.tsx` + `.module.css`)
 
-Props: `{ entries: PaletteEntry[]; onSelect(entry): void; onClose(): void; announce(msg: string): void }`, where `PaletteEntry = { id: string; group: string; label: string; to: string }`. The shell builds entries from `shellNav` (group "General") plus each module's nav (group `module.title`), in registry order.
+Props: `{ entries: PaletteEntry[]; onSelect(entry): void; onClose(): void; announce(msg: string): void; onAsk?(text: string): void; assistantState?: AvailabilityState }`, where `PaletteEntry = { id: string; group: string; label: string; to: string }`. The shell builds entries from `shellNav` (group "General") plus each module's nav (group `module.title`), in registry order. Results are flat groups named Navigate, Records and Assistant, in that order (`search/paletteResults.ts`). With an empty box the groups are Favourite records, Recent records and Navigate. Navigate is ranked (exact, prefix, word start, substring, group or keyword) and capped at 5 while a query is typed. Records come from the search service in its own order, with the record type in the option label. The Assistant group holds one row, "Ask the assistant: {text}", always last for a non-empty query; Enter calls `onAsk(text)` and closes the bar. It shows only when `assistantState.status === "enabled"` and `onAsk` is set. While availability is `checking` it is one disabled option; for `degraded` or `unavailable` it is replaced by one status line from `copy.palette.assistantUnavailable` that is not an option.
 
 ```
 <div class=overlay onMouseDown={e => e.target === e.currentTarget && onClose()}>     fixed inset 0, scrim
@@ -133,16 +133,17 @@ Props: `{ entries: PaletteEntry[]; onSelect(entry): void; onClose(): void; annou
       : <div class=empty> search icon · <p>No pages match “{query}”.</p><p>Try a workspace name, like Admin or Tax.</p></div>}
     <footer aria-hidden="true" class=footer><kbd>↑</kbd><kbd>↓</kbd> to move · <kbd>↵</kbd> to open · <kbd>Esc</kbd> to close</footer>
 ```
-- **Filtering.** Case-insensitive `includes` against `label` or `group` (the current rule). Groups keep their order, and empty groups are dropped. `i` is the flat index across all visible options. Every query change resets `active` to 0.
+- **Filtering.** Navigate entries are ranked and filtered by `rankNavigate` (case-insensitive match against `label`, `group` or `keywords`). Empty groups are dropped. `i` is the flat index across all visible options. Every query change resets `active` to 0.
 - **Keys on the input.**
   - `ArrowDown`/`ArrowUp` move `active` and wrap. Call `preventDefault` so the caret stays put.
-  - `Enter` calls `onSelect(visible[active])` and does nothing when there are no results.
+  - `Home`/`End` move `active` to the first or last option, except while Ctrl is held, so Ctrl+Home and Ctrl+End keep their caret meaning.
+  - `Enter` calls `onSelect(visible[active])`, or `onAsk(text)` on the Assistant row, and does nothing when there are no results.
   - `Escape` calls `stopPropagation` and then `onClose()`.
   - `Tab`/`Shift+Tab` cycle only between the input and "Close search" (`useFocusTrap`).
   - After `active` changes, run `document.getElementById(optionId)?.scrollIntoView?.({ block: "nearest" })`.
 - **Selected option.** `--color-accent-subtle` bg, `--color-accent-strong` text, `--radius-sm`, height `--nav-item-height`. Group label: `--text-xs`, `--color-text-muted`, `padding-inline var(--space-3)`.
 - **Announcements.** Debounce 250ms, then call `announce("{n} results")`, `announce("1 result")` or `announce("No results")`. Clear the timer on unmount so it cannot overwrite "Opened {label}".
-- **Shell side.** Ctrl/Cmd+K (`preventDefault`) opens the palette, or selects the input text if it is already open, and announces "Search opened". Keep the `clickTrace("search")` call on the trigger, but do not read the traceparent aloud. On open, store `document.activeElement`. `onClose` closes and restores focus to the stored element, falling back to the search trigger. `onSelect` calls `navigate(to)`, closes the palette and announces `Opened {label}`. In that case focus moves to the new page `h1` (route-change rule) instead of the stored element. Lock body scroll while the palette is open.
+- **Shell side.** Ctrl/Cmd+K (`preventDefault`) opens the palette, or selects the input text if it is already open, and announces "Search opened". Keep the `clickTrace("search")` call on the trigger, but do not read the traceparent aloud. On open, store `document.activeElement`. `onClose` closes and restores focus to the stored element, falling back to the top-bar "Search or ask" button, then the sidebar Search button, then the menu button. `onSelect` calls `navigate(to)`, closes the palette and announces `Opened {label}`. In that case focus moves to the new page `h1` (route-change rule) instead of the stored element. Lock body scroll while the palette is open.
 - **Motion.** The overlay fades in over `--duration-base`. The panel animates from `opacity 0; transform: translateY(-4px) scale(0.98)` with `--ease-out`. Under reduced motion, use opacity only at `--duration-fast`. Input text uses `--text-lg`. The panel uses `--radius-lg` and `--shadow-lg`.
 
 ## 4. Primitives (`src/shell/ui/`, each a `.tsx` + `.module.css`, re-exported from `ui/index.ts`)
@@ -299,7 +300,7 @@ The full writing rules (voice, task verbs, error messages, glossary) are in [ux-
 1. Home lists one `heading level 3` per module title and a link per nav entry. No "Save Note" button is on `/`; it appears at `/notes`, and `checkAxeAA` returns `[]` there.
 2. At `/admin/import`: `h1` is "Import", navigation "Breadcrumb" has link "Admin", and link "Import data" inside "Workspaces" has `aria-current="page"`. At `/admin/audit` (planned): `h1` is "Page not available" and the message says the page isn't built yet.
 3. Palette: after Ctrl+K and ArrowDown, the input's `aria-activedescendant` equals the id of the 2nd `option`, which has `aria-selected="true"`. Enter navigates to that option's page.
-4. Palette: options sit in a `group` named "Admin". Typing "zzz" shows "No pages match" with `aria-expanded="false"`, and Enter leaves the dialog open.
+4. Palette: options sit in a `group` named "Navigate". Typing "zzz" shows "No pages match" with `aria-expanded="false"`, and Enter leaves the dialog open.
 5. Palette: Escape after opening from the Search button returns focus to that button.
 6. Drawer: clicking "Open navigation" sets `aria-expanded="true"`, shows dialog "Navigation", and focuses "Close navigation". Tab from the last element wraps inside the drawer. Escape closes it, and focus returns to "Open navigation".
 7. Route change via the palette focuses the new `h1`.
