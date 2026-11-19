@@ -151,6 +151,7 @@ for (const mode of ["503", "timeout"] as const) {
       await page.getByLabel("Invoice number").fill("INV-100");
       await page.getByLabel("Invoice date").fill("2026-11-10");
       await page.getByLabel("Posting date").fill("2026-11-10");
+      await page.getByLabel("Currency").fill("USD");
       await pick(page, "Ledger", "Main ledger");
       await pick(page, "Line 1 receipt", "RCV-1");
       await page.getByLabel("Line 1 quantity").fill("6");
