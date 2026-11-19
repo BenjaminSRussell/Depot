@@ -40,7 +40,7 @@ type appReversal struct {
 	id, postingDate, entryID string
 }
 
-const reversalLedgerTimeout = 10 * time.Second
+const reversalLedgerTimeout = 3 * time.Second
 
 type ItemChange struct {
 	OpenItemID string `json:"openItemId"`
@@ -113,6 +113,22 @@ func (s *Postgres) CheckReverseApplication(ctx context.Context, paymentID string
 		pay, err := scanPayment(tx.QueryRow(ctx, `select `+paymentColumns+` from payment where id = $1`, paymentID))
 		if err != nil {
 			return notFound(err, CodePaymentNotFound, "payment not found")
+		}
+		sp, err := tx.Begin(ctx)
+		if err != nil {
+			return err
+		}
+		if lockErr := lockApplicationItems(ctx, sp, p.TenantID, pay.ID, req.ApplicationID); lockErr != nil {
+			_ = sp.Rollback(ctx)
+			var pr *httpx.Problem
+			if errors.As(lockErr, &pr) && pr.Code == domain.CodeItemLocked {
+				out = ReverseEligibility{Code: pr.Code, Reason: pr.Detail}
+				return nil
+			}
+			return lockErr
+		}
+		if err := sp.Commit(ctx); err != nil {
+			return err
 		}
 		_, out, err = reverseGuards(ctx, tx, p, pay, req.ApplicationID)
 		return err
@@ -198,11 +214,14 @@ func changedItems(ctx context.Context, tx pgx.Tx, tenantID, paymentID, applicati
 		  ('DUNNED', exists (select 1 from dunning_letter l where l.tenant_id = $1 and l.status = 'ISSUED' and l.issued_at > ap.applied_at
 		    and l.items @> jsonb_build_array(jsonb_build_object('openItemId', it.open_item_id::text)))),
 		  ('CLEARED', exists (select 1 from down_payment_clearing c where c.tenant_id = $1 and c.open_item_id = it.open_item_id and c.cleared_at > ap.applied_at)
-		    or exists (select 1 from credit_settlement c where c.tenant_id = $1 and c.debit_item_id = it.open_item_id and c.settled_at > ap.applied_at)),
+		    or exists (select 1 from credit_settlement c where c.tenant_id = $1 and c.debit_item_id = it.open_item_id and c.settled_at > ap.applied_at)
+		    or exists (select 1 from deduction d where d.tenant_id = $1 and d.open_item_id = it.open_item_id and d.created_at > ap.applied_at)),
 		  ('FURTHER_SETTLED', exists (select 1 from settlement s where s.tenant_id = $1 and s.open_item_id = it.open_item_id and s.reversal_of_id is null
 		    and s.payment_id <> $2 and s.settled_at > ap.applied_at)),
 		  ('LATER_APPLICATION', exists (select 1 from payment_application a where a.tenant_id = $1 and a.payment_id = $2 and a.id <> $3
-		    and a.status = 'APPLIED' and a.applied_at > ap.applied_at))
+		    and a.status = 'APPLIED' and a.applied_at > ap.applied_at
+		    and exists (select 1 from settlement ls where ls.tenant_id = $1 and ls.application_id = a.id and ls.reversal_of_id is null
+		      and not exists (select 1 from settlement lr where lr.tenant_id = ls.tenant_id and lr.reversal_of_id = ls.id))))
 		) as cause(name, hit)
 		where cause.hit
 		order by it.open_item_id, cause.name`, tenantID, paymentID, applicationID)
@@ -237,16 +256,21 @@ func (s *Postgres) postApplicationReversal(ctx context.Context, pay Payment, app
 	}
 	ctx, cancel := context.WithTimeout(ctx, reversalLedgerTimeout)
 	defer cancel()
+	started := time.Now()
+	key := "post:receivables:paymentapplication:" + app.id + ":reversal" + suffix
 	id, err := s.postLedgerEntry(ctx, ledgerEntry{legalEntityID: pay.LegalEntityID, ledgerID: ledgerID, documentID: "PAY-" + pay.ID + "-APP-REVERSAL" + suffix,
-		postingDate: app.postingDate, currency: currency, key: "post:receivables:paymentapplication:" + app.id + ":reversal" + suffix,
+		postingDate: app.postingDate, currency: currency, key: key,
 		sourceType: "receivables-payment_application_reversal"}, lines)
 	if err != nil {
-		slog.ErrorContext(ctx, "payment application reversal not posted", "application", app.id, "err", err, "correlationId", middleware.GetReqID(ctx))
+		slog.ErrorContext(ctx, "payment application reversal not posted", "application", app.id, "leg", suffix, "ledgerKey", key, "durationMs", time.Since(started).Milliseconds(),
+			"err", err, "correlationId", middleware.GetReqID(ctx))
 		if ledgerclient.CodeOf(err) == ledgerclient.CodePeriodClosed {
 			return "", httpx.NewProblem(http.StatusConflict, CodeReversalPeriodClosed, "the posting period of the application is closed; the reversal is not re-dated")
 		}
 		return "", httpx.NewProblem(http.StatusServiceUnavailable, CodeReversalLedgerUnavailable, "the ledger refused or could not be reached; retry with the same Idempotency-Key")
 	}
+	slog.InfoContext(ctx, "payment application reversal posted", "application", app.id, "leg", suffix, "ledgerKey", key, "entry", id, "durationMs", time.Since(started).Milliseconds(),
+		"correlationId", middleware.GetReqID(ctx))
 	return id, nil
 }
 

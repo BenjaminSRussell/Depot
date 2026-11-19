@@ -3,8 +3,10 @@ package store
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
@@ -206,14 +208,8 @@ func (s *Postgres) unapplyRows(ctx context.Context, tx pgx.Tx, p tenant.Principa
 	out.Payment = pay
 	key := fmt.Sprintf("unapply:%s:%d", pay.ID, pay.Version)
 	unapplyJournal := unapplyLines(order, recvByPartner, cash, disc, off)
-	if app != nil {
-		if app.entryID, err = s.postApplicationReversal(ctx, pay, app, pay.Currency, "", unapplyJournal); err != nil {
-			return err
-		}
-	} else if err := enqueueJournal(ctx, tx, p.TenantID, journalSpec{LegalEntityID: pay.LegalEntityID, SourceType: JournalPaymentUnapply, SourceID: pay.ID,
-		SourceKey: key, DocumentID: "PAY-" + pay.ID + "-UNAPPLY", PostingDate: today(), Currency: pay.Currency, Lines: unapplyJournal}); err != nil {
-		return err
-	}
+	var fxLines []journalLine
+	var fxCurrency string
 	if gain.IsPositive() || loss.IsPositive() {
 		set, err := loadFXSetting(ctx, tx, pay.LegalEntityID)
 		if err != nil {
@@ -222,24 +218,39 @@ func (s *Postgres) unapplyRows(ctx context.Context, tx pgx.Tx, p tenant.Principa
 		if set, err = fxSettingAtPosting(ctx, tx, p.TenantID, pay.LegalEntityID, pay.ID, "fx:"+pay.ID+":", set); err != nil {
 			return err
 		}
-		var lines []journalLine
+		fxCurrency = set.FunctionalCurrency
 		for _, pt := range order {
 			if g := gainBy[pt]; g.IsPositive() {
-				lines = append(lines, debit(set.GainAccount, g, "Realized exchange gain reversed"), withPartner(credit(domain.AccountReceivable, g, "Realized exchange gain reversed"), pt))
+				fxLines = append(fxLines, debit(set.GainAccount, g, "Realized exchange gain reversed"), withPartner(credit(domain.AccountReceivable, g, "Realized exchange gain reversed"), pt))
 			}
 		}
 		for _, pt := range order {
 			if l := lossBy[pt]; l.IsPositive() {
-				lines = append(lines, withPartner(debit(domain.AccountReceivable, l, "Realized exchange loss reversed"), pt), credit(set.LossAccount, l, "Realized exchange loss reversed"))
+				fxLines = append(fxLines, withPartner(debit(domain.AccountReceivable, l, "Realized exchange loss reversed"), pt), credit(set.LossAccount, l, "Realized exchange loss reversed"))
 			}
 		}
-		if app != nil {
-			if _, err := s.postApplicationReversal(ctx, pay, app, set.FunctionalCurrency, "-fx", lines); err != nil {
+	}
+	if app != nil {
+		if app.entryID, err = s.postApplicationReversal(ctx, pay, app, pay.Currency, "", unapplyJournal); err != nil {
+			return err
+		}
+		if fxLines != nil {
+			if _, err := s.postApplicationReversal(ctx, pay, app, fxCurrency, "-fx", fxLines); err != nil {
+				slog.ErrorContext(ctx, "payment application reversal fx leg not posted after the main leg", "application", app.id, "postedEntry", app.entryID,
+					"err", err, "correlationId", middleware.GetReqID(ctx))
 				return err
 			}
-		} else if err := enqueueJournal(ctx, tx, p.TenantID, journalSpec{LegalEntityID: pay.LegalEntityID, SourceType: JournalRealizedFX, SourceID: pay.ID,
-			SourceKey: "fx-" + key, DocumentID: "PAY-" + pay.ID + "-UNAPPLY", PostingDate: today(), Currency: set.FunctionalCurrency, Lines: lines}); err != nil {
+		}
+	} else {
+		if err := enqueueJournal(ctx, tx, p.TenantID, journalSpec{LegalEntityID: pay.LegalEntityID, SourceType: JournalPaymentUnapply, SourceID: pay.ID,
+			SourceKey: key, DocumentID: "PAY-" + pay.ID + "-UNAPPLY", PostingDate: today(), Currency: pay.Currency, Lines: unapplyJournal}); err != nil {
 			return err
+		}
+		if fxLines != nil {
+			if err := enqueueJournal(ctx, tx, p.TenantID, journalSpec{LegalEntityID: pay.LegalEntityID, SourceType: JournalRealizedFX, SourceID: pay.ID,
+				SourceKey: "fx-" + key, DocumentID: "PAY-" + pay.ID + "-UNAPPLY", PostingDate: today(), Currency: fxCurrency, Lines: fxLines}); err != nil {
+				return err
+			}
 		}
 	}
 	if app != nil {

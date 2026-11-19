@@ -612,7 +612,7 @@ paths:
         Idempotency-Key. With `dryRun: true` the same guards run through one shared function, nothing changes, If-Match and Idempotency-Key
         are not needed, and the answer is 200 `{ eligible, code?, reason?, items? }` carrying the code the real call would return (a closed
         period and a ledger outage are not detected by dryRun, which answers eligible for them; the real call refuses with 409 AR-0023
-        or 503 AR-0022. A locked item is 409 AR-0002 on both paths).
+        or 503 AR-0022. A locked item is 409 AR-0002 on the real call and 200 `{ eligible: false, code: AR-0002 }` on dryRun).
         The same key and body replays the first response, the same key with another body is 422 idempotency_key_reuse.
       x-depot-duty: receivables.payment.post
       x-passage-duty: receivables.payment.post

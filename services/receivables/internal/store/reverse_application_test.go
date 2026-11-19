@@ -309,7 +309,7 @@ func TestReverseApplication_ALockedItemIsRefusedWithAR0002(t *testing.T) {
 	}
 }
 
-func TestReverseApplication_DryRunRefusesALockedItemWithAR0002(t *testing.T) {
+func TestReverseApplication_DryRunAnswersALockedItemAsIneligibleWithAR0002(t *testing.T) {
 	f := appliedSetup(t)
 	admin, _ := adminPools.Load(f.s.pool)
 	tx, err := admin.(*pgxpool.Pool).Begin(context.Background())
@@ -321,8 +321,8 @@ func TestReverseApplication_DryRunRefusesALockedItemWithAR0002(t *testing.T) {
 		t.Fatal(err)
 	}
 	req := ReverseApplicationRequest{ApplicationID: f.applied.ApplicationID, Reason: "wrong invoice"}
-	if _, err := f.s.CheckReverseApplication(f.ctx, f.pay.ID, req); problemCode(err) != domain.CodeItemLocked {
-		t.Fatalf("dryRun with a locked item: %v", err)
+	if got, err := f.s.CheckReverseApplication(f.ctx, f.pay.ID, req); err != nil || got.Eligible || got.Code != domain.CodeItemLocked || got.Reason == "" {
+		t.Fatalf("dryRun with a locked item: %+v %v", got, err)
 	}
 	if _, err := f.reverse("ra-lock-2", f.applied.Payment.Version); problemCode(err) != domain.CodeItemLocked {
 		t.Fatalf("real call with a locked item: %v", err)
@@ -431,8 +431,16 @@ func TestReverseApplication_ItemGuardsAnswerTheSameThroughDryRunAndTheRealCall(t
 		}},
 		{name: "later application", cause: "LATER_APPLICATION", arrange: func(t *testing.T, f appliedFixture) {
 			p, _ := tenant.FromContext(f.ctx)
+			later := ids.New()
 			execAdmin(t, f.s, `insert into payment_application (tenant_id, id, legal_entity_id, payment_id, posting_date) values ($1, $2, $3, $4, $5::date)`,
-				p.TenantID, ids.New(), legalEntity, f.pay.ID, today())
+				p.TenantID, later, legalEntity, f.pay.ID, today())
+			execAdmin(t, f.s, `insert into settlement (tenant_id, id, legal_entity_id, payment_id, open_item_id, settled_amount, application_id) values ($1, $2, $3, $4, $5, 0, $6)`,
+				p.TenantID, ids.New(), legalEntity, f.pay.ID, f.second.ID, later)
+		}},
+		{name: "deduction", cause: "CLEARED", arrange: func(t *testing.T, f appliedFixture) {
+			p, _ := tenant.FromContext(f.ctx)
+			execAdmin(t, f.s, `insert into deduction (tenant_id, id, legal_entity_id, customer_id, open_item_id, deduction_type, reason_code, currency, amount, status, idempotency_key)
+				values ($1, $2, $3, $4, $5, 'UNKNOWN', 'SHORT', 'USD', 1, 'OPEN', 'ded-1')`, p.TenantID, ids.New(), legalEntity, f.first.CustomerID, f.first.ID)
 		}},
 	}
 	for _, tt := range tests {
@@ -454,6 +462,22 @@ func TestReverseApplication_ItemGuardsAnswerTheSameThroughDryRunAndTheRealCall(t
 			}
 			f.unchanged(t)
 		})
+	}
+}
+
+func TestReverseApplication_ALaterApplicationUnappliedByTheLegacyPathDoesNotBlock(t *testing.T) {
+	f := appliedSetup(t)
+	p, _ := tenant.FromContext(f.ctx)
+	later, live, reversing := ids.New(), ids.New(), ids.New()
+	execAdmin(t, f.s, `insert into payment_application (tenant_id, id, legal_entity_id, payment_id, posting_date) values ($1, $2, $3, $4, $5::date)`,
+		p.TenantID, later, legalEntity, f.pay.ID, today())
+	execAdmin(t, f.s, `insert into settlement (tenant_id, id, legal_entity_id, payment_id, open_item_id, settled_amount, application_id) values ($1, $2, $3, $4, $5, 1, $6)`,
+		p.TenantID, live, legalEntity, f.pay.ID, f.second.ID, later)
+	execAdmin(t, f.s, `insert into settlement (tenant_id, id, legal_entity_id, payment_id, open_item_id, settled_amount, reversal_of_id) values ($1, $2, $3, $4, $5, -1, $6)`,
+		p.TenantID, reversing, legalEntity, f.pay.ID, f.second.ID, live)
+	req := ReverseApplicationRequest{ApplicationID: f.applied.ApplicationID, Reason: "wrong invoice"}
+	if got, err := f.s.CheckReverseApplication(f.ctx, f.pay.ID, req); err != nil || !got.Eligible {
+		t.Fatalf("a later application with no live settlement blocked: %+v %v", got, err)
 	}
 }
 
@@ -530,8 +554,15 @@ func TestReverseApplication_CrossCurrencyPostsTheFXMirrorInTheSameRequest(t *tes
 		t.Fatalf("retry: %+v %v", out, err)
 	}
 	keys := map[string]ledgerclient.Stored{}
+	reversalEntries := 0
 	for _, e := range fake.Entries() {
 		keys[e.IdempotencyKey] = e
+		if strings.HasPrefix(e.IdempotencyKey, "post:receivables:paymentapplication:") {
+			reversalEntries++
+		}
+	}
+	if reversalEntries != 2 {
+		t.Fatalf("the retry after a refused fx leg left %d reversal entries, want the main and fx legs once each", reversalEntries)
 	}
 	prefix := "post:receivables:paymentapplication:" + applied.ApplicationID + ":reversal"
 	main, fx := keys[prefix], keys[prefix+"-fx"]
