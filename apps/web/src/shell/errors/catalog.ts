@@ -556,6 +556,8 @@ const fulfillment: Record<string, ProblemCatalogEntry> = {
   "FUL-0080": { message: "We couldn't find that sales delivery report.", action: "Go back to the list and open it again." },
   "FUL-0081": { message: "A sales delivery report can only be retried while it is parked or pending.", action: "Reload the page to see the report's status." },
   "FUL-0082": { message: "Inventory values a shipment line in a different currency than the packing slip uses.", action: "Check the currency on the slip and on the product's cost, then post again." },
+  "FUL-0083": { message: "There is no ledger journal to release for that packing slip.", action: "Check the slip number. A slip with nothing to book has no journal." },
+  "FUL-0084": { message: "Only a journal the ledger refused can be released.", action: "Reload the page to see the journal's status." },
 };
 
 const billing: Record<string, ProblemCatalogEntry> = {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"time"
@@ -21,7 +22,9 @@ import (
 )
 
 const (
-	CodeCostCurrency = "FUL-0082"
+	CodeCostCurrency   = "FUL-0082"
+	CodeSlipGLNotFound = "FUL-0083"
+	CodeSlipGLState    = "FUL-0084"
 
 	codeUnavailable   = "COM-0503"
 	slipGLSourceType  = "fulfillment-packing-slip"
@@ -128,6 +131,8 @@ func (s *Postgres) claimSlipGL(ctx context.Context) ([]claimedSlipGL, error) {
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `with claimed as (
 				select slip_id as claimed_id from packing_slip_gl where status = 'PENDING' and not parked and next_attempt_at <= now()
+				and not exists (select 1 from packing_slip s join packing_slip_gl o on o.tenant_id = s.tenant_id and o.slip_id = s.reversal_of_id
+					where s.tenant_id = packing_slip_gl.tenant_id and s.id = packing_slip_gl.slip_id and o.status <> 'POSTED')
 				order by next_attempt_at, slip_id limit $1 for update skip locked)
 			update packing_slip_gl g set attempts = g.attempts + 1, next_attempt_at = now() + make_interval(secs => $2), updated_at = now()
 			from claimed where g.slip_id = claimed.claimed_id
@@ -247,6 +252,68 @@ func (s *Postgres) recordSlipGLFailure(ctx, tctx context.Context, c claimedSlipG
 	}); err != nil {
 		slog.ErrorContext(ctx, "packing slip journal failure not recorded", "slip", c.SlipID, "err", err, "correlationId", middleware.GetReqID(ctx))
 	}
+}
+
+type SlipGL struct {
+	SlipID        string    `json:"slipId"`
+	LegalEntityID string    `json:"legalEntityId"`
+	Status        string    `json:"status"`
+	Attempts      int       `json:"attempts"`
+	NextAttemptAt time.Time `json:"nextAttemptAt"`
+	Parked        bool      `json:"parked"`
+	LastError     string    `json:"lastError,omitempty"`
+	UpdatedAt     time.Time `json:"updatedAt"`
+}
+
+type SlipGLStore interface {
+	ReleaseSlipGL(ctx context.Context, slipID string, idem Idem) (SlipGL, error)
+}
+
+const slipGLCols = `slip_id::text, legal_entity_id::text, status, attempts, next_attempt_at, parked, coalesce(last_error, ''), updated_at`
+
+func scanSlipGL(row pgx.Row) (g SlipGL, err error) {
+	err = row.Scan(&g.SlipID, &g.LegalEntityID, &g.Status, &g.Attempts, &g.NextAttemptAt, &g.Parked, &g.LastError, &g.UpdatedAt)
+	return g, err
+}
+
+// ReleaseSlipGL puts a parked slip journal back in the poster's queue, due now
+// and with its attempts counted from zero. Only a PENDING parked row is released
+// (FUL-0084); a slip with no journal row is FUL-0083.
+func (s *Postgres) ReleaseSlipGL(ctx context.Context, slipID string, idem Idem) (SlipGL, error) {
+	p, _ := tenant.FromContext(ctx)
+	var out SlipGL
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		res, err := runIdempotent(ctx, tx, p.TenantID, idem, func() (SlipGL, error) {
+			g, err := scanSlipGL(tx.QueryRow(ctx, `select `+slipGLCols+` from packing_slip_gl where slip_id = $1 for update`, slipID))
+			if errors.Is(err, pgx.ErrNoRows) {
+				return g, httpx.NewProblem(http.StatusNotFound, CodeSlipGLNotFound, "no packing slip journal found for this slip")
+			}
+			if err != nil {
+				return g, err
+			}
+			if g.Status != "PENDING" || !g.Parked {
+				return g, httpx.NewProblem(http.StatusConflict, CodeSlipGLState, "only a parked packing slip journal is released")
+			}
+			return scanSlipGL(tx.QueryRow(ctx, `update packing_slip_gl set parked = false, attempts = 0, next_attempt_at = now(), updated_at = now()
+				where slip_id = $1 returning `+slipGLCols, slipID))
+		})
+		out = res
+		return err
+	})
+	return out, err
+}
+
+// WriteSlipGLMetrics writes the process-wide counts of open and parked slip
+// journals as Prometheus gauges; a failed read writes nothing rather than a zero.
+func (s *Postgres) WriteSlipGLMetrics(w io.Writer) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var pending, parked int64
+	if err := s.pool.QueryRow(ctx, `select pending_rows, parked_rows from fulfillment_slip_gl_counts()`).Scan(&pending, &parked); err != nil {
+		slog.ErrorContext(ctx, "packing slip journal gauges not read", "err", err)
+		return
+	}
+	_, _ = fmt.Fprintf(w, "# TYPE depot_fulfillment_slip_gl_pending gauge\ndepot_fulfillment_slip_gl_pending %d\n# TYPE depot_fulfillment_slip_gl_parked gauge\ndepot_fulfillment_slip_gl_parked %d\n", pending, parked)
 }
 
 // DNIReconciliation compares the delivered-not-invoiced report with the
