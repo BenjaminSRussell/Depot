@@ -323,6 +323,20 @@ func TestResolve_TheServiceResolveDutyReachesOnlyTheResolveRoute(t *testing.T) {
 	}
 }
 
+func TestResolve_TheMarkingDutyReachesOnlyTheResolveRoute(t *testing.T) {
+	f := &fakeStore{}
+	ok := serve(t, router(ownerAPI(f, &fakeOwner{})), resolveCall(refsOf("project", ids.New()), DutyDataDesignationMarkingRead))
+	if ok.Code != http.StatusOK {
+		t.Fatalf("resolve with the marking duty: %d %s", ok.Code, ok.Body.String())
+	}
+	for _, path := range []string{"/v1/compliance/data-designations", "/v1/compliance/data-designations/" + ids.New(), "/v1/compliance/data-designations/" + ids.New() + "/history"} {
+		rec := serve(t, router(ownerAPI(f, &fakeOwner{})), call{method: http.MethodGet, path: path, duties: []string{DutyDataDesignationMarkingRead}, legalEntity: testLE})
+		if rec.Code != http.StatusForbidden || problemCode(t, rec) != "AUTH-0003" {
+			t.Fatalf("GET %s with the marking duty: %d %s", path, rec.Code, rec.Body.String())
+		}
+	}
+}
+
 func TestResolve_MalformedTenantIs401(t *testing.T) {
 	f := &fakeStore{}
 	req := httptest.NewRequest(http.MethodPost, "/v1/compliance/data-designations:resolve", strings.NewReader(`{"refs":[]}`)).

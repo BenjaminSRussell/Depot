@@ -3,6 +3,7 @@ export { Button, buttonClassName, type ButtonProps, type ButtonSize, type Button
 export { Card, CardGrid, type CardGridProps, type CardProps } from "./Card";
 export { ConfirmDialog, type ConfirmDialogProps } from "./ConfirmDialog";
 export { DataTable, type DataTableColumn, type DataTableProps } from "./DataTable";
+export { DataMarking, showsMarking, type DataMarkingProps } from "./DataMarking";
 export { ListPage, entityText, isForbidden, loadedRows, type ListColumn, type ListData, type ListPageProps, type LoadedList } from "./ListPage";
 export { usePagedRows, type RowPage } from "./usePagedRows";
 export type { FilterValues, ListFilterDef, ListQuery, ListSort } from "./listViews";

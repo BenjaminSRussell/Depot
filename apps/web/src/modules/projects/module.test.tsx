@@ -38,15 +38,29 @@ type Reply = { status: number; body: unknown };
 type Handler = (url: URL, init: RequestInit) => Reply | Promise<Reply>;
 
 let handler: Handler;
+type Ref = { entityType: string; recordId: string };
+type Designated = { class: string; source: string };
+let designated: Record<string, Designated>;
+let resolverStatus: number;
 let calls: { method: string; url: URL; headers: Headers; body: unknown }[];
 
 beforeEach(() => {
   calls = [];
+  designated = {};
+  resolverStatus = 200;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: string, init: RequestInit = {}) => {
       const url = new URL(input, "http://localhost");
       calls.push({ method: init.method ?? "GET", url, headers: new Headers(init.headers), body: init.body ? JSON.parse(init.body as string) : undefined });
+      if (url.pathname.endsWith(":resolve")) {
+        const refs = (calls[calls.length - 1]!.body as { refs: Ref[] }).refs;
+        const items = refs.map((r) => ({ ...r, ...(designated[r.recordId] ?? { class: "NONE", source: "DEFAULT" }) }));
+        return new Response(JSON.stringify(resolverStatus === 200 ? { items } : { code: "AUTH-0003", detail: "missing duty" }), {
+          status: resolverStatus,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
       const { status, body } = await handler(url, init);
       return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
     }),
@@ -74,6 +88,8 @@ function renderAt(path: string) {
     </MemoryRouter>,
   );
 }
+
+const resolveCalls = () => calls.filter((c) => c.url.pathname.endsWith(":resolve"));
 
 const problem = (status: number, code: string, detail: string, errors?: Record<string, string>): Reply => ({
   status,
@@ -136,7 +152,7 @@ describe("projects list", () => {
     const child = project({ id: "ES-1002", projectType: "INTERNAL", stage: "CREATED", parentProjectId: "ES-1001" });
     handler = (url) => (url.pathname === "/api/v1/projects/ES-1002" ? { status: 200, body: child } : { status: 200, body: { items: [project(), child] } });
     const { container } = renderAt("/projects/list");
-    const table = await findTable({ name: "Projects" });
+    const table = await findTable({ name: "All projects" });
     await waitFor(() => expect(table).toHaveTextContent("ES-1002"));
     expect(table).toHaveTextContent("Fixed price");
     expect(table).toHaveTextContent("In process");
@@ -153,8 +169,10 @@ describe("projects list", () => {
     await screen.findByRole("button", { name: "ES-1001" });
     fireEvent.change(screen.getByLabelText("Stage"), { target: { value: "ON_HOLD" } });
     fireEvent.change(screen.getByLabelText("Project type"), { target: { value: "COST" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
     expect(await screen.findByText("No projects match these filters")).toBeInTheDocument();
-    const last = calls[calls.length - 1]!;
+    const reads = calls.filter((c) => c.url.pathname === "/api/v1/projects");
+    const last = reads[reads.length - 1]!;
     expect(last.url.searchParams.get("stage")).toBe("ON_HOLD");
     expect(last.url.searchParams.get("projectType")).toBe("COST");
   });
@@ -165,16 +183,46 @@ describe("projects list", () => {
         ? { status: 200, body: { items: [project({ id: "ES-2000" })] } }
         : { status: 200, body: { items: [project()], nextCursor: "next-1" } };
     renderAt("/projects/list");
-    fireEvent.click(await screen.findByRole("button", { name: "Load more" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Load more projects" }));
     expect(await screen.findByRole("button", { name: "ES-2000" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load more projects" })).not.toBeInTheDocument();
   });
 
   it("shows an alert when the list cannot load", async () => {
     handler = () => problem(403, "AUTH-0003", "missing duty projects.inquire");
     renderAt("/projects/list");
-    expect(await screen.findByText(/missing duty projects.inquire/)).toBeInTheDocument();
-    expect(screen.queryByRole("table", { name: "Projects" })).not.toBeInTheDocument();
+    expect(await screen.findByText("You can't view projects")).toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: "All projects" })).not.toBeInTheDocument();
+  });
+
+  it("marks CUI projects in a Data designation column with one batch call, and filters to them", async () => {
+    designated = { "ES-1002": { class: "CUI", source: "RECORD" } };
+    handler = () => ({ status: 200, body: { items: [project(), project({ id: "ES-1002" })] } });
+    const { container } = renderAt("/projects/list");
+    const table = await findTable({ name: "All projects" });
+    await waitFor(() => expect(within(table).getByText("CUI")).toBeInTheDocument());
+    expect(within(table).getByRole("columnheader", { name: "Data designation" })).toBeInTheDocument();
+    expect(within(table).getByText("None")).toBeInTheDocument();
+    expect(resolveCalls()).toHaveLength(1);
+    expect(resolveCalls()[0]!.body).toEqual({
+      refs: [
+        { entityType: "project", recordId: "ES-1001" },
+        { entityType: "project", recordId: "ES-1002" },
+      ],
+    });
+    expect(pageViolations(container)).toEqual([]);
+    fireEvent.change(screen.getByLabelText("Data designation"), { target: { value: "CUI" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "ES-1001" })).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "ES-1002" })).toBeInTheDocument();
+  });
+
+  it("says the designation is unavailable for every row when the resolver refuses", async () => {
+    resolverStatus = 403;
+    handler = () => ({ status: 200, body: { items: [project()] } });
+    renderAt("/projects/list");
+    expect(await screen.findByRole("button", { name: "ES-1001" })).toBeInTheDocument();
+    expect(await screen.findByText("Designation unavailable")).toBeInTheDocument();
   });
 });
 
@@ -191,11 +239,41 @@ describe("project detail", () => {
 
     fireEvent.click(within(actions).getByRole("button", { name: "Put on hold" }));
     expect(await screen.findByText("Project ES-1001 is now on hold.")).toBeInTheDocument();
-    const post = calls.find((c) => c.method === "POST")!;
+    const post = calls.find((c) => c.method === "POST" && !c.url.pathname.endsWith(":resolve"))!;
     expect(post.url.pathname).toBe("/api/v1/projects/ES-1001/transitions");
     expect(post.headers.get("If-Match")).toBe('"3"');
     expect(post.body).toEqual({ to: "ON_HOLD" });
     expect(within(screen.getByRole("group", { name: "Stage actions" })).getByRole("button", { name: "Resume work" })).toBeInTheDocument();
+  });
+
+  it("shows the CUI banner and badge with the source", async () => {
+    designated = { "ES-1001": { class: "CUI", source: "RECORD" } };
+    handler = () => ({ status: 200, body: project() });
+    const { container } = renderAt("/projects/ES-1001");
+    const heading = await screen.findByRole("heading", { name: "Project ES-1001" });
+    expect(await screen.findByText("Designated at project level")).toBeInTheDocument();
+    expect(screen.getAllByText("CUI")).toHaveLength(2);
+    expect(heading.closest("header")).toHaveTextContent("Designated at project level");
+    expect(resolveCalls()[0]!.body).toEqual({ refs: [{ entityType: "project", recordId: "ES-1001" }] });
+    expect(pageViolations(container)).toEqual([]);
+  });
+
+  it("shows no marking for a project that is not CUI", async () => {
+    handler = () => ({ status: 200, body: project() });
+    renderAt("/projects/ES-1001");
+    await screen.findByRole("heading", { name: "Project ES-1001" });
+    await waitFor(() => expect(resolveCalls()).toHaveLength(1));
+    expect(screen.queryByText("CUI")).not.toBeInTheDocument();
+    expect(screen.queryByText("Designation unavailable")).not.toBeInTheDocument();
+  });
+
+  it("shows a neutral unavailable note when the resolver refuses, and the stage actions still work", async () => {
+    resolverStatus = 403;
+    handler = () => ({ status: 200, body: project() });
+    renderAt("/projects/ES-1001");
+    expect(await screen.findByText("Designation unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("CUI")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("group", { name: "Stage actions" })).getByRole("button", { name: "Put on hold" })).toBeEnabled();
   });
 
   it("explains a stale version and reloads the project", async () => {

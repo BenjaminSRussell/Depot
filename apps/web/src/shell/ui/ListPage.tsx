@@ -4,9 +4,11 @@ import { ProblemMessage } from "../errors";
 import { filterBySearch, type SearchText } from "../search/match";
 import { formatOption, resolveOption, type LookupEntityKey } from "../lookup/entities";
 import { useWorkContext } from "../lookup/workContextState";
+import { useDesignation, type Marking } from "../useDesignation";
 import { localPreferenceStorage, noPreferenceStorage, type PreferenceStorage } from "../preferenceStorage";
 import { Alert } from "./Alert";
 import { Button } from "./Button";
+import { DataMarking } from "./DataMarking";
 import { downloadCsv, toCsv } from "./csv";
 import { DataTable, type DataTableColumn } from "./DataTable";
 import { EmptyState } from "./EmptyState";
@@ -86,6 +88,7 @@ export interface ListPageProps<T> {
    */
   defaultFilters?: FilterValues;
   storage?: PreferenceStorage;
+  designation?: { entityType: string; idOf(row: T): string };
 }
 
 interface Start {
@@ -135,6 +138,15 @@ export async function entityText(entity: LookupEntityKey, id: string): Promise<s
   return found ? formatOption(found) : id;
 }
 
+const DESIGNATION_KEY = "designation";
+const DESIGNATION_FILTER: ListFilterDef = {
+  kind: "select",
+  key: DESIGNATION_KEY,
+  label: copy.marking.column,
+  anyLabel: copy.marking.filterAll,
+  options: [{ value: "CUI", label: copy.marking.badge }],
+};
+const PENDING: Marking = { kind: "pending" };
 const NO_FILTERS: ListFilterDef[] = [];
 const NO_SORTS: string[] = [];
 
@@ -151,8 +163,8 @@ export function ListPage<T>({
   footer,
   noun,
   singular = noun,
-  columns,
-  filters = NO_FILTERS,
+  columns: pageColumns,
+  filters: pageFilters = NO_FILTERS,
   useRows,
   getRowKey,
   onRowOpen,
@@ -162,7 +174,28 @@ export function ListPage<T>({
   initialFilters,
   defaultFilters,
   storage: preferred = localPreferenceStorage,
+  designation,
 }: ListPageProps<T>) {
+  const marked = designation !== undefined;
+  const markRef = useRef<(row: T) => Marking>(() => PENDING);
+  const columns = useMemo<ListColumn<T>[]>(
+    () => [
+      ...pageColumns,
+      ...(marked
+        ? [
+            {
+              key: DESIGNATION_KEY,
+              header: copy.marking.column,
+              sortable: false,
+              render: (row: T) => <DataMarking marking={markRef.current(row)} variant="cell" />,
+              csv: (row: T) => (markRef.current(row).kind === "none" ? "" : copy.marking.badge),
+            },
+          ]
+        : []),
+    ],
+    [pageColumns, marked],
+  );
+  const filters = useMemo(() => (marked ? [...pageFilters, DESIGNATION_FILTER] : pageFilters), [pageFilters, marked]);
   const { identity } = useWorkContext();
   const storage = identity === "" ? noPreferenceStorage : preferred;
   const filterRef = useRef<HTMLDivElement>(null);
@@ -193,6 +226,15 @@ export function ListPage<T>({
   const [undo, setUndo] = useState<{ view: SavedView; index: number; wasDefault: boolean; wasActive: boolean } | null>(null);
 
   const data = useRows(query);
+  const designations = useDesignation(
+    designation ? data.rows.map((row) => ({ entityType: designation.entityType, recordId: designation.idOf(row) })) : [],
+  );
+  markRef.current = (row) => (designation ? designations.markingOf({ entityType: designation.entityType, recordId: designation.idOf(row) }) : PENDING);
+  const cuiOnly = marked && query.filters[DESIGNATION_KEY] === "CUI";
+  const loadedRowsShown = useMemo(
+    () => (cuiOnly ? data.rows.filter((row) => markRef.current(row).kind === "cui") : data.rows),
+    [data.rows, cuiOnly, designations.version],
+  );
   const nounFor = (count: number) => (count === 1 ? singular : noun);
   const shownKeys = inOrder(columns, visible);
   const shownColumns = columns.filter((c) => shownKeys.includes(c.key));
@@ -200,13 +242,13 @@ export function ListPage<T>({
   const localSort = query.sort !== null && !serverSort.includes(query.sort.key);
   const sorted = useMemo(() => {
     if (!localSort) {
-      return data.rows;
+      return loadedRowsShown;
     }
     const column = columns.find((c) => c.key === query.sort?.key);
     // An amount with a currency column sorts within each currency, never across them.
     const group = column?.csvWith;
-    return sortRows(data.rows, query.sort, (row, key) => (column?.sortValue ? column.sortValue(row) : rawValue(row, key)), group ? (row) => rawValue(row, group) : undefined);
-  }, [data.rows, localSort, query.sort, columns]);
+    return sortRows(loadedRowsShown, query.sort, (row, key) => (column?.sortValue ? column.sortValue(row) : rawValue(row, key)), group ? (row) => rawValue(row, group) : undefined);
+  }, [loadedRowsShown, localSort, query.sort, columns]);
   const searching = search !== undefined && searchText.trim() !== "";
   const rows = useMemo(() => (search && searching ? filterBySearch(sorted, searchText, search) : sorted), [sorted, search, searching, searchText]);
 
@@ -339,7 +381,7 @@ export function ListPage<T>({
     setMessage(data.hasMore ? copy.lists.exportedPartial(rows.length, exportedNoun) : copy.lists.exported(rows.length, exportedNoun));
   }
 
-  const searchNote = searching && data.hasMore && data.rows.length > 0 ? copy.lists.searchLoadedOnly(data.rows.length) : "";
+  const searchNote = searching && data.hasMore && loadedRowsShown.length > 0 ? copy.lists.searchLoadedOnly(loadedRowsShown.length) : "";
   const blocked = data.forbidden === true;
   const sortNote = localSort && data.hasMore && rows.length > 0 ? copy.lists.sortedLoadedOnly(rows.length) : "";
   const failed = data.error !== undefined && data.error !== null && !blocked;
@@ -445,7 +487,7 @@ export function ListPage<T>({
           sortDescribedBy={sortNote ? sortNoteId : undefined}
         />
       ) : !blocked && !failed ? (
-        searching && data.rows.length > 0 ? (
+        searching && loadedRowsShown.length > 0 ? (
           <EmptyState
             title={copy.lists.noSearchMatchTitle(noun)}
             description={copy.lists.noSearchMatchBody}

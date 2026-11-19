@@ -125,6 +125,20 @@ export const copy = {
     noSearchMatchBody: "Check the number or name, or clear the search to see everything.",
     clearSearch: "Clear search",
   },
+  marking: {
+    badge: "CUI",
+    column: "Data designation",
+    filterAll: "All",
+    none: "None",
+    unavailable: "Designation unavailable",
+    source: (source: string, noun: string) => {
+      if (source === "RECORD") return `Designated at ${noun} level`;
+      if (source === "LEGAL_ENTITY") return "Designated at legal entity level";
+      if (source === "TENANT") return "Designated for the whole organization";
+      if (source === "PARENT_RECORD") return `Inherited from the parent ${noun}`;
+      return "Handle as CUI";
+    },
+  },
   fieldHelp: {
     paymentCustomer: "Leave empty when the payer is not yet identified.",
     paymentValueDate: "Cash discounts count from this date.",
