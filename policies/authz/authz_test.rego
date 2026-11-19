@@ -3638,6 +3638,12 @@ test_receivables_unapply_is_the_reversal_duty if {
 	not allowed("receivables.view", "POST", "/v1/receivables/payments/p1:unapply")
 }
 
+test_receivables_reverse_application_is_the_reversal_duty if {
+	allowed("receivables.payment.reverse", "POST", "/v1/receivables/payments/p1:reverse-application")
+	not allowed("receivables.payment.post", "POST", "/v1/receivables/payments/p1:reverse-application")
+	not allowed("receivables.view", "POST", "/v1/receivables/payments/p1:reverse-application")
+}
+
 test_payables_withholding_reporter_holds_only_the_record_duty if {
 	data.service_principals["payables-withholding"] == ["tax.withholding.record"]
 	"tax.withholding.record" in data.service_grants.payables.tax
