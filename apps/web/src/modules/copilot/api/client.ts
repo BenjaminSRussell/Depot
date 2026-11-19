@@ -34,6 +34,7 @@ export interface ChatRequest {
 export async function postChat(req: ChatRequest, fetchFn: typeof fetch = apiFetch): Promise<ChatResponse> {
   const res = await fetchFn("/api/v1/copilot/chat", {
     method: "POST",
+    cache: "no-store",
     headers: { "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify(req),
   });

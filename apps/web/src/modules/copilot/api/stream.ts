@@ -80,6 +80,7 @@ export function toStreamEvent(frame: SseFrame): StreamEvent | undefined {
 export async function* streamChat(req: ChatRequest, fetchFn: typeof fetch = apiFetch): AsyncGenerator<StreamEvent> {
   const res = await fetchFn("/api/v1/copilot/chat", {
     method: "POST",
+    cache: "no-store",
     headers: { "content-type": "application/json", accept: "text/event-stream" },
     body: JSON.stringify(req),
   });
@@ -139,6 +140,7 @@ export async function askCopilot(
 ): Promise<ChatResponse> {
   const res = await fetchFn("/api/v1/copilot/chat", {
     method: "POST",
+    cache: "no-store",
     headers: { "content-type": "application/json", accept: "text/event-stream, application/json;q=0.9" },
     body: JSON.stringify(req),
   });

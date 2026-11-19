@@ -46,7 +46,7 @@ async function parse<T>(res: Response, schema: z.ZodType<T>): Promise<T> {
 
 /** The caller's tenant switch and the global switch. */
 export async function getKillSwitch(signal?: AbortSignal, fetchFn: FetchLike = defaultFetch): Promise<KillSwitchStatus> {
-  const res = await fetchFn(KILL_SWITCH_PATH, { headers: { accept: "application/json" }, ...(signal ? { signal } : {}) });
+  const res = await fetchFn(KILL_SWITCH_PATH, { cache: "no-store", headers: { accept: "application/json" }, ...(signal ? { signal } : {}) });
   return parse(res, killSwitchStatusSchema);
 }
 
@@ -54,6 +54,7 @@ export async function getKillSwitch(signal?: AbortSignal, fetchFn: FetchLike = d
 export async function setKillSwitch(cmd: KillSwitchCommand, fetchFn: FetchLike = defaultFetch): Promise<KillSwitchResult> {
   const res = await fetchFn(KILL_SWITCH_PATH, {
     method: "POST",
+    cache: "no-store",
     headers: { "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify(cmd),
   });
