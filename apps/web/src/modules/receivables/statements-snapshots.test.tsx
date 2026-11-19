@@ -186,7 +186,7 @@ describe("Balance snapshots", () => {
 
 describe("Record payment: payer identity", () => {
   it("validates the payer account and short-pay reason and sends them", () => {
-    const draft = { ...emptyPayment("2027-03-05"), legalEntityId: LE, amount: "995.00" };
+    const draft = { ...emptyPayment("2027-03-05"), legalEntityId: LE, amount: "995.00", currency: "USD" };
     expect(validatePayment({ ...draft, payerAccount: "12-34" })).toHaveProperty("payerAccount");
     expect(validatePayment({ ...draft, shortPayReason: "x".repeat(121) })).toHaveProperty("shortPayReason");
     expect(validatePayment({ ...draft, payerAccount: "DE89 3704 0044 0532 0130 00", shortPayReason: "promo" })).toEqual({});
@@ -224,6 +224,7 @@ describe("Record payment: payer identity", () => {
     };
     renderAt("/receivables/payments/new");
     fill("Legal entity", LE);
+    fill("Currency", "USD");
     fill("Amount", "995.00");
     fill("Check or bank reference", "CHK-9");
     fill("Payer bank account", "DE89 3704 0044 0532 0130 00");

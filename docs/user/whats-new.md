@@ -2,6 +2,12 @@
 
 Changes to Depot in plain language, newest first. Add an entry here for every change a user will notice. The "What's new" page in the app shows this file.
 
+## 2026-11-19
+
+- The currency on a new sales order, purchase order, goods arrival, vendor invoice, customer payment or free-text invoice now fills in from the customer, vendor or purchase order, or else from the legal entity, instead of always starting as USD. You can still type another currency.
+- On a new vendor invoice the ledger fills in when the legal entity has only one.
+- On a new sales order, **Order type** and **Invoice account** moved under **Advanced**.
+
 ## 2026-11-18
 
 - **Run plan** and **Supply schedule** under **Planning** now take items by name or item number. Paste a list of item numbers, separated by commas, spaces or new lines, and each one becomes a named item you can remove; numbers that match nothing are listed so you can fix them.

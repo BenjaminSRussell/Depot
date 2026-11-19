@@ -11,6 +11,7 @@ release may change public APIs.
 ### Changed
 
 - The product is renamed from Passage to Depot (docs/adr/0005-rename-to-depot.md). Every identifier moves together. Go modules become `github.com/BenjaminSRussell/depot/...` and the RLS role becomes `depot_app`. Environment variables are `DEPOT_*`, HTTP headers `X-Depot-*` and `Depot-*`, CloudEvents types `dev.depot.*`, Kafka topics `depot.*` and the Keycloak realm `depot`. Charts and images are `depot-*`, the Java package is `dev.depot`, the Python package is `depot_dispatch` and the ticket prefix is `DPT-`. The service-token signing context is `depot.service-token.v1.`. Three cryptographic labels keep the former name because data at rest depends on them: `passage.fieldcrypt.v1`, `passage.fieldcrypt.mac.v1` and `passage.log.pseudonym.v1`. Dev and stage must be redeployed from scratch and their secrets re-seeded under the new paths.
+- The currency on a new sales order, purchase order, goods arrival, vendor invoice, customer payment and free-text invoice follows the source record (purchase order, then vendor or customer, then legal entity) instead of a literal default, and a vendor invoice takes the legal entity's only ledger (B-26, apps/web `shell/defaults/useDefaults.ts`). `noLiteralDefaults.test.ts` keeps the six task-route forms free of a literal currency. Order type and invoice account on the new sales order move under Advanced.
 
 ### Added
 

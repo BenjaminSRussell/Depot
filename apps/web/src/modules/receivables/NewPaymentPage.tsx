@@ -8,6 +8,7 @@ import { createPayment, describeProblem, newKey, PAYMENT_MODES, ReceivablesApiEr
 import { CURRENCY, DAY, DECIMAL, MODE_LABELS, today, UUID } from "./format";
 import styles from "./pages.module.css";
 import { ProblemMessage } from "../../shell/errors";
+import { useDefaultCurrency } from "../../shell/defaults/useDefaults";
 
 type Errors = Record<string, string>;
 
@@ -53,7 +54,7 @@ export function emptyPayment(day: string = today()): PaymentDraft {
     paymentMode: "CHECK",
     sourceRef: "",
     amount: "",
-    currency: "USD",
+    currency: "",
     receivedDate: day,
     valueDate: day,
     payerName: "",
@@ -122,6 +123,12 @@ export function NewPaymentPage() {
   const [attempt, setAttempt] = useState(0);
   const { prompt, release } = useUnsavedChanges(useFormBaseline(values));
 
+  const derivedCurrency = useDefaultCurrency([
+    { entity: "customer", id: values.customerId.trim() },
+    { entity: "legalEntity", id: values.legalEntityId.trim() },
+  ]);
+  const effective: PaymentDraft = { ...values, currency: values.currency || derivedCurrency };
+
   function update(patch: Partial<PaymentDraft>) {
     setValues((prev) => ({ ...prev, ...patch }));
     key.current = newKey();
@@ -133,7 +140,7 @@ export function NewPaymentPage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const found = validatePayment(values);
+    const found = validatePayment(effective);
     setErrors(found);
     setFailure(null);
     if (Object.keys(found).length > 0) {
@@ -142,7 +149,7 @@ export function NewPaymentPage() {
     }
     setBusy(true);
     try {
-      const created = await createPayment(toPaymentInput(values), key.current);
+      const created = await createPayment(toPaymentInput(effective), key.current);
       release();
       navigate(`/receivables/payments/${created.id}`);
     } catch (error) {
@@ -168,7 +175,7 @@ export function NewPaymentPage() {
             {...c}
             entity={opts.entity}
             scope={opts.entity === "customer" ? { legalEntityId: values.legalEntityId || undefined } : undefined}
-            value={values[field]}
+            value={effective[field]}
             onChange={(e) => update({ [field]: e.target.value } as Partial<PaymentDraft>)}
             invalid={Boolean(errors[field])}
           />
@@ -177,7 +184,7 @@ export function NewPaymentPage() {
             {...c}
             className={opts.mono ? styles.mono : undefined}
             inputMode={opts.decimal ? "decimal" : undefined}
-            value={values[field]}
+            value={effective[field]}
             onChange={(e) => update({ [field]: e.target.value } as Partial<PaymentDraft>)}
             invalid={Boolean(errors[field])}
           />
