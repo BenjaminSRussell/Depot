@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/shopspring/decimal"
 
 	"github.com/BenjaminSRussell/depot/platform/dbx"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
@@ -148,7 +150,7 @@ func TestReverseApplication_ReopensItemsMirrorsTheJournalAndDeletesNothing(t *te
 		t.Fatalf("ledger entries %d", len(entries))
 	}
 	e := entries[0]
-	if e.ID != out.ReversalJournalEntryID || e.IdempotencyKey != "post:receivables:paymentapplication:"+f.applied.ApplicationID+":reversal" || e.PostingDate != originalPostingDate || e.PostingDate == today() {
+	if e.ID != out.ReversalJournalEntryID || !strings.HasPrefix(e.IdempotencyKey, "post:receivables:paymentapplication:"+f.applied.ApplicationID+":reversal:") || e.PostingDate != originalPostingDate || e.PostingDate == today() {
 		t.Fatalf("entry %+v", e.Entry)
 	}
 	want := map[string]string{"1200/D": "500.00", "1205/C": "499.50", domain.AccountWriteOff + "/C": "0.50"}
@@ -521,7 +523,18 @@ func TestReverseApplication_AnotherStandingApplicationKeepsThePaymentOnAccount(t
 	}
 }
 
-func TestReverseApplication_CrossCurrencyPostsTheFXMirrorInTheSameRequest(t *testing.T) {
+type crossCurrencyFixture struct {
+	s       *Postgres
+	ctx     context.Context
+	fake    *ledgerclient.Fake
+	pay     Payment
+	applied ApplyResult
+	item    OpenItem
+	req     ReverseApplicationRequest
+}
+
+func crossCurrencyApplied(t *testing.T) crossCurrencyFixture {
+	t.Helper()
 	s := setup(t)
 	ctx := tenantCtx(1)
 	item := seedInvoice(t, s, ctx)
@@ -540,43 +553,113 @@ func TestReverseApplication_CrossCurrencyPostsTheFXMirrorInTheSameRequest(t *tes
 		t.Fatal(err)
 	}
 	execAdmin(t, s, `update payment_application set posting_date = $2 where id = $1`, applied.ApplicationID, originalPostingDate)
-	req := ReverseApplicationRequest{ApplicationID: applied.ApplicationID, Reason: "wrong invoice"}
-	fake.FailPostsIn("USD", errors.New("connection refused"))
-	if _, err := s.ReverseApplication(ctx, pay.ID, applied.Payment.Version, req, "ra-fx-1"); problemCode(err) != CodeReversalLedgerUnavailable {
-		t.Fatalf("fx leg outage: %v", err)
+	return crossCurrencyFixture{s: s, ctx: ctx, fake: fake, pay: pay, applied: applied, item: item, req: ReverseApplicationRequest{ApplicationID: applied.ApplicationID, Reason: "wrong invoice"}}
+}
+
+func (f crossCurrencyFixture) reverse(t *testing.T, key string) (ReverseApplicationResult, error) {
+	t.Helper()
+	return f.s.ReverseApplication(f.ctx, f.pay.ID, f.applied.Payment.Version, f.req, key)
+}
+
+func (f crossCurrencyFixture) sweep(t *testing.T) {
+	t.Helper()
+	if _, err := f.s.PostDueJournals(f.ctx, time.Now().UTC(), 50); err != nil {
+		t.Fatal(err)
 	}
-	if got, err := s.GetOpenItem(ctx, item.ID); err != nil || !got.OpenAmount.Equal(amt("900.00")) {
-		t.Fatalf("a refused fx leg changed the item: %+v %v", got, err)
-	}
-	mainLegOnly := 0
-	for _, e := range fake.Entries() {
-		if strings.HasPrefix(e.IdempotencyKey, "post:receivables:paymentapplication:") {
-			mainLegOnly++
+}
+
+func (f crossCurrencyFixture) entriesOf(sourceType, keyPrefix string) []ledgerclient.Stored {
+	var out []ledgerclient.Stored
+	for _, e := range f.fake.Entries() {
+		if e.SourceType == sourceType && strings.HasPrefix(e.IdempotencyKey, keyPrefix) {
+			out = append(out, e)
 		}
 	}
-	if mainLegOnly != 1 {
-		t.Fatalf("a refused fx leg left %d ledger reversal entries, want only the main leg that the retry converges on", mainLegOnly)
+	return out
+}
+
+func (f crossCurrencyFixture) reversalEntries() []ledgerclient.Stored {
+	return f.entriesOf("receivables-payment_application_reversal", "post:receivables:paymentapplication:")
+}
+
+func (f crossCurrencyFixture) compensationEntries() []ledgerclient.Stored {
+	return f.entriesOf("receivables-"+JournalReversalCompensation, "gl-journal:")
+}
+
+func compensationsIn(fake *ledgerclient.Fake) []ledgerclient.Stored {
+	var out []ledgerclient.Stored
+	for _, e := range fake.Entries() {
+		if e.SourceType == "receivables-"+JournalReversalCompensation {
+			out = append(out, e)
+		}
 	}
-	fake.FailPostsIn("USD", nil)
-	out, err := s.ReverseApplication(ctx, pay.ID, applied.Payment.Version, req, "ra-fx-1")
+	return out
+}
+
+func netOf(entries ...[]ledgerclient.Stored) map[string]string {
+	sums := map[string]decimal.Decimal{}
+	for _, group := range entries {
+		for _, e := range group {
+			for _, l := range e.Lines {
+				k := e.Currency + "|" + l.Account
+				if l.Credit {
+					sums[k] = sums[k].Sub(l.Amount)
+				} else {
+					sums[k] = sums[k].Add(l.Amount)
+				}
+			}
+		}
+	}
+	out := map[string]string{}
+	for k, v := range sums {
+		if !v.IsZero() {
+			out[k] = v.String()
+		}
+	}
+	return out
+}
+
+func (f crossCurrencyFixture) assertNothingStored(t *testing.T) {
+	t.Helper()
+	if got, err := f.s.GetOpenItem(f.ctx, f.item.ID); err != nil || !got.OpenAmount.Equal(amt("900.00")) {
+		t.Fatalf("a failed reversal changed the item: %+v %v", got, err)
+	}
+	if n := countOutbox(t, f.s, f.ctx, rcvevents.PaymentApplicationReversed); n != 0 {
+		t.Fatalf("a failed reversal published %d events", n)
+	}
+}
+
+func TestReverseApplication_CrossCurrencyPostsTheFXMirrorInTheSameRequest(t *testing.T) {
+	f := crossCurrencyApplied(t)
+	f.fake.FailPostsIn("USD", &ledgerclient.Error{Op: "post", Status: 422, Code: "LEDGER_ACCOUNT_INVALID"})
+	if _, err := f.reverse(t, "ra-fx-1"); problemCode(err) != CodeReversalLedgerUnavailable {
+		t.Fatalf("fx leg outage: %v", err)
+	}
+	f.assertNothingStored(t)
+	f.sweep(t)
+	if net := netOf(f.reversalEntries(), f.compensationEntries()); len(net) != 0 || len(f.compensationEntries()) != 1 {
+		t.Fatalf("a refused fx leg left a reversal entry in the ledger: net %v, compensations %d", net, len(f.compensationEntries()))
+	}
+	f.fake.FailPostsIn("USD", nil)
+	out, err := f.reverse(t, "ra-fx-1")
 	if err != nil || out.Payment.Status != "RECEIVED" {
 		t.Fatalf("retry: %+v %v", out, err)
 	}
-	keys := map[string]ledgerclient.Stored{}
-	reversalEntries := 0
-	for _, e := range fake.Entries() {
-		keys[e.IdempotencyKey] = e
-		if strings.HasPrefix(e.IdempotencyKey, "post:receivables:paymentapplication:") {
-			reversalEntries++
+	f.sweep(t)
+	var main, fx *ledgerclient.Stored
+	for _, e := range f.reversalEntries() {
+		switch {
+		case strings.Contains(e.IdempotencyKey, "-fx:"):
+			fx = &e
+		case e.ID == out.ReversalJournalEntryID:
+			main = &e
 		}
 	}
-	if reversalEntries != 2 {
-		t.Fatalf("the retry after a refused fx leg left %d reversal entries, want the main and fx legs once each", reversalEntries)
+	if main == nil || fx == nil || main.Currency != "EUR" || fx.Currency != "USD" || main.PostingDate != originalPostingDate || fx.PostingDate != originalPostingDate || len(fx.Lines) != 2 {
+		t.Fatalf("main %+v fx %+v", main, fx)
 	}
-	prefix := "post:receivables:paymentapplication:" + applied.ApplicationID + ":reversal"
-	main, fx := keys[prefix], keys[prefix+"-fx"]
-	if main.Currency != "EUR" || fx.Currency != "USD" || main.PostingDate != originalPostingDate || fx.PostingDate != originalPostingDate || len(fx.Lines) != 2 {
-		t.Fatalf("main %+v fx %+v", main.Entry, fx.Entry)
+	if len(f.reversalEntries()) != 3 || len(f.compensationEntries()) != 1 {
+		t.Fatalf("reversal entries %d, compensations %d, want the refused attempt's main leg compensated once and the retry's two legs", len(f.reversalEntries()), len(f.compensationEntries()))
 	}
 	debitedGain := false
 	for _, l := range fx.Lines {
@@ -588,11 +671,204 @@ func TestReverseApplication_CrossCurrencyPostsTheFXMirrorInTheSameRequest(t *tes
 		t.Fatalf("the 0.80 gain was not reversed: %+v", fx.Lines)
 	}
 	var pending int
-	if err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `select count(*) from gl_journal where source_key like 'fx-reversal:%' or source_key like 'fx-unapply:%'`).Scan(&pending)
+	if err := dbx.WithTenantTx(f.ctx, f.s.pool, func(tx pgx.Tx) error {
+		return tx.QueryRow(f.ctx, `select count(*) from gl_journal where source_key like 'fx-reversal:%' or source_key like 'fx-unapply:%'`).Scan(&pending)
 	}); err != nil || pending != 0 {
 		t.Fatalf("the fx mirror was queued asynchronously: %d %v", pending, err)
 	}
+}
+
+func TestReverseApplication_AFailureAfterBothLegsPostedCompensatesBothAndAnotherAttemptConverges(t *testing.T) {
+	f := crossCurrencyApplied(t)
+	execAdmin(t, f.s, `create function fail_reversal() returns trigger language plpgsql as $$ begin raise exception 'reversal finish failed'; end $$`)
+	execAdmin(t, f.s, `create trigger fail_reversal before update on payment_application for each row when (new.status = 'REVERSED') execute function fail_reversal()`)
+	if _, err := f.reverse(t, "ra-fx-late"); err == nil {
+		t.Fatal("the finish step failed but the reversal succeeded")
+	}
+	f.assertNothingStored(t)
+	if n := len(f.reversalEntries()); n != 2 {
+		t.Fatalf("both legs should have been posted before the finish step failed, got %d", n)
+	}
+	f.sweep(t)
+	if net := netOf(f.reversalEntries(), f.compensationEntries()); len(net) != 0 || len(f.compensationEntries()) != 2 {
+		t.Fatalf("a failure after both legs left a reversal entry in the ledger: net %v, compensations %d", net, len(f.compensationEntries()))
+	}
+	execAdmin(t, f.s, `drop trigger fail_reversal on payment_application`)
+	out, err := f.reverse(t, "ra-fx-late")
+	if err != nil || out.Payment.Status != "RECEIVED" {
+		t.Fatalf("retry: %+v %v", out, err)
+	}
+	f.sweep(t)
+	if len(f.reversalEntries()) != 4 || len(f.compensationEntries()) != 2 {
+		t.Fatalf("reversal entries %d, compensations %d", len(f.reversalEntries()), len(f.compensationEntries()))
+	}
+}
+
+func TestReverseApplication_ALostLedgerAnswerIsRetriedUnderTheSameKeyAndPostsOnce(t *testing.T) {
+	f := appliedSetup(t)
+	f.ledger.LoseAnswers(errors.New("timeout"))
+	if _, err := f.reverse("ra-lost", f.applied.Payment.Version); problemCode(err) != CodeReversalLedgerUnavailable {
+		t.Fatalf("lost answer: %v", err)
+	}
+	if n := len(f.reversalEntries()); n != 1 {
+		t.Fatalf("the ledger stored %d entries", n)
+	}
+	f.ledger.LoseAnswers(nil)
+	out, err := f.reverse("ra-lost", f.applied.Payment.Version)
+	entries := f.reversalEntries()
+	if err != nil || len(entries) != 1 || entries[0].ID != out.ReversalJournalEntryID || !strings.HasSuffix(entries[0].IdempotencyKey, ":0") {
+		t.Fatalf("retry: %+v %v, entries %d", out, err, len(entries))
+	}
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "COMMITTED")
+	if _, err := f.s.PostDueJournals(f.ctx, time.Now().UTC(), 50); err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range f.ledger.Entries() {
+		if e.SourceType == "receivables-"+JournalReversalCompensation {
+			t.Fatalf("a retried lost answer was compensated: %+v", e.Entry)
+		}
+	}
+}
+
+func TestReverseApplication_AnAmbiguousFXLegIsNotCompensatedAndTheRetryConverges(t *testing.T) {
+	f := crossCurrencyApplied(t)
+	f.fake.FailPostsIn("USD", errors.New("timeout"))
+	if _, err := f.reverse(t, "ra-fx-amb"); problemCode(err) != CodeReversalLedgerUnavailable {
+		t.Fatalf("fx leg timeout: %v", err)
+	}
+	f.assertNothingStored(t)
+	f.sweep(t)
+	if len(f.compensationEntries()) != 0 || len(f.reversalEntries()) != 1 {
+		t.Fatalf("an ambiguous fx leg: compensations %d, reversal entries %d", len(f.compensationEntries()), len(f.reversalEntries()))
+	}
+	f.fake.FailPostsIn("USD", nil)
+	out, err := f.reverse(t, "ra-fx-amb")
+	if err != nil || len(f.reversalEntries()) != 2 || f.reversalEntries()[0].ID != out.ReversalJournalEntryID {
+		t.Fatalf("retry: %+v %v, entries %d", out, err, len(f.reversalEntries()))
+	}
+}
+
+func attemptStates(t *testing.T, s *Postgres, ctx context.Context, applicationID string) []string {
+	t.Helper()
+	var out []string
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `select state from payment_application_reversal_attempt where application_id = $1 order by generation`, applicationID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var st string
+			if err := rows.Scan(&st); err != nil {
+				return err
+			}
+			out = append(out, st)
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func wantStates(t *testing.T, s *Postgres, ctx context.Context, applicationID string, want ...string) {
+	t.Helper()
+	if got := attemptStates(t, s, ctx, applicationID); !slices.Equal(got, want) {
+		t.Fatalf("attempt states %v, want %v", got, want)
+	}
+}
+
+func TestReverseApplication_AnAmbiguousCommitIsResolvedByTheSweeperFromTheTransactionStatus(t *testing.T) {
+	f := appliedSetup(t)
+	execAdmin(t, f.s, `create function fail_reversal_commit() returns trigger language plpgsql as $$ begin raise exception 'commit refused'; end $$`)
+	execAdmin(t, f.s, `create constraint trigger fail_reversal_commit after update on payment_application deferrable initially deferred for each row when (new.status = 'REVERSED') execute function fail_reversal_commit()`)
+	if _, err := f.reverse("ra-commit", f.applied.Payment.Version); err == nil {
+		t.Fatal("the commit failed but the reversal succeeded")
+	}
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "AMBIGUOUS")
+	if n := len(compensationsIn(f.ledger)); n != 0 {
+		t.Fatalf("compensated inline on an ambiguous commit: %d", n)
+	}
+	if n, err := f.s.resolveReversalAttempts(f.ctx, 0); err != nil || n != 1 {
+		t.Fatalf("resolve: %d %v", n, err)
+	}
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "COMPENSATED")
+	if _, err := f.s.PostDueJournals(f.ctx, time.Now().UTC(), 50); err != nil {
+		t.Fatal(err)
+	}
+	if net := netOf(f.reversalEntries(), compensationsIn(f.ledger)); len(net) != 0 {
+		t.Fatalf("a rolled-back commit left a reversal entry in the ledger: %v", net)
+	}
+	execAdmin(t, f.s, `drop trigger fail_reversal_commit on payment_application`)
+
+	if _, err := f.reverse("ra-commit-2", f.applied.Payment.Version); err != nil {
+		t.Fatal(err)
+	}
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "COMPENSATED", "COMMITTED")
+	execAdmin(t, f.s, `update payment_application_reversal_attempt set state = 'AMBIGUOUS' where application_id = $1 and generation = 1`, f.applied.ApplicationID)
+	if n, err := f.s.resolveReversalAttempts(f.ctx, 0); err != nil || n != 1 {
+		t.Fatalf("resolve: %d %v", n, err)
+	}
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "COMPENSATED", "COMMITTED")
+	if _, err := f.s.PostDueJournals(f.ctx, time.Now().UTC(), 50); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(compensationsIn(f.ledger)); n != 1 {
+		t.Fatalf("a committed reversal was compensated: %d compensation entries", n)
+	}
+}
+
+func TestReverseApplication_AnAmbiguousFXLegWithAConfirmedMainLegIsCompensatedBySweeperWithoutARetry(t *testing.T) {
+	f := crossCurrencyApplied(t)
+	f.fake.FailPostsIn("USD", errors.New("timeout"))
+	if _, err := f.reverse(t, "ra-fx-sweep"); problemCode(err) != CodeReversalLedgerUnavailable {
+		t.Fatalf("fx leg timeout: %v", err)
+	}
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "AMBIGUOUS")
+	f.fake.FailPostsIn("USD", nil)
+	if n, err := f.s.resolveReversalAttempts(f.ctx, 0); err != nil || n != 1 {
+		t.Fatalf("resolve: %d %v", n, err)
+	}
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "COMPENSATED")
+	f.sweep(t)
+	if net := netOf(f.reversalEntries(), f.compensationEntries()); len(net) != 0 || len(f.compensationEntries()) != 2 {
+		t.Fatalf("the sweeper left a reversal entry: net %v, compensations %d", net, len(f.compensationEntries()))
+	}
+	out, err := f.reverse(t, "ra-fx-sweep")
+	if err != nil || !strings.HasSuffix(f.reversalEntries()[len(f.reversalEntries())-1].IdempotencyKey, ":1") {
+		t.Fatalf("a new attempt after COMPENSATED: %+v %v", out, err)
+	}
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "COMPENSATED", "COMMITTED")
+}
+
+func TestReverseApplication_CompensatingTwoLegsIsAtomic(t *testing.T) {
+	f := crossCurrencyApplied(t)
+	execAdmin(t, f.s, `create function fail_reversal() returns trigger language plpgsql as $$ begin raise exception 'reversal finish failed'; end $$`)
+	execAdmin(t, f.s, `create trigger fail_reversal before update on payment_application for each row when (new.status = 'REVERSED') execute function fail_reversal()`)
+	execAdmin(t, f.s, `create function fail_fx_compensation() returns trigger language plpgsql as $$ begin raise exception 'second compensation refused'; end $$`)
+	execAdmin(t, f.s, `create trigger fail_fx_compensation before insert on gl_journal for each row when (new.source_key like 'reversal-compensation:%:fx:%') execute function fail_fx_compensation()`)
+	if _, err := f.reverse(t, "ra-atomic"); err == nil {
+		t.Fatal("the finish step failed but the reversal succeeded")
+	}
+	count := func() (n int) {
+		if err := dbx.WithTenantTx(f.ctx, f.s.pool, func(tx pgx.Tx) error {
+			return tx.QueryRow(f.ctx, `select count(*) from gl_journal where source_type = $1`, JournalReversalCompensation).Scan(&n)
+		}); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	if n := count(); n != 0 {
+		t.Fatalf("one of two compensations was written: %d", n)
+	}
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "AMBIGUOUS")
+	execAdmin(t, f.s, `drop trigger fail_fx_compensation on gl_journal`)
+	if n, err := f.s.resolveReversalAttempts(f.ctx, 0); err != nil || n != 1 || count() != 2 {
+		t.Fatalf("resolve: %d %v, compensations %d", n, err, count())
+	}
+	wantStates(t, f.s, f.ctx, f.applied.ApplicationID, "COMPENSATED")
+	execAdmin(t, f.s, `drop trigger fail_reversal on payment_application`)
 }
 
 func TestPaymentApplication_IsolatedByTenantAndLegalEntityAndGrantedToTheAppRole(t *testing.T) {
