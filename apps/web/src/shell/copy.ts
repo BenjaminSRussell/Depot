@@ -207,6 +207,7 @@ export const copy = {
     softBody: "Ask an administrator to raise the limit before it stops answering.",
     refusals: {
       "AGT-0202": "The assistant has reached its usage limit, so it can't answer right now. Every page and workflow still works.",
+      "AGT-0220": "This answer could not be shown. Try again or ask your administrator.",
       "AGT-0201": "The assistant is paused, so it can't answer right now. Every page and workflow still works.",
     } as Readonly<Record<string, string>>,
   },

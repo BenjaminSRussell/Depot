@@ -39,7 +39,7 @@ describe("CopilotPanel", () => {
     await user.type(screen.getByLabelText("Ask Copilot"), "what was revenue last month vs the month before");
     await user.click(screen.getByRole("button", { name: "Send" }));
 
-    expect(ask).toHaveBeenCalledWith({ mode: "ask", message: "what was revenue last month vs the month before" }, expect.any(Function));
+    expect(ask).toHaveBeenCalledWith({ mode: "ask", message: "what was revenue last month vs the month before" }, expect.any(Function), expect.any(Function));
     expect(await screen.findByRole("article", { name: "Copilot answer" })).toHaveTextContent(answer.answer);
     expect(screen.getByText(GENERATED_BADGE)).toBeInTheDocument();
     expect(screen.getByRole("list", { name: "Tool calls" })).toHaveTextContent("depot.ledger.journal.get: OK");
@@ -53,7 +53,7 @@ describe("CopilotPanel", () => {
     render(<CopilotPanel ask={ask} initialMessage="  how is cash  " />);
     expect(await screen.findByRole("article", { name: "Copilot answer" })).toHaveTextContent(answer.answer);
     expect(ask).toHaveBeenCalledTimes(1);
-    expect(ask).toHaveBeenCalledWith({ mode: "ask", message: "how is cash" }, expect.any(Function));
+    expect(ask).toHaveBeenCalledWith({ mode: "ask", message: "how is cash" }, expect.any(Function), expect.any(Function));
   });
 
   it("sends nothing without an initial message and shows an alert when the initial message fails", async () => {
@@ -76,7 +76,7 @@ describe("CopilotPanel", () => {
     expect(screen.getByRole("button", { name: "Ask the data" })).toHaveAttribute("aria-pressed", "false");
     await user.type(screen.getByLabelText("Ask Copilot"), "why is this journal reversed");
     await user.click(screen.getByRole("button", { name: "Send" }));
-    expect(ask).toHaveBeenCalledWith({ mode: "explain", message: "why is this journal reversed", recordRef: "ledger.journal:JV-0042" }, expect.any(Function));
+    expect(ask).toHaveBeenCalledWith({ mode: "explain", message: "why is this journal reversed", recordRef: "ledger.journal:JV-0042" }, expect.any(Function), expect.any(Function));
   });
 
   it("inserts a draft only when the user clicks Insert draft", async () => {
@@ -140,6 +140,31 @@ describe("CopilotPanel", () => {
     finish(answer);
     expect(await screen.findByRole("article", { name: "Copilot answer" })).toHaveTextContent(answer.answer);
     expect(screen.queryByRole("article", { name: "Copilot answer in progress" })).toBeNull();
+  });
+
+  it("replaces the partial text with the safe message when the answer is withdrawn, and keeps only that message", async () => {
+    const safe = "This answer could not be shown. Try again or ask your administrator.";
+    let finish: (r: ChatResponse) => void = () => undefined;
+    const ask = vi.fn(
+      (_req: unknown, onToken?: (text: string) => void, onWithdrawn?: (message: string) => void) =>
+        new Promise<ChatResponse>((resolve) => {
+          onToken?.("The salary is 85000. ");
+          onWithdrawn?.(safe);
+          finish = resolve;
+        }),
+    );
+    render(<CopilotPanel ask={ask} />);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Ask Copilot"), "pay");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+    const live = await screen.findByRole("article", { name: "Copilot answer in progress" });
+    expect(live).toHaveTextContent(safe);
+    expect(live).not.toHaveTextContent("85000");
+
+    finish({ answer: safe, citations: [], toolCalls: [], refusal: { code: "AGT-0220", message: safe }, generated: true });
+    const final = await screen.findByRole("article", { name: "Copilot answer" });
+    expect(final).toHaveTextContent(safe);
+    expect(final).not.toHaveTextContent("85000");
   });
 
   it("drops a partial answer when the stream fails, and shows the error", async () => {

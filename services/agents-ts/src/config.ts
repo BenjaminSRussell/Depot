@@ -30,6 +30,7 @@ export interface Config {
   runTokenCap: number;
   copilotTokenCap: number;
   copilotMaxTurns: number;
+  outputGuardTimeoutMs: number;
   selfApprovalLimit: { amount: string; currency: string };
   approvalExpiryHours: number | undefined;
   /** How often each pod polls the shared kill switch (AC-47.6); below the 10 s fail-closed window. */
@@ -176,6 +177,9 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     throw new Error(
       "AGENTS_KILLSWITCH_POLL_MS must be 100 to 5000: a pod fails closed after 10 s without a poll",
     );
+  const outputGuardTimeoutMs = positiveInt(env, "AGENTS_OUTPUT_GUARD_TIMEOUT_MS", 2000);
+  if (outputGuardTimeoutMs < 100 || outputGuardTimeoutMs > 10_000)
+    throw new Error("AGENTS_OUTPUT_GUARD_TIMEOUT_MS must be 100 to 10000");
   const issuer = env["AGENTS_JWT_ISSUER"] ?? "";
   if (!/^https?:\/\//.test(issuer))
     throw new Error(
@@ -224,6 +228,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     runTokenCap: positiveInt(env, "AGENTS_RUN_TOKEN_CAP", 20_000),
     copilotTokenCap: positiveInt(env, "AGENTS_COPILOT_TOKEN_CAP", 8_000),
     copilotMaxTurns: positiveInt(env, "AGENTS_COPILOT_MAX_TURNS", 4),
+    outputGuardTimeoutMs,
     selfApprovalLimit: { amount: limit, currency },
     approvalExpiryHours,
     killSwitchPollMs,
