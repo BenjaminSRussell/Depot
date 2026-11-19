@@ -245,6 +245,7 @@ var serviceGrants = map[string]map[string][]string{
 	"agents": {
 		"workflow-ts": {"agents.run.signal"},
 		"compliance":  {"compliance.data-designation.resolve"},
+		"audit":       {"audit.ai-access.write"},
 	},
 	"party": {
 		"numbering": {"numbering.sequence.allocate"},

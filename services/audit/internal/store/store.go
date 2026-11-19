@@ -85,6 +85,7 @@ type Store interface {
 	ListReads(ctx context.Context, f ReadFilter) ([]ReadRecord, error)
 	VerifyReads(ctx context.Context) (ReadChain, error)
 	ExportReads(ctx context.Context, f ReadFilter, begin func(ReadChain) error, each func(ReadRecord) error) error
+	RecordAIAccess(ctx context.Context, access domain.AIAccess) (AIAccessRecord, error)
 	// Break-glass reads and their review by a second person (#606).
 	ListBreakGlass(ctx context.Context, status string, limit int, afterSeq int64) ([]BreakGlassRead, error)
 	ReviewRead(ctx context.Context, readID, reviewerID, outcome, note string) (BreakGlassRead, error)

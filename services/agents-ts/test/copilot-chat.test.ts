@@ -4,7 +4,7 @@ import { CopilotAnswerCache } from "../src/domain/copilot.js";
 import { createCopilotService, TYPED_REPLACED_NOTICE } from "../src/runtime/copilot.js";
 import { createEgressGuard, EGRESS_GUARD_TOOL, GUARD_REFUSAL_MESSAGE, type EgressGuard } from "../src/runtime/egressGuard.js";
 import type { ModelResponse } from "../src/runtime/engine.js";
-import { openRouter, REAL_IBAN, ScriptedProvider } from "./fakes.js";
+import { allowAiAccess, openRouter, REAL_IBAN, ScriptedProvider } from "./fakes.js";
 import { tokenFor } from "./jwt.js";
 import { FakeMcp, headers, MemoryStore, serve, T1, tool, USER } from "./surface-fakes.js";
 
@@ -24,6 +24,7 @@ const setup = async (script: ModelResponse[], mcp = new FakeMcp([tool(GET, "ap.i
   const provider = new ScriptedProvider(script);
   const cache = new CopilotAnswerCache();
   const copilot = createCopilotService({
+    aiAccess: allowAiAccess(),
     router: openRouter(provider),
     mcp,
     store,

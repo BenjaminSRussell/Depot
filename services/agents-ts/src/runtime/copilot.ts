@@ -18,6 +18,7 @@ import { StreamRestorer } from "../providers/stream.js";
 import { ProviderError, proposeTool } from "../providers/wire.js";
 import type { ModelEndpoint } from "../cloudprofile/index.js";
 import type { AuditPort, BudgetPort, KillSwitchPort, ModelUsage, RunRequest, RunResult } from "./engine.js";
+import type { AiAccessAudit, AiAccessRow } from "./aiAccessAudit.js";
 import type { AiPlan, AiRouter } from "./aiRouter.js";
 import { createEgressGuard, EGRESS_GUARD_TOOL, GUARD_REFUSAL_MESSAGE, highestClassOf, type DataClass, type EgressGuard, type GuardResult } from "./egressGuard.js";
 import type { McpConnector } from "./mcp.js";
@@ -93,6 +94,8 @@ export interface CopilotDeps {
   modelId: string;
   /** The knowledge index. When set, `depot.knowledge.search` is a read tool of the copilot to everyone who may use the copilot. */
   knowledge?: KnowledgeService;
+  /** Every tool result is written to the AI data-access audit before the model sees it; a failed write refuses the call. */
+  aiAccess: AiAccessAudit;
   guard?: EgressGuard;
   now?: () => Date;
 }
@@ -205,6 +208,7 @@ export function createCopilotService(deps: CopilotDeps) {
       const withheldKinds = new Set<string>();
       const system = systemPrompt(req.mode, gate.allowed);
       const results: string[] = [];
+      const pending: Pick<AiAccessRow, "tool" | "entityType" | "recordIds" | "recordClasses">[] = [];
       const sink = hooks.onToken;
       const restorer = new StreamRestorer((text) => pseudo.restore(text));
       // Text is shown as it is written unless a knowledge result already makes the answer unanswerable.
@@ -252,6 +256,33 @@ export function createCopilotService(deps: CopilotDeps) {
           const verdict = await guard.inspect({ tenantId: caller.tenantId, callId: randomUUID(), routeId, pseudo, system, typed: prompt, results });
           guardRow(verdict.result);
           dataClass = highestClassOf([dataClass, verdict.result.highestClass]);
+          if (pending.length > 0) {
+            const g = verdict.result;
+            const occurredAt = now().toISOString();
+            try {
+              await deps.aiAccess.record(
+                caller,
+                pending.map((r) => ({
+                  ...r,
+                  agentId: COPILOT_AGENT_ID,
+                  runId,
+                  highestClass: g.highestClass,
+                  routeId: g.routeId,
+                  redactionCounts: g.counts,
+                  excludedCounts: g.excluded,
+                  policyVersion: g.policyVersion,
+                  decision: g.decision,
+                  traceId: runId,
+                  occurredAt,
+                })),
+              );
+            } catch {
+              refused = { code: "AGT-0230", message: GUARD_REFUSAL_MESSAGE };
+              answer = refused.message;
+              break;
+            }
+            pending.length = 0;
+          }
           if (verdict.result.decision === "BLOCKED") {
             refused = { code: "AGT-0219", message: GUARD_REFUSAL_MESSAGE };
             answer = refused.message;
@@ -327,6 +358,10 @@ export function createCopilotService(deps: CopilotDeps) {
             continue;
           }
           row(p.tool, p.args, shown, "AUTO", "read");
+          const shownRefs = found.flatMap((ref, i) => (excludedHere.includes(ref) || ref.recordId === "" ? [] : [{ id: ref.recordId, class: next?.classes[i] ?? "UNKNOWN" }]));
+          if (shownRefs.length > 0) {
+            pending.push({ tool: p.tool, entityType: found[0]?.entityType ?? "", recordIds: shownRefs.map((r) => r.id), recordClasses: shownRefs.map((r) => r.class) });
+          }
           if (next !== undefined) {
             provider = next.provider;
             routeId = next.routeId;
