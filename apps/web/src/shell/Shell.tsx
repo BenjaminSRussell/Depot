@@ -20,7 +20,9 @@ import { createPromptRouter } from "./assistant/router";
 import { handOffPrompt } from "./assistant/session";
 import { ASSISTANT_DUTY, COPILOT_PATH } from "./home/assistantRouter";
 import { devDuties, devIdentity, PrincipalProvider } from "./principal";
+import { TourProvider } from "./OnboardingTour";
 import { readDensity, writeDensity, type Density } from "./personalization";
+import { localPreferenceStorage, type PreferenceStorage } from "./preferenceStorage";
 import { RouteErrorBoundary } from "./RouteErrorBoundary";
 import styles from "./Shell.module.css";
 import { shellNav } from "./shellNav";
@@ -61,6 +63,7 @@ export interface ShellProps {
   workspaceConfig?: WorkspaceConfig;
   /** Fixed feature states that replace the read of the tenant's features, for tests and demos. */
   features?: Readonly<Record<string, boolean>>;
+  onboardingStorage?: PreferenceStorage;
 }
 
 function PageSkeleton() {
@@ -74,7 +77,7 @@ function PageSkeleton() {
   );
 }
 
-export function Shell({ modules: allModules, duties, identity, workspaceConfig, features: fixedFeatures }: ShellProps) {
+export function Shell({ modules: allModules, duties, identity, workspaceConfig, features: fixedFeatures, onboardingStorage = localPreferenceStorage }: ShellProps) {
   const principalDuties = useMemo(() => duties ?? devDuties(), [duties]);
   const settings = useTenantSettingsLoader(principalDuties, fixedFeatures);
   const availability = useAvailabilityController(principalDuties.includes(ASSISTANT_DUTY));
@@ -347,6 +350,7 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
       <RecentProvider identity={userId}>
       <PinsProvider key={userId} identity={userId} canOpen={canOpen} pageLabels={navEntryByTo} announce={announce}>
       <RecentTracker entries={navEntryByTo} />
+      <TourProvider identity={userId} storage={onboardingStorage} titleRef={titleRef}>
       <div className={styles.root} data-density={density}>
         <a href="#main" className="skip-link">
           Skip to content
@@ -398,6 +402,7 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
         ) : null}
         {paletteOpen ? <CommandPalette entries={entries} identity={userId} onSelect={selectEntry} onClose={() => closePalette()} announce={announceQuietly} onAsk={(text) => void askAssistant(text)} assistantState={availability.state} /> : null}
       </div>
+      </TourProvider>
       </PinsProvider>
       </RecentProvider>
       </InboxProvider>

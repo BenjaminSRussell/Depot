@@ -8,6 +8,7 @@ import { loadModules, type DepotModule } from "../../modules/registry";
 import { Shell } from "../Shell";
 import { AVAILABILITY_PATH } from "../assistant/availability";
 import { availableAssistant, json, pageViolations, server, useFakeServer, type Reply } from "../testing/fakeServer";
+import { completedOnboardingStorage } from "../testing/onboardingFixtures";
 import { AllFeaturesPage } from "./AllFeaturesPage";
 import { HomePage } from "./HomePage";
 import { workspaceKpis } from "./kpi";
@@ -184,7 +185,7 @@ describe("role home", () => {
     render(
       <MemoryRouter initialEntries={["/ledger/journal-batches"]}>
         <Routes>
-          <Route element={<Shell modules={modules} duties={[]} identity="u1" />}>
+          <Route element={<Shell modules={modules} duties={[]} identity="u1" onboardingStorage={completedOnboardingStorage("u1")} />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/ledger/journal-batches" element={<p>Journals page</p>} />
           </Route>

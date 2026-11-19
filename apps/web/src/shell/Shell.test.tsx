@@ -8,6 +8,7 @@ import { FormRenderer } from "./forms";
 import { demoNote } from "./metadata";
 import { clearHandedOffPrompt, peekHandedOffPrompt } from "./assistant/session";
 import { availableAssistant, pageViolations } from "./testing/fakeServer";
+import { completedOnboardingStorage } from "./testing/onboardingFixtures";
 import { HomePage } from "./pages/HomePage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { usePrincipalDuties } from "./principal";
@@ -39,7 +40,7 @@ function renderShell(path = "/", identity?: string, duties?: string[]) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route element={<Shell modules={modules} identity={identity} duties={duties} />}>
+        <Route element={<Shell modules={modules} identity={identity} duties={duties} onboardingStorage={completedOnboardingStorage(identity ?? "")} />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/admin/import" element={<p>Import page</p>} />
           <Route path="*" element={<NotFoundPage />} />
