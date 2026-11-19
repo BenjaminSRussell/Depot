@@ -156,6 +156,7 @@ var Allowlist = map[string]string{
 	"audit.alert_inbox:" + problemNullEntity:                      "permanent: NULL legal_entity_id is an alert on a tenant-level audit entry, scoped as the entry is (0009_cdc_change_feed, B-07)",
 	"print.print_output_rule:" + problemNullEntity:                "permanent: NULL legal_entity_id is a tenant-wide output rule; only callers with tenant-wide authority may create or delete one (#622 review)",
 	"compliance.data_designation:" + problemNullEntity:            "permanent: NULL legal_entity_id is a tenant-wide CUI designation (0011_data_designation, DEPOT-301); an entity-scoped caller must still see it, or the effective class of its own records would resolve as unclassified",
+	"compliance.need_to_know_setting:" + problemNullEntity:        "permanent: NULL legal_entity_id is the tenant-level need-to-know setting (0013_need_to_know, DEPOT-311); an entity-scoped caller must still read it, or the tenant default that applies beneath its entity override would resolve as never set",
 	"org.address_purpose:" + problemNullEntity:                    "permanent: NULL legal_entity_id is tenant-wide reference data",
 	"org.currency_rounding:" + problemNullEntity:                  "permanent: NULL legal_entity_id is tenant-wide reference data",
 	"org.org_unit_translation:" + problemNullEntity:               "permanent: NULL legal_entity_id is tenant-wide reference data",

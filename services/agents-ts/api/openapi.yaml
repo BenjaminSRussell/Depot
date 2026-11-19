@@ -24,8 +24,9 @@ paths:
       operationId: getAgentsAvailability
       summary: Whether the assistant may be shown to the caller
       description: |
-        Any authenticated caller. `budgetStatus` carries no figures. The web treats
+        Opened by the `mcp.copilot.use` duty. `budgetStatus` carries no figures. The web treats
         any failure of this call as "assistant off" and shows the classic home.
+      x-depot-duty: mcp.copilot.use
       responses:
         "200":
           description: Assistant availability.

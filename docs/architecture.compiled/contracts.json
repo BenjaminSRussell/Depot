@@ -605,7 +605,7 @@
       "operations": [
         {"method": "GET", "path": "/api/v1/agents/ai-data-policy", "operationId": "getAiDataPolicy", "duty": "aipolicy.read"},
         {"method": "PUT", "path": "/api/v1/agents/ai-data-policy", "operationId": "putAiDataPolicy", "duty": "aipolicy.write"},
-        {"method": "GET", "path": "/api/v1/agents/availability", "operationId": "getAgentsAvailability", "duty": null},
+        {"method": "GET", "path": "/api/v1/agents/availability", "operationId": "getAgentsAvailability", "duty": "mcp.copilot.use"},
         {"method": "GET", "path": "/api/v1/agents/budgets", "operationId": "listAgentBudgets", "duty": "agentbudget.read"},
         {"method": "PUT", "path": "/api/v1/agents/budgets/{agentId}", "operationId": "setAgentBudgetCap", "duty": "agentbudget.write"},
         {"method": "GET", "path": "/api/v1/agents/kill-switch", "operationId": "getKillSwitchStatus", "duty": "agents.admin"},
