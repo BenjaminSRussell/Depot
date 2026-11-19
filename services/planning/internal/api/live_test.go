@@ -20,12 +20,12 @@ const liveEntity = "0190f0a0-0000-7000-8000-00000000000a"
 
 const liveBody = `{"asOf":"2026-11-02","siteId":"` + siteID + `","legalEntityId":"` + liveEntity + `"}`
 
-func salesBody(qty string) string {
-	return `{"items":[{"orderNumber":"SO-1","lineNo":1,"productId":"` + fgID + `","openQty":"` + qty + `","dueDate":"2026-11-30"}],"next":""}`
+func salesBody(qty, unit string) string {
+	return `{"items":[{"orderNumber":"SO-1","lineNo":1,"productId":"` + fgID + `","openQty":"` + qty + `","unit":"` + unit + `","dueDate":"2026-11-30"}],"next":""}`
 }
 
-func onHandBody(qty string) string {
-	return `{"items":[{"group":{"product":"` + fgID + `"},"physicalInvent":"` + qty + `"}],"truncated":false}`
+func onHandBody(qty, unit string) string {
+	return `{"items":[{"group":{"product":"` + fgID + `"},"physicalInvent":"` + qty + `","unit":"` + unit + `"}],"truncated":false}`
 }
 
 type livePeers struct {
@@ -69,7 +69,7 @@ func (p *livePeers) api(t *testing.T, st store.Store) *API {
 }
 
 func TestRun_LiveInputs_PlannedQtyIsDemandMinusOnHand(t *testing.T) {
-	peers := &livePeers{sales: salesBody("120"), inventory: onHandBody("20")}
+	peers := &livePeers{sales: salesBody("120", "EA"), inventory: onHandBody("20", "EA")}
 	st := &fakeStore{runCovs: map[string]store.RunCoverage{fgID: requirementCoverage()}}
 	a := peers.api(t, st)
 	rec := runWith(t, a, st, liveBody, "k-live")
@@ -99,7 +99,7 @@ func TestRun_LiveInputs_PlannedQtyIsDemandMinusOnHand(t *testing.T) {
 }
 
 func TestRun_LiveInputs_NegativeOnHandCountsAsNone(t *testing.T) {
-	peers := &livePeers{sales: salesBody("120"), inventory: onHandBody("-5")}
+	peers := &livePeers{sales: salesBody("120", "EA"), inventory: onHandBody("-5", "EA")}
 	st := &fakeStore{runCovs: map[string]store.RunCoverage{fgID: requirementCoverage()}}
 	if rec := runWith(t, peers.api(t, st), st, liveBody, "k-neg"); rec.Code != http.StatusCreated {
 		t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
@@ -110,7 +110,7 @@ func TestRun_LiveInputs_NegativeOnHandCountsAsNone(t *testing.T) {
 }
 
 func TestRun_LiveInputs_ProductWithoutStoredCoverageIsRefusedNotSkipped(t *testing.T) {
-	peers := &livePeers{sales: salesBody("120"), inventory: onHandBody("20")}
+	peers := &livePeers{sales: salesBody("120", "EA"), inventory: onHandBody("20", "EA")}
 	st := &fakeStore{}
 	rec := runWith(t, peers.api(t, st), st, liveBody, "k-nocov")
 	if rec.Code != http.StatusBadRequest || problemOf(t, rec).Errors["items[0].orderType"] == "" || st.runs != nil {
@@ -120,11 +120,13 @@ func TestRun_LiveInputs_ProductWithoutStoredCoverageIsRefusedNotSkipped(t *testi
 
 func TestRun_LiveInputs_FailClosedWithoutAVersion(t *testing.T) {
 	cases := map[string]*livePeers{
-		"sales 5xx":          {salesStatus: http.StatusInternalServerError, inventory: onHandBody("20")},
-		"sales 403":          {salesStatus: http.StatusForbidden, inventory: onHandBody("20")},
-		"qty as a number":    {sales: strings.Replace(salesBody("120"), `"120"`, `120`, 1), inventory: onHandBody("20")},
-		"on-hand truncated":  {sales: salesBody("120"), inventory: `{"items":[],"truncated":true}`},
-		"on-hand not a body": {sales: salesBody("120"), inventory: `[]`},
+		"sales 5xx":                 {salesStatus: http.StatusInternalServerError, inventory: onHandBody("20", "EA")},
+		"sales 403":                 {salesStatus: http.StatusForbidden, inventory: onHandBody("20", "EA")},
+		"qty as a number":           {sales: strings.Replace(salesBody("120", "EA"), `"120"`, `120`, 1), inventory: onHandBody("20", "EA")},
+		"sales line without a unit": {sales: strings.Replace(salesBody("120", "EA"), `"unit":"EA",`, ``, 1), inventory: onHandBody("20", "EA")},
+		"on-hand without a unit":    {sales: salesBody("120", "EA"), inventory: strings.Replace(onHandBody("20", "EA"), `,"unit":"EA"`, ``, 1)},
+		"on-hand truncated":         {sales: salesBody("120", "EA"), inventory: `{"items":[],"truncated":true}`},
+		"on-hand not a body":        {sales: salesBody("120", "EA"), inventory: `[]`},
 	}
 	for name, peers := range cases {
 		st := &fakeStore{runCovs: map[string]store.RunCoverage{fgID: requirementCoverage()}}
@@ -144,7 +146,7 @@ func TestRun_LiveInputs_UnconfiguredPeersAnswer503(t *testing.T) {
 }
 
 func TestRun_LiveInputs_NoOpenDemandIsRefused(t *testing.T) {
-	peers := &livePeers{sales: `{"items":[],"next":""}`, inventory: onHandBody("20")}
+	peers := &livePeers{sales: `{"items":[],"next":""}`, inventory: onHandBody("20", "EA")}
 	st := &fakeStore{}
 	rec := runWith(t, peers.api(t, st), st, liveBody, "k-empty")
 	if rec.Code != http.StatusUnprocessableEntity || problemOf(t, rec).Code != "PLAN-LIVE-EMPTY" || st.runs != nil {
@@ -153,7 +155,7 @@ func TestRun_LiveInputs_NoOpenDemandIsRefused(t *testing.T) {
 }
 
 func TestRun_LiveInputs_RetryReplaysWithoutCallingThePeers(t *testing.T) {
-	peers := &livePeers{sales: salesBody("120"), inventory: onHandBody("20")}
+	peers := &livePeers{sales: salesBody("120", "EA"), inventory: onHandBody("20", "EA")}
 	st := &fakeStore{runCovs: map[string]store.RunCoverage{fgID: requirementCoverage()}}
 	a := peers.api(t, st)
 	if rec := runWith(t, a, st, liveBody, "k-retry"); rec.Code != http.StatusCreated {
@@ -175,7 +177,7 @@ func TestRun_LiveInputs_RetryReplaysWithoutCallingThePeers(t *testing.T) {
 }
 
 func TestRun_LiveInputs_SentItemsAreNeverReadFromThePeers(t *testing.T) {
-	peers := &livePeers{sales: salesBody("999"), inventory: onHandBody("999")}
+	peers := &livePeers{sales: salesBody("999", "EA"), inventory: onHandBody("999", "EA")}
 	st := &fakeStore{}
 	if rec := runWith(t, peers.api(t, st), st, runBody, "k-inline"); rec.Code != http.StatusCreated {
 		t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
@@ -186,7 +188,7 @@ func TestRun_LiveInputs_SentItemsAreNeverReadFromThePeers(t *testing.T) {
 }
 
 func TestRun_LiveInputs_BadHeaderFieldsAreRefusedBeforeAnyPeerCall(t *testing.T) {
-	peers := &livePeers{sales: salesBody("120"), inventory: onHandBody("20")}
+	peers := &livePeers{sales: salesBody("120", "EA"), inventory: onHandBody("20", "EA")}
 	st := &fakeStore{}
 	a := peers.api(t, st)
 	for name, body := range map[string]string{
@@ -201,5 +203,54 @@ func TestRun_LiveInputs_BadHeaderFieldsAreRefusedBeforeAnyPeerCall(t *testing.T)
 	}
 	if peers.calls.Load() != 0 {
 		t.Fatalf("%d peer calls for refused requests", peers.calls.Load())
+	}
+}
+
+func TestRun_LiveInputs_UnitMismatchIsRefused(t *testing.T) {
+	peers := &livePeers{sales: salesBody("10", "BOX"), inventory: onHandBody("100", "EA")}
+	st := &fakeStore{runCovs: map[string]store.RunCoverage{fgID: requirementCoverage()}}
+	a := peers.api(t, st)
+	rec := runWith(t, a, st, liveBody, "k-unit")
+	p := problemOf(t, rec)
+	if rec.Code != http.StatusUnprocessableEntity || p.Code != "PLAN-LIVE-UNIT" || st.runs != nil {
+		t.Fatalf("status %d body %s runs %v; want 422 PLAN-LIVE-UNIT and no version", rec.Code, rec.Body.String(), st.runs)
+	}
+	for _, want := range []string{fgID, "BOX", "EA"} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Errorf("body %s does not name %s", rec.Body.String(), want)
+		}
+	}
+	metrics := httptest.NewRecorder()
+	a.Metrics().ServeHTTP(metrics, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	if !strings.Contains(metrics.Body.String(), `planning_live_inputs_total{outcome="unit"} 1`) {
+		t.Fatalf("metrics %s", metrics.Body.String())
+	}
+}
+
+func TestRun_LiveInputs_MatchingUnitsPlanAndAProductWithoutStockIsNotChecked(t *testing.T) {
+	cases := map[string]*livePeers{
+		"units match in another case": {sales: salesBody("120", "box"), inventory: onHandBody("20", "BOX")},
+		"no on-hand row":              {sales: salesBody("120", "BOX"), inventory: `{"items":[],"truncated":false}`},
+	}
+	for name, peers := range cases {
+		st := &fakeStore{runCovs: map[string]store.RunCoverage{fgID: requirementCoverage()}}
+		if rec := runWith(t, peers.api(t, st), st, liveBody, "k-"+name); rec.Code != http.StatusCreated {
+			t.Fatalf("%s: status %d body %s", name, rec.Code, rec.Body.String())
+		}
+	}
+}
+
+func TestRun_LiveInputs_WarnsThatOpenSupplyIsNotRead(t *testing.T) {
+	peers := &livePeers{sales: salesBody("120", "EA"), inventory: onHandBody("20", "EA")}
+	st := &fakeStore{runCovs: map[string]store.RunCoverage{fgID: requirementCoverage()}}
+	a := peers.api(t, st)
+	want := `"warnings":[{"code":"PLAN-LIVE-SUPPLY-NOT-READ","message":"open purchase, production and transfer supply is not read; this plan may order what is already on order"}]`
+	rec := runWith(t, a, st, liveBody, "k-warn")
+	if rec.Code != http.StatusCreated || !strings.Contains(rec.Body.String(), want) {
+		t.Fatalf("status %d body %s, want %s", rec.Code, rec.Body.String(), want)
+	}
+	replay := runWith(t, a, st, liveBody, "k-warn")
+	if replay.Code != http.StatusOK || !strings.Contains(replay.Body.String(), want) {
+		t.Fatalf("replay status %d body %s, want the stored warning", replay.Code, replay.Body.String())
 	}
 }

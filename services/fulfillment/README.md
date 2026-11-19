@@ -311,6 +311,7 @@ after the post commits, so a sales outage never blocks shipping:
 |---|---|---|---|
 | GET | `/v1/fulfillment/sales-delivery-reports` | fulfillment.warehouse.view | Newest first; filters `status` (PENDING, REPORTED, PARKED, WITHDRAWN), `packingSlipId`, `limit` |
 | POST | `/v1/fulfillment/sales-delivery-reports/{id}:retry` | fulfillment.packing-slip.post | Idempotency-Key; a PARKED report becomes PENDING, due now, attempts from 0, same body and key. FUL-0080 not found, FUL-0081 REPORTED or WITHDRAWN |
+| POST | `/v1/fulfillment/packing-slips/{id}:release-gl` | fulfillment.slip-gl.release | Idempotency-Key; a parked slip journal (the ledger refused it, e.g. a closed period) is unparked, due now, attempts from 0. FUL-0083 no journal for the slip, FUL-0084 not parked. `/metrics` carries the gauges `depot_fulfillment_slip_gl_pending` and `depot_fulfillment_slip_gl_parked` (process totals); a cancel's journal waits, PENDING, until the original's is POSTED |
 
 The `short_pick_action` default is REMAINDER_BACKORDER (migration 0016); KEEP_OPEN and
 CANCEL_REMAINDER stay allowed.

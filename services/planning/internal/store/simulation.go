@@ -155,7 +155,7 @@ func (s *Postgres) RunSimulation(ctx context.Context, req SimulationRequest) (Ve
 		}
 		v = Version{ID: versionID, PlanCode: planCode, Number: number, Status: "complete", AsOf: asOf, ItemsPlanned: req.ItemsPlanned,
 			PlannedOrders: len(r.Orders), Messages: len(r.Messages), DurationMs: req.DurationMs, PlanHash: r.Hash,
-			Kind: planKindSimulation, ScenarioCode: req.ScenarioCode, inputHash: req.InputHash}
+			Kind: planKindSimulation, ScenarioCode: req.ScenarioCode, Warnings: []Warning{}, inputHash: req.InputHash}
 		return enqueue(ctx, tx, planevents.ScenarioSimulated, planID, p.TenantID, versionID, planevents.ScenarioSimulatedData{
 			PlanID: planID, PlanCode: planCode, ScenarioID: scenarioID, ScenarioCode: req.ScenarioCode, VersionID: versionID, VersionNumber: number,
 			SiteID: req.SiteID, AsOf: asOf, ItemsPlanned: req.ItemsPlanned, PlannedOrders: counts, Messages: len(r.Messages),

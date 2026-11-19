@@ -84,6 +84,7 @@ type API struct {
 	liveLoaded      atomic.Int64
 	liveUnavailable atomic.Int64
 	liveEmpty       atomic.Int64
+	liveUnit        atomic.Int64
 }
 
 // New returns an API over st.
@@ -143,8 +144,8 @@ func (a *API) Metrics() http.Handler {
 		fmt.Fprintf(w, "# HELP planning_plan_runs_replayed_total Plan runs answered from an Idempotency-Key replay.\n# TYPE planning_plan_runs_replayed_total counter\nplanning_plan_runs_replayed_total %d\n", a.runsReplayed.Load())
 		fmt.Fprintf(w, "# HELP planning_plan_runs_refused_total Plan runs refused (invalid input, cycle, lock).\n# TYPE planning_plan_runs_refused_total counter\nplanning_plan_runs_refused_total %d\n", a.runsRefused.Load())
 		fmt.Fprintf(w, "# HELP planning_live_inputs_total Plan runs that read open sales demand and on-hand instead of a snapshot, by outcome.\n# TYPE planning_live_inputs_total counter\n")
-		fmt.Fprintf(w, "planning_live_inputs_total{outcome=\"loaded\"} %d\nplanning_live_inputs_total{outcome=\"unavailable\"} %d\nplanning_live_inputs_total{outcome=\"empty\"} %d\n",
-			a.liveLoaded.Load(), a.liveUnavailable.Load(), a.liveEmpty.Load())
+		fmt.Fprintf(w, "planning_live_inputs_total{outcome=\"loaded\"} %d\nplanning_live_inputs_total{outcome=\"unavailable\"} %d\nplanning_live_inputs_total{outcome=\"empty\"} %d\nplanning_live_inputs_total{outcome=\"unit\"} %d\n",
+			a.liveLoaded.Load(), a.liveUnavailable.Load(), a.liveEmpty.Load(), a.liveUnit.Load())
 		fmt.Fprintf(w, "# HELP planning_async_plan_runs_total Asynchronous plan runs started and how they ended.\n# TYPE planning_async_plan_runs_total counter\n")
 		fmt.Fprintf(w, "planning_async_plan_runs_total{outcome=\"started\"} %d\nplanning_async_plan_runs_total{outcome=\"succeeded\"} %d\nplanning_async_plan_runs_total{outcome=\"failed\"} %d\nplanning_async_plan_runs_total{outcome=\"cancelled\"} %d\n",
 			a.runs.started.Load(), a.runs.succeeded.Load(), a.runs.failed.Load(), a.runs.cancelled.Load())
@@ -205,6 +206,8 @@ type runRequest struct {
 	// Scope restricts the items the version reports (FR-22.13).
 	Scope *scopeDTO `json:"scope,omitempty"`
 	Items []itemDTO `json:"items"`
+
+	liveWarnings []store.Warning
 }
 
 // calendarDTO names the closed days of the site: whole weekdays (0 Sunday to
@@ -707,7 +710,7 @@ func (a *API) executeRun(ctx context.Context, job runJob, prog *runProgress) (st
 	elapsed := a.now().Sub(started).Milliseconds()
 	run := store.RunRequest{
 		PlanCode: job.code, SiteID: job.req.SiteID, LegalEntityID: job.req.LegalEntityID, ForecastModel: job.req.ForecastModel, AsOf: job.asOf, ItemsPlanned: planned, DurationMs: elapsed,
-		InputHash: job.inputHash, IdempotencyKey: job.key, Result: result,
+		InputHash: job.inputHash, IdempotencyKey: job.key, Result: result, Warnings: job.req.liveWarnings,
 	}
 	if prog != nil {
 		// A cancel that arrived while the engine ran stops the run here,
