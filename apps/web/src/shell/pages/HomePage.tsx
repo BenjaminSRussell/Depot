@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useOutletContext } from "react-router-dom";
 import { copy } from "../copy";
 import { DemoTour } from "../../demo/DemoTour";
 import { holdsDuty } from "../dutyGate";
@@ -65,6 +65,7 @@ function Recent() {
 export function HomePage() {
   const { held, active, setActive } = useWorkspaceNav();
   const navigate = useNavigate();
+  const announce = useOutletContext<((message: string) => void) | undefined>();
   const assistant = holdsDuty(usePrincipalDuties(), ASSISTANT_DUTY);
   const ordered = (active ? [active, ...held.filter((w) => w.id !== active.id)] : held).slice(0, HOME_WORKSPACE_LIMIT);
   const cards =
@@ -128,6 +129,7 @@ export function HomePage() {
       <PageHeader title={copy.home.pageTitle} description={copy.home.description} />
       <AssistantPrompt
         onSubmit={async (text) => {
+          announce?.(copy.home.assistantLoading);
           const route = await routePrompt(text);
           navigate(route.to, { state: route.state });
         }}

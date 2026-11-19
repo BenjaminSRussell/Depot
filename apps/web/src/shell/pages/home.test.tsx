@@ -37,9 +37,9 @@ const item = (n: number) => ({
   createdAt: "2026-11-01T00:00:00Z",
 });
 
-function renderHome(duties: string[], shellModules: DepotModule[] = modules) {
+function renderHome(duties: string[], shellModules: DepotModule[] = modules, entry: { pathname: string; state?: unknown } = { pathname: "/" }) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route element={<Shell modules={shellModules} duties={duties} />}>
           <Route path="/" element={<HomePage />} />
@@ -230,6 +230,42 @@ describe("role home", () => {
       const chats = server.calls.filter((c) => c.url.pathname === "/api/v1/copilot/chat");
       expect(chats).toHaveLength(1);
       expect(chats[0].body).toEqual({ mode: "ask", message: "how is cash" });
+    });
+
+    it("announces the sending text in the shell status region so it survives the route change", async () => {
+      const user = userEvent.setup();
+      server.handler = (url) =>
+        url.pathname === "/api/v1/copilot/chat"
+          ? json(200, { answer: "Cash is steady.", citations: [], toolCalls: [], refusal: null, generated: true })
+          : undefined;
+      renderHome([COPILOT_DUTY]);
+      await user.type(askBox(), "how is cash{Enter}");
+      await main().findByRole("article", { name: "Copilot answer" });
+      expect(screen.queryByRole("textbox", { name: "Ask or do anything..." })).not.toBeInTheDocument();
+      expect(screen.getAllByRole("status").some((r) => r.textContent === "Sending your question to the assistant...")).toBe(true);
+    });
+
+    it.each([
+      ["a number", { prompt: 5 }],
+      ["an object", { prompt: {} }],
+      ["an empty string", { prompt: "" }],
+      ["no prompt", {}],
+      ["no state", null],
+    ])("sends nothing when the copilot opens with %s as its prompt", async (_name, state) => {
+      renderHome([COPILOT_DUTY], modules, { pathname: "/copilot", state });
+      await screen.findByRole("heading", { name: "Copilot" });
+      expect(server.calls.filter((c) => c.url.pathname === "/api/v1/copilot/chat")).toHaveLength(0);
+    });
+
+    it("passes an oversize prompt through so the copilot shows the refusal instead of dropping it", async () => {
+      const prompt = "x".repeat(4500);
+      server.handler = (url) =>
+        url.pathname === "/api/v1/copilot/chat"
+          ? json(200, { answer: "", citations: [], toolCalls: [], refusal: { code: "AGT-0001", message: "That question is too long." }, generated: true })
+          : undefined;
+      renderHome([COPILOT_DUTY], modules, { pathname: "/copilot", state: { prompt } });
+      expect(await main().findByText("That question is too long.")).toBeInTheDocument();
+      expect(server.calls.filter((c) => c.url.pathname === "/api/v1/copilot/chat")[0].body).toEqual({ mode: "ask", message: prompt });
     });
 
     it("shows the classic cards as the primary content, with no prompt and no copilot request, without the duty", () => {

@@ -4,11 +4,9 @@ import { PageHeader } from "../../shell/ui";
 import { CopilotPanel } from "./CopilotPanel";
 import styles from "./pages.module.css";
 
-const MAX_PROMPT_CHARS = 4000;
-
 function promptFrom(state: unknown): string | undefined {
   const prompt = (state as { prompt?: unknown } | null)?.prompt;
-  return typeof prompt === "string" && prompt.trim() !== "" && prompt.length <= MAX_PROMPT_CHARS ? prompt : undefined;
+  return typeof prompt === "string" && prompt.trim() !== "" ? prompt : undefined;
 }
 
 export function CopilotHome() {
