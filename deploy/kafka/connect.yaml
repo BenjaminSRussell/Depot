@@ -353,6 +353,8 @@ spec:
         operations: [Create, Describe, Write, DescribeConfigs]
       - resource: {type: topic, name: depot.agent.killswitch, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.agent.aipolicy, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
       # analytics: one literal per AsyncAPI channel of services/analytics/events/asyncapi.yaml (outbox-analytics routes by event type).
       - resource: {type: topic, name: depot.analytics.metric, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]

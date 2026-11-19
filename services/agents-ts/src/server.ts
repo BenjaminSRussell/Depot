@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { createAgentsHandler, type AgentsApiDeps } from "./api/router.js";
 
-const ROUTES = ["healthz", "readyz", "kill-switch", "start-run", "run", "chat", "decision", "other"] as const;
+const ROUTES = ["healthz", "readyz", "kill-switch", "ai-data-policy", "start-run", "run", "chat", "decision", "other"] as const;
 type Route = (typeof ROUTES)[number];
 
 /** Bounded route label so metric cardinality cannot grow with caller input. */
@@ -9,6 +9,7 @@ export function routeLabel(path: string): Route {
   if (path === "/healthz") return "healthz";
   if (path === "/readyz") return "readyz";
   if (path === "/api/v1/agents/kill-switch") return "kill-switch";
+  if (path === "/api/v1/agents/ai-data-policy") return "ai-data-policy";
   if (path === "/api/v1/copilot/chat") return "chat";
   if (/^\/api\/v1\/agents\/[a-z][a-z0-9_]*\/runs$/.test(path)) return "start-run";
   if (/\/decision$/.test(path)) return "decision";

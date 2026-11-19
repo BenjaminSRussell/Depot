@@ -3761,6 +3761,15 @@ test_compliance_audit_policy_master_duties if {
 	not allowed("compliance.audit-policy.run", "PATCH", "/v1/compliance/audit-policies/p1")
 }
 
+test_agents_ai_data_policy_duties if {
+	allowed("aipolicy.read", "GET", "/api/v1/agents/ai-data-policy")
+	not allowed("aipolicy.read", "PUT", "/api/v1/agents/ai-data-policy")
+	allowed("aipolicy.write", "PUT", "/api/v1/agents/ai-data-policy")
+	not allowed("aipolicy.write", "GET", "/api/v1/agents/ai-data-policy")
+	not allowed("aipolicy.write", "POST", "/api/v1/agents/ai-data-policy")
+	not allowed("agents.invoke", "PUT", "/api/v1/agents/ai-data-policy")
+}
+
 test_compliance_data_designation_duties if {
 	allowed("datadesignation.write", "POST", "/v1/compliance/data-designations")
 	not allowed("datadesignation.write", "GET", "/v1/compliance/data-designations")

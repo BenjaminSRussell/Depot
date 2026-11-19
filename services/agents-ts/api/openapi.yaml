@@ -67,6 +67,65 @@ paths:
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
         "413": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/ai-data-policy:
+    get:
+      operationId: getAiDataPolicy
+      summary: The tenant's AI data policy, a matrix of module by data class
+      description: |
+        Modules are the domains of the read tools the MCP gateway exposes (the
+        `x-depot-tool` operations of the services): ap and ar. Each module has
+        a boolean per data class P0 to P3 and CUI. A tenant that never set a
+        policy gets version 1 with P0 and P1 allowed and P2, P3 and CUI denied
+        for every module. The ETag is the version, to be sent as If-Match.
+        An unreadable policy is 503 AGT-0216.
+      x-depot-duty: aipolicy.read
+      responses:
+        "200":
+          description: The tenant policy.
+          headers:
+            ETag: {schema: {type: string}, description: 'The policy version, quoted.'}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AiDataPolicy"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: putAiDataPolicy
+      summary: Change cells of the tenant's AI data policy
+      description: |
+        Needs aipolicy.write and tenant.administer. The body names only the
+        cells to change; a patch that changes nothing returns the current
+        policy and stores and publishes nothing. A change stores the next
+        version with the before and after matrix, the actor and the reason,
+        and writes dev.depot.agent.aipolicy.changed.v1 in the same
+        transaction. If-Match must carry the version read (428 AGT-0428
+        absent, 412 AGT-0412 stale, the architecture's conflict_version). Allowing P3 or CUI is refused with 422
+        AGT-0217.
+      x-depot-duty: aipolicy.write
+      x-depot-approval: none
+      parameters:
+        - {name: If-Match, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AiDataPolicyPatch"}
+      responses:
+        "200":
+          description: The policy after the change.
+          headers:
+            ETag: {schema: {type: string}, description: 'The policy version, quoted.'}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AiDataPolicy"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "412": {$ref: "#/components/responses/Problem"}
+        "413": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "428": {$ref: "#/components/responses/Problem"}
   /api/v1/agents/runs/{runId}/actions/{actionId}/decision:
     post:
       operationId: decideAgentAction
@@ -374,6 +433,40 @@ components:
               detail: {type: string}
               instance: {type: string}
   schemas:
+    AiDataPolicyCells:
+      type: object
+      properties:
+        P0: {type: boolean}
+        P1: {type: boolean}
+        P2: {type: boolean}
+        P3: {type: boolean}
+        CUI: {type: boolean}
+      additionalProperties: false
+    AiDataPolicy:
+      type: object
+      required: [version, modules]
+      properties:
+        version: {type: integer, minimum: 1}
+        modules:
+          type: object
+          required: [ap, ar]
+          properties:
+            ap: {$ref: "#/components/schemas/AiDataPolicyCells"}
+            ar: {$ref: "#/components/schemas/AiDataPolicyCells"}
+          additionalProperties: false
+    AiDataPolicyPatch:
+      type: object
+      required: [modules]
+      properties:
+        modules:
+          type: object
+          minProperties: 1
+          properties:
+            ap: {$ref: "#/components/schemas/AiDataPolicyCells"}
+            ar: {$ref: "#/components/schemas/AiDataPolicyCells"}
+          additionalProperties: false
+        reason: {type: string, maxLength: 500}
+      additionalProperties: false
     StartedRun:
       type: object
       required: [runId, agentId, agentVersion, status]
