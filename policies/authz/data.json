@@ -1299,8 +1299,17 @@
       {"resource": "/v1/compliance/audit-policies/*", "methods": ["GET", "PATCH"]}
     ]},
     "compliance.audit-policy.run": {"permissions": [{"resource": "/v1/compliance/audit-policies:evaluate", "methods": ["POST"]}, {"resource": "/v1/compliance/audit-policies", "methods": ["GET"]}, {"resource": "/v1/compliance/audit-policies/*", "methods": ["GET"]}]},
-    "datadesignation.write": {"permissions": [{"resource": "/v1/compliance/data-designations", "methods": ["POST"]}]},
-    "datadesignation.read": {"permissions": [{"resource": "/v1/compliance/data-designations:resolve", "methods": ["POST"]}, {"resource": "/v1/compliance/data-designations", "methods": ["GET"]}]},
+    "datadesignation.write": {"permissions": [
+      {"resource": "/v1/compliance/data-designations", "methods": ["POST"]},
+      {"resource": "/v1/compliance/data-designations/*", "methods": ["PATCH"]}
+    ]},
+    "datadesignation.read": {"permissions": [
+      {"resource": "/v1/compliance/data-designations:resolve", "methods": ["POST"]},
+      {"resource": "/v1/compliance/data-designations", "methods": ["GET"]},
+      {"resource": "/v1/compliance/data-designations/*", "methods": ["GET"]},
+      {"resource": "/v1/compliance/data-designations/*/history", "methods": ["GET"]}
+    ]},
+    "cui.view": {"flag": true, "permissions": []},
     "receivables.balance-confirmation.run": {"permissions": [
       {"resource": "/v1/receivables/balance-confirmations", "methods": ["POST"]},
       {"resource": "/v1/receivables/balance-confirmations/*:reply", "methods": ["POST"]}

@@ -85,6 +85,10 @@ type Store interface {
 	UpdateAuditPolicy(ctx context.Context, id string, expected int, in store.AuditPolicyPatch, now time.Time) (store.AuditPolicy, error)
 	Designate(ctx context.Context, in store.DesignationInput, key string, now time.Time) (store.Designation, error)
 	Resolve(ctx context.Context, refs []store.ResolveRef) ([]store.ResolvedRef, error)
+	ChangeDesignation(ctx context.Context, id string, expected int, in store.DesignationChange, now time.Time) (store.Designation, error)
+	GetDesignation(ctx context.Context, id string) (store.Designation, error)
+	ListDesignations(ctx context.Context, f store.DesignationFilter) ([]store.Designation, error)
+	DesignationHistory(ctx context.Context, id string) ([]store.DesignationHistoryEntry, error)
 }
 
 // Config carries the tenant policies the service reads from its environment

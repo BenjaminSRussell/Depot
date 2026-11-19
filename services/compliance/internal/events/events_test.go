@@ -11,7 +11,8 @@ import (
 func TestTypesFollowNamingRule(t *testing.T) {
 	want := map[string]bool{"dev.depot.sod.conflict.detected.v1": true, "dev.depot.sod.mitigation.approved.v1": true,
 		"dev.depot.trade.screening.hit.v1": true, "dev.depot.privacy.request.completed.v1": true, "dev.depot.privacy.hold.placed.v1": true,
-		"dev.depot.privacy.hold.released.v1": true, "dev.depot.privacy.erasure.requested.v1": true}
+		"dev.depot.privacy.hold.released.v1": true, "dev.depot.privacy.erasure.requested.v1": true,
+		"dev.depot.compliance.datadesignation.changed.v1": true}
 	for _, typ := range All() {
 		if !events.ValidType(typ) {
 			t.Errorf("%s breaks dev.depot.<ctx>.<entity>.<verb>.v<n>", typ)

@@ -126,10 +126,12 @@ func (s *Postgres) Designate(ctx context.Context, in DesignationInput, key strin
 			if err != nil {
 				return Designation{}, err
 			}
-			_, err = tx.Exec(ctx, `insert into audit_event (tenant_id, audit_id, entity_type, entity_id, action, actor, occurred_at, reason, before, after)
+			if _, err = tx.Exec(ctx, `insert into audit_event (tenant_id, audit_id, entity_type, entity_id, action, actor, occurred_at, reason, before, after)
 				values ($1, $2, $3, $4, $5, $6, $7, $8, null, $9::jsonb)`,
-				p.TenantID, ids.New(), designationAggregate, created.DesignationID, actionDesignate, p.UserID, now, in.Reason, string(after))
-			return created, err
+				p.TenantID, ids.New(), designationAggregate, created.DesignationID, actionDesignate, p.UserID, now, in.Reason, string(after)); err != nil {
+				return Designation{}, err
+			}
+			return created, enqueueDesignationChanged(ctx, tx, p, created, "", now)
 		})
 		return err
 	}

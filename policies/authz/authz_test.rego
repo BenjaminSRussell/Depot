@@ -251,7 +251,7 @@ test_all_seeded_duties_allow_their_declared_permissions if {
 }
 
 test_flag_duties_grant_no_routes if {
-	flag_duties := {"ledger.journal.rateoverride", "audit.auditor", "audit.cdc.apply", "audit.chain.anchor", "receivables.write-off.approve","purchasing.inbound.apply", "edi.pii.view", "edi.outbound.from-event", "tax.code.maintain", "fulfillment.order.sync", "budget.override", "inventory.blocking.scrap", "ledger.journal.postdirect", "ledger.journal.postledger", "ledger.period.postclosed", "org.hierarchy.backdate", "party.merge", "pii.read", "pricing.cache.invalidate", "production.batch.consume-expired", "production.journal.over-consume", "production.order.bom-after-release", "production.order.rework", "production.planned.intake", "receivables.openitem.from-billing", "billing.iccharge.from-event", "payables.iccharge.from-event", "intercompany.charge.from-event", "revrec.creditnote.reverse", "revrec.contract.from-invoice", "production.order.zero-output", "production.jobcard.shopfloor", "scheduling.constraints.override", "scheduling.order.import", "search.index.write", "shopfloor.job.sync", "tenant.administer", "treasury.facility.override"}
+	flag_duties := {"ledger.journal.rateoverride", "audit.auditor", "audit.cdc.apply", "audit.chain.anchor", "receivables.write-off.approve","purchasing.inbound.apply", "edi.pii.view", "edi.outbound.from-event", "tax.code.maintain", "fulfillment.order.sync", "budget.override", "inventory.blocking.scrap", "ledger.journal.postdirect", "ledger.journal.postledger", "ledger.period.postclosed", "org.hierarchy.backdate", "party.merge", "pii.read", "pricing.cache.invalidate", "production.batch.consume-expired", "production.journal.over-consume", "production.order.bom-after-release", "production.order.rework", "production.planned.intake", "receivables.openitem.from-billing", "billing.iccharge.from-event", "payables.iccharge.from-event", "intercompany.charge.from-event", "revrec.creditnote.reverse", "revrec.contract.from-invoice", "production.order.zero-output", "production.jobcard.shopfloor", "scheduling.constraints.override", "scheduling.order.import", "search.index.write", "shopfloor.job.sync", "tenant.administer", "treasury.facility.override", "cui.view"}
 	{d | some d, spec in data.duties; spec.flag == true} == flag_duties
 	every duty in flag_duties {
 		count(data.duties[duty].permissions) == 0
@@ -3769,6 +3769,40 @@ test_compliance_data_designation_duties if {
 	not allowed("datadesignation.write", "POST", "/v1/compliance/data-designations:resolve")
 	not allowed("datadesignation.write", "POST", "/v1/compliance/audit-policies")
 	not allowed("compliance.audit-policy.maintain", "POST", "/v1/compliance/data-designations")
+}
+
+test_compliance_data_designation_change_and_history_duties if {
+	allowed("datadesignation.write", "PATCH", "/v1/compliance/data-designations/d1")
+	not allowed("datadesignation.read", "PATCH", "/v1/compliance/data-designations/d1")
+	not allowed("datadesignation.write", "DELETE", "/v1/compliance/data-designations/d1")
+	allowed("datadesignation.read", "GET", "/v1/compliance/data-designations/d1")
+	allowed("datadesignation.read", "GET", "/v1/compliance/data-designations/d1/history")
+	not allowed("datadesignation.write", "GET", "/v1/compliance/data-designations/d1/history")
+}
+
+test_cui_view_is_a_flag_duty_no_designation_duty_grants if {
+	data.duties["cui.view"].flag == true
+	count(data.duties["cui.view"].permissions) == 0
+	not data.duties["cui.view"].tenant_level
+	not data.duties["cui.view"].operator_only
+	not data.duties["datadesignation.write"].flag
+	not data.duties["datadesignation.read"].flag
+}
+
+cui_input(legal_entity) := {"subject": {"tenant_id": "tenant-a", "user_id": "user-a", "legal_entity_id": legal_entity}, "action": "GET", "resource": "/v1/compliance/data-designations"}
+
+test_designation_duties_do_not_hold_cui_view if {
+	held := held_duties with input as cui_input("")
+		with data.assignments as {"tenant-a": {"user-a": ["datadesignation.write", "datadesignation.read"]}}
+	not "cui.view" in held
+	held == {"datadesignation.write", "datadesignation.read"}
+}
+
+test_cui_view_is_grantable_per_legal_entity if {
+	scoped := {"tenant-a": {"user-a": {"le-a": ["cui.view"]}}}
+	"cui.view" in held_duties with input as cui_input("le-a") with data.scoped_assignments as scoped
+	not "cui.view" in held_duties with input as cui_input("le-b") with data.scoped_assignments as scoped
+	not "cui.view" in held_duties with input as cui_input("") with data.scoped_assignments as scoped
 }
 
 test_analytics_saved_queries_are_for_viewers_and_authors if {

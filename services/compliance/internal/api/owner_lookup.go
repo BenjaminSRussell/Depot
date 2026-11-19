@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/BenjaminSRussell/depot/platform/ids"
@@ -20,6 +21,7 @@ import (
 const (
 	ownerTimeout      = 3 * time.Second
 	ownerMaxBody      = 1 << 20
+	ownerCallBudget   = 2 * domain.MaxResolveRefs
 	projectsAudience  = "projects"
 	dutyProjectsRead  = "projects.inquire"
 	projectsPathStart = "/v1/projects/"
@@ -67,7 +69,20 @@ func OwnerFromEnv(getenv func(string) string) (*OwnerClient, error) {
 	return NewOwnerClient(projectsURL, signer, nil)
 }
 
-// ponytail: one call per legal-entity scope of the caller, upgrade to a bulk lookup on the owning service
+type ownerBudgetKey struct{}
+
+func withOwnerBudget(ctx context.Context) context.Context {
+	remaining := &atomic.Int64{}
+	remaining.Store(ownerCallBudget)
+	return context.WithValue(ctx, ownerBudgetKey{}, remaining)
+}
+
+func spendOwnerCall(ctx context.Context) bool {
+	remaining, ok := ctx.Value(ownerBudgetKey{}).(*atomic.Int64)
+	return !ok || remaining.Add(-1) >= 0
+}
+
+// ponytail: one call per legal-entity scope of the caller, capped per request by ownerCallBudget, upgrade to a bulk lookup on the owning service
 func (c *OwnerClient) LegalEntity(ctx context.Context, entityType, recordID string) (string, error) {
 	if entityType != domain.EntityProject {
 		return "", fmt.Errorf("%w: no owning service for %q", errOwnerUnavailable, entityType)
@@ -83,6 +98,9 @@ func (c *OwnerClient) LegalEntity(ctx context.Context, entityType, recordID stri
 	for _, scope := range scopes {
 		if err := ctx.Err(); err != nil {
 			return "", fmt.Errorf("%w: %v", errOwnerUnavailable, err)
+		}
+		if !spendOwnerCall(ctx) {
+			return "", fmt.Errorf("%w: outbound call budget spent", errOwnerUnavailable)
 		}
 		le, err := c.project(ctx, p, scope, recordID)
 		if errors.Is(err, ErrOwnerNotFound) {
