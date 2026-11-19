@@ -3670,7 +3670,7 @@
         {"method": "POST", "path": "/v1/receivables/payments/{id}:apply", "operationId": "applyPayment", "duty": "receivables.payment.post"},
         {"method": "POST", "path": "/v1/receivables/payments/{id}:match", "operationId": "matchPayment", "duty": "receivables.payment.post"},
         {"method": "POST", "path": "/v1/receivables/payments/{id}:reverse", "operationId": "reversePayment", "duty": "receivables.payment.reverse"},
-        {"method": "POST", "path": "/v1/receivables/payments/{id}:reverse-application", "operationId": "reversePaymentApplication", "duty": "receivables.payment.post"},
+        {"method": "POST", "path": "/v1/receivables/payments/{id}:reverse-application", "operationId": "reversePaymentApplication", "duty": "receivables.payment.reverse"},
         {"method": "POST", "path": "/v1/receivables/payments/{id}:unapply", "operationId": "unapplyPayment", "duty": "receivables.payment.reverse"},
         {"method": "GET", "path": "/v1/receivables/prediction-invoices", "operationId": "listPredictionInvoices", "duty": "receivables.prediction.read"},
         {"method": "GET", "path": "/v1/receivables/promises", "operationId": "listPromises", "duty": "receivables.view"},
