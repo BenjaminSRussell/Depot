@@ -1406,6 +1406,8 @@
     ]},
     "mcp.copilot.use": {"permissions": [
       {"resource": "/api/v1/copilot/chat", "methods": ["POST"]},
+      {"resource": "/api/v1/agents/copilot/conversations", "methods": ["POST"]},
+      {"resource": "/api/v1/agents/copilot/conversations/*/messages", "methods": ["POST"]},
       {"resource": "/api/v1/knowledge/search", "methods": ["POST"]},
       {"resource": "/mcp", "methods": ["POST"]}
     ]},

@@ -1036,5 +1036,103 @@ class AuthzEnforcement(unittest.TestCase):
                 self.assertNotIn(c["path"].split("/")[3], bases, "a D22 prefix is decided on another path per gateway")
 
 
+COPILOT_DUTY = "mcp.copilot.use"
+AGENTS_UPSTREAM = {"name": "agent-runtime", "port": 8080}
+COPILOT_PATHS = ("/agents/copilot/conversations", "/agents/copilot/conversations/c1/messages")
+AGENTS_API_PATHS = (
+    "/agents/copilot/conversations",
+    "/agents/copilot/conversations/c1/messages",
+    "/agents/budgets",
+    "/agents/definitions",
+    "/agents/availability",
+    "/agents/approvals",
+    "/agents/runs",
+    "/agents/runs/r1/actions/a1/decision",
+    "/agents/runs/r1/actions/a1:undo",
+    "/agents/briefings",
+    "/agents/briefings:generate",
+    "/agents/briefings/b1:mark-read",
+)
+
+
+def path_prefix_matches(prefix, path):
+    return path == prefix or path.startswith(prefix + "/")
+
+
+def envoy_answer(method, path, duties, headers=None):
+    """data.authz.envoy for one request, with the caller t/u holding duties; no identity headers when headers is {}."""
+    headers = {"x-depot-tenant": "t", "x-depot-user": "u"} if headers is None else headers
+    request = {"attributes": {"request": {"http": {"method": method, "path": path, "headers": headers}}}}
+    return opa_query(
+        f"data.authz.envoy with input as {json.dumps(request)} with data.assignments as {json.dumps({'t': {'u': duties}})}"
+    )
+
+
+class AgentsApiRoute(unittest.TestCase):
+    """DEPOT-294: the shell reaches the agents API, copilot conversations included, through depot-api (no web BFF exists,
+    ADR-0009). The route is generated; these checks pin it, its streaming-safety and the duty of the two conversation paths."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.docs = render()
+        cls.route = named(cls.docs, "HTTPRoute", "agents")
+
+    def rules_for(self, path):
+        return [
+            rule for rule in self.route["spec"]["rules"]
+            if any(path_prefix_matches(m["path"]["value"], path) for m in rule["matches"])
+        ]
+
+    def test_every_agents_api_path_reaches_the_runtime_on_its_own_base(self):
+        self.assertEqual(parent_gateways(self.route), {API_GATEWAY})
+        for rest in AGENTS_API_PATHS:
+            for public, rewritten in (("/api/v1", False), ("/v1", True)):
+                with self.subTest(path=public + rest):
+                    (rule,) = self.rules_for(public + rest)
+                    self.assertEqual(rule["backendRefs"], [AGENTS_UPSTREAM])
+                    filters = rule.get("filters", [])
+                    if rewritten:
+                        (f,) = filters
+                        self.assertEqual(f["urlRewrite"]["path"], {"type": "ReplacePrefixMatch", "replacePrefixMatch": "/api/v1/agents"})
+                    else:
+                        self.assertEqual(filters, [])
+
+    def test_nothing_on_the_agents_route_buffers_or_bounds_a_stream(self):
+        for rule in self.route["spec"]["rules"]:
+            self.assertNotIn("timeouts", rule)
+            for f in rule.get("filters", []):
+                self.assertEqual(f["type"], "URLRewrite")
+        forbidden = {"requestBuffer", "compression", "timeout", "responseOverride", "httpUpgrade"}
+        policies = [d for d in self.docs if d["kind"] in {"BackendTrafficPolicy", "ClientTrafficPolicy"}
+                    and ("HTTPRoute", "agents") in target_names(d)]
+        self.assertTrue(policies)
+        for policy in policies:
+            with self.subTest(policy=policy["metadata"]["name"]):
+                self.assertFalse(forbidden & set(policy["spec"]))
+
+    def test_the_conversation_paths_are_allowed_to_the_copilot_duty_alone(self):
+        for public in ("/api/v1", "/v1"):
+            for rest in COPILOT_PATHS:
+                path = public + rest
+                with self.subTest(path=path):
+                    allowed = envoy_answer("POST", path, [COPILOT_DUTY])
+                    self.assertTrue(allowed["allowed"])
+                    self.assertEqual(allowed["record"]["duty"], COPILOT_DUTY)
+                    self.assertEqual(allowed["record"]["route"], "POST /api/v1/agents/**")
+                    for held in (["agents.run.read", "agents.invoke"], []):
+                        refused = envoy_answer("POST", path, held)
+                        self.assertFalse(refused["allowed"])
+                        self.assertEqual(refused["http_status"], 403)
+                        self.assertEqual(json.loads(refused["body"])["errors"]["duty_missing"], COPILOT_DUTY)
+                    self.assertFalse(envoy_answer("GET", path, [COPILOT_DUTY])["allowed"])
+
+    def test_an_unauthenticated_conversation_call_is_refused(self):
+        for rest in COPILOT_PATHS:
+            with self.subTest(path=rest):
+                refused = envoy_answer("POST", "/api/v1" + rest, [COPILOT_DUTY], headers={})
+                self.assertFalse(refused["allowed"])
+                self.assertEqual(refused["record"]["reason"], "unauthenticated")
+
+
 if __name__ == "__main__":
     unittest.main()
