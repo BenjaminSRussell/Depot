@@ -51,8 +51,10 @@ deployment (GovCloud) with an in-boundary AI model. Services and agents need one
 
 - Consumers pay one resolve call per batch (at most 500 refs); the owning service lookup is one call per ref and
   legal-entity scope until a bulk lookup exists on the owning service.
+- The agent runtime resolves classes under its own service token (grant `agents` -> `compliance`, service-only duty
+  `compliance.data-designation.resolve`, one route), minted for the caller's tenant, legal entity and user; users do not
+  hold `datadesignation.read` for it.
 - The web control (`DataDesignationPanel`, shown on the project page) is hidden without `datadesignation.read`, and its
   change action without `datadesignation.write`.
 - Remaining: entity types `party`, `item`, `contract` and `attachment` (no owning endpoint that returns a legal entity),
-  so `PARENT_RECORD` inheritance for attachments; the service grant letting agents call compliance and wiring the client
-  into the agent runtime; the identity-provider mapping for `cui.view`; enforcement of `cui.view` on CUI content (E1-S36).
+  so `PARENT_RECORD` inheritance for attachments; the identity-provider mapping for `cui.view`; enforcement of `cui.view` on CUI content (E1-S36).

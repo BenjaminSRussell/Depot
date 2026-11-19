@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { loadConfig, type Config } from "../src/config.js";
 import { CopilotAnswerCache } from "../src/domain/copilot.js";
+import { createServiceSigner } from "../src/api/serviceSigner.js";
 import { createConfiguredRouter } from "../src/runtime/aiRouter.js";
 import { createCopilotService, type ChatResponse } from "../src/runtime/copilot.js";
 import { PROPOSE_TOOL_NAME } from "../src/providers/wire.js";
@@ -9,6 +10,9 @@ import { FakeMcp, MemoryStore, T1, tool, USER } from "./surface-fakes.js";
 const GET = "depot.ap.invoice.get";
 const CUI_MARKER = "CUI-MARKER-TEXT";
 const OK_MARKER = "PERMITTED-TEXT";
+const LE = "0192a2b4-0000-7000-8000-00000000000a";
+const signer = createServiceSigner({ seedBase64: Buffer.alloc(32, 7).toString("base64") });
+const claimsOf = (token: string): Record<string, unknown> => JSON.parse(Buffer.from(token.split(".")[0] ?? "", "base64url").toString("utf8")) as Record<string, unknown>;
 const base = { MCP_URL: "http://mcp:8080", AGENTS_JWT_ISSUER: "https://idp.dev.depot.dev/realms/dev", AGENTS_JWKS_URL: "https://idp.dev.depot.dev/realms/dev/protocol/openid-connect/certs", AGENTS_COMPLIANCE_URL: "http://compliance.test" };
 
 type AdapterName = "anthropic" | "bedrock" | "azure" | "vllm";
@@ -32,11 +36,13 @@ type ResolverMode = "classes" | "http500" | "unreachable" | "mismatch";
 function harness(adapter: AdapterName, script: Array<Record<string, unknown>>, resolver: ResolverMode = "classes") {
   const providerBodies: string[] = [];
   const resolverBodies: string[] = [];
+  const resolverHeaders: Array<Record<string, string>> = [];
   const queue = [...script];
   const fetchFn = (async (url: string | URL, init?: RequestInit): Promise<Response> => {
     const body = String(init?.body ?? "");
     if (String(url).includes("data-designations:resolve")) {
       resolverBodies.push(body);
+      resolverHeaders.push((init?.headers ?? {}) as Record<string, string>);
       if (resolver === "unreachable") throw new TypeError("fetch failed");
       if (resolver === "http500") return new Response("{}", { status: 500 });
       const refs = (JSON.parse(body) as { refs: Array<{ recordId: string }> }).refs;
@@ -47,10 +53,10 @@ function harness(adapter: AdapterName, script: Array<Record<string, unknown>>, r
     const next = queue.shift();
     return Response.json(wireAnswer(adapter, next ?? finalText("done")));
   }) as unknown as typeof fetch;
-  return { providerBodies, resolverBodies, fetchFn };
+  return { providerBodies, resolverBodies, resolverHeaders, fetchFn };
 }
 
-async function ask(cfg: Config, fetchFn: typeof fetch, results: Record<string, unknown>) {
+async function ask(cfg: Config, fetchFn: typeof fetch, results: Record<string, unknown>, opts: { signer?: typeof signer | undefined; legalEntityId?: string | undefined } = { signer, legalEntityId: LE }) {
   const store = new MemoryStore();
   const tools = Object.keys(results);
   const mcp = new FakeMcp(
@@ -58,7 +64,7 @@ async function ask(cfg: Config, fetchFn: typeof fetch, results: Record<string, u
     Object.fromEntries(tools.map((t) => [t, { ok: true as const, output: results[t], ref: t }])),
   );
   const copilot = createCopilotService({
-    router: createConfiguredRouter(cfg, { fetchFn }),
+    router: createConfiguredRouter(cfg, { fetchFn, ...(opts.signer !== undefined ? { signer: opts.signer } : {}) }),
     mcp,
     store,
     killSwitch: { isHalted: () => false },
@@ -66,7 +72,7 @@ async function ask(cfg: Config, fetchFn: typeof fetch, results: Record<string, u
     config: { tokenCap: 20_000, maxTurns: 4, pseudonymTtlMs: 60_000 },
     modelId: "claude-haiku-5-5",
   });
-  const caller = { userId: USER, tenantId: T1, duties: new Set(["mcp.copilot.use", "ap.invoice.read"]) };
+  const caller = { userId: USER, tenantId: T1, duties: new Set(["mcp.copilot.use", "ap.invoice.read"]), ...(opts.legalEntityId !== undefined ? { legalEntityId: opts.legalEntityId } : {}) };
   const run = (): Promise<ChatResponse> => copilot.chat(caller, "caller-token", { mode: "ask", message: "what is open?" });
   return { store, run };
 }
@@ -108,6 +114,33 @@ describe("copilot routing in the standard deployment", () => {
     const { run } = await ask(cfg, h.fetchFn, { [GET]: { items: [{ id: "ok-1", note: OK_MARKER }, { id: "ok-2", note: OK_MARKER }] } });
     const res = await run();
     expect(res.excluded?.count).toBe(2);
+    for (const body of h.providerBodies) expect(body).not.toContain(OK_MARKER);
+  });
+
+  it("resolves classes with agents' own service token for the caller's tenant and legal entity, never the caller's bearer", async () => {
+    const cfg = loadConfig({ ...base, ...adapters.anthropic });
+    const h = harness("anthropic", [callTool(GET), finalText("ok")]);
+    const { run } = await ask(cfg, h.fetchFn, { [GET]: { id: "ok-1", note: OK_MARKER } });
+    const res = await run();
+    expect(res.excluded).toBeUndefined();
+    expect(h.providerBodies[1]).toContain(OK_MARKER);
+    const headers = h.resolverHeaders[0] ?? {};
+    expect(headers["authorization"]).toBeUndefined();
+    expect(JSON.stringify(headers)).not.toContain("caller-token");
+    expect(claimsOf(headers["x-depot-service-token"] ?? "")).toMatchObject({ iss: "agents", aud: "compliance", tid: T1, le: LE, act: USER, duties: ["compliance.data-designation.resolve"] });
+  });
+
+  it.each([
+    ["no service signing key", { signer: undefined, legalEntityId: LE }],
+    ["a caller token that names no legal entity", { signer, legalEntityId: undefined }],
+    ["a caller token that names several legal entities", { signer, legalEntityId: `${LE},0192a2b4-0000-7000-8000-00000000000b` }],
+  ])("withholds every record without calling compliance when there is %s", async (_name, opts) => {
+    const cfg = loadConfig({ ...base, ...adapters.anthropic });
+    const h = harness("anthropic", [callTool(GET), finalText("ok")]);
+    const { run } = await ask(cfg, h.fetchFn, { [GET]: { id: "ok-1", note: OK_MARKER } }, opts);
+    const res = await run();
+    expect(res.excluded?.count).toBe(1);
+    expect(h.resolverBodies).toEqual([]);
     for (const body of h.providerBodies) expect(body).not.toContain(OK_MARKER);
   });
 

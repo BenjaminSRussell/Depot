@@ -31,6 +31,8 @@ const (
 	DutyDataDesignationWrite = "datadesignation.write"
 	DutyDataDesignationRead  = "datadesignation.read"
 
+	DutyDataDesignationResolve = "compliance.data-designation.resolve"
+
 	MaxResolveRefs = 500
 
 	MaxDesignationReason   = 500

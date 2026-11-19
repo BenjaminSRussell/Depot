@@ -158,7 +158,7 @@ export function createCopilotService(deps: CopilotDeps) {
       // TODO: DEPOT-306 createAiPolicyGuard.check is still unwired
       let plan: AiPlan;
       try {
-        plan = await deps.router.plan({ caller, token, modelId: deps.modelId, refs: [] });
+        plan = await deps.router.plan({ caller, modelId: deps.modelId, refs: [] });
       } catch (err) {
         if (err instanceof AgentError && err.code === "AGT-0218") return refusal("AGT-0218", NO_ROUTE_MESSAGE);
         throw err;
@@ -277,7 +277,7 @@ export function createCopilotService(deps: CopilotDeps) {
           }
           toolCalls.push({ tool: p.tool, status: "OK" });
           const found = p.tool === KNOWLEDGE_SEARCH_TOOL ? [] : recordsOf(p.tool, out.output);
-          const next = found.length === 0 ? undefined : await deps.router.plan({ caller, token, modelId: deps.modelId, refs: found });
+          const next = found.length === 0 ? undefined : await deps.router.plan({ caller, modelId: deps.modelId, refs: found });
           answer = "";
           const excludedHere = next?.excluded ?? [];
           const shown = excludedHere.length === 0 ? out.output : permittedOutput(out.output, excludedHere);

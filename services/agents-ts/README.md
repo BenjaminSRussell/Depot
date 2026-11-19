@@ -62,7 +62,7 @@ There is no web BFF (ADR-0009): the shell reaches `/api/v1/agents/**`, copilot c
 | `AGENTS_JWKS_URL` or `AGENTS_JWKS_FILE` | The realm's signing keys: its certs endpoint, or a mounted key set (chart `auth.jwksConfigMap`); one is required | |
 | `AGENTS_PROVIDER` | `anthropic`, `openai` (OpenAI-compatible, Azure) or `bedrock` | `anthropic` |
 | `AGENTS_BOUNDARY` | `standard` or `cui`. The copilot routes each call by the highest data class in its context: in `standard` no CUI or UNKNOWN record reaches a model, `cui` is refused at startup until agent runs and run steps are routed (DEPOT-303 slice 2) | `standard` |
-| `AGENTS_COMPLIANCE_URL` | Gateway base URL of services/compliance, where record data classes are resolved with the caller's bearer. Unset: every record is UNKNOWN and is withheld from the model | unset |
+| `AGENTS_COMPLIANCE_URL` | Gateway base URL of services/compliance, where record data classes are resolved with agents' own signed service token (needs `DEPOT_SERVICE_SIGNING_KEY` or `DEPOT_SERVICE_SIGNING_KEY_FILE`, `DEPOT_SERVICE_NAME=agents` and a caller token with one `le` claim). Unset, or any of those missing: every record is UNKNOWN and is withheld from the model | unset |
 | `AGENTS_MODEL`, `AGENTS_COPILOT_MODEL`, `AGENTS_MODEL_OVERRIDES` | Model ids; the overrides are a JSON object of agent id to model id | `claude-sonnet-5-5` |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` + `AGENTS_OPENAI_BASE_URL`, `AWS_REGION` + `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` | Provider credentials, from a secret; a missing one fails the first run naming the variable | |
 | `AGENTS_RUN_TOKEN_CAP`, `AGENTS_COPILOT_TOKEN_CAP`, `AGENTS_COPILOT_MAX_TURNS` | Per-run and per-chat token caps, chat turns | 20000, 8000, 4 |

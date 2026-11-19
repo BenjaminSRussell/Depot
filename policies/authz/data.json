@@ -4152,6 +4152,7 @@
       {"resource": "/v1/privacy/holds/*", "methods": ["GET"]}
     ]},
     "compliance.legal-hold.check": {"service_only": true, "permissions": [{"resource": "/v1/privacy/holds:check", "methods": ["GET"]}]},
+    "compliance.data-designation.resolve": {"service_only": true, "permissions": [{"resource": "/v1/compliance/data-designations:resolve", "methods": ["POST"]}]},
     "compliance.erasure.request": {"permissions": [{"resource": "/v1/privacy/erasures", "methods": ["POST"]}]},
     "compliance.retention.read": {"permissions": [{"resource": "/v1/privacy/retention-policies", "methods": ["GET"]}]},
     "receiving.payee.erase": {"permissions": [{"resource": "/v1/receiving/one-time-payees:erase", "methods": ["POST"]}]},
@@ -4336,7 +4337,8 @@
       "agents": ["agents.run.workflow"]
     },
     "agents": {
-      "workflow-ts": ["agents.run.signal"]
+      "workflow-ts": ["agents.run.signal"],
+      "compliance": ["compliance.data-designation.resolve"]
     },
     "party": {
       "numbering": ["numbering.sequence.allocate"]

@@ -113,10 +113,7 @@ async function main(): Promise<void> {
   partitionTimer.unref();
   // AGENTS_RUN_ENGINE=temporal: runs are workflows (workflow-ts) that call these steps; the in-process engine stays the dev default.
   const approvalHours = cfg.approvalExpiryHours ?? 72;
-  const serviceSigner =
-    cfg.runEngine === "temporal"
-      ? serviceSignerFromEnv(process.env, (path) => readFileSync(path, "utf8"))
-      : undefined;
+  const serviceSigner = serviceSignerFromEnv(process.env, (path) => readFileSync(path, "utf8"));
   if (cfg.runEngine === "temporal" && serviceSigner === undefined)
     throw new Error(
       "AGENTS_RUN_ENGINE=temporal needs DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE: agents signs its calls to workflow-ts",
@@ -174,9 +171,15 @@ async function main(): Promise<void> {
       "AGENTS_COMPLIANCE_URL is not set: every record is UNKNOWN and is withheld from AI calls",
       { boundary: cfg.boundary },
     );
+  else if (serviceSigner === undefined)
+    log(
+      "warn",
+      "DEPOT_SERVICE_SIGNING_KEY is not set: agents cannot sign its call to compliance, so every record is UNKNOWN and is withheld from AI calls",
+      { boundary: cfg.boundary },
+    );
   const copilot = createCopilotService({
     knowledge,
-    router: createConfiguredRouter(cfg, { log }),
+    router: createConfiguredRouter(cfg, { log, ...(serviceSigner !== undefined ? { signer: serviceSigner } : {}) }),
     mcp,
     store,
     killSwitch: registry,

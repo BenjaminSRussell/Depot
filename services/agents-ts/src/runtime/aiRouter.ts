@@ -1,4 +1,5 @@
 import type { Principal } from "../api/principal.js";
+import type { ServiceSigner } from "../api/serviceSigner.js";
 import { createProviderFactory, type Config } from "../config.js";
 import { NO_ROUTE_MESSAGE, selectRoute, type Boundary, type ModelRoute, type RouteAdapter } from "../domain/modelRoute.js";
 import { AgentError } from "../errors.js";
@@ -8,7 +9,6 @@ import type { ModelProvider } from "./engine.js";
 
 export interface PlanInput {
   caller: Principal;
-  token: string;
   modelId: string;
   refs: readonly DataRef[];
 }
@@ -28,13 +28,13 @@ export interface AiRouterDeps {
   boundary: Boundary;
   routes: readonly ModelRoute[];
   providerFor: (modelId: string) => ModelProvider;
-  designation: (token: string) => DesignationClient | undefined;
+  designation: () => DesignationClient | undefined;
   log?: LogFn;
 }
 
 export function createAiRouter(deps: AiRouterDeps): AiRouter {
-  const classify = async (caller: Principal, token: string, refs: readonly DataRef[]): Promise<EffectiveClass[]> => {
-    const client = deps.designation(token);
+  const classify = async (caller: Principal, refs: readonly DataRef[]): Promise<EffectiveClass[]> => {
+    const client = deps.designation();
     if (refs.length === 0) return [];
     if (client === undefined) return refs.map(() => "UNKNOWN");
     try {
@@ -48,8 +48,8 @@ export function createAiRouter(deps: AiRouterDeps): AiRouter {
   };
 
   return {
-    async plan({ caller, token, modelId, refs }) {
-      const classes = await classify(caller, token, refs);
+    async plan({ caller, modelId, refs }) {
+      const classes = await classify(caller, refs);
       const excluded = refs.filter((_, i) => treatAsCui(classes[i] ?? "UNKNOWN"));
       const permitted = refs.filter((_, i) => aiMayUse(classes[i] ?? "UNKNOWN"));
       const cuiRoute = excluded.length > 0 ? selectRoute(deps.boundary, deps.routes, "CUI") : undefined;
@@ -79,18 +79,23 @@ export function envRoute(cfg: Pick<Config, "provider" | "openai" | "providerRegi
   return { routeId: `env:${adapter}`, adapter, endpointId: "env", ...(region !== undefined ? { region } : {}) };
 }
 
-export function createConfiguredRouter(cfg: Config, deps: { fetchFn?: typeof fetch; log?: LogFn } = {}): AiRouter {
+export function createConfiguredRouter(cfg: Config, deps: { fetchFn?: typeof fetch; log?: LogFn; signer?: ServiceSigner } = {}): AiRouter {
+  const signer = deps.signer;
   const complianceUrl = cfg.complianceUrl;
   return createAiRouter({
     boundary: cfg.boundary,
     routes: [envRoute(cfg)],
     providerFor: createProviderFactory(cfg, deps.fetchFn),
-    designation: (token) =>
+    designation: () =>
       complianceUrl === undefined
         ? undefined
         : createDesignationClient({
             baseUrl: complianceUrl,
-            authHeaders: () => ({ authorization: `Bearer ${token}` }),
+            authHeaders: (caller) => {
+              if (signer === undefined) throw new Error("no service signing key is configured");
+              if (caller.legalEntityId === undefined) throw new Error("the caller's token names no legal entity");
+              return { "x-depot-service-token": signer.mintForCompliance({ tenantId: caller.tenantId, legalEntityId: caller.legalEntityId, actor: caller.userId }) };
+            },
             ...(deps.fetchFn !== undefined ? { fetchFn: deps.fetchFn } : {}),
             ...(deps.log !== undefined ? { log: deps.log } : {}),
           }),

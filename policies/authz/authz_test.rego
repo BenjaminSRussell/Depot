@@ -3799,6 +3799,20 @@ test_compliance_data_designation_duties if {
 	not allowed("compliance.audit-policy.maintain", "POST", "/v1/compliance/data-designations")
 }
 
+test_agents_service_resolves_designations_and_copilot_users_do_not_read_them if {
+	allowed("compliance.data-designation.resolve", "POST", "/v1/compliance/data-designations:resolve")
+	not allowed("compliance.data-designation.resolve", "GET", "/v1/compliance/data-designations")
+	not allowed("compliance.data-designation.resolve", "GET", "/v1/compliance/data-designations/d1")
+	not allowed("compliance.data-designation.resolve", "POST", "/v1/compliance/data-designations")
+	not allowed("compliance.data-designation.resolve", "PATCH", "/v1/compliance/data-designations/d1")
+	data.duties["compliance.data-designation.resolve"].service_only
+	data.service_grants.agents.compliance == ["compliance.data-designation.resolve"]
+	not allowed("mcp.copilot.use", "POST", "/v1/compliance/data-designations:resolve")
+	not allowed("mcp.copilot.use", "GET", "/v1/compliance/data-designations")
+	not allowed("mcp.copilot.use", "GET", "/v1/compliance/data-designations/d1")
+	not allowed("mcp.copilot.use", "GET", "/v1/compliance/data-designations/d1/history")
+}
+
 test_compliance_data_designation_change_and_history_duties if {
 	allowed("datadesignation.write", "PATCH", "/v1/compliance/data-designations/d1")
 	not allowed("datadesignation.read", "PATCH", "/v1/compliance/data-designations/d1")
