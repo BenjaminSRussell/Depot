@@ -50,7 +50,7 @@ deterministic in tests.
 
 ## Reaching the API from the shell (DEPOT-294)
 
-There is no web BFF (ADR-0009): the shell reaches `/api/v1/agents/**`, copilot conversations included, through the API gateway (HTTPRoute `agents` on `depot-api`, see `deploy/gateway/README.md`) or the depot-server proxy. There is no cookie session and no token exchange: the gateway verifies the bearer token and the OPA duty check, and `createAuthenticator` verifies the token again here. Streamed responses and upstream problem bodies pass through unchanged. The handlers for conversations, the budgets list, definitions, availability, the approvals list and briefings are not served by this service yet (`NOT-IMPLEMENTED.md`); each story that adds one must add its duty to `policies/authz/data.json` with a Rego case, because the gateway answers 403 for a path no duty names. Only `mcp.copilot.use` for the two conversation POSTs is in place.
+There is no web BFF (ADR-0009): the shell reaches `/api/v1/agents/**`, copilot conversations included, through the API gateway (HTTPRoute `agents` on `depot-api`, see `deploy/gateway/README.md`) or the depot-server proxy. There is no cookie session and no token exchange: the gateway verifies the bearer token and the OPA duty check, and `createAuthenticator` verifies the token again here. Streamed responses and upstream problem bodies pass through unchanged. The handlers for conversations, definitions, availability, the approvals list and briefings are not served by this service yet (`NOT-IMPLEMENTED.md`); each story that adds one must add its duty to `policies/authz/data.json` with a Rego case, because the gateway answers 403 for a path no duty names. Only `mcp.copilot.use` for the two conversation POSTs is in place.
 
 ## Configuration
 

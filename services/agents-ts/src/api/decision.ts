@@ -48,10 +48,22 @@ export interface DecisionResult extends RecordedDecision {
   actionId: string;
 }
 
-/** Validates the POST body of `.../actions/{id}/decision`. */
-export function parseDecision(raw: unknown): Decision {
-  const decision = asObject(raw, ["decision"]).decision;
-  if (decision === "APPROVED" || decision === "REJECTED") return decision;
+export const MAX_REASON_CHARS = 500;
+
+/** An optional free-text reason: absent, null or empty is null; anything but a string of at most 500 characters is 400. */
+export function parseReason(value: unknown): string | null {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string" || value.length > MAX_REASON_CHARS) {
+    throw new ApiError(400, "AGT-0400", `reason must be a string of at most ${MAX_REASON_CHARS} characters`);
+  }
+  return value;
+}
+
+/** Validates the POST body of `.../actions/{id}/decision`. The reason is read by the decline of an ungated action only. */
+export function parseDecision(raw: unknown): { decision: Decision; reason: string | null } {
+  const body = asObject(raw, ["decision", "reason"]);
+  const reason = parseReason(body.reason);
+  if (body.decision === "APPROVED" || body.decision === "REJECTED") return { decision: body.decision, reason };
   throw new ApiError(400, "AGT-0400", "decision must be APPROVED or REJECTED");
 }
 
@@ -81,7 +93,7 @@ export async function handleApprovalDecision(input: {
   store: ApprovalStore;
   now: () => Date;
 }): Promise<DecisionResult> {
-  const requested = parseDecision(input.body);
+  const { decision: requested } = parseDecision(input.body);
   const { tenantId, userId } = input.principal;
   const request = await input.store.find(tenantId, input.runId, input.actionId);
   if (request === undefined) {

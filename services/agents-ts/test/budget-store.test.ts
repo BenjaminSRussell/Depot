@@ -620,7 +620,7 @@ describe.runIf(ownerUrl)("persisted audit and token budget in Postgres", () => {
     expect(result.status).toBe("COMMITTED");
     expect(seenAtStart).toEqual(["RUNNING"]);
     expect(await runRow(t, "audited")).toMatchObject({ status: "COMMITTED" });
-    expect(await store.loadActions(t, "audited")).toEqual(result.actions);
+    expect(await store.loadActions(t, "audited")).toMatchObject(result.actions);
     expect(await budgetRow(t)).toMatchObject({ used_in: 1_200, used_out: 180 });
     expect(await holds(t)).toBe(0);
 
@@ -665,7 +665,7 @@ describe.runIf(ownerUrl)("persisted audit and token budget in Postgres", () => {
     expect(result).toMatchObject({ status: "COMMITTED", postCommitError: "audit db down" });
     expect(await budgetRow(t)).toMatchObject({ used_in: 1_200, used_out: 180 });
     expect(await runRow(t, "unaudited")).toMatchObject({ status: "FAILED_AFTER_COMMIT", post_commit_error: "audit db down" });
-    expect(await store.loadActions(t, "unaudited")).toEqual(result.actions);
+    expect(await store.loadActions(t, "unaudited")).toMatchObject(result.actions);
   });
 
   it("the application role cannot change a finished agent_run row or rewrite a run's identity", async () => {

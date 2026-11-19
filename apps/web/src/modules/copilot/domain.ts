@@ -43,7 +43,7 @@ export function approvalTone(mode: ApprovalModeName): "neutral" | "info" | "warn
   return mode === "approve_before_commit" ? "warning" : mode === "suggest" ? "info" : "neutral";
 }
 
-/** Minimal key-value store; the browser's localStorage satisfies it. */
+/** Minimal key-value store; a browser key-value store satisfies it. */
 export interface ModeStore {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;

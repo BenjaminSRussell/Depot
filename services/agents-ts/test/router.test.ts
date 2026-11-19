@@ -3,10 +3,13 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ApprovalRequest, RecordedDecision } from "../src/api/decision.js";
+import type { AiPolicyStore } from "../src/api/aiDataPolicy.js";
 import { createAgentsHandler, MAX_BODY_BYTES } from "../src/api/router.js";
 import { edgeHeaders, testAuthenticate } from "./jwt.js";
 import type { CopilotService } from "../src/runtime/copilot.js";
 import type { KnowledgeService } from "../src/runtime/knowledge.js";
+import type { AgentBudgetService } from "../src/api/agentBudgets.js";
+import type { ActionService } from "../src/runtime/actions.js";
 import type { RunService } from "../src/runtime/service.js";
 import type { AgentEvent } from "../src/domain/events.js";
 import { KillSwitchRegistry } from "../src/domain/killswitch.js";
@@ -184,16 +187,21 @@ function documentedOperations(): string[] {
 describe("api/openapi.yaml matches the router", () => {
   it("documents exactly the operations the router serves", async () => {
     expect(documentedOperations()).toEqual([
+      "GET /api/v1/agents/ai-data-policy",
+      "GET /api/v1/agents/budgets",
       "GET /api/v1/agents/kill-switch",
       "GET /api/v1/agents/runs/{runId}",
       "GET /api/v1/agents/runs/{runId}/actions",
       "POST /api/v1/agents/kill-switch",
       "POST /api/v1/agents/runs/{runId}/actions/{actionId}/decision",
+      "POST /api/v1/agents/runs/{runId}/actions/{actionId}:undo",
       "POST /api/v1/agents/runs/{runId}/steps/{step}",
       "POST /api/v1/agents/{agentId}/runs",
       "POST /api/v1/copilot/chat",
       "POST /api/v1/knowledge/chunks",
       "POST /api/v1/knowledge/search",
+      "PUT /api/v1/agents/ai-data-policy",
+      "PUT /api/v1/agents/budgets/{agentId}",
     ]);
     const handler = createAgentsHandler({
       authenticate: testAuthenticate,
@@ -203,8 +211,11 @@ describe("api/openapi.yaml matches the router", () => {
       publish: async () => undefined,
       // Never reached: an anonymous call is refused at the edge identity check.
       runs: {} as RunService,
+      actions: {} as ActionService,
       copilot: {} as CopilotService,
       knowledge: {} as KnowledgeService,
+      budgets: {} as AgentBudgetService,
+      aiPolicy: {} as AiPolicyStore,
       steps: { service: {} as never, verifier: { verify: () => { throw new Error("no"); } } },
     });
     const s = createServer((req, res) => void handler(req, res));

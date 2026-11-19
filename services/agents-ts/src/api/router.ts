@@ -6,8 +6,11 @@ import { StepRefusal, type RunSteps } from "../runtime/steps.js";
 import { handleKillSwitchCommand, type KillSwitchWiring, readKillSwitchStatus } from "./killswitch.js";
 import { COPILOT_DUTY, type CopilotService } from "../runtime/copilot.js";
 import { parseChunks, parseSearch, type KnowledgeService } from "../runtime/knowledge.js";
+import type { ActionService } from "../runtime/actions.js";
 import type { RunService } from "../runtime/service.js";
 import { handleChat } from "./copilot.js";
+import type { AgentBudgetService } from "./agentBudgets.js";
+import { type AiPolicyStore, handleGetAiDataPolicy, handlePutAiDataPolicy } from "./aiDataPolicy.js";
 import type { Authenticate } from "./auth.js";
 import { ApiError, requireDuty, toApiError } from "./principal.js";
 import { bearerToken, handleGetRun, handleListActions, handleStartRun } from "./runs.js";
@@ -24,10 +27,16 @@ export interface AgentsApiBase {
   approvals: ApprovalStore;
   /** Run start and read endpoints; absent in a process that serves only the control routes. */
   runs?: RunService;
+  /** Decline of an ungated action and undo; absent and an action with no approval request answers 404. */
+  actions?: ActionService;
   /** The copilot chat endpoint. */
   copilot?: CopilotService;
   /** The knowledge index and its hybrid search; absent and the knowledge routes answer 404. */
   knowledge?: KnowledgeService;
+  /** The budgets list and per-agent cap routes; absent and they answer 404. */
+  budgets?: AgentBudgetService;
+  /** The tenant AI data policy; absent and its route answers 404. */
+  aiPolicy?: AiPolicyStore;
   now?: () => Date;
   /** The run-step routes workflow-ts calls (AGENTS_RUN_ENGINE=temporal); absent and they answer 404. */
   steps?: { service: RunSteps; verifier: ServiceTokenVerifier };
@@ -35,16 +44,20 @@ export interface AgentsApiBase {
 
 const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const KILL_PATH = "/api/v1/agents/kill-switch";
+const AI_POLICY_PATH = "/api/v1/agents/ai-data-policy";
 const START_PATH = /^\/api\/v1\/agents\/([a-z][a-z0-9_]{0,63})\/runs$/;
 const RUN_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})$`);
 const ACTIONS_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/actions$`);
+const BUDGETS_PATH = "/api/v1/agents/budgets";
+const BUDGET_AGENT_PATH = /^\/api\/v1\/agents\/budgets\/([a-z][a-z0-9_]{0,63})$/;
 const CHAT_PATH = "/api/v1/copilot/chat";
 const KNOWLEDGE_CHUNKS_PATH = "/api/v1/knowledge/chunks";
 const KNOWLEDGE_SEARCH_PATH = "/api/v1/knowledge/search";
 const STEP_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/steps/(begin|plan|resolve|commit|abort)$`);
 const DECISION_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/actions/(${UUID})/decision$`);
+const UNDO_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/actions/(${UUID}):undo$`);
 
-async function readBody(req: IncomingMessage): Promise<unknown> {
+async function readBody(req: IncomingMessage, emptyAllowed = false): Promise<unknown> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
@@ -53,7 +66,10 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
     if (size > MAX_BODY_BYTES) throw new ApiError(413, "AGT-0413", "request body exceeds 64 KiB");
     chunks.push(buf);
   }
-  if (size === 0) throw new ApiError(400, "AGT-0400", "a JSON body is required");
+  if (size === 0) {
+    if (emptyAllowed) return {};
+    throw new ApiError(400, "AGT-0400", "a JSON body is required");
+  }
   try {
     return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
   } catch {
@@ -61,12 +77,17 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
   }
 }
 
-function send(res: ServerResponse, status: number, body: unknown): void {
+function headerValue(raw: string | string[] | undefined): string | undefined {
+  return Array.isArray(raw) ? raw[0] : raw;
+}
+
+function send(res: ServerResponse, status: number, body: unknown, extra: Record<string, string> = {}): void {
   const payload = JSON.stringify(body);
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
     "content-length": Buffer.byteLength(payload).toString(),
+    ...extra,
   });
   res.end(payload);
 }
@@ -78,8 +99,10 @@ const TITLES: Readonly<Record<number, string>> = {
   404: "Not Found",
   405: "Method Not Allowed",
   409: "Conflict",
+  412: "Precondition Failed",
   413: "Content Too Large",
   422: "Unprocessable Content",
+  428: "Precondition Required",
   500: "Internal Server Error",
   503: "Service Unavailable",
 };
@@ -176,6 +199,17 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         send(res, 200, out.body);
         return;
       }
+      if (path === AI_POLICY_PATH) {
+        if (deps.aiPolicy === undefined) throw new ApiError(404, "AGT-0404", "no such route");
+        if (req.method !== "GET" && req.method !== "PUT") throw new MethodNotAllowed("GET, PUT");
+        const principal = await deps.authenticate(req.headers);
+        const policy =
+          req.method === "GET"
+            ? await handleGetAiDataPolicy({ principal, store: deps.aiPolicy })
+            : await handlePutAiDataPolicy({ principal, ifMatch: headerValue(req.headers["if-match"]), body: await readBody(req), store: deps.aiPolicy, now });
+        send(res, 200, policy, { etag: `"${policy.version}"` });
+        return;
+      }
       if (path === CHAT_PATH) {
         if (deps.copilot === undefined) throw new ApiError(404, "AGT-0404", "no such route");
         if (req.method !== "POST") throw new MethodNotAllowed("POST");
@@ -194,6 +228,19 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
           requireDuty(principal, COPILOT_DUTY, "the knowledge search");
           const q = parseSearch(await readBody(req));
           send(res, 200, await deps.knowledge.search(principal.tenantId, q.query, q.limit));
+        }
+        return;
+      }
+      const budgetAgent = BUDGET_AGENT_PATH.exec(path);
+      if (path === BUDGETS_PATH || budgetAgent !== null) {
+        if (deps.budgets === undefined) throw new ApiError(404, "AGT-0404", "no such route");
+        if (budgetAgent === null) {
+          if (req.method !== "GET") throw new MethodNotAllowed("GET");
+          send(res, 200, await deps.budgets.list(await deps.authenticate(req.headers)));
+        } else {
+          if (req.method !== "PUT") throw new MethodNotAllowed("PUT");
+          const principal = await deps.authenticate(req.headers);
+          send(res, 200, await deps.budgets.setCap(principal, budgetAgent[1] ?? "", await readBody(req)));
         }
         return;
       }
@@ -220,15 +267,30 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         send(res, 200, path.endsWith("/actions") ? await handleListActions({ principal, runId, runs: deps.runs }) : await handleGetRun({ principal, runId, runs: deps.runs }));
         return;
       }
+      const undo = UNDO_PATH.exec(path);
+      if (undo !== null) {
+        if (deps.actions === undefined) throw new ApiError(404, "AGT-0404", "no such route");
+        if (req.method !== "POST") throw new MethodNotAllowed("POST");
+        const principal = await deps.authenticate(req.headers);
+        await deps.actions.undo(principal, (undo[1] ?? "").toLowerCase(), (undo[2] ?? "").toLowerCase(), await readBody(req, true));
+        return;
+      }
       const match = DECISION_PATH.exec(path);
       if (match === null) throw new ApiError(404, "AGT-0404", "no such route");
       if (req.method !== "POST") throw new MethodNotAllowed("POST");
       const principal = await deps.authenticate(req.headers);
+      const runId = (match[1] ?? "").toLowerCase();
+      const actionId = (match[2] ?? "").toLowerCase();
+      const body = await readBody(req);
+      if (deps.actions !== undefined && (await deps.approvals.find(principal.tenantId, runId, actionId)) === undefined) {
+        send(res, 200, await deps.actions.decline(principal, runId, actionId, body));
+        return;
+      }
       const out = await handleApprovalDecision({
         principal,
-        runId: (match[1] ?? "").toLowerCase(),
-        actionId: (match[2] ?? "").toLowerCase(),
-        body: await readBody(req),
+        runId,
+        actionId,
+        body,
         store: deps.approvals,
         now,
       });

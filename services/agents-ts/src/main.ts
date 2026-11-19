@@ -2,12 +2,16 @@ import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { pathToFileURL } from "node:url";
 import { AGENT_IDS, defaultCatalog } from "./agents/catalog.js";
+import { createAgentBudgetService } from "./api/agentBudgets.js";
 import { createAuthenticator } from "./api/auth.js";
+import { PgAgentBudgets } from "./store/agentBudgets.js";
 import type { AgentsApiDeps } from "./api/router.js";
 import { createProviderFactory, loadConfig, type Config } from "./config.js";
 import { CopilotAnswerCache } from "./domain/copilot.js";
 import { KILL_PROPAGATION_MS, KillSwitchRegistry } from "./domain/killswitch.js";
 import { createLogger } from "./logging/pseudonymize.js";
+import { createAiPolicyGuard } from "./runtime/aiPolicyGuard.js";
+import { PgAiDataPolicyStore } from "./store/aiDataPolicy.js";
 import { createCopilotService } from "./runtime/copilot.js";
 import { createKnowledgeService } from "./runtime/knowledge.js";
 import { PgKeywordIndex } from "./store/knowledge.js";
@@ -20,6 +24,8 @@ import { PgRunStateStore } from "./store/runstate.js";
 import { createRunService } from "./runtime/service.js";
 import { createAdminServer, createRequestHandler, listen, Metrics } from "./server.js";
 import { PgApprovalStore } from "./store/approvals.js";
+import { PgActionStore } from "./store/actions.js";
+import { createActionService } from "./runtime/actions.js";
 import { PgKillSwitchLog } from "./store/killswitch.js";
 import { KillSwitchPoller } from "./runtime/killswitch-poller.js";
 import { MIGRATE_COMMAND, migrateFromEnv, openAgentStore } from "./store/pg.js";
@@ -45,6 +51,19 @@ async function main(): Promise<void> {
   const killLog = new PgKillSwitchLog(store, pool);
   const killPoller = new KillSwitchPoller(killLog, registry, (err) => log("warn", "kill switch poll failed", { error: String(err) }));
   await killPoller.start(cfg.killSwitchPollMs);
+  const policyStore = new PgAiDataPolicyStore(store);
+  const aiPolicyGuard = createAiPolicyGuard({
+    read: (tenantId) => policyStore.read(tenantId),
+    onError: (err) => log("warn", "AI data policy read failed", { error: String(err) }),
+  });
+  const aiPolicy = {
+    read: (tenantId: string) => policyStore.read(tenantId),
+    write: async (input: Parameters<typeof policyStore.write>[0]) => {
+      const policy = await policyStore.write(input);
+      aiPolicyGuard.invalidate(input.tenantId);
+      return policy;
+    },
+  };
   const mcp = createMcpConnector({ baseUrl: cfg.mcpUrl });
   const providerFor = createProviderFactory(cfg);
   const agents = agentCatalog(cfg);
@@ -119,10 +138,13 @@ async function main(): Promise<void> {
     // The toggle, its version and its killswitch.changed outbox row are stored in one transaction.
     log: killLog,
     approvals: inbox,
+    aiPolicy,
     runs,
+    actions: createActionService({ runs: store, actions: new PgActionStore(store) }),
     ...(stepsService !== undefined ? { steps: { service: stepsService, verifier: createVerifier({ keys: parsePublicKeys(cfg.servicePublicKeys) }) } } : {}),
     copilot,
     knowledge,
+    budgets: createAgentBudgetService({ store: new PgAgentBudgets(store) }),
   };
   const metrics = new Metrics();
   const handler = createRequestHandler({

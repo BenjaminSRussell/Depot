@@ -1,7 +1,8 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { clearHandedOffPrompt, handOffPrompt } from "../assistant/session";
 import { CopilotHome } from "../../modules/copilot/pages";
 import { loadModules, type DepotModule } from "../../modules/registry";
 import { Shell } from "../Shell";
@@ -37,7 +38,7 @@ const item = (n: number) => ({
   createdAt: "2026-11-01T00:00:00Z",
 });
 
-function renderHome(duties: string[], shellModules: DepotModule[] = modules, entry: { pathname: string; state?: unknown } = { pathname: "/" }, features?: Record<string, boolean>) {
+function renderHome(duties: string[], shellModules: DepotModule[] = modules, entry: { pathname: string } = { pathname: "/" }, features?: Record<string, boolean>) {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
@@ -246,14 +247,24 @@ describe("role home", () => {
     });
 
     it.each([
-      ["a number", { prompt: 5 }],
-      ["an object", { prompt: {} }],
-      ["an empty string", { prompt: "" }],
-      ["no prompt", {}],
-      ["no state", null],
-    ])("sends nothing when the copilot opens with %s as its prompt", async (_name, state) => {
-      renderHome([COPILOT_DUTY], modules, { pathname: "/copilot", state });
+      ["an empty string", ""],
+      ["only whitespace", "   "],
+      ["nothing handed off", undefined],
+    ])("sends nothing when the copilot opens with %s as its prompt", async (_name, handedOff) => {
+      clearHandedOffPrompt();
+      if (handedOff !== undefined) handOffPrompt(handedOff);
+      renderHome([COPILOT_DUTY], modules, { pathname: "/copilot" });
       await screen.findByRole("heading", { name: "Copilot" });
+      expect(server.calls.filter((c) => c.url.pathname === "/api/v1/copilot/chat")).toHaveLength(0);
+    });
+
+    it("sends nothing when the handed-off prompt is older than ten seconds", async () => {
+      handOffPrompt("how is cash");
+      const now = Date.now();
+      vi.spyOn(Date, "now").mockReturnValue(now + 11_000);
+      renderHome([COPILOT_DUTY], modules, { pathname: "/copilot" });
+      await screen.findByRole("heading", { name: "Copilot" });
+      vi.restoreAllMocks();
       expect(server.calls.filter((c) => c.url.pathname === "/api/v1/copilot/chat")).toHaveLength(0);
     });
 
@@ -263,7 +274,8 @@ describe("role home", () => {
         url.pathname === "/api/v1/copilot/chat"
           ? json(200, { answer: "", citations: [], toolCalls: [], refusal: { code: "AGT-0001", message: "That question is too long." }, generated: true })
           : undefined;
-      renderHome([COPILOT_DUTY], modules, { pathname: "/copilot", state: { prompt } });
+      handOffPrompt(prompt);
+      renderHome([COPILOT_DUTY], modules, { pathname: "/copilot" });
       expect(await main().findByText("That question is too long.")).toBeInTheDocument();
       expect(server.calls.filter((c) => c.url.pathname === "/api/v1/copilot/chat")[0].body).toEqual({ mode: "ask", message: prompt });
     });

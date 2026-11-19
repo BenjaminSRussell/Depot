@@ -1,4 +1,5 @@
 import { Link, useNavigate, useOutletContext } from "react-router-dom";
+import { handOffPrompt } from "../assistant/session";
 import { copy } from "../copy";
 import { DemoTour } from "../../demo/DemoTour";
 import { holdsDuty } from "../dutyGate";
@@ -133,7 +134,8 @@ export function HomePage() {
       <AssistantPrompt
         onSubmit={async (text) => {
           announce?.(copy.home.assistantLoading);
-          navigate(COPILOT_PATH, { state: { prompt: text } });
+          handOffPrompt(text);
+          navigate(COPILOT_PATH);
         }}
       />
       {demoTour}
