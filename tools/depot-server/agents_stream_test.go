@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -31,15 +33,59 @@ func agentsUpstream(t *testing.T, h http.HandlerFunc) *url.URL {
 	return u
 }
 
+func shippedProcesses(t *testing.T) (Config, []Process) {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "conf.d"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join("..", "..", "deploy", "windows", "features", "node.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "conf.d", "node.yaml"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(filepath.Join(dir, "depot.yaml"), map[string]string{"FEATURE_NODE": "1", "PG_DSN": "postgres://o:p@db:5432/postgres"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.InstallDir, cfg.DataDir = dir, filepath.Join(dir, "data")
+	_, procs, err := cfg.Resolve(func(string) string { return "" }, func(string) ([]string, error) { return nil, nil }, ModeServe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cfg, procs
+}
+
 func agentsFront(t *testing.T, target *url.URL, guard Guard) *httptest.Server {
 	t.Helper()
 	if guard == nil {
 		guard = func(next http.Handler) http.Handler { return next }
 	}
-	gateway := NewGateway(guard, map[string]*url.URL{"agents": target}, nil, func() (bool, []Status) { return true, nil }, "gw-secret", nil, map[string]bool{"agents": true})
-	front := httptest.NewServer(gateway)
+	cfg, procs := shippedProcesses(t)
+	upstreams := upstreamsOf(procs)
+	if upstreams["agents"] == nil {
+		t.Fatalf("the shipped config routes no agents service: %v", names(procs))
+	}
+	upstreams["agents"] = target
+	front := httptest.NewServer(NewGateway(guard, upstreams, nil, func() (bool, []Status) { return true, nil }, "gw-secret", cfg.Features, forwardAuthOf(procs)))
 	t.Cleanup(front.Close)
 	return front
+}
+
+func TestShippedConfig_RoutesAgentsOnTheAgentsPrefixOnly(t *testing.T) {
+	_, procs := shippedProcesses(t)
+	upstreams := upstreamsOf(procs)
+	if upstreams["agents"] == nil || upstreams["agents-ts"] != nil || !forwardAuthOf(procs)["agents"] {
+		t.Fatalf("upstreams %v forwardAuth %v", upstreams, forwardAuthOf(procs))
+	}
+	front := agentsFront(t, upstreams["agents"], nil)
+	resp := agentsPost(context.Background(), t, front.Client(), front.URL+"/api/v1/agents-ts/runs", "GET")
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("/api/v1/agents-ts status %d, want 404", resp.StatusCode)
+	}
 }
 
 func agentsPost(ctx context.Context, t *testing.T, client *http.Client, url, method string) *http.Response {
@@ -222,7 +268,7 @@ func TestAgentsRoute_PassesRefusalsAndErrorsThrough(t *testing.T) {
 	})
 }
 
-func TestAgentsRoute_RejectedCallerNeverReachesUpstream(t *testing.T) {
+func TestAgentsRoute_AGuardRefusalIsNotProxied(t *testing.T) {
 	reject := func(status int, body string) Guard {
 		return func(http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -268,8 +314,7 @@ func TestAgentsRoute_ClientDisconnectCancelsUpstream(t *testing.T) {
 		close(cancelled)
 	}))
 	target, _ := url.Parse(up.URL)
-	gateway := NewGateway(func(next http.Handler) http.Handler { return next }, map[string]*url.URL{"agents": target}, nil, func() (bool, []Status) { return true, nil }, "gw-secret", nil, map[string]bool{"agents": true})
-	front := httptest.NewServer(gateway)
+	front := agentsFront(t, target, nil)
 	client := &http.Client{Transport: &http.Transport{}}
 
 	ctx, cancel := context.WithTimeout(context.Background(), streamDeadline)
@@ -286,6 +331,5 @@ func TestAgentsRoute_ClientDisconnectCancelsUpstream(t *testing.T) {
 		t.Fatal("upstream request was not cancelled after the client disconnected")
 	}
 	client.CloseIdleConnections()
-	front.Close()
 	up.Close()
 }

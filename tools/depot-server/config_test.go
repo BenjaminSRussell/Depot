@@ -234,7 +234,7 @@ func TestShippedFeatureFilesResolve(t *testing.T) {
 	if ag.Args[0] != dir+"/runtime/node/apps/agents-ts/dist/main.js" || ag.Env["DATABASE_URL"] == "" || ag.AdminPort == ag.Port {
 		t.Fatalf("agents-ts = %+v", ag)
 	}
-	if !ag.ForwardAuthorization || !forwardAuthOf(procs)["agents-ts"] || forwardAuthOf(procs)["workflow-ts"] {
+	if !ag.ForwardAuthorization || !forwardAuthOf(procs)["agents"] || ag.Route != "agents" || forwardAuthOf(procs)["workflow-ts"] {
 		t.Fatalf("only agents-ts forwards the bearer token: %v", forwardAuthOf(procs))
 	}
 	if ag.Env["AGENTS_JWT_ISSUER"] == "" && cfg.OIDCIssuer != "" {

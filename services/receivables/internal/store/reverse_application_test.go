@@ -309,6 +309,46 @@ func TestReverseApplication_ALockedItemIsRefusedWithAR0002(t *testing.T) {
 	}
 }
 
+func TestReverseApplication_DryRunRefusesALockedItemWithAR0002(t *testing.T) {
+	f := appliedSetup(t)
+	admin, _ := adminPools.Load(f.s.pool)
+	tx, err := admin.(*pgxpool.Pool).Begin(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(context.Background())
+	if _, err := tx.Exec(context.Background(), `select 1 from open_item where id = $1 for update`, f.first.ID); err != nil {
+		t.Fatal(err)
+	}
+	req := ReverseApplicationRequest{ApplicationID: f.applied.ApplicationID, Reason: "wrong invoice"}
+	if _, err := f.s.CheckReverseApplication(f.ctx, f.pay.ID, req); problemCode(err) != domain.CodeItemLocked {
+		t.Fatalf("dryRun with a locked item: %v", err)
+	}
+	if _, err := f.reverse("ra-lock-2", f.applied.Payment.Version); problemCode(err) != domain.CodeItemLocked {
+		t.Fatalf("real call with a locked item: %v", err)
+	}
+	f.unchanged(t)
+}
+
+func TestReverseApplication_ASettlementCommittedBeforeTheReversalIsSeenByTheGuard(t *testing.T) {
+	f := appliedSetup(t)
+	p, _ := tenant.FromContext(f.ctx)
+	cust := f.first.CustomerID
+	other, err := f.s.CreatePayment(f.ctx, Payment{LegalEntityID: legalEntity, CustomerID: &cust, PaymentMode: "WIRE", Source: "MANUAL",
+		Amount: amt("5.00"), UnappliedAmount: amt("5.00"), Currency: f.first.Currency, ReceivedDate: "2027-05-02", ValueDate: "2027-05-02"}, "ra-late")
+	if err != nil {
+		t.Fatal(err)
+	}
+	execAdmin(t, f.s, `insert into settlement (tenant_id, id, legal_entity_id, payment_id, open_item_id, settled_amount) values ($1, $2, $3, $4, $5, 1)`,
+		p.TenantID, ids.New(), legalEntity, other.ID, f.first.ID)
+	execAdmin(t, f.s, `update open_item set open_amount = 1, status = 'PARTIALLY_SETTLED' where id = $1`, f.first.ID)
+	_, err = f.reverse("ra-late-1", f.applied.Payment.Version)
+	var pr *httpx.Problem
+	if !errors.As(err, &pr) || pr.Code != CodeReversalItemChanged || pr.Errors[f.first.ID] != "FURTHER_SETTLED" {
+		t.Fatalf("late settlement: %v", err)
+	}
+}
+
 func TestReverseApplication_TwoReversalsOfOneApplicationPostOnce(t *testing.T) {
 	f := appliedSetup(t)
 	var wg sync.WaitGroup

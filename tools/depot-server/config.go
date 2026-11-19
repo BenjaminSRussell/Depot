@@ -376,10 +376,14 @@ func expandPorts(v string, port, adminPort int) string {
 	return strings.NewReplacer("{port}", strconv.Itoa(port), "{adminPort}", strconv.Itoa(adminPort)).Replace(v)
 }
 
-// routeOf maps a service name onto its gateway path segment; purchasing is served as procurement, as depot-dev does.
+// routeOf maps a service name onto its gateway path segment; purchasing is served as procurement, as depot-dev does, and agents-ts
+// as agents (/api/v1/agents/**, which agents-ts serves under /v1/agents).
 func routeOf(name string) string {
-	if name == "purchasing" {
+	switch name {
+	case "purchasing":
 		return "procurement"
+	case "agents-ts":
+		return "agents"
 	}
 	return name
 }

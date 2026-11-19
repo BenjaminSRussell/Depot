@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -13,11 +14,13 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/BenjaminSRussell/depot/platform/dbx"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
 	rcvevents "github.com/BenjaminSRussell/depot/services/receivables/internal/events"
 )
 
@@ -117,7 +120,26 @@ func (s *Postgres) CheckReverseApplication(ctx context.Context, paymentID string
 	return out, mapWriteErr(err)
 }
 
+func lockApplicationItems(ctx context.Context, tx pgx.Tx, tenantID, paymentID, applicationID string) error {
+	rows, err := tx.Query(ctx, `select oi.id from open_item oi where oi.tenant_id = $1 and oi.id in
+		(select s.open_item_id from settlement s where s.tenant_id = $1 and s.payment_id = $2 and s.application_id = $3 and s.reversal_of_id is null)
+		order by oi.id for update of oi nowait`, tenantID, paymentID, applicationID)
+	if err == nil {
+		for rows.Next() {
+		}
+		err = rows.Err()
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == lockNotAvailable {
+		return domainProblem(domain.CodeItemLocked, "an open item of the application is locked by another user")
+	}
+	return err
+}
+
 func reverseGuards(ctx context.Context, tx pgx.Tx, p tenant.Principal, pay Payment, applicationID string) (appReversal, ReverseEligibility, error) {
+	if err := lockApplicationItems(ctx, tx, p.TenantID, pay.ID, applicationID); err != nil {
+		return appReversal{id: applicationID}, ReverseEligibility{}, err
+	}
 	app := appReversal{id: applicationID}
 	var status string
 	if err := tx.QueryRow(ctx, `select status, posting_date::text from payment_application where tenant_id = $1 and id = $2 and payment_id = $3`,

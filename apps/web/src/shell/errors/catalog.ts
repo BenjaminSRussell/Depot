@@ -1050,6 +1050,7 @@ const p2pMore: Record<string, ProblemCatalogEntry> = {
   "AR-0021": { message: "This payment has been bank-reconciled, so the application can't be undone.", action: "Ask your finance team to reopen the bank reconciliation first." },
   "AR-0022": { message: "The ledger couldn't record the reversal, and nothing was changed.", action: "Try again in a moment." },
   "AR-0023": { message: "The accounting period of this application is closed.", action: "Ask your finance team to reopen the period, then try again." },
+  "AR-0024": { message: "An invoice in this application changed after it was applied, so it can't be undone.", action: "Review the invoices listed in the error, then ask your finance team to resolve the change first." },
   "AR-GATEWAY-ITEM": { message: "This invoice can't be paid here. It is already paid, is a credit, or is in another currency than the others.", action: "Choose open invoices in one currency." },
   "AR-GATEWAY-METHOD": { message: "Bank account (ACH) payments are in US dollars only.", action: "Pay by card instead." },
   "AR-GATEWAY-NOT-FOUND": { message: "This card or bank payment doesn't exist.", action: "Reload the list of payments." },
