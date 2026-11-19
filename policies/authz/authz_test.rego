@@ -3759,6 +3759,13 @@ test_compliance_audit_policy_master_duties if {
 	not allowed("compliance.audit-policy.run", "PATCH", "/v1/compliance/audit-policies/p1")
 }
 
+test_compliance_data_designation_duties if {
+	allowed("datadesignation.write", "POST", "/v1/compliance/data-designations")
+	not allowed("datadesignation.write", "GET", "/v1/compliance/data-designations")
+	not allowed("datadesignation.write", "POST", "/v1/compliance/audit-policies")
+	not allowed("compliance.audit-policy.maintain", "POST", "/v1/compliance/data-designations")
+}
+
 test_analytics_saved_queries_are_for_viewers_and_authors if {
 	every duty in ["analytics.view", "analytics.author"] {
 		allowed(duty, "GET", "/v1/analytics/saved-queries")

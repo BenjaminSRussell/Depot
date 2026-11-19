@@ -24,6 +24,7 @@ config:
   screeningThreshold: "0.88"
   # BLOCK, WARN or OFF; one value for every legal entity until per-entity settings exist.
   tradeLicenseCheck: "BLOCK"
+  boundary: "standard"
 
 # DATABASE_URL is read from this secret (Vault via External Secrets), never inline.
 databaseSecret:

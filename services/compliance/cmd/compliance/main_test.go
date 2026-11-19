@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/BenjaminSRussell/depot/services/compliance/internal/domain"
 )
 
 func TestRunRequiresDatabase(t *testing.T) {
@@ -54,7 +56,14 @@ func TestConfigReadsTenantPolicies(t *testing.T) {
 		cfg.ScreeningThreshold != 0.92 || cfg.LicenseCheck != "WARN" {
 		t.Fatalf("overrides: %+v %v", cfg, err)
 	}
-	for _, bad := range []map[string]string{{"SOD_BLOCK_HIGH": "no"}, {"SOD_MAX_MITIGATION_DAYS": "731"}, {"SOD_MAX_MITIGATION_DAYS": "x"},
+	if cfg.Boundary != domain.BoundaryStandard {
+		t.Fatalf("default boundary: %q", cfg.Boundary)
+	}
+	cfg, err = config(env(map[string]string{"COMPLIANCE_BOUNDARY": "cui"}))
+	if err != nil || cfg.Boundary != domain.BoundaryCUI {
+		t.Fatalf("cui boundary: %q %v", cfg.Boundary, err)
+	}
+	for _, bad := range []map[string]string{{"COMPLIANCE_BOUNDARY": "CUI"}, {"COMPLIANCE_BOUNDARY": "gov"}, {"SOD_BLOCK_HIGH": "no"}, {"SOD_MAX_MITIGATION_DAYS": "731"}, {"SOD_MAX_MITIGATION_DAYS": "x"},
 		{"AUDIT_CASE_ARCHIVE_DAYS": "29"}, {"BREAKGLASS_MAX_MINUTES": "241"}, {"BREAKGLASS_SELF_ACTIVATE": "yes"}, {"BREAKGLASS_REVIEW_DAYS": "0"},
 		{"SCREENING_THRESHOLD": "0.5"}, {"SCREENING_THRESHOLD": "high"}, {"TRADE_LICENSE_CHECK": "block"}} {
 		if _, err := config(env(bad)); err == nil {

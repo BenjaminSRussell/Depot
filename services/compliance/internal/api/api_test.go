@@ -37,6 +37,7 @@ type fakeStore struct {
 	privacy   fakePrivacy
 	holds     fakeHolds
 	policies  fakePolicies
+	designs   fakeDesignations
 }
 
 func (f *fakeStore) Ping(context.Context) error { return f.pingErr }

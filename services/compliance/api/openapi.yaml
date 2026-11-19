@@ -329,6 +329,35 @@ paths:
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
+  /v1/compliance/data-designations:
+    post:
+      operationId: createDataDesignation
+      x-depot-duty: datadesignation.write
+      description: >-
+        Designates a whole tenant (TENANT) or one legal entity (LEGAL_ENTITY) as CUI. TENANT scope needs tenant.administer, the
+        designation duty and no legal-entity claim (403 otherwise). A deployment whose boundary is not cui refuses every
+        designation with 409 COM-1301 and stores nothing; a target that is already designated is 409 COM-1302. The audit_event
+        row is written in the same transaction.
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 200 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DataDesignationInput" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataDesignation" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
   /v1/compliance/audit-policies/{id}:
     get:
       operationId: getAuditPolicy
@@ -1465,6 +1494,29 @@ components:
         createdBy: { type: string }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    DataDesignationInput:
+      type: object
+      required: [scope, class, reason]
+      additionalProperties: false
+      properties:
+        scope: { type: string, enum: [TENANT, LEGAL_ENTITY] }
+        legalEntityId: { type: string, format: uuid, description: "Required for LEGAL_ENTITY, absent for TENANT." }
+        class: { type: string, enum: [CUI] }
+        category: { type: string, maxLength: 100 }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    DataDesignation:
+      type: object
+      required: [designationId, scope, class, reason, designatedBy, designatedAt, version]
+      properties:
+        designationId: { type: string, format: uuid }
+        scope: { type: string, enum: [TENANT, LEGAL_ENTITY] }
+        legalEntityId: { type: string, format: uuid }
+        class: { type: string, enum: [CUI] }
+        category: { type: string }
+        reason: { type: string }
+        designatedBy: { type: string }
+        designatedAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
     AuditSpec:
       type: object
       required: [type]

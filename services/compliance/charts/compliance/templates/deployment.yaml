@@ -72,6 +72,8 @@ spec:
               value: {{ .Values.config.screeningThreshold | quote }}
             - name: TRADE_LICENSE_CHECK
               value: {{ .Values.config.tradeLicenseCheck | quote }}
+            - name: COMPLIANCE_BOUNDARY
+              value: {{ .Values.config.boundary | quote }}
             - name: DEPOT_SERVICE_NAME
               value: compliance
 {{- if .Values.serviceIdentity.publicKeys }}

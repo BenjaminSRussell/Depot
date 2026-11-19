@@ -119,6 +119,9 @@ func config(getenv func(string) string) (api.Config, error) {
 	default:
 		return cfg, fmt.Errorf("TRADE_LICENSE_CHECK must be BLOCK, WARN or OFF, got %q", v)
 	}
+	if cfg.Boundary, err = domain.ParseBoundary(getenv("COMPLIANCE_BOUNDARY")); err != nil {
+		return cfg, fmt.Errorf("COMPLIANCE_BOUNDARY: %w", err)
+	}
 	for _, p := range []struct {
 		key      string
 		min, max int

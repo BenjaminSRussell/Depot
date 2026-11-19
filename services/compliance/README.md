@@ -40,6 +40,7 @@ campaign, incident step and export policy screens.
 | `POST /v1/compliance/audit-policies:evaluate` | compliance.audit-policy.run | slice 3, read-only: runs one audit rule over the document window in the body; findings keyed on (policy, version, document); `code: AUD-0701` when any document violates. With only a `policyId` (no `spec`, no `version`) it runs the stored policy at its current version (`AUD-0720` unknown, `AUD-0722` retired); the response carries `policyVersion` |
 | `POST /v1/compliance/audit-policies` | compliance.audit-policy.maintain | a named rule (migration 0008): `code` unique per tenant (`AUD-0721`), the rule checked like the evaluate route (`AUD-0711`, `AUD-0712`); `Idempotency-Key` required |
 | `GET /v1/compliance/audit-policies`, `/{id}` | compliance.audit-policy.run or compliance.audit-policy.maintain | `q` (code or name), `code`, `active=true`, `limit`; the read carries the ETag |
+| `POST /v1/compliance/data-designations` | datadesignation.write | DEPOT-301 slice 1 (migration 0011): designates a tenant (needs `tenant.administer`, no legal-entity claim) or a legal entity as CUI with a 1..500 character reason; refused with `COM-1301` unless `COMPLIANCE_BOUNDARY=cui`, `COM-1302` when the target is already designated; the `audit_event` row is written in the same transaction; `Idempotency-Key` required |
 | `PATCH /v1/compliance/audit-policies/{id}` | compliance.audit-policy.maintain | rename, retire or change the rule with `If-Match` (the `rowVersion`, which moves on every change); a new `spec` is a new rule `version` (`SOD-1109` when stale) |
 | `POST /v1/compliance/audit-cases:group` | compliance.audit-case.manage | slice 3, read-only: case drafts from violations (one per vendor for DUPLICATE, one per policy otherwise) |
 | `POST /v1/compliance/audit-cases:transition` | compliance.audit-case.manage | slice 3, read-only: one action of the case status machine, judged at server time with `audit.case_archive_days` |
@@ -257,6 +258,7 @@ document, the case machine never skips a state and no break-glass session exceed
 | `BREAKGLASS_REVIEW_DAYS` | `3` | tenant policy `breakglass.review_days`, 1..10 business days |
 | `SCREENING_THRESHOLD` | `0.88` | tenant policy `screening.threshold`, 0.70..0.99 |
 | `TRADE_LICENSE_CHECK` | `BLOCK` | legal entity policy `trade.license_check`: `BLOCK`, `WARN` or `OFF` |
+| `COMPLIANCE_BOUNDARY` | `standard` | deployment profile: `standard` refuses every CUI designation, `cui` (the isolated CUI deployment) accepts it; any other value stops startup |
 | `FIELDCRYPT_KEYS_FILE` / `FIELDCRYPT_KEYS`, `FIELDCRYPT_CURRENT_KEY_ID` | `id=base64(32 bytes)` lines (a mounted secret; Helm `fieldCrypt.keysSecret` and `fieldCrypt.currentKeyId`) and the key id in use. Erasure pseudonyms are an HMAC under a tenant key derived from the current key, so the key must stay outside the database; without it the erasure preview is a 503 `PRV-1211` and nothing changes. Rotating the current key changes the tokens of later erasures, so do not rotate `FIELDCRYPT_CURRENT_KEY_ID` while erasure requests are open |
 | `HTTP_ADDR` / `ADMIN_ADDR` | `:8080` / `:9090` | listeners |
 
