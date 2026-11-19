@@ -89,6 +89,8 @@ type Store interface {
 	GetDesignation(ctx context.Context, id string) (store.Designation, error)
 	ListDesignations(ctx context.Context, f store.DesignationFilter) ([]store.Designation, error)
 	DesignationHistory(ctx context.Context, id string) ([]store.DesignationHistoryEntry, error)
+	GetNeedToKnow(ctx context.Context) (store.NeedToKnowSettings, error)
+	SetNeedToKnow(ctx context.Context, in store.NeedToKnowInput, now time.Time) (store.NeedToKnowSetting, error)
 }
 
 // Config carries the tenant policies the service reads from its environment
@@ -209,6 +211,7 @@ func (a *API) Register(r chi.Router) {
 	r.With(authz.RequireDuty(DutyAuditPolicyRun)).Post("/v1/compliance/audit-policies:evaluate", a.evaluateAudit)
 	a.registerAuditPolicies(r)
 	a.registerDesignations(r)
+	a.registerNeedToKnow(r)
 	r.With(authz.RequireDuty(DutyAuditCaseManage)).Post("/v1/compliance/audit-cases:group", a.groupCases)
 	r.With(authz.RequireDuty(DutyAuditCaseManage)).Post("/v1/compliance/audit-cases:transition", a.transitionCase)
 	r.With(authz.RequireDuty(DutyBreakGlassRequest)).Post("/v1/security/elevated-sessions:plan", a.planElevated)
