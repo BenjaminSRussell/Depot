@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { BUDGET_REFUSAL_CODE } from "../../shell/assistant/availability";
+import { useAiAvailability } from "../../shell/assistant/AvailabilityProvider";
+import { copy } from "../../shell/copy";
 import { Alert, Badge, Button, Card, EmptyState, FormField, Textarea } from "../../shell/ui";
-import type { ChatRequest, ChatResponse } from "./api/client";
+import { CopilotError, type ChatRequest, type ChatResponse } from "./api/client";
 import { askCopilot } from "./api/stream";
 import {
   canInsertDraft,
@@ -60,6 +63,7 @@ export function CopilotPanel({ ask = askCopilot, recordRef, onInsertDraft, initi
   const [pending, setPending] = useState(false);
   /** The answer so far while the server streams it (FR-47.3). */
   const [partial, setPartial] = useState("");
+  const { reportRefusal, reportFailure } = useAiAvailability();
 
   async function send(text: string) {
     if (text === "" || pending) return;
@@ -72,9 +76,18 @@ export function CopilotPanel({ ask = askCopilot, recordRef, onInsertDraft, initi
         setPartial((so) => so + token),
       );
       setResult({ mode, response });
+      const code = response.refusal?.code;
+      if (code === BUDGET_REFUSAL_CODE) reportRefusal(code);
+      else if (code !== undefined) reportFailure();
     } catch (err) {
-      setResult(null);
-      setError(err instanceof Error ? err.message : "Copilot is unavailable.");
+      if (err instanceof CopilotError && err.code === BUDGET_REFUSAL_CODE) {
+        setResult({ mode, response: { answer: "", citations: [], toolCalls: [], refusal: { code: err.code, message: err.message }, generated: true } });
+        reportRefusal(err.code);
+      } else {
+        setResult(null);
+        setError(err instanceof Error ? err.message : "Copilot is unavailable.");
+        reportFailure();
+      }
     } finally {
       setPartial("");
       setPending(false);
@@ -148,8 +161,8 @@ function Answer({ result, onInsertDraft }: { result: Result; onInsertDraft?: ((t
         <Badge tone="info">{GENERATED_BADGE}</Badge>
       </div>
       {response.refusal ? (
-        <Alert tone="warning" title={response.refusal.code}>
-          {response.refusal.message}
+        <Alert tone="warning" title={response.refusal.code} live="alert">
+          {copy.assistantStatus.refusals[response.refusal.code] ?? response.refusal.message}
         </Alert>
       ) : null}
       {response.answer ? <p className={styles.answerText}>{response.answer}</p> : null}

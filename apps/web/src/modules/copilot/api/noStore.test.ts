@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { getAvailability } from "../../../shell/assistant/availability";
 import { getKillSwitch, setKillSwitch } from "./agents";
 import { postChat } from "./client";
 import { listTools } from "./mcp";
@@ -22,6 +23,7 @@ describe("copilot requests are never stored by the browser HTTP cache", () => {
     ["askCopilot", (f: typeof fetch) => askCopilot(request, undefined, f)],
     ["getKillSwitch", (f: typeof fetch) => getKillSwitch(undefined, f)],
     ["setKillSwitch", (f: typeof fetch) => setKillSwitch({ scope: "GLOBAL", active: true }, f)],
+    ["getAvailability", (f: typeof fetch) => getAvailability(undefined, f)],
     ["listTools", (f: typeof fetch) => listTools(undefined, f)],
   ])("%s sends cache: no-store", async (_name, call) => {
     const { inits, fetchFn } = capture();

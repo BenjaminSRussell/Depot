@@ -98,10 +98,13 @@ describe("pages and navigation", () => {
     expect(checkAxeAA(home.container)).toEqual([]);
   });
 
-  it("leads with the assistant prompt for a user with the copilot duty and keeps the workspaces in a secondary region", () => {
+  it("leads with the assistant prompt for a user with the copilot duty and keeps the workspaces in a secondary region", async () => {
+    const tile = { active: false, version: null, changedAt: null };
+    const available = { killSwitch: { halted: false, stale: false, tenant: { ...tile, byUser: null }, global: tile }, budgetStatus: "OK", copilotEnabled: true };
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(available), { status: 200, headers: { "Content-Type": "application/json" } })));
     const home = renderShell("/", undefined, ["mcp.copilot.use"]);
     const main = within(screen.getByRole("main"));
-    expect(main.getByRole("textbox", { name: "Ask or do anything..." })).toBeInTheDocument();
+    expect(await main.findByRole("textbox", { name: "Ask or do anything..." })).toBeInTheDocument();
     const region = within(main.getByRole("region", { name: "Browse workspaces" }));
     expect(region.getByRole("heading", { level: 3, name: "Administration" })).toBeInTheDocument();
     expect(region.getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
