@@ -24,6 +24,8 @@ import { PgRunStateStore } from "./store/runstate.js";
 import { createRunService } from "./runtime/service.js";
 import { createAdminServer, createRequestHandler, listen, Metrics } from "./server.js";
 import { PgApprovalStore } from "./store/approvals.js";
+import { PgActionStore } from "./store/actions.js";
+import { createActionService } from "./runtime/actions.js";
 import { PgKillSwitchLog } from "./store/killswitch.js";
 import { KillSwitchPoller } from "./runtime/killswitch-poller.js";
 import { MIGRATE_COMMAND, migrateFromEnv, openAgentStore } from "./store/pg.js";
@@ -138,6 +140,7 @@ async function main(): Promise<void> {
     approvals: inbox,
     aiPolicy,
     runs,
+    actions: createActionService({ runs: store, actions: new PgActionStore(store) }),
     ...(stepsService !== undefined ? { steps: { service: stepsService, verifier: createVerifier({ keys: parsePublicKeys(cfg.servicePublicKeys) }) } } : {}),
     copilot,
     knowledge,

@@ -6,6 +6,7 @@ import { StepRefusal, type RunSteps } from "../runtime/steps.js";
 import { handleKillSwitchCommand, type KillSwitchWiring, readKillSwitchStatus } from "./killswitch.js";
 import { COPILOT_DUTY, type CopilotService } from "../runtime/copilot.js";
 import { parseChunks, parseSearch, type KnowledgeService } from "../runtime/knowledge.js";
+import type { ActionService } from "../runtime/actions.js";
 import type { RunService } from "../runtime/service.js";
 import { handleChat } from "./copilot.js";
 import type { AgentBudgetService } from "./agentBudgets.js";
@@ -26,6 +27,8 @@ export interface AgentsApiBase {
   approvals: ApprovalStore;
   /** Run start and read endpoints; absent in a process that serves only the control routes. */
   runs?: RunService;
+  /** Decline of an ungated action and undo; absent and an action with no approval request answers 404. */
+  actions?: ActionService;
   /** The copilot chat endpoint. */
   copilot?: CopilotService;
   /** The knowledge index and its hybrid search; absent and the knowledge routes answer 404. */
@@ -52,8 +55,9 @@ const KNOWLEDGE_CHUNKS_PATH = "/api/v1/knowledge/chunks";
 const KNOWLEDGE_SEARCH_PATH = "/api/v1/knowledge/search";
 const STEP_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/steps/(begin|plan|resolve|commit|abort)$`);
 const DECISION_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/actions/(${UUID})/decision$`);
+const UNDO_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/actions/(${UUID}):undo$`);
 
-async function readBody(req: IncomingMessage): Promise<unknown> {
+async function readBody(req: IncomingMessage, emptyAllowed = false): Promise<unknown> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
@@ -62,7 +66,10 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
     if (size > MAX_BODY_BYTES) throw new ApiError(413, "AGT-0413", "request body exceeds 64 KiB");
     chunks.push(buf);
   }
-  if (size === 0) throw new ApiError(400, "AGT-0400", "a JSON body is required");
+  if (size === 0) {
+    if (emptyAllowed) return {};
+    throw new ApiError(400, "AGT-0400", "a JSON body is required");
+  }
   try {
     return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
   } catch {
@@ -260,15 +267,30 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         send(res, 200, path.endsWith("/actions") ? await handleListActions({ principal, runId, runs: deps.runs }) : await handleGetRun({ principal, runId, runs: deps.runs }));
         return;
       }
+      const undo = UNDO_PATH.exec(path);
+      if (undo !== null) {
+        if (deps.actions === undefined) throw new ApiError(404, "AGT-0404", "no such route");
+        if (req.method !== "POST") throw new MethodNotAllowed("POST");
+        const principal = await deps.authenticate(req.headers);
+        await deps.actions.undo(principal, (undo[1] ?? "").toLowerCase(), (undo[2] ?? "").toLowerCase(), await readBody(req, true));
+        return;
+      }
       const match = DECISION_PATH.exec(path);
       if (match === null) throw new ApiError(404, "AGT-0404", "no such route");
       if (req.method !== "POST") throw new MethodNotAllowed("POST");
       const principal = await deps.authenticate(req.headers);
+      const runId = (match[1] ?? "").toLowerCase();
+      const actionId = (match[2] ?? "").toLowerCase();
+      const body = await readBody(req);
+      if (deps.actions !== undefined && (await deps.approvals.find(principal.tenantId, runId, actionId)) === undefined) {
+        send(res, 200, await deps.actions.decline(principal, runId, actionId, body));
+        return;
+      }
       const out = await handleApprovalDecision({
         principal,
-        runId: (match[1] ?? "").toLowerCase(),
-        actionId: (match[2] ?? "").toLowerCase(),
-        body: await readBody(req),
+        runId,
+        actionId,
+        body,
         store: deps.approvals,
         now,
       });

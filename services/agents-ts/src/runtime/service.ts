@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { ApiError, requireDuty, type Principal } from "../api/principal.js";
 import { assertCanStartRun, type TokenBudget } from "../domain/budget.js";
 import type { ActionRecord } from "../domain/audit.js";
+import { type ActionView, toActionView } from "../domain/reversibility.js";
 import type { Money } from "../domain/money.js";
 import type { AgentVersion } from "../domain/registry.js";
 import { AGENT_INVOKE_DUTY } from "../agents/catalog.js";
@@ -77,6 +78,7 @@ export interface StartedRun {
 export interface RunView {
   run: StoredRun;
   pendingApprovals: PendingApproval[];
+  actions: ActionView[];
 }
 
 /**
@@ -233,12 +235,13 @@ export function createRunService(deps: RunServiceDeps) {
     async view(caller: Principal, runId: string): Promise<RunView> {
       const run = await deps.store.getRun(caller.tenantId, runId);
       if (run === undefined) throw new ApiError(404, "AGT-0404", "no such run");
-      return { run, pendingApprovals: await deps.inbox.pendingForRun(caller.tenantId, runId) };
+      const [pendingApprovals, actions] = await Promise.all([deps.inbox.pendingForRun(caller.tenantId, runId), deps.store.loadActions(caller.tenantId, runId)]);
+      return { run, pendingApprovals, actions: actions.map(toActionView) };
     },
 
-    async actions(caller: Principal, runId: string): Promise<ActionRecord[]> {
+    async actions(caller: Principal, runId: string): Promise<ActionView[]> {
       if ((await deps.store.getRun(caller.tenantId, runId)) === undefined) throw new ApiError(404, "AGT-0404", "no such run");
-      return deps.store.loadActions(caller.tenantId, runId);
+      return (await deps.store.loadActions(caller.tenantId, runId)).map(toActionView);
     },
   };
 }

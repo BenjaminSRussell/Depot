@@ -4157,10 +4157,13 @@
     "aipolicy.write": {"permissions": [{"resource": "/api/v1/agents/ai-data-policy", "methods": ["PUT"]}]},
     "agents.run.read": {"permissions": [
       {"resource": "/api/v1/agents/runs/*", "methods": ["GET"]},
-      {"resource": "/api/v1/agents/runs/*/actions", "methods": ["GET"]}
+      {"resource": "/api/v1/agents/runs/*/actions", "methods": ["GET"]},
+      {"resource": "/api/v1/agents/runs/*/actions/*/decision", "methods": ["POST"]},
+      {"resource": "/api/v1/agents/runs/*/actions/*:undo", "methods": ["POST"]}
     ]},
     "agentbudget.read": {"permissions": [{"resource": "/api/v1/agents/budgets", "methods": ["GET"]}]},
     "agentbudget.write": {"permissions": [{"resource": "/api/v1/agents/budgets/*", "methods": ["PUT"]}]},
+    "agentapproval.decide": {"flag": true, "permissions": []},
     "agents.run.signal": {"service_only": true, "permissions": [
       {"resource": "/v1/workflows/agent-runs/*:start", "methods": ["POST"]},
       {"resource": "/v1/workflows/agent-runs/*:approval-decided", "methods": ["POST"]}

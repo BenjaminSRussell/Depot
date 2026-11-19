@@ -27,6 +27,7 @@ export type ApiCode =
   | "AGT-0413" // request body too large
   | "AGT-0422" // a field value the API cannot accept
   | "AGT-0428" // If-Match is required
+  | "NOT_REVERSIBLE" // the action cannot be undone
   | "AGT-0500" // unexpected error, never echoed
   | "AGT-0503"; // the signing keys could not be read
 

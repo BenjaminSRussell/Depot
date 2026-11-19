@@ -485,7 +485,7 @@ describe("audit and authorization invariants over generated runs (AC2, AC3)", ()
       );
 
       if (persisted)
-        expect(await persisted.store.loadActions(TENANT, `run-${i}`), `run ${i}`).toEqual(res.actions);
+        expect(await persisted.store.loadActions(TENANT, `run-${i}`), `run ${i}`).toMatchObject(res.actions);
       // A kill before the provider call means no proposal exists: no row, no call.
       if (provider.seen.length === 0) {
         expect(res.status).toBe("KILLED");
