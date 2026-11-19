@@ -3383,6 +3383,9 @@ test_agent_budget_duties_open_only_their_routes if {
 test_copilot_use_opens_the_streamed_conversation_routes_and_nothing_else_under_agents if {
 	allowed("mcp.copilot.use", "POST", "/api/v1/agents/copilot/conversations")
 	allowed("mcp.copilot.use", "POST", "/api/v1/agents/copilot/conversations/c1/messages")
+	allowed("mcp.copilot.use", "GET", "/api/v1/agents/availability")
+	not allowed("mcp.copilot.use", "POST", "/api/v1/agents/availability")
+	not allowed("agents.run.read", "GET", "/api/v1/agents/availability")
 	not allowed("mcp.copilot.use", "GET", "/api/v1/agents/copilot/conversations")
 	not allowed("mcp.copilot.use", "GET", "/api/v1/agents/copilot/conversations/c1/messages")
 	not allowed("mcp.copilot.use", "POST", "/api/v1/agents/copilot/conversations/c1/x/messages")
