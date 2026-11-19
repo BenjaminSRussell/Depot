@@ -1,3 +1,4 @@
+import type { OutputGuard } from "./outputGuard.js";
 import { randomUUID } from "node:crypto";
 import { ApiError, requireDuty, type Principal } from "../api/principal.js";
 import { assertCanStartRun, type TokenBudget } from "../domain/budget.js";
@@ -46,6 +47,7 @@ export interface RunServiceConfig {
 }
 
 export interface RunServiceDeps {
+  outputGuard?: OutputGuard;
   agents: readonly AgentVersion[];
   /** True when this exact definition's newest eval run passed (FR-47.10; production: PgVersionStore.evalPassed). */
   evalPassed: (agent: AgentVersion) => boolean | Promise<boolean>;
@@ -185,6 +187,7 @@ export function createRunService(deps: RunServiceDeps) {
         pseudonymTtlMs: cfg.pseudonymTtlMs,
         audit: deps.store,
         budgets: deps.store,
+        ...(deps.outputGuard !== undefined ? { outputGuard: deps.outputGuard } : {}),
       };
       spawn(
         runAgent(runDeps, {

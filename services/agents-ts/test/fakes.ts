@@ -18,6 +18,9 @@ import type {
 import type { AiRouter } from "../src/runtime/aiRouter.js";
 import type { AiPolicyGuard } from "../src/runtime/aiPolicyGuard.js";
 import { createEgressGuard } from "../src/runtime/egressGuard.js";
+import type { OutputGuard } from "../src/runtime/outputGuard.js";
+
+export const allowAllOutput: OutputGuard = { check: async () => ({ ok: true, dataClass: "P0" }) };
 
 export const TENANT = "00000000-0000-7000-8000-0000000000aa";
 export const INVOKER = "00000000-0000-7000-8000-000000000001";
@@ -129,8 +132,11 @@ export function makeDeps(parts: {
   approvals: ApprovalPort;
   kill?: { on: boolean };
   risk?: RiskAssessment;
+  outputGuard?: OutputGuard;
 }): RunDeps {
+  const { outputGuard } = parts;
   return {
+    ...(outputGuard !== undefined ? { outputGuard } : {}),
     provider: parts.provider,
     tools: parts.tools,
     approvals: parts.approvals,
@@ -168,7 +174,7 @@ export function proposal(
   args: Record<string, unknown> = { invoiceId: "INV-7", remitTo: "[IBAN-1]" },
 ): ModelResponse {
   return {
-    text: "Proposed posting for INV-7 to the vendor's account [IBAN-1].",
+    text: JSON.stringify(args).includes("[IBAN-1]") ? "Proposed posting for INV-7 to the vendor's account [IBAN-1]." : "Proposed posting for INV-7.",
     proposal: {
       tool,
       args,

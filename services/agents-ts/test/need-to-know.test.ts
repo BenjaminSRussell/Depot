@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CopilotAnswerCache } from "../src/domain/copilot.js";
 import { defaultPolicy } from "../src/domain/aiDataPolicy.js";
 import type { Principal } from "../src/api/principal.js";
@@ -20,7 +20,7 @@ const json = (body: unknown, status = 200): Response => new Response(JSON.string
 describe("need-to-know client", () => {
   const client = (fetchFn: typeof fetch, now = () => 0) => createNeedToKnowClient({ baseUrl: "http://compliance", authHeaders: () => ({}), fetchFn, now });
 
-  it("reads the switch per legal entity and caches it for 60 seconds", async () => {
+  it("reads the switch per legal entity and caches it for 10 seconds", async () => {
     let calls = 0;
     let clock = 0;
     const c = client(async (url) => {
@@ -31,7 +31,20 @@ describe("need-to-know client", () => {
     expect(await c.enforced(caller())).toBe(false);
     expect(await c.enforced(caller())).toBe(false);
     expect(calls).toBe(1);
-    clock = 61_000;
+    clock = 11_000;
+    await c.enforced(caller());
+    expect(calls).toBe(2);
+  });
+
+  it("keeps the switch for the configured cache time", async () => {
+    let calls = 0;
+    let clock = 0;
+    const c = createNeedToKnowClient({ baseUrl: "http://compliance", authHeaders: () => ({}), cacheMs: 30_000, now: () => clock, fetchFn: async () => ((calls += 1), json({ enabled: false })) });
+    await c.enforced(caller());
+    clock = 29_000;
+    await c.enforced(caller());
+    expect(calls).toBe(1);
+    clock = 30_000;
     await c.enforced(caller());
     expect(calls).toBe(2);
   });
@@ -90,7 +103,7 @@ afterEach(async () => {
   close = undefined;
 });
 
-const chatWithCui = async (duties: string, enforced: boolean) => {
+const chatWithCui = async (duties: string, enforced: boolean, cache = new CopilotAnswerCache()) => {
   const store = new MemoryStore();
   const provider = new ScriptedProvider([
     { text: "", proposal: { tool: GET, args: {}, confidence: 1, amount: { amount: "0", currency: "USD" } }, usage: { tokensIn: 10, tokensOut: 1 } } as ModelResponse,
@@ -104,7 +117,7 @@ const chatWithCui = async (duties: string, enforced: boolean) => {
     mcp: new FakeMcp([tool(GET, "ap.invoice.read")], { [GET]: { ok: true, output: { id: "CUI-INV-9", note: "secret-cui-note" }, ref: "CUI-INV-9" } }),
     store,
     killSwitch: { isHalted: () => false },
-    cache: new CopilotAnswerCache(),
+    cache,
     config: { tokenCap: 20_000, maxTurns: 3, pseudonymTtlMs: 60_000 },
     modelId: "m",
   });
@@ -160,5 +173,13 @@ describe("need-to-know in the copilot", () => {
     const { provider, rows } = await chatWithCui("mcp.copilot.use,ap.invoice.read,cui.view", false);
     expect(JSON.stringify(provider.seen)).toContain("secret-cui-note");
     expect(rows.filter((r) => r.toolName === EGRESS_GUARD_TOOL).at(-1)?.guardResult?.excluded).toEqual({});
+  });
+
+  it("never caches an answer built from CUI records, so a later switch change cannot replay it", async () => {
+    const cache = new CopilotAnswerCache();
+    const put = vi.spyOn(cache, "put");
+    const { provider } = await chatWithCui("mcp.copilot.use,ap.invoice.read,cui.view", false, cache);
+    expect(JSON.stringify(provider.seen)).toContain("secret-cui-note");
+    expect(put).not.toHaveBeenCalled();
   });
 });

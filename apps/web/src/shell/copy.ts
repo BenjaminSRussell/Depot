@@ -131,6 +131,8 @@ export const copy = {
     filterAll: "All",
     none: "None",
     unavailable: "Designation unavailable",
+    csvNotice: ["CUI", "Contains CUI. Handle per your CUI policy."] as [string, string],
+    csvColumn: "Marking",
     source: (source: string, noun: string) => {
       if (source === "RECORD") return `Designated at ${noun} level`;
       if (source === "LEGAL_ENTITY") return "Designated at legal entity level";

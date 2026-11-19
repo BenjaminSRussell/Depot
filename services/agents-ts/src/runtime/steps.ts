@@ -19,6 +19,7 @@ import type { McpConnector, McpSession } from "./mcp.js";
 import { createFactRisk } from "./risk.js";
 import type { RunStatus } from "../domain/run.js";
 import type { GuardResult } from "./egressGuard.js";
+import { checkRunOutput, createOutputGuard, OUTPUT_GUARD_CODE, OUTPUT_GUARD_MESSAGE, OUTPUT_GUARD_TOOL, outputBlockedResult, type OutputGuard } from "./outputGuard.js";
 
 /**
  * The agent run as resumable steps (FR-47.4, FR-47.8). The in-process engine (engine.ts) runs one run in one
@@ -55,6 +56,7 @@ export interface StepState {
   called: boolean;
   charged?: BudgetState;
   displayText: string;
+  outputBlocked?: string;
   /** The model's answer, kept (with its usage) as soon as it came back, so a retried `plan` never calls the model again. */
   pendingUsage?: ModelUsage;
   proposal?: { tool: string; argsRedacted: Record<string, unknown>; inputRedacted: string; confidence: number; amount: Money; riskScore: number; disposition: "PROPOSE" | "AUTO"; approvalDuty?: string };
@@ -97,6 +99,7 @@ export interface StepsDeps {
   riskFor?: (tools: ToolPort, input: RunInput) => RiskPort;
   /** Pseudonym mappings live at least this long: an approval can wait up to `approvalExpiryHours`, far past the in-process 24 h. */
   pseudonymTtlMs: number;
+  outputGuard?: OutputGuard;
 }
 
 /** Binds an approval to exactly what the model proposed. */
@@ -120,6 +123,7 @@ export class StepRefusal extends Error {
 const defaultRisk = (tools: ToolPort, input: RunInput): RiskPort => createFactRisk({ tools, invokerUserId: input.invokerUserId, selfApprovalLimit: input.selfApprovalLimit });
 
 export function createRunSteps(deps: StepsDeps) {
+  const outputGuard = deps.outputGuard ?? createOutputGuard();
   const now = deps.now ?? (() => new Date());
   const agentOf = (input: RunInput): AgentVersion => {
     const a = deps.agents.find((x) => x.agentId === input.agentId && x.version === input.agentVersion) ?? deps.agents.find((x) => x.agentId === input.agentId);
@@ -419,8 +423,17 @@ export function createRunSteps(deps: StepsDeps) {
                 : { tokensIn: input.runTokenCap, tokensOut: input.runTokenCap };
           s.tokensIn += usage.tokensIn;
           s.tokensOut += usage.tokensOut;
-          s.displayText = c.pseudo.restore(response.text);
-          const p0 = response.proposal;
+          const verdict = await checkRunOutput(outputGuard, { tenantId: c.tenantId, prompt, response, pseudo: c.pseudo, duties: new Set(input.duties) });
+          if (!verdict.ok) {
+            await deps.audit.recordAction(c.tenantId, guardActionRecord(c.runId, s.seq + 1, outputBlockedResult(c.runId, verdict), now().toISOString(), OUTPUT_GUARD_TOOL));
+            s.seq += 1;
+            s.guardRows = (s.guardRows ?? 0) + 1;
+            s.outputBlocked = verdict.reason;
+            s.displayText = OUTPUT_GUARD_MESSAGE;
+          } else {
+            s.displayText = c.pseudo.restore(response.text);
+          }
+          const p0 = verdict.ok ? response.proposal : undefined;
           if (p0) {
             s.proposal = { tool: p0.tool, argsRedacted: p0.args, inputRedacted: c.pseudo.redact(JSON.stringify(p0.args)), confidence: p0.confidence, amount: p0.amount, riskScore: 0, disposition: "PROPOSE" };
             s.proposalHash = proposalHashOf({ tool: p0.tool, args: p0.args, confidence: p0.confidence });
@@ -437,7 +450,7 @@ export function createRunSteps(deps: StepsDeps) {
         }
         assertRunWithinCap(s.tokensIn + s.tokensOut, input.runTokenCap);
         const p = s.proposal;
-        if (!p) return await finalize(c, "FAILED", undefined, "model returned no proposal");
+        if (!p) return await finalize(c, "FAILED", s.outputBlocked !== undefined ? OUTPUT_GUARD_CODE : undefined, s.outputBlocked ?? "model returned no proposal");
         const inputRedacted = p.inputRedacted;
         if (deps.killSwitch.isHalted(tenantId)) return await killed(c, "kill switch activated");
 

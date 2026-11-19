@@ -1,6 +1,6 @@
 import type { LogFn } from "../logging/pseudonymize.js";
 import { mayViewValue, P3_CATEGORIES, PSEUDONYM_RE, scanPii, type Pseudonymizer } from "../domain/redaction.js";
-import { highestClassOf, type Analyzer, type DataClass, type GuardContext, type GuardDecision, type OutputGuardReason } from "./egressGuard.js";
+import { GUARD_POLICY_VERSION, highestClassOf, type Analyzer, type DataClass, type GuardContext, type GuardDecision, type GuardResult, type OutputGuardReason } from "./egressGuard.js";
 
 export const OUTPUT_GUARD_TOOL = "output.guard";
 export const OUTPUT_GUARD_CODE = "AGT-0220";
@@ -25,6 +25,31 @@ export type OutputVerdict = { ok: true; dataClass: DataClass } | { ok: false; re
 export interface OutputGuard {
   check(input: OutputInput): Promise<OutputVerdict>;
 }
+
+export async function checkRunOutput(
+  guard: OutputGuard,
+  input: { tenantId: string; prompt: string; response: { text: string; proposal?: { args: unknown } | undefined }; pseudo: Pseudonymizer; duties: ReadonlySet<string> },
+): Promise<OutputVerdict> {
+  return guard.check({
+    tenantId: input.tenantId,
+    text: `${input.response.text}\n${JSON.stringify(input.response.proposal?.args ?? {})}`,
+    context: { inputTokens: new Set(input.prompt.match(PSEUDONYM_RE)), inputRecordIds: new Set(), highestClass: "P0" },
+    pseudo: input.pseudo,
+    duties: input.duties,
+    declaredClass: "P0",
+  });
+}
+
+export const outputBlockedResult = (runId: string, verdict: { reason: OutputGuardReason; dataClass: DataClass }): GuardResult => ({
+  callId: `${runId}:output`,
+  highestClass: verdict.dataClass,
+  routeId: OUTPUT_GUARD_TOOL,
+  policyVersion: GUARD_POLICY_VERSION,
+  counts: {},
+  excluded: {},
+  decision: "OUTPUT_BLOCKED",
+  errorCode: verdict.reason,
+});
 
 class GuardTimeout extends Error {}
 

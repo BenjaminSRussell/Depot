@@ -9,8 +9,18 @@ export function csvCell(value: string | number | null | undefined): string {
   return NEEDS_QUOTES.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe;
 }
 
-export function toCsv(header: string[], records: (string | number | null | undefined)[][]): string {
-  const lines = [header, ...records].map((record) => record.map(csvCell).join(","));
+export interface CsvMarking {
+  notice: [string, string];
+  column: string;
+  label: string;
+  cui: boolean[];
+}
+
+export function toCsv(header: string[], records: (string | number | null | undefined)[][], marking?: CsvMarking): string {
+  const marked = marking ? records.map((record, i) => [...record, marking.cui[i] ? marking.label : ""]) : records;
+  const head = marking ? [...header, marking.column] : header;
+  const notice = marking && marking.cui.some(Boolean) ? [marking.notice] : [];
+  const lines = [...notice, head, ...marked].map((record) => record.map(csvCell).join(","));
   return `${BOM}${lines.join("\r\n")}\r\n`;
 }
 

@@ -24,6 +24,7 @@ import { assertNoPii, Pseudonymizer, scanPii } from "../domain/redaction.js";
 import { isTerminal, transition, type RunStatus } from "../domain/run.js";
 import { AgentError } from "../errors.js";
 import { EGRESS_GUARD_TOOL, type GuardResult } from "./egressGuard.js";
+import { checkRunOutput, createOutputGuard, OUTPUT_GUARD_CODE, OUTPUT_GUARD_MESSAGE, OUTPUT_GUARD_TOOL, outputBlockedResult, type OutputGuard } from "./outputGuard.js";
 
 export interface ModelUsage {
   tokensIn: number;
@@ -58,11 +59,11 @@ export interface ModelRequest {
   guard?: { tenantId: string; report: (result: GuardResult) => void };
 }
 
-export function guardActionRecord(runId: string, seq: number, r: GuardResult, decidedAt: string): ActionRecord {
+export function guardActionRecord(runId: string, seq: number, r: GuardResult, decidedAt: string, toolName: string = EGRESS_GUARD_TOOL): ActionRecord {
   return buildActionRecord({
     runId,
     seq,
-    toolName: EGRESS_GUARD_TOOL,
+    toolName,
     inputRedacted: "{}",
     outputRedacted: JSON.stringify({ decision: r.decision, highestClass: r.highestClass }),
     approverUserId: null,
@@ -211,6 +212,7 @@ export interface RunDeps {
   pseudonymTtlMs: number;
   audit: AuditPort;
   budgets: BudgetPort;
+  outputGuard?: OutputGuard;
 }
 
 export interface RunRequest {
@@ -569,8 +571,15 @@ async function executeRun(
     // Tokens spent are charged at once, so they count even when the run then breaks its cap or waits for approval.
     await charge(usage);
     assertRunWithinCap(ledger.tokensIn + ledger.tokensOut, req.runTokenCap);
-    displayText = pseudo.restore(response.text);
     moveTo("ACTING");
+    const verdict = await checkRunOutput(deps.outputGuard ?? createOutputGuard(), { tenantId: req.tenantId, prompt, response, pseudo, duties: req.userDuties });
+    if (!verdict.ok) {
+      actions.push(guardActionRecord(req.runId, seq + 1, outputBlockedResult(req.runId, verdict), deps.now(), OUTPUT_GUARD_TOOL));
+      seq += 1;
+      displayText = OUTPUT_GUARD_MESSAGE;
+      return finish("FAILED", OUTPUT_GUARD_CODE, verdict.reason);
+    }
+    displayText = pseudo.restore(response.text);
 
     const p = response.proposal;
     if (!p) return finish("FAILED", undefined, "model returned no proposal");

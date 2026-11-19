@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertNoPii, Pseudonymizer, scanPii } from "../src/domain/redaction.js";
+import { assertNoPii, maskValue, Pseudonymizer, scanPii, SENSITIVE_DUTY } from "../src/domain/redaction.js";
 
 const TTL = 24 * 3_600_000;
 
@@ -74,5 +74,48 @@ describe("Pseudonymizer (BR-47.7)", () => {
       if (scanPii(redacted).length > 0) leaks++;
     }
     expect(leaks).toBe(0);
+  });
+});
+
+describe("Pseudonymizer.restoreFor", () => {
+  const redacted = () => {
+    const p = new Pseudonymizer("tenant-a", TTL, () => 0);
+    const text = p.redact('mail ap@acme.example ssn 123-45-6789 iban DE89370400440532013000 {"salary":"85000"}');
+    return { p, text };
+  };
+  const none = new Set<string>();
+
+  it("restores a sensitive value only for a viewer holding the duty its domain maps to", () => {
+    const { p, text } = redacted();
+    const worker = p.restoreFor(text, new Set([SENSITIVE_DUTY.worker]));
+    expect(worker).toContain("123-45-6789");
+    expect(worker).toContain('"salary":"****5000"');
+    const payroll = p.restoreFor(text, new Set([SENSITIVE_DUTY.payroll]));
+    expect(payroll).toContain('"salary":"85000"');
+    expect(payroll).not.toContain("123-45-6789");
+  });
+
+  it("masks every sensitive value for a viewer with no duty, and leaves email unchanged", () => {
+    const { p, text } = redacted();
+    const out = p.restoreFor(text, none);
+    expect(out).toContain("ap@acme.example");
+    expect(out).toContain("****6789");
+    expect(out).not.toContain("85000");
+  });
+
+  it("always masks a sensitive category that maps to no duty, even with every duty held", () => {
+    const { p, text } = redacted();
+    const out = p.restoreFor(text, new Set(Object.values(SENSITIVE_DUTY)));
+    expect(out).not.toContain("DE89370400440532013000");
+    expect(out).toContain("****3000");
+  });
+});
+
+describe("maskValue", () => {
+  it("keeps the last four characters and masks a value of four or fewer entirely", () => {
+    expect(maskValue("123456789")).toBe("****6789");
+    expect(maskValue("12345")).toBe("****2345");
+    expect(maskValue("1234")).toBe("****");
+    expect(maskValue("")).toBe("****");
   });
 });

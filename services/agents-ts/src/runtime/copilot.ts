@@ -215,6 +215,7 @@ export function createCopilotService(deps: CopilotDeps) {
       let withheldCount = 0;
       let amountsWithheld = 0;
       let needToKnowHidden = 0;
+      let cuiDerived = false;
       let policyDropped = 0;
       let declared: DataClass = "P0";
       let policyCell: "tenant" | "default" | undefined;
@@ -349,6 +350,7 @@ export function createCopilotService(deps: CopilotDeps) {
           const excludedHere = next?.excluded ?? [];
           const hiddenHere = excludedHere.length === 0 && (next?.restricted.length ?? 0) > 0 && (await needToKnow.enforced(caller)) ? (next?.restricted ?? []) : [];
           needToKnowHidden += hiddenHere.length;
+          if ((next?.restricted.length ?? 0) > 0) cuiDerived = true;
           const dropped = [...excludedHere, ...hiddenHere];
           const shown = dropped.length === 0 ? out.output : permittedOutput(out.output, dropped);
           if (excludedHere.length > 0) {
@@ -425,7 +427,7 @@ export function createCopilotService(deps: CopilotDeps) {
           ...(withheldCount > 0 ? { excluded: { count: withheldCount, kinds: [...withheldKinds], reason: "NO_APPROVED_ROUTE" as const } } : {}),
           generated: true,
         };
-        if (refused === null && withheldCount === 0 && policyDropped === 0 && needToKnowHidden === 0) deps.cache.put(asker, req.mode, prompt, JSON.stringify(out));
+        if (refused === null && withheldCount === 0 && policyDropped === 0 && needToKnowHidden === 0 && !cuiDerived) deps.cache.put(asker, req.mode, prompt, JSON.stringify(out));
         return out;
       } catch (err) {
         await deps.store
