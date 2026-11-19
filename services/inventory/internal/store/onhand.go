@@ -218,7 +218,11 @@ func (s *Postgres) ListOnHand(ctx context.Context, f OnHandFilter) (OnHandResult
 			}
 			out = append(out, r)
 		}
-		return rows.Err()
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		return attachEnteredUnits(ctx, tx, p.TenantID, groups, out)
 	})
 	if err != nil {
 		return OnHandResult{}, err
