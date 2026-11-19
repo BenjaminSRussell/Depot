@@ -24,6 +24,7 @@ export type ApiCode =
   | "AGT-0405" // method not allowed on the route
   | "AGT-0409" // the action was already decided differently
   | "AGT-0413" // request body too large
+  | "AGT-0422" // a field value the API cannot accept
   | "AGT-0500" // unexpected error, never echoed
   | "AGT-0503"; // the signing keys could not be read
 

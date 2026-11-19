@@ -8,6 +8,7 @@ import { COPILOT_DUTY, type CopilotService } from "../runtime/copilot.js";
 import { parseChunks, parseSearch, type KnowledgeService } from "../runtime/knowledge.js";
 import type { RunService } from "../runtime/service.js";
 import { handleChat } from "./copilot.js";
+import type { AgentBudgetService } from "./agentBudgets.js";
 import type { Authenticate } from "./auth.js";
 import { ApiError, requireDuty, toApiError } from "./principal.js";
 import { bearerToken, handleGetRun, handleListActions, handleStartRun } from "./runs.js";
@@ -28,6 +29,8 @@ export interface AgentsApiBase {
   copilot?: CopilotService;
   /** The knowledge index and its hybrid search; absent and the knowledge routes answer 404. */
   knowledge?: KnowledgeService;
+  /** The budgets list and per-agent cap routes; absent and they answer 404. */
+  budgets?: AgentBudgetService;
   now?: () => Date;
   /** The run-step routes workflow-ts calls (AGENTS_RUN_ENGINE=temporal); absent and they answer 404. */
   steps?: { service: RunSteps; verifier: ServiceTokenVerifier };
@@ -38,6 +41,8 @@ const KILL_PATH = "/api/v1/agents/kill-switch";
 const START_PATH = /^\/api\/v1\/agents\/([a-z][a-z0-9_]{0,63})\/runs$/;
 const RUN_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})$`);
 const ACTIONS_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/actions$`);
+const BUDGETS_PATH = "/api/v1/agents/budgets";
+const BUDGET_AGENT_PATH = /^\/api\/v1\/agents\/budgets\/([a-z][a-z0-9_]{0,63})$/;
 const CHAT_PATH = "/api/v1/copilot/chat";
 const KNOWLEDGE_CHUNKS_PATH = "/api/v1/knowledge/chunks";
 const KNOWLEDGE_SEARCH_PATH = "/api/v1/knowledge/search";
@@ -194,6 +199,19 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
           requireDuty(principal, COPILOT_DUTY, "the knowledge search");
           const q = parseSearch(await readBody(req));
           send(res, 200, await deps.knowledge.search(principal.tenantId, q.query, q.limit));
+        }
+        return;
+      }
+      const budgetAgent = BUDGET_AGENT_PATH.exec(path);
+      if (path === BUDGETS_PATH || budgetAgent !== null) {
+        if (deps.budgets === undefined) throw new ApiError(404, "AGT-0404", "no such route");
+        if (budgetAgent === null) {
+          if (req.method !== "GET") throw new MethodNotAllowed("GET");
+          send(res, 200, await deps.budgets.list(await deps.authenticate(req.headers)));
+        } else {
+          if (req.method !== "PUT") throw new MethodNotAllowed("PUT");
+          const principal = await deps.authenticate(req.headers);
+          send(res, 200, await deps.budgets.setCap(principal, budgetAgent[1] ?? "", await readBody(req)));
         }
         return;
       }

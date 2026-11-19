@@ -203,7 +203,7 @@ var d17TenantWide = map[string]map[string][]string{
 	},
 	"agents-ts": {
 		d17AgentsPlatform: {"agent_version", "eval_run"},
-		d17AgentsTenant:   {"token_budget", "budget_hold", "kill_switch_change", "knowledge_chunk"},
+		d17AgentsTenant:   {"token_budget", "budget_hold", "agent_budget_change", "kill_switch_change", "knowledge_chunk"},
 		d17AgentsRuns:     {"agent_run", "agent_action", "approval_request", "agent_run_state", "agent_run_credential"},
 	},
 }

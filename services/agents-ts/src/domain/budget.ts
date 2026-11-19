@@ -29,6 +29,14 @@ export function budgetStatus(b: TokenBudget): BudgetStatus {
   return { state: "OK", pct };
 }
 
+const MICRO_USD_PER_INPUT_TOKEN = 2n;
+const MICRO_USD_PER_OUTPUT_TOKEN = 10n;
+
+export function costUsd(tokensIn: number, tokensOut: number): string {
+  const micro = BigInt(tokensIn) * MICRO_USD_PER_INPUT_TOKEN + BigInt(tokensOut) * MICRO_USD_PER_OUTPUT_TOKEN;
+  return `${micro / 1_000_000n}.${String(micro % 1_000_000n).padStart(6, "0")}`;
+}
+
 export interface Usage {
   tokensIn: number;
   tokensOut: number;

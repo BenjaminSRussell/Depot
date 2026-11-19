@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { pathToFileURL } from "node:url";
 import { AGENT_IDS, defaultCatalog } from "./agents/catalog.js";
+import { createAgentBudgetService } from "./api/agentBudgets.js";
 import { createAuthenticator } from "./api/auth.js";
+import { PgAgentBudgets } from "./store/agentBudgets.js";
 import type { AgentsApiDeps } from "./api/router.js";
 import { createProviderFactory, loadConfig, type Config } from "./config.js";
 import { CopilotAnswerCache } from "./domain/copilot.js";
@@ -123,6 +125,7 @@ async function main(): Promise<void> {
     ...(stepsService !== undefined ? { steps: { service: stepsService, verifier: createVerifier({ keys: parsePublicKeys(cfg.servicePublicKeys) }) } } : {}),
     copilot,
     knowledge,
+    budgets: createAgentBudgetService({ store: new PgAgentBudgets(store) }),
   };
   const metrics = new Metrics();
   const handler = createRequestHandler({
