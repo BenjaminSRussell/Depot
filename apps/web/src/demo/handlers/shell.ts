@@ -174,6 +174,11 @@ route("PUT", "/api/v1/tenant/setup/steps/{step}", ({ params, body }) => {
   setupStatus[params.step] = ((body ?? {}) as { status?: string }).status ?? "todo";
   return setupBody();
 });
+route("GET", "/api/v1/agents/availability", () => ({
+  killSwitch: { halted: false, stale: false, tenant: { active: false, version: null, changedAt: null, byUser: null }, global: { active: false, version: null, changedAt: null } },
+  budgetStatus: "OK",
+  copilotEnabled: true,
+}));
 route("GET", "/api/v1/tenant/workspace-config", () => ({ config: null }));
 route("POST", "/api/v1/org/demo-company", () => ({ package: "demo-manufacturer", created: 0, present: 42 }));
 

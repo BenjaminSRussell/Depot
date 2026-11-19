@@ -41,7 +41,7 @@ fieldCrypt:
 # record resolution UNKNOWN. The Ed25519 seed (base64) in signingKeySecret signs the token sent to it.
 projectsUrl: ""
 
-# Service tokens from receiving (the legal hold check); publicKeys is the DEPOT_SERVICE_PUBLIC_KEYS value.
+# Service tokens from receiving (the legal hold check) and agents (the data class resolve); publicKeys is the DEPOT_SERVICE_PUBLIC_KEYS value.
 serviceIdentity:
   publicKeys: ""
   signingKeySecret: ""
@@ -109,6 +109,8 @@ ingressPolicy:
     gatewaysNamespace: hello-ledger
     names: [depot-api]
   peers:
+  - name: agent-runtime
+    podNames: [agent-runtime]
   - name: hr
     podNames: [depot-hr, depot-hr-accrue, depot-hr-carryover-expiry, depot-hr-reseal-pii, depot-hr-retention-purge]
   - name: receiving

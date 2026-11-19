@@ -5,6 +5,16 @@ import { ShellPage } from "./shell.page";
 const PROMPT_NAME = "Ask or do anything...";
 const PAGE_CONTROLS = ":is(a[href], button, input, select, textarea):not([class*=\"topbar\"] *)";
 
+const AVAILABLE = {
+  killSwitch: { halted: false, stale: false, tenant: { active: false, version: null, changedAt: null, byUser: null }, global: { active: false, version: null, changedAt: null } },
+  budgetStatus: "OK",
+  copilotEnabled: true,
+};
+
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/v1/agents/availability", (route) => route.fulfill({ json: AVAILABLE }));
+});
+
 for (const colorScheme of ["light", "dark"] as const) {
   for (const [label, viewport] of [
     ["mobile", { width: 375, height: 812 }],

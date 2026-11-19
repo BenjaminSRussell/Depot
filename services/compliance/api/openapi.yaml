@@ -495,6 +495,56 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
+  /v1/compliance/need-to-know:
+    get:
+      operationId: getNeedToKnow
+      x-depot-duty: cui.policy.read
+      description: >-
+        Effective CUI need-to-know enforcement for the tenant, or for one legal entity with legalEntityId, with its source
+        (DEPLOYMENT_DEFAULT, TENANT or LEGAL_ENTITY), the tenant row and the overrides the caller may see. A scope nobody has set
+        resolves ON when COMPLIANCE_BOUNDARY=cui and OFF otherwise. The ETag is the version of the target setting, 1 when it was
+        never set, and is what a PUT sends as If-Match. A legalEntityId outside the caller's scope is 403.
+      parameters:
+        - { name: legalEntityId, in: query, required: false, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The effective state and the stored settings
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NeedToKnow" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+    put:
+      operationId: setNeedToKnow
+      x-depot-duty: cui.policy.admin
+      description: >-
+        Sets enforcement for the tenant (no legalEntityId) or for one legal entity, with a reason of 1 to 500 characters, under
+        If-Match. A tenant-level change needs tenant.administer, this duty and no legal-entity claim; a legal-entity-scoped
+        administrator may only set enabled true for a legal entity in scope, and enabled false from them is 403. The audit_event
+        is written in the same transaction. A stale If-Match is 412, a missing one 428.
+      parameters:
+        - { name: If-Match, in: header, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NeedToKnowChange" }
+      responses:
+        "200":
+          description: The stored setting
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NeedToKnowChanged" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
   /v1/compliance/audit-policies/{id}:
     get:
       operationId: getAuditPolicy
@@ -1665,6 +1715,44 @@ components:
       properties:
         class: { type: string, enum: [CUI, NONE] }
         reason: { type: string, minLength: 1, maxLength: 500 }
+    NeedToKnowChange:
+      type: object
+      required: [enabled, reason]
+      additionalProperties: false
+      properties:
+        legalEntityId: { type: string, format: uuid }
+        enabled: { type: boolean }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    NeedToKnowSetting:
+      type: object
+      required: [settingId, enabled, reason, changedBy, changedAt, version]
+      properties:
+        settingId: { type: string, format: uuid }
+        legalEntityId: { type: string, format: uuid }
+        enabled: { type: boolean }
+        reason: { type: string }
+        changedBy: { type: string }
+        changedAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 2 }
+    NeedToKnowChanged:
+      allOf:
+        - { $ref: "#/components/schemas/NeedToKnowSetting" }
+        - type: object
+          required: [enforced]
+          properties:
+            enforced: { type: boolean, description: "False until the switch is enforced on reads; today it only records the setting." }
+    NeedToKnow:
+      type: object
+      required: [enabled, source, tenant, overrides, enforced]
+      properties:
+        enabled: { type: boolean }
+        enforced: { type: boolean, description: "False until the switch is enforced on reads; today it only records the setting." }
+        source: { type: string, enum: [DEPLOYMENT_DEFAULT, TENANT, LEGAL_ENTITY] }
+        tenant:
+          nullable: true
+          allOf:
+            - { $ref: "#/components/schemas/NeedToKnowSetting" }
+        overrides: { type: array, items: { $ref: "#/components/schemas/NeedToKnowSetting" } }
     DataDesignationHistoryEntry:
       type: object
       required: [auditId, action, scope, actor, occurredAt, reason]

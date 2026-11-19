@@ -10,6 +10,7 @@ export interface Principal {
   userId: string;
   tenantId: string;
   duties: ReadonlySet<string>;
+  legalEntityId?: string;
 }
 
 /**

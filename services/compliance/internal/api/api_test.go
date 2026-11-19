@@ -26,18 +26,19 @@ var now = time.Date(2026, 11, 2, 9, 0, 0, 0, time.UTC)
 // fakeStore records calls and applies the domain state machine to one
 // in-memory conflict, so handler tests can check wiring without Postgres.
 type fakeStore struct {
-	pingErr   error
-	known     map[string]string
-	conflict  *store.ConflictDetail
-	lastCap   int
-	lastKey   string
-	lastList  store.Filter
-	evaluated []domain.Role
-	trade     fakeTrade
-	privacy   fakePrivacy
-	holds     fakeHolds
-	policies  fakePolicies
-	designs   fakeDesignations
+	pingErr    error
+	known      map[string]string
+	conflict   *store.ConflictDetail
+	lastCap    int
+	lastKey    string
+	lastList   store.Filter
+	evaluated  []domain.Role
+	trade      fakeTrade
+	privacy    fakePrivacy
+	holds      fakeHolds
+	policies   fakePolicies
+	designs    fakeDesignations
+	needToKnow fakeNeedToKnow
 }
 
 func (f *fakeStore) Ping(context.Context) error { return f.pingErr }

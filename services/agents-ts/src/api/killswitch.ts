@@ -196,6 +196,10 @@ export function readKillSwitchStatus(principal: Principal, registry: KillSwitchR
   if (!principal.duties.has(TENANT_KILL_DUTY) && !principal.duties.has(GLOBAL_KILL_DUTY)) {
     requireDuty(principal, TENANT_KILL_DUTY, "the kill switch status");
   }
+  return killSwitchStatusOf(principal, registry);
+}
+
+export function killSwitchStatusOf(principal: Principal, registry: KillSwitchRegistry): KillSwitchStatus {
   const tenant = registry.lastChange(principal.tenantId);
   return {
     tenantId: principal.tenantId,

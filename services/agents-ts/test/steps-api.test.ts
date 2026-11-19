@@ -6,7 +6,7 @@ import { createVerifier, DUTY_RUN_WORKFLOW, parsePublicKeys, SERVICE_GRANTS, SER
 import { createRunService } from "../src/runtime/service.js";
 import { createRunSteps } from "../src/runtime/steps.js";
 import { WorkflowRefused, type WorkflowGateway } from "../src/runtime/workflowGateway.js";
-import { WORKFLOW_GRANT } from "../src/api/serviceSigner.js";
+import { COMPLIANCE_GRANT, WORKFLOW_GRANT } from "../src/api/serviceSigner.js";
 import { tokenFor } from "./jwt.js";
 import { proposal, ScriptedProvider } from "./fakes.js";
 import { FakeMcp, headers, MemoryStore, OTHER, serve, T1, tool, USER } from "./surface-fakes.js";
@@ -237,6 +237,13 @@ describe("agents service grants", () => {
     expect(data.service_grants["agents"]?.["workflow-ts"]).toEqual([...WORKFLOW_GRANT]);
     const go = readFileSync(new URL("platform/go/tenant/service.go", root), "utf8");
     expect(go).toContain('"workflow-ts": {"agents.run.signal"}');
+  });
+
+  it("the grant agents holds on compliance matches policies/authz/data.json and the Go table", () => {
+    const root = new URL("../../../", import.meta.url);
+    const data = JSON.parse(readFileSync(new URL("policies/authz/data.json", root), "utf8")) as { service_grants: Record<string, Record<string, string[]>> };
+    expect(data.service_grants["agents"]?.["compliance"]).toEqual([...COMPLIANCE_GRANT]);
+    expect(readFileSync(new URL("platform/go/tenant/service.go", root), "utf8")).toContain('"compliance":  {"compliance.data-designation.resolve"}');
   });
 
   it("match policies/authz/data.json and the Go table", () => {

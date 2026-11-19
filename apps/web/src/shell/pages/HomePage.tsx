@@ -1,4 +1,5 @@
 import { Link, useNavigate, useOutletContext } from "react-router-dom";
+import { AssistantNotice, useAiAvailability } from "../assistant/AvailabilityProvider";
 import { handOffPrompt } from "../assistant/session";
 import { copy } from "../copy";
 import { DemoTour } from "../../demo/DemoTour";
@@ -70,7 +71,9 @@ export function HomePage() {
   const navigate = useNavigate();
   const announce = useOutletContext<((message: string) => void) | undefined>();
   const { features } = useTenantSettings();
-  const assistant = holdsDuty(usePrincipalDuties(), ASSISTANT_DUTY) && isPathEnabled(features, COPILOT_PATH) && plannedRouteFor(COPILOT_PATH) === undefined;
+  const aiEnabled = useAiAvailability().state.status === "enabled";
+  const assistant =
+    aiEnabled && holdsDuty(usePrincipalDuties(), ASSISTANT_DUTY) && isPathEnabled(features, COPILOT_PATH) && plannedRouteFor(COPILOT_PATH) === undefined;
   const ordered = (active ? [active, ...held.filter((w) => w.id !== active.id)] : held).slice(0, HOME_WORKSPACE_LIMIT);
   const cards =
     ordered.length === 0 ? (
@@ -118,6 +121,7 @@ export function HomePage() {
     return (
       <>
         <PageHeader title={copy.home.pageTitle} description={copy.home.description} />
+        <AssistantNotice />
         {demoTour}
         <SetupBanner />
         <MyWorkSummary />
@@ -131,6 +135,7 @@ export function HomePage() {
   return (
     <>
       <PageHeader title={copy.home.pageTitle} description={copy.home.description} />
+      <AssistantNotice />
       <AssistantPrompt
         onSubmit={async (text) => {
           announce?.(copy.home.assistantLoading);

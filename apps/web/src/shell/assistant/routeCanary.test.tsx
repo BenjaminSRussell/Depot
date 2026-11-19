@@ -5,7 +5,8 @@ import { describe, expect, it } from "vitest";
 import { CopilotHome } from "../../modules/copilot/pages";
 import { Shell } from "../Shell";
 import { HomePage } from "../pages/HomePage";
-import { json, server, useFakeServer } from "../testing/fakeServer";
+import { AVAILABILITY_PATH } from "./availability";
+import { availableAssistant, json, server, useFakeServer } from "../testing/fakeServer";
 
 useFakeServer();
 
@@ -20,10 +21,14 @@ function Probe() {
   return null;
 }
 
-function renderApp(prompt: string) {
+async function renderApp(prompt: string) {
   locations = [];
   server.handler = (url) =>
-    url.pathname === CHAT_PATH ? json(200, { answer: `Answer for ${CANARY}`, citations: [], toolCalls: [], refusal: null, generated: true }) : undefined;
+    url.pathname === CHAT_PATH
+      ? json(200, { answer: `Answer for ${CANARY}`, citations: [], toolCalls: [], refusal: null, generated: true })
+      : url.pathname === AVAILABILITY_PATH
+        ? json(200, availableAssistant)
+        : undefined;
   render(
     <MemoryRouter initialEntries={["/"]}>
       <Probe />
@@ -35,7 +40,7 @@ function renderApp(prompt: string) {
       </Routes>
     </MemoryRouter>,
   );
-  return userEvent.setup().type(screen.getByRole("textbox", { name: "Ask or do anything..." }), `${prompt}{Enter}`);
+  return userEvent.setup().type(await screen.findByRole("textbox", { name: "Ask or do anything..." }), `${prompt}{Enter}`);
 }
 
 describe("assistant text stays out of browser-visible state on route change", () => {

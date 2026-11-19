@@ -1,3 +1,4 @@
+{{- $signs := or (eq .Values.runEngine "temporal") .Values.serviceIdentity.signingKeySecret }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -41,6 +42,12 @@ spec:
               value: {{ .Values.migrateOnStart | quote }}
             - name: MCP_URL
               value: {{ .Values.mcpUrl | quote }}
+            - name: AGENTS_BOUNDARY
+              value: {{ .Values.boundary | quote }}
+            {{- if .Values.complianceUrl }}
+            - name: AGENTS_COMPLIANCE_URL
+              value: {{ .Values.complianceUrl | quote }}
+            {{- end }}
             - name: HTTP_ADDR
               value: "0.0.0.0:8080"
             - name: ADMIN_ADDR
@@ -98,6 +105,8 @@ spec:
               value: {{ .Values.workflowUrl | quote }}
             - name: DEPOT_SERVICE_PUBLIC_KEYS
               value: {{ required "servicePublicKeys is required when runEngine is temporal" .Values.servicePublicKeys | quote }}
+            {{- end }}
+            {{- if $signs }}
             - name: DEPOT_SERVICE_NAME
               value: agents
             - name: DEPOT_SERVICE_SIGNING_KEY_FILE
@@ -138,16 +147,16 @@ spec:
             httpGet: { path: /readyz, port: http }
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if or .Values.auth.jwksConfigMap.name (eq .Values.runEngine "temporal") }}
+          {{- if or .Values.auth.jwksConfigMap.name $signs }}
           volumeMounts:
             {{- if .Values.auth.jwksConfigMap.name }}
             - { name: jwks, mountPath: /etc/depot/jwks, readOnly: true }
             {{- end }}
-            {{- if eq .Values.runEngine "temporal" }}
+            {{- if $signs }}
             - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
             {{- end }}
           {{- end }}
-      {{- if or .Values.auth.jwksConfigMap.name (eq .Values.runEngine "temporal") }}
+      {{- if or .Values.auth.jwksConfigMap.name $signs }}
       volumes:
         {{- if .Values.auth.jwksConfigMap.name }}
         - name: jwks
@@ -156,7 +165,7 @@ spec:
             items:
               - { key: {{ .Values.auth.jwksConfigMap.key | quote }}, path: jwks.json }
         {{- end }}
-        {{- if eq .Values.runEngine "temporal" }}
+        {{- if $signs }}
         - name: service-identity
           secret:
             secretName: {{ required "serviceIdentity.signingKeySecret is required when runEngine is temporal" .Values.serviceIdentity.signingKeySecret }}

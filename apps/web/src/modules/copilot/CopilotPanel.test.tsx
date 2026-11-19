@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { ChatResponse } from "./api/client";
+import { CopilotError, type ChatResponse } from "./api/client";
+import { AvailabilityProvider, type AiAvailability } from "../../shell/assistant/AvailabilityProvider";
 import { pageViolations } from "./a11yTest";
 import { CopilotPanel } from "./CopilotPanel";
 import { canInsertDraft, GENERATED_BADGE, isCopilotMode, toolCallLabel } from "./domain";
@@ -160,5 +161,63 @@ describe("CopilotPanel", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Send" }));
     expect(ask).not.toHaveBeenCalled();
+  });
+
+  describe("when the assistant is stopped or unreachable", () => {
+    const plain = "The assistant has reached its usage limit, so it can't answer right now. Every page and workflow still works.";
+
+    function renderWith(ask: () => Promise<ChatResponse>) {
+      const availability: AiAvailability = {
+        state: { status: "enabled", budget: "OK" },
+        reportRefusal: vi.fn(),
+        reportFailure: vi.fn(),
+      };
+      render(
+        <AvailabilityProvider value={availability}>
+          <CopilotPanel ask={ask} />
+        </AvailabilityProvider>,
+      );
+      return availability;
+    }
+
+    async function submit() {
+      const user = userEvent.setup();
+      await user.type(screen.getByLabelText("Ask Copilot"), "how is cash");
+      await user.click(screen.getByRole("button", { name: "Send" }));
+    }
+
+    it("shows the code and a plain message for a budget refusal in the answer, reports it, and asks only once", async () => {
+      const ask = vi.fn(async () => ({ ...answer, answer: "", refusal: { code: "AGT-0202", message: "budget exhausted" } }));
+      const availability = renderWith(ask);
+      await submit();
+      const alert = within(await screen.findByRole("article", { name: "Copilot answer" })).getByRole("alert");
+      expect(alert).toHaveTextContent("AGT-0202");
+      expect(alert).toHaveTextContent(plain);
+      expect(availability.reportRefusal).toHaveBeenCalledWith("AGT-0202");
+      expect(ask).toHaveBeenCalledTimes(1);
+    });
+
+    it("treats a budget refusal that arrives as an error response the same way", async () => {
+      const ask = vi.fn(async () => Promise.reject(new CopilotError("Copilot is unavailable (HTTP 422).", "AGT-0202")));
+      const availability = renderWith(ask);
+      await submit();
+      const alert = within(await screen.findByRole("article", { name: "Copilot answer" })).getByRole("alert");
+      expect(alert).toHaveTextContent(plain);
+      expect(alert).toHaveTextContent("AGT-0202");
+      expect(availability.reportRefusal).toHaveBeenCalledWith("AGT-0202");
+      expect(availability.reportFailure).not.toHaveBeenCalled();
+      expect(ask).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows an inline error and no dialog for a server error or a timeout, without retrying", async () => {
+      const ask = vi.fn(async () => Promise.reject(new CopilotError("Copilot is unavailable (HTTP 503).")));
+      const availability = renderWith(ask);
+      await submit();
+      await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Copilot is unavailable (HTTP 503)."));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(availability.reportFailure).toHaveBeenCalledTimes(1);
+      expect(availability.reportRefusal).not.toHaveBeenCalled();
+      expect(ask).toHaveBeenCalledTimes(1);
+    });
   });
 });

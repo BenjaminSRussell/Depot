@@ -41,7 +41,8 @@ function parseItems(body: unknown, refs: readonly DataRef[]): ResolvedClass[] {
  * The effective data class of records from services/compliance (POST /v1/compliance/data-designations:resolve), as an AI consumer
  * needs it: any failure to learn the class (timeout, refusal, unreachable, an answer that does not line up with the refs) is
  * UNKNOWN, and a consumer must treat UNKNOWN as CUI (treatAsCui). Only NONE is safe for AI (aiMayUse). The call never throws.
- * `authHeaders` supplies the credentials the resolver authorizes: the caller's own, so its legal-entity scope bounds the answer.
+ * `authHeaders` supplies the credential the resolver authorizes: this service's own signed service token (never the caller's bearer), minted for the
+ * caller's tenant and legal entity so the answer stays inside the caller's scope. A credential that cannot be minted makes every ref UNKNOWN.
  */
 export function createDesignationClient(cfg: {
   baseUrl: string;
@@ -53,10 +54,17 @@ export function createDesignationClient(cfg: {
   const fetchFn = cfg.fetchFn ?? fetch;
   const url = `${cfg.baseUrl.replace(/\/$/, "")}/v1/compliance/data-designations:resolve`;
   const batch = async (caller: Principal, refs: readonly DataRef[]): Promise<ResolvedClass[]> => {
+    let auth: Record<string, string>;
+    try {
+      auth = await cfg.authHeaders(caller);
+    } catch (err) {
+      cfg.log?.("error", "data designation service credential unavailable, refs are UNKNOWN", { tenantId: caller.tenantId, refs: refs.length, error: err instanceof Error ? err.message : "unknown" });
+      return refs.map(unknown);
+    }
     try {
       const res = await fetchFn(url, {
         method: "POST",
-        headers: { "content-type": "application/json", ...(await cfg.authHeaders(caller)) },
+        headers: { "content-type": "application/json", ...auth },
         body: JSON.stringify({ refs }),
         signal: AbortSignal.timeout(cfg.timeoutMs ?? 5_000),
       });

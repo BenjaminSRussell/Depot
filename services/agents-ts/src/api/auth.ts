@@ -118,7 +118,8 @@ export async function verifyBearer(token: string, cfg: JwtConfig, keys: KeySet, 
   const tenantId = typeof claims["tid"] === "string" ? claims["tid"].trim().toLowerCase() : "";
   const userId = typeof claims["sub"] === "string" ? claims["sub"].trim().toLowerCase() : "";
   if (!isUuid(tenantId) || tenantId === NIL_UUID || !isUuid(userId)) throw unauthorized("the bearer token names no tenant and user");
-  return { tenantId, userId, duties: dutiesOf(claims["duties"]) };
+  const legalEntity = typeof claims["le"] === "string" ? claims["le"].trim().toLowerCase() : "";
+  return { tenantId, userId, duties: dutiesOf(claims["duties"]), ...(legalEntity !== "" ? { legalEntityId: legalEntity } : {}) };
 }
 
 /**

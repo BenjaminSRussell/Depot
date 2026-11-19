@@ -1309,6 +1309,8 @@
       {"resource": "/v1/compliance/data-designations/*/history", "methods": ["GET"]}
     ]},
     "cui.view": {"flag": true, "permissions": []},
+    "cui.policy.read": {"permissions": [{"resource": "/v1/compliance/need-to-know", "methods": ["GET"]}]},
+    "cui.policy.admin": {"permissions": [{"resource": "/v1/compliance/need-to-know", "methods": ["PUT"]}]},
     "receivables.balance-confirmation.run": {"permissions": [
       {"resource": "/v1/receivables/balance-confirmations", "methods": ["POST"]},
       {"resource": "/v1/receivables/balance-confirmations/*:reply", "methods": ["POST"]}
@@ -1418,6 +1420,7 @@
     ]},
     "mcp.copilot.use": {"permissions": [
       {"resource": "/api/v1/copilot/chat", "methods": ["POST"]},
+      {"resource": "/api/v1/agents/availability", "methods": ["GET"]},
       {"resource": "/api/v1/agents/copilot/conversations", "methods": ["POST"]},
       {"resource": "/api/v1/agents/copilot/conversations/*/messages", "methods": ["POST"]},
       {"resource": "/api/v1/knowledge/search", "methods": ["POST"]},
@@ -4148,6 +4151,7 @@
       {"resource": "/v1/privacy/holds/*", "methods": ["GET"]}
     ]},
     "compliance.legal-hold.check": {"service_only": true, "permissions": [{"resource": "/v1/privacy/holds:check", "methods": ["GET"]}]},
+    "compliance.data-designation.resolve": {"service_only": true, "permissions": [{"resource": "/v1/compliance/data-designations:resolve", "methods": ["POST"]}]},
     "compliance.erasure.request": {"permissions": [{"resource": "/v1/privacy/erasures", "methods": ["POST"]}]},
     "compliance.retention.read": {"permissions": [{"resource": "/v1/privacy/retention-policies", "methods": ["GET"]}]},
     "receiving.payee.erase": {"permissions": [{"resource": "/v1/receiving/one-time-payees:erase", "methods": ["POST"]}]},
@@ -4332,7 +4336,8 @@
       "agents": ["agents.run.workflow"]
     },
     "agents": {
-      "workflow-ts": ["agents.run.signal"]
+      "workflow-ts": ["agents.run.signal"],
+      "compliance": ["compliance.data-designation.resolve"]
     },
     "party": {
       "numbering": ["numbering.sequence.allocate"]

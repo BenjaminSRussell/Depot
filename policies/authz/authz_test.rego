@@ -3383,6 +3383,9 @@ test_agent_budget_duties_open_only_their_routes if {
 test_copilot_use_opens_the_streamed_conversation_routes_and_nothing_else_under_agents if {
 	allowed("mcp.copilot.use", "POST", "/api/v1/agents/copilot/conversations")
 	allowed("mcp.copilot.use", "POST", "/api/v1/agents/copilot/conversations/c1/messages")
+	allowed("mcp.copilot.use", "GET", "/api/v1/agents/availability")
+	not allowed("mcp.copilot.use", "POST", "/api/v1/agents/availability")
+	not allowed("agents.run.read", "GET", "/api/v1/agents/availability")
 	not allowed("mcp.copilot.use", "GET", "/api/v1/agents/copilot/conversations")
 	not allowed("mcp.copilot.use", "GET", "/api/v1/agents/copilot/conversations/c1/messages")
 	not allowed("mcp.copilot.use", "POST", "/api/v1/agents/copilot/conversations/c1/x/messages")
@@ -3802,6 +3805,20 @@ test_compliance_data_designation_duties if {
 	not allowed("compliance.audit-policy.maintain", "POST", "/v1/compliance/data-designations")
 }
 
+test_agents_service_resolves_designations_and_copilot_users_do_not_read_them if {
+	allowed("compliance.data-designation.resolve", "POST", "/v1/compliance/data-designations:resolve")
+	not allowed("compliance.data-designation.resolve", "GET", "/v1/compliance/data-designations")
+	not allowed("compliance.data-designation.resolve", "GET", "/v1/compliance/data-designations/d1")
+	not allowed("compliance.data-designation.resolve", "POST", "/v1/compliance/data-designations")
+	not allowed("compliance.data-designation.resolve", "PATCH", "/v1/compliance/data-designations/d1")
+	data.duties["compliance.data-designation.resolve"].service_only
+	data.service_grants.agents.compliance == ["compliance.data-designation.resolve"]
+	not allowed("mcp.copilot.use", "POST", "/v1/compliance/data-designations:resolve")
+	not allowed("mcp.copilot.use", "GET", "/v1/compliance/data-designations")
+	not allowed("mcp.copilot.use", "GET", "/v1/compliance/data-designations/d1")
+	not allowed("mcp.copilot.use", "GET", "/v1/compliance/data-designations/d1/history")
+}
+
 test_compliance_data_designation_change_and_history_duties if {
 	allowed("datadesignation.write", "PATCH", "/v1/compliance/data-designations/d1")
 	not allowed("datadesignation.read", "PATCH", "/v1/compliance/data-designations/d1")
@@ -3827,6 +3844,18 @@ test_designation_duties_do_not_hold_cui_view if {
 		with data.assignments as {"tenant-a": {"user-a": ["datadesignation.write", "datadesignation.read"]}}
 	not "cui.view" in held
 	held == {"datadesignation.write", "datadesignation.read"}
+}
+
+test_cui_need_to_know_policy_duties_split_read_and_admin if {
+	allowed("cui.policy.read", "GET", "/v1/compliance/need-to-know")
+	not allowed("cui.policy.read", "PUT", "/v1/compliance/need-to-know")
+	allowed("cui.policy.admin", "PUT", "/v1/compliance/need-to-know")
+	not allowed("cui.policy.admin", "GET", "/v1/compliance/need-to-know")
+	not allowed("datadesignation.write", "PUT", "/v1/compliance/need-to-know")
+	every duty in ["cui.policy.read", "cui.policy.admin"] {
+		not data.duties[duty].flag
+	}
+	not allowed("cui.policy.admin", "GET", "/v1/compliance/data-designations")
 }
 
 test_cui_view_is_grantable_per_legal_entity if {

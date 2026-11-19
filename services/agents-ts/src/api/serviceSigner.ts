@@ -11,13 +11,19 @@ export const SERVICE_NAME_SELF = "agents";
 export const WORKFLOW_AUDIENCE = "workflow-ts";
 export const DUTY_RUN_SIGNAL = "agents.run.signal";
 export const WORKFLOW_GRANT: readonly string[] = [DUTY_RUN_SIGNAL];
+export const COMPLIANCE_AUDIENCE = "compliance";
+export const DUTY_DESIGNATION_RESOLVE = "compliance.data-designation.resolve";
+export const COMPLIANCE_GRANT: readonly string[] = [DUTY_DESIGNATION_RESOLVE];
 
 const TOKEN_CONTEXT = "depot.service-token.v1.";
 const PKCS8_ED25519_PREFIX = Buffer.from("302e020100300506032b657004220420", "hex");
 const TTL_S = 60;
+const CANONICAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 
 export interface ServiceSigner {
   mintForWorkflow(subject: { tenantId: string; actor: string }): string;
+  mintForCompliance(subject: { tenantId: string; legalEntityId: string; actor: string }): string;
 }
 
 export function createServiceSigner(o: { seedBase64: string; keyId?: string; now?: () => number; newJti?: () => string }): ServiceSigner {
@@ -26,13 +32,22 @@ export function createServiceSigner(o: { seedBase64: string; keyId?: string; now
   const key = createPrivateKey({ key: Buffer.concat([PKCS8_ED25519_PREFIX, seed]), format: "der", type: "pkcs8" });
   const now = o.now ?? Date.now;
   const newJti = o.newJti ?? (() => randomBytes(16).toString("hex"));
+  const mint = (aud: string, duties: readonly string[], claims: { tid: string; act: string; le?: string }): string => {
+    const iat = Math.floor(now() / 1000);
+    const body = Buffer.from(
+      JSON.stringify({ iss: SERVICE_NAME_SELF, ...(o.keyId ? { kid: o.keyId } : {}), aud, tid: claims.tid, ...(claims.le ? { le: claims.le } : {}), act: claims.act, duties: [...duties], iat, exp: iat + TTL_S, jti: newJti() }),
+    ).toString("base64url");
+    return `${body}.${sign(null, Buffer.from(TOKEN_CONTEXT + body), key).toString("base64url")}`;
+  };
   return {
     mintForWorkflow({ tenantId, actor }) {
       if (!tenantId || !actor) throw new TypeError("a service token needs a tenant and the acting user");
-      const iat = Math.floor(now() / 1000);
-      const claims = { iss: SERVICE_NAME_SELF, ...(o.keyId ? { kid: o.keyId } : {}), aud: WORKFLOW_AUDIENCE, tid: tenantId, act: actor, duties: [...WORKFLOW_GRANT], iat, exp: iat + TTL_S, jti: newJti() };
-      const body = Buffer.from(JSON.stringify(claims)).toString("base64url");
-      return `${body}.${sign(null, Buffer.from(TOKEN_CONTEXT + body), key).toString("base64url")}`;
+      return mint(WORKFLOW_AUDIENCE, WORKFLOW_GRANT, { tid: tenantId, act: actor });
+    },
+    mintForCompliance({ tenantId, legalEntityId, actor }) {
+      if (!tenantId || !actor) throw new TypeError("a service token needs a tenant and the acting user");
+      if (!CANONICAL_UUID.test(legalEntityId) || legalEntityId === NIL_UUID) throw new TypeError("a compliance service token needs exactly one legal entity");
+      return mint(COMPLIANCE_AUDIENCE, COMPLIANCE_GRANT, { tid: tenantId, act: actor, le: legalEntityId });
     },
   };
 }

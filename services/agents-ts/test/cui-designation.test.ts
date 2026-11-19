@@ -12,7 +12,7 @@ function client(fetchFn: typeof fetch, extra: { timeoutMs?: number; log?: () => 
 }
 
 describe("the CUI designation client", () => {
-  it("returns the resolver's class and source per ref, sending the caller's credentials", async () => {
+  it("returns the resolver's class and source per ref, sending the credentials its auth callback built", async () => {
     const refs = [ref(1), ref(2)];
     const fetchFn = vi.fn(async () => json({ items: [{ ...refs[0], class: "CUI", source: "TENANT" }, { ...refs[1], class: "NONE", source: "DEFAULT" }] }));
     const out = await client(fetchFn as unknown as typeof fetch).resolve(caller, refs);
@@ -43,9 +43,13 @@ describe("the CUI designation client", () => {
     expect(out[0]?.class).toBe("UNKNOWN");
   });
 
-  it("answers UNKNOWN when the credentials cannot be built", async () => {
-    const failing = createDesignationClient({ baseUrl: "http://c", authHeaders: () => { throw new Error("no token"); }, fetchFn: vi.fn() as unknown as typeof fetch });
+  it("answers UNKNOWN, logs, and sends nothing when the credentials cannot be built", async () => {
+    const fetchFn = vi.fn();
+    const log = vi.fn();
+    const failing = createDesignationClient({ baseUrl: "http://c", authHeaders: () => { throw new Error("no token"); }, fetchFn: fetchFn as unknown as typeof fetch, log });
     expect((await failing.resolve(caller, [ref(1)]))[0]?.class).toBe("UNKNOWN");
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith("error", expect.stringContaining("credential unavailable"), expect.objectContaining({ tenantId: "t-1" }));
   });
 
   it("splits more than 500 refs into batches and keeps request order", async () => {
