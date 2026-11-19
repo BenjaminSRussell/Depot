@@ -49,6 +49,7 @@ export async function listTools(signal?: AbortSignal, fetchFn: typeof fetch = ap
   nextId += 1;
   const res = await fetchFn(MCP_PATH, {
     method: "POST",
+    cache: "no-store",
     headers: { "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: `catalog-${nextId}`, method: "tools/list" }),
     ...(signal ? { signal } : {}),
