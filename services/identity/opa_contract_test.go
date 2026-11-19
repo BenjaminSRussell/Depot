@@ -376,6 +376,9 @@ func TestDutyContractExpectations(t *testing.T) {
 		{duty: "party.vendor-bank.reveal", method: http.MethodGet, resource: "/v1/party/vendors/v1/bank-accounts:reveal", wantAllowed: true},
 		{duty: "party.write", method: http.MethodPost, resource: "/v1/party/vendors/v1/bank-accounts", wantDutyMissing: "party.vendor-bank.write"},
 		{duty: "party.vendor-bank.write", method: http.MethodPost, resource: "/v1/party/vendors/v1/bank-accounts", wantAllowed: true},
+		{duty: "datadesignation.marking.read", method: http.MethodPost, resource: "/v1/compliance/data-designations:resolve", wantAllowed: true},
+		{duty: "datadesignation.marking.read", method: http.MethodGet, resource: "/v1/compliance/data-designations", wantDutyMissing: "datadesignation.read"},
+		{duty: "datadesignation.marking.read", method: http.MethodGet, resource: "/v1/compliance/data-designations/d1/history", wantDutyMissing: "datadesignation.read"},
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s/%s %s", tt.duty, tt.method, tt.resource), func(t *testing.T) {

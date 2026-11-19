@@ -12,6 +12,7 @@
       "tier": "standard",
       "duties": [
         "audit.read",
+        "datadesignation.marking.read",
         "inbox.read",
         "identity.effective-permission.view",
         "identity.feature.maintain",
@@ -51,6 +52,7 @@
       "lastName": "Clerk",
       "tier": "standard",
       "duties": [
+        "datadesignation.marking.read",
         "identity.feature.view",
         "identity.setup.view",
         "identity.user-name.read",

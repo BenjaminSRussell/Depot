@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Alert,
@@ -6,16 +6,21 @@ import {
   Button,
   buttonClassName,
   Card,
-  DataTable,
+  DataMarking,
   EmptyState,
-  FormField,
+  ListPage,
   PageHeader,
-  Select,
+  showsMarking,
   Skeleton,
   StatGroup,
   StatTile,
-  type DataTableColumn,
+  usePagedRows,
+  type ListColumn,
+  type ListData,
+  type ListFilterDef,
+  type ListQuery,
 } from "../../shell/ui";
+import { useDesignation } from "../../shell/useDesignation";
 import {
   describeProblem,
   getProject,
@@ -115,7 +120,7 @@ export function ProjectsHome() {
   );
 }
 
-const columns: DataTableColumn<Project>[] = [
+const columns: ListColumn<Project>[] = [
   { key: "id", header: "Project", mono: true },
   { key: "projectType", header: "Type", render: (row) => typeLabel[row.projectType] },
   { key: "stage", header: "Stage", render: (row) => <StageBadge stage={row.stage} /> },
@@ -126,109 +131,42 @@ const columns: DataTableColumn<Project>[] = [
   { key: "endDate", header: "End", mono: true, render: (row) => row.endDate ?? dash },
 ];
 
+const listFilters: ListFilterDef[] = [
+  { kind: "select", key: "stage", label: "Stage", anyLabel: "Any stage", options: STAGES.map((s) => ({ value: s, label: stageLabel[s] })) },
+  { kind: "select", key: "projectType", label: "Project type", anyLabel: "Any type", options: PROJECT_TYPES.map((t) => ({ value: t, label: typeLabel[t] })) },
+];
+
+const projectDesignation = { entityType: "project", idOf: (row: Project) => row.id };
+
+function useProjectRows(query: ListQuery): ListData<Project> {
+  const stage = (query.filters.stage ?? "") as Stage | "";
+  const projectType = (query.filters.projectType ?? "") as ProjectType | "";
+  return usePagedRows(`${stage}|${projectType}`, (cursor, signal) => listProjects({ stage, projectType, cursor }, signal));
+}
+
 /** Projects list inquiry (PRD §8.41.14), filtered by stage and type, with "Load more" over the service cursor. */
 export function ProjectsListPage() {
   const navigate = useNavigate();
-  const [stage, setStage] = useState<Stage | "">("");
-  const [projectType, setProjectType] = useState<ProjectType | "">("");
-  const state = useLoad((signal) => listProjects({ stage, projectType }, signal), `${stage}|${projectType}`);
-  const [more, setMore] = useState<Project[]>([]);
-  const [cursor, setCursor] = useState<string | undefined>(undefined);
-  const [moreError, setMoreError] = useState<Problem | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
-
-  useEffect(() => {
-    setMore([]);
-    setMoreError(null);
-    setCursor(state.data?.nextCursor);
-  }, [state.data]);
-
-  async function loadMore() {
-    if (!cursor) return;
-    setLoadingMore(true);
-    setMoreError(null);
-    try {
-      const page = await listProjects({ stage, projectType, cursor });
-      setMore((rows) => [...rows, ...page.items]);
-      setCursor(page.nextCursor);
-    } catch (error) {
-      setMoreError(describeProblem(error));
-    } finally {
-      setLoadingMore(false);
-    }
-  }
-
-  const filtered = stage !== "" || projectType !== "";
-  const rows = [...(state.data?.items ?? []), ...more];
   return (
-    <div className={styles.stack}>
-      <PageHeader
-        title="All projects"
-        description="Every project in your legal entities, ordered by project id. Open a project to move it to another stage."
-        actions={
-          <Link className={buttonClassName("primary")} to="/projects/new">
-            New project
-          </Link>
-        }
-      />
-      <div className={styles.toolbar}>
-        <FormField id="projects-stage" label="Stage">
-          {(control) => (
-            <Select {...control} value={stage} onChange={(e) => setStage(e.target.value as Stage | "")}>
-              <option value="">Any stage</option>
-              {STAGES.map((s) => (
-                <option key={s} value={s}>
-                  {stageLabel[s]}
-                </option>
-              ))}
-            </Select>
-          )}
-        </FormField>
-        <FormField id="projects-type" label="Project type">
-          {(control) => (
-            <Select {...control} value={projectType} onChange={(e) => setProjectType(e.target.value as ProjectType | "")}>
-              <option value="">Any type</option>
-              {PROJECT_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {typeLabel[t]}
-                </option>
-              ))}
-            </Select>
-          )}
-        </FormField>
-      </div>
-      {state.error ? (
-        <Alert tone="danger" title="Could not load projects" live="alert" action={<Button size="sm" onClick={state.reload}>Try again</Button>}>
-          <ProblemMessage problem={state.error} />
-        </Alert>
-      ) : (
-        <DataTable
-          label="Projects"
-          columns={columns}
-          rows={rows}
-          getRowKey={(row) => row.id}
-          loading={state.loading}
-          empty={
-            filtered
-              ? { title: "No projects match these filters", description: "Choose another stage or project type." }
-              : { title: "No projects yet", description: "Projects you create appear here." }
-          }
-          onRowOpen={(row) => navigate(`/projects/${encodeURIComponent(row.id)}`)}
-        />
-      )}
-      {moreError ? (
-        <Alert tone="danger" title="Could not load more projects" live="alert">
-          <ProblemMessage problem={moreError} />
-        </Alert>
-      ) : null}
-      {cursor && !state.error ? (
-        <div className={styles.more}>
-          <Button onClick={loadMore} loading={loadingMore}>
-            Load more
-          </Button>
-        </div>
-      ) : null}
-    </div>
+    <ListPage
+      id="projects"
+      title="All projects"
+      description="Every project in your legal entities, ordered by project id. Open a project to move it to another stage."
+      actions={
+        <Link className={buttonClassName("primary")} to="/projects/new">
+          New project
+        </Link>
+      }
+      noun="projects"
+      singular="project"
+      columns={columns}
+      filters={listFilters}
+      useRows={useProjectRows}
+      getRowKey={(row) => row.id}
+      onRowOpen={(row) => navigate(`/projects/${encodeURIComponent(row.id)}`)}
+      designation={projectDesignation}
+      empty={{ title: "No projects yet", description: "Projects you create appear here." }}
+    />
   );
 }
 
@@ -244,6 +182,8 @@ export function moveText(from: Stage, to: Stage): string {
 export function ProjectDetailPage() {
   const { id = "" } = useParams();
   const state = useLoad((signal) => getProject(id, signal), id);
+  const designations = useDesignation([{ entityType: "project", recordId: id }]);
+  const marking = designations.markingOf({ entityType: "project", recordId: id });
   const [latest, setLatest] = useState<Project | null>(null);
   const [busy, setBusy] = useState<Stage | null>(null);
   const [failure, setFailure] = useState<Problem | null>(null);
@@ -331,7 +271,13 @@ export function ProjectDetailPage() {
     <div className={styles.stack}>
       <PageHeader
         title={`Project ${current.id}`}
-        meta={<StageBadge stage={current.stage} />}
+        meta={
+          <>
+            <StageBadge stage={current.stage} />
+            <DataMarking marking={marking} variant="badge" />
+          </>
+        }
+        description={showsMarking(marking) ? <DataMarking marking={marking} variant="banner" /> : undefined}
         actions={
           <>
             <Link className={buttonClassName("secondary")} to={`/projects/${encodeURIComponent(current.id)}/plans`}>

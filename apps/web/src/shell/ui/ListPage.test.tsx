@@ -666,6 +666,75 @@ describe("ListPage search box", () => {
 });
 
 
+describe("ListPage data designation", () => {
+  const designation = { entityType: "invoice", idOf: (row: Row) => row.id };
+  let resolveBodies: { refs: { entityType: string; recordId: string }[] }[];
+
+  function stubResolver(cuiIds: string[], status = 200) {
+    resolveBodies = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: string, init: RequestInit = {}) => {
+        const body = JSON.parse(init.body as string) as (typeof resolveBodies)[number];
+        resolveBodies.push(body);
+        const items = body.refs.map((r) => ({ ...r, class: cuiIds.includes(r.recordId) ? "CUI" : "NONE", source: "RECORD" }));
+        return new Response(JSON.stringify(status === 200 ? { items } : { code: "AUTH-0003" }), { status, headers: { "Content-Type": "application/json" } });
+      }),
+    );
+  }
+
+  it("adds no column, filter or resolver call without the prop", () => {
+    stubResolver([]);
+    renderList();
+    expect(screen.queryByRole("columnheader", { name: "Data designation" })).toBeNull();
+    expect(screen.queryByLabelText("Data designation")).toBeNull();
+    expect(resolveBodies).toHaveLength(0);
+  });
+
+  it("shows the column from one batch call for the whole page and keeps it out of sorting", async () => {
+    stubResolver(["2"]);
+    const { container } = renderList(memory(), { designation });
+    const table = screen.getByRole("table", { name: "Invoices" });
+    await waitFor(() => expect(within(table).getByText("CUI")).toBeInTheDocument());
+    expect(within(table).getAllByText("None")).toHaveLength(2);
+    expect(resolveBodies).toHaveLength(1);
+    expect(resolveBodies[0]!.refs.map((r) => r.recordId)).toEqual(["1", "2", "3"]);
+    expect(within(screen.getByRole("columnheader", { name: "Data designation" })).queryByRole("button")).toBeNull();
+    expect(pageViolations(container)).toEqual([]);
+  });
+
+  it("asks only for the new rows when another page loads, never per row", async () => {
+    stubResolver([]);
+    source = { rows: rows.slice(0, 2) };
+    const { rerender, tree } = renderList(memory(), { designation });
+    await waitFor(() => expect(resolveBodies).toHaveLength(1));
+    source = { rows };
+    rerender(tree());
+    await waitFor(() => expect(resolveBodies).toHaveLength(2));
+    expect(resolveBodies[1]!.refs.map((r) => r.recordId)).toEqual(["3"]);
+  });
+
+  it("filters the loaded rows to CUI and offers only All and CUI", async () => {
+    const user = userEvent.setup();
+    stubResolver(["2"]);
+    renderList(memory(), { designation });
+    await waitFor(() => expect(screen.getByText("CUI")).toBeInTheDocument());
+    const select = screen.getByLabelText("Data designation");
+    expect(within(select).getAllByRole("option").map((o) => o.textContent)).toEqual(["All", "CUI"]);
+    await user.selectOptions(select, "CUI");
+    await user.click(screen.getByRole("button", { name: "Apply filters" }));
+    expect(bodyNumbers()).toEqual(["INV-9"]);
+    expect(last().filters.designation).toBe("CUI");
+  });
+
+  it("keeps the rows and says the designation is unavailable when the resolver refuses", async () => {
+    stubResolver([], 403);
+    renderList(memory(), { designation });
+    expect((await screen.findAllByText("Designation unavailable")).length).toBe(3);
+    expect(bodyNumbers()).toEqual(["INV-10", "INV-9", "=EVIL()"]);
+  });
+});
+
 describe("loadedRows", () => {
   it("reads a 403 as no access, whichever way the client carries it", async () => {
     const { loadedRows, isForbidden } = await import("./ListPage");
