@@ -3364,6 +3364,18 @@ test_agent_run_duties_open_only_their_routes if {
 	not allowed("knowledge.write", "POST", "/api/v1/copilot/chat")
 }
 
+test_agent_budget_duties_open_only_their_routes if {
+	allowed("agentbudget.read", "GET", "/api/v1/agents/budgets")
+	not allowed("agentbudget.read", "PUT", "/api/v1/agents/budgets/ap_coding")
+	not allowed("agentbudget.read", "POST", "/api/v1/agents/budgets")
+	allowed("agentbudget.write", "PUT", "/api/v1/agents/budgets/ap_coding")
+	not allowed("agentbudget.write", "GET", "/api/v1/agents/budgets")
+	not allowed("agentbudget.write", "PUT", "/api/v1/agents/budgets")
+	not allowed("agentbudget.write", "PUT", "/api/v1/agents/budgets/ap_coding/x")
+	not allowed("agents.run.read", "GET", "/api/v1/agents/budgets")
+	not allowed("agents.invoke", "PUT", "/api/v1/agents/budgets/ap_coding")
+}
+
 test_copilot_use_opens_the_streamed_conversation_routes_and_nothing_else_under_agents if {
 	allowed("mcp.copilot.use", "POST", "/api/v1/agents/copilot/conversations")
 	allowed("mcp.copilot.use", "POST", "/api/v1/agents/copilot/conversations/c1/messages")

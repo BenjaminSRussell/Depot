@@ -6,7 +6,8 @@ info:
     PRD 9.47.5 endpoints for agent runs, approvals, kill switch, budgets and
     eval triggers. This build serves the kill switch (read and toggle), the
     approval decision, run start and run read, the copilot chat and, for runs
-    executed as workflows, the service-to-service run steps (src/api/router.ts). The budget, eval and promotion endpoints are not
+    executed as workflows, the service-to-service run steps (src/api/router.ts), and the budgets list and per-agent cap.
+    The definitions, availability, eval and promotion endpoints are not
     served yet; NOT-IMPLEMENTED.md lists them. Every route needs the
     caller's bearer token (Authorization: Bearer), which the runtime verifies
     itself (RS256, issuer, audience, expiry) and takes the tenant, user and
@@ -357,6 +358,58 @@ paths:
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/budgets:
+    get:
+      operationId: listAgentBudgets
+      summary: The tenant's and each agent's token cap, use and status this month (FR-47.11)
+      description: |
+        The tenant entry reads the same token_budget counters the run start
+        check and the budget hold read, so a HARD status here is the state in
+        which a new run is refused with AGT-0202. status is OK, SOFT at the
+        soft percent (default 80) or HARD at 100% of the cap in either
+        direction. An agent entry's cap is its newest PUT, else the tenant's
+        limits. costUsed is derived from tokens at the architecture's rates.
+      x-depot-duty: agentbudget.read
+      x-depot-approval: none
+      responses:
+        "200":
+          description: One entry for the tenant and one per registered agent.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/BudgetList"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/budgets/{agentId}:
+    put:
+      operationId: setAgentBudgetCap
+      summary: Set an agent's token cap (absolute, replay-safe)
+      description: |
+        Stores the cap and one agent_budget_change audit row with the
+        previous cap and the caller. Both limits are required non-negative
+        integers; anything else is 422 AGT-0422 naming the field. An unknown
+        agent is 404 AGT-0404. The cap is reported and audited; the run start
+        check enforces the tenant budget only.
+      x-depot-duty: agentbudget.write
+      x-depot-approval: none
+      parameters:
+        - {name: agentId, in: path, required: true, schema: {type: string, pattern: "^[a-z][a-z0-9_]{0,63}$"}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/BudgetCapCommand"}
+      responses:
+        "200":
+          description: The agent's entry with the new cap.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/BudgetEntry"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "413": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
 components:
   responses:
     Problem:
@@ -415,6 +468,39 @@ components:
         pendingApprovals:
           type: array
           items: {$ref: "#/components/schemas/PendingApproval"}
+    TokenPair:
+      type: object
+      required: [tokensIn, tokensOut]
+      properties:
+        tokensIn: {type: integer, minimum: 0}
+        tokensOut: {type: integer, minimum: 0}
+    BudgetEntry:
+      type: object
+      required: [scope, agentId, cap, tokensUsed, costUsed, percentConsumed, status]
+      properties:
+        scope: {type: string, enum: [TENANT, AGENT]}
+        agentId: {type: [string, "null"]}
+        cap: {$ref: "#/components/schemas/TokenPair"}
+        tokensUsed: {$ref: "#/components/schemas/TokenPair"}
+        costUsed: {type: string, pattern: "^[0-9]+\\.[0-9]{6}$"}
+        percentConsumed: {type: number, minimum: 0}
+        status: {type: string, enum: [OK, SOFT, HARD]}
+    BudgetList:
+      type: object
+      required: [month, tenant, agents]
+      properties:
+        month: {type: string, pattern: "^[0-9]{4}-(0[1-9]|1[0-2])$"}
+        tenant: {$ref: "#/components/schemas/BudgetEntry"}
+        agents:
+          type: array
+          items: {$ref: "#/components/schemas/BudgetEntry"}
+    BudgetCapCommand:
+      type: object
+      required: [limitIn, limitOut]
+      properties:
+        limitIn: {type: integer, minimum: 0}
+        limitOut: {type: integer, minimum: 0}
+      additionalProperties: false
     ChatResponse:
       type: object
       required: [answer, citations, toolCalls, refusal, generated]

@@ -4157,6 +4157,8 @@
       {"resource": "/api/v1/agents/runs/*", "methods": ["GET"]},
       {"resource": "/api/v1/agents/runs/*/actions", "methods": ["GET"]}
     ]},
+    "agentbudget.read": {"permissions": [{"resource": "/api/v1/agents/budgets", "methods": ["GET"]}]},
+    "agentbudget.write": {"permissions": [{"resource": "/api/v1/agents/budgets/*", "methods": ["PUT"]}]},
     "agents.run.signal": {"service_only": true, "permissions": [
       {"resource": "/v1/workflows/agent-runs/*:start", "methods": ["POST"]},
       {"resource": "/v1/workflows/agent-runs/*:approval-decided", "methods": ["POST"]}

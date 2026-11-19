@@ -7,6 +7,7 @@ import { createAgentsHandler, MAX_BODY_BYTES } from "../src/api/router.js";
 import { edgeHeaders, testAuthenticate } from "./jwt.js";
 import type { CopilotService } from "../src/runtime/copilot.js";
 import type { KnowledgeService } from "../src/runtime/knowledge.js";
+import type { AgentBudgetService } from "../src/api/agentBudgets.js";
 import type { RunService } from "../src/runtime/service.js";
 import type { AgentEvent } from "../src/domain/events.js";
 import { KillSwitchRegistry } from "../src/domain/killswitch.js";
@@ -184,6 +185,7 @@ function documentedOperations(): string[] {
 describe("api/openapi.yaml matches the router", () => {
   it("documents exactly the operations the router serves", async () => {
     expect(documentedOperations()).toEqual([
+      "GET /api/v1/agents/budgets",
       "GET /api/v1/agents/kill-switch",
       "GET /api/v1/agents/runs/{runId}",
       "GET /api/v1/agents/runs/{runId}/actions",
@@ -194,6 +196,7 @@ describe("api/openapi.yaml matches the router", () => {
       "POST /api/v1/copilot/chat",
       "POST /api/v1/knowledge/chunks",
       "POST /api/v1/knowledge/search",
+      "PUT /api/v1/agents/budgets/{agentId}",
     ]);
     const handler = createAgentsHandler({
       authenticate: testAuthenticate,
@@ -205,6 +208,7 @@ describe("api/openapi.yaml matches the router", () => {
       runs: {} as RunService,
       copilot: {} as CopilotService,
       knowledge: {} as KnowledgeService,
+      budgets: {} as AgentBudgetService,
       steps: { service: {} as never, verifier: { verify: () => { throw new Error("no"); } } },
     });
     const s = createServer((req, res) => void handler(req, res));
