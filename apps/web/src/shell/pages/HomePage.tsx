@@ -1,6 +1,11 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useOutletContext } from "react-router-dom";
 import { copy } from "../copy";
 import { DemoTour } from "../../demo/DemoTour";
+import { holdsDuty } from "../dutyGate";
+import { AssistantPrompt } from "../home/AssistantPrompt";
+import { ASSISTANT_DUTY, routePrompt } from "../home/assistantRouter";
+import homeStyles from "../home/home.module.css";
+import { usePrincipalDuties } from "../principal";
 import { useRecentPages } from "../recent";
 import { useTenantSettings } from "../tenant/TenantSettings";
 import { Alert, Badge, Button, Card, CardGrid, EmptyState, Icon, PageHeader } from "../ui";
@@ -59,53 +64,89 @@ function Recent() {
  */
 export function HomePage() {
   const { held, active, setActive } = useWorkspaceNav();
+  const navigate = useNavigate();
+  const announce = useOutletContext<((message: string) => void) | undefined>();
+  const assistant = holdsDuty(usePrincipalDuties(), ASSISTANT_DUTY);
   const ordered = (active ? [active, ...held.filter((w) => w.id !== active.id)] : held).slice(0, HOME_WORKSPACE_LIMIT);
+  const cards =
+    ordered.length === 0 ? (
+      <Card>
+        <EmptyState icon="grid" title={copy.home.emptyTitle} description={copy.home.emptyDescription} />
+      </Card>
+    ) : (
+      <CardGrid as="ul" label={assistant ? copy.home.browseTitle : copy.home.pageTitle}>
+        {ordered.map((w) => (
+          <li key={w.id} className={styles.cell}>
+            <Card>
+              <div className={styles.cardHead}>
+                <h3 className={styles.cardTitle}>{w.label}</h3>
+                {w.id === active?.id ? <Badge tone="neutral">{copy.home.current}</Badge> : null}
+              </div>
+              <p className={styles.cardDescription}>{w.description}</p>
+              {w.id === active?.id ? (
+                <ul className={styles.links} aria-label={`${w.label}: ${copy.home.topTasks}`}>
+                  {w.entries.slice(0, TOP_TASK_COUNT).map((n) => (
+                    <li key={n.to}>
+                      <Link to={n.to} className={styles.link}>
+                        <span>{n.label}</span>
+                        <Icon name="chevronRight" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <Button size="sm" onClick={() => setActive(w.id)} aria-label={copy.home.switchTo(w.label)}>
+                  {copy.home.switchTo(w.label)}
+                </Button>
+              )}
+            </Card>
+          </li>
+        ))}
+      </CardGrid>
+    );
+  const seeAll = (
+    <p>
+      <Link to={ALL_FEATURES_PATH}>{copy.home.seeAll}</Link>
+    </p>
+  );
+  const demoTour = import.meta.env.MODE === "demo" ? <DemoTour /> : null;
+  if (!assistant) {
+    return (
+      <>
+        <PageHeader title={copy.home.pageTitle} description={copy.home.description} />
+        {demoTour}
+        <SetupBanner />
+        <MyWorkSummary />
+        <WorkspaceKpis workspace={active} />
+        {cards}
+        <Recent />
+        {seeAll}
+      </>
+    );
+  }
   return (
     <>
       <PageHeader title={copy.home.pageTitle} description={copy.home.description} />
-      {import.meta.env.MODE === "demo" ? <DemoTour /> : null}
+      <AssistantPrompt
+        onSubmit={async (text) => {
+          announce?.(copy.home.assistantLoading);
+          const route = await routePrompt(text);
+          navigate(route.to, { state: route.state });
+        }}
+      />
+      {demoTour}
       <SetupBanner />
+      {/* TODO: E1-S5 fills the attention area; until then it shows My work and the workspace numbers. */}
       <MyWorkSummary />
       <WorkspaceKpis workspace={active} />
-      {ordered.length === 0 ? (
-        <Card>
-          <EmptyState icon="grid" title={copy.home.emptyTitle} description={copy.home.emptyDescription} />
-        </Card>
-      ) : (
-        <CardGrid as="ul" label={copy.home.pageTitle}>
-          {ordered.map((w) => (
-            <li key={w.id} className={styles.cell}>
-              <Card>
-                <div className={styles.cardHead}>
-                  <h3 className={styles.cardTitle}>{w.label}</h3>
-                  {w.id === active?.id ? <Badge tone="neutral">{copy.home.current}</Badge> : null}
-                </div>
-                <p className={styles.cardDescription}>{w.description}</p>
-                {w.id === active?.id ? (
-                  <ul className={styles.links} aria-label={`${w.label}: ${copy.home.topTasks}`}>
-                    {w.entries.slice(0, TOP_TASK_COUNT).map((n) => (
-                      <li key={n.to}>
-                        <Link to={n.to} className={styles.link}>
-                          <span>{n.label}</span>
-                          <Icon name="chevronRight" />
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <Button size="sm" onClick={() => setActive(w.id)} aria-label={copy.home.switchTo(w.label)}>
-                    {copy.home.switchTo(w.label)}
-                  </Button>
-                )}
-              </Card>
-            </li>
-          ))}
-        </CardGrid>
-      )}
+      <section aria-labelledby="home-browse-title" className={homeStyles.browse}>
+        <h2 id="home-browse-title" className={homeStyles.browseTitle}>
+          {copy.home.browseTitle}
+        </h2>
+        {cards}
+        {seeAll}
+      </section>
       <Recent />
-      <p>
-        <Link to={ALL_FEATURES_PATH}>{copy.home.seeAll}</Link>
-      </p>
     </>
   );
 }

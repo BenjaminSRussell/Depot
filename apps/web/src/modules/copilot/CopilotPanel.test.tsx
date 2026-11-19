@@ -47,6 +47,25 @@ describe("CopilotPanel", () => {
     expect(pageViolations()).toEqual([]);
   });
 
+  it("sends the initial message once in ask mode and shows the answer", async () => {
+    const ask = vi.fn(async () => answer);
+    render(<CopilotPanel ask={ask} initialMessage="  how is cash  " />);
+    expect(await screen.findByRole("article", { name: "Copilot answer" })).toHaveTextContent(answer.answer);
+    expect(ask).toHaveBeenCalledTimes(1);
+    expect(ask).toHaveBeenCalledWith({ mode: "ask", message: "how is cash" }, expect.any(Function));
+  });
+
+  it("sends nothing without an initial message and shows an alert when the initial message fails", async () => {
+    const quiet = vi.fn(async () => answer);
+    const { unmount } = render(<CopilotPanel ask={quiet} initialMessage="   " />);
+    expect(quiet).not.toHaveBeenCalled();
+    unmount();
+    const failing = vi.fn(async () => Promise.reject(new Error("Copilot is down.")));
+    render(<CopilotPanel ask={failing} initialMessage="hello" />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Copilot is down.");
+    expect(failing).toHaveBeenCalledTimes(1);
+  });
+
   it("switches mode with pressed state and sends the record context", async () => {
     const ask = vi.fn(async () => answer);
     render(<CopilotPanel ask={ask} recordRef="ledger.journal:JV-0042" />);
