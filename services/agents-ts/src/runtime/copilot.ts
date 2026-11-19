@@ -19,6 +19,7 @@ import { ProviderError, proposeTool } from "../providers/wire.js";
 import type { ModelEndpoint } from "../cloudprofile/index.js";
 import type { AuditPort, BudgetPort, KillSwitchPort, ModelUsage, RunRequest, RunResult } from "./engine.js";
 import type { AiPlan, AiRouter } from "./aiRouter.js";
+import { createEgressGuard, EGRESS_GUARD_TOOL, GUARD_REFUSAL_MESSAGE, highestClassOf, type DataClass, type EgressGuard, type GuardResult } from "./egressGuard.js";
 import type { McpConnector } from "./mcp.js";
 import type { KnowledgeService } from "./knowledge.js";
 
@@ -55,6 +56,7 @@ export interface ChatResponse {
   toolCalls: ChatToolCall[];
   refusal: { code: string; message: string } | null;
   excluded?: { count: number; kinds: string[]; reason: "NO_APPROVED_ROUTE" };
+  dataClass?: DataClass;
   /** Always true: generated text is labelled as such in the UI (FR-47.12). */
   generated: true;
 }
@@ -91,6 +93,7 @@ export interface CopilotDeps {
   modelId: string;
   /** The knowledge index. When set, `depot.knowledge.search` is a read tool of the copilot to everyone who may use the copilot. */
   knowledge?: KnowledgeService;
+  guard?: EgressGuard;
   now?: () => Date;
 }
 
@@ -123,6 +126,8 @@ function systemPrompt(mode: CopilotMode, tools: readonly string[]): string {
   return `${MODE_PROMPTS[mode]} Tools you may call: ${tools.join(", ")}. To call one, propose it with its arguments; you will receive its result and may call another. When you have enough, answer in plain language without proposing a tool. ${INJECTION_GUARD}`;
 }
 
+export const TYPED_REPLACED_NOTICE = "I replaced sensitive numbers in your message with placeholders before sending it to the AI model.";
+
 const clip = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n)}...` : s);
 
 /**
@@ -135,6 +140,7 @@ const clip = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n)}
  */
 export function createCopilotService(deps: CopilotDeps) {
   const now = deps.now ?? (() => new Date());
+  const guard = deps.guard ?? createEgressGuard();
   return {
     async chat(caller: Principal, token: string, req: ChatRequest, hooks: ChatHooks = {}): Promise<ChatResponse> {
       if (deps.killSwitch.isHalted(caller.tenantId)) throw new AgentError("AGT-0201", "agent runs are halted by the kill switch");
@@ -192,10 +198,13 @@ export function createCopilotService(deps: CopilotDeps) {
       let refused: ChatResponse["refusal"] = null;
       let settleSpend = true;
       let provider = plan.provider;
+      let routeId = plan.routeId;
+      let dataClass: DataClass = "P0";
+      let typedReplaced = 0;
       let withheldCount = 0;
       const withheldKinds = new Set<string>();
       const system = systemPrompt(req.mode, gate.allowed);
-      let context = pseudo.redact(prompt);
+      const results: string[] = [];
       const sink = hooks.onToken;
       const restorer = new StreamRestorer((text) => pseudo.restore(text));
       // Text is shown as it is written unless a knowledge result already makes the answer unanswerable.
@@ -221,8 +230,35 @@ export function createCopilotService(deps: CopilotDeps) {
         );
       };
 
+      const guardRow = (r: GuardResult): void => {
+        actions.push(
+          buildActionRecord({
+            runId,
+            seq: actions.length + 1,
+            toolName: EGRESS_GUARD_TOOL,
+            inputRedacted: "{}",
+            outputRedacted: JSON.stringify({ decision: r.decision, highestClass: r.highestClass }),
+            approverUserId: null,
+            decision: r.decision === "BLOCKED" ? "DENIED" : "AUTO",
+            decidedAt: now().toISOString(),
+            guardResult: r,
+            ...(r.errorCode !== undefined ? { reason: r.errorCode } : {}),
+          }),
+        );
+      };
+
       try {
         for (let turn = 0; turn < deps.config.maxTurns; turn += 1) {
+          const verdict = await guard.inspect({ tenantId: caller.tenantId, callId: randomUUID(), routeId, pseudo, system, typed: prompt, results });
+          guardRow(verdict.result);
+          dataClass = highestClassOf([dataClass, verdict.result.highestClass]);
+          if (verdict.result.decision === "BLOCKED") {
+            refused = { code: "AGT-0219", message: GUARD_REFUSAL_MESSAGE };
+            answer = refused.message;
+            break;
+          }
+          typedReplaced = Math.max(typedReplaced, verdict.typedReplaced);
+          const context = verdict.user;
           assertNoPii(context);
           const toolsText = JSON.stringify(proposeTool(gate.allowed));
           assertPromptWithinCap([system, context, toolsText], deps.config.tokenCap - usage.tokensIn);
@@ -267,7 +303,7 @@ export function createCopilotService(deps: CopilotDeps) {
             const denied = out.code === "AGT-0203";
             toolCalls.push({ tool: p.tool, status: denied ? "DENIED" : "ERROR", code: out.code });
             row(p.tool, p.args, { error: out.code }, denied ? "DENIED" : "AUTO");
-            context += `\n\nTool ${p.tool} failed with ${out.code}.`;
+            results.push(`Tool ${p.tool} failed with ${out.code}.`);
             if (denied) {
               refused = { code: "AGT-0203", message: out.message };
               answer = out.message;
@@ -287,14 +323,17 @@ export function createCopilotService(deps: CopilotDeps) {
           }
           if (shown === undefined) {
             row(p.tool, p.args, { withheld: "NO_APPROVED_ROUTE" }, "AUTO", "read");
-            context += `\n\nResult of ${p.tool} was withheld: its data has no approved AI route.`;
+            results.push(`Result of ${p.tool} was withheld: its data has no approved AI route.`);
             continue;
           }
           row(p.tool, p.args, shown, "AUTO", "read");
-          if (next !== undefined) provider = next.provider;
+          if (next !== undefined) {
+            provider = next.provider;
+            routeId = next.routeId;
+          }
           if (p.tool === KNOWLEDGE_SEARCH_TOOL) knowledge.push(...knowledgeCitations(out.output));
           else citations.push({ sourceType: "RECORD", sourceRef: out.ref ?? p.tool, label: p.tool });
-          context += `\n\nResult of ${p.tool}: ${pseudo.redact(clip(JSON.stringify(shown) ?? "null", 4000))}`;
+          results.push(`Result of ${p.tool}: ${clip(JSON.stringify(shown) ?? "null", 4000)}`);
         }
         if (refused === null && knowledge.length > 0) {
           const g = gateCitations(knowledge);
@@ -307,7 +346,8 @@ export function createCopilotService(deps: CopilotDeps) {
         }
         if (answer === "" && refused === null) answer = "I could not complete the answer within the tool-call limit.";
         const notice = withheldCount > 0 ? `\n\n${exclusionNotice([...withheldKinds], withheldCount)}` : "";
-        const display = (refused !== null ? answer : pseudo.restore(answer)) + notice;
+        const replacedNotice = typedReplaced > 0 ? `\n\n${TYPED_REPLACED_NOTICE}` : "";
+        const display = (refused !== null ? answer : pseudo.restore(answer)) + notice + replacedNotice;
         const result = finished(runId, "COMMITTED", actions, usage, display, provider.endpoint);
         await deps.store.finishRun(runReq, result);
         const out: ChatResponse = {
@@ -315,6 +355,7 @@ export function createCopilotService(deps: CopilotDeps) {
           citations,
           toolCalls,
           refusal: refused,
+          dataClass,
           ...(withheldCount > 0 ? { excluded: { count: withheldCount, kinds: [...withheldKinds], reason: "NO_APPROVED_ROUTE" as const } } : {}),
           generated: true,
         };

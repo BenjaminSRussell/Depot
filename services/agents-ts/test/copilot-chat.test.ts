@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { tokenFrames } from "../src/api/copilot.js";
 import { CopilotAnswerCache } from "../src/domain/copilot.js";
-import { createCopilotService } from "../src/runtime/copilot.js";
+import { createCopilotService, TYPED_REPLACED_NOTICE } from "../src/runtime/copilot.js";
+import { createEgressGuard, EGRESS_GUARD_TOOL, GUARD_REFUSAL_MESSAGE, type EgressGuard } from "../src/runtime/egressGuard.js";
 import type { ModelResponse } from "../src/runtime/engine.js";
 import { openRouter, REAL_IBAN, ScriptedProvider } from "./fakes.js";
 import { tokenFor } from "./jwt.js";
@@ -18,7 +19,7 @@ const call = (toolName: string, args: Record<string, unknown> = {}): ModelRespon
   usage: { tokensIn: 200, tokensOut: 10 },
 });
 
-const setup = async (script: ModelResponse[], mcp = new FakeMcp([tool(GET, "ap.invoice.read"), tool(LIST, "ap.vendor.read")], { [GET]: { ok: true, output: { id: "INV-7", total: "1200.00" }, ref: "INV-7" } }), killed = false) => {
+const setup = async (script: ModelResponse[], mcp = new FakeMcp([tool(GET, "ap.invoice.read"), tool(LIST, "ap.vendor.read")], { [GET]: { ok: true, output: { id: "INV-7", total: "1200.00" }, ref: "INV-7" } }), killed = false, guard?: EgressGuard) => {
   const store = new MemoryStore();
   const provider = new ScriptedProvider(script);
   const cache = new CopilotAnswerCache();
@@ -30,6 +31,7 @@ const setup = async (script: ModelResponse[], mcp = new FakeMcp([tool(GET, "ap.i
     cache,
     config: { tokenCap: 20_000, maxTurns: 3, pseudonymTtlMs: 60_000 },
     modelId: "claude-haiku-5-5",
+    ...(guard !== undefined ? { guard } : {}),
   });
   const srv = await serve({ approvals: store, copilot });
   return { store, provider, mcp, srv };
@@ -55,6 +57,7 @@ describe("POST /api/v1/copilot/chat", () => {
       citations: [{ sourceType: "RECORD", sourceRef: "INV-7", label: GET }],
       toolCalls: [{ tool: GET, status: "OK" }],
       refusal: null,
+      dataClass: "P0",
       generated: true,
     });
     expect(s.mcp.connects[0]).toMatchObject({ userId: USER, token: tokenFor(T1, USER, DUTIES) });
@@ -64,7 +67,9 @@ describe("POST /api/v1/copilot/chat", () => {
     expect(s.provider.seen[0]?.allowedTools).toEqual([GET, LIST]);
     const [run] = [...s.store.runs.values()];
     expect(run).toMatchObject({ agentId: "copilot", status: "COMMITTED", tokensIn: 300, tokensOut: 30 });
-    expect(s.store.actionRows.get(run?.runId ?? "")).toEqual([expect.objectContaining({ toolName: GET, decision: "AUTO", reason: "read" })]);
+    const rows = s.store.actionRows.get(run?.runId ?? "") ?? [];
+    expect(rows.filter((r) => r.toolName !== EGRESS_GUARD_TOOL)).toEqual([expect.objectContaining({ toolName: GET, decision: "AUTO", reason: "read" })]);
+    expect(rows.filter((r) => r.toolName === EGRESS_GUARD_TOOL)).toHaveLength(2);
     expect(s.store.reserved).toEqual([expect.objectContaining({ agentId: "copilot", tokensIn: 20_000 })]);
     expect(s.store.settled).toEqual([[300, 30]]);
   });
@@ -74,7 +79,7 @@ describe("POST /api/v1/copilot/chat", () => {
     close = s.srv.close;
     const res = await chat(s.srv.base, { mode: "ask", message: `What is open for IBAN ${REAL_IBAN}?` });
     const body = (await res.json()) as { answer: string };
-    expect(body.answer).toBe(`Pay to ${REAL_IBAN}.`);
+    expect(body.answer).toBe(`Pay to ${REAL_IBAN}.\n\n${TYPED_REPLACED_NOTICE}`);
     for (const seen of s.provider.seen) expect(seen.user).not.toContain(REAL_IBAN);
     expect(JSON.stringify([...s.store.actionRows.values()])).not.toContain(REAL_IBAN);
     // The tool itself is called with the real value (the user's own request).
@@ -90,7 +95,7 @@ describe("POST /api/v1/copilot/chat", () => {
     expect(body.toolCalls).toEqual([{ tool: "depot.ap.invoice.post", status: "DENIED", code: "AGT-0203" }]);
     expect(s.mcp.calls).toHaveLength(0);
     const [run] = [...s.store.runs.values()];
-    expect(s.store.actionRows.get(run?.runId ?? "")?.[0]).toMatchObject({ decision: "DENIED" });
+    expect(s.store.actionRows.get(run?.runId ?? "")?.find((r) => r.toolName === "depot.ap.invoice.post")).toMatchObject({ decision: "DENIED" });
   });
 
   it("offers a user only the tools whose duty they hold and refuses before any provider call when none remain", async () => {
@@ -172,6 +177,33 @@ describe("POST /api/v1/copilot/chat", () => {
     expect(res.status).toBe(500);
     const [run] = [...s.store.runs.values()];
     expect(run?.status).toBe("FAILED");
+  });
+});
+
+describe("egress guard on the chat", () => {
+  it("answers the standard refusal with no provider call and one BLOCKED guard row when the analyzer fails", async () => {
+    const guard = createEgressGuard({ analyzer: { scan: () => { throw new Error("analyzer down"); } } });
+    const s = await setup([answer("never sent")], undefined, false, guard);
+    close = s.srv.close;
+    const res = await chat(s.srv.base, { mode: "ask", message: "anything" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ answer: GUARD_REFUSAL_MESSAGE, refusal: { code: "AGT-0219", message: GUARD_REFUSAL_MESSAGE } });
+    expect(s.provider.seen).toHaveLength(0);
+    const [run] = [...s.store.runs.values()];
+    const rows = s.store.actionRows.get(run?.runId ?? "") ?? [];
+    expect(rows).toEqual([expect.objectContaining({ toolName: EGRESS_GUARD_TOOL, decision: "DENIED", guardResult: expect.objectContaining({ decision: "BLOCKED", errorCode: "ANALYZER_ERROR" }) })]);
+  });
+
+  it("tells the user sensitive numbers were replaced and keeps them out of the provider body", async () => {
+    const s = await setup([answer("Noted.")]);
+    close = s.srv.close;
+    const card = "4111 1111 1111 1111";
+    const res = await chat(s.srv.base, { mode: "ask", message: `Is card ${card} on file?` });
+    const body = (await res.json()) as { answer: string; dataClass: string };
+    expect(body.answer).toContain(TYPED_REPLACED_NOTICE);
+    expect(body.dataClass).toBe("P3");
+    expect(s.provider.seen[0]?.user).not.toContain("4111");
+    expect(s.provider.seen[0]?.user).toContain("[CARD-1]");
   });
 });
 

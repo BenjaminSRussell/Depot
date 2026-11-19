@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import pg from "pg";
 import type { ActionRecord, Decision } from "../domain/audit.js";
+import type { GuardResult } from "../runtime/egressGuard.js";
 import { budgetStatus, type BudgetState, type TokenBudget } from "../domain/budget.js";
 import { budgetThresholdEvent } from "../domain/events.js";
 import { enqueueOutbox } from "./outbox.js";
@@ -236,6 +237,7 @@ export interface ActionRow {
   declined_at: Date | null;
   declined_by: string | null;
   decline_reason: string | null;
+  guard_result: GuardResult | null;
 }
 
 export const rowToAction = (r: ActionRow): ActionRecord => ({
@@ -252,6 +254,7 @@ export const rowToAction = (r: ActionRow): ActionRecord => ({
   decidedAt: r.decided_at.toISOString(),
   committedEntityRef: r.committed_entity_ref,
   reason: r.reason,
+  ...(r.guard_result !== null && r.guard_result !== undefined ? { guardResult: r.guard_result } : {}),
   ...(r.declined_at !== null && r.declined_by !== null ? { declined: { by: r.declined_by, reason: r.decline_reason, at: r.declined_at.toISOString() } } : {}),
 });
 
@@ -278,11 +281,11 @@ const assertTokens = (what: string, n: number, min: number): void => {
 
 async function insertAction(c: pg.PoolClient, tenantId: string, runMonth: string, a: ActionRecord): Promise<void> {
   await c.query(
-    `insert into agent_action (tenant_id, run_id, run_month, seq, tool_name, input_json, output_hash, output_json, output_truncated, approver_user_id, decision, decided_at, committed_entity_ref, reason, action_id)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+    `insert into agent_action (tenant_id, run_id, run_month, seq, tool_name, input_json, output_hash, output_json, output_truncated, approver_user_id, decision, decided_at, committed_entity_ref, reason, guard_result, action_id)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb,
        coalesce((select action_id from approval_request where tenant_id = $1 and run_id = $2 and seq = $4), gen_random_uuid()))
      on conflict (tenant_id, run_id, seq, run_month) do nothing`,
-    [tenantId, a.runId, runMonth, a.seq, a.toolName, a.inputJson, a.outputHash, a.outputJson, a.outputTruncated, a.approverUserId, a.decision, a.decidedAt, a.committedEntityRef, a.reason],
+    [tenantId, a.runId, runMonth, a.seq, a.toolName, a.inputJson, a.outputHash, a.outputJson, a.outputTruncated, a.approverUserId, a.decision, a.decidedAt, a.committedEntityRef, a.reason, a.guardResult === undefined ? null : JSON.stringify(a.guardResult)],
   );
 }
 
