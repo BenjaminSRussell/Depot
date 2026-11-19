@@ -589,8 +589,16 @@ paths:
                   - {$ref: "#/components/schemas/ChatResponse"}
                   - {$ref: "#/components/schemas/RouteResponse"}
                   - {$ref: "#/components/schemas/RefusalResponse"}
+                  - {$ref: "#/components/schemas/ActProposalResponse"}
+                  - {$ref: "#/components/schemas/ActClarifyResponse"}
+                  - {$ref: "#/components/schemas/ActRefusalResponse"}
             text/event-stream:
-              schema: {type: string, description: "token frames, optionally one answer.withdrawn frame, then one done frame; never for mode=route"}
+              schema: {type: string, description: "token frames, optionally one answer.withdrawn frame, then one done frame; never for mode=route or mode=act"}
+        "202":
+          description: mode=act only. The run was started but no approval appeared within 30 seconds; refusal.code is AGT-0234 and the run view shows its progress.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ActPendingResponse"}
         "400": {$ref: "#/components/responses/Problem"}
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
@@ -937,12 +945,13 @@ components:
       properties:
         run:
           type: object
-          required: [runId, agentId, agentVersion, invokerUserId, status, tokensIn, tokensOut, estimated, createdAt]
+          required: [runId, agentId, agentVersion, invokerUserId, actor, status, tokensIn, tokensOut, estimated, createdAt]
           properties:
             runId: {type: string}
             agentId: {type: string}
             agentVersion: {type: integer}
             invokerUserId: {type: string}
+            actor: {type: string, description: "agent:<agentId>@user:<invokerUserId>"}
             status: {type: string, enum: [RUNNING, COMMITTED, REJECTED, FAILED, KILLED, FAILED_AFTER_COMMIT]}
             code: {type: string}
             reason: {type: string}
@@ -1074,6 +1083,79 @@ components:
           required: [code, message]
           properties:
             code: {type: string, description: "AGT-0201, AGT-0202, AGT-0206, AGT-0218, AGT-0219 or AGT-0220"}
+            message: {type: string}
+        generated: {type: boolean, enum: [true]}
+    ActProposal:
+      type: object
+      required: [tool, agent, summary, diff, amount, confidence, rationale, expiresAt]
+      properties:
+        tool: {type: string}
+        agent: {type: string}
+        summary: {type: string}
+        diff:
+          type: array
+          items:
+            type: object
+            required: [field, to]
+            properties:
+              field: {type: string}
+              to: {}
+        amount:
+          type: object
+          required: [currency]
+          properties:
+            amount: {type: string}
+            currency: {type: string}
+        confidence: {type: number, minimum: 0, maximum: 1}
+        rationale: {type: string}
+        expiresAt: {type: string, format: date-time}
+    ActProposalResponse:
+      type: object
+      required: [runId, approvalId, proposal, generated]
+      description: mode=act. A run was started and waits at the approval gate; no write call has been made.
+      properties:
+        runId: {type: string}
+        approvalId: {type: string}
+        proposal: {$ref: "#/components/schemas/ActProposal"}
+        generated: {type: boolean, enum: [true]}
+    ActClarifyResponse:
+      type: object
+      required: [clarifyingQuestion, generated]
+      description: mode=act. The request did not name enough to prepare a proposal; no run was started.
+      properties:
+        clarifyingQuestion: {type: string, minLength: 1}
+        generated: {type: boolean, enum: [true]}
+    ActRefusalResponse:
+      type: object
+      required: [refusal, generated]
+      description: mode=act. No run was started. A refusal for a request with no matching tool carries a navigate alternative.
+      properties:
+        refusal:
+          type: object
+          required: [code, message]
+          properties:
+            code: {type: string, description: "AGT-0201, AGT-0202, AGT-0203, AGT-0204, AGT-0218, AGT-0219, AGT-0220, AGT-0232, AGT-0233, AGT-0235 or AGT-0404"}
+            message: {type: string}
+        alternative:
+          type: object
+          required: [kind, route]
+          properties:
+            kind: {type: string, enum: [navigate]}
+            route: {$ref: "#/components/schemas/RouteResponse"}
+        generated: {type: boolean, enum: [true]}
+    ActPendingResponse:
+      type: object
+      required: [runId, agentId, agentVersion, status, refusal, generated]
+      properties:
+        runId: {type: string}
+        agentId: {type: string}
+        agentVersion: {type: integer, minimum: 1}
+        status: {type: string, enum: [RUNNING]}
+        refusal:
+          type: object
+          required: [code, message]
+          properties:
+            code: {type: string, enum: [AGT-0234]}
             message: {type: string}
         generated: {type: boolean, enum: [true]}
     KillSwitchCommand:

@@ -13,3 +13,15 @@ export function peekHandedOffPrompt(): string | undefined {
 export function clearHandedOffPrompt(): void {
   handedOff = undefined;
 }
+
+let handedOffFilter: string | undefined;
+
+export function handOffFeatureFilter(text: string): void {
+  handedOffFilter = text.trim() === "" ? undefined : text;
+}
+
+export function takeHandedOffFeatureFilter(): string | undefined {
+  const text = handedOffFilter;
+  handedOffFilter = undefined;
+  return text;
+}

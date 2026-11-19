@@ -45,6 +45,7 @@ interface Options {
   aiAccess?: ReturnType<typeof allowAiAccess>;
   now?: () => Date;
   workflow?: boolean;
+  disabled?: string[];
 }
 
 let cleanup: (() => Promise<void>) | undefined;
@@ -68,7 +69,7 @@ const setup = async (extract: ModelResponse[], proposed: ModelResponse[] = [], o
     store,
     inbox: store,
     killSwitch,
-    disabledAgents: async () => new Set(),
+    disabledAgents: async () => new Set(options.disabled ?? []),
     config: { runTokenCap: 50_000, selfApprovalLimit: { amount: "0", currency: "USD" }, pseudonymTtlMs: 60_000, approvalPollMs: 1 },
     sleep: () => new Promise((r) => setTimeout(r, 2)),
     spawn: (p) => spawned.push(p.catch(() => undefined)),
@@ -243,6 +244,15 @@ describe("mode=act refusals", () => {
     const missing = await setup([say(PAYMENT_PARAMS)], [], { agents: defaultCatalog("claude-sonnet-5-5").filter((a) => a.agentId !== "cash_app") });
     expect((await json(await missing.post({ mode: "act", ...PAYMENT_MESSAGE })))["refusal"]).toMatchObject({ code: "AGT-0404" });
     expect(missing.extractor.seen).toHaveLength(0);
+  });
+
+  it("refuses with the administrator message when the mapped agent is disabled, with no run and no approval", async () => {
+    const s = await setup([say(PAYMENT_PARAMS)], [], { disabled: ["cash_app"] });
+    const body = await json(await s.post({ mode: "act", ...PAYMENT_MESSAGE }));
+    expect(body["refusal"]).toEqual({ code: "AGT-0235", message: "This assistant has been turned off by your administrator." });
+    expect(body).not.toHaveProperty("runId");
+    expect(s.agentRuns()).toEqual([]);
+    expect(s.store.approvals.size).toBe(0);
   });
 
   it.each([

@@ -69,6 +69,7 @@ const REFUSALS: Readonly<Record<string, string>> = {
   "AGT-0219": GUARD_REFUSAL_MESSAGE,
   "AGT-0220": OUTPUT_GUARD_MESSAGE,
   "AGT-0232": GUARD_REFUSAL_MESSAGE,
+  "AGT-0235": "This assistant has been turned off by your administrator.",
 };
 const REFUSAL_FALLBACK = "The assistant could not prepare that request right now.";
 const NO_PROPOSAL_MESSAGE = "The proposal could not be prepared in time. Check the run before you try again.";
