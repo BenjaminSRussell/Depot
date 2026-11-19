@@ -3,7 +3,8 @@ import { createAnthropicProvider } from "./providers/anthropic.js";
 import { createBedrockProvider } from "./providers/bedrock.js";
 import { createOpenAICompatibleProvider } from "./providers/openai.js";
 import { createPhiGuard, parsePhiFields, type PhiGuard } from "./domain/phi.js";
-import type { Boundary } from "./domain/modelRoute.js";
+import { NO_ROUTE_MESSAGE, type Boundary } from "./domain/modelRoute.js";
+import { AgentError } from "./errors.js";
 import type { ModelProvider } from "./runtime/engine.js";
 
 /** The Claude models Depot defaults to; every one is overridable by configuration. */
@@ -35,8 +36,18 @@ export interface Config {
   killSwitchPollMs: number;
   /** Provider credentials and endpoints, read from the environment only. */
   anthropic: { apiKey: string; baseUrl: string | undefined };
-  openai: { apiKey: string; baseUrl: string; auth: "bearer" | "api-key"; apiVersion: string | undefined };
-  bedrock: { region: string; accessKeyId: string; secretAccessKey: string; sessionToken: string | undefined };
+  openai: {
+    apiKey: string;
+    baseUrl: string;
+    auth: "bearer" | "api-key";
+    apiVersion: string | undefined;
+  };
+  bedrock: {
+    region: string;
+    accessKeyId: string;
+    secretAccessKey: string;
+    sessionToken: string | undefined;
+  };
   /**
    * Azure region the model endpoint is hosted in (AGENTS_PROVIDER_REGION). A cloud profile that pins regions
    * (gcc, gcc-high, dod, eu-data-boundary) refuses an endpoint without one, and every run records it (#605).
@@ -45,7 +56,12 @@ export interface Config {
   /** Entity metadata fields tagged `phi`: text carrying a value under one of them is never sent to a model (#606). */
   phiFields: readonly string[];
   /** Caller authentication: the realm that signs the bearer tokens callers send (auth.ts). */
-  jwt: { issuer: string; audience: string; jwksUrl: string | undefined; jwksFile: string | undefined };
+  jwt: {
+    issuer: string;
+    audience: string;
+    jwksUrl: string | undefined;
+    jwksFile: string | undefined;
+  };
   /**
    * How runs execute (AGENTS_RUN_ENGINE). `temporal`: each run is a workflow (workflow-ts agentRunWorkflow) whose steps call
    * this service, so a run resumes after an approval across pod restarts (FR-47.4). `inprocess` (the default, for dev):
@@ -60,38 +76,59 @@ export interface Config {
   complianceUrl: string | undefined;
 }
 
-export function parseAddr(value: string, name: string): { host: string; port: number } {
+export function parseAddr(
+  value: string,
+  name: string,
+): { host: string; port: number } {
   const idx = value.lastIndexOf(":");
   if (idx === -1) throw new Error(`${name} must be host:port`);
   const host = value.slice(0, idx) || "0.0.0.0";
   const port = Number(value.slice(idx + 1));
-  if (!Number.isInteger(port) || port <= 0 || port > 65535) throw new Error(`${name} must end in a valid port`);
+  if (!Number.isInteger(port) || port <= 0 || port > 65535)
+    throw new Error(`${name} must end in a valid port`);
   return { host, port };
 }
 
-function positiveInt(env: NodeJS.ProcessEnv, key: string, fallback: number): number {
+function positiveInt(
+  env: NodeJS.ProcessEnv,
+  key: string,
+  fallback: number,
+): number {
   const raw = env[key];
   if (raw === undefined || raw === "") return fallback;
   const n = Number(raw);
-  if (!Number.isSafeInteger(n) || n < 1) throw new Error(`${key} must be a positive integer`);
+  if (!Number.isSafeInteger(n) || n < 1)
+    throw new Error(`${key} must be a positive integer`);
   return n;
 }
 
 function phiFile(path: string | undefined): string | undefined {
-  return path === undefined || path === "" ? undefined : readFileSync(path, "utf8");
+  return path === undefined || path === ""
+    ? undefined
+    : readFileSync(path, "utf8");
 }
 
 /**
  * The model settings that pin each agent definition (FR-47.10): the default model and the per-agent overrides. The
  * service and the eval recorder (cli/record-eval.ts) read the same ones, so both compute the same prompt hashes.
  */
-export function loadModelSettings(env: NodeJS.ProcessEnv): { model: string; agentModels: Record<string, string> } {
+export function loadModelSettings(env: NodeJS.ProcessEnv): {
+  model: string;
+  agentModels: Record<string, string>;
+} {
   let agentModels: Record<string, string> = {};
   const rawModels = env["AGENTS_MODEL_OVERRIDES"];
   if (rawModels !== undefined && rawModels !== "") {
     const parsed: unknown = JSON.parse(rawModels);
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed) || Object.values(parsed).some((v) => typeof v !== "string" || v === "")) {
-      throw new Error('AGENTS_MODEL_OVERRIDES must be a JSON object of agent id to model id, for example {"ap_coding":"claude-opus-5-5"}');
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed) ||
+      Object.values(parsed).some((v) => typeof v !== "string" || v === "")
+    ) {
+      throw new Error(
+        'AGENTS_MODEL_OVERRIDES must be a JSON object of agent id to model id, for example {"ap_coding":"claude-opus-5-5"}',
+      );
     }
     agentModels = parsed as Record<string, string>;
   }
@@ -101,45 +138,78 @@ export function loadModelSettings(env: NodeJS.ProcessEnv): { model: string; agen
 /** 12-factor config. Invalid or missing required settings are an error at startup, never a silent default. */
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
   const mcpUrl = env["MCP_URL"] ?? "";
-  if (!/^https?:\/\//.test(mcpUrl)) throw new Error("MCP_URL must be the MCP gateway's http(s) URL");
+  if (!/^https?:\/\//.test(mcpUrl))
+    throw new Error("MCP_URL must be the MCP gateway's http(s) URL");
   const http = parseAddr(env["HTTP_ADDR"] ?? "0.0.0.0:8080", "HTTP_ADDR");
   const admin = parseAddr(env["ADMIN_ADDR"] ?? "0.0.0.0:9090", "ADMIN_ADDR");
-  if (admin.port === http.port) throw new Error("ADMIN_ADDR must use a different port from HTTP_ADDR");
+  if (admin.port === http.port)
+    throw new Error("ADMIN_ADDR must use a different port from HTTP_ADDR");
   const provider = (env["AGENTS_PROVIDER"] ?? "anthropic") as ProviderId;
-  if (provider !== "anthropic" && provider !== "openai" && provider !== "bedrock") {
+  if (
+    provider !== "anthropic" &&
+    provider !== "openai" &&
+    provider !== "bedrock"
+  ) {
     throw new Error("AGENTS_PROVIDER must be anthropic, openai or bedrock");
   }
   const { model, agentModels } = loadModelSettings(env);
   if ((env["AGENTS_EVAL_PASSED"] ?? "") !== "") {
-    throw new Error("AGENTS_EVAL_PASSED is no longer read: record the eval pipeline's report with dist/cli/record-eval.js (eval_run)");
+    throw new Error(
+      "AGENTS_EVAL_PASSED is no longer read: record the eval pipeline's report with dist/cli/record-eval.js (eval_run)",
+    );
   }
   const limit = env["AGENTS_SELF_APPROVAL_LIMIT"] ?? "0";
-  if (!/^[0-9]+(\.[0-9]{1,6})?$/.test(limit)) throw new Error("AGENTS_SELF_APPROVAL_LIMIT must be a decimal amount");
+  if (!/^[0-9]+(\.[0-9]{1,6})?$/.test(limit))
+    throw new Error("AGENTS_SELF_APPROVAL_LIMIT must be a decimal amount");
   const currency = env["AGENTS_SELF_APPROVAL_CURRENCY"] ?? "USD";
-  if (!/^[A-Z]{3}$/.test(currency)) throw new Error("AGENTS_SELF_APPROVAL_CURRENCY must be an ISO 4217 code");
+  if (!/^[A-Z]{3}$/.test(currency))
+    throw new Error("AGENTS_SELF_APPROVAL_CURRENCY must be an ISO 4217 code");
   const expiry = env["AGENTS_APPROVAL_EXPIRY_H"];
-  const approvalExpiryHours = expiry === undefined || expiry === "" ? undefined : positiveInt(env, "AGENTS_APPROVAL_EXPIRY_H", 72);
-  if (approvalExpiryHours !== undefined && approvalExpiryHours > 240) throw new Error("AGENTS_APPROVAL_EXPIRY_H must be 1 to 240");
+  const approvalExpiryHours =
+    expiry === undefined || expiry === ""
+      ? undefined
+      : positiveInt(env, "AGENTS_APPROVAL_EXPIRY_H", 72);
+  if (approvalExpiryHours !== undefined && approvalExpiryHours > 240)
+    throw new Error("AGENTS_APPROVAL_EXPIRY_H must be 1 to 240");
   const killSwitchPollMs = positiveInt(env, "AGENTS_KILLSWITCH_POLL_MS", 1000);
-  if (killSwitchPollMs < 100 || killSwitchPollMs > 5000) throw new Error("AGENTS_KILLSWITCH_POLL_MS must be 100 to 5000: a pod fails closed after 10 s without a poll");
+  if (killSwitchPollMs < 100 || killSwitchPollMs > 5000)
+    throw new Error(
+      "AGENTS_KILLSWITCH_POLL_MS must be 100 to 5000: a pod fails closed after 10 s without a poll",
+    );
   const issuer = env["AGENTS_JWT_ISSUER"] ?? "";
-  if (!/^https?:\/\//.test(issuer)) throw new Error("AGENTS_JWT_ISSUER must be the issuer (realm URL) of the callers' bearer tokens");
+  if (!/^https?:\/\//.test(issuer))
+    throw new Error(
+      "AGENTS_JWT_ISSUER must be the issuer (realm URL) of the callers' bearer tokens",
+    );
   const jwksUrl = env["AGENTS_JWKS_URL"] || undefined;
   const jwksFile = env["AGENTS_JWKS_FILE"] || undefined;
-  if (jwksUrl === undefined && jwksFile === undefined) throw new Error("AGENTS_JWKS_URL or AGENTS_JWKS_FILE (the realm's signing keys) is required");
-  if (jwksUrl !== undefined && !/^https?:\/\//.test(jwksUrl)) throw new Error("AGENTS_JWKS_URL must be an http(s) URL");
+  if (jwksUrl === undefined && jwksFile === undefined)
+    throw new Error(
+      "AGENTS_JWKS_URL or AGENTS_JWKS_FILE (the realm's signing keys) is required",
+    );
+  if (jwksUrl !== undefined && !/^https?:\/\//.test(jwksUrl))
+    throw new Error("AGENTS_JWKS_URL must be an http(s) URL");
   const runEngine = env["AGENTS_RUN_ENGINE"] ?? "inprocess";
-  if (runEngine !== "inprocess" && runEngine !== "temporal") throw new Error("AGENTS_RUN_ENGINE must be inprocess or temporal");
+  if (runEngine !== "inprocess" && runEngine !== "temporal")
+    throw new Error("AGENTS_RUN_ENGINE must be inprocess or temporal");
   const workflowUrl = env["AGENTS_WORKFLOW_URL"] || undefined;
   const servicePublicKeys = env["DEPOT_SERVICE_PUBLIC_KEYS"] ?? "";
   if (runEngine === "temporal") {
-    if (workflowUrl === undefined || !/^https?:\/\//.test(workflowUrl)) throw new Error("AGENTS_WORKFLOW_URL must be workflow-ts's http(s) URL when AGENTS_RUN_ENGINE=temporal");
-    if (servicePublicKeys.trim() === "") throw new Error("DEPOT_SERVICE_PUBLIC_KEYS must hold workflow-ts's public key when AGENTS_RUN_ENGINE=temporal");
+    if (workflowUrl === undefined || !/^https?:\/\//.test(workflowUrl))
+      throw new Error(
+        "AGENTS_WORKFLOW_URL must be workflow-ts's http(s) URL when AGENTS_RUN_ENGINE=temporal",
+      );
+    if (servicePublicKeys.trim() === "")
+      throw new Error(
+        "DEPOT_SERVICE_PUBLIC_KEYS must hold workflow-ts's public key when AGENTS_RUN_ENGINE=temporal",
+      );
   }
   const boundary = env["AGENTS_BOUNDARY"] || "standard";
-  if (boundary !== "standard" && boundary !== "cui") throw new Error("AGENTS_BOUNDARY must be standard or cui");
+  if (boundary !== "standard" && boundary !== "cui")
+    throw new Error("AGENTS_BOUNDARY must be standard or cui");
   const complianceUrl = env["AGENTS_COMPLIANCE_URL"] || undefined;
-  if (complianceUrl !== undefined && !/^https?:\/\//.test(complianceUrl)) throw new Error("AGENTS_COMPLIANCE_URL must be an http(s) URL");
+  if (complianceUrl !== undefined && !/^https?:\/\//.test(complianceUrl))
+    throw new Error("AGENTS_COMPLIANCE_URL must be an http(s) URL");
   return {
     host: http.host,
     port: http.port,
@@ -157,7 +227,10 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     selfApprovalLimit: { amount: limit, currency },
     approvalExpiryHours,
     killSwitchPollMs,
-    anthropic: { apiKey: env["ANTHROPIC_API_KEY"] ?? "", baseUrl: env["ANTHROPIC_BASE_URL"] },
+    anthropic: {
+      apiKey: env["ANTHROPIC_API_KEY"] ?? "",
+      baseUrl: env["ANTHROPIC_BASE_URL"],
+    },
     openai: {
       apiKey: env["OPENAI_API_KEY"] ?? "",
       baseUrl: env["AGENTS_OPENAI_BASE_URL"] ?? "",
@@ -171,8 +244,16 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
       sessionToken: env["AWS_SESSION_TOKEN"],
     },
     providerRegion: env["AGENTS_PROVIDER_REGION"] || undefined,
-    phiFields: parsePhiFields(env["AGENTS_PHI_FIELDS"], phiFile(env["AGENTS_PHI_FIELDS_FILE"])),
-    jwt: { issuer, audience: env["AGENTS_JWT_AUDIENCE"] || "depot-api", jwksUrl, jwksFile },
+    phiFields: parsePhiFields(
+      env["AGENTS_PHI_FIELDS"],
+      phiFile(env["AGENTS_PHI_FIELDS_FILE"]),
+    ),
+    jwt: {
+      issuer,
+      audience: env["AGENTS_JWT_AUDIENCE"] || "depot-api",
+      jwksUrl,
+      jwksFile,
+    },
     runEngine,
     workflowUrl,
     servicePublicKeys,
@@ -181,15 +262,33 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
   };
 }
 
+export function createRunProviderFactory(
+  cfg: Config,
+  fetchFn?: typeof fetch,
+): (modelId: string) => ModelProvider {
+  const direct = createProviderFactory(cfg, fetchFn);
+  return (modelId) => {
+    if (cfg.boundary === "cui")
+      throw new AgentError("AGT-0218", NO_ROUTE_MESSAGE);
+    return direct(modelId);
+  };
+}
+
 /**
  * The provider factory: one adapter per model id, built on first use. A missing credential is an
  * error when the first run needs it, with the variable named and never its value. `fetchFn` lets a
  * test intercept every call, so no test reaches a real endpoint.
  */
-export function createProviderFactory(cfg: Config, fetchFn?: typeof fetch): (modelId: string) => ModelProvider {
+export function createProviderFactory(
+  cfg: Config,
+  fetchFn?: typeof fetch,
+): (modelId: string) => ModelProvider {
   const cache = new Map<string, ModelProvider>();
   const fetching = fetchFn !== undefined ? { fetchFn } : {};
-  const egress = cfg.providerRegion !== undefined ? { egress: { region: cfg.providerRegion } } : {};
+  const egress =
+    cfg.providerRegion !== undefined
+      ? { egress: { region: cfg.providerRegion } }
+      : {};
   const phi = createPhiGuard(cfg.phiFields);
   return (modelId) => {
     const hit = cache.get(modelId);
@@ -197,24 +296,44 @@ export function createProviderFactory(cfg: Config, fetchFn?: typeof fetch): (mod
     let made: ModelProvider;
     switch (cfg.provider) {
       case "anthropic":
-        if (cfg.anthropic.apiKey === "") throw new Error("ANTHROPIC_API_KEY is not set");
-        made = createAnthropicProvider({ apiKey: cfg.anthropic.apiKey, model: modelId, ...(cfg.anthropic.baseUrl !== undefined ? { baseUrl: cfg.anthropic.baseUrl } : {}), ...fetching, ...egress });
+        if (cfg.anthropic.apiKey === "")
+          throw new Error("ANTHROPIC_API_KEY is not set");
+        made = createAnthropicProvider({
+          apiKey: cfg.anthropic.apiKey,
+          model: modelId,
+          ...(cfg.anthropic.baseUrl !== undefined
+            ? { baseUrl: cfg.anthropic.baseUrl }
+            : {}),
+          ...fetching,
+          ...egress,
+        });
         break;
       case "openai":
-        if (cfg.openai.apiKey === "" || cfg.openai.baseUrl === "") throw new Error("OPENAI_API_KEY and AGENTS_OPENAI_BASE_URL must be set");
+        if (cfg.openai.apiKey === "" || cfg.openai.baseUrl === "")
+          throw new Error(
+            "OPENAI_API_KEY and AGENTS_OPENAI_BASE_URL must be set",
+          );
         made = createOpenAICompatibleProvider({
           baseUrl: cfg.openai.baseUrl,
           model: modelId,
           apiKey: cfg.openai.apiKey,
           auth: cfg.openai.auth,
-          ...(cfg.openai.apiVersion !== undefined ? { query: { "api-version": cfg.openai.apiVersion } } : {}),
+          ...(cfg.openai.apiVersion !== undefined
+            ? { query: { "api-version": cfg.openai.apiVersion } }
+            : {}),
           ...fetching,
           ...egress,
         });
         break;
       case "bedrock":
-        if (cfg.bedrock.region === "" || cfg.bedrock.accessKeyId === "" || cfg.bedrock.secretAccessKey === "") {
-          throw new Error("AWS_REGION, AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set");
+        if (
+          cfg.bedrock.region === "" ||
+          cfg.bedrock.accessKeyId === "" ||
+          cfg.bedrock.secretAccessKey === ""
+        ) {
+          throw new Error(
+            "AWS_REGION, AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set",
+          );
         }
         made = createBedrockProvider({
           region: cfg.bedrock.region,
@@ -222,7 +341,9 @@ export function createProviderFactory(cfg: Config, fetchFn?: typeof fetch): (mod
           credentials: {
             accessKeyId: cfg.bedrock.accessKeyId,
             secretAccessKey: cfg.bedrock.secretAccessKey,
-            ...(cfg.bedrock.sessionToken !== undefined ? { sessionToken: cfg.bedrock.sessionToken } : {}),
+            ...(cfg.bedrock.sessionToken !== undefined
+              ? { sessionToken: cfg.bedrock.sessionToken }
+              : {}),
           },
           ...fetching,
           ...egress,
@@ -240,7 +361,10 @@ export function createProviderFactory(cfg: Config, fetchFn?: typeof fetch): (mod
  * it covers every provider and every caller (agent runs and the copilot); the engine releases the budget hold for
  * this refusal because no model ran.
  */
-export function withPhiGuard(provider: ModelProvider, guard: PhiGuard): ModelProvider {
+export function withPhiGuard(
+  provider: ModelProvider,
+  guard: PhiGuard,
+): ModelProvider {
   if (guard.fields.length === 0) return provider;
   return {
     ...(provider.endpoint !== undefined ? { endpoint: provider.endpoint } : {}),

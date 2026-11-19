@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { agentCatalog } from "../src/main.js";
-import { createProviderFactory, loadConfig, MODEL_HAIKU, MODEL_OPUS, MODEL_SONNET } from "../src/config.js";
+import {
+  createProviderFactory,
+  createRunProviderFactory,
+  loadConfig,
+  MODEL_HAIKU,
+  MODEL_OPUS,
+  MODEL_SONNET,
+} from "../src/config.js";
 import { createMcpConnector } from "../src/runtime/mcp.js";
 import { createRequestHandler, Metrics, routeLabel } from "../src/server.js";
 import { createServer } from "node:http";
@@ -9,67 +16,174 @@ import { KillSwitchRegistry } from "../src/domain/killswitch.js";
 import { MemoryStore, USER, T1 } from "./surface-fakes.js";
 import { testAuthenticate } from "./jwt.js";
 
-const caller = { userId: USER, tenantId: T1, duties: new Set(["ap.invoice.read", "agents.invoke"]) };
-const rpcResult = (result: unknown): Response => new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result }), { status: 200 });
+const caller = {
+  userId: USER,
+  tenantId: T1,
+  duties: new Set(["ap.invoice.read", "agents.invoke"]),
+};
+const rpcResult = (result: unknown): Response =>
+  new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result }), {
+    status: 200,
+  });
 
 describe("MCP connector", () => {
   const listing = {
     tools: [
-      { name: "depot.ap.invoice.get", description: "d", inputSchema: {}, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true }, "x-depot-duty": "ap.invoice.read", "x-depot-approval": "none" },
+      {
+        name: "depot.ap.invoice.get",
+        description: "d",
+        inputSchema: {},
+        annotations: {
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+        },
+        "x-depot-duty": "ap.invoice.read",
+        "x-depot-approval": "none",
+      },
       { name: "bad", description: "no duty" },
     ],
   };
 
   it("lists the caller's tools and forwards the user's token and identity on every call, with no credentials of its own", async () => {
-    const seen: Array<{ url: string; headers: Record<string, string>; body: { method: string } }> = [];
+    const seen: Array<{
+      url: string;
+      headers: Record<string, string>;
+      body: { method: string };
+    }> = [];
     const fetchFn: typeof fetch = async (url, init) => {
       const body = JSON.parse(String(init?.body)) as { method: string };
-      seen.push({ url: String(url), headers: init?.headers as Record<string, string>, body });
+      seen.push({
+        url: String(url),
+        headers: init?.headers as Record<string, string>,
+        body,
+      });
       if (body.method === "tools/list") return rpcResult(listing);
-      return rpcResult({ content: [{ type: "text", text: JSON.stringify({ id: "INV-7" }) }], isError: false });
+      return rpcResult({
+        content: [{ type: "text", text: JSON.stringify({ id: "INV-7" }) }],
+        isError: false,
+      });
     };
-    const session = await createMcpConnector({ baseUrl: "http://mcp.internal/", fetchFn }).connect(caller, "tok-1", "run-9");
+    const session = await createMcpConnector({
+      baseUrl: "http://mcp.internal/",
+      fetchFn,
+    }).connect(caller, "tok-1", "run-9");
     expect(session.tools.map((t) => t.name)).toEqual(["depot.ap.invoice.get"]);
-    expect(session.describe("depot.ap.invoice.get")).toEqual({ requiredDuty: "ap.invoice.read", approvalMode: "none" });
+    expect(session.describe("depot.ap.invoice.get")).toEqual({
+      requiredDuty: "ap.invoice.read",
+      approvalMode: "none",
+    });
     expect(session.describe("bad")).toBeUndefined();
-    expect(await session.call("depot.ap.invoice.get", { invoiceId: "INV-7" })).toEqual({ ok: true, output: { id: "INV-7" }, ref: "INV-7" });
+    expect(
+      await session.call("depot.ap.invoice.get", { invoiceId: "INV-7" }),
+    ).toEqual({ ok: true, output: { id: "INV-7" }, ref: "INV-7" });
     for (const s of seen) {
       expect(s.url).toBe("http://mcp.internal/mcp");
-      expect(s.headers).toMatchObject({ authorization: "Bearer tok-1", "x-depot-tenant": T1, "x-depot-user": USER, "x-agent-run-id": "run-9" });
+      expect(s.headers).toMatchObject({
+        authorization: "Bearer tok-1",
+        "x-depot-tenant": T1,
+        "x-depot-user": USER,
+        "x-agent-run-id": "run-9",
+      });
     }
   });
 
   it("maps a forbidden call, a tool error and an unreachable gateway to failed results", async () => {
     const answers: Response[] = [
       rpcResult(listing),
-      new Response(JSON.stringify({ jsonrpc: "2.0", id: 2, error: { code: -32003, message: "no duty", data: { code: "AGT-0203" } } }), { status: 200 }),
-      rpcResult({ content: [{ type: "text", text: "AGT-0214: upstream said no" }], isError: true }),
+      new Response(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 2,
+          error: {
+            code: -32003,
+            message: "no duty",
+            data: { code: "AGT-0203" },
+          },
+        }),
+        { status: 200 },
+      ),
+      rpcResult({
+        content: [{ type: "text", text: "AGT-0214: upstream said no" }],
+        isError: true,
+      }),
     ];
-    const fetchFn: typeof fetch = async () => answers.shift() ?? Promise.reject(new Error("down"));
-    const session = await createMcpConnector({ baseUrl: "http://mcp", fetchFn }).connect(caller, "t");
-    expect(await session.call("depot.ap.invoice.get", {})).toEqual({ ok: false, code: "AGT-0203", message: "no duty" });
-    expect(await session.call("depot.ap.invoice.get", {})).toEqual({ ok: false, code: "AGT-0214", message: "upstream said no" });
-    expect(await session.call("depot.ap.invoice.get", {})).toMatchObject({ ok: false, code: "AGT-0214" });
+    const fetchFn: typeof fetch = async () =>
+      answers.shift() ?? Promise.reject(new Error("down"));
+    const session = await createMcpConnector({
+      baseUrl: "http://mcp",
+      fetchFn,
+    }).connect(caller, "t");
+    expect(await session.call("depot.ap.invoice.get", {})).toEqual({
+      ok: false,
+      code: "AGT-0203",
+      message: "no duty",
+    });
+    expect(await session.call("depot.ap.invoice.get", {})).toEqual({
+      ok: false,
+      code: "AGT-0214",
+      message: "upstream said no",
+    });
+    expect(await session.call("depot.ap.invoice.get", {})).toMatchObject({
+      ok: false,
+      code: "AGT-0214",
+    });
   });
 
   it("fails to connect when tools/list is refused", async () => {
-    const fetchFn: typeof fetch = async () => new Response("{}", { status: 401 });
-    await expect(createMcpConnector({ baseUrl: "http://mcp", fetchFn }).connect(caller, "t")).rejects.toThrow(/401/);
+    const fetchFn: typeof fetch = async () =>
+      new Response("{}", { status: 401 });
+    await expect(
+      createMcpConnector({ baseUrl: "http://mcp", fetchFn }).connect(
+        caller,
+        "t",
+      ),
+    ).rejects.toThrow(/401/);
   });
 });
 
 describe("config", () => {
-  const base = { MCP_URL: "http://mcp:8080", AGENTS_JWT_ISSUER: "https://idp.dev.depot.dev/realms/dev", AGENTS_JWKS_URL: "https://idp.dev.depot.dev/realms/dev/protocol/openid-connect/certs" };
+  const base = {
+    MCP_URL: "http://mcp:8080",
+    AGENTS_JWT_ISSUER: "https://idp.dev.depot.dev/realms/dev",
+    AGENTS_JWKS_URL:
+      "https://idp.dev.depot.dev/realms/dev/protocol/openid-connect/certs",
+  };
 
   it("defaults to the Claude Sonnet model on the Anthropic provider and keeps every model configurable", () => {
     const cfg = loadConfig(base);
-    expect([MODEL_OPUS, MODEL_SONNET, MODEL_HAIKU]).toEqual(["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]);
-    expect(cfg).toMatchObject({ provider: "anthropic", model: "claude-sonnet-5-5", copilotModel: "claude-sonnet-5-5", port: 8080, adminPort: 9090 });
-    expect(cfg.jwt).toEqual({ issuer: base.AGENTS_JWT_ISSUER, audience: "depot-api", jwksUrl: base.AGENTS_JWKS_URL, jwksFile: undefined });
-    const tuned = loadConfig({ ...base, AGENTS_MODEL: MODEL_OPUS, AGENTS_COPILOT_MODEL: MODEL_HAIKU, AGENTS_MODEL_OVERRIDES: `{"anomaly":"${MODEL_HAIKU}"}` });
+    expect([MODEL_OPUS, MODEL_SONNET, MODEL_HAIKU]).toEqual([
+      "claude-opus-5-5",
+      "claude-sonnet-5-5",
+      "claude-haiku-5-5",
+    ]);
+    expect(cfg).toMatchObject({
+      provider: "anthropic",
+      model: "claude-sonnet-5-5",
+      copilotModel: "claude-sonnet-5-5",
+      port: 8080,
+      adminPort: 9090,
+    });
+    expect(cfg.jwt).toEqual({
+      issuer: base.AGENTS_JWT_ISSUER,
+      audience: "depot-api",
+      jwksUrl: base.AGENTS_JWKS_URL,
+      jwksFile: undefined,
+    });
+    const tuned = loadConfig({
+      ...base,
+      AGENTS_MODEL: MODEL_OPUS,
+      AGENTS_COPILOT_MODEL: MODEL_HAIKU,
+      AGENTS_MODEL_OVERRIDES: `{"anomaly":"${MODEL_HAIKU}"}`,
+    });
     expect(tuned.copilotModel).toBe("claude-haiku-5-5");
-    const models = Object.fromEntries(agentCatalog(tuned).map((a) => [a.agentId, a.modelId]));
-    expect(models).toMatchObject({ ap_coding: "claude-opus-5-5", anomaly: "claude-haiku-5-5" });
+    const models = Object.fromEntries(
+      agentCatalog(tuned).map((a) => [a.agentId, a.modelId]),
+    );
+    expect(models).toMatchObject({
+      ap_coding: "claude-opus-5-5",
+      anomaly: "claude-haiku-5-5",
+    });
   });
 
   it.each([
@@ -80,8 +194,14 @@ describe("config", () => {
     [{ ...base, AGENTS_MODEL_OVERRIDES: "[1]" }, /AGENTS_MODEL_OVERRIDES/],
     [{ ...base, AGENTS_APPROVAL_EXPIRY_H: "500" }, /1 to 240/],
     [{ ...base, AGENTS_SELF_APPROVAL_LIMIT: "ten" }, /decimal/],
-    [{ MCP_URL: base.MCP_URL, AGENTS_JWKS_URL: base.AGENTS_JWKS_URL }, /AGENTS_JWT_ISSUER/],
-    [{ MCP_URL: base.MCP_URL, AGENTS_JWT_ISSUER: base.AGENTS_JWT_ISSUER }, /AGENTS_JWKS_URL or AGENTS_JWKS_FILE/],
+    [
+      { MCP_URL: base.MCP_URL, AGENTS_JWKS_URL: base.AGENTS_JWKS_URL },
+      /AGENTS_JWT_ISSUER/,
+    ],
+    [
+      { MCP_URL: base.MCP_URL, AGENTS_JWT_ISSUER: base.AGENTS_JWT_ISSUER },
+      /AGENTS_JWKS_URL or AGENTS_JWKS_FILE/,
+    ],
     [{ ...base, AGENTS_JWKS_URL: "file:///etc/keys" }, /AGENTS_JWKS_URL/],
     [{ ...base, AGENTS_KILLSWITCH_POLL_MS: "20000" }, /100 to 5000/],
     // Evals are persisted rows now (eval_run); the old list would be a silent second source of truth.
@@ -94,17 +214,52 @@ describe("config", () => {
     const calls: string[] = [];
     const fetchFn: typeof fetch = async (url) => {
       calls.push(String(url));
-      return new Response(JSON.stringify({ content: [{ type: "tool_use", name: "propose_action", input: { text: "hi" } }], usage: { input_tokens: 1, output_tokens: 1 } }), { status: 200 });
+      return new Response(
+        JSON.stringify({
+          content: [
+            { type: "tool_use", name: "propose_action", input: { text: "hi" } },
+          ],
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+        { status: 200 },
+      );
     };
-    const req = { system: "s", user: "u", allowedTools: ["depot.ap.invoice.get"] };
-    const anthropic = createProviderFactory(loadConfig({ ...base, ANTHROPIC_API_KEY: "sk-test-not-real" }), fetchFn);
+    const req = {
+      system: "s",
+      user: "u",
+      allowedTools: ["depot.ap.invoice.get"],
+    };
+    const anthropic = createProviderFactory(
+      loadConfig({ ...base, ANTHROPIC_API_KEY: "sk-test-not-real" }),
+      fetchFn,
+    );
     expect((await anthropic("claude-haiku-5-5").complete(req)).text).toBe("hi");
     expect(calls).toEqual(["https://api.anthropic.com/v1/messages"]);
-    expect(() => createProviderFactory(loadConfig(base))(MODEL_SONNET)).toThrow("ANTHROPIC_API_KEY is not set");
-    expect(() => createProviderFactory(loadConfig({ ...base, AGENTS_PROVIDER: "openai" }))("m")).toThrow(/OPENAI_API_KEY/);
-    expect(() => createProviderFactory(loadConfig({ ...base, AGENTS_PROVIDER: "bedrock" }))("m")).toThrow(/AWS_REGION/);
-    const bedrock = createProviderFactory(loadConfig({ ...base, AGENTS_PROVIDER: "bedrock", AWS_REGION: "us-east-1", AWS_ACCESS_KEY_ID: "AKIATEST", AWS_SECRET_ACCESS_KEY: "secret" }));
-    expect(bedrock("anthropic.claude-sonnet-5-5-v1:0")).toBe(bedrock("anthropic.claude-sonnet-5-5-v1:0"));
+    expect(() => createProviderFactory(loadConfig(base))(MODEL_SONNET)).toThrow(
+      "ANTHROPIC_API_KEY is not set",
+    );
+    expect(() =>
+      createProviderFactory(loadConfig({ ...base, AGENTS_PROVIDER: "openai" }))(
+        "m",
+      ),
+    ).toThrow(/OPENAI_API_KEY/);
+    expect(() =>
+      createProviderFactory(
+        loadConfig({ ...base, AGENTS_PROVIDER: "bedrock" }),
+      )("m"),
+    ).toThrow(/AWS_REGION/);
+    const bedrock = createProviderFactory(
+      loadConfig({
+        ...base,
+        AGENTS_PROVIDER: "bedrock",
+        AWS_REGION: "us-east-1",
+        AWS_ACCESS_KEY_ID: "AKIATEST",
+        AWS_SECRET_ACCESS_KEY: "secret",
+      }),
+    );
+    expect(bedrock("anthropic.claude-sonnet-5-5-v1:0")).toBe(
+      bedrock("anthropic.claude-sonnet-5-5-v1:0"),
+    );
   });
 });
 
@@ -114,7 +269,13 @@ describe("server wiring", () => {
     const metrics = new Metrics();
     let ready = true;
     const handler = createRequestHandler({
-      api: { authenticate: testAuthenticate, registry: new KillSwitchRegistry(() => Date.now()), versions: { next: () => 1 }, approvals: store, publish: async () => undefined },
+      api: {
+        authenticate: testAuthenticate,
+        registry: new KillSwitchRegistry(() => Date.now()),
+        versions: { next: () => 1 },
+        approvals: store,
+        publish: async () => undefined,
+      },
       metrics,
       ready: async () => ready,
     });
@@ -125,13 +286,44 @@ describe("server wiring", () => {
     expect((await fetch(`${base}/readyz`)).status).toBe(200);
     ready = false;
     expect((await fetch(`${base}/readyz`)).status).toBe(503);
-    expect((await fetch(`${base}/api/v1/unknown/${"x".repeat(50)}`)).status).toBe(404);
+    expect(
+      (await fetch(`${base}/api/v1/unknown/${"x".repeat(50)}`)).status,
+    ).toBe(404);
     await new Promise<void>((r) => server.close(() => r()));
     const text = metrics.render();
-    expect(text).toContain('agents_http_requests_total{route="healthz",status="200"} 1');
-    expect(text).toContain('agents_http_requests_total{route="readyz",status="503"} 1');
-    expect(text).toContain('agents_http_requests_total{route="other",status="404"} 1');
+    expect(text).toContain(
+      'agents_http_requests_total{route="healthz",status="200"} 1',
+    );
+    expect(text).toContain(
+      'agents_http_requests_total{route="readyz",status="503"} 1',
+    );
+    expect(text).toContain(
+      'agents_http_requests_total{route="other",status="404"} 1',
+    );
     expect(routeLabel("/api/v1/agents/ap_coding/runs")).toBe("start-run");
     expect(routeLabel("/api/v1/agents/runs/abc/actions")).toBe("run");
+  });
+});
+
+describe("agent runs in the cui boundary", () => {
+  const env = {
+    MCP_URL: "http://mcp",
+    AGENTS_JWT_ISSUER: "http://idp",
+    AGENTS_JWKS_FILE: "/k.json",
+    ANTHROPIC_API_KEY: "k",
+  };
+
+  it("refuses every run provider with AGT-0218 and never builds the configured one", () => {
+    const providerFor = createRunProviderFactory(
+      loadConfig({ ...env, AGENTS_BOUNDARY: "cui" }),
+    );
+    expect(() => providerFor(MODEL_SONNET)).toThrow(/AGT-0218/);
+  });
+
+  it("builds the configured provider in the standard boundary", () => {
+    const providerFor = createRunProviderFactory(
+      loadConfig({ ...env, AGENTS_BOUNDARY: "standard" }),
+    );
+    expect(providerFor(MODEL_SONNET)).toBeDefined();
   });
 });
