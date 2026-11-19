@@ -9,6 +9,7 @@ import { parseChunks, parseSearch, type KnowledgeService } from "../runtime/know
 import type { RunService } from "../runtime/service.js";
 import { handleChat } from "./copilot.js";
 import type { AgentBudgetService } from "./agentBudgets.js";
+import { type AiPolicyStore, handleGetAiDataPolicy, handlePutAiDataPolicy } from "./aiDataPolicy.js";
 import type { Authenticate } from "./auth.js";
 import { ApiError, requireDuty, toApiError } from "./principal.js";
 import { bearerToken, handleGetRun, handleListActions, handleStartRun } from "./runs.js";
@@ -31,6 +32,8 @@ export interface AgentsApiBase {
   knowledge?: KnowledgeService;
   /** The budgets list and per-agent cap routes; absent and they answer 404. */
   budgets?: AgentBudgetService;
+  /** The tenant AI data policy; absent and its route answers 404. */
+  aiPolicy?: AiPolicyStore;
   now?: () => Date;
   /** The run-step routes workflow-ts calls (AGENTS_RUN_ENGINE=temporal); absent and they answer 404. */
   steps?: { service: RunSteps; verifier: ServiceTokenVerifier };
@@ -38,6 +41,7 @@ export interface AgentsApiBase {
 
 const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 const KILL_PATH = "/api/v1/agents/kill-switch";
+const AI_POLICY_PATH = "/api/v1/agents/ai-data-policy";
 const START_PATH = /^\/api\/v1\/agents\/([a-z][a-z0-9_]{0,63})\/runs$/;
 const RUN_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})$`);
 const ACTIONS_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/actions$`);
@@ -66,12 +70,17 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
   }
 }
 
-function send(res: ServerResponse, status: number, body: unknown): void {
+function headerValue(raw: string | string[] | undefined): string | undefined {
+  return Array.isArray(raw) ? raw[0] : raw;
+}
+
+function send(res: ServerResponse, status: number, body: unknown, extra: Record<string, string> = {}): void {
   const payload = JSON.stringify(body);
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
     "content-length": Buffer.byteLength(payload).toString(),
+    ...extra,
   });
   res.end(payload);
 }
@@ -83,8 +92,10 @@ const TITLES: Readonly<Record<number, string>> = {
   404: "Not Found",
   405: "Method Not Allowed",
   409: "Conflict",
+  412: "Precondition Failed",
   413: "Content Too Large",
   422: "Unprocessable Content",
+  428: "Precondition Required",
   500: "Internal Server Error",
   503: "Service Unavailable",
 };
@@ -179,6 +190,17 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
           ...("log" in deps ? { log: deps.log } : { versions: deps.versions, publish: deps.publish }),
         });
         send(res, 200, out.body);
+        return;
+      }
+      if (path === AI_POLICY_PATH) {
+        if (deps.aiPolicy === undefined) throw new ApiError(404, "AGT-0404", "no such route");
+        if (req.method !== "GET" && req.method !== "PUT") throw new MethodNotAllowed("GET, PUT");
+        const principal = await deps.authenticate(req.headers);
+        const policy =
+          req.method === "GET"
+            ? await handleGetAiDataPolicy({ principal, store: deps.aiPolicy })
+            : await handlePutAiDataPolicy({ principal, ifMatch: headerValue(req.headers["if-match"]), body: await readBody(req), store: deps.aiPolicy, now });
+        send(res, 200, policy, { etag: `"${policy.version}"` });
         return;
       }
       if (path === CHAT_PATH) {

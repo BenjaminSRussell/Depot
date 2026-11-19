@@ -3,6 +3,7 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ApprovalRequest, RecordedDecision } from "../src/api/decision.js";
+import type { AiPolicyStore } from "../src/api/aiDataPolicy.js";
 import { createAgentsHandler, MAX_BODY_BYTES } from "../src/api/router.js";
 import { edgeHeaders, testAuthenticate } from "./jwt.js";
 import type { CopilotService } from "../src/runtime/copilot.js";
@@ -185,6 +186,7 @@ function documentedOperations(): string[] {
 describe("api/openapi.yaml matches the router", () => {
   it("documents exactly the operations the router serves", async () => {
     expect(documentedOperations()).toEqual([
+      "GET /api/v1/agents/ai-data-policy",
       "GET /api/v1/agents/budgets",
       "GET /api/v1/agents/kill-switch",
       "GET /api/v1/agents/runs/{runId}",
@@ -196,6 +198,7 @@ describe("api/openapi.yaml matches the router", () => {
       "POST /api/v1/copilot/chat",
       "POST /api/v1/knowledge/chunks",
       "POST /api/v1/knowledge/search",
+      "PUT /api/v1/agents/ai-data-policy",
       "PUT /api/v1/agents/budgets/{agentId}",
     ]);
     const handler = createAgentsHandler({
@@ -209,6 +212,7 @@ describe("api/openapi.yaml matches the router", () => {
       copilot: {} as CopilotService,
       knowledge: {} as KnowledgeService,
       budgets: {} as AgentBudgetService,
+      aiPolicy: {} as AiPolicyStore,
       steps: { service: {} as never, verifier: { verify: () => { throw new Error("no"); } } },
     });
     const s = createServer((req, res) => void handler(req, res));

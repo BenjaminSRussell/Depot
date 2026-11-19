@@ -47,6 +47,12 @@ channels:
     messages:
       killSwitchChanged:
         $ref: "#/components/messages/KillSwitchChanged"
+  aiPolicyChanged:
+    address: depot.agent.aipolicy
+    description: Outbox relay topic for changes to a tenant's AI data policy.
+    messages:
+      aiPolicyChanged:
+        $ref: "#/components/messages/AiPolicyChanged"
 operations:
   publishRunCompleted:
     action: send
@@ -76,6 +82,13 @@ operations:
     summary: Written with the toggle and its version in one transaction (src/store/killswitch.ts).
     messages:
       - $ref: "#/channels/killSwitchChanged/messages/killSwitchChanged"
+  publishAiPolicyChanged:
+    action: send
+    channel:
+      $ref: "#/channels/aiPolicyChanged"
+    summary: Written with the policy change row in one transaction (src/store/aiDataPolicy.ts).
+    messages:
+      - $ref: "#/channels/aiPolicyChanged/messages/aiPolicyChanged"
 components:
   messages:
     RunCompleted:
@@ -102,6 +115,12 @@ components:
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/KillSwitchChangedData"
+    AiPolicyChanged:
+      name: dev.depot.agent.aipolicy.changed.v1
+      summary: A tenant's AI data policy changed
+      contentType: application/cloudevents+json
+      payload:
+        $ref: "#/components/schemas/AiPolicyChangedData"
   schemas:
     PlannedEventTypes:
       type: string
@@ -111,6 +130,7 @@ components:
         - dev.depot.agent.approval.requested.v1
         - dev.depot.agent.budget.threshold.v1
         - dev.depot.agent.killswitch.changed.v1
+        - dev.depot.agent.aipolicy.changed.v1
         - dev.depot.agent.version.promoted.v1
     RunCompletedData:
       type: object
@@ -174,4 +194,16 @@ components:
         active: { type: boolean }
         by_user: { type: string, format: uuid }
         version: { type: integer, minimum: 1 }
+        changed_at: { type: string, format: date-time }
+    AiPolicyChangedData:
+      type: object
+      description: One change to a tenant's AI data policy. Carries no cell values and no reason text; read the policy for those.
+      required: [tenant_id, legal_entity_id, version, loosening, by_user, changed_at]
+      additionalProperties: false
+      properties:
+        tenant_id: { type: string, format: uuid }
+        legal_entity_id: { type: [string, "null"], format: uuid }
+        version: { type: integer, minimum: 2 }
+        loosening: { type: boolean }
+        by_user: { type: string, format: uuid }
         changed_at: { type: string, format: date-time }

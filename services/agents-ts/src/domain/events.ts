@@ -10,6 +10,7 @@ export const AGENT_EVENT_TYPES = {
   approvalRequested: "dev.depot.agent.approval.requested.v1",
   budgetThreshold: "dev.depot.agent.budget.threshold.v1",
   killSwitchChanged: "dev.depot.agent.killswitch.changed.v1",
+  aiPolicyChanged: "dev.depot.agent.aipolicy.changed.v1",
 } as const;
 
 /** What the outbox receives: the type, the tenant the envelope is addressed to, and the data. */
@@ -127,6 +128,37 @@ export function killSwitchChangedEvent(change: KillSwitchChange, envelopeTenantI
       by_user: change.byUser,
       version: change.version,
       changed_at: change.changedAt,
+    },
+  };
+}
+
+export interface AiPolicyChangedData {
+  tenant_id: string;
+  legal_entity_id: string | null;
+  version: number;
+  loosening: boolean;
+  by_user: string;
+  changed_at: string;
+}
+
+export function aiPolicyChangedEvent(input: {
+  tenantId: string;
+  version: number;
+  loosening: boolean;
+  byUser: string;
+  changedAt: string;
+}): AgentEvent<AiPolicyChangedData> {
+  if (!UUID.test(input.tenantId)) throw new Error("tenantId must be a tenant id");
+  return {
+    type: AGENT_EVENT_TYPES.aiPolicyChanged,
+    tenantId: input.tenantId,
+    data: {
+      tenant_id: input.tenantId,
+      legal_entity_id: null,
+      version: input.version,
+      loosening: input.loosening,
+      by_user: input.byUser,
+      changed_at: input.changedAt,
     },
   };
 }
