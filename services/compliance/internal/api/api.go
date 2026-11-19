@@ -84,6 +84,7 @@ type Store interface {
 	ListAuditPolicies(ctx context.Context, f store.AuditPolicyFilter) ([]store.AuditPolicy, error)
 	UpdateAuditPolicy(ctx context.Context, id string, expected int, in store.AuditPolicyPatch, now time.Time) (store.AuditPolicy, error)
 	Designate(ctx context.Context, in store.DesignationInput, key string, now time.Time) (store.Designation, error)
+	Resolve(ctx context.Context, refs []store.ResolveRef) ([]store.ResolvedRef, error)
 }
 
 // Config carries the tenant policies the service reads from its environment
@@ -101,6 +102,7 @@ type Config struct {
 	ScreeningThreshold     float64
 	LicenseCheck           string
 	Boundary               domain.Boundary
+	Owner                  OwnerLookup
 	Keys                   *fieldcrypt.Keys
 }
 

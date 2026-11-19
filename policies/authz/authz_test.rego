@@ -3762,6 +3762,9 @@ test_compliance_audit_policy_master_duties if {
 test_compliance_data_designation_duties if {
 	allowed("datadesignation.write", "POST", "/v1/compliance/data-designations")
 	not allowed("datadesignation.write", "GET", "/v1/compliance/data-designations")
+	allowed("datadesignation.read", "POST", "/v1/compliance/data-designations:resolve")
+	not allowed("datadesignation.read", "POST", "/v1/compliance/data-designations")
+	not allowed("datadesignation.write", "POST", "/v1/compliance/data-designations:resolve")
 	not allowed("datadesignation.write", "POST", "/v1/compliance/audit-policies")
 	not allowed("compliance.audit-policy.maintain", "POST", "/v1/compliance/data-designations")
 }

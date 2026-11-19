@@ -11,11 +11,27 @@ const (
 	ScopeLegalEntity = "LEGAL_ENTITY"
 	ScopeRecord      = "RECORD"
 
-	ClassCUI = "CUI"
+	ClassCUI     = "CUI"
+	ClassNONE    = "NONE"
+	ClassUNKNOWN = "UNKNOWN"
 
-	CodeCUIBoundary = "COM-1301"
+	SourceDefault     = "DEFAULT"
+	SourceTenant      = "TENANT"
+	SourceLegalEntity = "LEGAL_ENTITY"
+	SourceRecord      = "RECORD"
+	SourceUnresolved  = "UNRESOLVED"
+
+	EntityProject = "project"
+
+	CodeCUIBoundary      = "COM-1301"
+	CodeTooManyRefs      = "COM-1303"
+	CodeOwnerUnavailable = "COM-1304"
+	CodeRecordNotFound   = "COM-1305"
 
 	DutyDataDesignationWrite = "datadesignation.write"
+	DutyDataDesignationRead  = "datadesignation.read"
+
+	MaxResolveRefs = 500
 
 	MaxDesignationReason   = 500
 	MaxDesignationCategory = 100
@@ -41,4 +57,23 @@ func ParseBoundary(v string) (Boundary, error) {
 func ValidDesignationReason(reason string) bool {
 	n := utf8.RuneCountInString(strings.TrimSpace(reason))
 	return n >= 1 && n <= MaxDesignationReason
+}
+
+var SupportedEntityTypes = map[string]bool{EntityProject: true}
+
+func ParseEntityType(v string) (string, bool) {
+	v = strings.ToLower(strings.TrimSpace(v))
+	return v, SupportedEntityTypes[v]
+}
+
+func Effective(tenantCUI, legalEntityCUI, recordCUI bool) (class, source string) {
+	switch {
+	case recordCUI:
+		return ClassCUI, SourceRecord
+	case legalEntityCUI:
+		return ClassCUI, SourceLegalEntity
+	case tenantCUI:
+		return ClassCUI, SourceTenant
+	}
+	return ClassNONE, SourceDefault
 }

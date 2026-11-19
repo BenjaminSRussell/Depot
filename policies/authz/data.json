@@ -1298,6 +1298,7 @@
     ]},
     "compliance.audit-policy.run": {"permissions": [{"resource": "/v1/compliance/audit-policies:evaluate", "methods": ["POST"]}, {"resource": "/v1/compliance/audit-policies", "methods": ["GET"]}, {"resource": "/v1/compliance/audit-policies/*", "methods": ["GET"]}]},
     "datadesignation.write": {"permissions": [{"resource": "/v1/compliance/data-designations", "methods": ["POST"]}]},
+    "datadesignation.read": {"permissions": [{"resource": "/v1/compliance/data-designations:resolve", "methods": ["POST"]}, {"resource": "/v1/compliance/data-designations", "methods": ["GET"]}]},
     "receivables.balance-confirmation.run": {"permissions": [
       {"resource": "/v1/receivables/balance-confirmations", "methods": ["POST"]},
       {"resource": "/v1/receivables/balance-confirmations/*:reply", "methods": ["POST"]}
@@ -4244,6 +4245,9 @@
     },
     "projects": {
       "ledger": ["ledger.entry.post", "ledger.balance.read"]
+    },
+    "compliance": {
+      "projects": ["projects.inquire"]
     },
     "engineering": {
       "audit": ["audit.write"]

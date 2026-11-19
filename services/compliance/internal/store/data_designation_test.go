@@ -163,12 +163,15 @@ func TestDesignate_RejectsInvalidInput(t *testing.T) {
 	tenantID, le := ids.New(), ids.New()
 	ctx := asEntity(tenantID, le, ids.New(), domain.DutyDataDesignationWrite)
 	for name, in := range map[string]DesignationInput{
-		"class not CUI":            {Scope: domain.ScopeLegalEntity, LegalEntityID: le, Class: "P3", Reason: "r"},
-		"record scope":             {Scope: domain.ScopeRecord, LegalEntityID: le, Class: domain.ClassCUI, Reason: "r"},
-		"legal entity missing":     {Scope: domain.ScopeLegalEntity, Class: domain.ClassCUI, Reason: "r"},
-		"nil legal entity":         {Scope: domain.ScopeLegalEntity, LegalEntityID: ids.Nil, Class: domain.ClassCUI, Reason: "r"},
-		"empty reason":             {Scope: domain.ScopeLegalEntity, LegalEntityID: le, Class: domain.ClassCUI, Reason: "  "},
-		"legal entity on a tenant": {Scope: domain.ScopeTenant, LegalEntityID: le, Class: domain.ClassCUI, Reason: "r"},
+		"class not CUI":                     {Scope: domain.ScopeLegalEntity, LegalEntityID: le, Class: "P3", Reason: "r"},
+		"record scope without a record":     {Scope: domain.ScopeRecord, LegalEntityID: le, Class: domain.ClassCUI, Reason: "r"},
+		"record scope unsupported type":     {Scope: domain.ScopeRecord, LegalEntityID: le, EntityType: "contract", RecordID: ids.New(), Class: domain.ClassCUI, Reason: "r"},
+		"record scope without legal entity": {Scope: domain.ScopeRecord, EntityType: "project", RecordID: ids.New(), Class: domain.ClassCUI, Reason: "r"},
+		"record id on a tenant":             {Scope: domain.ScopeTenant, EntityType: "project", RecordID: ids.New(), Class: domain.ClassCUI, Reason: "r"},
+		"legal entity missing":              {Scope: domain.ScopeLegalEntity, Class: domain.ClassCUI, Reason: "r"},
+		"nil legal entity":                  {Scope: domain.ScopeLegalEntity, LegalEntityID: ids.Nil, Class: domain.ClassCUI, Reason: "r"},
+		"empty reason":                      {Scope: domain.ScopeLegalEntity, LegalEntityID: le, Class: domain.ClassCUI, Reason: "  "},
+		"legal entity on a tenant":          {Scope: domain.ScopeTenant, LegalEntityID: le, Class: domain.ClassCUI, Reason: "r"},
 	} {
 		if _, err := s.Designate(ctx, in, "k", t0); code(err) != "COM-0002" {
 			t.Errorf("%s: %v", name, err)
@@ -208,5 +211,95 @@ func TestDesignate_CategoryLimitCountsCharactersNotBytes(t *testing.T) {
 	in.Category += "я"
 	if _, err := s.Designate(ctx, in, "k-over", t0); code(err) != "COM-0002" {
 		t.Fatalf("101-rune category: %v", err)
+	}
+}
+
+func recordInput(le, record string) DesignationInput {
+	in := designationInput(domain.ScopeRecord, le)
+	in.EntityType, in.RecordID = domain.EntityProject, record
+	return in
+}
+
+func TestDesignate_RecordScopeStoresTheRecordAndRejectsADuplicate(t *testing.T) {
+	s, admin := migrated(t)
+	tenantID, le, record := ids.New(), ids.New(), ids.New()
+	ctx := asEntity(tenantID, le, ids.New(), domain.DutyDataDesignationWrite)
+	d, err := s.Designate(ctx, recordInput(le, strings.ToUpper(record)), "k-1", t0)
+	if err != nil || d.Scope != domain.ScopeRecord || d.EntityType != domain.EntityProject || d.RecordID != record || d.LegalEntityID != le {
+		t.Fatalf("designate %+v %v", d, err)
+	}
+	if _, err := s.Designate(ctx, recordInput(le, record), "k-2", t0); code(err) != CodeDesignationDupe {
+		t.Fatalf("second designation of the same record: %v", err)
+	}
+	if n := countRows(t, admin, "data_designation") + countRows(t, admin, "audit_event"); n != 2 {
+		t.Fatalf("rows after the duplicate: %d", n)
+	}
+}
+
+func TestResolve_MostRestrictiveScopeWinsAndTenantsAreIsolated(t *testing.T) {
+	s, _ := migrated(t)
+	tenantID, le, otherLE := ids.New(), ids.New(), ids.New()
+	designated, inDesignatedEntity, inOtherEntity := ids.New(), ids.New(), ids.New()
+	caller := asEntity(tenantID, le+","+otherLE, ids.New(), domain.DutyDataDesignationWrite)
+	refs := []ResolveRef{
+		{domain.EntityProject, designated, otherLE},
+		{domain.EntityProject, inDesignatedEntity, le},
+		{domain.EntityProject, inOtherEntity, otherLE},
+	}
+	none, err := s.Resolve(caller, refs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range none {
+		if r.Class != domain.ClassNONE || r.Source != domain.SourceDefault {
+			t.Fatalf("undesignated: %+v", r)
+		}
+	}
+	if _, err := s.Designate(caller, recordInput(otherLE, designated), "k-1", t0); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Designate(caller, designationInput(domain.ScopeLegalEntity, le), "k-2", t0); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Resolve(caller, refs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := [][2]string{{domain.ClassCUI, domain.SourceRecord}, {domain.ClassCUI, domain.SourceLegalEntity}, {domain.ClassNONE, domain.SourceDefault}}
+	for i, r := range got {
+		if r.Class != want[i][0] || r.Source != want[i][1] || r.RecordID != refs[i].RecordID {
+			t.Errorf("ref %d: %+v, want %v", i, r, want[i])
+		}
+	}
+	foreign, err := s.Resolve(asEntity(ids.New(), le+","+otherLE, ids.New()), refs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range foreign {
+		if r.Class != domain.ClassNONE {
+			t.Fatalf("another tenant's answer was changed by this tenant's designations: %+v", r)
+		}
+	}
+	if _, err := s.Designate(asEntity(tenantID, "", ids.New(), tenantAdminDuty, domain.DutyDataDesignationWrite), designationInput(domain.ScopeTenant, ""), "k-3", t0); err != nil {
+		t.Fatal(err)
+	}
+	tenantWide, err := s.Resolve(caller, refs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := tenantWide[2]; r.Class != domain.ClassCUI || r.Source != domain.SourceTenant {
+		t.Fatalf("a tenant designation reaches every record: %+v", r)
+	}
+}
+
+func TestResolve_ACallerOutsideTheLegalEntityDoesNotSeeItsDesignations(t *testing.T) {
+	s, _ := migrated(t)
+	tenantID, le, other, record := ids.New(), ids.New(), ids.New(), ids.New()
+	if _, err := s.Designate(asEntity(tenantID, le, ids.New(), domain.DutyDataDesignationWrite), recordInput(le, record), "k-1", t0); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Resolve(asEntity(tenantID, other, ids.New()), []ResolveRef{{domain.EntityProject, record, le}})
+	if err != nil || got[0].Class != domain.ClassNONE {
+		t.Fatalf("RLS must hide another entity's record designation from the resolver: %+v %v", got, err)
 	}
 }

@@ -63,7 +63,15 @@ func TestConfigReadsTenantPolicies(t *testing.T) {
 	if err != nil || cfg.Boundary != domain.BoundaryCUI {
 		t.Fatalf("cui boundary: %q %v", cfg.Boundary, err)
 	}
-	for _, bad := range []map[string]string{{"COMPLIANCE_BOUNDARY": "CUI"}, {"COMPLIANCE_BOUNDARY": "gov"}, {"SOD_BLOCK_HIGH": "no"}, {"SOD_MAX_MITIGATION_DAYS": "731"}, {"SOD_MAX_MITIGATION_DAYS": "x"},
+	if cfg.Owner != nil {
+		t.Fatalf("no PROJECTS_URL must leave the owner lookup unset: %+v", cfg.Owner)
+	}
+	cfg, err = config(env(map[string]string{"PROJECTS_URL": "http://projects:8080", "DEPOT_SERVICE_NAME": "compliance",
+		"DEPOT_SERVICE_SIGNING_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}))
+	if err != nil || cfg.Owner == nil {
+		t.Fatalf("owner lookup from PROJECTS_URL: %+v %v", cfg.Owner, err)
+	}
+	for _, bad := range []map[string]string{{"PROJECTS_URL": "http://projects:8080"}, {"COMPLIANCE_BOUNDARY": "CUI"}, {"COMPLIANCE_BOUNDARY": "gov"}, {"SOD_BLOCK_HIGH": "no"}, {"SOD_MAX_MITIGATION_DAYS": "731"}, {"SOD_MAX_MITIGATION_DAYS": "x"},
 		{"AUDIT_CASE_ARCHIVE_DAYS": "29"}, {"BREAKGLASS_MAX_MINUTES": "241"}, {"BREAKGLASS_SELF_ACTIVATE": "yes"}, {"BREAKGLASS_REVIEW_DAYS": "0"},
 		{"SCREENING_THRESHOLD": "0.5"}, {"SCREENING_THRESHOLD": "high"}, {"TRADE_LICENSE_CHECK": "block"}} {
 		if _, err := config(env(bad)); err == nil {
