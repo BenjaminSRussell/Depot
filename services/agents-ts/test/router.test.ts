@@ -212,6 +212,8 @@ describe("api/openapi.yaml matches the router", () => {
       "GET /api/v1/agents/runs/{runId}/actions",
       "POST /api/v1/agents/briefings/{id}:mark-read",
       "POST /api/v1/agents/briefings:generate",
+      "POST /api/v1/agents/copilot/conversations",
+      "POST /api/v1/agents/copilot/conversations/{conversationId}/messages",
       "POST /api/v1/agents/kill-switch",
       "POST /api/v1/agents/runs/{runId}/actions/{actionId}/decision",
       "POST /api/v1/agents/runs/{runId}/actions/{actionId}:undo",
@@ -245,7 +247,7 @@ describe("api/openapi.yaml matches the router", () => {
       const base = `http://127.0.0.1:${(s.address() as AddressInfo).port}`;
       for (const op of documentedOperations()) {
         const [method, template] = op.split(" ") as [string, string];
-        const url = template.replace("{runId}", RUN).replace("{id}", RUN).replace("{actionId}", ACT).replace("{agentId}", "ap_coding").replace("{step}", "plan");
+        const url = template.replace("{runId}", RUN).replace("{id}", RUN).replace("{actionId}", ACT).replace("{agentId}", "ap_coding").replace("{conversationId}", RUN).replace("{step}", "plan");
         // Anonymous: a served route answers 401, an unserved one 404 or 405.
         const res = await fetch(`${base}${url}`, { method, ...(method === "GET" ? {} : { body: "{}" }) });
         expect(res.status, op).toBe(401);

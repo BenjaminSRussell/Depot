@@ -13,6 +13,7 @@ import {
 import { gateCitations, type Citation } from "../domain/knowledge.js";
 import { exclusionNotice, NO_ROUTE_MESSAGE, permittedOutput, recordsOf } from "../domain/modelRoute.js";
 import { AMOUNT_WITHHELD, AMOUNT_WITHHELD_NOTICE, applyFinancialPolicy } from "../domain/financialFields.js";
+import { classifyByRules, decideRoute, type RouteResult } from "../domain/promptClass.js";
 import { assertNoPii, Pseudonymizer } from "../domain/redaction.js";
 import { AgentError } from "../errors.js";
 import { ProviderError, proposeTool } from "../providers/wire.js";
@@ -59,6 +60,7 @@ export interface ChatResponse {
   refusal: { code: string; message: string } | null;
   excluded?: { count: number; kinds: string[]; reason: "NO_APPROVED_ROUTE" };
   dataClass?: DataClass;
+  route?: RouteResult;
   /** Always true: generated text is labelled as such in the UI (FR-47.12). */
   generated: true;
 }
@@ -108,6 +110,8 @@ const MODE_PROMPTS: Record<CopilotMode, string> = {
   explain: "Explain the record the user names: what it is, how it got into its state and what usually happens next. Use the read tools; state only what they show.",
   draft: "Draft the document text the user asks for. The draft is for a person to review and is never sent or posted by you.",
   summarize: "Summarize the workflow or case history the user names. Use the read tools; state only what they show.",
+  route:
+    'Classify the user\'s message as exactly one of ask (a question about data), navigate (open, list, find or create a screen or record) or act (change a record or amount). Call no tool. Answer with only this JSON: {"kind":"ask|navigate|act","confidence":0 to 1,"runnerUp":{"kind":"ask|navigate|act","confidence":0 to 1}}.',
 };
 
 const READ_TOOL = /\.(get|list|search)$/;
@@ -129,6 +133,7 @@ export function parseChatRequest(raw: unknown): ChatRequest {
 }
 
 function systemPrompt(mode: CopilotMode, tools: readonly string[]): string {
+  if (mode === "route") return `${MODE_PROMPTS.route} ${INJECTION_GUARD}`;
   return `${MODE_PROMPTS[mode]} Tools you may call: ${tools.join(", ")}. To call one, propose it with its arguments; you will receive its result and may call another. When you have enough, answer in plain language without proposing a tool. ${INJECTION_GUARD}`;
 }
 
@@ -154,17 +159,18 @@ export function createCopilotService(deps: CopilotDeps) {
       if (deps.killSwitch.isHalted(caller.tenantId)) throw new AgentError("AGT-0201", "agent runs are halted by the kill switch");
       const prompt = req.recordRef === undefined ? req.message : `${req.message}\n[record: ${req.recordRef}]`;
       const asker = { tenantId: caller.tenantId, userId: caller.userId, duties: caller.duties };
-      const cached = deps.cache.get(asker, req.mode, prompt);
+      const rules = req.mode === "route" ? classifyByRules(req.message) : undefined;
+      const cached = rules === undefined ? deps.cache.get(asker, req.mode, prompt) : undefined;
       if (cached !== undefined) return JSON.parse(cached) as ChatResponse;
 
       const runId = randomUUID();
-      const session = await deps.mcp.connect(caller, token, runId);
-      const candidates = session.tools.filter((t) => t.approvalMode === "none" && READ_TOOL.test(t.name));
-      if (deps.knowledge !== undefined && !candidates.some((t) => t.name === KNOWLEDGE_SEARCH_TOOL)) {
+      const session = rules === undefined ? await deps.mcp.connect(caller, token, runId) : undefined;
+      const candidates = session === undefined ? [] : session.tools.filter((t) => t.approvalMode === "none" && READ_TOOL.test(t.name));
+      if (session !== undefined && deps.knowledge !== undefined && !candidates.some((t) => t.name === KNOWLEDGE_SEARCH_TOOL)) {
         candidates.push({ name: KNOWLEDGE_SEARCH_TOOL, requiredDuty: KNOWLEDGE_READ_DUTY, approvalMode: "none" } as (typeof candidates)[number]);
       }
       const gate = gateCopilotTools(caller.duties, candidates.map((t) => ({ name: t.name, requiredDuty: t.requiredDuty })));
-      if (gate.allowed.length === 0) {
+      if (session !== undefined && gate.allowed.length === 0) {
         const first = gate.denied[0];
         return refusal(first !== undefined ? "AGT-0203" : "AGT-0212", first?.message ?? "No tool is available to answer this.");
       }
@@ -281,7 +287,8 @@ export function createCopilotService(deps: CopilotDeps) {
       };
 
       try {
-        for (let turn = 0; turn < deps.config.maxTurns; turn += 1) {
+        const turns = rules === undefined ? deps.config.maxTurns : rules.status === "decided" ? 0 : 1;
+        for (let turn = 0; turn < turns; turn += 1) {
           const verdict = await guard.inspect({ tenantId: caller.tenantId, callId: randomUUID(), routeId, pseudo, system, typed: prompt, results, recordIds, excluded: Object.fromEntries(Object.entries({ [AMOUNT_WITHHELD]: amountsWithheld, NO_APPROVED_ROUTE: withheldCount, NEED_TO_KNOW: needToKnowHidden, POLICY_DENIED: policyDropped }).filter(([, n]) => n > 0)), declared, ...(policyCell !== undefined ? { policyCell } : {}), ...(policyVersion !== undefined ? { policyVersion } : {}) });
           guardRow(verdict.result);
           dataClass = highestClassOf([dataClass, verdict.result.highestClass]);
@@ -315,7 +322,7 @@ export function createCopilotService(deps: CopilotDeps) {
           usage.tokensOut += used.tokensOut;
           answer = response.text;
           const p = response.proposal;
-          if (outcome.failure !== undefined || p === undefined) break;
+          if (outcome.failure !== undefined || p === undefined || session === undefined) break;
           if (!gate.allowed.includes(p.tool)) {
             // BR-47.11: a tool outside the caller's allowed set is refused with AGT-0203, never called.
             const duty = session.describe(p.tool)?.requiredDuty ?? AGENT_INVOKE_DUTY;
@@ -398,8 +405,8 @@ export function createCopilotService(deps: CopilotDeps) {
             for (const c of g.citations) citations.push({ sourceType: c.sourceType, sourceRef: c.sourceRef, label: c.section });
           }
         }
-        if (answer === "" && refused === null) answer = "I could not complete the answer within the tool-call limit.";
-        if (refused === null && outcome.failure === undefined) await verify(answer);
+        if (answer === "" && refused === null && rules === undefined) answer = "I could not complete the answer within the tool-call limit.";
+        if (refused === null && outcome.failure === undefined && answer !== "") await verify(answer);
         if (outcome.failure !== undefined) {
           refused = { code: OUTPUT_GUARD_CODE, message: OUTPUT_GUARD_MESSAGE };
           answer = refused.message;
@@ -422,10 +429,11 @@ export function createCopilotService(deps: CopilotDeps) {
           toolCalls,
           refusal: refused,
           dataClass,
+          ...(rules !== undefined && refused === null ? { route: decideRoute(rules, answer) } : {}),
           ...(withheldCount > 0 ? { excluded: { count: withheldCount, kinds: [...withheldKinds], reason: "NO_APPROVED_ROUTE" as const } } : {}),
           generated: true,
         };
-        if (refused === null && withheldCount === 0 && policyDropped === 0 && needToKnowHidden === 0) deps.cache.put(asker, req.mode, prompt, JSON.stringify(out));
+        if (refused === null && withheldCount === 0 && policyDropped === 0 && needToKnowHidden === 0 && rules === undefined) deps.cache.put(asker, req.mode, prompt, JSON.stringify(out));
         return out;
       } catch (err) {
         await deps.store

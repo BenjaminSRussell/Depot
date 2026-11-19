@@ -506,7 +506,7 @@ paths:
               type: object
               required: [mode, message]
               properties:
-                mode: {type: string, enum: [ask, explain, draft, summarize]}
+                mode: {type: string, enum: [ask, explain, draft, summarize, route]}
                 message: {type: string, minLength: 1, maxLength: 4000}
                 recordRef: {type: string, minLength: 1, maxLength: 200}
               additionalProperties: false
@@ -521,6 +521,80 @@ paths:
         "400": {$ref: "#/components/responses/Problem"}
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/copilot/conversations:
+    post:
+      operationId: createCopilotConversation
+      summary: Start a copilot conversation
+      description: |
+        Stateless: nothing is stored, the id only names the conversation in the
+        messages path.
+      x-depot-duty: mcp.copilot.use
+      x-depot-approval: none
+      responses:
+        "201":
+          description: The conversation id.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [conversationId]
+                properties:
+                  conversationId: {type: string, format: uuid}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/copilot/conversations/{conversationId}/messages:
+    post:
+      operationId: postCopilotMessage
+      summary: One copilot message; mode=route classifies the prompt without a tool
+      description: |
+        Same body and behaviour as /api/v1/copilot/chat. With mode=route the
+        prompt is classified as ask, navigate, act or clarify and no tool is
+        called. Rules are checked in order and the first match wins: an action
+        verb (apply, cancel, release, pay, post, approve, reject, settle,
+        reverse, postpone, advance, send) applied to a record or amount is act;
+        a start of show me, list, open, go to, find, create, new or start is
+        navigate; a question mark at the end or a start of what, which, who,
+        why, how many, how much, when, compare, explain, total or trend is ask.
+        Only a prompt no rule decides goes to one model call with no tools,
+        whose answer is clarify (with the two top kinds as candidates) when its
+        confidence is below 0.6 or its top two kinds are within 0.15. A route
+        answer is always JSON, even with Accept: text/event-stream. A kill
+        switch, budget stop, provider failure, missing AI route or guard block
+        answers HTTP 200 with a RefusalResponse and no kind. A route call is
+        never cached and counts against the budget and the kill switch.
+      x-depot-duty: mcp.copilot.use
+      x-depot-approval: none
+      parameters:
+        - {name: conversationId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode, message]
+              properties:
+                mode: {type: string, enum: [ask, explain, draft, summarize, route]}
+                message: {type: string, minLength: 1, maxLength: 4000}
+                recordRef: {type: string, minLength: 1, maxLength: 200}
+              additionalProperties: false
+      responses:
+        "200":
+          description: The answer, the route classification or the refusal.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - {$ref: "#/components/schemas/ChatResponse"}
+                  - {$ref: "#/components/schemas/RouteResponse"}
+                  - {$ref: "#/components/schemas/RefusalResponse"}
+            text/event-stream:
+              schema: {type: string, description: "token frames, optionally one answer.withdrawn frame, then one done frame; never for mode=route"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
   /api/v1/agents/budgets:
     get:
@@ -885,6 +959,31 @@ components:
           type: string
           enum: [P0, P1, P2, P3]
           description: The highest data class the egress guard found in the text sent to the model across the chat (DEPOT-304).
+        generated: {type: boolean, enum: [true]}
+    RouteResponse:
+      type: object
+      required: [kind, confidence, generated]
+      properties:
+        kind: {type: string, enum: [ask, navigate, act, clarify]}
+        confidence: {type: number, minimum: 0, maximum: 1}
+        candidates:
+          type: array
+          description: Present only for kind clarify; the two most likely kinds.
+          minItems: 2
+          maxItems: 2
+          items: {type: string, enum: [ask, navigate, act]}
+        generated: {type: boolean, enum: [true]}
+    RefusalResponse:
+      type: object
+      required: [refusal, generated]
+      description: The standard refusal of a route call; it never carries kind or candidates.
+      properties:
+        refusal:
+          type: object
+          required: [code, message]
+          properties:
+            code: {type: string, description: "AGT-0201, AGT-0202, AGT-0206, AGT-0218, AGT-0219 or AGT-0220"}
+            message: {type: string}
         generated: {type: boolean, enum: [true]}
     KillSwitchCommand:
       type: object

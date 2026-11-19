@@ -101,14 +101,32 @@ describe("Cache-Control: no-store on assistant responses", () => {
     expectNoStore(await fetch(`${base}/api/v1/copilot/chat`, { headers: headers(CHAT_DUTIES) }));
   });
 
+  it("covers the conversation endpoints and their refusals", async () => {
+    const base = await setup();
+    const created = await post(base, "/api/v1/agents/copilot/conversations", CHAT_DUTIES, {});
+    expect(created.status).toBe(201);
+    expectNoStore(created);
+    const { conversationId } = (await created.json()) as { conversationId: string };
+    const messages = `/api/v1/agents/copilot/conversations/${conversationId}/messages`;
+    const routed = await post(base, messages, CHAT_DUTIES, { mode: "route", message: "show me overdue invoices" }, "text/event-stream");
+    expect(routed.headers.get("content-type")).toContain("application/json");
+    expectNoStore(routed);
+    expect((await post(base, "/api/v1/agents/copilot/conversations", "ap.vendor.read", {})).status).toBe(403);
+    expect((await post(base, "/api/v1/agents/copilot/conversations/not-a-uuid/messages", CHAT_DUTIES, { mode: "route", message: "x" })).status).toBe(404);
+    expect((await fetch(`${base}/api/v1/agents/copilot/conversations`, { headers: headers(CHAT_DUTIES) })).status).toBe(405);
+  });
+
   it("covers chat when no copilot service is wired", async () => {
     const base = await setup({ copilot: false });
+    const bare = await post(base, `/api/v1/agents/copilot/conversations/${RUN_ID}/messages`, CHAT_DUTIES, { mode: "route", message: "x" });
+    expect(bare.status).toBe(404);
+    expect((await post(base, "/api/v1/agents/copilot/conversations", CHAT_DUTIES, {})).status).toBe(404);
     const res = await post(base, "/api/v1/copilot/chat", CHAT_DUTIES, { mode: "ask", message: "how is cash" });
     expect(res.status).toBe(404);
     expectNoStore(res);
   });
 
-  it.each(["conversations", "briefings", "approvals"])("covers the unserved %s path, with and without credentials, and never echoes the query", async (family) => {
+  it.each(["briefings", "approvals"])("covers the unserved %s path, with and without credentials, and never echoes the query", async (family) => {
     const base = await setup();
     const path = `/api/v1/agents/copilot/${family}?q=${CANARY}`;
     for (const h of [headers(CHAT_DUTIES), {}]) {
