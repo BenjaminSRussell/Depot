@@ -1,0 +1,419 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/compliance/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/compliance/internal/store"
+)
+
+type fakeDesignations struct {
+	calls        int
+	lastKey      string
+	last         store.DesignationInput
+	resolveCalls int
+	resolved     []store.ResolveRef
+	cuiRecords   map[string]bool
+	resolveErr   error
+	tenantCUI    bool
+}
+
+func (f *fakeStore) Resolve(_ context.Context, refs []store.ResolveRef) ([]store.ResolvedRef, error) {
+	f.designs.resolveCalls++
+	f.designs.resolved = refs
+	if f.designs.resolveErr != nil {
+		return nil, f.designs.resolveErr
+	}
+	out := make([]store.ResolvedRef, len(refs))
+	for i, ref := range refs {
+		out[i] = store.ResolvedRef{EntityType: ref.EntityType, RecordID: ref.RecordID, Class: domain.ClassNONE, Source: domain.SourceDefault}
+		if f.designs.tenantCUI {
+			out[i].Class, out[i].Source = domain.ClassCUI, domain.SourceTenant
+		}
+		if f.designs.cuiRecords[ref.RecordID] {
+			out[i].Class, out[i].Source = domain.ClassCUI, domain.SourceRecord
+		}
+	}
+	return out, nil
+}
+
+type fakeOwner struct {
+	mu      sync.Mutex
+	calls   int
+	legal   map[string]string
+	failFor map[string]bool
+}
+
+func (o *fakeOwner) LegalEntity(_ context.Context, _, recordID string) (string, error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.calls++
+	if o.failFor[recordID] {
+		return "", errOwnerUnavailable
+	}
+	if le, ok := o.legal[recordID]; ok {
+		return le, nil
+	}
+	return "", ErrOwnerNotFound
+}
+
+func ownerAPI(f *fakeStore, owner OwnerLookup) *API {
+	a := boundaryAPI(f, domain.BoundaryCUI)
+	a.cfg.Owner = owner
+	return a
+}
+
+func recordBody(recordID string) map[string]any {
+	return map[string]any{"scope": "RECORD", "entityType": "project", "recordId": recordID, "class": "CUI", "reason": "export-controlled drawings"}
+}
+
+func resolveCall(refs any, duties ...string) call {
+	return call{method: http.MethodPost, path: "/v1/compliance/data-designations:resolve", body: map[string]any{"refs": refs}, duties: duties, legalEntity: testLE}
+}
+
+func refsOf(entityType string, recordIDs ...string) []map[string]string {
+	refs := make([]map[string]string, len(recordIDs))
+	for i, id := range recordIDs {
+		refs[i] = map[string]string{"entityType": entityType, "recordId": id}
+	}
+	return refs
+}
+
+type resolveItem struct{ EntityType, RecordID, Class, Source string }
+
+func resolveItems(t *testing.T, rec *httptest.ResponseRecorder) []resolveItem {
+	t.Helper()
+	var body struct{ Items []resolveItem }
+	if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &body) != nil {
+		t.Fatalf("resolve: %d %s", rec.Code, rec.Body.String())
+	}
+	return body.Items
+}
+
+var testLE = ids.New()
+
+func (f *fakeStore) Designate(_ context.Context, in store.DesignationInput, key string, at time.Time) (store.Designation, error) {
+	f.designs.calls++
+	f.designs.lastKey, f.designs.last = key, in
+	return store.Designation{DesignationID: ids.New(), Scope: in.Scope, LegalEntityID: in.LegalEntityID, EntityType: in.EntityType, RecordID: in.RecordID, Class: in.Class, Reason: in.Reason, DesignatedAt: at, Version: 1}, nil
+}
+
+func designationCall(body any, le string, duties ...string) call {
+	return call{method: http.MethodPost, path: "/v1/compliance/data-designations", body: body, duties: duties, legalEntity: le,
+		headers: map[string]string{"Idempotency-Key": "k-1"}}
+}
+
+func designationBody(scope, le string) map[string]any {
+	body := map[string]any{"scope": scope, "class": "CUI", "reason": "export-controlled drawings"}
+	if le != "" {
+		body["legalEntityId"] = le
+	}
+	return body
+}
+
+func boundaryAPI(f *fakeStore, boundary domain.Boundary) *API {
+	a := newAPI(f, true)
+	a.cfg.Boundary = boundary
+	return a
+}
+
+func TestDesignation_RequiresTheWriteDuty(t *testing.T) {
+	f := &fakeStore{}
+	h := router(boundaryAPI(f, domain.BoundaryCUI))
+	rec := serve(t, h, designationCall(designationBody("TENANT", ""), "", "compliance.view"))
+	if rec.Code != http.StatusForbidden || problemCode(t, rec) != "AUTH-0003" || f.designs.calls != 0 {
+		t.Fatalf("without the duty: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDesignation_MalformedTenantIs401(t *testing.T) {
+	f := &fakeStore{}
+	req := httptest.NewRequest(http.MethodPost, "/v1/compliance/data-designations", strings.NewReader("{}")).
+		WithContext(tenant.With(context.Background(), tenant.Principal{TenantID: "not-a-uuid", Duties: map[string]struct{}{DutyDataDesignationWrite: {}}}))
+	rec := httptest.NewRecorder()
+	router(boundaryAPI(f, domain.BoundaryCUI)).ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized || problemCode(t, rec) != "AUTH-0001" || f.designs.calls != 0 {
+		t.Fatalf("malformed tenant: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDesignation_InvalidRequestsAre400(t *testing.T) {
+	le := ids.New()
+	long := strings.Repeat("a", 501)
+	for name, tc := range map[string]struct {
+		body    any
+		headers map[string]string
+	}{
+		"scope absent":                   {body: map[string]any{"class": "CUI", "reason": "r"}},
+		"scope RECORD with legal entity": {body: map[string]any{"scope": "RECORD", "entityType": "project", "recordId": ids.New(), "legalEntityId": le, "class": "CUI", "reason": "r"}},
+		"record id absent":               {body: map[string]any{"scope": "RECORD", "entityType": "project", "class": "CUI", "reason": "r"}},
+		"record id not a uuid":           {body: recordBody("PRJ-1")},
+		"record id nil uuid":             {body: recordBody(ids.Nil)},
+		"record id wrong type":           {body: map[string]any{"scope": "RECORD", "entityType": "project", "recordId": 7, "class": "CUI", "reason": "r"}},
+		"entity type absent":             {body: map[string]any{"scope": "RECORD", "recordId": ids.New(), "class": "CUI", "reason": "r"}},
+		"entity type unsupported":        {body: map[string]any{"scope": "RECORD", "entityType": "contract", "recordId": ids.New(), "class": "CUI", "reason": "r"}},
+		"entity type on tenant scope":    {body: map[string]any{"scope": "TENANT", "entityType": "project", "class": "CUI", "reason": "r"}},
+		"record id on legal entity":      {body: map[string]any{"scope": "LEGAL_ENTITY", "legalEntityId": le, "recordId": ids.New(), "class": "CUI", "reason": "r"}},
+		"scope unknown":                  {body: designationBody("GLOBAL", "")},
+		"scope wrong type":               {body: map[string]any{"scope": 7, "class": "CUI", "reason": "r"}},
+		"legal entity missing":           {body: designationBody("LEGAL_ENTITY", "")},
+		"legal entity not a uuid":        {body: designationBody("LEGAL_ENTITY", "not-a-uuid")},
+		"legal entity nil uuid":          {body: designationBody("LEGAL_ENTITY", ids.Nil)},
+		"legal entity on tenant scope":   {body: designationBody("TENANT", le)},
+		"class absent":                   {body: map[string]any{"scope": "TENANT", "reason": "r"}},
+		"class lowercase":                {body: map[string]any{"scope": "TENANT", "class": "cui", "reason": "r"}},
+		"class P3":                       {body: map[string]any{"scope": "TENANT", "class": "P3", "reason": "r"}},
+		"reason absent":                  {body: map[string]any{"scope": "TENANT", "class": "CUI"}},
+		"reason whitespace":              {body: map[string]any{"scope": "TENANT", "class": "CUI", "reason": "   "}},
+		"reason 501 characters":          {body: map[string]any{"scope": "TENANT", "class": "CUI", "reason": long}},
+		"category over 100":              {body: map[string]any{"scope": "TENANT", "class": "CUI", "reason": "r", "category": strings.Repeat("c", 101)}},
+		"unknown field":                  {body: map[string]any{"scope": "TENANT", "class": "CUI", "reason": "r", "extra": 1}},
+		"idempotency key absent":         {body: designationBody("TENANT", ""), headers: map[string]string{}},
+		"idempotency key 201 characters": {body: designationBody("TENANT", ""), headers: map[string]string{"Idempotency-Key": strings.Repeat("k", 201)}},
+	} {
+		f := &fakeStore{}
+		c := designationCall(tc.body, "", DutyDataDesignationWrite)
+		if tc.headers != nil {
+			c.headers = tc.headers
+		}
+		rec := serve(t, router(boundaryAPI(f, domain.BoundaryCUI)), c)
+		if rec.Code != http.StatusBadRequest || f.designs.calls != 0 {
+			t.Errorf("%s: %d %s", name, rec.Code, rec.Body.String())
+		}
+	}
+}
+
+func TestDesignation_StandardBoundaryRefusesEveryScopeWith409(t *testing.T) {
+	le := ids.New()
+	for name, boundary := range map[string]domain.Boundary{"explicit standard": domain.BoundaryStandard, "unset": ""} {
+		for _, body := range []map[string]any{designationBody("TENANT", ""), designationBody("LEGAL_ENTITY", le), recordBody(ids.New())} {
+			f, owner := &fakeStore{}, &fakeOwner{}
+			a := boundaryAPI(f, boundary)
+			a.cfg.Owner = owner
+			rec := serve(t, router(a), designationCall(body, le, DutyDataDesignationWrite))
+			if rec.Code != http.StatusConflict || problemCode(t, rec) != domain.CodeCUIBoundary || f.designs.calls != 0 || owner.calls != 0 {
+				t.Errorf("%s %v: %d %s, store calls %d", name, body["scope"], rec.Code, rec.Body.String(), f.designs.calls)
+			}
+		}
+	}
+}
+
+func TestDesignation_LegalEntityOutsideTheCallersScopeIs403(t *testing.T) {
+	f := &fakeStore{}
+	rec := serve(t, router(boundaryAPI(f, domain.BoundaryCUI)), designationCall(designationBody("LEGAL_ENTITY", ids.New()), ids.New(), DutyDataDesignationWrite))
+	if rec.Code != http.StatusForbidden || problemCode(t, rec) != "AUTH-0003" || f.designs.calls != 0 {
+		t.Fatalf("out of scope: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDesignation_CUIBoundaryStoresAndReturnsETag(t *testing.T) {
+	le := ids.New()
+	f := &fakeStore{}
+	rec := serve(t, router(boundaryAPI(f, domain.BoundaryCUI)), designationCall(designationBody("LEGAL_ENTITY", strings.ToUpper(le)), le, DutyDataDesignationWrite))
+	if rec.Code != http.StatusCreated || rec.Header().Get("ETag") != `"1"` || f.designs.calls != 1 {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
+	}
+	if f.designs.lastKey != "k-1" || f.designs.last.LegalEntityID != le || f.designs.last.Scope != domain.ScopeLegalEntity {
+		t.Fatalf("store input: %+v key %q", f.designs.last, f.designs.lastKey)
+	}
+	tenantWide := serve(t, router(boundaryAPI(&fakeStore{}, domain.BoundaryCUI)), designationCall(designationBody("TENANT", ""), "", DutyDataDesignationWrite))
+	if tenantWide.Code != http.StatusCreated {
+		t.Fatalf("tenant scope: %d %s", tenantWide.Code, tenantWide.Body.String())
+	}
+}
+
+func TestDesignation_CategoryLimitCountsCharactersNotBytes(t *testing.T) {
+	f := &fakeStore{}
+	body := map[string]any{"scope": "TENANT", "class": "CUI", "reason": "r", "category": strings.Repeat("я", 100)}
+	rec := serve(t, router(boundaryAPI(f, domain.BoundaryCUI)), designationCall(body, "", DutyDataDesignationWrite))
+	if rec.Code != http.StatusCreated || f.designs.calls != 1 {
+		t.Fatalf("100-rune category: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDesignation_RecordScopeTakesTheLegalEntityFromTheOwner(t *testing.T) {
+	record := ids.New()
+	f := &fakeStore{}
+	a := ownerAPI(f, &fakeOwner{legal: map[string]string{record: testLE}})
+	rec := serve(t, router(a), designationCall(recordBody(strings.ToUpper(record)), testLE, DutyDataDesignationWrite))
+	if rec.Code != http.StatusCreated || f.designs.calls != 1 {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
+	}
+	if got := f.designs.last; got.LegalEntityID != testLE || got.EntityType != "project" || got.RecordID != record || got.Scope != domain.ScopeRecord {
+		t.Fatalf("store input: %+v", got)
+	}
+}
+
+func TestDesignation_RecordOutsideTheCallersScopeOrUnknownIs404(t *testing.T) {
+	known, unknown := ids.New(), ids.New()
+	owner := &fakeOwner{legal: map[string]string{known: ids.New()}}
+	var bodies []string
+	for _, record := range []string{known, unknown} {
+		f := &fakeStore{}
+		rec := serve(t, router(ownerAPI(f, owner)), designationCall(recordBody(record), testLE, DutyDataDesignationWrite))
+		if rec.Code != http.StatusNotFound || problemCode(t, rec) != domain.CodeRecordNotFound || f.designs.calls != 0 {
+			t.Fatalf("%s: %d %s", record, rec.Code, rec.Body.String())
+		}
+		var problem struct{ Detail string }
+		_ = json.Unmarshal(rec.Body.Bytes(), &problem)
+		bodies = append(bodies, problem.Detail)
+	}
+	if bodies[0] != bodies[1] {
+		t.Fatalf("an out-of-scope record must look like an unknown one: %q vs %q", bodies[0], bodies[1])
+	}
+}
+
+func TestDesignation_RecordScopeFailsClosedWhenTheOwnerIsUnavailable(t *testing.T) {
+	record := ids.New()
+	for name, owner := range map[string]OwnerLookup{"owner error": &fakeOwner{failFor: map[string]bool{record: true}}, "no owner client": nil} {
+		f := &fakeStore{}
+		rec := serve(t, router(ownerAPI(f, owner)), designationCall(recordBody(record), testLE, DutyDataDesignationWrite))
+		if rec.Code != http.StatusServiceUnavailable || problemCode(t, rec) != domain.CodeOwnerUnavailable || f.designs.calls != 0 {
+			t.Errorf("%s: %d %s", name, rec.Code, rec.Body.String())
+		}
+	}
+}
+
+func TestResolve_RequiresTheReadDuty(t *testing.T) {
+	f := &fakeStore{}
+	for _, duty := range []string{DutyDataDesignationWrite, "compliance.view"} {
+		rec := serve(t, router(ownerAPI(f, &fakeOwner{})), resolveCall(refsOf("project", ids.New()), duty))
+		if rec.Code != http.StatusForbidden || problemCode(t, rec) != "AUTH-0003" || f.designs.resolveCalls != 0 {
+			t.Fatalf("%s: %d %s", duty, rec.Code, rec.Body.String())
+		}
+	}
+}
+
+func TestResolve_MalformedTenantIs401(t *testing.T) {
+	f := &fakeStore{}
+	req := httptest.NewRequest(http.MethodPost, "/v1/compliance/data-designations:resolve", strings.NewReader(`{"refs":[]}`)).
+		WithContext(tenant.With(context.Background(), tenant.Principal{TenantID: "not-a-uuid", Duties: map[string]struct{}{DutyDataDesignationRead: {}}}))
+	rec := httptest.NewRecorder()
+	router(ownerAPI(f, &fakeOwner{})).ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized || problemCode(t, rec) != "AUTH-0001" || f.designs.resolveCalls != 0 {
+		t.Fatalf("malformed tenant: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestResolve_RefCountBounds(t *testing.T) {
+	record := ids.New()
+	owner := &fakeOwner{legal: map[string]string{record: testLE}}
+	many := func(n int) []map[string]string {
+		refs := make([]map[string]string, n)
+		for i := range refs {
+			refs[i] = map[string]string{"entityType": "project", "recordId": record}
+		}
+		return refs
+	}
+	for name, tc := range map[string]struct {
+		refs   any
+		status int
+		code   string
+	}{
+		"500 refs":       {many(500), http.StatusOK, ""},
+		"501 refs":       {many(501), http.StatusUnprocessableEntity, domain.CodeTooManyRefs},
+		"empty":          {[]any{}, http.StatusBadRequest, codeInvalid},
+		"null":           {nil, http.StatusBadRequest, codeInvalid},
+		"a string":       {"project", http.StatusBadRequest, "COM-0001"},
+		"an object":      {map[string]string{"entityType": "project"}, http.StatusBadRequest, "COM-0001"},
+		"wrong typed id": {[]map[string]any{{"entityType": "project", "recordId": 7}}, http.StatusBadRequest, "COM-0001"},
+	} {
+		f := &fakeStore{}
+		rec := serve(t, router(ownerAPI(f, owner)), resolveCall(tc.refs, DutyDataDesignationRead))
+		if rec.Code != tc.status || (tc.code != "" && problemCode(t, rec) != tc.code) {
+			t.Errorf("%s: %d %s", name, rec.Code, rec.Body.String())
+		}
+	}
+}
+
+func TestResolve_ReturnsClassAndSourceInRequestOrder(t *testing.T) {
+	designated, plain := ids.New(), ids.New()
+	f := &fakeStore{designs: fakeDesignations{cuiRecords: map[string]bool{designated: true}}}
+	owner := &fakeOwner{legal: map[string]string{designated: testLE, plain: testLE}}
+	rec := serve(t, router(ownerAPI(f, owner)), resolveCall(refsOf("project", plain, strings.ToUpper(designated), plain), DutyDataDesignationRead))
+	got := resolveItems(t, rec)
+	want := []resolveItem{
+		{"project", plain, domain.ClassNONE, domain.SourceDefault},
+		{"project", strings.ToUpper(designated), domain.ClassCUI, domain.SourceRecord},
+		{"project", plain, domain.ClassNONE, domain.SourceDefault},
+	}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("items %v, want %v", got, want)
+	}
+	if len(f.designs.resolved) != 2 || owner.calls != 2 || f.designs.resolveCalls != 1 {
+		t.Fatalf("duplicates must cost one lookup each: %d store refs, %d owner calls, %d store calls", len(f.designs.resolved), owner.calls, f.designs.resolveCalls)
+	}
+}
+
+func TestResolve_UnknownRefsAreIndistinguishable(t *testing.T) {
+	foreign, missing, known := ids.New(), ids.New(), ids.New()
+	owner := &fakeOwner{legal: map[string]string{foreign: ids.New(), known: testLE}}
+	f := &fakeStore{}
+	refs := append(refsOf("project", foreign, missing, "not-a-uuid", ids.Nil), refsOf("contract", known)...)
+	refs = append(refs, map[string]string{"recordId": known})
+	got := resolveItems(t, serve(t, router(ownerAPI(f, owner)), resolveCall(refs, DutyDataDesignationRead)))
+	if len(got) != len(refs) {
+		t.Fatalf("items: %v", got)
+	}
+	for i, item := range got {
+		if item.Class != domain.ClassUNKNOWN || item.Source != domain.SourceUnresolved {
+			t.Errorf("ref %d: %+v", i, item)
+		}
+	}
+	if f.designs.resolveCalls != 0 {
+		t.Fatalf("nothing resolvable, yet the store was read %d times", f.designs.resolveCalls)
+	}
+}
+
+func TestResolve_OwnerFailureIsUnknown(t *testing.T) {
+	down, fine := ids.New(), ids.New()
+	f := &fakeStore{designs: fakeDesignations{cuiRecords: map[string]bool{down: true, fine: true}}}
+	owner := &fakeOwner{legal: map[string]string{down: testLE, fine: testLE}, failFor: map[string]bool{down: true}}
+	got := resolveItems(t, serve(t, router(ownerAPI(f, owner)), resolveCall(refsOf("project", down, fine), DutyDataDesignationRead)))
+	if got[0].Class != domain.ClassUNKNOWN || got[1].Class != domain.ClassCUI {
+		t.Fatalf("items: %v", got)
+	}
+	none := resolveItems(t, serve(t, router(ownerAPI(&fakeStore{}, nil)), resolveCall(refsOf("project", fine), DutyDataDesignationRead)))
+	if none[0].Class != domain.ClassUNKNOWN {
+		t.Fatalf("no owner client must resolve UNKNOWN: %v", none)
+	}
+}
+
+func TestResolve_StoreFailureIsNotAnAnswer(t *testing.T) {
+	record := ids.New()
+	f := &fakeStore{designs: fakeDesignations{resolveErr: errors.New("db down")}}
+	rec := serve(t, router(ownerAPI(f, &fakeOwner{legal: map[string]string{record: testLE}})), resolveCall(refsOf("project", record), DutyDataDesignationRead))
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("store failure: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestResolve_ClaimlessCallerSeesTenantCUIAndOtherwiseUnknown(t *testing.T) {
+	record := ids.New()
+	owner := &fakeOwner{legal: map[string]string{record: testLE}}
+	claimless := resolveCall(refsOf("project", record), DutyDataDesignationRead)
+	claimless.legalEntity = ""
+
+	cui := &fakeStore{designs: fakeDesignations{tenantCUI: true}}
+	got := resolveItems(t, serve(t, router(ownerAPI(cui, owner)), claimless))
+	if got[0].Class != domain.ClassCUI || got[0].Source != domain.SourceTenant || owner.calls != 0 {
+		t.Fatalf("tenant CUI must reach a claimless caller without an owner lookup: %v, %d owner calls", got, owner.calls)
+	}
+
+	plain := &fakeStore{}
+	got = resolveItems(t, serve(t, router(ownerAPI(plain, owner)), claimless))
+	if got[0].Class != domain.ClassUNKNOWN || got[0].Source != domain.SourceUnresolved {
+		t.Fatalf("an undesignated tenant must stay UNKNOWN for a claimless caller: %v", got)
+	}
+}

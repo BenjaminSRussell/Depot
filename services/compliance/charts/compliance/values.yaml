@@ -24,6 +24,7 @@ config:
   screeningThreshold: "0.88"
   # BLOCK, WARN or OFF; one value for every legal entity until per-entity settings exist.
   tradeLicenseCheck: "BLOCK"
+  boundary: "standard"
 
 # DATABASE_URL is read from this secret (Vault via External Secrets), never inline.
 databaseSecret:
@@ -36,9 +37,15 @@ fieldCrypt:
   keysSecret: ""
   currentKeyId: ""
 
+# The projects service that owns the record a data designation names (PROJECTS_URL); empty makes record designation 503 and
+# record resolution UNKNOWN. The Ed25519 seed (base64) in signingKeySecret signs the token sent to it.
+projectsUrl: ""
+
 # Service tokens from receiving (the legal hold check); publicKeys is the DEPOT_SERVICE_PUBLIC_KEYS value.
 serviceIdentity:
   publicKeys: ""
+  signingKeySecret: ""
+  keyId: ""
 
 resources:
   requests:

@@ -87,6 +87,8 @@ ingressPolicy:
   peers:
   - name: budgeting
     podNames: [budgeting]
+  - name: compliance
+    podNames: [compliance]
   metricsPorts: [9090]
   prometheus:
     namespace: observability
