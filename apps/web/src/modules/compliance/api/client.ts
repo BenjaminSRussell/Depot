@@ -924,6 +924,22 @@ export async function resolveDesignation(entityType: string, recordId: string, s
   return out.items?.[0] ?? { entityType, recordId, class: "UNKNOWN", source: "UNRESOLVED" };
 }
 
+const MAX_RESOLVE_REFS = 500;
+
+export async function resolveDesignations(refs: { entityType: string; recordId: string }[], signal?: AbortSignal): Promise<ResolvedDesignation[]> {
+  const items: ResolvedDesignation[] = [];
+  for (let start = 0; start < refs.length; start += MAX_RESOLVE_REFS) {
+    const out = await json<{ items: ResolvedDesignation[] }>(
+      `${designationsBase}:resolve`,
+      { method: "POST", body: JSON.stringify({ refs: refs.slice(start, start + MAX_RESOLVE_REFS) }) },
+      signal,
+    );
+    if (!Array.isArray(out?.items)) throw new Error("Malformed designation reply");
+    items.push(...out.items);
+  }
+  return items;
+}
+
 export async function findDesignation(entityType: string, recordId: string, signal?: AbortSignal): Promise<Versioned<DataDesignation> | null> {
   const rows = (await json<{ items: DataDesignation[] }>(`${designationsBase}${query({ scope: "RECORD", entityType, recordId })}`, {}, signal)).items ?? [];
   return rows[0] ? { value: rows[0], etag: `"${rows[0].version}"` } : null;

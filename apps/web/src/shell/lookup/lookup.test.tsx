@@ -293,6 +293,37 @@ describe("EntityLookup", () => {
   });
 });
 
+describe("EntityLookup CUI marking", () => {
+  it("shows the CUI badge on a project hit the resolver marks and none on the others", async () => {
+    handler = (url) => {
+      if (url.pathname === "/api/v1/projects") return json({ items: [{ id: "P-1001", stage: "ACTIVE" }, { id: "P-1002", stage: "ACTIVE" }] });
+      if (url.pathname.endsWith(":resolve")) {
+        return json({
+          items: [
+            { entityType: "project", recordId: "P-1001", class: "CUI", source: "RECORD" },
+            { entityType: "project", recordId: "P-1002", class: "NONE", source: "NONE" },
+          ],
+        });
+      }
+      return json({ items: [] });
+    };
+    const user = userEvent.setup();
+    render(<Harness entity="project" />);
+    await user.click(screen.getByRole("combobox"));
+    const marked = await screen.findByRole("option", { name: /P-1001/ });
+    await waitFor(() => expect(marked).toHaveTextContent("CUI"));
+    expect(screen.getByRole("option", { name: /P-1002/ })).not.toHaveTextContent("CUI");
+  });
+
+  it("asks the resolver for nothing on a lookup of another entity type", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.type(screen.getByRole("combobox"), "contoso");
+    await screen.findByRole("option", { name: /Contoso Ltd/ });
+    expect(calls.some((c) => c.includes(":resolve"))).toBe(false);
+  });
+});
+
 describe("lookup adapters", () => {
   it("maps product rows from the service JSON", async () => {
     handler = () => json({ items: [{ id: "p-1", productNumber: "SHIRT1", name: "Shirt" }, { id: "p-2", productNumber: "HAT1", name: "Hat" }] });

@@ -5,6 +5,7 @@ import { copy } from "../../shell/copy";
 import { Alert, Badge, Button, Card, EmptyState, FormField, Textarea } from "../../shell/ui";
 import { CopilotError, type ChatRequest, type ChatResponse } from "./api/client";
 import { askCopilot } from "./api/stream";
+import { AiMarking } from "./AiSuggestion";
 import {
   canInsertDraft,
   COPILOT_MODES,
@@ -23,7 +24,7 @@ export interface CopilotPanelProps {
    * Injected for tests; defaults to the BFF chat endpoint, which may stream.
    * `onToken` receives each streamed piece of the answer as it arrives.
    */
-  ask?: (req: ChatRequest, onToken?: (text: string) => void) => Promise<ChatResponse>;
+  ask?: (req: ChatRequest, onToken?: (text: string) => void, onWithdrawn?: (message: string) => void) => Promise<ChatResponse>;
   /** Record the user is looking at, sent as context for explain and summarize. */
   recordRef?: string;
   /** Called only when the user clicks "Insert draft". Never called automatically. */
@@ -72,8 +73,10 @@ export function CopilotPanel({ ask = askCopilot, recordRef, onInsertDraft, initi
     setResult(null);
     setPartial("");
     try {
-      const response = await ask({ mode, message: text, ...(recordRef ? { recordRef } : {}) }, (token) =>
-        setPartial((so) => so + token),
+      const response = await ask(
+        { mode, message: text, ...(recordRef ? { recordRef } : {}) },
+        (token) => setPartial((so) => so + token),
+        (safeMessage) => setPartial(safeMessage),
       );
       setResult({ mode, response });
       const code = response.refusal?.code;
@@ -158,7 +161,7 @@ function Answer({ result, onInsertDraft }: { result: Result; onInsertDraft?: ((t
   return (
     <article aria-label="Copilot answer" className={styles.answer}>
       <div>
-        <Badge tone="info">{GENERATED_BADGE}</Badge>
+        <Badge tone="info">{GENERATED_BADGE}</Badge> <AiMarking dataClass={response.dataClass} excluded={response.excluded} />
       </div>
       {response.refusal ? (
         <Alert tone="warning" title={response.refusal.code} live="alert">

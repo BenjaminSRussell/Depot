@@ -24,6 +24,7 @@ import {
   ScriptedProvider,
   TENANT,
   usd,
+  allowAllOutput,
 } from "./fakes.js";
 
 // Wave 47 proof: "Every agent action produces an audit entry with inputs, tool
@@ -290,6 +291,7 @@ describe("a refused audit row does not change how the run ends (#389)", () => {
       provider: new ScriptedProvider([proposal(0.8, "1200", POST, rawArgs)]),
       tools: tools(),
       approvals: approve(),
+      outputGuard: allowAllOutput,
     });
     deps.killSwitch = killFromCheck(3);
     const result = await runAgent(deps, noPiiPrompt);
@@ -344,6 +346,7 @@ describe("a refused audit row does not change how the run ends (#389)", () => {
         provider: new ScriptedProvider([proposal(0.8, "1200", POST, rawArgs)]),
         tools: t,
         approvals: approve(),
+        outputGuard: allowAllOutput,
       }),
       noPiiPrompt,
     );
@@ -471,7 +474,7 @@ describe("audit and authorization invariants over generated runs (AC2, AC3)", ()
       const provider = new ScriptedProvider([
         proposal(confidence, amount, tool, args),
       ]);
-      const deps = makeDeps({ provider, tools: port, approvals });
+      const deps = makeDeps({ provider, tools: port, approvals, outputGuard: allowAllOutput });
       if (killAt > 0) deps.killSwitch = killFromCheck(killAt);
       if (persisted) deps.audit = persisted.store;
       const res = await runAgent(

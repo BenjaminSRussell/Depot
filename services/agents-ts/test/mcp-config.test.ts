@@ -13,6 +13,7 @@ import { createRequestHandler, Metrics, routeLabel } from "../src/server.js";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { KillSwitchRegistry } from "../src/domain/killswitch.js";
+import { testGuard } from "./fakes.js";
 import { MemoryStore, USER, T1 } from "./surface-fakes.js";
 import { testAuthenticate } from "./jwt.js";
 
@@ -316,6 +317,8 @@ describe("agent runs in the cui boundary", () => {
   it("refuses every run provider with AGT-0218 and never builds the configured one", () => {
     const providerFor = createRunProviderFactory(
       loadConfig({ ...env, AGENTS_BOUNDARY: "cui" }),
+      undefined,
+      testGuard(),
     );
     expect(() => providerFor(MODEL_SONNET)).toThrow(/AGT-0218/);
   });
@@ -323,6 +326,8 @@ describe("agent runs in the cui boundary", () => {
   it("builds the configured provider in the standard boundary", () => {
     const providerFor = createRunProviderFactory(
       loadConfig({ ...env, AGENTS_BOUNDARY: "standard" }),
+      undefined,
+      testGuard(),
     );
     expect(providerFor(MODEL_SONNET)).toBeDefined();
   });

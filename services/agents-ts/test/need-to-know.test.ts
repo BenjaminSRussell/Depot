@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CopilotAnswerCache } from "../src/domain/copilot.js";
 import { defaultPolicy } from "../src/domain/aiDataPolicy.js";
 import type { Principal } from "../src/api/principal.js";
@@ -8,7 +8,7 @@ import type { ModelResponse } from "../src/runtime/engine.js";
 import { createEgressGuard, EGRESS_GUARD_TOOL } from "../src/runtime/egressGuard.js";
 import { createNeedToKnowClient } from "../src/runtime/needToKnow.js";
 import type { AiRouter } from "../src/runtime/aiRouter.js";
-import { ScriptedProvider } from "./fakes.js";
+import { ScriptedProvider, testGuard } from "./fakes.js";
 import { FakeMcp, headers, MemoryStore, serve, tool } from "./surface-fakes.js";
 
 const GET = "depot.ap.invoice.get";
@@ -20,7 +20,7 @@ const json = (body: unknown, status = 200): Response => new Response(JSON.string
 describe("need-to-know client", () => {
   const client = (fetchFn: typeof fetch, now = () => 0) => createNeedToKnowClient({ baseUrl: "http://compliance", authHeaders: () => ({}), fetchFn, now });
 
-  it("reads the switch per legal entity and caches it for 60 seconds", async () => {
+  it("reads the switch per legal entity and caches it for 10 seconds", async () => {
     let calls = 0;
     let clock = 0;
     const c = client(async (url) => {
@@ -31,7 +31,20 @@ describe("need-to-know client", () => {
     expect(await c.enforced(caller())).toBe(false);
     expect(await c.enforced(caller())).toBe(false);
     expect(calls).toBe(1);
-    clock = 61_000;
+    clock = 11_000;
+    await c.enforced(caller());
+    expect(calls).toBe(2);
+  });
+
+  it("keeps the switch for the configured cache time", async () => {
+    let calls = 0;
+    let clock = 0;
+    const c = createNeedToKnowClient({ baseUrl: "http://compliance", authHeaders: () => ({}), cacheMs: 30_000, now: () => clock, fetchFn: async () => ((calls += 1), json({ enabled: false })) });
+    await c.enforced(caller());
+    clock = 29_000;
+    await c.enforced(caller());
+    expect(calls).toBe(1);
+    clock = 30_000;
     await c.enforced(caller());
     expect(calls).toBe(2);
   });
@@ -55,11 +68,32 @@ describe("guard admission order", () => {
     expect(await guard.admit({ tenantId: T1, tool: GET, text: '{"id":"x"}' })).toMatchObject({ pass: true, policyCell: "tenant", class: "P2" });
   });
 
-  it("raises the class from detected content and blocks when the policy cannot be read", async () => {
-    const guard = createEgressGuard({ policy: createAiPolicyGuard({ read: async () => Promise.reject(new Error("db down")) }) });
+  it("raises the class from detected content and reads the policy only for the tenant cell", async () => {
+    const guard = createEgressGuard({ policy: policy(true) });
     expect(await guard.admit({ tenantId: T1, tool: "depot.ar.invoice.list", text: "DE89370400440532013000" })).toMatchObject({ pass: true, class: "P3" });
     const unreadable = createEgressGuard({ policy: createAiPolicyGuard({ read: async () => Promise.reject(new Error("db down")) }) });
     expect(await unreadable.admit({ tenantId: T1, tool: "depot.knowledge.search", text: "x" })).toMatchObject({ pass: true });
+  });
+
+  const moduleCells = (cells: Partial<Record<"P0" | "P1" | "P2", boolean>>) =>
+    createAiPolicyGuard({ read: async () => ({ ...defaultPolicy(), modules: { ap: defaultPolicy().modules.ap, ar: { ...defaultPolicy().modules.ar, ...cells } } }) });
+
+  it("drops an ar result with reason TENANT_POLICY when the tenant denied the module (P0 and P1 off)", async () => {
+    const guard = createEgressGuard({ policy: moduleCells({ P0: false, P1: false }) });
+    expect(await guard.admit({ tenantId: T1, tool: "depot.ar.invoice.list", text: "{}" })).toMatchObject({ pass: false, reason: "TENANT_POLICY", policyCell: "tenant", class: "P2" });
+    expect((await guard.admit({ tenantId: T1, tool: "depot.ar.invoice.list", text: "{}" })).failure).toBeUndefined();
+  });
+
+  it("passes an ar result when the module is not denied and P2 is off (pseudonymized later)", async () => {
+    const guard = createEgressGuard({ policy: moduleCells({ P0: true, P1: true, P2: false }) });
+    expect(await guard.admit({ tenantId: T1, tool: "depot.ar.invoice.list", text: "{}" })).toMatchObject({ pass: true, class: "P2" });
+    const oneCell = createEgressGuard({ policy: moduleCells({ P0: false, P1: true }) });
+    expect(await oneCell.admit({ tenantId: T1, tool: "depot.ar.invoice.list", text: "{}" })).toMatchObject({ pass: true, class: "P2" });
+  });
+
+  it("fails closed with POLICY_UNREADABLE when either policy check throws", async () => {
+    const guard = createEgressGuard({ policy: createAiPolicyGuard({ read: async () => Promise.reject(new Error("db down")) }) });
+    expect(await guard.admit({ tenantId: T1, tool: "depot.ar.invoice.list", text: "{}" })).toMatchObject({ pass: false, failure: "POLICY_UNREADABLE" });
   });
 });
 
@@ -69,7 +103,7 @@ afterEach(async () => {
   close = undefined;
 });
 
-const chatWithCui = async (duties: string, enforced: boolean) => {
+const chatWithCui = async (duties: string, enforced: boolean, cache = new CopilotAnswerCache()) => {
   const store = new MemoryStore();
   const provider = new ScriptedProvider([
     { text: "", proposal: { tool: GET, args: {}, confidence: 1, amount: { amount: "0", currency: "USD" } }, usage: { tokensIn: 10, tokensOut: 1 } } as ModelResponse,
@@ -77,12 +111,13 @@ const chatWithCui = async (duties: string, enforced: boolean) => {
   ]);
   const router: AiRouter = { plan: async ({ refs }) => ({ routeId: "cui", provider, keep: [...refs], excluded: [], restricted: [...refs] }) };
   const copilot = createCopilotService({
+    guard: testGuard(),
     router,
     needToKnow: { enforced: async () => enforced },
     mcp: new FakeMcp([tool(GET, "ap.invoice.read")], { [GET]: { ok: true, output: { id: "CUI-INV-9", note: "secret-cui-note" }, ref: "CUI-INV-9" } }),
     store,
     killSwitch: { isHalted: () => false },
-    cache: new CopilotAnswerCache(),
+    cache,
     config: { tokenCap: 20_000, maxTurns: 3, pseudonymTtlMs: 60_000 },
     modelId: "m",
   });
@@ -92,6 +127,36 @@ const chatWithCui = async (duties: string, enforced: boolean) => {
   const rows = [...store.actionRows.values()].flat();
   return { body: (await res.json()) as Record<string, unknown>, provider, rows };
 };
+
+describe("tenant-denied module in the copilot", () => {
+  it("drops the ap result before assembly and counts it under TENANT_POLICY", async () => {
+    const store = new MemoryStore();
+    const provider = new ScriptedProvider([
+      { text: "", proposal: { tool: GET, args: {}, confidence: 1, amount: { amount: "0", currency: "USD" } }, usage: { tokensIn: 10, tokensOut: 1 } } as ModelResponse,
+      { text: "Done.", usage: { tokensIn: 10, tokensOut: 1 } },
+    ]);
+    const denied = createAiPolicyGuard({ read: async () => ({ ...defaultPolicy(), modules: { ap: { ...defaultPolicy().modules.ap, P0: false, P1: false }, ar: defaultPolicy().modules.ar } }) });
+    const copilot = createCopilotService({
+      guard: createEgressGuard({ policy: denied }),
+      router: { plan: async ({ refs }) => ({ routeId: "test", provider, keep: [...refs], excluded: [], restricted: [] }) },
+      needToKnow: { enforced: async () => false },
+      mcp: new FakeMcp([tool(GET, "ap.invoice.read")], { [GET]: { ok: true, output: { id: "INV-9", note: "canary-denied-note" }, ref: "INV-9" } }),
+      store,
+      killSwitch: { isHalted: () => false },
+      cache: new CopilotAnswerCache(),
+      config: { tokenCap: 20_000, maxTurns: 3, pseudonymTtlMs: 60_000 },
+      modelId: "m",
+    });
+    const srv = await serve({ approvals: store, copilot });
+    close = srv.close;
+    const res = await fetch(`${srv.base}/api/v1/copilot/chat`, { method: "POST", headers: headers("mcp.copilot.use,ap.invoice.read"), body: JSON.stringify({ mode: "ask", message: "show it" }) });
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(JSON.stringify(provider.seen)).not.toContain("canary-denied-note");
+    expect(String(body["answer"])).toContain("1 tool result(s) were left out");
+    const rows = [...store.actionRows.values()].flat();
+    expect(rows.filter((r) => r.toolName === EGRESS_GUARD_TOOL).at(-1)?.guardResult?.excluded).toEqual({ TENANT_POLICY: 1 });
+  });
+});
 
 describe("need-to-know in the copilot", () => {
   it("drops CUI-designated records with reason NEED_TO_KNOW and leaves no trace for the user", async () => {
@@ -108,5 +173,13 @@ describe("need-to-know in the copilot", () => {
     const { provider, rows } = await chatWithCui("mcp.copilot.use,ap.invoice.read,cui.view", false);
     expect(JSON.stringify(provider.seen)).toContain("secret-cui-note");
     expect(rows.filter((r) => r.toolName === EGRESS_GUARD_TOOL).at(-1)?.guardResult?.excluded).toEqual({});
+  });
+
+  it("never caches an answer built from CUI records, so a later switch change cannot replay it", async () => {
+    const cache = new CopilotAnswerCache();
+    const put = vi.spyOn(cache, "put");
+    const { provider } = await chatWithCui("mcp.copilot.use,ap.invoice.read,cui.view", false, cache);
+    expect(JSON.stringify(provider.seen)).toContain("secret-cui-note");
+    expect(put).not.toHaveBeenCalled();
   });
 });

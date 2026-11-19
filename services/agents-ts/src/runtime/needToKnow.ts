@@ -2,7 +2,7 @@ import type { Principal } from "../api/principal.js";
 import type { LogFn } from "../logging/pseudonymize.js";
 
 export const CUI_VIEW_DUTY = "cui.view";
-export const NEED_TO_KNOW_CACHE_MS = 60_000;
+export const NEED_TO_KNOW_CACHE_MS = 10_000;
 
 export interface NeedToKnowClient {
   enforced(caller: Principal): Promise<boolean>;
@@ -14,6 +14,7 @@ export function createNeedToKnowClient(cfg: {
   fetchFn?: typeof fetch;
   now?: () => number;
   timeoutMs?: number;
+  cacheMs?: number;
   log?: LogFn;
 }): NeedToKnowClient {
   const fetchFn = cfg.fetchFn ?? fetch;
@@ -23,7 +24,7 @@ export function createNeedToKnowClient(cfg: {
     if (cfg.baseUrl === undefined || caller.legalEntityId === undefined) return true;
     const key = `${caller.tenantId}:${caller.legalEntityId}`;
     const hit = cache.get(key);
-    if (hit !== undefined && now() - hit.at < NEED_TO_KNOW_CACHE_MS) return hit.enabled;
+    if (hit !== undefined && now() - hit.at < (cfg.cacheMs ?? NEED_TO_KNOW_CACHE_MS)) return hit.enabled;
     try {
       const res = await fetchFn(`${cfg.baseUrl.replace(/\/$/, "")}/v1/compliance/need-to-know?legalEntityId=${encodeURIComponent(caller.legalEntityId)}`, {
         headers: await cfg.authHeaders(caller),

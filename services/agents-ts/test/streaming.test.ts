@@ -7,7 +7,7 @@ import { providerUnavailable } from "../src/providers/wire.js";
 import { createCopilotService, TYPED_REPLACED_NOTICE } from "../src/runtime/copilot.js";
 import { createKnowledgeService } from "../src/runtime/knowledge.js";
 import type { ModelProvider, ModelRequest, ModelResponse } from "../src/runtime/engine.js";
-import { openRouter, REAL_IBAN } from "./fakes.js";
+import { openRouter, REAL_IBAN, testGuard } from "./fakes.js";
 import { FakeMcp, headers, MemoryStore, serve, tool } from "./surface-fakes.js";
 
 const GET = "depot.ap.invoice.get";
@@ -221,6 +221,7 @@ afterEach(async () => {
 async function setup(provider: ModelProvider) {
   const store = new MemoryStore();
   const copilot = createCopilotService({
+    guard: testGuard(),
     router: openRouter(provider),
     mcp: new FakeMcp([tool(GET, "ap.invoice.read")]),
     store,
@@ -248,7 +249,7 @@ const frames = (text: string): Array<{ event: string; data: { text?: string; ans
 
 describe("copilot token streaming (FR-47.3)", () => {
   it("sends the first token frame while the model is still writing, restores pseudonyms, and ends with the whole answer", async () => {
-    const provider = new StreamingProvider(["Pay to [IB", "AN-1] ", "by Friday."]);
+    const provider = new StreamingProvider(["First sentence. ", "Pay to [IB", "AN-1] by Friday. ", "Done."]);
     const srv = await setup(provider);
     const res = await askStream(srv.base, `Who gets paid on ${REAL_IBAN}?`);
     expect(res.headers.get("content-type")).toContain("text/event-stream");
@@ -262,7 +263,7 @@ describe("copilot token streaming (FR-47.3)", () => {
       if (done) break;
       got += dec.decode(value);
     }
-    expect(got).toContain('"text":"Pay to "');
+    expect(got).toContain('"text":"First sentence. "');
     expect(got).not.toContain("event: done");
     provider.release();
     for (;;) {
@@ -272,14 +273,25 @@ describe("copilot token streaming (FR-47.3)", () => {
     }
     const all = frames(got);
     const tokens = all.filter((f) => f.event === "token").map((f) => f.data.text);
-    expect(tokens.join("")).toBe(`Pay to ${REAL_IBAN} by Friday.`);
-    expect(tokens.length).toBeGreaterThan(1);
-    expect(all.at(-1)).toMatchObject({ event: "done", data: { answer: `Pay to ${REAL_IBAN} by Friday.\n\n${TYPED_REPLACED_NOTICE}`, refusal: null, generated: true } });
+    expect(tokens).toEqual(["First sentence. ", "Pay to ****3000 by Friday. ", "Done."]);
+    expect(JSON.stringify(all)).not.toContain(REAL_IBAN);
+    expect(all.at(-1)).toMatchObject({ event: "done", data: { answer: `First sentence. Pay to ****3000 by Friday. Done.\n\n${TYPED_REPLACED_NOTICE}`, refusal: null, generated: true } });
     expect(provider.completeCalls).toBe(0);
   });
 
+  it("withdraws the answer when a later sentence fails the guard: no token after the withdrawn frame, the safe message in done", async () => {
+    const provider = new StreamingProvider(["First sentence. ", "Write to [EMAIL-9]. ", "Never shown."]);
+    const srv = await setup(provider);
+    provider.release();
+    const all = frames(await (await askStream(srv.base, "hi")).text());
+    expect(all.map((f) => f.event)).toEqual(["token", "answer.withdrawn", "done"]);
+    expect(all[1]?.data).toMatchObject({ code: "AGT-0220" });
+    expect(all[2]?.data).toMatchObject({ answer: "This answer could not be shown. Try again or ask your administrator.", refusal: { code: "AGT-0220" } });
+    expect(JSON.stringify(all)).not.toContain("EMAIL-9");
+  });
+
   it("answers a failure after the first token with an error frame, not a broken stream", async () => {
-    const provider = new StreamingProvider(["Part", "ial"], true);
+    const provider = new StreamingProvider(["Part one. ", "ial"], true);
     const srv = await setup(provider);
     provider.release();
     const res = await askStream(srv.base, "hi");
@@ -323,6 +335,7 @@ describe("copilot streaming: refused answers and gone clients", () => {
     });
     const store = new MemoryStore();
     const copilot = createCopilotService({
+    guard: testGuard(),
       router: openRouter(provider),
       mcp: new FakeMcp([]),
       store,
@@ -345,7 +358,7 @@ describe("copilot streaming: refused answers and gone clients", () => {
   });
 
   it("aborts the model call when the client disconnects", async () => {
-    const provider = new StreamingProvider(["Part", "ial"]);
+    const provider = new StreamingProvider(["Part one. ", "ial"]);
     const srv = await setup(provider);
     const ctl = new AbortController();
     const res = await fetch(`${srv.base}/api/v1/copilot/chat`, { method: "POST", headers: { ...headers(DUTIES), accept: "text/event-stream" }, body: JSON.stringify({ mode: "ask", message: "hi" }), signal: ctl.signal });

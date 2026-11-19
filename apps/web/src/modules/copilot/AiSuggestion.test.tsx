@@ -7,7 +7,7 @@ import { pageViolations } from "./a11yTest";
 import { AiSuggestion } from "./AiSuggestion";
 import { GENERATED_BADGE } from "./domain";
 import { suggestionFixtures, UNRENDERED_MARKER } from "./suggestionFixtures";
-import type { SuggestionHost } from "./suggestionModel";
+import type { SuggestionHost, SuggestionViewModel } from "./suggestionModel";
 
 const HOSTS = Object.keys(suggestionFixtures) as SuggestionHost[];
 const ALL_DUTIES = ["receiving.ap.inquire", "ledger.journal.read"];
@@ -147,5 +147,46 @@ describe("AiSuggestion", () => {
       screen.getByRole("list", { name: "Tools called" }),
     ).toHaveTextContent("A tool call");
     expect(document.body).not.toHaveTextContent("Hidden label");
+  });
+
+  function renderMarked(extra: Partial<SuggestionViewModel>) {
+    return render(
+      <MemoryRouter>
+        <PrincipalProvider duties={[]}>
+          <AiSuggestion host="answer" suggestion={{ ...suggestionFixtures.answer.suggestion, ...extra }} />
+        </PrincipalProvider>
+      </MemoryRouter>,
+    );
+  }
+
+  it.each(["CUI", "UNKNOWN"])("marks an answer with data class %s as CUI next to the AI badge", (dataClass) => {
+    renderMarked({ dataClass });
+    expect(screen.getByText("CUI")).toBeInTheDocument();
+  });
+
+  it.each([undefined, "NONE", "P3"])("shows no CUI marking for data class %s", (dataClass) => {
+    renderMarked({ dataClass });
+    expect(screen.queryByText("CUI")).not.toBeInTheDocument();
+  });
+
+  it("counts left-out records with the reason, never naming them, and skips NEED_TO_KNOW", () => {
+    renderMarked({
+      excluded: [
+        { reason: "TENANT_POLICY", count: 2 },
+        { reason: "CUI_ROUTE", count: 1 },
+        { reason: "NEED_TO_KNOW", count: 5 },
+      ],
+    });
+    expect(screen.getByText("3 records were left out: tenant policy, CUI route.")).toBeInTheDocument();
+  });
+
+  it("shows no notice when only NEED_TO_KNOW records were excluded", () => {
+    renderMarked({ excluded: [{ reason: "NEED_TO_KNOW", count: 4 }] });
+    expect(screen.queryByText(/left out/)).not.toBeInTheDocument();
+  });
+
+  it("labels an unlisted reason as policy and accepts the single-object reply shape", () => {
+    renderMarked({ excluded: { reason: "NO_APPROVED_ROUTE", count: 1 } });
+    expect(screen.getByText("1 record was left out: policy.")).toBeInTheDocument();
   });
 });

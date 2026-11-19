@@ -2,9 +2,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import { tokenFrames } from "../src/api/copilot.js";
 import { CopilotAnswerCache } from "../src/domain/copilot.js";
 import { createCopilotService, TYPED_REPLACED_NOTICE } from "../src/runtime/copilot.js";
-import { createEgressGuard, EGRESS_GUARD_TOOL, GUARD_REFUSAL_MESSAGE, type EgressGuard } from "../src/runtime/egressGuard.js";
+import { EGRESS_GUARD_TOOL, GUARD_REFUSAL_MESSAGE, type EgressGuard } from "../src/runtime/egressGuard.js";
+import { createOutputGuard, OUTPUT_GUARD_MESSAGE, OUTPUT_GUARD_TOOL, type OutputGuard } from "../src/runtime/outputGuard.js";
 import type { ModelResponse } from "../src/runtime/engine.js";
-import { openRouter, REAL_IBAN, ScriptedProvider } from "./fakes.js";
+import { openRouter, REAL_IBAN, ScriptedProvider, testGuard } from "./fakes.js";
 import { tokenFor } from "./jwt.js";
 import { FakeMcp, headers, MemoryStore, serve, T1, tool, USER } from "./surface-fakes.js";
 
@@ -19,7 +20,7 @@ const call = (toolName: string, args: Record<string, unknown> = {}): ModelRespon
   usage: { tokensIn: 200, tokensOut: 10 },
 });
 
-const setup = async (script: ModelResponse[], mcp = new FakeMcp([tool(GET, "ap.invoice.read"), tool(LIST, "ap.vendor.read")], { [GET]: { ok: true, output: { id: "INV-7", total: "1200.00" }, ref: "INV-7" } }), killed = false, guard?: EgressGuard) => {
+const setup = async (script: ModelResponse[], mcp = new FakeMcp([tool(GET, "ap.invoice.read"), tool(LIST, "ap.vendor.read")], { [GET]: { ok: true, output: { id: "INV-7", total: "1200.00" }, ref: "INV-7" } }), killed = false, guard?: EgressGuard, outputGuard?: OutputGuard) => {
   const store = new MemoryStore();
   const provider = new ScriptedProvider(script);
   const cache = new CopilotAnswerCache();
@@ -31,7 +32,8 @@ const setup = async (script: ModelResponse[], mcp = new FakeMcp([tool(GET, "ap.i
     cache,
     config: { tokenCap: 20_000, maxTurns: 3, pseudonymTtlMs: 60_000 },
     modelId: "claude-haiku-5-5",
-    ...(guard !== undefined ? { guard } : {}),
+    guard: guard ?? testGuard(),
+    ...(outputGuard !== undefined ? { outputGuard } : {}),
   });
   const srv = await serve({ approvals: store, copilot });
   return { store, provider, mcp, srv };
@@ -74,12 +76,12 @@ describe("POST /api/v1/copilot/chat", () => {
     expect(s.store.settled).toEqual([[300, 30]]);
   });
 
-  it("sends the provider and the audit row only redacted text and restores real values for the user", async () => {
+  it("sends the provider and the audit row only redacted text and masks a value the user holds no duty for", async () => {
     const s = await setup([call(GET, { invoiceId: "INV-7", iban: REAL_IBAN }), answer("Pay to [IBAN-1].")]);
     close = s.srv.close;
     const res = await chat(s.srv.base, { mode: "ask", message: `What is open for IBAN ${REAL_IBAN}?` });
     const body = (await res.json()) as { answer: string };
-    expect(body.answer).toBe(`Pay to ${REAL_IBAN}.\n\n${TYPED_REPLACED_NOTICE}`);
+    expect(body.answer).toBe(`Pay to ****3000.\n\n${TYPED_REPLACED_NOTICE}`);
     for (const seen of s.provider.seen) expect(seen.user).not.toContain(REAL_IBAN);
     expect(JSON.stringify([...s.store.actionRows.values()])).not.toContain(REAL_IBAN);
     // The tool itself is called with the real value (the user's own request).
@@ -182,7 +184,7 @@ describe("POST /api/v1/copilot/chat", () => {
 
 describe("egress guard on the chat", () => {
   it("answers the standard refusal with no provider call and one BLOCKED guard row when the analyzer fails", async () => {
-    const guard = createEgressGuard({ analyzer: { scan: () => { throw new Error("analyzer down"); } } });
+    const guard = testGuard({ analyzer: { scan: () => { throw new Error("analyzer down"); } } });
     const s = await setup([answer("never sent")], undefined, false, guard);
     close = s.srv.close;
     const res = await chat(s.srv.base, { mode: "ask", message: "anything" });
@@ -204,6 +206,93 @@ describe("egress guard on the chat", () => {
     expect(body.dataClass).toBe("P3");
     expect(s.provider.seen[0]?.user).not.toContain("4111");
     expect(s.provider.seen[0]?.user).toContain("[CARD-1]");
+  });
+});
+
+describe("output guard on the chat", () => {
+  const PAYROLL = `${DUTIES},ViewSensitivePayroll`;
+  const ask = { mode: "ask", message: "Is salary: 85000 correct for the vendor?" };
+  const guardRows = (s: Awaited<ReturnType<typeof setup>>) => [...s.store.actionRows.values()].flat().filter((r) => r.toolName === OUTPUT_GUARD_TOOL);
+
+  it("shows a payroll value to the holder of ViewSensitivePayroll and its masked form to everyone else", async () => {
+    const holder = await setup([answer("The pay is [PAY-1].")]);
+    const holderBody = (await (await chat(holder.srv.base, ask, PAYROLL)).json()) as { answer: string; refusal: unknown };
+    await holder.srv.close();
+    expect(holderBody.answer).toContain("The pay is 85000.");
+    expect(holderBody.refusal).toBeNull();
+
+    const other = await setup([answer("The pay is [PAY-1].")]);
+    close = other.srv.close;
+    const otherBody = (await (await chat(other.srv.base, ask)).json()) as { answer: string };
+    expect(otherBody.answer).toContain("The pay is ****.");
+    expect(JSON.stringify([otherBody, ...other.store.actionRows.values()])).not.toContain("85000");
+  });
+
+  it("withholds an answer that prints the raw payroll value for a viewer without the duty, stores only the guard row and caches nothing", async () => {
+    const s = await setup([answer("Their salary: 85000."), answer("The pay is [PAY-1].")]);
+    close = s.srv.close;
+    const body = (await (await chat(s.srv.base, ask)).json()) as { answer: string; refusal: { code: string }; citations: unknown[] };
+    expect(body).toMatchObject({ answer: OUTPUT_GUARD_MESSAGE, refusal: { code: "AGT-0220" }, citations: [] });
+    expect(guardRows(s)).toEqual([expect.objectContaining({ decision: "DENIED", guardResult: expect.objectContaining({ decision: "OUTPUT_BLOCKED", errorCode: "DUTY_LEAK" }) })]);
+    expect(JSON.stringify([...s.store.actionRows.values()])).not.toContain("85000");
+    const again = (await (await chat(s.srv.base, ask)).json()) as { refusal: unknown };
+    expect(again.refusal).toBeNull();
+  });
+
+  it("withholds a token that was not part of this turn's inputs and a record id that was not read this turn", async () => {
+    const token = await setup([answer("Write to [EMAIL-9].")]);
+    const tokenBody = (await (await chat(token.srv.base, { mode: "ask", message: "who?" })).json()) as { answer: string; refusal: { code: string } };
+    await token.srv.close();
+    expect(tokenBody).toMatchObject({ answer: OUTPUT_GUARD_MESSAGE, refusal: { code: "AGT-0220" } });
+    expect(guardRows(token)[0]?.guardResult).toMatchObject({ errorCode: "TOKEN_NOT_IN_INPUT" });
+
+    const foreign = await setup([call(GET, { invoiceId: "INV-7" }), answer("See [[cite:INV-99]].")]);
+    const foreignBody = (await (await chat(foreign.srv.base, { mode: "ask", message: "invoice?" })).json()) as { refusal: { code: string }; citations: unknown[] };
+    await foreign.srv.close();
+    expect(foreignBody).toMatchObject({ refusal: { code: "AGT-0220" }, citations: [] });
+    expect(guardRows(foreign)[0]?.guardResult).toMatchObject({ errorCode: "RECORD_NOT_IN_INPUT" });
+
+    const own = await setup([call(GET, { invoiceId: "INV-7" }), answer("See [[cite:INV-7]].")]);
+    close = own.srv.close;
+    expect(((await (await chat(own.srv.base, { mode: "ask", message: "invoice?" })).json()) as { refusal: unknown }).refusal).toBeNull();
+  });
+
+  it("marks one unreadable citation among many as unverified and never shows its id", async () => {
+    const text = `${"See [[cite:INV-7]]. ".repeat(5)}Also [[cite:SECRET-9]].`;
+    const mixed = await setup([call(GET, { invoiceId: "INV-7" }), answer(text)]);
+    close = mixed.srv.close;
+    const body = (await (await chat(mixed.srv.base, { mode: "ask", message: "invoice?" })).json()) as { answer: string; refusal: unknown };
+    expect(body.refusal).toBeNull();
+    expect(body.answer).toContain("[unverified]");
+    expect(body.answer).not.toContain("SECRET-9");
+  });
+
+  it("fails closed with the safe message when the guard errors, and leaves the run committed", async () => {
+    const outputGuard = createOutputGuard({ analyzer: { scan: () => { throw new Error("analyzer down"); } } });
+    const s = await setup([answer("Fine.")], undefined, false, undefined, outputGuard);
+    close = s.srv.close;
+    const body = (await (await chat(s.srv.base, { mode: "ask", message: "x" })).json()) as { refusal: { code: string } };
+    expect(body.refusal.code).toBe("AGT-0220");
+    expect(guardRows(s)[0]?.guardResult).toMatchObject({ errorCode: "GUARD_ERROR" });
+    expect([...s.store.runs.values()][0]?.status).toBe("COMMITTED");
+    expect(s.store.settled).toHaveLength(1);
+  });
+
+  it("sends answer.withdrawn and no token frame when a non-streamed answer fails the guard", async () => {
+    const s = await setup([answer("Write to [EMAIL-9].")]);
+    close = s.srv.close;
+    const raw = await (await chat(s.srv.base, { mode: "ask", message: "who?" }, DUTIES, "text/event-stream")).text();
+    const names = raw.split("\n\n").filter((f) => f !== "").map((f) => f.split("\n")[0]);
+    expect(names).toEqual(["event: answer.withdrawn", "event: done"]);
+    expect(raw).toContain(`"code":"AGT-0220"`);
+    expect(raw).not.toContain("EMAIL-9");
+  });
+
+  it("raises the declared dataClass to the highest class of the inputs", async () => {
+    const s = await setup([answer("Noted.")]);
+    close = s.srv.close;
+    const body = (await (await chat(s.srv.base, { mode: "ask", message: "Is card 4111 1111 1111 1111 on file?" })).json()) as { dataClass: string };
+    expect(body.dataClass).toBe("P3");
   });
 });
 

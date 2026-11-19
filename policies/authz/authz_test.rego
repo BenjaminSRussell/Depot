@@ -3801,6 +3801,12 @@ test_compliance_data_designation_duties if {
 	allowed("datadesignation.read", "POST", "/v1/compliance/data-designations:resolve")
 	not allowed("datadesignation.read", "POST", "/v1/compliance/data-designations")
 	not allowed("datadesignation.write", "POST", "/v1/compliance/data-designations:resolve")
+	allowed("datadesignation.marking.read", "POST", "/v1/compliance/data-designations:resolve")
+	not allowed("datadesignation.marking.read", "GET", "/v1/compliance/data-designations")
+	not allowed("datadesignation.marking.read", "GET", "/v1/compliance/data-designations/d1")
+	not allowed("datadesignation.marking.read", "GET", "/v1/compliance/data-designations/d1/history")
+	not allowed("datadesignation.marking.read", "POST", "/v1/compliance/data-designations")
+	not allowed("datadesignation.marking.read", "PATCH", "/v1/compliance/data-designations/d1")
 	not allowed("datadesignation.write", "POST", "/v1/compliance/audit-policies")
 	not allowed("compliance.audit-policy.maintain", "POST", "/v1/compliance/data-designations")
 }

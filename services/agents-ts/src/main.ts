@@ -22,6 +22,7 @@ import {
 import { createCopilotService } from "./runtime/copilot.js";
 import { createNeedToKnowClient } from "./runtime/needToKnow.js";
 import { createEgressGuard } from "./runtime/egressGuard.js";
+import { createOutputGuard } from "./runtime/outputGuard.js";
 import { createKnowledgeService } from "./runtime/knowledge.js";
 import { PgKeywordIndex } from "./store/knowledge.js";
 import { createMcpConnector } from "./runtime/mcp.js";
@@ -90,7 +91,7 @@ async function main(): Promise<void> {
     },
   };
   const mcp = createMcpConnector({ baseUrl: cfg.mcpUrl });
-  const providerFor = createRunProviderFactory(cfg, undefined, createEgressGuard({ log }));
+  const providerFor = createRunProviderFactory(cfg, undefined, createEgressGuard({ log, policy: aiPolicyGuard }));
   const agents = agentCatalog(cfg);
   // Every definition this pod runs is in agent_version; a run starts only when its newest eval_run passed (AGT-0204).
   const versions = new PgVersionStore(pool);
@@ -120,6 +121,8 @@ async function main(): Promise<void> {
     throw new Error(
       "AGENTS_RUN_ENGINE=temporal needs DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE: agents signs its calls to workflow-ts",
     );
+  const metrics = new Metrics();
+  const outputGuard = createOutputGuard({ log, observe: (seconds, decision) => metrics.observeGuard(seconds, decision), deadlineMs: cfg.outputGuardTimeoutMs });
   const stepsService =
     cfg.runEngine === "temporal"
       ? createRunSteps({
@@ -130,6 +133,7 @@ async function main(): Promise<void> {
           state: new PgRunStateStore(store),
           inbox,
           killSwitch: registry,
+          outputGuard,
           // The pseudonym map must outlive the longest approval wait, or a resumed run could not restore real values.
           pseudonymTtlMs: Math.max(24, approvalHours + 24) * 3_600_000,
         })
@@ -147,6 +151,7 @@ async function main(): Promise<void> {
           },
         }
       : {}),
+    outputGuard,
     agents,
     evalPassed: (agent) => versions.evalPassed(agent),
     providerFor,
@@ -179,9 +184,9 @@ async function main(): Promise<void> {
       "DEPOT_SERVICE_SIGNING_KEY is not set: agents cannot sign its call to compliance, so every record is UNKNOWN and is withheld from AI calls",
       { boundary: cfg.boundary },
     );
-  const metrics = new Metrics();
   const copilot = createCopilotService({
     guard: createEgressGuard({ log, policy: aiPolicyGuard, observe: (seconds, decision) => metrics.observeGuard(seconds, decision) }),
+    outputGuard,
     knowledge,
     router: createConfiguredRouter(cfg, { log, ...(serviceSigner !== undefined ? { signer: serviceSigner } : {}) }),
     needToKnow: createNeedToKnowClient({
@@ -191,6 +196,7 @@ async function main(): Promise<void> {
         if (caller.legalEntityId === undefined) throw new Error("the caller's token names no legal entity");
         return { "x-depot-service-token": serviceSigner.mintForCompliance({ tenantId: caller.tenantId, legalEntityId: caller.legalEntityId, actor: caller.userId }) };
       },
+      cacheMs: cfg.needToKnowCacheMs,
       log,
     }),
     mcp,

@@ -1308,6 +1308,9 @@
       {"resource": "/v1/compliance/data-designations/*", "methods": ["GET"]},
       {"resource": "/v1/compliance/data-designations/*/history", "methods": ["GET"]}
     ]},
+    "datadesignation.marking.read": {"permissions": [
+      {"resource": "/v1/compliance/data-designations:resolve", "methods": ["POST"]}
+    ]},
     "cui.view": {"flag": true, "permissions": []},
     "cui.policy.read": {"permissions": [{"resource": "/v1/compliance/need-to-know", "methods": ["GET"]}]},
     "cui.policy.admin": {"permissions": [{"resource": "/v1/compliance/need-to-know", "methods": ["PUT"]}]},

@@ -125,6 +125,30 @@ export const copy = {
     noSearchMatchBody: "Check the number or name, or clear the search to see everything.",
     clearSearch: "Clear search",
   },
+  marking: {
+    badge: "CUI",
+    column: "Data designation",
+    filterAll: "All",
+    none: "None",
+    unavailable: "Designation unavailable",
+    csvNotice: ["CUI", "Contains CUI. Handle per your CUI policy."] as [string, string],
+    csvColumn: "Marking",
+    leftOut: (count: number, reasons: string[]) => `${count} ${count === 1 ? "record was" : "records were"} left out: ${reasons.join(", ")}.`,
+    reason: (code: string) => {
+      if (code === "TENANT_POLICY") return "tenant policy";
+      if (code === "P3") return "P3";
+      if (code === "CUI_ROUTE") return "CUI route";
+      if (code === "AMOUNT_WITHHELD") return "amount withheld";
+      return "policy";
+    },
+    source: (source: string, noun: string) => {
+      if (source === "RECORD") return `Designated at ${noun} level`;
+      if (source === "LEGAL_ENTITY") return "Designated at legal entity level";
+      if (source === "TENANT") return "Designated for the whole organization";
+      if (source === "PARENT_RECORD") return `Inherited from the parent ${noun}`;
+      return "Handle as CUI";
+    },
+  },
   fieldHelp: {
     paymentCustomer: "Leave empty when the payer is not yet identified.",
     paymentValueDate: "Cash discounts count from this date.",
@@ -193,6 +217,7 @@ export const copy = {
     softBody: "Ask an administrator to raise the limit before it stops answering.",
     refusals: {
       "AGT-0202": "The assistant has reached its usage limit, so it can't answer right now. Every page and workflow still works.",
+      "AGT-0220": "This answer could not be shown. Try again or ask your administrator.",
       "AGT-0201": "The assistant is paused, so it can't answer right now. Every page and workflow still works.",
     } as Readonly<Record<string, string>>,
   },

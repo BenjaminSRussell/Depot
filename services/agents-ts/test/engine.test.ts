@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { runAgent } from "../src/runtime/engine.js";
 import { withEgressGuard } from "../src/config.js";
-import { createEgressGuard, EGRESS_GUARD_TOOL } from "../src/runtime/egressGuard.js";
-import { APPROVER, codingDescriptor, FakeApprovals, FakeTools, INVOKER, makeDeps, makeRequest, memoryBudgets, postDescriptor, proposal, REAL_IBAN, ScriptedProvider, usd } from "./fakes.js";
+import { EGRESS_GUARD_TOOL } from "../src/runtime/egressGuard.js";
+import { APPROVER, codingDescriptor, FakeApprovals, FakeTools, INVOKER, makeDeps, makeRequest, memoryBudgets, postDescriptor, proposal, REAL_IBAN, ScriptedProvider, testGuard, usd } from "./fakes.js";
 
 const CODING = "depot.ap.invoice.propose_coding";
 const tools = () => new FakeTools({ "depot.ap.invoice.post": postDescriptor, [CODING]: codingDescriptor });
@@ -26,6 +26,26 @@ describe("runAgent gates and commits", () => {
     ]);
     expect(result.actions[0]?.inputJson).not.toContain(REAL_IBAN);
     expect(approvals.requests[0]?.rationale).toContain(REAL_IBAN);
+  });
+
+  it("drops a proposal whose arguments carry a pseudonym this run never held, and runs no tool (AC5)", async () => {
+    const t = tools();
+    const approvals = new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER });
+    const result = await runAgent(makeDeps({ provider: new ScriptedProvider([proposal(0.8, "1200", "depot.ap.invoice.post", { invoiceId: "INV-7", remitTo: "[IBAN-9]" })]), tools: t, approvals }), makeRequest());
+
+    expect(result).toMatchObject({ status: "FAILED", code: "AGT-0220", reason: "TOKEN_NOT_IN_INPUT" });
+    expect(t.calls).toHaveLength(0);
+    expect(approvals.requests).toHaveLength(0);
+    expect(result.displayText).toBe("This answer could not be shown. Try again or ask your administrator.");
+    expect(result.actions).toEqual([expect.objectContaining({ toolName: "output.guard", decision: "DENIED" })]);
+  });
+
+  it("drops a proposal whose arguments print a raw identifier", async () => {
+    const t = tools();
+    const result = await runAgent(makeDeps({ provider: new ScriptedProvider([proposal(0.8, "1200", "depot.ap.invoice.post", { invoiceId: "INV-7", remitTo: "FR1420041010050500013M02606" })]), tools: t, approvals: new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER }) }), makeRequest());
+
+    expect(result).toMatchObject({ status: "FAILED", code: "AGT-0220", reason: "RAW_IDENTIFIER" });
+    expect(t.calls).toHaveLength(0);
   });
 
   it("a rejected proposal calls nothing and ends REJECTED", async () => {
@@ -261,7 +281,7 @@ describe("runAgent start rejections and limits", () => {
 
 describe("runAgent egress guard row (AC7)", () => {
   it("records a guard row before the proposal row and renumbers the proposal", async () => {
-    const provider = withEgressGuard(new ScriptedProvider([proposal(0.8)]), createEgressGuard());
+    const provider = withEgressGuard(new ScriptedProvider([proposal(0.8)]), testGuard());
     const result = await runAgent(makeDeps({ provider, tools: tools(), approvals: new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER }) }), makeRequest());
 
     expect(result.status).toBe("COMMITTED");
@@ -271,7 +291,7 @@ describe("runAgent egress guard row (AC7)", () => {
 
   it("records a BLOCKED guard row and fails the run with AGT-0219 when the analyzer errors", async () => {
     const analyzer = { scan: () => { throw new Error("down"); } };
-    const provider = withEgressGuard(new ScriptedProvider([proposal(0.8)]), createEgressGuard({ analyzer }));
+    const provider = withEgressGuard(new ScriptedProvider([proposal(0.8)]), testGuard({ analyzer }));
     const result = await runAgent(makeDeps({ provider, tools: tools(), approvals: new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER }) }), makeRequest());
 
     expect(result.status).toBe("FAILED");

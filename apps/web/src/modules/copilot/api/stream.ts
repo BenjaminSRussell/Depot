@@ -51,6 +51,7 @@ export const errorFrameSchema = z.object({ code: z.string(), message: z.string()
 export type StreamEvent =
   | { type: "token"; text: string }
   | { type: "done"; response: ChatResponse }
+  | { type: "withdrawn"; code: string; message: string }
   | { type: "error"; code: string; message: string };
 
 /** Maps one frame to a validated event, or undefined for an event name this client does not know. */
@@ -63,6 +64,11 @@ export function toStreamEvent(frame: SseFrame): StreamEvent | undefined {
     case "done":
       json = JSON.parse(frame.data) as unknown;
       return { type: "done", response: chatResponseSchema.parse(json) };
+    case "answer.withdrawn": {
+      json = JSON.parse(frame.data) as unknown;
+      const e = errorFrameSchema.parse(json);
+      return { type: "withdrawn", code: e.code, message: e.message };
+    }
     case "error": {
       json = JSON.parse(frame.data) as unknown;
       const e = errorFrameSchema.parse(json);
@@ -148,6 +154,7 @@ function isEventStream(res: Response): boolean {
 export async function askCopilot(
   req: ChatRequest,
   onToken?: (text: string) => void,
+  onWithdrawn?: (message: string) => void,
   fetchFn: typeof fetch = apiFetch,
 ): Promise<ChatResponse> {
   const deadline = withDeadline(AI_FIRST_TOKEN_TIMEOUT_MS);
@@ -174,6 +181,7 @@ export async function askCopilot(
     for await (const event of readChatStream(res)) {
       deadline.clear();
       if (event.type === "token") onToken?.(event.text);
+      else if (event.type === "withdrawn") onWithdrawn?.(event.message);
       else if (event.type === "done") return event.response;
       else throw new CopilotError(`${event.code}: ${event.message}`, event.code);
     }

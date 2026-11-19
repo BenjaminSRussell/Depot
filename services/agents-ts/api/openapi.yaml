@@ -490,6 +490,12 @@ paths:
         approved route is withheld from the model, a note says so, and `excluded`
         reports the count and kinds. When no route exists even for permitted data
         the answer is a refusal with code AGT-0218 and no model is called.
+        An output guard checks every sentence before it is sent and the whole
+        answer once more: a pseudonym token or record id outside this turn's
+        inputs, a sensitive value the caller holds no duty for, or a raw
+        identifier suppresses the whole answer. The stream then carries one
+        `answer.withdrawn` frame ({code: AGT-0220, message}), no `token` frame
+        after it, and `done` ends with the refusal AGT-0220 and the safe message.
       x-depot-duty: mcp.copilot.use
       x-depot-approval: none
       requestBody:
@@ -511,7 +517,7 @@ paths:
             application/json:
               schema: {$ref: "#/components/schemas/ChatResponse"}
             text/event-stream:
-              schema: {type: string, description: "token frames then one done frame"}
+              schema: {type: string, description: "token frames, optionally one answer.withdrawn frame, then one done frame"}
         "400": {$ref: "#/components/responses/Problem"}
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}

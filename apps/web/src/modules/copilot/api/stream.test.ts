@@ -55,6 +55,11 @@ describe("toStreamEvent", () => {
     expect(() => toStreamEvent({ event: "done", data: JSON.stringify({ ...donePayload, generated: false }) })).toThrow();
   });
 
+  it("maps an answer.withdrawn frame and rejects a malformed one", () => {
+    expect(toStreamEvent({ event: "answer.withdrawn", data: JSON.stringify({ code: "AGT-0220", message: "safe" }) })).toEqual({ type: "withdrawn", code: "AGT-0220", message: "safe" });
+    expect(() => toStreamEvent({ event: "answer.withdrawn", data: JSON.stringify({ code: "AGT-0220" }) })).toThrow();
+  });
+
   it("ignores event names it does not know, so the contract can grow", () => {
     expect(toStreamEvent({ event: "progress", data: "{}" })).toBeUndefined();
   });
@@ -96,7 +101,7 @@ describe("askCopilot (the panel's client)", () => {
   it("streams tokens to the callback and returns the validated final answer", async () => {
     const tokens: string[] = [];
     const text = frames(["token", { text: "Revenue " }], ["token", { text: "rose." }], ["done", donePayload]);
-    const res = await askCopilot({ mode: "ask", message: "revenue?" }, (t) => tokens.push(t), streamingFetch(encode(text), 200, "text/event-stream; charset=utf-8"));
+    const res = await askCopilot({ mode: "ask", message: "revenue?" }, (t) => tokens.push(t), undefined, streamingFetch(encode(text), 200, "text/event-stream; charset=utf-8"));
     expect(tokens).toEqual(["Revenue ", "rose."]);
     expect(res.answer).toBe("Revenue rose 4.2%.");
   });
@@ -105,7 +110,7 @@ describe("askCopilot (the panel's client)", () => {
     const onToken = (): void => {
       throw new Error("no tokens on the JSON path");
     };
-    const res = await askCopilot({ mode: "ask", message: "x" }, onToken, streamingFetch(encode(JSON.stringify(donePayload)), 200, "application/json"));
+    const res = await askCopilot({ mode: "ask", message: "x" }, onToken, undefined, streamingFetch(encode(JSON.stringify(donePayload)), 200, "application/json"));
     expect(res).toMatchObject({ answer: "Revenue rose 4.2%.", generated: true });
   });
 
@@ -115,21 +120,21 @@ describe("askCopilot (the panel's client)", () => {
       accept = String((init?.headers as Record<string, string>).accept);
       return new Response(JSON.stringify(donePayload), { status: 200, headers: { "content-type": "application/json" } });
     }) as unknown as typeof fetch;
-    await askCopilot({ mode: "ask", message: "x" }, undefined, fetchFn);
+    await askCopilot({ mode: "ask", message: "x" }, undefined, undefined, fetchFn);
     expect(accept).toContain("text/event-stream");
     expect(accept).toContain("application/json");
   });
 
   it("throws the code and message of a terminal error frame", async () => {
     const text = frames(["token", { text: "partial" }], ["error", { code: "AGT-0202", message: "Monthly token budget exhausted." }]);
-    await expect(askCopilot({ mode: "ask", message: "x" }, undefined, streamingFetch(encode(text)))).rejects.toThrow(
+    await expect(askCopilot({ mode: "ask", message: "x" }, undefined, undefined, streamingFetch(encode(text)))).rejects.toThrow(
       "AGT-0202: Monthly token budget exhausted.",
     );
   });
 
   it("rejects a JSON answer without the generated label", async () => {
     const body = JSON.stringify({ ...donePayload, generated: false });
-    await expect(askCopilot({ mode: "ask", message: "x" }, undefined, streamingFetch(encode(body), 200, "application/json"))).rejects.toThrow();
+    await expect(askCopilot({ mode: "ask", message: "x" }, undefined, undefined, streamingFetch(encode(body), 200, "application/json"))).rejects.toThrow();
   });
 });
 
@@ -151,7 +156,7 @@ describe("copilot failures and deadlines", () => {
   });
 
   it("keeps the message and has no code when the failure body cannot be read", async () => {
-    const error = await askCopilot(request, undefined, (async () => new Response("<html>", { status: 502 })) as unknown as typeof fetch).catch((e: unknown) => e);
+    const error = await askCopilot(request, undefined, undefined, (async () => new Response("<html>", { status: 502 })) as unknown as typeof fetch).catch((e: unknown) => e);
     expect(error).toMatchObject({ code: undefined, message: "Copilot is unavailable (HTTP 502)." });
   });
 
@@ -164,7 +169,7 @@ describe("copilot failures and deadlines", () => {
 
   it("waits up to thirty seconds for the first token and gives up after that", async () => {
     vi.useFakeTimers();
-    const outcome = askCopilot(request, undefined, hanging).catch((e: unknown) => e);
+    const outcome = askCopilot(request, undefined, undefined, hanging).catch((e: unknown) => e);
     await vi.advanceTimersByTimeAsync(AI_FIRST_TOKEN_TIMEOUT_MS - 1);
     expect(vi.getTimerCount()).toBe(1);
     await vi.advanceTimersByTimeAsync(1);
@@ -174,7 +179,7 @@ describe("copilot failures and deadlines", () => {
   it("gives up after the request limit when a non-streamed body never finishes", async () => {
     vi.useFakeTimers();
     const slowJson = (async () => ({ ok: true, headers: new Headers({ "content-type": "application/json" }), json: () => new Promise(() => undefined) })) as unknown as typeof fetch;
-    const outcome = askCopilot(request, undefined, slowJson).catch((e: unknown) => e);
+    const outcome = askCopilot(request, undefined, undefined, slowJson).catch((e: unknown) => e);
     await vi.advanceTimersByTimeAsync(AI_REQUEST_TIMEOUT_MS);
     expect(await outcome).toMatchObject({ message: COPILOT_TIMEOUT_MESSAGE });
   });
@@ -183,14 +188,23 @@ describe("copilot failures and deadlines", () => {
     vi.useFakeTimers();
     const fetchFn = streamingFetch([new TextEncoder().encode(frames(["token", { text: "Rev" }], ["done", donePayload]))]);
     const tokens: string[] = [];
-    const response = await askCopilot(request, (t) => tokens.push(t), fetchFn);
+    const response = await askCopilot(request, (t) => tokens.push(t), undefined, fetchFn);
     expect(response.answer).toBe(donePayload.answer);
     expect(tokens).toEqual(["Rev"]);
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("passes the safe message of a withdrawn frame to the callback and still returns the refusal from done", async () => {
+    const refusal = { ...donePayload, answer: "safe", refusal: { code: "AGT-0220", message: "safe" } };
+    const fetchFn = streamingFetch([new TextEncoder().encode(frames(["token", { text: "Rev. " }], ["answer.withdrawn", { code: "AGT-0220", message: "safe" }], ["done", refusal]))]);
+    const withdrawn: string[] = [];
+    const response = await askCopilot(request, undefined, (m) => withdrawn.push(m), fetchFn);
+    expect(withdrawn).toEqual(["safe"]);
+    expect(response.refusal?.code).toBe("AGT-0220");
+  });
+
   it("throws a terminal error frame with its code", async () => {
     const fetchFn = streamingFetch([new TextEncoder().encode(frames(["error", { code: "AGT-0202", message: "budget" }]))]);
-    expect(await askCopilot(request, undefined, fetchFn).catch((e: unknown) => e)).toMatchObject({ code: "AGT-0202", message: "AGT-0202: budget" });
+    expect(await askCopilot(request, undefined, undefined, fetchFn).catch((e: unknown) => e)).toMatchObject({ code: "AGT-0202", message: "AGT-0202: budget" });
   });
 });

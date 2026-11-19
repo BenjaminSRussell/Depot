@@ -42,6 +42,29 @@ const PATTERNS: Readonly<Record<PiiCategory, Pattern>> = {
   },
 };
 
+export const PSEUDONYM_RE = /\[(?:EMAIL|IBAN|CARD|SSN|TAXID|BANKACCT|PAY|AMOUNT)-\d+\]/g;
+
+export const P3_CATEGORIES: readonly PiiCategory[] = ["IBAN", "CARD", "SSN", "TAXID", "BANKACCT", "PAY"];
+
+export const SENSITIVE_DUTY = { payroll: "ViewSensitivePayroll", worker: "ViewSensitiveWorker" } as const;
+
+const P3_DOMAIN: Partial<Record<PiiCategory, keyof typeof SENSITIVE_DUTY>> = { PAY: "payroll", SSN: "worker", TAXID: "worker" };
+
+const IDENTIFIER_CATEGORIES: readonly (PiiCategory | "AMOUNT")[] = ["SSN", "TAXID", "CARD", "IBAN", "BANKACCT"];
+const MIN_SIGNIFICANT_FOR_SUFFIX = 8;
+
+export function maskValue(value: string, category: PiiCategory | "AMOUNT"): string {
+  const significant = value.replace(/[^A-Za-z0-9]/g, "");
+  if (!IDENTIFIER_CATEGORIES.includes(category) || significant.length < MIN_SIGNIFICANT_FOR_SUFFIX) return "****";
+  return `****${significant.slice(-4)}`;
+}
+
+export function mayViewValue(category: PiiCategory | "AMOUNT", duties: ReadonlySet<string>): boolean {
+  if (category === "AMOUNT" || !P3_CATEGORIES.includes(category)) return true;
+  const domain = P3_DOMAIN[category];
+  return domain !== undefined && duties.has(SENSITIVE_DUTY[domain]);
+}
+
 const matchesOf = (category: PiiCategory, text: string): string[] =>
   [...text.matchAll(PATTERNS[category].re)].flatMap((m) => acceptedPrefix(PATTERNS[category], m[0]) ?? []);
 
@@ -131,6 +154,16 @@ export class Pseudonymizer {
     let out = text;
     for (const [pseudonym, value] of this.byPseudonym) {
       out = out.split(pseudonym).join(value);
+    }
+    return out;
+  }
+
+  restoreFor(text: string, duties: ReadonlySet<string>): string {
+    this.sweep();
+    let out = text;
+    for (const [pseudonym, value] of this.byPseudonym) {
+      const category = pseudonym.slice(1, pseudonym.indexOf("-")) as PiiCategory;
+      out = out.split(pseudonym).join(mayViewValue(category, duties) ? value : maskValue(value, category));
     }
     return out;
   }

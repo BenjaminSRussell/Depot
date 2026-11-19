@@ -27,6 +27,8 @@ const (
 	DutyDataDesignationRead    = domain.DutyDataDesignationRead
 	DutyDataDesignationResolve = domain.DutyDataDesignationResolve
 
+	DutyDataDesignationMarkingRead = domain.DutyDataDesignationMarkingRead
+
 	resolveConcurrency = 8
 )
 
@@ -35,7 +37,7 @@ var resolveDeadline = 8 * time.Second
 func (a *API) registerDesignations(r chi.Router) {
 	r.With(authz.RequireDuty(DutyDataDesignationWrite)).Post("/v1/compliance/data-designations", a.createDesignation)
 	r.With(authz.RequireDuty(DutyDataDesignationWrite)).Patch("/v1/compliance/data-designations/{id}", a.changeDesignation)
-	r.With(authz.RequireAnyDuty(DutyDataDesignationRead, DutyDataDesignationResolve)).Post("/v1/compliance/data-designations:resolve", a.resolveDesignations)
+	r.With(authz.RequireAnyDuty(DutyDataDesignationRead, DutyDataDesignationResolve, DutyDataDesignationMarkingRead)).Post("/v1/compliance/data-designations:resolve", a.resolveDesignations)
 	r.With(authz.RequireDuty(DutyDataDesignationRead)).Get("/v1/compliance/data-designations", a.listDesignations)
 	r.With(authz.RequireDuty(DutyDataDesignationRead)).Get("/v1/compliance/data-designations/{id}", a.getDesignation)
 	r.With(authz.RequireDuty(DutyDataDesignationRead)).Get("/v1/compliance/data-designations/{id}/history", a.designationHistory)

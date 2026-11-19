@@ -7,7 +7,7 @@ import { createPhiGuard, parsePhiFields, type PhiGuard } from "./domain/phi.js";
 import { NO_ROUTE_MESSAGE, type Boundary } from "./domain/modelRoute.js";
 import { AgentError } from "./errors.js";
 import type { ModelProvider, ModelRequest } from "./runtime/engine.js";
-import { createEgressGuard, GUARD_REFUSAL_MESSAGE, type EgressGuard } from "./runtime/egressGuard.js";
+import { GUARD_REFUSAL_MESSAGE, type EgressGuard } from "./runtime/egressGuard.js";
 import { Pseudonymizer } from "./domain/redaction.js";
 
 /** The Claude models Depot defaults to; every one is overridable by configuration. */
@@ -33,6 +33,8 @@ export interface Config {
   runTokenCap: number;
   copilotTokenCap: number;
   copilotMaxTurns: number;
+  outputGuardTimeoutMs: number;
+  needToKnowCacheMs: number;
   selfApprovalLimit: { amount: string; currency: string };
   approvalExpiryHours: number | undefined;
   /** How often each pod polls the shared kill switch (AC-47.6); below the 10 s fail-closed window. */
@@ -179,6 +181,11 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     throw new Error(
       "AGENTS_KILLSWITCH_POLL_MS must be 100 to 5000: a pod fails closed after 10 s without a poll",
     );
+  const outputGuardTimeoutMs = positiveInt(env, "AGENTS_OUTPUT_GUARD_TIMEOUT_MS", 2000);
+  if (outputGuardTimeoutMs < 100 || outputGuardTimeoutMs > 10_000)
+    throw new Error("AGENTS_OUTPUT_GUARD_TIMEOUT_MS must be 100 to 10000");
+  const needToKnowCacheMs = positiveInt(env, "AGENTS_NEED_TO_KNOW_CACHE_MS", 10_000);
+  if (needToKnowCacheMs > 60_000) throw new Error("AGENTS_NEED_TO_KNOW_CACHE_MS must be 1 to 60000");
   const issuer = env["AGENTS_JWT_ISSUER"] ?? "";
   if (!/^https?:\/\//.test(issuer))
     throw new Error(
@@ -227,6 +234,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     runTokenCap: positiveInt(env, "AGENTS_RUN_TOKEN_CAP", 20_000),
     copilotTokenCap: positiveInt(env, "AGENTS_COPILOT_TOKEN_CAP", 8_000),
     copilotMaxTurns: positiveInt(env, "AGENTS_COPILOT_MAX_TURNS", 4),
+    outputGuardTimeoutMs,
+    needToKnowCacheMs,
     selfApprovalLimit: { amount: limit, currency },
     approvalExpiryHours,
     killSwitchPollMs,
@@ -267,8 +276,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
 
 export function createRunProviderFactory(
   cfg: Config,
-  fetchFn?: typeof fetch,
-  guard: EgressGuard = createEgressGuard(),
+  fetchFn: typeof fetch | undefined,
+  guard: EgressGuard,
 ): (modelId: string) => ModelProvider {
   const direct = createProviderFactory(cfg, fetchFn);
   return (modelId) => {
