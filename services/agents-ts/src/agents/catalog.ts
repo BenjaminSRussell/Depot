@@ -104,3 +104,17 @@ export const MODEL_VISIBLE_TOOL = /^depot(\.[a-z_]+){2,}\.(get|list|draft|propos
 
 /** Tool name suffixes that commit or post. They must never be model-visible. */
 export const COMMIT_SUFFIX = /\.(post|apply|apply_coding|commit|reverse|send|pay)$/;
+
+export type ToolClass = "P0" | "P1" | "P2" | "P3";
+
+export interface ToolAnnotation {
+  module: string;
+  declared: ToolClass;
+}
+
+const KNOWLEDGE_TOOL_PREFIX = "depot.knowledge.";
+
+export function toolAnnotation(tool: string): ToolAnnotation {
+  const module = tool.split(".")[1] ?? "";
+  return { module, declared: tool.startsWith(KNOWLEDGE_TOOL_PREFIX) ? "P1" : "P2" };
+}

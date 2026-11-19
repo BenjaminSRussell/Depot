@@ -20,6 +20,7 @@ import {
   createConfiguredRouter,
 } from "./runtime/aiRouter.js";
 import { createCopilotService } from "./runtime/copilot.js";
+import { createNeedToKnowClient } from "./runtime/needToKnow.js";
 import { createEgressGuard } from "./runtime/egressGuard.js";
 import { createOutputGuard } from "./runtime/outputGuard.js";
 import { createKnowledgeService } from "./runtime/knowledge.js";
@@ -90,7 +91,7 @@ async function main(): Promise<void> {
     },
   };
   const mcp = createMcpConnector({ baseUrl: cfg.mcpUrl });
-  const providerFor = createRunProviderFactory(cfg);
+  const providerFor = createRunProviderFactory(cfg, undefined, createEgressGuard({ log }));
   const agents = agentCatalog(cfg);
   // Every definition this pod runs is in agent_version; a run starts only when its newest eval_run passed (AGT-0204).
   const versions = new PgVersionStore(pool);
@@ -181,10 +182,19 @@ async function main(): Promise<void> {
     );
   const metrics = new Metrics();
   const copilot = createCopilotService({
-    guard: createEgressGuard({ log, observe: (seconds, decision) => metrics.observeGuard(seconds, decision) }),
+    guard: createEgressGuard({ log, policy: aiPolicyGuard, observe: (seconds, decision) => metrics.observeGuard(seconds, decision) }),
     outputGuard: createOutputGuard({ log, observe: (seconds, decision) => metrics.observeGuard(seconds, decision), deadlineMs: cfg.outputGuardTimeoutMs }),
     knowledge,
     router: createConfiguredRouter(cfg, { log, ...(serviceSigner !== undefined ? { signer: serviceSigner } : {}) }),
+    needToKnow: createNeedToKnowClient({
+      baseUrl: cfg.complianceUrl,
+      authHeaders: (caller) => {
+        if (serviceSigner === undefined) throw new Error("no service signing key is configured");
+        if (caller.legalEntityId === undefined) throw new Error("the caller's token names no legal entity");
+        return { "x-depot-service-token": serviceSigner.mintForCompliance({ tenantId: caller.tenantId, legalEntityId: caller.legalEntityId, actor: caller.userId }) };
+      },
+      log,
+    }),
     mcp,
     store,
     killSwitch: registry,

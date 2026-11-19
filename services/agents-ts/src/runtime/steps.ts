@@ -14,10 +14,11 @@ import type { ApprovalStore, RecordedDecision } from "../api/decision.js";
 import type { Principal } from "../api/principal.js";
 import type { NewApproval } from "../store/approvals.js";
 import type { RunCredential, RunStateStore } from "../store/runstate.js";
-import { riskScoreOf, RUN_TIMEOUT_MS, type RiskPort, type AuditPort, type BudgetHold, type BudgetPort, type KillSwitchPort, type ModelProvider, type ModelResponse, type ModelUsage, type RunRequest, type RunResult, type ToolPort } from "./engine.js";
+import { guardActionRecord, riskScoreOf, RUN_TIMEOUT_MS, type RiskPort, type AuditPort, type BudgetHold, type BudgetPort, type KillSwitchPort, type ModelProvider, type ModelResponse, type ModelUsage, type RunRequest, type RunResult, type ToolPort } from "./engine.js";
 import type { McpConnector, McpSession } from "./mcp.js";
 import { createFactRisk } from "./risk.js";
 import type { RunStatus } from "../domain/run.js";
+import type { GuardResult } from "./egressGuard.js";
 
 /**
  * The agent run as resumable steps (FR-47.4, FR-47.8). The in-process engine (engine.ts) runs one run in one
@@ -45,6 +46,7 @@ export type StepPhase = "created" | "begun" | "called" | "awaiting" | "approved"
 export interface StepState {
   phase: StepPhase;
   seq: number;
+  guardRows?: number;
   hold?: BudgetHold;
   tokensIn: number;
   tokensOut: number;
@@ -194,7 +196,7 @@ export function createRunSteps(deps: StepsDeps) {
   /** Every way out of a run after a proposal leaves exactly one action row (AC-47.3). */
   async function closeOut(c: Ctx, output: unknown, why: string, ref: string | null = null): Promise<void> {
     const p = c.state.proposal;
-    if (p === undefined || c.state.seq > 0) return;
+    if (p === undefined || c.state.seq > (c.state.guardRows ?? 0)) return;
     const d = c.state.decision ?? { decision: "DENIED" as Decision, approver: null };
     try {
       await record(c, p.tool, p.inputRedacted, output, d.decision, d.approver, ref, why);
@@ -392,10 +394,19 @@ export function createRunSteps(deps: StepsDeps) {
           await save(c);
           const provider = deps.providerFor(agent.modelId);
           let response: ModelResponse;
+          let guardResult: GuardResult | undefined;
+          const recordGuard = async (): Promise<void> => {
+            if (guardResult === undefined) return;
+            await deps.audit.recordAction(c.tenantId, guardActionRecord(c.runId, s.seq + 1, guardResult, now().toISOString()));
+            s.seq += 1;
+            s.guardRows = (s.guardRows ?? 0) + 1;
+          };
           try {
-            response = await provider.complete({ system: agent.systemPrompt, user: prompt, allowedTools: agent.allowedTools, maxOutputTokens });
+            response = await provider.complete({ system: agent.systemPrompt, user: prompt, allowedTools: agent.allowedTools, maxOutputTokens, guard: { tenantId: c.tenantId, report: (r) => { guardResult = r; } } });
+            await recordGuard();
           } catch (err) {
-            if ((err instanceof ProviderError && err.unbilled) || (err instanceof AgentError && err.code === "AGT-0215")) s.mayHaveSpent = false;
+            await recordGuard();
+            if ((err instanceof ProviderError && err.unbilled) || (err instanceof AgentError && (err.code === "AGT-0215" || err.code === "AGT-0219"))) s.mayHaveSpent = false;
             throw err;
           }
           const metered = response.usage !== undefined && isMetered(response.usage);

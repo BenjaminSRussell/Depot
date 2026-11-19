@@ -3,6 +3,10 @@ import { CopilotAnswerCache } from "../src/domain/copilot.js";
 import { Pseudonymizer, scanPii } from "../src/domain/redaction.js";
 import { createCopilotService } from "../src/runtime/copilot.js";
 import type { ModelResponse } from "../src/runtime/engine.js";
+import { AMOUNT_WITHHELD_NOTICE } from "../src/domain/financialFields.js";
+import { createProviderFactory, loadConfig, withEgressGuard } from "../src/config.js";
+import { PROPOSE_TOOL_NAME } from "../src/providers/wire.js";
+import { AgentError } from "../src/errors.js";
 import { createEgressGuard, EGRESS_GUARD_TOOL, type Analyzer, type EgressInput, type GuardDecision } from "../src/runtime/egressGuard.js";
 import { Metrics } from "../src/server.js";
 import { openRouter, ScriptedProvider } from "./fakes.js";
@@ -75,12 +79,15 @@ describe("egress guard before the provider", () => {
       expect(scanPii(seen.user)).toEqual([]);
     }
     const second = provider.seen[1]?.user ?? "";
-    for (const pseudonym of ["[IBAN-1]", "[BANKACCT-1]", "[CARD-1]", "[CARD-2]", "[TAXID-1]", "[SSN-1]", "[PAY-1]"]) expect(second).toContain(pseudonym);
+    for (const pseudonym of ["[IBAN-1]", "[BANKACCT-1]", "[CARD-1]", "[CARD-2]", "[TAXID-1]", "[SSN-1]"]) expect(second).toContain(pseudonym);
+    expect(second).not.toContain("salary");
+    expect(body.answer).toContain(AMOUNT_WITHHELD_NOTICE);
     expect(provider.seen[0]?.user).toContain("[CARD-1]");
     expect(body.dataClass).toBe("P3");
     const guardRows = rows.filter((r) => r.toolName === EGRESS_GUARD_TOOL);
     expect(guardRows.map((r) => r.guardResult?.decision)).toEqual(["REDACTED", "REDACTED"]);
-    expect(guardRows[1]?.guardResult?.counts).toEqual({ CARD: 2, IBAN: 1, BANKACCT: 1, TAXID: 1, SSN: 1, PAY: 1 });
+    expect(guardRows[1]?.guardResult?.counts).toEqual({ CARD: 2, IBAN: 1, BANKACCT: 1, TAXID: 1, SSN: 1 });
+    expect(guardRows[1]?.guardResult?.excluded).toEqual({ AMOUNT_WITHHELD: 1 });
     const stored = JSON.stringify(rows);
     for (const value of Object.values(CANARIES)) expect(stored).not.toContain(value);
     expect(scanPii(stored)).toEqual([]);
@@ -147,5 +154,61 @@ describe("guard inspect", () => {
     expect(first.user).toBe("iban [IBAN-1]");
     expect(second.user).toBe("hello\n\nother [IBAN-1]");
     expect(first.typedReplaced).toBe(1);
+  });
+});
+
+describe("run provider wrapper", () => {
+  const response: ModelResponse = { text: "ok" };
+  const make = (calls: string[]) => withEgressGuard({ complete: async (req) => (calls.push(req.user), response) }, createEgressGuard());
+
+  it("forwards a prompt with no sensitive data", async () => {
+    const calls: string[] = [];
+    await make(calls).complete({ system: "s", user: "hello [IBAN-1]", allowedTools: [], maxOutputTokens: 10 });
+    expect(calls).toEqual(["hello [IBAN-1]"]);
+  });
+
+  it("refuses with AGT-0219 and makes no call when a raw IBAN reaches the provider layer", async () => {
+    const calls: string[] = [];
+    const err = await make(calls)
+      .complete({ system: "s", user: "pay DE89 3704 0044 0532 0130 00", allowedTools: [], maxOutputTokens: 10 })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AgentError);
+    expect((err as AgentError).code).toBe("AGT-0219");
+    expect(calls).toEqual([]);
+  });
+});
+
+const wireAnswer = (adapter: string, input: Record<string, unknown>): unknown => {
+  if (adapter === "anthropic") return { content: [{ type: "tool_use", name: PROPOSE_TOOL_NAME, input }], usage: { input_tokens: 10, output_tokens: 5 } };
+  if (adapter === "bedrock") return { output: { message: { content: [{ toolUse: { name: PROPOSE_TOOL_NAME, input } }] } }, usage: { inputTokens: 10, outputTokens: 5 } };
+  return { choices: [{ message: { tool_calls: [{ function: { name: PROPOSE_TOOL_NAME, arguments: JSON.stringify(input) } }] } }], usage: { prompt_tokens: 10, completion_tokens: 5 } };
+};
+
+describe("adapter parity", () => {
+  const base = { MCP_URL: "http://mcp:8080", AGENTS_JWT_ISSUER: "https://idp.dev.depot.dev/realms/dev", AGENTS_JWKS_URL: "https://idp.dev.depot.dev/realms/dev/protocol/openid-connect/certs" };
+  const adapters: Record<string, Record<string, string>> = {
+    anthropic: { AGENTS_PROVIDER: "anthropic", ANTHROPIC_API_KEY: "k" },
+    bedrock: { AGENTS_PROVIDER: "bedrock", AWS_REGION: "us-east-1", AWS_ACCESS_KEY_ID: "id", AWS_SECRET_ACCESS_KEY: "secret" },
+    azure: { AGENTS_PROVIDER: "openai", OPENAI_API_KEY: "k", AGENTS_OPENAI_BASE_URL: "https://acme.openai.azure.com/openai/deployments/d", AGENTS_OPENAI_AUTH: "api-key" },
+    vllm: { AGENTS_PROVIDER: "openai", OPENAI_API_KEY: "k", AGENTS_OPENAI_BASE_URL: "https://vllm.internal/v1" },
+  };
+  const typed = `Pay ${CANARIES.iban} with card ${CANARIES.typedCard}, EIN ${CANARIES.ein}, ssn ${CANARIES.ssn}`;
+
+  it("sends the same redacted prompt through all four adapters and no canary", async () => {
+    const verdict = await createEgressGuard().inspect({ tenantId: "t", callId: "c", routeId: "r", pseudo: new Pseudonymizer("t", 60_000, () => 0), system: "s", typed, results: [] });
+    expect(verdict.result.decision).toBe("REDACTED");
+    const escaped = JSON.stringify(verdict.user).slice(1, -1);
+    for (const [name, env] of Object.entries(adapters)) {
+      const bodies: string[] = [];
+      const fetchFn = (async (_url: string | URL, init?: RequestInit): Promise<Response> => {
+        bodies.push(String(init?.body ?? ""));
+        return Response.json(wireAnswer(name, { text: "ok" }));
+      }) as unknown as typeof fetch;
+      const provider = createProviderFactory(loadConfig({ ...base, ...env }), fetchFn)("m");
+      await provider.complete({ system: "s", user: verdict.user, allowedTools: [GET], maxOutputTokens: 10 });
+      expect(bodies, name).toHaveLength(1);
+      expect(bodies[0], name).toContain(escaped);
+      for (const value of [CANARIES.iban, CANARIES.typedCard, CANARIES.ein, CANARIES.ssn]) expect(bodies[0], name).not.toContain(value);
+    }
   });
 });

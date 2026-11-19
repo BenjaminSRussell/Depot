@@ -3811,6 +3811,14 @@ test_compliance_data_designation_duties if {
 	not allowed("compliance.audit-policy.maintain", "POST", "/v1/compliance/data-designations")
 }
 
+test_agents_service_reads_need_to_know_and_never_writes_it if {
+	allowed("compliance.need-to-know.read", "GET", "/v1/compliance/need-to-know")
+	not allowed("compliance.need-to-know.read", "PUT", "/v1/compliance/need-to-know")
+	not allowed("compliance.need-to-know.read", "POST", "/v1/compliance/data-designations:resolve")
+	data.duties["compliance.need-to-know.read"].service_only
+	not allowed("mcp.copilot.use", "GET", "/v1/compliance/need-to-know")
+}
+
 test_agents_service_resolves_designations_and_copilot_users_do_not_read_them if {
 	allowed("compliance.data-designation.resolve", "POST", "/v1/compliance/data-designations:resolve")
 	not allowed("compliance.data-designation.resolve", "GET", "/v1/compliance/data-designations")
@@ -3818,7 +3826,7 @@ test_agents_service_resolves_designations_and_copilot_users_do_not_read_them if 
 	not allowed("compliance.data-designation.resolve", "POST", "/v1/compliance/data-designations")
 	not allowed("compliance.data-designation.resolve", "PATCH", "/v1/compliance/data-designations/d1")
 	data.duties["compliance.data-designation.resolve"].service_only
-	data.service_grants.agents.compliance == ["compliance.data-designation.resolve"]
+	data.service_grants.agents.compliance == ["compliance.data-designation.resolve", "compliance.need-to-know.read"]
 	not allowed("mcp.copilot.use", "POST", "/v1/compliance/data-designations:resolve")
 	not allowed("mcp.copilot.use", "GET", "/v1/compliance/data-designations")
 	not allowed("mcp.copilot.use", "GET", "/v1/compliance/data-designations/d1")

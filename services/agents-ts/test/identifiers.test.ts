@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { gstinValid, ibanChecksumValid, luhnValid, validTaxId } from "../src/domain/identifiers.js";
-import { scanPii, type PiiCategory } from "../src/domain/redaction.js";
+import { Pseudonymizer, scanPii, type PiiCategory } from "../src/domain/redaction.js";
 
 const categories = (text: string): PiiCategory[] => scanPii(text).map((f) => f.category);
 
@@ -56,6 +56,13 @@ describe("financial identifiers in text", () => {
     ["PAY", '{"salary":{"currency":"USD","amount":85000}}'],
     ["PAY", '{"salary":"USD 85000"}'],
     ["PAY", "salary: $85,000"],
+    ["PAY", '{"pay_rate": 45.5}'],
+    ["PAY", '{"hourly_rate": 30}'],
+    ["PAY", '{"base_pay": 5000}'],
+    ["IBAN", "BE68 5390 0754 7034 is the account"],
+    ["IBAN", "ES91 2100 0418 4502 0005 1332 to"],
+    ["IBAN", "AT611904300234573201 now"],
+    ["IBAN", "BE68 5390 0754 7034 pays"],
   ] as const)("finds %s in %s", (category, text) => {
     expect(categories(text)).toContain(category);
   });
@@ -71,5 +78,17 @@ describe("financial identifiers in text", () => {
     '{"salaryGrade":"B2","wageType":"hourly"}',
   ])("leaves %s untouched", (text) => {
     expect(scanPii(text)).toEqual([]);
+  });
+});
+
+describe("IBAN followed by a word", () => {
+  it.each([
+    ["BE68 5390 0754 7034 is the account", "BE68 5390 0754 7034"],
+    ["ES91 2100 0418 4502 0005 1332 to", "ES91 2100 0418 4502 0005 1332"],
+    ["AT611904300234573201 now", "AT611904300234573201"],
+    ["BE68 5390 0754 7034 pays", "BE68 5390 0754 7034"],
+  ])("finds only the IBAN in %s", (text, iban) => {
+    expect(scanPii(text).filter((f) => f.category === "IBAN").map((f) => f.value)).toEqual([iban]);
+    expect(new Pseudonymizer("t", 1000, () => 0).redact(text)).not.toContain(iban);
   });
 });
