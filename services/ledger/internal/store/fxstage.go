@@ -155,7 +155,7 @@ func applyFXStage(ctx context.Context, ledger Ledger, in PostInput) ([]domain.Li
 	for _, l := range out {
 		net = net.Add(signed(l.Side, l.Amount))
 	}
-	absorbRounding(out, ledger.Currency, net.Neg(), minor)
+	absorbRounding(out, ledger.Currency, net.Neg(), minor, true)
 	return out, nil
 }
 

@@ -322,9 +322,9 @@ func enqueue(ctx context.Context, tx pgx.Tx, typ, planID, tenantID, subject stri
 	return outbox.Enqueue(ctx, tx, "plan", planID, evt)
 }
 
-// RunPlan persists a finished run as the new current version of its plan, in
-// one transaction: the previous current version is demoted, so the pointer
-// swaps only on success. A repeated Idempotency-Key returns the stored version.
+// ReplayVersion returns the version stored under an Idempotency-Key when the input hash
+// matches (found), nothing when the key is new, and an idempotency-reuse problem when the key
+// was used with different input.
 func (s *Postgres) ReplayVersion(ctx context.Context, key, inputHash string) (Version, bool, error) {
 	p, _ := tenant.FromContext(ctx)
 	var v Version
@@ -346,6 +346,9 @@ func (s *Postgres) ReplayVersion(ctx context.Context, key, inputHash string) (Ve
 	return v, found, err
 }
 
+// RunPlan persists a finished run as the new current version of its plan, in
+// one transaction: the previous current version is demoted, so the pointer
+// swaps only on success. A repeated Idempotency-Key returns the stored version.
 func (s *Postgres) RunPlan(ctx context.Context, req RunRequest) (Version, bool, error) {
 	p, _ := tenant.FromContext(ctx)
 	var v Version
