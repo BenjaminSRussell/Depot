@@ -59,6 +59,38 @@ export interface ChatRequest {
   recordRef?: string;
 }
 
+const routeKindSchema = z.enum(["ask", "navigate", "act"]);
+
+export const routeResponseSchema = z.union([
+  z.object({
+    kind: z.enum(["ask", "navigate", "act", "clarify"]),
+    confidence: z.number().min(0).max(1),
+    candidates: z.tuple([routeKindSchema, routeKindSchema]).optional(),
+  }),
+  z.object({ refusal: z.object({ code: z.string(), message: z.string() }) }),
+]);
+
+export type RouteResponse = z.infer<typeof routeResponseSchema>;
+
+export async function postRoute(message: string, fetchFn: typeof fetch = apiFetch): Promise<RouteResponse> {
+  const deadline = withDeadline(AI_REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetchFn("/api/v1/copilot/chat", {
+      method: "POST",
+      cache: "no-store",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ mode: "route", message }),
+      signal: deadline.signal,
+    });
+    if (!res.ok) throw await failedCopilotCall(res);
+    return routeResponseSchema.parse(await res.json());
+  } catch (err) {
+    throw deadline.expired() ? new CopilotError(COPILOT_TIMEOUT_MESSAGE) : err;
+  } finally {
+    deadline.clear();
+  }
+}
+
 export async function postChat(req: ChatRequest, fetchFn: typeof fetch = apiFetch): Promise<ChatResponse> {
   const deadline = withDeadline(AI_REQUEST_TIMEOUT_MS);
   try {

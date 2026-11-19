@@ -23,9 +23,9 @@ function Probe() {
 
 async function renderApp(prompt: string) {
   locations = [];
-  server.handler = (url) =>
+  server.handler = (url, init) =>
     url.pathname === CHAT_PATH
-      ? json(200, { answer: `Answer for ${CANARY}`, citations: [], toolCalls: [], refusal: null, generated: true })
+      ? json(200, JSON.parse(String(init?.body)).mode === "route" ? { kind: "ask", confidence: 1, generated: true } : { answer: `Answer for ${CANARY}`, citations: [], toolCalls: [], refusal: null, generated: true })
       : url.pathname === AVAILABILITY_PATH
         ? json(200, availableAssistant)
         : undefined;
@@ -63,8 +63,10 @@ describe("assistant text stays out of browser-visible state on route change", ()
       expect(JSON.stringify({ url: call.url.href, headers: call.init.headers, body: call.body })).not.toContain(CANARY);
     }
     const chats = server.calls.filter((c) => c.url.pathname === CHAT_PATH);
-    expect(chats).toHaveLength(1);
-    expect(chats[0].url.search).toBe("");
-    expect(chats[0].body).toEqual({ mode: "ask", message: CANARY });
+    expect(chats.map((c) => c.body)).toEqual([
+      { mode: "route", message: CANARY },
+      { mode: "ask", message: CANARY },
+    ]);
+    expect(chats.every((c) => c.url.search === "")).toBe(true);
   });
 });

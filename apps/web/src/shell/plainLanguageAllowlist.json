@@ -378,7 +378,8 @@
     "modules/treasury/Statements.tsx:; nothing was added (TRS-0405).",
     "modules/warehouse/ReceivingPages.tsx:— no directive could place the pallet (WMS-0101).",
     "modules/warehouse/SetupPages.tsx:Without a directive, new work for this work type is blocked (WMS-0101).",
-    "modules/warehouse/WorkPages.tsx:No directive could place every line (WMS-0101); the work waits until it is re-evaluated or cancelled."
+    "modules/warehouse/WorkPages.tsx:No directive could place every line (WMS-0101); the work waits until it is re-evaluated or cancelled.",
+    "shell/assistant/phrases.ts:apply this payment to invoice INV-1042"
   ],
   "RAW_ENUM": [
     "modules/compliance/ExportCheckPage.tsx:: list classifications as REGIME:CODE, for example US_EAR:5A002.",

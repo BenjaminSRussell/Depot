@@ -46,3 +46,19 @@ No ERP flow depends on the assistant (ADR-0001). `shell/assistant/AvailabilityPr
 - `AVAILABILITY_POLL_MS` (10 seconds) is the single poll interval. The read repeats while the tab is visible, not while it is hidden, and runs at once on window focus, when the tab becomes visible and after a copilot refusal or failure. Each read replaces the whole state, so a lifted pause or a raised budget returns the assistant-led home on the next read.
 - `AI_REQUEST_TIMEOUT_MS` (10 seconds) bounds the availability read and non-streamed chat; `AI_FIRST_TOKEN_TIMEOUT_MS` (30 seconds) bounds the wait for the first streamed token.
 - A copilot refusal with code `AGT-0202` shows the code and a plain message in the answer and switches the home to classic at once. Nothing retries.
+
+## Assistant prompt router (DEPOT-296)
+
+`shell/assistant/router.ts` is the only code path from prompt text to a copilot call. `createPromptRouter({handlers, getAvailability, hasDuty, postRoute, searchFallback})` returns `submit(text, mode?)`. The home prompt submits through it; the command bar will call the same `submit` (DEPOT-283). `phrases.ts` exports the canonical phrases for the E1-S4, S6 and S7 fixtures.
+
+- With no mode, `postRoute` sends `POST /api/v1/copilot/chat` with `{mode: "route", message}` (10 second deadline) and dispatches by the returned kind. An explicit mode (`ask`, `navigate`, `act`) skips the call.
+- When availability is not `enabled`, nothing is sent: `searchFallback(text)` runs. A timeout, network error, HTTP error or unreadable body also falls back to search, never to act. A refusal such as AGT-0202 shows its code and message.
+- `clarify` dispatches nothing and returns two options. `act` needs `agents.invoke` (the domain write duty is checked on the server); without it the outcome is `blocked` with the navigate alternative. Holding only `agentapproval.decide` does not unlock act.
+- A kind with no registered handler falls back to the `ask` handler (the CopilotPanel hand-off). Navigate and act handlers are typed slots: DEPOT-281 and DEPOT-282 register them.
+
+| Phrase shape (`services/agents-ts/src/domain/promptClass.ts`) | Kind |
+|---|---|
+| An act verb plus a record cue, such as "apply this payment to invoice INV-1042" or "cancel this planned order" | act |
+| Opens with `show me`, `list`, `open`, `go to`, `find`, `create`, `new` or `start`, such as "show me overdue invoices over $10k" or "create a PO for 50 widgets from Acme" | navigate |
+| Ends with `?` or starts with `what`, `which`, `who`, `why`, `how many`, `how much`, `when`, `compare`, `explain`, `total` or `trend`, such as "what is the total of our overdue invoices over $10k?" | ask |
+| Anything else goes to the model; confidence under 0.6, or under 0.15 ahead of the runner-up | clarify |

@@ -230,26 +230,61 @@ describe("role home", () => {
       expect(server.calls.filter((c) => c.url.pathname !== AVAILABILITY_PATH)).toHaveLength(0);
     });
 
-    it("opens the copilot in ask mode and sends the typed text once", async () => {
+    const chat = (answer = json(200, { answer: "Cash is steady.", citations: [], toolCalls: [], refusal: null, generated: true })) => (url: URL, init?: RequestInit) =>
+      url.pathname === "/api/v1/copilot/chat" ? (JSON.parse(String(init?.body)).mode === "route" ? routeReply : answer) : undefined;
+    let routeReply: Reply = json(200, { kind: "ask", confidence: 1, generated: true });
+    beforeEach(() => {
+      routeReply = json(200, { kind: "ask", confidence: 1, generated: true });
+    });
+    const chats = () => server.calls.filter((c) => c.url.pathname === "/api/v1/copilot/chat");
+
+    it("classifies the typed text first, then opens the copilot in ask mode and sends it once", async () => {
       const user = userEvent.setup();
-      server.handler = (url) =>
-        url.pathname === "/api/v1/copilot/chat"
-          ? json(200, { answer: "Cash is steady.", citations: [], toolCalls: [], refusal: null, generated: true })
-          : undefined;
+      server.handler = chat();
       renderHome([COPILOT_DUTY]);
       await user.type(await askBox(), "how is cash{Enter}");
       expect(await main().findByRole("article", { name: "Copilot answer" })).toHaveTextContent("Cash is steady.");
-      const chats = server.calls.filter((c) => c.url.pathname === "/api/v1/copilot/chat");
-      expect(chats).toHaveLength(1);
-      expect(chats[0].body).toEqual({ mode: "ask", message: "how is cash" });
+      expect(chats().map((c) => c.body)).toEqual([
+        { mode: "route", message: "how is cash" },
+        { mode: "ask", message: "how is cash" },
+      ]);
+    });
+
+    it.each(["navigate", "act"])("opens the copilot ask path when the %s handler is not registered yet", async (kind) => {
+      const user = userEvent.setup();
+      routeReply = json(200, { kind, confidence: 0.9, generated: true });
+      server.handler = chat();
+      renderHome([COPILOT_DUTY, "agents.invoke"]);
+      await user.type(await askBox(), "show me overdue invoices{Enter}");
+      expect(await main().findByRole("article", { name: "Copilot answer" })).toBeInTheDocument();
+      expect(chats().map((c) => (c.body as { mode: string }).mode)).toEqual(["route", "ask"]);
+    });
+
+    it("falls back to the features page, never to the copilot, when the classification fails", async () => {
+      const user = userEvent.setup();
+      routeReply = json(503, { code: "AGT-0500" });
+      server.handler = chat();
+      renderHome([COPILOT_DUTY]);
+      await user.type(await askBox(), "apply this payment to invoice INV-1042{Enter}");
+      await waitFor(() => expect(screen.queryByRole("textbox", { name: "Ask or do anything..." })).not.toBeInTheDocument());
+      expect(chats().map((c) => (c.body as { mode: string }).mode)).toEqual(["route"]);
+    });
+
+    it("sends no copilot request and goes to the features page when the assistant turns unavailable after render", async () => {
+      const user = userEvent.setup();
+      server.handler = chat();
+      renderHome([COPILOT_DUTY]);
+      const box = await askBox();
+      availability = json(200, { ...enabled, killSwitch: { ...enabled.killSwitch, halted: true } });
+      fireEvent.focus(window);
+      await user.type(box, "show me overdue invoices{Enter}");
+      await waitFor(() => expect(screen.queryByRole("textbox", { name: "Ask or do anything..." })).not.toBeInTheDocument());
+      expect(chats()).toHaveLength(0);
     });
 
     it("announces the sending text in the shell status region so it survives the route change", async () => {
       const user = userEvent.setup();
-      server.handler = (url) =>
-        url.pathname === "/api/v1/copilot/chat"
-          ? json(200, { answer: "Cash is steady.", citations: [], toolCalls: [], refusal: null, generated: true })
-          : undefined;
+      server.handler = chat();
       renderHome([COPILOT_DUTY]);
       await user.type(await askBox(), "how is cash{Enter}");
       await main().findByRole("article", { name: "Copilot answer" });

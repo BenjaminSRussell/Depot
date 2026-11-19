@@ -1,6 +1,8 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useMemo, useRef } from "react";
 import { Link, useNavigate, useOutletContext } from "react-router-dom";
+import { postRoute } from "../../modules/copilot/api/client";
 import { AssistantNotice, useAiAvailability } from "../assistant/AvailabilityProvider";
+import { createPromptRouter } from "../assistant/router";
 import { handOffPrompt } from "../assistant/session";
 import { copy } from "../copy";
 import { holdsDuty } from "../dutyGate";
@@ -75,9 +77,34 @@ export function HomePage() {
   const navigate = useNavigate();
   const announce = useOutletContext<((message: string) => void) | undefined>();
   const { features } = useTenantSettings();
-  const aiEnabled = useAiAvailability().state.status === "enabled";
+  const duties = usePrincipalDuties();
+  const availability = useAiAvailability().state;
+  const availabilityRef = useRef(availability);
+  availabilityRef.current = availability;
+  // TODO DEPOT-283: the command bar calls router.submit
+  // TODO DEPOT-281, DEPOT-282, DEPOT-297: register the navigate and act handlers
+  const router = useMemo(
+    () =>
+      createPromptRouter({
+        handlers: {
+          ask: (text) => {
+            announce?.(copy.home.assistantLoading);
+            handOffPrompt(text);
+            navigate(COPILOT_PATH);
+          },
+        },
+        getAvailability: () => availabilityRef.current,
+        hasDuty: (duty) => holdsDuty(duties, duty),
+        postRoute,
+        searchFallback: () => {
+          announce?.(copy.home.assistantSearchNote);
+          navigate(ALL_FEATURES_PATH);
+        },
+      }),
+    [announce, duties, navigate],
+  );
   const assistant =
-    aiEnabled && holdsDuty(usePrincipalDuties(), ASSISTANT_DUTY) && isPathEnabled(features, COPILOT_PATH) && plannedRouteFor(COPILOT_PATH) === undefined;
+    availability.status === "enabled" && holdsDuty(duties, ASSISTANT_DUTY) && isPathEnabled(features, COPILOT_PATH) && plannedRouteFor(COPILOT_PATH) === undefined;
   const ordered = (active ? [active, ...held.filter((w) => w.id !== active.id)] : held).slice(0, HOME_WORKSPACE_LIMIT);
   const cards =
     ordered.length === 0 ? (
@@ -144,13 +171,7 @@ export function HomePage() {
     <>
       <PageHeader title={copy.home.pageTitle} description={copy.home.description} />
       <AssistantNotice />
-      <AssistantPrompt
-        onSubmit={async (text) => {
-          announce?.(copy.home.assistantLoading);
-          handOffPrompt(text);
-          navigate(COPILOT_PATH);
-        }}
-      />
+      <AssistantPrompt onSubmit={router.submit} />
       {demoTour}
       <SetupBanner />
       <MyWorkSummary />

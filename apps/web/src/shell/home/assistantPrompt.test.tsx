@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { copy } from "../copy";
+import type { RouterOutcome } from "../assistant/router";
 import { pageViolations } from "../testing/fakeServer";
 import { AssistantPrompt } from "./AssistantPrompt";
 
@@ -40,7 +41,7 @@ describe("AssistantPrompt", () => {
     const user = userEvent.setup();
     render(<AssistantPrompt onSubmit={onSubmit} />);
     await user.type(prompt(), "  show open invoices {Enter}");
-    expect(onSubmit).toHaveBeenLastCalledWith("show open invoices");
+    expect(onSubmit).toHaveBeenLastCalledWith("show open invoices", undefined);
     await user.click(screen.getByRole("button", { name: copy.home.assistantSend }));
     expect(onSubmit).toHaveBeenCalledTimes(2);
   });
@@ -68,5 +69,36 @@ describe("AssistantPrompt", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(copy.home.assistantFailed);
     expect(prompt()).toBeEnabled();
     expect(prompt()).toHaveValue("hello");
+  });
+
+  describe("router outcomes", () => {
+    const sendWith = async (outcome: RouterOutcome) => {
+      const onSubmit = vi.fn(async (_text: string, _mode?: string) => outcome);
+      const user = userEvent.setup();
+      const view = render(<AssistantPrompt onSubmit={onSubmit} />);
+      await user.type(prompt(), "cancel this planned order{Enter}");
+      return { onSubmit, user, view };
+    };
+
+    it("explains a blocked action in the polite status region and offers to go there instead", async () => {
+      const { onSubmit, user, view } = await sendWith({ status: "blocked", reason: "no-duty", alternative: "navigate" });
+      await vi.waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(copy.home.assistantBlocked));
+      expect(pageViolations(view.container)).toEqual([]);
+      await user.click(screen.getByRole("button", { name: copy.home.assistantBlockedAction }));
+      expect(onSubmit).toHaveBeenLastCalledWith("cancel this planned order", "navigate");
+    });
+
+    it("shows the server's code and message for a refusal", async () => {
+      await sendWith({ status: "refused", code: "AGT-0202", message: "Usage limit reached." });
+      expect(await screen.findByRole("alert")).toHaveTextContent("Usage limit reached. (AGT-0202)");
+    });
+
+    it("announces a search note and a clarify question", async () => {
+      await sendWith({ status: "search", reason: "error" });
+      await vi.waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(copy.home.assistantSearchNote));
+      cleanup();
+      await sendWith({ status: "clarify", options: ["navigate", "ask"] });
+      await vi.waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(copy.home.assistantClarify));
+    });
   });
 });
