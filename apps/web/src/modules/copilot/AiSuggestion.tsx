@@ -1,7 +1,7 @@
 import { useId, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { usePrincipalDuties } from "../../shell/principal";
-import { Badge } from "../../shell/ui";
+import { Badge, Button } from "../../shell/ui";
 import styles from "./AiSuggestion.module.css";
 import { GENERATED_BADGE } from "./domain";
 import {
@@ -26,15 +26,16 @@ function Disclosure({ label, children }: DisclosureProps) {
   const panelId = useId();
   return (
     <div className={styles.disclosure}>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="sm"
         className={styles.toggle}
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen(!open)}
       >
         {label}
-      </button>
+      </Button>
       <div id={panelId} className={styles.panel} hidden={!open}>
         {children}
       </div>
