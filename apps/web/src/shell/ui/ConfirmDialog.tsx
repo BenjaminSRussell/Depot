@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import { Button } from "./Button";
 import styles from "./ConfirmDialog.module.css";
@@ -10,9 +10,10 @@ export interface ConfirmDialogProps {
   cancelLabel: string;
   onConfirm(): void;
   onCancel(): void;
+  children?: ReactNode;
 }
 
-export function ConfirmDialog({ title, description, confirmLabel, cancelLabel, onConfirm, onCancel }: ConfirmDialogProps) {
+export function ConfirmDialog({ title, description, confirmLabel, cancelLabel, onConfirm, onCancel, children }: ConfirmDialogProps) {
   const panel = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const descriptionId = useId();
@@ -43,6 +44,7 @@ export function ConfirmDialog({ title, description, confirmLabel, cancelLabel, o
         <p id={descriptionId} className={styles.description}>
           {description}
         </p>
+        {children}
         <div className={styles.actions}>
           <Button onClick={onCancel}>{cancelLabel}</Button>
           <Button variant="danger" onClick={onConfirm}>

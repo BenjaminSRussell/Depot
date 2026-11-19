@@ -12,7 +12,7 @@ func TestAsyncAPINamesEveryEventType(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	published := []string{PaymentReceived, PaymentApplied, PaymentUnapplied, DisputeOpened, DisputeResolved, DunningLetterIssued,
+	published := []string{PaymentReceived, PaymentApplied, PaymentUnapplied, PaymentApplicationReversed, DisputeOpened, DisputeResolved, DunningLetterIssued,
 		CaseOpened, CaseClosed, ConfirmationReplied, DownPaymentReceived, DownPaymentCleared, DownPaymentReleased,
 		CreditSettled, CreditSettlementReversed, DeductionOpened, DeductionResolved, CustomerBalanceChanged, OpenItemsImported, CreditNotePosted}
 	known := map[string]bool{}

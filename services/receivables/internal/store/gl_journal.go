@@ -340,7 +340,8 @@ func (s *Postgres) GLJournalLegalEntities(ctx context.Context) ([]string, error)
 	p, _ := tenant.FromContext(ctx)
 	var out []string
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `select distinct legal_entity_id::text from gl_journal where tenant_id = $1 and status = 'PENDING' and not parked`, p.TenantID)
+		rows, err := tx.Query(ctx, `select legal_entity_id::text from gl_journal where tenant_id = $1 and status = 'PENDING' and not parked
+			union select legal_entity_id::text from payment_application_reversal_attempt where tenant_id = $1 and state in ('PENDING', 'POSTED', 'AMBIGUOUS', 'COMPENSATING')`, p.TenantID)
 		if err != nil {
 			return err
 		}
@@ -364,6 +365,9 @@ func (s *Postgres) PostDueJournals(ctx context.Context, now time.Time, limit int
 	p, _ := tenant.FromContext(ctx)
 	if limit < 1 || limit > MaxJournalSweepBatch {
 		limit = MaxJournalSweepBatch
+	}
+	if _, err := s.resolveReversalAttempts(ctx, reversalAttemptSettleAfter); err != nil {
+		slog.ErrorContext(ctx, "payment application reversal attempts not resolved", "err", err, "correlationId", middleware.GetReqID(ctx))
 	}
 	var due []GLJournalView
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
@@ -444,20 +448,28 @@ func (s *Postgres) loadJournal(ctx context.Context, tenantID, id string) (GLJour
 }
 
 func (s *Postgres) postJournalToLedger(ctx context.Context, v GLJournalView, ledgerID string, lines []journalLine) (string, error) {
-	owner, err := s.ledger.LegalEntity(ctx, v.LegalEntityID, ledgerID)
+	return s.postLedgerEntry(ctx, ledgerEntry{legalEntityID: v.LegalEntityID, ledgerID: ledgerID, documentID: v.DocumentID, postingDate: v.PostingDate,
+		currency: v.Currency, key: fmt.Sprintf("gl-journal:%s:%s", v.LegalEntityID, v.ID), sourceType: "receivables-" + v.SourceType}, lines)
+}
+
+type ledgerEntry struct {
+	legalEntityID, ledgerID, documentID, postingDate, currency, key, sourceType string
+}
+
+func (s *Postgres) postLedgerEntry(ctx context.Context, e ledgerEntry, lines []journalLine) (string, error) {
+	owner, err := s.ledger.LegalEntity(ctx, e.legalEntityID, e.ledgerID)
 	if err != nil {
 		return "", err
 	}
-	if owner != v.LegalEntityID {
+	if owner != e.legalEntityID {
 		return "", &ledgerclient.Error{Op: "ledger", Status: http.StatusUnprocessableEntity, Code: "ledger_legal_entity_mismatch"}
 	}
 	out := make([]ledgerclient.Line, 0, len(lines))
 	for _, l := range lines {
 		out = append(out, ledgerclient.Line{Account: l.Account, Credit: l.Credit, Amount: l.Amount, Text: l.Text, TradingPartnerID: l.TradingPartnerID})
 	}
-	return s.ledger.Post(ctx, ledgerclient.Entry{LegalEntityID: v.LegalEntityID, LedgerID: ledgerID, DocumentID: v.DocumentID,
-		PostingDate: v.PostingDate, Currency: v.Currency, IdempotencyKey: fmt.Sprintf("gl-journal:%s:%s", v.LegalEntityID, v.ID),
-		SourceType: "receivables-" + v.SourceType, Lines: out})
+	return s.ledger.Post(ctx, ledgerclient.Entry{LegalEntityID: e.legalEntityID, LedgerID: e.ledgerID, DocumentID: e.documentID,
+		PostingDate: e.postingDate, Currency: e.currency, IdempotencyKey: e.key, SourceType: e.sourceType, Lines: out})
 }
 
 func (s *Postgres) recordJournalFailure(ctx context.Context, tenantID string, v GLJournalView, now time.Time, parked bool, msg string) {

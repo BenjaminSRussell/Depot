@@ -83,6 +83,12 @@ type Store interface {
 	GetAuditPolicy(ctx context.Context, id string) (store.AuditPolicy, error)
 	ListAuditPolicies(ctx context.Context, f store.AuditPolicyFilter) ([]store.AuditPolicy, error)
 	UpdateAuditPolicy(ctx context.Context, id string, expected int, in store.AuditPolicyPatch, now time.Time) (store.AuditPolicy, error)
+	Designate(ctx context.Context, in store.DesignationInput, key string, now time.Time) (store.Designation, error)
+	Resolve(ctx context.Context, refs []store.ResolveRef) ([]store.ResolvedRef, error)
+	ChangeDesignation(ctx context.Context, id string, expected int, in store.DesignationChange, now time.Time) (store.Designation, error)
+	GetDesignation(ctx context.Context, id string) (store.Designation, error)
+	ListDesignations(ctx context.Context, f store.DesignationFilter) ([]store.Designation, error)
+	DesignationHistory(ctx context.Context, id string) ([]store.DesignationHistoryEntry, error)
 }
 
 // Config carries the tenant policies the service reads from its environment
@@ -99,6 +105,8 @@ type Config struct {
 	BreakGlassReviewDays   int
 	ScreeningThreshold     float64
 	LicenseCheck           string
+	Boundary               domain.Boundary
+	Owner                  OwnerLookup
 	Keys                   *fieldcrypt.Keys
 }
 
@@ -122,6 +130,9 @@ func New(s Store, cfg Config) *API {
 	}
 	if cfg.LicenseCheck != domain.LicenseCheckWarn && cfg.LicenseCheck != domain.LicenseCheckOff {
 		cfg.LicenseCheck = domain.LicenseCheckBlock
+	}
+	if cfg.Boundary != domain.BoundaryCUI {
+		cfg.Boundary = domain.BoundaryStandard
 	}
 	return &API{store: s, cfg: cfg, rules: domain.SeedRules, now: func() time.Time { return time.Now().UTC() }}
 }
@@ -197,6 +208,7 @@ func (a *API) Register(r chi.Router) {
 	r.With(authz.RequireDuty(DutyIncidentManage)).Post("/v1/security/incidents:breach-clocks", a.breachClocks)
 	r.With(authz.RequireDuty(DutyAuditPolicyRun)).Post("/v1/compliance/audit-policies:evaluate", a.evaluateAudit)
 	a.registerAuditPolicies(r)
+	a.registerDesignations(r)
 	r.With(authz.RequireDuty(DutyAuditCaseManage)).Post("/v1/compliance/audit-cases:group", a.groupCases)
 	r.With(authz.RequireDuty(DutyAuditCaseManage)).Post("/v1/compliance/audit-cases:transition", a.transitionCase)
 	r.With(authz.RequireDuty(DutyBreakGlassRequest)).Post("/v1/security/elevated-sessions:plan", a.planElevated)

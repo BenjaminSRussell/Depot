@@ -333,7 +333,7 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
             <div className={styles.content}>
               <RouteErrorBoundary key={pathname}>
                 <Suspense fallback={<PageSkeleton />}>
-                  {available ? <Outlet /> : <NotAvailablePage featureOff={!featureOn} planned={planned} />}
+                  {available ? <Outlet context={announceQuietly} /> : <NotAvailablePage featureOff={!featureOn} planned={planned} />}
                 </Suspense>
               </RouteErrorBoundary>
             </div>

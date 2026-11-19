@@ -22,6 +22,8 @@ spec:
       backendRefs:
         - name: agent-runtime
           port: 8080
+      timeouts:
+        request: 0s
     - matches:
         - path:
             type: PathPrefix
@@ -35,6 +37,8 @@ spec:
       backendRefs:
         - name: agent-runtime
           port: 8080
+      timeouts:
+        request: 0s
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

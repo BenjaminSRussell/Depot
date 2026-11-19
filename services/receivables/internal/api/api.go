@@ -284,7 +284,6 @@ func (a *API) getPayment(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, out)
 }
 
-// paymentAction handles POST /payments/{id}:apply, :match and :reverse.
 func (a *API) paymentAction(w http.ResponseWriter, r *http.Request) {
 	if !validTenant(w, r) {
 		return
@@ -303,6 +302,8 @@ func (a *API) paymentAction(w http.ResponseWriter, r *http.Request) {
 		a.reversePayment(w, r, id)
 	case "unapply":
 		a.unapplyPayment(w, r, id)
+	case "reverse-application":
+		a.reverseApplication(w, r, id)
 	default:
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, store.CodePaymentNotFound, "unknown payment action "+action))
 	}

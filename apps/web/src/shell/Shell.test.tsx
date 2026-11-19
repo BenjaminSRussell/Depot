@@ -34,11 +34,11 @@ const modules: DepotModule[] = [
   },
 ];
 
-function renderShell(path = "/", identity?: string) {
+function renderShell(path = "/", identity?: string, duties?: string[]) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route element={<Shell modules={modules} identity={identity} />}>
+        <Route element={<Shell modules={modules} identity={identity} duties={duties} />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/admin/import" element={<p>Import page</p>} />
           <Route path="*" element={<NotFoundPage />} />
@@ -95,6 +95,16 @@ describe("pages and navigation", () => {
     expect(main.getByRole("heading", { level: 3, name: "Administration" })).toBeInTheDocument();
     expect(main.getByRole("link", { name: /Import data/ })).toHaveAttribute("href", "/admin/import");
     expect(main.getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
+    expect(checkAxeAA(home.container)).toEqual([]);
+  });
+
+  it("leads with the assistant prompt for a user with the copilot duty and keeps the workspaces in a secondary region", () => {
+    const home = renderShell("/", undefined, ["mcp.copilot.use"]);
+    const main = within(screen.getByRole("main"));
+    expect(main.getByRole("textbox", { name: "Ask or do anything..." })).toBeInTheDocument();
+    const region = within(main.getByRole("region", { name: "Browse workspaces" }));
+    expect(region.getByRole("heading", { level: 3, name: "Administration" })).toBeInTheDocument();
+    expect(region.getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
     expect(checkAxeAA(home.container)).toEqual([]);
   });
 

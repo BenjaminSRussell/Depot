@@ -212,7 +212,11 @@ func names(procs []Process) []string {
 func upstreamsOf(procs []Process) map[string]*url.URL {
 	out := map[string]*url.URL{}
 	for _, p := range procs {
-		u, _ := url.Parse(fmt.Sprintf("http://127.0.0.1:%d", p.Port))
+		base := ""
+		if p.KeepAPIPrefix {
+			base = "/api"
+		}
+		u, _ := url.Parse(fmt.Sprintf("http://127.0.0.1:%d%s", p.Port, base))
 		out[p.Route] = u
 	}
 	return out

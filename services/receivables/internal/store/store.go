@@ -42,14 +42,19 @@ const (
 	CodeIdempotencyReuse = "idempotency_key_reuse"
 	CodeIdempotencyBusy  = "idempotency_in_progress"
 	CodeVersionConflict  = "conflict_version"
-	eventSource          = "receivables"
-	lockNotAvailable     = "55P03"
-	uniqueViolation      = "23505"
-	paymentKeyConstraint = "payment_tenant_id_idempotency_key_key"
-	idempotencyKeysPK    = "idempotency_keys_pkey"
-	disputeActiveIndex   = "dispute_one_active_per_item"
-	dateLayout           = "2006-01-02"
-	openStatuses         = "('OPEN', 'PARTIALLY_SETTLED')"
+
+	CodeReversalReconciled        = "AR-0021"
+	CodeReversalLedgerUnavailable = "AR-0022"
+	CodeReversalPeriodClosed      = "AR-0023"
+	CodeReversalItemChanged       = "AR-0024"
+	eventSource                   = "receivables"
+	lockNotAvailable              = "55P03"
+	uniqueViolation               = "23505"
+	paymentKeyConstraint          = "payment_tenant_id_idempotency_key_key"
+	idempotencyKeysPK             = "idempotency_keys_pkey"
+	disputeActiveIndex            = "dispute_one_active_per_item"
+	dateLayout                    = "2006-01-02"
+	openStatuses                  = "('OPEN', 'PARTIALLY_SETTLED')"
 )
 
 const (
@@ -164,8 +169,9 @@ type SettlementRecord struct {
 
 // ApplyResult is the payment after apply and the settlements it created.
 type ApplyResult struct {
-	Payment     Payment            `json:"payment"`
-	Settlements []SettlementRecord `json:"settlements"`
+	ApplicationID string             `json:"applicationId"`
+	Payment       Payment            `json:"payment"`
+	Settlements   []SettlementRecord `json:"settlements"`
 }
 
 // Store is the persistence port the API depends on.
@@ -180,6 +186,8 @@ type Store interface {
 	GetPayment(ctx context.Context, id string) (Payment, error)
 	MatchPayment(ctx context.Context, id string) (domain.Result, error)
 	ApplyPayment(ctx context.Context, id string, version int, req ApplyRequest, idempotencyKey string) (ApplyResult, error)
+	ReverseApplication(ctx context.Context, paymentID string, version int, req ReverseApplicationRequest, idempotencyKey string) (ReverseApplicationResult, error)
+	CheckReverseApplication(ctx context.Context, paymentID string, req ReverseApplicationRequest) (ReverseEligibility, error)
 	OpenDispute(ctx context.Context, in Dispute, idempotencyKey string) (Dispute, error)
 	GetDispute(ctx context.Context, id string) (Dispute, error)
 	ListDisputes(ctx context.Context, f DisputeFilter, limit int) ([]Dispute, error)
@@ -734,6 +742,11 @@ func (s *Postgres) ApplyPayment(ctx context.Context, id string, version int, req
 		}
 		out.Settlements = []SettlementRecord{}
 		settled := []rcvevents.SettlementData{}
+		out.ApplicationID = ids.New()
+		if _, err := tx.Exec(ctx, `insert into payment_application (tenant_id, id, legal_entity_id, payment_id, posting_date, applied_by)
+			values ($1, $2, $3, $4, $5::date, $6)`, p.TenantID, out.ApplicationID, pay.LegalEntityID, pay.ID, today(), p.UserID); err != nil {
+			return err
+		}
 		for _, a := range allocs {
 			newOpen := a.NewOpen()
 			status := domain.ApplyStatus(newOpen)
@@ -745,15 +758,15 @@ func (s *Postgres) ApplyPayment(ctx context.Context, id string, version int, req
 				WriteOff: a.WriteOff, OpenAfter: newOpen, ItemStatus: status}
 			if price, ok := prices[a.OpenItemID]; ok {
 				if _, err := tx.Exec(ctx, `insert into settlement (tenant_id, id, legal_entity_id, payment_id, open_item_id, settled_amount, cash_discount_taken, write_off_amount,
-						item_currency, item_amount, payment_rate, item_rate, fx_gain_loss)
-					values ($1, $2, $3, $4, $5, $6, 0, 0, $7, $8, $9, $10, $11)`, p.TenantID, ids.New(), pay.LegalEntityID, pay.ID, a.OpenItemID,
-					a.Amount.String(), price.itemCurrency, a.ItemCurrencyAmount.String(), price.paymentRate.String(), price.itemRate.String(), price.fx.Difference.String()); err != nil {
+						item_currency, item_amount, payment_rate, item_rate, fx_gain_loss, application_id)
+					values ($1, $2, $3, $4, $5, $6, 0, 0, $7, $8, $9, $10, $11, $12)`, p.TenantID, ids.New(), pay.LegalEntityID, pay.ID, a.OpenItemID,
+					a.Amount.String(), price.itemCurrency, a.ItemCurrencyAmount.String(), price.paymentRate.String(), price.itemRate.String(), price.fx.Difference.String(), out.ApplicationID); err != nil {
 					return err
 				}
 				rec.ItemCurrency, rec.ItemAmount, rec.RealizedFX = price.itemCurrency, a.ItemCurrencyAmount, price.fx.Difference
-			} else if _, err := tx.Exec(ctx, `insert into settlement (tenant_id, id, legal_entity_id, payment_id, open_item_id, settled_amount, cash_discount_taken, write_off_amount)
-				values ($1, $2, $3, $4, $5, $6, $7, $8)`, p.TenantID, ids.New(), pay.LegalEntityID, pay.ID, a.OpenItemID,
-				a.Amount.String(), a.CashDiscount.String(), a.WriteOff.String()); err != nil {
+			} else if _, err := tx.Exec(ctx, `insert into settlement (tenant_id, id, legal_entity_id, payment_id, open_item_id, settled_amount, cash_discount_taken, write_off_amount, application_id)
+				values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, p.TenantID, ids.New(), pay.LegalEntityID, pay.ID, a.OpenItemID,
+				a.Amount.String(), a.CashDiscount.String(), a.WriteOff.String(), out.ApplicationID); err != nil {
 				return err
 			}
 			out.Settlements = append(out.Settlements, rec)

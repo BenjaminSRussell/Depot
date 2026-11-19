@@ -85,6 +85,8 @@ type ServiceSpec struct {
 	// Authorization and speaks for the user through X-Depot-* identity headers; a service that verifies the token itself
 	// (agents-ts) opts in. The token has already been verified by the gateway's guard when it is forwarded.
 	ForwardAuthorization bool `yaml:"forwardAuthorization"`
+	// KeepAPIPrefix sends the service its requests under /api/v1/<route> instead of /v1/<route>, for a service that serves the browser path.
+	KeepAPIPrefix bool `yaml:"keepApiPrefix"`
 }
 
 const (
@@ -334,7 +336,7 @@ func (c Config) Resolve(getenv func(string) string, listDir func(string) ([]stri
 		if route == "" {
 			route = routeOf(n)
 		}
-		procs = append(procs, Process{Name: n, Route: route, Exe: exe, Args: s.Args, Optional: s.Optional, Port: port, AdminPort: adminPort, ReadyPath: s.ReadyPath, ForwardAuthorization: s.ForwardAuthorization})
+		procs = append(procs, Process{Name: n, Route: route, Exe: exe, Args: s.Args, Optional: s.Optional, Port: port, AdminPort: adminPort, ReadyPath: s.ReadyPath, ForwardAuthorization: s.ForwardAuthorization, KeepAPIPrefix: s.KeepAPIPrefix})
 	}
 	routes := map[string]string{}
 	for _, p := range procs {

@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
+import { CopilotHome } from "../../modules/copilot/pages";
 import { loadModules, type DepotModule } from "../../modules/registry";
 import { Shell } from "../Shell";
 import { json, pageViolations, server, useFakeServer } from "../testing/fakeServer";
@@ -11,6 +12,7 @@ import { workspaceKpis } from "./kpi";
 useFakeServer();
 
 const MAX_HOME_LINKS = 30;
+const PAGE_CONTROLS = ":is(a[href], button, input, select, textarea):not([class*=\"topbar\"] *)";
 
 const modules: DepotModule[] = [
   {
@@ -35,12 +37,13 @@ const item = (n: number) => ({
   createdAt: "2026-11-01T00:00:00Z",
 });
 
-function renderHome(duties: string[], shellModules: DepotModule[] = modules) {
+function renderHome(duties: string[], shellModules: DepotModule[] = modules, entry: { pathname: string; state?: unknown } = { pathname: "/" }, features?: Record<string, boolean>) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
-        <Route element={<Shell modules={shellModules} duties={duties} />}>
+        <Route element={<Shell modules={shellModules} duties={duties} features={features} />}>
           <Route path="/" element={<HomePage />} />
+          <Route path="/copilot" element={<CopilotHome />} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -192,5 +195,101 @@ describe("role home", () => {
     renderHome(["identity.setup.maintain"]);
     await waitFor(() => expect(server.calls.some((c) => c.url.pathname === "/api/v1/tenant/setup")).toBe(true));
     expect(main().queryByText(/setup steps are finished/)).not.toBeInTheDocument();
+  });
+
+  describe("assistant-led home", () => {
+    const COPILOT_DUTY = "mcp.copilot.use";
+    const askBox = () => main().getByRole("textbox", { name: "Ask or do anything..." });
+
+    it("puts the prompt first in the main landmark and the workspace cards in a Browse workspaces region", () => {
+      renderHome([COPILOT_DUTY]);
+      expect(screen.getByRole("main").querySelector(PAGE_CONTROLS)).toBe(askBox());
+      const region = within(main().getByRole("region", { name: "Browse workspaces" }));
+      expect(region.getByText("Current workspace")).toBeInTheDocument();
+      expect(region.getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
+      expect(askBox().compareDocumentPosition(main().getByRole("region", { name: "Browse workspaces" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("shows an error and makes no request when the prompt is empty", async () => {
+      const user = userEvent.setup();
+      renderHome([COPILOT_DUTY]);
+      await user.click(main().getByRole("button", { name: "Send" }));
+      expect(main().getByRole("alert")).toHaveTextContent("Type a question or a request first.");
+      expect(server.calls).toHaveLength(0);
+    });
+
+    it("opens the copilot in ask mode and sends the typed text once", async () => {
+      const user = userEvent.setup();
+      server.handler = (url) =>
+        url.pathname === "/api/v1/copilot/chat"
+          ? json(200, { answer: "Cash is steady.", citations: [], toolCalls: [], refusal: null, generated: true })
+          : undefined;
+      renderHome([COPILOT_DUTY]);
+      await user.type(askBox(), "how is cash{Enter}");
+      expect(await main().findByRole("article", { name: "Copilot answer" })).toHaveTextContent("Cash is steady.");
+      const chats = server.calls.filter((c) => c.url.pathname === "/api/v1/copilot/chat");
+      expect(chats).toHaveLength(1);
+      expect(chats[0].body).toEqual({ mode: "ask", message: "how is cash" });
+    });
+
+    it("announces the sending text in the shell status region so it survives the route change", async () => {
+      const user = userEvent.setup();
+      server.handler = (url) =>
+        url.pathname === "/api/v1/copilot/chat"
+          ? json(200, { answer: "Cash is steady.", citations: [], toolCalls: [], refusal: null, generated: true })
+          : undefined;
+      renderHome([COPILOT_DUTY]);
+      await user.type(askBox(), "how is cash{Enter}");
+      await main().findByRole("article", { name: "Copilot answer" });
+      expect(screen.queryByRole("textbox", { name: "Ask or do anything..." })).not.toBeInTheDocument();
+      expect(screen.getAllByRole("status").some((r) => r.textContent === "Sending your question to the assistant...")).toBe(true);
+    });
+
+    it.each([
+      ["a number", { prompt: 5 }],
+      ["an object", { prompt: {} }],
+      ["an empty string", { prompt: "" }],
+      ["no prompt", {}],
+      ["no state", null],
+    ])("sends nothing when the copilot opens with %s as its prompt", async (_name, state) => {
+      renderHome([COPILOT_DUTY], modules, { pathname: "/copilot", state });
+      await screen.findByRole("heading", { name: "Copilot" });
+      expect(server.calls.filter((c) => c.url.pathname === "/api/v1/copilot/chat")).toHaveLength(0);
+    });
+
+    it("passes an oversize prompt through so the copilot shows the refusal instead of dropping it", async () => {
+      const prompt = "x".repeat(4500);
+      server.handler = (url) =>
+        url.pathname === "/api/v1/copilot/chat"
+          ? json(200, { answer: "", citations: [], toolCalls: [], refusal: { code: "AGT-0001", message: "That question is too long." }, generated: true })
+          : undefined;
+      renderHome([COPILOT_DUTY], modules, { pathname: "/copilot", state: { prompt } });
+      expect(await main().findByText("That question is too long.")).toBeInTheDocument();
+      expect(server.calls.filter((c) => c.url.pathname === "/api/v1/copilot/chat")[0].body).toEqual({ mode: "ask", message: prompt });
+    });
+
+    it("shows the classic cards as the primary content, with no prompt and no copilot request, without the duty", () => {
+      renderHome([]);
+      expect(screen.queryByRole("textbox", { name: "Ask or do anything..." })).not.toBeInTheDocument();
+      expect(main().queryByRole("button", { name: "Send" })).not.toBeInTheDocument();
+      expect(main().queryByRole("region", { name: "Browse workspaces" })).not.toBeInTheDocument();
+      expect(main().getByText("Current workspace")).toBeInTheDocument();
+      expect(main().getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
+      expect(server.calls.filter((c) => c.url.pathname.startsWith("/api/v1/copilot"))).toHaveLength(0);
+    });
+
+    it("shows the classic home, with no prompt to drop, when the copilot is switched off for the installation", () => {
+      renderHome([COPILOT_DUTY], modules, { pathname: "/" }, { "install:node": false });
+      expect(screen.queryByRole("textbox", { name: "Ask or do anything..." })).not.toBeInTheDocument();
+      expect(main().queryByRole("button", { name: "Send" })).not.toBeInTheDocument();
+      expect(main().getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
+    });
+
+    it("offers a workspace page as a link, one click away, inside the secondary region", () => {
+      renderHome([COPILOT_DUTY]);
+      const region = within(main().getByRole("region", { name: "Browse workspaces" }));
+      const tasks = region.getAllByRole("list", { name: /Top tasks/ })[0];
+      expect(within(tasks).getAllByRole("link")[0]).toHaveAttribute("href", expect.stringMatching(/^\//));
+    });
   });
 });

@@ -329,6 +329,172 @@ paths:
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
+  /v1/compliance/data-designations:
+    post:
+      operationId: createDataDesignation
+      x-depot-duty: datadesignation.write
+      description: >-
+        Designates a whole tenant (TENANT), one legal entity (LEGAL_ENTITY) or one record (RECORD, entityType and recordId) as CUI.
+        TENANT scope needs tenant.administer, the designation duty and no legal-entity claim (403 otherwise). RECORD scope reads the
+        record's legal entity from its owning service (the caller never sends it); a record unknown to the owner or outside the
+        caller's legal-entity scope is 404 COM-1305 and an owner that cannot answer is 503 COM-1304. A deployment whose boundary is not cui refuses every
+        designation with 409 COM-1301 and stores nothing; a target that is already designated is 409 COM-1302. The audit_event
+        row is written in the same transaction.
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 200 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DataDesignationInput" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataDesignation" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+    get:
+      operationId: listDataDesignations
+      x-depot-duty: datadesignation.read
+      description: >-
+        The designations the caller can see (at most 200, newest first), optionally filtered by scope, entityType and recordId.
+        A caller with no tenant.administer duty sees the TENANT row and the rows of its own legal entities only. Rows are never
+        deleted: a downgraded designation stays with class NONE.
+      parameters:
+        - { name: scope, in: query, schema: { type: string, enum: [TENANT, LEGAL_ENTITY, RECORD] } }
+        - { name: entityType, in: query, schema: { type: string, enum: [project] } }
+        - { name: recordId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The designations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DataDesignation" } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+  /v1/compliance/data-designations/{id}:
+    get:
+      operationId: getDataDesignation
+      x-depot-duty: datadesignation.read
+      description: One designation; the ETag is the version a PATCH sends as If-Match. A designation outside the caller's legal-entity scope is 404 COM-1306.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The designation
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataDesignation" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    patch:
+      operationId: changeDataDesignation
+      x-depot-duty: datadesignation.write
+      description: >-
+        Changes the class of a designation between CUI and NONE under If-Match; a reason (1 to 500 characters) is required and
+        is audited with the before and after, a downgrade (CUI to NONE) included. The row is never deleted. Changing a TENANT
+        designation needs the same tenant.administer, designation duty and no legal-entity claim as setting one (403). Setting
+        class CUI outside the cui boundary is 409 COM-1301; a stale If-Match is 412; a change to the class the row already has is
+        409 COM-1307. A downgrade does not lift an inherited designation: a record under a CUI legal entity or tenant still
+        resolves CUI from that scope. One datadesignation.changed event is written in the same transaction.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: If-Match, in: header, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DataDesignationChange" }
+      responses:
+        "200":
+          description: The changed designation
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataDesignation" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
+  /v1/compliance/data-designations/{id}/history:
+    get:
+      operationId: getDataDesignationHistory
+      x-depot-duty: datadesignation.read
+      description: Every change of one designation, newest first, with actor, time, scope, reason and the before and after rows.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DataDesignationHistoryEntry" } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /v1/compliance/data-designations:resolve:
+    post:
+      operationId: resolveDataDesignations
+      x-depot-duty: datadesignation.read
+      description: >-
+        Effective class of up to 500 records, in request order. A ref with no CUI designation at tenant, legal-entity or record
+        level is NONE from DEFAULT; the most restrictive scope wins (source RECORD, LEGAL_ENTITY or TENANT). A ref the service
+        cannot determine (unsupported entity type, malformed id, a record unknown to its owner or outside the caller's scope,
+        owner unavailable) is UNKNOWN from UNRESOLVED and a consumer must treat it as CUI. A caller with no legal-entity claim
+        runs no owner lookup: its refs are CUI from TENANT when the tenant is designated and UNKNOWN otherwise.
+        More than 500 refs is 422 COM-1303. The call has an overall deadline and at most 1000 outbound owner lookups; refs not
+        resolved in time or past the cap are UNKNOWN from UNRESOLVED.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refs]
+              additionalProperties: false
+              properties:
+                refs: { type: array, minItems: 1, maxItems: 500, items: { $ref: "#/components/schemas/DataDesignationRef" } }
+      responses:
+        "200":
+          description: One item per ref
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/ResolvedDataDesignation" } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
   /v1/compliance/audit-policies/{id}:
     get:
       operationId: getAuditPolicy
@@ -1465,6 +1631,67 @@ components:
         createdBy: { type: string }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    DataDesignationInput:
+      type: object
+      required: [scope, class, reason]
+      additionalProperties: false
+      properties:
+        scope: { type: string, enum: [TENANT, LEGAL_ENTITY, RECORD] }
+        legalEntityId: { type: string, format: uuid, description: "Required for LEGAL_ENTITY, absent for TENANT and RECORD (the server resolves it)." }
+        entityType: { type: string, enum: [project], description: "Required for RECORD, absent otherwise." }
+        recordId: { type: string, format: uuid, description: "Required for RECORD, absent otherwise." }
+        class: { type: string, enum: [CUI] }
+        category: { type: string, maxLength: 100 }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    DataDesignation:
+      type: object
+      required: [designationId, scope, class, reason, designatedBy, designatedAt, version]
+      properties:
+        designationId: { type: string, format: uuid }
+        scope: { type: string, enum: [TENANT, LEGAL_ENTITY, RECORD] }
+        legalEntityId: { type: string, format: uuid }
+        entityType: { type: string }
+        recordId: { type: string, format: uuid }
+        class: { type: string, enum: [CUI, NONE] }
+        category: { type: string }
+        reason: { type: string, description: "The reason of the latest change." }
+        designatedBy: { type: string, description: "The actor of the latest change." }
+        designatedAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+    DataDesignationChange:
+      type: object
+      required: [class, reason]
+      additionalProperties: false
+      properties:
+        class: { type: string, enum: [CUI, NONE] }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    DataDesignationHistoryEntry:
+      type: object
+      required: [auditId, action, scope, actor, occurredAt, reason]
+      properties:
+        auditId: { type: string, format: uuid }
+        action: { type: string, enum: [DESIGNATE, UPGRADE, DOWNGRADE] }
+        scope: { type: string, enum: [TENANT, LEGAL_ENTITY, RECORD] }
+        actor: { type: string }
+        occurredAt: { type: string, format: date-time }
+        reason: { type: string }
+        before: { type: object, description: "The designation before the change; absent on the first designation." }
+        after: { type: object }
+    DataDesignationRef:
+      type: object
+      required: [entityType, recordId]
+      additionalProperties: false
+      properties:
+        entityType: { type: string }
+        recordId: { type: string }
+    ResolvedDataDesignation:
+      type: object
+      required: [entityType, recordId, class, source]
+      properties:
+        entityType: { type: string }
+        recordId: { type: string }
+        class: { type: string, enum: [CUI, NONE, UNKNOWN] }
+        source: { type: string, enum: [RECORD, LEGAL_ENTITY, TENANT, DEFAULT, UNRESOLVED] }
     AuditSpec:
       type: object
       required: [type]
