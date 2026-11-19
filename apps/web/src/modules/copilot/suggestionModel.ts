@@ -1,3 +1,4 @@
+import { copy } from "../../shell/copy";
 import { holdsDuty } from "../../shell/dutyGate";
 import type { DataUsedRecord, RunTrace } from "./api/runTrace";
 import { toolActionLabel } from "./domain";
@@ -13,6 +14,30 @@ export interface SuggestionViewModel {
   confidencePercent: number | undefined;
   tools: string[];
   records: DataUsedRecord[];
+  dataClass?: string | undefined;
+  excluded?: LeftOutInput | undefined;
+}
+
+export interface LeftOut {
+  reason: string;
+  count: number;
+}
+
+export type LeftOutInput = LeftOut | LeftOut[];
+
+const NEED_TO_KNOW_REASON = "NEED_TO_KNOW";
+
+export function carriesCui(dataClass: string | undefined): boolean {
+  return dataClass === "CUI" || dataClass === "UNKNOWN";
+}
+
+export function leftOutNotice(excluded: LeftOutInput | undefined): string | undefined {
+  const shown = (excluded === undefined ? [] : Array.isArray(excluded) ? excluded : [excluded]).filter(
+    (e) => e.reason !== NEED_TO_KNOW_REASON && e.count > 0,
+  );
+  const count = shown.reduce((sum, e) => sum + e.count, 0);
+  if (count === 0) return undefined;
+  return copy.marking.leftOut(count, [...new Set(shown.map((e) => copy.marking.reason(e.reason)))]);
 }
 
 export interface ResolvedRecord {

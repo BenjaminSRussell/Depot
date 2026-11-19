@@ -22,7 +22,7 @@ import type { AuditPort, BudgetPort, KillSwitchPort, ModelUsage, RunRequest, Run
 import type { AiAccessAudit, AiAccessRow } from "./aiAccessAudit.js";
 import type { AiPlan, AiRouter } from "./aiRouter.js";
 import { EGRESS_GUARD_TOOL, GUARD_POLICY_VERSION, GUARD_REFUSAL_MESSAGE, highestClassOf, type DataClass, type EgressGuard, type GuardContext, type GuardResult, type OutputGuardReason } from "./egressGuard.js";
-import { createChunkReleaser, createOutputGuard, OUTPUT_GUARD_CODE, OUTPUT_GUARD_MESSAGE, OUTPUT_GUARD_TOOL, type OutputGuard } from "./outputGuard.js";
+import { createChunkReleaser, createOutputGuard, OUTPUT_GUARD_CODE, OUTPUT_GUARD_MESSAGE, OUTPUT_GUARD_TOOL, stripUnreadableCitations, type OutputGuard } from "./outputGuard.js";
 import { CUI_VIEW_DUTY, type NeedToKnowClient } from "./needToKnow.js";
 import type { McpConnector } from "./mcp.js";
 import type { KnowledgeService } from "./knowledge.js";
@@ -224,6 +224,7 @@ export function createCopilotService(deps: CopilotDeps) {
       let withheldCount = 0;
       let amountsWithheld = 0;
       let needToKnowHidden = 0;
+      let cuiDerived = false;
       let policyDropped = 0;
       let declared: DataClass = "P0";
       let policyCell: "tenant" | "default" | undefined;
@@ -236,8 +237,8 @@ export function createCopilotService(deps: CopilotDeps) {
       const recordIds = new Set<string>();
       let guardContext: GuardContext = { inputTokens: new Set(), inputRecordIds: new Set(), highestClass: "P0" };
       const outcome: { failure?: OutputGuardReason } = {};
-      const verify = async (text: string): Promise<boolean> => {
-        const verdict = await outputGuard.check({ tenantId: caller.tenantId, text, context: guardContext, pseudo, duties: caller.duties, declaredClass: dataClass });
+      const verify = async (text: string, partial: boolean): Promise<boolean> => {
+        const verdict = await outputGuard.check({ tenantId: caller.tenantId, text, context: guardContext, pseudo, duties: caller.duties, declaredClass: dataClass, partial });
         dataClass = verdict.dataClass;
         if (verdict.ok) return true;
         if (outcome.failure === undefined) {
@@ -246,6 +247,7 @@ export function createCopilotService(deps: CopilotDeps) {
         }
         return false;
       };
+      const present = (text: string): string => stripUnreadableCitations(pseudo.restoreFor(text, caller.duties), guardContext.inputRecordIds);
       // Text is shown a sentence at a time, after the output guard passed it, unless a knowledge result already makes the answer unanswerable.
       const streamable = (): boolean => knowledge.length === 0 || gateCitations(knowledge).answerable;
       const releaser =
@@ -253,8 +255,8 @@ export function createCopilotService(deps: CopilotDeps) {
           ? undefined
           : createChunkReleaser(async (chunk) => {
               if (!streamable()) return true;
-              if (!(await verify(chunk))) return false;
-              sink(pseudo.restoreFor(chunk, caller.duties));
+              if (!(await verify(chunk, true))) return false;
+              sink(present(chunk));
               return true;
             });
       const row = (tool: string, input: unknown, output: unknown, decision: Decision, why?: string): void => {
@@ -387,6 +389,7 @@ export function createCopilotService(deps: CopilotDeps) {
           const excludedHere = next?.excluded ?? [];
           const hiddenHere = excludedHere.length === 0 && (next?.restricted.length ?? 0) > 0 && (await needToKnow.enforced(caller)) ? (next?.restricted ?? []) : [];
           needToKnowHidden += hiddenHere.length;
+          if ((next?.restricted.length ?? 0) > 0) cuiDerived = true;
           const dropped = [...excludedHere, ...hiddenHere];
           const shown = dropped.length === 0 ? out.output : permittedOutput(out.output, dropped);
           if (excludedHere.length > 0) {
@@ -429,7 +432,7 @@ export function createCopilotService(deps: CopilotDeps) {
             routeId = next.routeId;
           }
           if (out.ref !== undefined) recordIds.add(out.ref);
-          for (const r of found) if (r.recordId !== "" && !excludedHere.some((e) => e.recordId === r.recordId)) recordIds.add(r.recordId);
+          for (const r of found) if (r.recordId !== "" && !dropped.some((e) => e.recordId === r.recordId)) recordIds.add(r.recordId);
           if (p.tool === KNOWLEDGE_SEARCH_TOOL) knowledge.push(...knowledgeCitations(out.output));
           else citations.push({ sourceType: "RECORD", sourceRef: out.ref ?? p.tool, label: p.tool });
           results.push(`Result of ${p.tool}: ${clip(JSON.stringify(governed.value) ?? "null", 4000)}`);
@@ -444,7 +447,7 @@ export function createCopilotService(deps: CopilotDeps) {
           }
         }
         if (answer === "" && refused === null && rules === undefined) answer = "I could not complete the answer within the tool-call limit.";
-        if (refused === null && outcome.failure === undefined && answer !== "") await verify(answer);
+        if (refused === null && outcome.failure === undefined && answer !== "") await verify(answer, false);
         if (outcome.failure !== undefined) {
           refused = { code: OUTPUT_GUARD_CODE, message: OUTPUT_GUARD_MESSAGE };
           answer = refused.message;
@@ -458,7 +461,7 @@ export function createCopilotService(deps: CopilotDeps) {
         const replacedNotice = typedReplaced > 0 ? `\n\n${TYPED_REPLACED_NOTICE}` : "";
         const policyNotice = policyDropped > 0 ? `\n\n${policyDropped} tool result(s) were left out because your AI data policy does not allow that data.` : "";
         const amountNotice = amountsWithheld > 0 ? `\n\n${AMOUNT_WITHHELD_NOTICE}` : "";
-        const display = outcome.failure !== undefined ? answer : (refused !== null ? answer : pseudo.restoreFor(answer, caller.duties)) + notice + replacedNotice + amountNotice + policyNotice;
+        const display = outcome.failure !== undefined ? answer : (refused !== null ? answer : present(answer)) + notice + replacedNotice + amountNotice + policyNotice;
         const result = finished(runId, "COMMITTED", actions, usage, display, provider.endpoint);
         await deps.store.finishRun(runReq, result);
         const out: ChatResponse = {
@@ -471,7 +474,7 @@ export function createCopilotService(deps: CopilotDeps) {
           ...(withheldCount > 0 ? { excluded: { count: withheldCount, kinds: [...withheldKinds], reason: "NO_APPROVED_ROUTE" as const } } : {}),
           generated: true,
         };
-        if (refused === null && withheldCount === 0 && policyDropped === 0 && needToKnowHidden === 0 && rules === undefined) deps.cache.put(asker, req.mode, prompt, JSON.stringify(out));
+        if (refused === null && withheldCount === 0 && policyDropped === 0 && needToKnowHidden === 0 && !cuiDerived && rules === undefined) deps.cache.put(asker, req.mode, prompt, JSON.stringify(out));
         return out;
       } catch (err) {
         await deps.store

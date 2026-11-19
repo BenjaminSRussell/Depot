@@ -124,6 +124,8 @@ async function main(): Promise<void> {
     throw new Error(
       "AGENTS_RUN_ENGINE=temporal needs DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE: agents signs its calls to workflow-ts",
     );
+  const metrics = new Metrics();
+  const outputGuard = createOutputGuard({ log, observe: (seconds, decision) => metrics.observeGuard(seconds, decision), deadlineMs: cfg.outputGuardTimeoutMs });
   const stepsService =
     cfg.runEngine === "temporal"
       ? createRunSteps({
@@ -134,6 +136,7 @@ async function main(): Promise<void> {
           state: new PgRunStateStore(store),
           inbox,
           killSwitch: registry,
+          outputGuard,
           // The pseudonym map must outlive the longest approval wait, or a resumed run could not restore real values.
           pseudonymTtlMs: Math.max(24, approvalHours + 24) * 3_600_000,
         })
@@ -151,6 +154,7 @@ async function main(): Promise<void> {
           },
         }
       : {}),
+    outputGuard,
     agents,
     evalPassed: (agent) => versions.evalPassed(agent),
     providerFor,
@@ -189,11 +193,10 @@ async function main(): Promise<void> {
       "AGENTS_AUDIT_URL or DEPOT_SERVICE_SIGNING_KEY is not set: AI data access cannot be audited, so every copilot read is refused",
       { boundary: cfg.boundary },
     );
-  const metrics = new Metrics();
   const copilot = createCopilotService({
     aiAccess: createAiAccessAudit({ baseUrl: cfg.auditUrl, signer: serviceSigner, log }),
     guard: createEgressGuard({ log, policy: aiPolicyGuard, observe: (seconds, decision) => metrics.observeGuard(seconds, decision) }),
-    outputGuard: createOutputGuard({ log, observe: (seconds, decision) => metrics.observeGuard(seconds, decision), deadlineMs: cfg.outputGuardTimeoutMs }),
+    outputGuard,
     knowledge,
     router: createConfiguredRouter(cfg, { log, ...(serviceSigner !== undefined ? { signer: serviceSigner } : {}) }),
     needToKnow: createNeedToKnowClient({
@@ -203,6 +206,7 @@ async function main(): Promise<void> {
         if (caller.legalEntityId === undefined) throw new Error("the caller's token names no legal entity");
         return { "x-depot-service-token": serviceSigner.mintForCompliance({ tenantId: caller.tenantId, legalEntityId: caller.legalEntityId, actor: caller.userId }) };
       },
+      cacheMs: cfg.needToKnowCacheMs,
       log,
     }),
     mcp,

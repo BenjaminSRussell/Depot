@@ -156,6 +156,22 @@ describe("guard inspect", () => {
     expect(second.user).toBe("hello\n\nother [IBAN-1]");
     expect(first.typedReplaced).toBe(1);
   });
+
+  it("carries this turn's tokens, record ids and highest class in the context", async () => {
+    const pseudo = new Pseudonymizer("t", 1000, () => 0);
+    const verdict = await testGuard().inspect(input(pseudo, { typed: `iban ${CANARIES.iban}`, recordIds: new Set(["R-1"]) }));
+    expect([...verdict.context.inputTokens]).toEqual(["[IBAN-1]"]);
+    expect([...verdict.context.inputRecordIds]).toEqual(["R-1"]);
+    expect(verdict.context.highestClass).toBe("P3");
+  });
+
+  it("returns an empty context when the analyzer fails", async () => {
+    const failing: Analyzer = { scan: () => { throw new Error("down"); } };
+    const verdict = await testGuard({ analyzer: failing }).inspect(input(new Pseudonymizer("t", 1000, () => 0), { recordIds: new Set(["R-1"]) }));
+    expect(verdict.result.decision).toBe("BLOCKED");
+    expect(verdict.context.inputTokens.size).toBe(0);
+    expect(verdict.context.inputRecordIds.size).toBe(0);
+  });
 });
 
 describe("run provider wrapper", () => {

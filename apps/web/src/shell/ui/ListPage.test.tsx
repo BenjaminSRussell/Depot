@@ -733,6 +733,63 @@ describe("ListPage data designation", () => {
     expect((await screen.findAllByText("Designation unavailable")).length).toBe(3);
     expect(bodyNumbers()).toEqual(["INV-10", "INV-9", "=EVIL()"]);
   });
+
+  it("offers no way to hide the designation column and keeps it when a saved view lacks it", async () => {
+    const user = userEvent.setup();
+    stubResolver([]);
+    const saved = { version: 1, defaultId: "v", views: [{ id: "v", name: "Slim", query: { filters: {}, sort: null }, visible: ["number"], known: ["number", "amount", "status"] }] };
+    renderList(memory({ [viewStoreKey("ada", "invoices")]: JSON.stringify(saved) }), { designation });
+    expect(screen.getByRole("columnheader", { name: "Data designation" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Columns" }));
+    expect(screen.queryByRole("checkbox", { name: "Data designation" })).toBeNull();
+  });
+
+  describe("CSV marking", () => {
+    let blob: Blob | undefined;
+
+    beforeEach(() => {
+      blob = undefined;
+      URL.createObjectURL = vi.fn((b: Blob) => {
+        blob = b;
+        return "blob:test";
+      });
+      URL.revokeObjectURL = vi.fn();
+      vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    });
+
+    const exported = async () => {
+      await userEvent.setup().click(screen.getByRole("button", { name: "Export CSV" }));
+      await waitFor(() => expect(blob).toBeDefined());
+      return (await (blob as Blob).text()).replace("\uFEFF", "").split("\r\n");
+    };
+
+    it("starts the file with the CUI notice and marks each CUI row in a trailing column", async () => {
+      stubResolver(["2"]);
+      renderList(memory(), { designation });
+      await waitFor(() => expect(screen.getByText("CUI")).toBeInTheDocument());
+      const lines = await exported();
+      expect(lines[0]).toBe("CUI,Contains CUI. Handle per your CUI policy.");
+      expect(lines[1]).toBe("Number,Amount,Status,Data designation,Marking");
+      expect(lines.slice(2, 5).map((l) => l.split(",").slice(-2).join(","))).toEqual([",", "CUI,CUI", ","]);
+    });
+
+    it("writes no notice when no row is CUI", async () => {
+      stubResolver([]);
+      renderList(memory(), { designation });
+      await waitFor(() => expect(screen.getAllByText("None")).toHaveLength(3));
+      const lines = await exported();
+      expect(lines[0]).toBe("Number,Amount,Status,Data designation,Marking");
+    });
+
+    it("marks every row CUI when the resolver is unavailable", async () => {
+      stubResolver([], 403);
+      renderList(memory(), { designation });
+      await screen.findAllByText("Designation unavailable");
+      const lines = await exported();
+      expect(lines[0]).toBe("CUI,Contains CUI. Handle per your CUI policy.");
+      expect(lines.slice(2, 5).every((l) => l.endsWith("CUI,CUI"))).toBe(true);
+    });
+  });
 });
 
 describe("loadedRows", () => {

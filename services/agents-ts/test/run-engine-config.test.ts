@@ -20,6 +20,20 @@ describe("run engine config", () => {
     expect(() => loadConfig({ ...ok, DEPOT_SERVICE_PUBLIC_KEYS: "" })).toThrow(/DEPOT_SERVICE_PUBLIC_KEYS/);
     expect(() => loadConfig({ ...base, AGENTS_RUN_ENGINE: "kafka" })).toThrow(/inprocess or temporal/);
   });
+
+  it("reads the output guard timeout with a 2000 ms default and a 100 to 10000 ms range", () => {
+    expect(loadConfig(base).outputGuardTimeoutMs).toBe(2000);
+    expect(loadConfig({ ...base, AGENTS_OUTPUT_GUARD_TIMEOUT_MS: "100" }).outputGuardTimeoutMs).toBe(100);
+    expect(loadConfig({ ...base, AGENTS_OUTPUT_GUARD_TIMEOUT_MS: "10000" }).outputGuardTimeoutMs).toBe(10_000);
+    for (const bad of ["99", "10001", "abc"])
+      expect(() => loadConfig({ ...base, AGENTS_OUTPUT_GUARD_TIMEOUT_MS: bad })).toThrow(/AGENTS_OUTPUT_GUARD_TIMEOUT_MS/);
+  });
+
+  it("reads the need-to-know cache time with a 10000 ms default and a 60000 ms ceiling", () => {
+    expect(loadConfig(base).needToKnowCacheMs).toBe(10_000);
+    expect(loadConfig({ ...base, AGENTS_NEED_TO_KNOW_CACHE_MS: "60000" }).needToKnowCacheMs).toBe(60_000);
+    for (const bad of ["60001", "abc"]) expect(() => loadConfig({ ...base, AGENTS_NEED_TO_KNOW_CACHE_MS: bad })).toThrow(/AGENTS_NEED_TO_KNOW_CACHE_MS/);
+  });
 });
 
 describe("workflow gateway", () => {

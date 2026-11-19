@@ -28,4 +28,10 @@ describe("csv", () => {
     const text = toCsv(["A", "B"], [[null, undefined], ["x", 1]]);
     expect(text).toBe("﻿A,B\r\n,\r\nx,1\r\n");
   });
+
+  it("adds the notice line and a trailing marking column only when asked", () => {
+    const marking = { notice: ["CUI", "Handle it."] as [string, string], column: "Marking", label: "CUI", cui: [true, false] };
+    expect(toCsv(["A"], [["x"], ["y"]], marking)).toBe("﻿CUI,Handle it.\r\nA,Marking\r\nx,CUI\r\ny,\r\n");
+    expect(toCsv(["A"], [["y"]], { ...marking, cui: [false] })).toBe("﻿A,Marking\r\ny,\r\n");
+  });
 });

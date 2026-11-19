@@ -236,7 +236,8 @@ export function ListPage<T>({
     [data.rows, cuiOnly, designations.version],
   );
   const nounFor = (count: number) => (count === 1 ? singular : noun);
-  const shownKeys = inOrder(columns, visible);
+  const withMarking = (keys: string[]) => (marked && !keys.includes(DESIGNATION_KEY) ? [...keys, DESIGNATION_KEY] : keys);
+  const shownKeys = withMarking(inOrder(columns, visible));
   const shownColumns = columns.filter((c) => shownKeys.includes(c.key));
   const tableColumns = shownColumns.map((c) => ({ ...c, sortable: c.sortable !== false }));
   const localSort = query.sort !== null && !serverSort.includes(query.sort.key);
@@ -257,7 +258,7 @@ export function ListPage<T>({
   const activeBaseline = active ? reconcileView(active, columns, filterKeys, filters) : null;
   const modified =
     activeBaseline !== null &&
-    (!sameQuery(query, activeBaseline.query) || inOrder(columns, activeBaseline.visible).join() !== shownKeys.join());
+    (!sameQuery(query, activeBaseline.query) || withMarking(inOrder(columns, activeBaseline.visible)).join() !== shownKeys.join());
 
   function commitStore(next: ViewStore, said: string, keepUndo = false) {
     if (!keepUndo) {
@@ -376,7 +377,15 @@ export function ListPage<T>({
     const records = await Promise.all(
       rows.map((row) => Promise.all(exported.map((c) => (c.csv ? c.csv(row) : (rawValue(row, c.key) as string | number | null | undefined) ?? "")))),
     );
-    downloadCsv(`${id}-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(exported.map((c) => c.header), records));
+    const marking = designation
+      ? {
+          notice: copy.marking.csvNotice,
+          column: copy.marking.csvColumn,
+          label: copy.marking.badge,
+          cui: rows.map((row) => markRef.current(row).kind !== "none"),
+        }
+      : undefined;
+    downloadCsv(`${id}-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(exported.map((c) => c.header), records, marking));
     const exportedNoun = nounFor(rows.length);
     setMessage(data.hasMore ? copy.lists.exportedPartial(rows.length, exportedNoun) : copy.lists.exported(rows.length, exportedNoun));
   }
@@ -442,7 +451,7 @@ export function ListPage<T>({
             <div className={styles.toolsGroup}>
               <ViewsMenu store={store} active={active} modified={modified} actions={viewActions} />
               <ColumnChooser
-                columns={columns}
+                columns={columns.filter((c) => c.key !== DESIGNATION_KEY)}
                 visible={shownKeys}
                 onToggle={toggleColumn}
                 onReset={() => showColumns(defaultVisible(columns))}

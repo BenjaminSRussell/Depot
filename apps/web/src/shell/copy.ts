@@ -131,6 +131,16 @@ export const copy = {
     filterAll: "All",
     none: "None",
     unavailable: "Designation unavailable",
+    csvNotice: ["CUI", "Contains CUI. Handle per your CUI policy."] as [string, string],
+    csvColumn: "Marking",
+    leftOut: (count: number, reasons: string[]) => `${count} ${count === 1 ? "record was" : "records were"} left out: ${reasons.join(", ")}.`,
+    reason: (code: string) => {
+      if (code === "TENANT_POLICY") return "tenant policy";
+      if (code === "P3") return "P3";
+      if (code === "CUI_ROUTE") return "CUI route";
+      if (code === "AMOUNT_WITHHELD") return "amount withheld";
+      return "policy";
+    },
     source: (source: string, noun: string) => {
       if (source === "RECORD") return `Designated at ${noun} level`;
       if (source === "LEGAL_ENTITY") return "Designated at legal entity level";

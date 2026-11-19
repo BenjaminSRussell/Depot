@@ -34,6 +34,7 @@ export interface Config {
   copilotTokenCap: number;
   copilotMaxTurns: number;
   outputGuardTimeoutMs: number;
+  needToKnowCacheMs: number;
   selfApprovalLimit: { amount: string; currency: string };
   approvalExpiryHours: number | undefined;
   /** How often each pod polls the shared kill switch (AC-47.6); below the 10 s fail-closed window. */
@@ -184,6 +185,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
   const outputGuardTimeoutMs = positiveInt(env, "AGENTS_OUTPUT_GUARD_TIMEOUT_MS", 2000);
   if (outputGuardTimeoutMs < 100 || outputGuardTimeoutMs > 10_000)
     throw new Error("AGENTS_OUTPUT_GUARD_TIMEOUT_MS must be 100 to 10000");
+  const needToKnowCacheMs = positiveInt(env, "AGENTS_NEED_TO_KNOW_CACHE_MS", 10_000);
+  if (needToKnowCacheMs > 60_000) throw new Error("AGENTS_NEED_TO_KNOW_CACHE_MS must be 1 to 60000");
   const issuer = env["AGENTS_JWT_ISSUER"] ?? "";
   if (!/^https?:\/\//.test(issuer))
     throw new Error(
@@ -236,6 +239,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     copilotTokenCap: positiveInt(env, "AGENTS_COPILOT_TOKEN_CAP", 8_000),
     copilotMaxTurns: positiveInt(env, "AGENTS_COPILOT_MAX_TURNS", 4),
     outputGuardTimeoutMs,
+    needToKnowCacheMs,
     selfApprovalLimit: { amount: limit, currency },
     approvalExpiryHours,
     killSwitchPollMs,

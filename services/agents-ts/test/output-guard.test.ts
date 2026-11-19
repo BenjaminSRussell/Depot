@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Pseudonymizer } from "../src/domain/redaction.js";
 import type { GuardContext } from "../src/runtime/egressGuard.js";
-import { createChunkReleaser, createOutputGuard, type OutputInput } from "../src/runtime/outputGuard.js";
+import { createChunkReleaser, createOutputGuard, stripUnreadableCitations, UNVERIFIED_MARK, type OutputInput } from "../src/runtime/outputGuard.js";
 
 const IBAN = "DE89370400440532013000";
 const HOLDER = new Set(["ViewSensitivePayroll"]);
@@ -37,10 +37,22 @@ describe("output guard checks", () => {
     expect(await reasonOf("See [[cite:]].")).toBe("RECORD_NOT_IN_INPUT");
   });
 
+  it("allows up to 20 percent unverified citations and suppresses above it", async () => {
+    const own = "[[cite:INV-7]] ".repeat(4);
+    expect(await reasonOf(`${own}[[cite:INV-99]].`)).toBeUndefined();
+    expect(await reasonOf(`${own}[[cite:INV-98]] [[cite:INV-99]].`)).toBe("RECORD_NOT_IN_INPUT");
+  });
+
+  it("replaces a citation the user cannot read with the unverified mark and never keeps its id", () => {
+    const shown = stripUnreadableCitations("A [[cite:INV-7]] B [[cite:SECRET-9]].", new Set(["INV-7"]));
+    expect(shown).toBe(`A [[cite:INV-7]] B ${UNVERIFIED_MARK}.`);
+    expect(shown).not.toContain("SECRET-9");
+  });
+
   it("verifies the final text against the viewer's duties: a raw value they may not see is a leak, a held one is not", async () => {
     expect(await reasonOf("The pay is 85000.")).toBe("DUTY_LEAK");
     expect(await reasonOf("The pay is 85000.", { duties: HOLDER })).toBeUndefined();
-    expect(await reasonOf("The pay is ****5000.")).toBeUndefined();
+    expect(await reasonOf("The pay is ****.")).toBeUndefined();
   });
 
   it("suppresses a raw identifier that did not come from allowed re-hydration", async () => {
@@ -72,6 +84,36 @@ describe("output guard checks", () => {
     await guard.check(turn({ text: "ok" }));
     await guard.check(turn({ text: "[EMAIL-7]" }));
     expect(seen).toEqual(["ALLOWED", "OUTPUT_BLOCKED"]);
+  });
+});
+
+describe("streamed answers and the unverified-citation share", () => {
+  const streamed = async (sentences: string[]) => {
+    const guard = createOutputGuard();
+    const releaser = createChunkReleaser(async (chunk) => (await guard.check(turn({ text: chunk, partial: true }))).ok);
+    for (const s of sentences) releaser.push(s);
+    const chunksPassed = await releaser.end();
+    const final = await guard.check(turn({ text: sentences.join("") }));
+    return { chunksPassed, final };
+  };
+  const own = "Invoice [[cite:INV-7]] is due. ";
+  const owned = Array.from({ length: 5 }, () => own);
+
+  it("does not withdraw per chunk: one unverified citation among six passes every chunk and the final check", async () => {
+    const { chunksPassed, final } = await streamed([...owned, "Also [[cite:INV-99]] is odd. "]);
+    expect(chunksPassed).toBe(true);
+    expect(final.ok).toBe(true);
+  });
+
+  it("withdraws at the final check when two of six are unverified, though each chunk passed", async () => {
+    const { chunksPassed, final } = await streamed([...owned.slice(0, 4), "Also [[cite:INV-98]] is odd. ", "And [[cite:INV-99]] too. "]);
+    expect(chunksPassed).toBe(true);
+    expect(final).toMatchObject({ ok: false, reason: "RECORD_NOT_IN_INPUT" });
+  });
+
+  it("still applies the other rules to a partial chunk", async () => {
+    const verdict = await createOutputGuard().check(turn({ text: "Write to [EMAIL-9]. ", partial: true }));
+    expect(verdict).toMatchObject({ ok: false, reason: "TOKEN_NOT_IN_INPUT" });
   });
 });
 

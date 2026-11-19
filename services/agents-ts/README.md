@@ -69,6 +69,7 @@ There is no web BFF (ADR-0009): the shell reaches `/api/v1/agents/**`, copilot c
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` + `AGENTS_OPENAI_BASE_URL`, `AWS_REGION` + `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` | Provider credentials, from a secret; a missing one fails the first run naming the variable | |
 | `AGENTS_RUN_TOKEN_CAP`, `AGENTS_COPILOT_TOKEN_CAP`, `AGENTS_COPILOT_MAX_TURNS` | Per-run and per-chat token caps, chat turns | 20000, 8000, 4 |
 | `AGENTS_OUTPUT_GUARD_TIMEOUT_MS` | Deadline of the output guard on one answer or sentence, 100 to 10000; a miss withholds the answer (`AGT-0220`) | 2000 |
+| `AGENTS_NEED_TO_KNOW_CACHE_MS` | How long the need-to-know switch read from the compliance service is reused, 1 to 60000; an answer built from CUI records is never cached | 10000 |
 | `AGENTS_RUN_ENGINE`, `AGENTS_WORKFLOW_URL`, `DEPOT_SERVICE_PUBLIC_KEYS` | `inprocess` (dev fallback: a run is one promise in the pod) or `temporal` (each run is workflow-ts `agentRunWorkflow`, so a run resumes after an approval across pod restarts; needs the workflow URL and workflow-ts's public key, see "Runs as workflows") | `inprocess` |
 | `AGENTS_APPROVAL_EXPIRY_H`, `AGENTS_SELF_APPROVAL_LIMIT`, `AGENTS_SELF_APPROVAL_CURRENCY` | BR-47.3 expiry (1 to 240 hours) and the self-approval limit | 72, 0, USD |
 | `AGENTS_KILLSWITCH_POLL_MS` | How often each pod reads the shared kill switch (100 to 5000) | 1000 |

@@ -225,7 +225,7 @@ describe("output guard on the chat", () => {
     const other = await setup([answer("The pay is [PAY-1].")]);
     close = other.srv.close;
     const otherBody = (await (await chat(other.srv.base, ask)).json()) as { answer: string };
-    expect(otherBody.answer).toContain("The pay is ****5000.");
+    expect(otherBody.answer).toContain("The pay is ****.");
     expect(JSON.stringify([otherBody, ...other.store.actionRows.values()])).not.toContain("85000");
   });
 
@@ -256,6 +256,16 @@ describe("output guard on the chat", () => {
     const own = await setup([call(GET, { invoiceId: "INV-7" }), answer("See [[cite:INV-7]].")]);
     close = own.srv.close;
     expect(((await (await chat(own.srv.base, { mode: "ask", message: "invoice?" })).json()) as { refusal: unknown }).refusal).toBeNull();
+  });
+
+  it("marks one unreadable citation among many as unverified and never shows its id", async () => {
+    const text = `${"See [[cite:INV-7]]. ".repeat(5)}Also [[cite:SECRET-9]].`;
+    const mixed = await setup([call(GET, { invoiceId: "INV-7" }), answer(text)]);
+    close = mixed.srv.close;
+    const body = (await (await chat(mixed.srv.base, { mode: "ask", message: "invoice?" })).json()) as { answer: string; refusal: unknown };
+    expect(body.refusal).toBeNull();
+    expect(body.answer).toContain("[unverified]");
+    expect(body.answer).not.toContain("SECRET-9");
   });
 
   it("fails closed with the safe message when the guard errors, and leaves the run committed", async () => {

@@ -5,6 +5,7 @@ import { copy } from "../../shell/copy";
 import { Alert, Badge, Button, Card, EmptyState, FormField, Textarea } from "../../shell/ui";
 import { CopilotError, type ChatRequest, type ChatResponse } from "./api/client";
 import { askCopilot } from "./api/stream";
+import { AiMarking } from "./AiSuggestion";
 import {
   canInsertDraft,
   COPILOT_MODES,
@@ -160,7 +161,7 @@ function Answer({ result, onInsertDraft }: { result: Result; onInsertDraft?: ((t
   return (
     <article aria-label="Copilot answer" className={styles.answer}>
       <div>
-        <Badge tone="info">{GENERATED_BADGE}</Badge>
+        <Badge tone="info">{GENERATED_BADGE}</Badge> <AiMarking dataClass={response.dataClass} excluded={response.excluded} />
       </div>
       {response.refusal ? (
         <Alert tone="warning" title={response.refusal.code} live="alert">
