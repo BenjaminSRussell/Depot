@@ -26,6 +26,16 @@ export function toolCallLabel(call: { tool: string; status: string; code?: strin
   return call.code ? `${call.tool}: ${call.status} (${call.code})` : `${call.tool}: ${call.status}`;
 }
 
+const TOOL_NAME_SHAPE = /^depot\.([a-z-]+)\.([a-z-]+)\.([a-z_]+)$/;
+
+export function toolActionLabel(toolName: string): string {
+  const match = TOOL_NAME_SHAPE.exec(toolName);
+  if (!match) return "A tool call";
+  const [, context, entity, verb] = match;
+  const action = (verb ?? "").replace(/_/g, " ");
+  return `${action.charAt(0).toUpperCase()}${action.slice(1)} on ${context} ${entity}`;
+}
+
 export type ApprovalModeName = "none" | "suggest" | "approve_before_commit";
 
 const APPROVAL_LABELS: Readonly<Record<ApprovalModeName, string>> = {

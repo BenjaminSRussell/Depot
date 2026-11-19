@@ -24,6 +24,20 @@ agents.admin halt or resume their tenant (a platform.global.admin holder also th
 | `api/agents.ts` | `getKillSwitch` and `setKillSwitch`: `GET`/`POST /api/v1/agents/kill-switch` (services/agents-ts/api/openapi.yaml), validated with zod; a refusal raises the problem's `code` and `detail` |
 | `api/mcp.ts` | `listTools`: JSON-RPC `tools/list` to the MCP gateway at `/api/v1/mcp`, validated with zod |
 | `pages.module.css` | Layout for the module, design tokens only |
+| `AiSuggestion.tsx` | Shared AI suggestion: badge that no setting hides, "Why this?" (agent version, rationale and confidence when recorded) and "Data used" (tools, records as links only when the user holds the record page's duty) disclosures; the host passes its own body as `children` |
+| `AiSuggestion.module.css` | Layout for the suggestion, design tokens only |
+| `api/runTrace.ts` | zod schema for `GET /api/v1/agents/runs/{runId}`; optional `rationale`, `confidence` (0..1) and `dataUsed` per action. Prompt and redacted fields are not in the schema, so they are stripped on parse |
+| `suggestionModel.ts` | `toSuggestionViewModels` (run trace to view models), `resolveRecord` (link or entity-type-only text by duty), `agentLabel` |
+| `suggestionFixtures.ts` | Run traces and view models for the four hosts: `answer`, `proposal`, `feed-item`, `briefing-item` |
+
+## Shared AI suggestion
+
+`<AiSuggestion host suggestion>{body}</AiSuggestion>` is the one presentation the
+answer, proposal, feed-item and briefing-item hosts adopt. `host` only sets a
+`data-host` attribute; behavior is the same in all four. Hosts parse the run
+trace with `runTraceSchema`, map it with `toSuggestionViewModels`, and render
+inside the shell's `PrincipalProvider` (without it every record shows as plain
+text). Decline, undo and the origin marker are later slices (NOT-IMPLEMENTED.md).
 
 ## Run and test
 
