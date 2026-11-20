@@ -27,7 +27,7 @@ export function AiMarking({ dataClass, excluded }: { dataClass?: string | undefi
 const PANEL_HEADING: Record<SuggestionHost, "h3" | "h4"> = {
   answer: "h4",
   "briefing-item": "h4",
-  proposal: "h3",
+  proposal: "h4",
   "feed-item": "h3",
 };
 

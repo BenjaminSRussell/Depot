@@ -100,6 +100,7 @@ const ERROR_CODE_RE = /^[A-Z][A-Z0-9_-]{1,31}$/;
 const ERROR_MESSAGE_MAX = 160;
 const ERROR_SCAN_MAX = 4096;
 
+// Deliberately the local scanPii, not the injected analyzer: error text must be scrubbed even when the analyzer is the thing that failed.
 function describeError(err: unknown): Record<string, string> {
   if (!(err instanceof Error)) return { error: "unknown" };
   const code = (err as { code?: unknown }).code;
@@ -126,6 +127,33 @@ function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
     timer = setTimeout(() => reject(new GuardFailure("ANALYZER_TIMEOUT")), ms);
   });
   return Promise.race([work, late]).finally(() => clearTimeout(timer));
+}
+
+const PAY_LABEL_TO_VALUE_CHARS = 12 + 12 + 1 + 7 + (1 + 80 + 1 + 6 + 1 + 3 + 1 + 3) + 1 + 4;
+export const LONGEST_LABEL_TO_VALUE_CHARS = PAY_LABEL_TO_VALUE_CHARS;
+export const SEAM_WINDOW_CHARS = 4 * LONGEST_LABEL_TO_VALUE_CHARS;
+const SEPARATOR = "\n\n";
+
+function seamWindows(parts: readonly string[]): string[] {
+  const joined = parts.join(SEPARATOR);
+  const windows = new Set<string>();
+  let offset = 0;
+  for (const part of parts.slice(0, -1)) {
+    offset += part.length;
+    const lead = Math.max(0, offset - SEAM_WINDOW_CHARS);
+    const trail = offset + SEPARATOR.length + SEAM_WINDOW_CHARS;
+    const leadCut = joined.slice(lead, offset - LONGEST_LABEL_TO_VALUE_CHARS).search(/\s/);
+    const trailTail = joined.slice(offset + SEPARATOR.length + LONGEST_LABEL_TO_VALUE_CHARS, trail);
+    const trailCut = trailTail.search(/\s\S*$/);
+    windows.add(
+      joined.slice(
+        lead > 0 && leadCut >= 0 ? lead + leadCut + 1 : lead,
+        trailCut >= 0 ? offset + SEPARATOR.length + LONGEST_LABEL_TO_VALUE_CHARS + trailCut : trail,
+      ),
+    );
+    offset += SEPARATOR.length;
+  }
+  return [...windows];
 }
 
 const SCAN_MEMO_MAX = 512;
@@ -157,6 +185,13 @@ async function memoisedCategories(
     });
   }
   const out = segments.map((t) => scanned.get(t) ?? known(t) ?? []);
+  for (const [t, key] of keys) {
+    const held = key === undefined ? undefined : memo.get(key);
+    if (key !== undefined && held !== undefined && !scanned.has(t)) {
+      memo.delete(key);
+      memo.set(key, held);
+    }
+  }
   for (const [t, categories] of scanned) {
     const key = keys.get(t);
     if (key === undefined) continue;
@@ -220,9 +255,13 @@ export function createEgressGuard(
         for (const category of found) result.counts[category] = (result.counts[category] ?? 0) + 1;
         result.highestClass = highestClassOf([input.declared ?? "P0", ...found.map((c) => CATEGORY_CLASS[c])]);
         const redacted = texts.map((t) => input.pseudo.redact(t));
-        const user = redacted.join("\n\n");
-        const residual = await categoriesOf([input.system, ...redacted, user]);
+        const user = redacted.join(SEPARATOR);
+        const parts = [input.system, ...redacted];
+        const residual = await categoriesOf(parts);
         if (residual.some((categories) => categories.length > 0)) throw new GuardFailure("RESIDUAL_PII");
+        const seams = await scan(seamWindows(parts));
+        if (seams.some((findings) => !Array.isArray(findings))) throw new GuardFailure("ANALYZER_ERROR", "analyzer returned a non-array");
+        if (seams.some((findings) => findings.length > 0)) throw new GuardFailure("RESIDUAL_PII");
         result.decision = found.length > 0 ? "REDACTED" : "ALLOWED";
         return { user, context: { inputTokens: new Set(user.match(PSEUDONYM_RE)), inputRecordIds: new Set(input.recordIds), highestClass: result.highestClass }, result, typedReplaced: (perText[0] ?? []).filter((c) => c !== "EMAIL").length };
       } catch (err) {

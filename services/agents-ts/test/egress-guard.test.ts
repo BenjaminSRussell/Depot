@@ -7,7 +7,7 @@ import { AMOUNT_WITHHELD_NOTICE } from "../src/domain/financialFields.js";
 import { createProviderFactory, loadConfig, withEgressGuard } from "../src/config.js";
 import { PROPOSE_TOOL_NAME } from "../src/providers/wire.js";
 import { AgentError } from "../src/errors.js";
-import { EGRESS_GUARD_TOOL, type Analyzer, type EgressInput, type GuardDecision } from "../src/runtime/egressGuard.js";
+import { EGRESS_GUARD_TOOL, LONGEST_LABEL_TO_VALUE_CHARS, SEAM_WINDOW_CHARS, type Analyzer, type EgressInput, type GuardDecision } from "../src/runtime/egressGuard.js";
 import { Metrics } from "../src/server.js";
 import { openRouter, ScriptedProvider, testGuard, allowAiAccess } from "./fakes.js";
 import { FakeMcp, headers, MemoryStore, serve, tool } from "./surface-fakes.js";
@@ -39,6 +39,10 @@ const call = (): ModelResponse => ({
   proposal: { tool: GET, args: { invoiceId: "INV-7" }, confidence: 1, amount: { amount: "0", currency: "USD" } },
   usage: { tokensIn: 200, tokensOut: 10 },
 });
+
+const realSetTimeout = globalThis.setTimeout;
+const realClearTimeout = globalThis.clearTimeout;
+const ANALYZER_REACH_WAIT_MS = 2000;
 
 let close: (() => Promise<void>) | undefined;
 afterEach(async () => {
@@ -85,7 +89,11 @@ const chatWith = async ({ analyzer, observe, deadlineMs }: ChatOptions = {}) => 
     body: JSON.stringify({ mode: "ask", message: `Check invoice INV-7 paid with ${CANARIES.typedCard}` }),
   });
   if (timed) {
-    await analyzerReached;
+    let giveUp: NodeJS.Timeout | undefined;
+    const neverReached = new Promise<never>((_, reject) => {
+      giveUp = realSetTimeout(() => reject(new Error(`the analyzer was not reached within ${ANALYZER_REACH_WAIT_MS} ms of the chat request`)), ANALYZER_REACH_WAIT_MS);
+    });
+    await Promise.race([analyzerReached, neverReached]).finally(() => realClearTimeout(giveUp));
     await vi.advanceTimersByTimeAsync(deadlineMs);
   }
   const res = await pending;
@@ -239,6 +247,49 @@ describe("guard inspect", () => {
     expect(scanPii("123456789 is ours")).toEqual([]);
     expect(verdict.result).toMatchObject({ decision: "BLOCKED", errorCode: "RESIDUAL_PII" });
     expect(verdict.user).toBe("");
+  });
+
+  it("blocks a labelled value split across the system prompt and the first user segment", async () => {
+    const verdict = await testGuard().inspect(input(new Pseudonymizer("t", 1000, () => 0), { system: "You help with the account", typed: "123456789 is ours" }));
+    expect(scanPii("You help with the account")).toEqual([]);
+    expect(verdict.result).toMatchObject({ decision: "BLOCKED", errorCode: "RESIDUAL_PII" });
+  });
+
+  it("blocks the longest label-to-value span that ends one segment and starts the next", async () => {
+    const label = `compensation${"x".repeat(12)}"   =   {${"y".repeat(80)}"amount":`;
+    expect(label.length).toBeLessThanOrEqual(LONGEST_LABEL_TO_VALUE_CHARS);
+    expect(scanPii(`${label}\n\n85000`).map((f) => f.category)).toEqual(["PAY"]);
+    expect(scanPii(label)).toEqual([]);
+    expect(scanPii("85000 and more")).toEqual([]);
+    expect(SEAM_WINDOW_CHARS).toBeGreaterThan(LONGEST_LABEL_TO_VALUE_CHARS);
+    const verdict = await testGuard().inspect(input(new Pseudonymizer("t", 1000, () => 0), { typed: `${"filler ".repeat(200)}${label}`, results: ["85000 and more"] }));
+    expect(verdict.result).toMatchObject({ decision: "BLOCKED", errorCode: "RESIDUAL_PII" });
+  });
+
+  it("does not block a long digit run that a seam window merely cuts through", async () => {
+    const run = "4111111111111111".repeat(40);
+    const verdict = await testGuard().inspect(input(new Pseudonymizer("t", 1000, () => 0), { typed: `note ${run}`, results: [`${run} end`] }));
+    expect(verdict.result.errorCode).not.toBe("RESIDUAL_PII");
+  });
+
+  it("analyses each segment once across a growing conversation and keeps seam windows out of the memo", async () => {
+    const seen: string[] = [];
+    const guard = testGuard({ analyzer: recordingAnalyzer(seen) });
+    const pseudo = new Pseudonymizer("t", 1000, () => 0);
+    const results = Array.from({ length: 6 }, (_, i) => `Result ${i}: INV-${i}`);
+    for (let turn = 1; turn <= results.length; turn++) await guard.inspect(input(pseudo, { results: results.slice(0, turn) }));
+    for (const text of ["system", "hello", ...results]) expect(seen.filter((t) => t === text), text).toHaveLength(1);
+  });
+
+  it("keeps the system prompt and typed text memoised while later turns add more than the memo holds", async () => {
+    const seen: string[] = [];
+    const guard = testGuard({ analyzer: recordingAnalyzer(seen) });
+    const pseudo = new Pseudonymizer("t", 1000, () => 0);
+    await guard.inspect(input(pseudo, { results: Array.from({ length: 300 }, (_, i) => `a ${i}`) }));
+    await guard.inspect(input(pseudo, { results: Array.from({ length: 300 }, (_, i) => `b ${i}`) }));
+    await guard.inspect(input(pseudo));
+    expect(seen.filter((t) => t === "system")).toHaveLength(1);
+    expect(seen.filter((t) => t === "hello")).toHaveLength(1);
   });
 
   it("does not memoise a text above the size threshold, so it is scanned again by the input pass and the residual pass of every turn", async () => {

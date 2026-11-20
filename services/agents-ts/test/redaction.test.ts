@@ -20,7 +20,7 @@ describe("scanPii", () => {
     expect(performance.now() - started).toBeLessThan(250);
   });
 
-  it("scans runs of digits and labelled words in linear time: 100 KB takes under 25 times as long as 10 KB (median of 5 runs)", () => {
+  it("scans runs of digits and labelled words in linear time: 1 MB takes under 25 times as long as 100 KB and under 5 s (median of 5 runs)", () => {
     const timeOf = (kb: number) => {
       const started = performance.now();
       for (const text of ["1".repeat(kb * 1024), "1 ".repeat(kb * 512), "account ".repeat(kb * 120), "salary".repeat(kb * 160)]) expect(scanPii(text)).toEqual([]);
@@ -30,8 +30,10 @@ describe("scanPii", () => {
       const runs = Array.from({ length: 5 }, () => timeOf(kb)).sort((a, b) => a - b);
       return runs[2] ?? 0;
     };
-    timeOf(10);
-    expect(median(100)).toBeLessThan(Math.max(median(10), 1) * 25);
+    timeOf(100);
+    const large = median(1024);
+    expect(large).toBeLessThan(Math.max(median(100), 1) * 25);
+    expect(large).toBeLessThan(5000);
   });
 
   it("finds nothing in ordinary invoice text", () => {
