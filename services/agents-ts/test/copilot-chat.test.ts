@@ -237,6 +237,22 @@ describe("output guard on the chat", () => {
     expect(body.answer).toContain("The pay is ****.");
   });
 
+  it("shows SSN and tax-id values to the holder of the worker duty and masks them for a token with only the retired PascalCase name", async () => {
+    const WORKER = `${DUTIES},${SENSITIVE_DUTY.worker}`;
+    const sensitive = { mode: "ask", message: "Is ssn 123-45-6789 and tax id 12-3456789 on file?" };
+    const holder = await setup([answer("SSN [SSN-1], tax id [TAXID-1].")]);
+    const holderBody = (await (await chat(holder.srv.base, sensitive, WORKER)).json()) as { answer: string };
+    await holder.srv.close();
+    expect(holderBody.answer).toContain("123-45-6789");
+    expect(holderBody.answer).toContain("12-3456789");
+
+    const retired = await setup([answer("SSN [SSN-1], tax id [TAXID-1].")]);
+    close = retired.srv.close;
+    const retiredBody = (await (await chat(retired.srv.base, sensitive, `${DUTIES},ViewSensitiveWorker`)).json()) as { answer: string };
+    expect(retiredBody.answer).not.toContain("123-45-6789");
+    expect(retiredBody.answer).not.toContain("12-3456789");
+  });
+
   it("withholds an answer that prints the raw payroll value for a viewer without the duty, stores only the guard row and caches nothing", async () => {
     const s = await setup([answer("Their salary: 85000."), answer("The pay is [PAY-1].")]);
     close = s.srv.close;
