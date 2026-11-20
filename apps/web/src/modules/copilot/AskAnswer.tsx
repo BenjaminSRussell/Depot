@@ -7,11 +7,7 @@ import { AiSuggestion } from "./AiSuggestion";
 import { mayBePartial, parseAnswerText } from "./answerText";
 import { canInsertDraft, GENERATED_BADGE } from "./domain";
 import styles from "./pages.module.css";
-import {
-  answerViewModel,
-  citationRoute,
-  leftOutNotice,
-} from "./suggestionModel";
+import { answerViewModel, citationRoute, leftOutNotice } from "./suggestionModel";
 import type { CopilotConversation, Turn } from "./useCopilotConversation";
 
 export interface AskAnswerProps {
@@ -27,13 +23,7 @@ interface TurnViewProps {
   onInsertDraft: AskAnswerProps["onInsertDraft"];
 }
 
-function TurnView({
-  turn,
-  turnId,
-  latest,
-  conversation,
-  onInsertDraft,
-}: TurnViewProps) {
+function TurnView({ turn, turnId, latest, conversation, onInsertDraft }: TurnViewProps) {
   const { pending, partial, withdrawn, retry } = conversation;
   const duties = usePrincipalDuties();
   const { result, error } = turn;
@@ -47,77 +37,45 @@ function TurnView({
   const streaming = latest && pending;
   return (
     <>
-      <h3 className={styles.sectionTitle}>
-        {copy.answer.youAsked(turn.question)}
-      </h3>
+      <h3 className={styles.sectionTitle}>{copy.answer.youAsked(turn.question)}</h3>
       {error === null ? null : (
         <Alert tone="danger" live="alert" action={tryAgain}>
           {error}
         </Alert>
       )}
       {streaming && partial !== "" ? (
-        <article
-          aria-label={copy.answer.inProgress}
-          aria-busy="true"
-          className={styles.answer}
-        >
+        <article aria-label={copy.answer.inProgress} aria-busy="true" className={styles.answer}>
           <div>
             <Badge tone="info">{GENERATED_BADGE}</Badge>
           </div>
-          {withdrawn === null ? null : (
-            <p
-              className={styles.sectionTitle}
-            >{`${copy.answer.withdrawn} (${withdrawn.code})`}</p>
-          )}
+          {withdrawn === null ? null : <p className={styles.sectionTitle}>{`${copy.answer.withdrawn} (${withdrawn.code})`}</p>}
           <p className={styles.answerText}>{partial}</p>
         </article>
       ) : null}
       {response === undefined ? null : (
         <article aria-label={copy.answer.finished} className={styles.answer}>
-          <AiSuggestion
-            host="answer"
-            suggestion={answerViewModel(response, turnId)}
-          >
+          <AiSuggestion host="answer" suggestion={answerViewModel(response, turnId)}>
             {refusal === undefined ? null : (
-              <Alert
-                tone="warning"
-                title={refusal.code}
-                live="alert"
-                action={tryAgain}
-              >
+              <Alert tone="warning" title={refusal.code} live="alert" action={tryAgain}>
                 {copy.assistantStatus.refusals[refusal.code] ?? refusal.message}
               </Alert>
             )}
             {response.answer ? (
               <p className={styles.answerText}>
-                {parseAnswerText(response.answer, response.citations).map(
-                  (segment, i) => {
-                    if (segment.kind === "text")
-                      return <Fragment key={i}>{segment.text}</Fragment>;
-                    if (segment.kind === "unverified")
-                      return (
-                        <Badge key={i} tone="warning">
-                          {copy.answer.unverified}
-                        </Badge>
-                      );
-                    return (
-                      <a
-                        key={i}
-                        className={styles.citation}
-                        href={`#${turnId}-source-${segment.n}`}
-                        aria-label={`Source ${segment.n}`}
-                      >
-                        [{segment.n}]
-                      </a>
-                    );
-                  },
-                )}
+                {parseAnswerText(response.answer, response.citations).map((segment, i) => {
+                  if (segment.kind === "text") return <Fragment key={i}>{segment.text}</Fragment>;
+                  if (segment.kind === "unverified") return <Badge key={i} tone="warning">{copy.answer.unverified}</Badge>;
+                  return (
+                    <a key={i} className={styles.citation} href={`#${turnId}-source-${segment.n}`} aria-label={`Source ${segment.n}`}>
+                      [{segment.n}]
+                    </a>
+                  );
+                })}
               </p>
             ) : null}
             {refusal === undefined && mayBePartial(response) ? (
               <p>
-                <Badge tone="warning">{copy.answer.unverified}</Badge>{" "}
-                {copy.answer.partial}
+                <Badge tone="warning">{copy.answer.unverified}</Badge> {copy.answer.partial}
               </p>
             ) : null}
             {response.answer ? (
@@ -130,15 +88,8 @@ function TurnView({
                     {response.citations.map((c, i) => {
                       const href = citationRoute(c, duties);
                       return (
-                        <li
-                          key={`${c.sourceRef}-${i}`}
-                          id={`${turnId}-source-${i + 1}`}
-                        >
-                          {href === undefined ? (
-                            c.label
-                          ) : (
-                            <Link to={href}>{c.label}</Link>
-                          )}
+                        <li key={`${c.sourceRef}-${i}`} id={`${turnId}-source-${i + 1}`}>
+                          {href === undefined ? c.label : <Link to={href}>{c.label}</Link>}
                         </li>
                       );
                     })}
@@ -147,15 +98,9 @@ function TurnView({
               </>
             ) : null}
           </AiSuggestion>
-          {latest &&
-          onInsertDraft &&
-          result &&
-          canInsertDraft(result.mode, refusal !== undefined) ? (
+          {latest && onInsertDraft && result && canInsertDraft(result.mode, refusal !== undefined) ? (
             <div>
-              <Button
-                variant="primary"
-                onClick={() => onInsertDraft(response.answer)}
-              >
+              <Button variant="primary" onClick={() => onInsertDraft(response.answer)}>
                 Insert draft
               </Button>
             </div>
@@ -172,9 +117,7 @@ export function AskAnswer({ conversation, onInsertDraft }: AskAnswerProps) {
   const response = result?.response;
   const announcement =
     !pending && response !== undefined && response.refusal == null
-      ? [copy.answer.done, leftOutNotice(response.excluded)]
-          .filter(Boolean)
-          .join(" ")
+      ? [copy.answer.done, leftOutNotice(response.excluded)].filter(Boolean).join(" ")
       : "";
   return (
     <div className={styles.stack}>

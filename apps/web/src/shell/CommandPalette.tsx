@@ -3,21 +3,9 @@ import styles from "./CommandPalette.module.css";
 import { copy } from "./copy";
 import { trackSearchNoResults } from "./uxEvents";
 import { useFocusTrap } from "./hooks/useFocusTrap";
-import {
-  isFavourite,
-  pushRecent,
-  readFavourites,
-  readRecent,
-  toggleFavourite,
-} from "./search/recentRecords";
+import { isFavourite, pushRecent, readFavourites, readRecent, toggleFavourite } from "./search/recentRecords";
 import { buildSections } from "./search/paletteResults";
-import {
-  MIN_RECORD_QUERY,
-  RECORD_TYPE_NOUN,
-  searchRecords as defaultSearchRecords,
-  type RecordHit,
-  type RecordSearch,
-} from "./search/records";
+import { MIN_RECORD_QUERY, RECORD_TYPE_NOUN, searchRecords as defaultSearchRecords, type RecordHit, type RecordSearch } from "./search/records";
 import type { AvailabilityState } from "./assistant/availability";
 import { Button, Icon, type IconName } from "./ui";
 
@@ -57,68 +45,36 @@ function optionLabel(entry: PaletteEntry, favourites: RecordHit[]): string {
   if (!entry.record) {
     return `${entry.label}, ${entry.group}`;
   }
-  const parts = [
-    `${RECORD_TYPE_NOUN[entry.record.type]} ${entry.label}`,
-    entry.detail ?? "",
-    isFavourite(favourites, entry.record) ? copy.palette.favouriteState : "",
-  ];
+  const parts = [`${RECORD_TYPE_NOUN[entry.record.type]} ${entry.label}`, entry.detail ?? "", isFavourite(favourites, entry.record) ? copy.palette.favouriteState : ""];
   return parts.filter(Boolean).join(", ");
 }
 
-export function CommandPalette({
-  entries,
-  onSelect,
-  onClose,
-  announce,
-  identity = "",
-  searchRecords = defaultSearchRecords,
-  onAsk,
-  assistantState,
-}: CommandPaletteProps) {
+export function CommandPalette({ entries, onSelect, onClose, announce, identity = "", searchRecords = defaultSearchRecords, onAsk, assistantState }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [hits, setHits] = useState<RecordHit[]>([]);
   const [searchFailed, setSearchFailed] = useState(false);
-  const [favourites, setFavourites] = useState<RecordHit[]>(() =>
-    readFavourites(identity),
-  );
+  const [favourites, setFavourites] = useState<RecordHit[]>(() => readFavourites(identity));
   const [recent] = useState<RecordHit[]>(() => readRecent(identity));
   const panelRef = useRef<HTMLDivElement>(null);
   const announcedQuery = useRef("");
   const needle = query.trim();
   const searching = needle.length >= MIN_RECORD_QUERY;
-  const assistantOn =
-    onAsk !== undefined && assistantState?.status === "enabled";
+  const assistantOn = onAsk !== undefined && assistantState?.status === "enabled";
   const sections = useMemo(
-    () =>
-      buildSections({
-        entries,
-        hits: searching ? hits : [],
-        recents: recent,
-        favourites,
-        query,
-        assistant: assistantOn,
-      }),
+    () => buildSections({ entries, hits: searching ? hits : [], recents: recent, favourites, query, assistant: assistantOn }),
     [entries, searching, hits, recent, favourites, query, assistantOn],
   );
   const groups = useMemo(() => {
     let next = 0;
-    return sections.map((s) => ({
-      ...s,
-      items: s.items.map((entry) => ({ entry, index: next++ })),
-    }));
+    return sections.map((s) => ({ ...s, items: s.items.map((entry) => ({ entry, index: next++ })) }));
   }, [sections]);
   const visible = useMemo(() => sections.flatMap((s) => s.items), [sections]);
   const resultCount = visible.filter((e) => !e.ask).length;
   const hasResults = visible.length > 0;
-  const assistantChecking =
-    onAsk !== undefined &&
-    assistantState?.status === "checking" &&
-    needle !== "";
+  const assistantChecking = onAsk !== undefined && assistantState?.status === "checking" && needle !== "";
   const assistantNote =
-    onAsk !== undefined &&
-    (assistantState?.status === "degraded" ||
-      assistantState?.status === "unavailable")
+    onAsk !== undefined && (assistantState?.status === "degraded" || assistantState?.status === "unavailable")
       ? copy.palette.assistantUnavailable[assistantState.reason]
       : undefined;
 
@@ -160,26 +116,16 @@ export function CommandPalette({
     const timer = window.setTimeout(() => {
       announcedQuery.current = query;
       if (resultCount === 0) trackSearchNoResults(query);
-      announce(
-        resultCount === 0
-          ? copy.announce.noResults
-          : resultCount === 1
-            ? copy.announce.oneResult
-            : copy.announce.results(resultCount),
-      );
+      announce(resultCount === 0 ? copy.announce.noResults : resultCount === 1 ? copy.announce.oneResult : copy.announce.results(resultCount));
     }, ANNOUNCE_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [query, resultCount, announce]);
 
   useEffect(() => {
-    document
-      .getElementById(`palette-option-${active}`)
-      ?.scrollIntoView?.({ block: "nearest" });
+    document.getElementById(`palette-option-${active}`)?.scrollIntoView?.({ block: "nearest" });
   }, [active, visible]);
 
-  const activeEntry = hasResults
-    ? visible[Math.min(active, visible.length - 1)]
-    : undefined;
+  const activeEntry = hasResults ? visible[Math.min(active, visible.length - 1)] : undefined;
   const activeRecord = activeEntry?.record;
 
   function choose(entry: PaletteEntry) {
@@ -200,27 +146,14 @@ export function CommandPalette({
     }
     const next = toggleFavourite(identity, activeRecord);
     setFavourites(next);
-    announce(
-      isFavourite(next, activeRecord)
-        ? copy.announce.favouriteAdded(activeRecord.number)
-        : copy.announce.favouriteRemoved(activeRecord.number),
-    );
+    announce(isFavourite(next, activeRecord) ? copy.announce.favouriteAdded(activeRecord.number) : copy.announce.favouriteRemoved(activeRecord.number));
   }
 
   function move(delta: number) {
     if (!hasResults) {
       return;
     }
-    const steppable = visible.some((e) => !e.ask)
-      ? visible.map((e, i) => (e.ask ? -1 : i)).filter((i) => i >= 0)
-      : visible.map((_, i) => i);
-    setActive((current) => {
-      const at = steppable.indexOf(Math.min(current, visible.length - 1));
-      const from = at === -1 ? (delta > 0 ? -1 : 0) : at;
-      return (
-        steppable[(from + delta + steppable.length) % steppable.length] ?? 0
-      );
-    });
+    setActive((current) => (current + delta + visible.length) % visible.length);
   }
 
   return (
@@ -232,13 +165,7 @@ export function CommandPalette({
         }
       }}
     >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="palette-title"
-        className={styles.panel}
-      >
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="palette-title" className={styles.panel}>
         <h2 id="palette-title" className="visually-hidden">
           {copy.palette.title}
         </h2>
@@ -256,9 +183,7 @@ export function CommandPalette({
             aria-expanded={hasResults}
             aria-controls="palette-listbox"
             aria-autocomplete="list"
-            aria-activedescendant={
-              hasResults ? `palette-option-${active}` : undefined
-            }
+            aria-activedescendant={hasResults ? `palette-option-${active}` : undefined}
             aria-describedby="palette-help"
             autoComplete="off"
             spellCheck={false}
@@ -282,9 +207,7 @@ export function CommandPalette({
                 }
               } else if ((e.key === "Home" || e.key === "End") && !e.ctrlKey) {
                 e.preventDefault();
-                setActive(
-                  e.key === "Home" ? 0 : Math.max(visible.length - 1, 0),
-                );
+                setActive(e.key === "Home" ? 0 : Math.max(visible.length - 1, 0));
               } else if (e.altKey && e.key.toLowerCase() === "f") {
                 e.preventDefault();
                 toggleActiveFavourite();
@@ -294,12 +217,7 @@ export function CommandPalette({
               }
             }}
           />
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label={copy.buttons.closeSearch}
-            onClick={onClose}
-          >
+          <Button variant="ghost" size="sm" aria-label={copy.buttons.closeSearch} onClick={onClose}>
             <Icon name="close" />
           </Button>
         </div>
@@ -314,16 +232,8 @@ export function CommandPalette({
           onMouseDown={(e) => e.preventDefault()}
         >
           {groups.map((g, gi) => (
-            <div
-              key={g.id}
-              role="group"
-              aria-labelledby={`palette-group-${gi}`}
-            >
-              <div
-                id={`palette-group-${gi}`}
-                role="presentation"
-                className={styles.groupLabel}
-              >
+            <div key={g.id} role="group" aria-labelledby={`palette-group-${gi}`}>
+              <div id={`palette-group-${gi}`} role="presentation" className={styles.groupLabel}>
                 {g.label}
               </div>
               {g.items.map(({ entry, index }) => (
@@ -341,15 +251,11 @@ export function CommandPalette({
                     <Icon name={entry.icon ?? "grid"} />
                   </span>
                   {entry.record ? (
-                    <span className={styles.optionType}>
-                      {RECORD_TYPE_NOUN[entry.record.type]}{" "}
-                    </span>
+                    <span className={styles.optionType}>{RECORD_TYPE_NOUN[entry.record.type]} </span>
                   ) : null}
                   <span className={styles.optionLabel}>{entry.label}</span>
                   {entry.detail ? " " : null}
-                  {entry.detail ? (
-                    <span className={styles.optionDetail}>{entry.detail}</span>
-                  ) : null}
+                  {entry.detail ? <span className={styles.optionDetail}>{entry.detail}</span> : null}
                   {entry.record && isFavourite(favourites, entry.record) ? (
                     <span className={styles.favourite} aria-hidden="true">
                       ★
@@ -366,16 +272,8 @@ export function CommandPalette({
           ))}
           {assistantChecking ? (
             <div role="group" aria-label={copy.palette.assistant}>
-              <div
-                role="option"
-                aria-selected="false"
-                aria-disabled="true"
-                aria-label={copy.palette.assistantChecking}
-                className={`${styles.option} ${styles.optionDisabled}`}
-              >
-                <span className={styles.optionLabel}>
-                  {copy.palette.assistantChecking}
-                </span>
+              <div role="option" aria-selected="false" aria-disabled="true" aria-label={copy.palette.assistantChecking} className={`${styles.option} ${styles.optionDisabled}`}>
+                <span className={styles.optionLabel}>{copy.palette.assistantChecking}</span>
               </div>
             </div>
           ) : null}
@@ -388,15 +286,8 @@ export function CommandPalette({
         ) : null}
         {activeRecord && identity !== "" ? (
           <div className={styles.actions}>
-            <Button
-              variant="ghost"
-              size="sm"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={toggleActiveFavourite}
-            >
-              {isFavourite(favourites, activeRecord)
-                ? copy.palette.unfavourite(activeRecord.number)
-                : copy.palette.favourite(activeRecord.number)}
+            <Button variant="ghost" size="sm" onMouseDown={(e) => e.preventDefault()} onClick={toggleActiveFavourite}>
+              {isFavourite(favourites, activeRecord) ? copy.palette.unfavourite(activeRecord.number) : copy.palette.favourite(activeRecord.number)}
             </Button>
           </div>
         ) : null}
