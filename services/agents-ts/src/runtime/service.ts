@@ -12,7 +12,10 @@ import { AGENT_INVOKE_DUTY } from "../agents/catalog.js";
 import { AgentError } from "../errors.js";
 import type { StoredRun } from "../store/pg.js";
 import type { PendingApproval } from "../store/approvals.js";
-import { createPersistedApprovalPort, type ApprovalInbox } from "./approvals.js";
+import {
+  createPersistedApprovalPort,
+  type ApprovalInbox,
+} from "./approvals.js";
 import {
   runAgent,
   type AuditPort,
@@ -26,7 +29,11 @@ import {
 import type { McpConnector } from "./mcp.js";
 import type { RunInput, RunSteps } from "./steps.js";
 import type { WorkflowGateway } from "./workflowGateway.js";
-import { STATE_RETENTION_MS, tokenExpiryMs, type RunStateStore } from "../store/runstate.js";
+import {
+  STATE_RETENTION_MS,
+  tokenExpiryMs,
+  type RunStateStore,
+} from "../store/runstate.js";
 import { WorkflowRefused } from "./workflowGateway.js";
 import type { DecisionResult } from "../api/decision.js";
 import { createFactRisk } from "./risk.js";
@@ -58,7 +65,9 @@ export interface RunServiceDeps {
   providerFor: (modelId: string) => ModelProvider;
   mcp: McpConnector;
   store: RunStore;
-  inbox: ApprovalInbox & { pendingForRun(tenantId: string, runId: string): Promise<PendingApproval[]> };
+  inbox: ApprovalInbox & {
+    pendingForRun(tenantId: string, runId: string): Promise<PendingApproval[]>;
+  };
   killSwitch: KillSwitchPort;
   disabledAgents: DisabledAgents;
   config: RunServiceConfig;
@@ -71,7 +80,11 @@ export interface RunServiceDeps {
    * Set when runs execute as workflows (AGENTS_RUN_ENGINE=temporal): `start` stores the run and starts its workflow
    * instead of spawning the in-process engine, and approval decisions wake the workflow. Absent: the in-process engine.
    */
-  workflow?: { steps: RunSteps; state: RunStateStore; gateway: WorkflowGateway };
+  workflow?: {
+    steps: RunSteps;
+    state: RunStateStore;
+    gateway: WorkflowGateway;
+  };
 }
 
 export interface StartedRun {
@@ -94,13 +107,18 @@ export interface ProposalStart {
   endedWith?: string;
 }
 
-type OpenedHook = (actionId: string, info: Omit<OpenedProposal, "actionId">) => void;
+type OpenedHook = (
+  actionId: string,
+  info: Omit<OpenedProposal, "actionId">,
+) => void;
 
 export const PROPOSAL_WAIT_MS = 30_000;
 const PROPOSAL_POLL_MS = 100;
 const PROPOSAL_POLL_MAX_MS = 500;
 export const MAX_PROPOSALS_IN_FLIGHT = 3;
-const isFinished = (status: string): boolean => (RUN_STATUSES as readonly string[]).includes(status) && isTerminal(status as RunStatus);
+const isFinished = (status: string): boolean =>
+  (RUN_STATUSES as readonly string[]).includes(status) &&
+  isTerminal(status as RunStatus);
 
 export interface RunView {
   run: StoredRun & { actor: string };
@@ -121,7 +139,9 @@ export function createRunService(deps: RunServiceDeps) {
     deps.spawn ??
     ((work: Promise<unknown>): void => {
       work.catch((err: unknown) => {
-        process.stderr.write(`${JSON.stringify({ level: "error", message: "agent run failed", service: "agents-ts", error: String(err) })}\n`);
+        process.stderr.write(
+          `${JSON.stringify({ level: "error", message: "agent run failed", service: "agents-ts", error: String(err) })}\n`,
+        );
       });
     });
   const newRunId = deps.newRunId ?? randomUUID;
@@ -129,23 +149,52 @@ export function createRunService(deps: RunServiceDeps) {
 
   const proposalsInFlight = new Map<string, number>();
 
-  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  const sleep =
+    deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
 
-  const assertStartable = async (caller: Principal, agentId: string): Promise<AgentVersion> => {
+  const assertStartable = async (
+    caller: Principal,
+    agentId: string,
+  ): Promise<AgentVersion> => {
     const agent = prod.get(agentId);
-    if (agent === undefined) throw new ApiError(404, "AGT-0404", `no agent ${agentId}`);
+    if (agent === undefined)
+      throw new ApiError(404, "AGT-0404", `no agent ${agentId}`);
     requireDuty(caller, AGENT_INVOKE_DUTY, `agent ${agentId}`);
-    for (const duty of agent.requiredDuties) requireDuty(caller, duty, `agent ${agentId}`);
-    if (deps.killSwitch.isHalted(caller.tenantId)) throw new AgentError("AGT-0201", "agent runs are halted by the kill switch");
-    if ((await deps.disabledAgents(caller.tenantId)).has(agentId)) throw new AgentError("AGT-0235", `agent ${agentId} is disabled by an administrator`);
+    for (const duty of agent.requiredDuties)
+      requireDuty(caller, duty, `agent ${agentId}`);
+    if (deps.killSwitch.isHalted(caller.tenantId))
+      throw new AgentError(
+        "AGT-0201",
+        "agent runs are halted by the kill switch",
+      );
+    if ((await deps.disabledAgents(caller.tenantId)).has(agentId))
+      throw new AgentError(
+        "AGT-0235",
+        `agent ${agentId} is disabled by an administrator`,
+      );
     if (!(await deps.evalPassed(agent))) {
-      throw new AgentError("AGT-0204", `agent ${agent.agentId} v${agent.version} has no passing evaluation`);
+      throw new AgentError(
+        "AGT-0204",
+        `agent ${agent.agentId} v${agent.version} has no passing evaluation`,
+      );
     }
-    assertCanStartRun(await deps.store.budgetSnapshot(caller.tenantId, now().toISOString().slice(0, 7)));
+    assertCanStartRun(
+      await deps.store.budgetSnapshot(
+        caller.tenantId,
+        now().toISOString().slice(0, 7),
+      ),
+    );
     return agent;
   };
 
-  const launch = async (caller: Principal, token: string, agent: AgentVersion, prompt: string, onOpened?: OpenedHook): Promise<StartedRun> => {
+  const launch = async (
+    caller: Principal,
+    token: string,
+    agent: AgentVersion,
+    prompt: string,
+    onOpened?: OpenedHook,
+    onSettled?: () => void,
+  ): Promise<StartedRun> => {
     const runId = newRunId();
     const wf = deps.workflow;
     if (wf !== undefined) {
@@ -157,14 +206,29 @@ export function createRunService(deps: RunServiceDeps) {
         invokerUserId: caller.userId,
         duties: [...caller.duties],
         prompt,
-        policy: { mode: "SUGGEST", autoThreshold: 1, autoAmountLimit: { amount: "0", currency: deps.config.selfApprovalLimit.currency } },
+        policy: {
+          mode: "SUGGEST",
+          autoThreshold: 1,
+          autoAmountLimit: {
+            amount: "0",
+            currency: deps.config.selfApprovalLimit.currency,
+          },
+        },
         selfApprovalLimit: deps.config.selfApprovalLimit,
         runTokenCap: deps.config.runTokenCap,
-        ...(deps.config.approvalExpiryHours !== undefined ? { approvalExpiryHours: deps.config.approvalExpiryHours } : {}),
+        ...(deps.config.approvalExpiryHours !== undefined
+          ? { approvalExpiryHours: deps.config.approvalExpiryHours }
+          : {}),
       };
       // Opportunistic retention for this tenant: expired credentials and finished runs' state past 24 h.
       await wf.state.sweep(caller.tenantId, STATE_RETENTION_MS).catch(() => 0);
-      await wf.steps.create(caller.tenantId, runId, input, { kind: "starter", userId: caller.userId, duties: input.duties, token }, tokenExpiryMs(token) ?? now().getTime() + 5 * 60_000);
+      await wf.steps.create(
+        caller.tenantId,
+        runId,
+        input,
+        { kind: "starter", userId: caller.userId, duties: input.duties, token },
+        tokenExpiryMs(token) ?? now().getTime() + 5 * 60_000,
+      );
       // The workflow id comes from the run id, so starting again is the same run. A refusal is final; a timeout or a dropped
       // connection is unknown (the workflow may have started), so it is tried again before the start is given up.
       let started = false;
@@ -178,9 +242,18 @@ export function createRunService(deps: RunServiceDeps) {
       }
       if (!started) {
         await wf.state.discard(caller.tenantId, runId).catch(() => undefined);
-        throw new ApiError(502, "AGT-0214", "the workflow service is unavailable");
+        throw new ApiError(
+          502,
+          "AGT-0214",
+          "the workflow service is unavailable",
+        );
       }
-      return { runId, agentId: agent.agentId, agentVersion: agent.version, status: "RUNNING" };
+      return {
+        runId,
+        agentId: agent.agentId,
+        agentVersion: agent.version,
+        status: "RUNNING",
+      };
     }
     let session;
     try {
@@ -198,25 +271,36 @@ export function createRunService(deps: RunServiceDeps) {
         inbox: deps.inbox,
         tenantId: caller.tenantId,
         invokerUserId: caller.userId,
-        approvalDuty: (tool) => session.describe(tool)?.requiredDuty ?? AGENT_INVOKE_DUTY,
+        approvalDuty: (tool) =>
+          session.describe(tool)?.requiredDuty ?? AGENT_INVOKE_DUTY,
         selfApprovalLimit: cfg.selfApprovalLimit,
-        ...(cfg.approvalExpiryHours !== undefined ? { expiryHours: cfg.approvalExpiryHours } : {}),
+        ...(cfg.approvalExpiryHours !== undefined
+          ? { expiryHours: cfg.approvalExpiryHours }
+          : {}),
         ...(onOpened !== undefined ? { onOpened } : {}),
         nowMs,
         now: nowIso,
-        ...(cfg.approvalPollMs !== undefined ? { pollMs: cfg.approvalPollMs } : {}),
+        ...(cfg.approvalPollMs !== undefined
+          ? { pollMs: cfg.approvalPollMs }
+          : {}),
         ...(deps.sleep !== undefined ? { sleep: deps.sleep } : {}),
       }),
       // System-side risk facts (amount against the limits, counterparty, segregation of duties and the payment prediction) are read
       // from the owning domains through the run's own tool session; every proposal still goes to a human (suggest mode).
-      risk: createFactRisk({ tools: session, invokerUserId: caller.userId, selfApprovalLimit: cfg.selfApprovalLimit }),
+      risk: createFactRisk({
+        tools: session,
+        invokerUserId: caller.userId,
+        selfApprovalLimit: cfg.selfApprovalLimit,
+      }),
       killSwitch: deps.killSwitch,
       now: nowIso,
       nowMs,
       pseudonymTtlMs: cfg.pseudonymTtlMs,
       audit: deps.store,
       budgets: deps.store,
-      ...(deps.outputGuard !== undefined ? { outputGuard: deps.outputGuard } : {}),
+      ...(deps.outputGuard !== undefined
+        ? { outputGuard: deps.outputGuard }
+        : {}),
     };
     spawn(
       runAgent(runDeps, {
@@ -227,13 +311,25 @@ export function createRunService(deps: RunServiceDeps) {
         agent,
         evalPassed: true,
         // v1 has no autonomous posting (9.47.1): every agent runs in suggest mode.
-        policy: { mode: "SUGGEST", autoThreshold: 1, autoAmountLimit: { amount: "0", currency: cfg.selfApprovalLimit.currency } },
+        policy: {
+          mode: "SUGGEST",
+          autoThreshold: 1,
+          autoAmountLimit: {
+            amount: "0",
+            currency: cfg.selfApprovalLimit.currency,
+          },
+        },
         selfApprovalLimit: cfg.selfApprovalLimit,
         runTokenCap: cfg.runTokenCap,
         prompt,
-      }),
+      }).finally(() => onSettled?.()),
     );
-    return { runId, agentId: agent.agentId, agentVersion: agent.version, status: "RUNNING" };
+    return {
+      runId,
+      agentId: agent.agentId,
+      agentVersion: agent.version,
+      status: "RUNNING",
+    };
   };
 
   return {
@@ -247,37 +343,86 @@ export function createRunService(deps: RunServiceDeps) {
 
     assertStartable,
 
-    async start(caller: Principal, token: string, agentId: string, prompt: string): Promise<StartedRun> {
-      return launch(caller, token, await assertStartable(caller, agentId), prompt);
+    async start(
+      caller: Principal,
+      token: string,
+      agentId: string,
+      prompt: string,
+    ): Promise<StartedRun> {
+      return launch(
+        caller,
+        token,
+        await assertStartable(caller, agentId),
+        prompt,
+      );
     },
 
-    async startForProposal(caller: Principal, token: string, agentId: string, prompt: string, tool: string): Promise<ProposalStart> {
-      if (deps.workflow !== undefined) throw new AgentError("AGT-0234", "act mode needs the in-process run engine");
+    async startForProposal(
+      caller: Principal,
+      token: string,
+      agentId: string,
+      prompt: string,
+      tool: string,
+    ): Promise<ProposalStart> {
+      if (deps.workflow !== undefined)
+        throw new AgentError(
+          "AGT-0234",
+          "act mode needs the in-process run engine",
+        );
       const agent = await assertStartable(caller, agentId);
       const key = `${caller.tenantId}:${caller.userId}`;
       const active = proposalsInFlight.get(key) ?? 0;
-      if (active >= MAX_PROPOSALS_IN_FLIGHT) throw new ApiError(429, "AGT-0230", "too many changes are being prepared for you; wait for one to finish", { headers: { "Retry-After": "5" } });
+      if (active >= MAX_PROPOSALS_IN_FLIGHT)
+        throw new ApiError(
+          429,
+          "AGT-0230",
+          "too many changes are being prepared for you; wait for one to finish",
+          { headers: { "Retry-After": "5" } },
+        );
       proposalsInFlight.set(key, active + 1);
-      try {
-        let opened: OpenedProposal | undefined;
-        const started = await launch(caller, token, { ...agent, allowedTools: [tool] }, prompt, (actionId, info) => {
-          opened = { actionId, ...info };
-        });
-        const deadline = now().getTime() + PROPOSAL_WAIT_MS;
-        let delay = PROPOSAL_POLL_MS;
-        for (;;) {
-          const pending = await deps.inbox.pendingForRun(caller.tenantId, started.runId);
-          if (opened !== undefined && pending.some((p) => p.actionId === opened?.actionId)) return { started, opened };
-          const run = await deps.store.getRun(caller.tenantId, started.runId);
-          if (run !== undefined && isFinished(run.status)) return { started, endedWith: run.code ?? run.status };
-          if (now().getTime() >= deadline) return { started };
-          await sleep(delay);
-          delay = Math.min(delay * 2, PROPOSAL_POLL_MAX_MS);
-        }
-      } finally {
+      let released = false;
+      const release = (): void => {
+        if (released) return;
+        released = true;
         const left = (proposalsInFlight.get(key) ?? 1) - 1;
         if (left <= 0) proposalsInFlight.delete(key);
         else proposalsInFlight.set(key, left);
+      };
+      let opened: OpenedProposal | undefined;
+      let started: StartedRun;
+      try {
+        started = await launch(
+          caller,
+          token,
+          { ...agent, allowedTools: [tool] },
+          prompt,
+          (actionId, info) => {
+            opened = { actionId, ...info };
+          },
+          release,
+        );
+      } catch (err) {
+        release();
+        throw err;
+      }
+      const deadline = now().getTime() + PROPOSAL_WAIT_MS;
+      let delay = PROPOSAL_POLL_MS;
+      for (;;) {
+        const pending = await deps.inbox.pendingForRun(
+          caller.tenantId,
+          started.runId,
+        );
+        if (
+          opened !== undefined &&
+          pending.some((p) => p.actionId === opened?.actionId)
+        )
+          return { started, opened };
+        const run = await deps.store.getRun(caller.tenantId, started.runId);
+        if (run !== undefined && isFinished(run.status))
+          return { started, endedWith: run.code ?? run.status };
+        if (now().getTime() >= deadline) return { started };
+        await sleep(delay);
+        delay = Math.min(delay * 2, PROPOSAL_POLL_MAX_MS);
       }
     },
 
@@ -286,39 +431,79 @@ export function createRunService(deps: RunServiceDeps) {
      * runs as the approver, and wakes the run's workflow. Best effort: the decision is already stored, and the workflow also
      * re-reads it on a timer, so a failure here only delays the run.
      */
-    async decided(caller: Principal, token: string, result: DecisionResult): Promise<void> {
+    async decided(
+      caller: Principal,
+      token: string,
+      result: DecisionResult,
+    ): Promise<void> {
       const wf = deps.workflow;
       if (wf === undefined) return;
       try {
         // The approver's token is kept only for a decision this user gave, on the request the run is waiting on: a replay by
         // anyone else, or a decision for a run that has ended, stores nothing.
-        if (result.decision === "APPROVED" && result.approverUserId === caller.userId) {
-          const row = await wf.state.load<unknown, { phase?: string; actionId?: string }>(caller.tenantId, result.runId);
-          if (row?.state.phase === "awaiting" && row.state.actionId === result.actionId) {
-            await wf.state.putCredential(caller.tenantId, result.runId, { kind: "approver", userId: caller.userId, duties: [...caller.duties], token }, tokenExpiryMs(token) ?? now().getTime() + 5 * 60_000);
+        if (
+          result.decision === "APPROVED" &&
+          result.approverUserId === caller.userId
+        ) {
+          const row = await wf.state.load<
+            unknown,
+            { phase?: string; actionId?: string }
+          >(caller.tenantId, result.runId);
+          if (
+            row?.state.phase === "awaiting" &&
+            row.state.actionId === result.actionId
+          ) {
+            await wf.state.putCredential(
+              caller.tenantId,
+              result.runId,
+              {
+                kind: "approver",
+                userId: caller.userId,
+                duties: [...caller.duties],
+                token,
+              },
+              tokenExpiryMs(token) ?? now().getTime() + 5 * 60_000,
+            );
           }
         }
       } catch (err) {
-        process.stderr.write(`${JSON.stringify({ level: "warn", message: "approver session not kept for the run", service: "agents-ts", runId: result.runId, error: String(err) })}\n`);
+        process.stderr.write(
+          `${JSON.stringify({ level: "warn", message: "approver session not kept for the run", service: "agents-ts", runId: result.runId, error: String(err) })}\n`,
+        );
       }
       try {
         await wf.gateway.approvalDecided(caller, result.runId, result.actionId);
       } catch (err) {
         // The run does not depend on the wake: it re-reads the stored decision on its timer.
-        process.stderr.write(`${JSON.stringify({ level: "warn", message: "approval decision not delivered to the workflow", service: "agents-ts", runId: result.runId, error: String(err) })}\n`);
+        process.stderr.write(
+          `${JSON.stringify({ level: "warn", message: "approval decision not delivered to the workflow", service: "agents-ts", runId: result.runId, error: String(err) })}\n`,
+        );
       }
     },
 
     async view(caller: Principal, runId: string): Promise<RunView> {
       const run = await deps.store.getRun(caller.tenantId, runId);
       if (run === undefined) throw new ApiError(404, "AGT-0404", "no such run");
-      const [pendingApprovals, actions] = await Promise.all([deps.inbox.pendingForRun(caller.tenantId, runId), deps.store.loadActions(caller.tenantId, runId)]);
-      return { run: { ...run, actor: `agent:${run.agentId}@user:${run.invokerUserId}` }, pendingApprovals, actions: actions.map(toActionView) };
+      const [pendingApprovals, actions] = await Promise.all([
+        deps.inbox.pendingForRun(caller.tenantId, runId),
+        deps.store.loadActions(caller.tenantId, runId),
+      ]);
+      return {
+        run: {
+          ...run,
+          actor: `agent:${run.agentId}@user:${run.invokerUserId}`,
+        },
+        pendingApprovals,
+        actions: actions.map(toActionView),
+      };
     },
 
     async actions(caller: Principal, runId: string): Promise<ActionView[]> {
-      if ((await deps.store.getRun(caller.tenantId, runId)) === undefined) throw new ApiError(404, "AGT-0404", "no such run");
-      return (await deps.store.loadActions(caller.tenantId, runId)).map(toActionView);
+      if ((await deps.store.getRun(caller.tenantId, runId)) === undefined)
+        throw new ApiError(404, "AGT-0404", "no such run");
+      return (await deps.store.loadActions(caller.tenantId, runId)).map(
+        toActionView,
+      );
     },
   };
 }
