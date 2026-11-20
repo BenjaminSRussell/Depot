@@ -251,7 +251,7 @@ test_all_seeded_duties_allow_their_declared_permissions if {
 }
 
 test_flag_duties_grant_no_routes if {
-	flag_duties := {"ledger.journal.rateoverride", "audit.auditor", "audit.cdc.apply", "audit.chain.anchor", "receivables.write-off.approve","purchasing.inbound.apply", "edi.pii.view", "edi.outbound.from-event", "tax.code.maintain", "fulfillment.order.sync", "budget.override", "inventory.blocking.scrap", "ledger.journal.postdirect", "ledger.journal.postledger", "ledger.period.postclosed", "org.hierarchy.backdate", "party.merge", "pii.read", "pricing.cache.invalidate", "production.batch.consume-expired", "production.journal.over-consume", "production.order.bom-after-release", "production.order.rework", "production.planned.intake", "receivables.openitem.from-billing", "billing.iccharge.from-event", "payables.iccharge.from-event", "intercompany.charge.from-event", "revrec.creditnote.reverse", "revrec.contract.from-invoice", "production.order.zero-output", "production.jobcard.shopfloor", "scheduling.constraints.override", "scheduling.order.import", "search.index.write", "shopfloor.job.sync", "tenant.administer", "treasury.facility.override", "cui.view", "agentapproval.decide"}
+	flag_duties := {"ledger.journal.rateoverride", "audit.auditor", "audit.cdc.apply", "audit.chain.anchor", "receivables.write-off.approve","purchasing.inbound.apply", "edi.pii.view", "edi.outbound.from-event", "tax.code.maintain", "fulfillment.order.sync", "budget.override", "inventory.blocking.scrap", "ledger.journal.postdirect", "ledger.journal.postledger", "ledger.period.postclosed", "org.hierarchy.backdate", "party.merge", "pii.read", "pricing.cache.invalidate", "production.batch.consume-expired", "production.journal.over-consume", "production.order.bom-after-release", "production.order.rework", "production.planned.intake", "receivables.openitem.from-billing", "billing.iccharge.from-event", "payables.iccharge.from-event", "intercompany.charge.from-event", "revrec.creditnote.reverse", "revrec.contract.from-invoice", "production.order.zero-output", "production.jobcard.shopfloor", "scheduling.constraints.override", "scheduling.order.import", "search.index.write", "shopfloor.job.sync", "tenant.administer", "treasury.facility.override", "cui.view", "agentapproval.decide", "agents.sensitive-payroll.view", "agents.sensitive-worker.view"}
 	{d | some d, spec in data.duties; spec.flag == true} == flag_duties
 	every duty in flag_duties {
 		count(data.duties[duty].permissions) == 0
@@ -3885,6 +3885,45 @@ test_cui_view_is_a_flag_duty_no_designation_duty_grants if {
 	not data.duties["cui.view"].operator_only
 	not data.duties["datadesignation.write"].flag
 	not data.duties["datadesignation.read"].flag
+}
+
+test_sensitive_view_duties_are_flag_duties if {
+	every duty in ["agents.sensitive-payroll.view", "agents.sensitive-worker.view"] {
+		data.duties[duty].flag == true
+		count(data.duties[duty].permissions) == 0
+		not data.duties[duty].tenant_level
+		not data.duties[duty].operator_only
+	}
+}
+
+test_sensitive_view_duties_open_no_route if {
+	every duty in ["agents.sensitive-payroll.view", "agents.sensitive-worker.view"] {
+		not allowed(duty, "GET", "/v1/hr/workers/w1/pii")
+		not allowed(duty, "GET", "/v1/hr/workers/w1/compensation")
+	}
+}
+
+test_sensitive_view_duties_are_held_and_scoped if {
+	every duty in ["agents.sensitive-payroll.view", "agents.sensitive-worker.view"] {
+		held := held_duties with input as cui_input("")
+			with data.assignments as {"tenant-a": {"user-a": [duty]}}
+		held == {duty}
+		held_in_a := held_duties with input as cui_input(company_a)
+			with data.assignments as {}
+			with data.scoped_assignments as {"tenant-a": {"user-a": {company_a: [duty]}}}
+		held_in_a == {duty}
+		held_in_b := held_duties with input as cui_input(company_b)
+			with data.assignments as {}
+			with data.scoped_assignments as {"tenant-a": {"user-a": {company_a: [duty]}}}
+		count(held_in_b) == 0
+	}
+}
+
+test_pii_read_holders_do_not_hold_sensitive_view_duties if {
+	held := held_duties with input as cui_input("")
+		with data.assignments as {"tenant-a": {"user-a": ["hr.pii.read", "pii.read"]}}
+	not "agents.sensitive-payroll.view" in held
+	not "agents.sensitive-worker.view" in held
 }
 
 cui_input(legal_entity) := {"subject": {"tenant_id": "tenant-a", "user_id": "user-a", "legal_entity_id": legal_entity}, "action": "GET", "resource": "/v1/compliance/data-designations"}
