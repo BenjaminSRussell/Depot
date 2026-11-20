@@ -128,6 +128,7 @@ export async function callTool(deps: GatewayDeps, p: Principal, name: string, ra
     // A missing path parameter would otherwise change the URL, and so the operation, upstream.
     return fail(deps, p, name, "INVALID", 400, "MCP-0422", `missing required argument ${missing.join(", ")}`);
   }
+  if (tool.enforceMaxLength === true) keepDeclaredArguments(tool, args);
   if (tool.enforceMaxLength === true && hasOverLengthArgument(tool, args)) {
     return fail(deps, p, name, "INVALID", 400, "MCP-0400", "an argument is longer than its maximum length");
   }
@@ -145,7 +146,7 @@ export async function callTool(deps: GatewayDeps, p: Principal, name: string, ra
   if (tool.local !== undefined) {
     let body: unknown;
     try {
-      body = tool.local({ args, duties: p.duties, catalog: deps.catalog });
+      body = await tool.local({ args, duties: p.duties, catalog: deps.catalog });
     } catch (err) {
       if (err instanceof ToolInputError) return fail(deps, p, name, "INVALID", 400, "MCP-0400", err.message);
       deps.log?.({
@@ -160,6 +161,10 @@ export async function callTool(deps: GatewayDeps, p: Principal, name: string, ra
         ...(p.runId !== undefined ? { runId: p.runId } : {}),
       });
       return fail(deps, p, name, "UPSTREAM_ERROR", 500, "MCP-0500", `tool ${name} failed`);
+    }
+    const violations = schemaViolations(tool.outputSchema, body);
+    if (violations.length > 0) {
+      return fail(deps, p, name, "UPSTREAM_ERROR", 502, "MCP-0502", `tool ${name} returned a body that does not match its outputSchema: ${violations.slice(0, 3).join("; ")}`);
     }
     await recordOk(deps, p, name, 200);
     return { kind: "ok", status: 200, body };
@@ -227,11 +232,16 @@ function missingRequired(tool: ToolDefinition, args: JsonObject): string[] {
   );
 }
 
+function keepDeclaredArguments(tool: ToolDefinition, args: JsonObject): void {
+  const declared = isObject(tool.inputSchema.properties) ? tool.inputSchema.properties : {};
+  for (const key of Object.keys(args)) if (!Object.prototype.hasOwnProperty.call(declared, key)) delete args[key];
+}
+
 function hasOverLengthArgument(tool: ToolDefinition, args: JsonObject): boolean {
   if (!isObject(tool.inputSchema.properties)) return false;
   return Object.entries(tool.inputSchema.properties).some(([key, prop]) => {
     const value = args[key];
-    return isObject(prop) && typeof prop.maxLength === "number" && typeof value === "string" && Array.from(value).length > prop.maxLength;
+    return isObject(prop) && typeof prop.maxLength === "number" && typeof value === "string" && value.length > prop.maxLength;
   });
 }
 

@@ -106,6 +106,23 @@ describe("depot.meta.search_tools", () => {
     expect(JSON.stringify(lines)).not.toContain("private-words");
   });
 
+  it("reports 500 MCP-0500 and logs mcp.local_tool_failed when an async handler rejects", async () => {
+    const boom = { ...compositeTools()[0]!, local: () => Promise.reject(new RangeError("async broke")) };
+    const r = rig([boom, ...compositeTools().slice(1)]);
+    const lines: Record<string, unknown>[] = [];
+    const res = await callTool({ ...r.deps, log: (rec) => lines.push(rec) }, principal([COPILOT]), SEARCH_TOOLS_NAME, { query: "private-words" });
+    expect(res).toMatchObject({ kind: "error", status: 500, code: "MCP-0500" });
+    expect(lines).toEqual([expect.objectContaining({ message: "mcp.local_tool_failed", errorName: "RangeError", error: "async broke" })]);
+    expect(r.audit.entries).toMatchObject([{ outcome: "UPSTREAM_ERROR", status: 500 }]);
+  });
+
+  it("answers 502 MCP-0502 when a local handler's result does not match its outputSchema", async () => {
+    const wrong = { ...compositeTools()[0]!, local: async () => "not an object" };
+    const r = rig([wrong, ...compositeTools().slice(1)]);
+    expect(await callTool(r.deps, principal([COPILOT]), SEARCH_TOOLS_NAME, { query: "x" })).toMatchObject({ kind: "error", status: 502, code: "MCP-0502" });
+    expect(r.audit.entries).toMatchObject([{ outcome: "UPSTREAM_ERROR", status: 502 }]);
+  });
+
   it("audits an OK call without the query text and forwards nothing upstream", async () => {
     const { r, result } = search([COPILOT, "receivables.view"], { query: "customer secret-query" });
     await result;
@@ -189,12 +206,21 @@ describe("depot.help.search", () => {
     expect(r.audit.entries).toMatchObject([{ outcome: "INVALID" }]);
   });
 
-  it("counts characters by code point, so 1000 astral characters pass and the 400 does not name the argument", async () => {
+  it("counts UTF-16 units like the knowledge API, so 501 astral characters are refused and the 400 does not name the argument", async () => {
     const r = helpRig();
     r.upstream.responses.push({ status: 200, body: { chunks: [] } });
-    expect(await call(r, [COPILOT], { query: "\u{1F600}".repeat(1000) })).toMatchObject({ kind: "ok" });
+    expect(await call(r, [COPILOT], { query: "\u{1F600}".repeat(500) })).toMatchObject({ kind: "ok" });
+    expect(await call(r, [COPILOT], { query: "\u{1F600}".repeat(501) })).toMatchObject({ kind: "error", status: 400, code: "MCP-0400" });
     const refused = await call(r, [COPILOT], { query: "secret-value".padEnd(1001, "x") });
     expect(refused).toEqual({ kind: "error", status: 400, code: "MCP-0400", message: "an argument is longer than its maximum length" });
+    expect(r.upstream.calls).toHaveLength(1);
+  });
+
+  it("forwards only the declared query, dropping limit and unknown keys the API would reject", async () => {
+    const r = helpRig();
+    r.upstream.responses.push({ status: 200, body: { chunks: [] } });
+    await call(r, [COPILOT], { query: "x", limit: 500, topK: 3, extra: { a: 1 } });
+    expect(r.upstream.calls[0]?.args).toEqual({ query: "x" });
   });
 
   it("refuses tenant_id in the arguments", async () => {

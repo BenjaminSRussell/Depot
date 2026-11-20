@@ -1,3 +1,4 @@
+// ponytail: scraped, not imported, because services/mcp-ts is a separate package (own tsconfig rootDir, ESM .js specifiers, node_modules); a cross-package import would couple the builds, upgrade by publishing the constants from a shared package.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { COPILOT_DUTY, HELP_SEARCH_TOOL, SEARCH_TOOLS_TOOL } from "../src/runtime/copilot.js";

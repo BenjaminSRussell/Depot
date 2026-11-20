@@ -16,7 +16,7 @@ export interface LocalContext {
   catalog: Catalog;
 }
 
-export type LocalHandler = (ctx: LocalContext) => unknown;
+export type LocalHandler = (ctx: LocalContext) => unknown | Promise<unknown>;
 
 export class ToolInputError extends Error {}
 
@@ -40,7 +40,7 @@ export interface ToolDefinition {
   idempotent: boolean;
   /** Answered inside the gateway instead of by the Depot API; the caller's token is never forwarded. */
   local?: LocalHandler;
-  /** Composite tools only: string arguments longer than their schema maxLength (in characters) are refused before the call. */
+  /** Composite tools only: string arguments longer than their schema maxLength (in UTF-16 code units, as the Depot API counts) are refused before the call, and arguments the schema does not declare are dropped. */
   enforceMaxLength?: boolean;
 }
 

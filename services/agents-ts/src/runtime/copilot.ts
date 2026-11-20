@@ -42,6 +42,7 @@ export const HELP_SEARCH_TOOL = "depot.help.search";
 const TASK_TOOLS: readonly string[] = [SEARCH_TOOLS_TOOL, HELP_SEARCH_TOOL];
 export const TASK_CONNECT_TIMEOUT_MS = 2000;
 export const TASK_MAX_TURNS = 2;
+export const CONNECT_TIMEOUT_CODE = "GATEWAY_CONNECT_TIMEOUT";
 
 /** Request and response of POST /api/v1/copilot/chat; the shape apps/web/src/modules/copilot/api/client.ts validates. */
 export interface ChatRequest {
@@ -154,9 +155,9 @@ export function parseChatRequest(raw: unknown): ChatRequest {
   return { mode: mode as CopilotMode, message, ...(recordRef !== undefined ? { recordRef } : {}) };
 }
 
-function systemPrompt(mode: CopilotMode, tools: readonly string[], act?: ChatHooks["act"]): string {
-  if (mode === "route" || (mode === "task" && tools.length === 0)) return `${MODE_PROMPTS[mode]} ${INJECTION_GUARD}`;
-  if (mode === "task") return `${MODE_PROMPTS[mode]} Tools you may call: ${tools.join(", ")}. To call one, propose it with its arguments; you will receive its result. ${INJECTION_GUARD}`;
+function systemPrompt(policy: ModePolicy, mode: CopilotMode, tools: readonly string[], act?: ChatHooks["act"]): string {
+  if (policy.toolless || (policy.task && tools.length === 0)) return `${MODE_PROMPTS[mode]} ${INJECTION_GUARD}`;
+  if (policy.task) return `${MODE_PROMPTS[mode]} Tools you may call: ${tools.join(", ")}. To call one, propose it with its arguments; you will receive its result. ${INJECTION_GUARD}`;
   const actTail =
     act === undefined
       ? ""
@@ -177,7 +178,7 @@ const errorClassOf = (err: unknown): string => {
 async function connectWithin(connect: Promise<McpSession>, ms: number): Promise<McpSession> {
   let timer: NodeJS.Timeout | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error("gateway connect timed out")), ms);
+    timer = setTimeout(() => reject(Object.assign(new Error("gateway connect timed out"), { code: CONNECT_TIMEOUT_CODE })), ms);
   });
   try {
     return await Promise.race([connect, timeout]);
@@ -187,6 +188,8 @@ async function connectWithin(connect: Promise<McpSession>, ms: number): Promise<
   }
 }
 
+type ModePolicy = ReturnType<typeof modePolicy>;
+
 function modePolicy(mode: CopilotMode, hasAct: boolean) {
   const toolless = mode === "route";
   const task = mode === "task";
@@ -195,9 +198,12 @@ function modePolicy(mode: CopilotMode, hasAct: boolean) {
     task,
     cacheable: !toolless && !task && !hasAct,
     knowledgeTool: !toolless && !task,
+    /** Answer-only turns offer the provider no tool at all, so a proposal can never come back. */
     answerOnly: (allowed: number): boolean => toolless || (task && allowed === 0),
     maxTurns: (configured: number): number => (task ? Math.min(TASK_MAX_TURNS, configured) : configured),
     offers: (tool: string): boolean => (task ? TASK_TOOLS.includes(tool) : READ_TOOL.test(tool)),
+    skipsRecords: (tool: string): boolean => tool === KNOWLEDGE_SEARCH_TOOL || (task && TASK_TOOLS.includes(tool)),
+    refusesUnofferedTool: !task,
   };
 }
 
@@ -305,7 +311,7 @@ export function createCopilotService(deps: CopilotDeps) {
       let policyCell: "tenant" | "default" | undefined;
       let policyVersion: number | undefined;
       const withheldKinds = new Set<string>();
-      const system = systemPrompt(req.mode, gate.allowed, hooks.act);
+      const system = systemPrompt(policy, req.mode, gate.allowed, hooks.act);
       const results: string[] = [];
       const pending: Pick<AiAccessRow, "tool" | "entityType" | "recordIds" | "recordClasses">[] = [];
       const sink = hooks.onToken;
@@ -432,6 +438,12 @@ export function createCopilotService(deps: CopilotDeps) {
           answer = response.text;
           const p = response.proposal;
           if (outcome.failure !== undefined || p === undefined || session === undefined) break;
+          if (!gate.allowed.includes(p.tool) && !policy.refusesUnofferedTool) {
+            toolCalls.push({ tool: p.tool, status: "DENIED", code: "AGT-0203" });
+            row(p.tool, p.args, { error: "AGT-0203" }, "DENIED");
+            answer = "";
+            break;
+          }
           if (!gate.allowed.includes(p.tool)) {
             // BR-47.11: a tool outside the caller's allowed set is refused with AGT-0203, never called.
             const duty = session.describe(p.tool)?.requiredDuty ?? AGENT_INVOKE_DUTY;
@@ -459,7 +471,7 @@ export function createCopilotService(deps: CopilotDeps) {
             continue;
           }
           toolCalls.push({ tool: p.tool, status: "OK" });
-          const found = p.tool === KNOWLEDGE_SEARCH_TOOL || TASK_TOOLS.includes(p.tool) ? [] : recordsOf(p.tool, out.output);
+          const found = policy.skipsRecords(p.tool) ? [] : recordsOf(p.tool, out.output);
           const next = found.length === 0 ? undefined : await deps.router.plan({ caller, modelId: deps.modelId, refs: found });
           answer = "";
           const excludedHere = next?.excluded ?? [];

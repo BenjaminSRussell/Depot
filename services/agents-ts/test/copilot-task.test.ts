@@ -104,19 +104,20 @@ describe("mode=task", () => {
     expect(text).not.toContain("evil.example");
   });
 
-  it("refuses AGT-0203 and never calls a tool outside the two task tools", async () => {
+  it("treats a proposal for a tool outside the two task tools as no answer, never names a duty and never calls it", async () => {
     const named: ModelResponse = { text: "", proposal: { tool: "depot.ap.invoice.get", args: {}, confidence: 1, amount: { amount: "0", currency: "USD" } } };
     const s = await setup([named]);
-    const body = await (await task(s.base, "hmm")).json();
-    expect(body).toMatchObject({ refusal: { code: "AGT-0203" }, generated: true });
-    expect(body).not.toHaveProperty("navigationIntent");
+    const text = await (await task(s.base, "hmm")).text();
+    expect(JSON.parse(text)).toEqual({ clarifyingQuestion: CLARIFY_FALLBACK, generated: true });
+    expect(text).not.toContain("AGT-0203");
+    expect(text).not.toContain("ap.invoice.read");
     expect(s.mcp.calls).toHaveLength(0);
   });
 
-  it("refuses AGT-0203 for the in-process knowledge search, which task mode no longer offers", async () => {
+  it("treats a proposal for the in-process knowledge search, which task mode does not offer, as no answer", async () => {
     const named: ModelResponse = { text: "", proposal: { tool: "depot.knowledge.search", args: { query: "x" }, confidence: 1, amount: { amount: "0", currency: "USD" } } };
     const s = await setup([named]);
-    expect(await (await task(s.base, "hmm")).json()).toMatchObject({ refusal: { code: "AGT-0203" } });
+    expect(await (await task(s.base, "hmm")).json()).toEqual({ clarifyingQuestion: CLARIFY_FALLBACK, generated: true });
     expect(s.mcp.calls).toHaveLength(0);
   });
 
@@ -147,7 +148,7 @@ describe("mode=task", () => {
     expect(await res.json()).toMatchObject({ navigationIntent: { path: "/receivables/open-items" } });
     expect(s.provider.seen[0]?.allowedTools).toEqual([]);
     expect(s.fallbacks).toEqual(["gateway_unavailable"]);
-    expect(s.logs).toEqual([expect.objectContaining({ extra: expect.objectContaining({ errorClass: "Error" }) })]);
+    expect(s.logs).toEqual([expect.objectContaining({ extra: expect.objectContaining({ errorClass: "GATEWAY_CONNECT_TIMEOUT" }) })]);
   });
 
   it("does not fall back when the gateway answers inside the timeout", async () => {
