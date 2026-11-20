@@ -1,3 +1,5 @@
+import type { Catalog } from "./catalog.js";
+
 /** Tool model for the Depot MCP gateway (FR-47.1). Pure functions, no I/O. */
 
 export const APPROVAL_MODES = ["none", "suggest", "approve_before_commit"] as const;
@@ -7,6 +9,16 @@ export const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 export type HttpMethod = (typeof HTTP_METHODS)[number];
 
 export type JsonObject = Record<string, unknown>;
+
+export interface LocalContext {
+  args: JsonObject;
+  duties: ReadonlySet<string>;
+  catalog: Catalog;
+}
+
+export type LocalHandler = (ctx: LocalContext) => unknown;
+
+export class ToolInputError extends Error {}
 
 export interface ToolDefinition {
   /** depot.<domain>.<entity>.<verb>, e.g. depot.ap.invoice.list */
@@ -25,6 +37,8 @@ export interface ToolDefinition {
   approvalMode: ApprovalMode;
   readOnly: boolean;
   idempotent: boolean;
+  /** Answered inside the gateway instead of by the Depot API; the caller's token is never forwarded. */
+  local?: LocalHandler;
 }
 
 /**

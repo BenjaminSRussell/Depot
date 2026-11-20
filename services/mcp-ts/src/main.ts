@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { buildCatalog } from "./catalog.js";
 import type { AuditEntry, AuditSink, GatewayDeps } from "./gateway.js";
+import { compositeTools } from "./composite.js";
 import { createFetchUpstream } from "./upstream.js";
 import { toolsFromOpenApi } from "./openapi.js";
 import { startServer } from "./server.js";
@@ -57,7 +58,7 @@ async function main(): Promise<void> {
   const cfg = loadConfig(process.env);
   const doc = JSON.parse(await readFile(cfg.openApiFile, "utf8")) as unknown;
   if (!isObject(doc)) throw new Error("OpenAPI document must be a JSON object");
-  const catalog = buildCatalog(toolsFromOpenApi(doc as JsonObject));
+  const catalog = buildCatalog([...toolsFromOpenApi(doc as JsonObject), ...compositeTools()]);
   const deps: GatewayDeps = {
     catalog,
     upstream: createFetchUpstream(cfg.apiUrl),

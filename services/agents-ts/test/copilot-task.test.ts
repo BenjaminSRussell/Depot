@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { CopilotAnswerCache } from "../src/domain/copilot.js";
-import { CLARIFY_FALLBACK } from "../src/domain/routeCatalog.js";
 import { AgentError } from "../src/errors.js";
 import { providerUnavailable } from "../src/providers/wire.js";
 import { createCopilotService } from "../src/runtime/copilot.js";
@@ -9,9 +8,11 @@ import { GUARD_REFUSAL_MESSAGE } from "../src/runtime/egressGuard.js";
 import type { ModelProvider, ModelResponse } from "../src/runtime/engine.js";
 import { createOutputGuard, OUTPUT_GUARD_MESSAGE } from "../src/runtime/outputGuard.js";
 import { allowAiAccess, openRouter, ScriptedProvider, testGuard } from "./fakes.js";
+import type { McpToolInfo } from "../src/runtime/mcp.js";
 import { FakeMcp, headers, MemoryStore, serve, tool } from "./surface-fakes.js";
 
 const DUTIES = "mcp.copilot.use,receivables.view,procurement.purchase-order.inquire";
+const TASK_GATEWAY_TOOLS = [tool("depot.meta.search_tools", "mcp.copilot.use"), tool("depot.help.search", "mcp.copilot.use")];
 const verdict = (text: unknown): ModelResponse => ({ text: typeof text === "string" ? text : JSON.stringify(text), usage: { tokensIn: 50, tokensOut: 10 } });
 
 class BudgetStopStore extends MemoryStore {
@@ -26,6 +27,8 @@ interface Options {
   store?: MemoryStore;
   guard?: ReturnType<typeof createEgressGuard>;
   outputGuard?: ReturnType<typeof createOutputGuard>;
+  mcpTools?: McpToolInfo[];
+  mcpFails?: boolean;
 }
 
 let close: (() => Promise<void>) | undefined;
@@ -37,7 +40,8 @@ afterEach(async () => {
 const setup = async (script: ModelResponse[], options: Options = {}) => {
   const store = options.store ?? new MemoryStore();
   const provider = new ScriptedProvider(script);
-  const mcp = new FakeMcp([tool("depot.ap.invoice.get", "ap.invoice.read")]);
+  const mcp = new FakeMcp(options.mcpTools ?? [tool("depot.ap.invoice.get", "ap.invoice.read"), ...TASK_GATEWAY_TOOLS], { "depot.help.search": { ok: true, output: { chunks: [{ section: "Open items", sourceRef: "https://evil.example/help" }] } } });
+  mcp.fail = options.mcpFails ?? false;
   const copilot = createCopilotService({
     router: openRouter(options.provider ?? provider),
     mcp,
@@ -59,7 +63,7 @@ const task = (base: string, message: unknown, duties = DUTIES, accept = "applica
   fetch(`${base}/api/v1/copilot/chat`, { method: "POST", headers: { ...headers(duties), accept }, body: JSON.stringify({ mode: "task", message }) });
 
 describe("mode=task", () => {
-  it("answers a navigation intent from the catalog with no tool, no gateway session and no write", async () => {
+  it("answers a navigation intent from the catalog after opening one gateway session limited to the two task tools", async () => {
     const s = await setup([verdict({ routeKey: "receivables.openItems", params: { overdue: true, amountGt: "10000" }, path: "https://evil.example" })]);
     const res = await task(s.base, "show me overdue invoices over $10k", DUTIES, "text/event-stream");
     expect(res.status).toBe(200);
@@ -72,12 +76,53 @@ describe("mode=task", () => {
       generated: true,
     });
     expect(s.provider.seen).toHaveLength(1);
-    expect(s.provider.seen[0]?.allowedTools).toEqual([]);
+    expect(s.provider.seen[0]?.allowedTools).toEqual(["depot.meta.search_tools", "depot.help.search"]);
     expect(s.provider.seen[0]?.system).toContain("receivables.openItems");
-    expect(s.provider.seen[0]?.system).not.toContain("Tools you may call");
-    expect(s.mcp.connects).toHaveLength(0);
+    expect(s.provider.seen[0]?.system).not.toContain("depot.knowledge.search");
+    expect(s.mcp.connects).toHaveLength(1);
     expect(s.mcp.calls).toHaveLength(0);
     expect([...s.store.runs.values()]).toEqual([expect.objectContaining({ agentId: "copilot", status: "COMMITTED" })]);
+  });
+
+  it("calls depot.help.search once, then turns the next answer into an intent whose path comes only from the catalog", async () => {
+    const search: ModelResponse = { text: "", proposal: { tool: "depot.help.search", args: { query: "open invoices" }, confidence: 1, amount: { amount: "0", currency: "USD" } } };
+    const s = await setup([search, verdict({ routeKey: "receivables.openItems", path: "https://evil.example/help" })]);
+    const text = await (await task(s.base, "where are unpaid invoices")).text();
+    expect(s.mcp.calls).toEqual([{ name: "depot.help.search", args: { query: "open invoices" } }]);
+    expect(s.provider.seen).toHaveLength(2);
+    expect(JSON.parse(text)).toMatchObject({ navigationIntent: { path: "/receivables/open-items" } });
+    expect(text).not.toContain("evil.example");
+  });
+
+  it("refuses AGT-0203 and never calls a tool outside the two task tools", async () => {
+    const named: ModelResponse = { text: "", proposal: { tool: "depot.ap.invoice.get", args: {}, confidence: 1, amount: { amount: "0", currency: "USD" } } };
+    const s = await setup([named]);
+    const body = await (await task(s.base, "hmm")).json();
+    expect(body).toMatchObject({ refusal: { code: "AGT-0203" }, generated: true });
+    expect(body).not.toHaveProperty("navigationIntent");
+    expect(s.mcp.calls).toHaveLength(0);
+  });
+
+  it("refuses AGT-0203 for the in-process knowledge search, which task mode no longer offers", async () => {
+    const named: ModelResponse = { text: "", proposal: { tool: "depot.knowledge.search", args: { query: "x" }, confidence: 1, amount: { amount: "0", currency: "USD" } } };
+    const s = await setup([named]);
+    expect(await (await task(s.base, "hmm")).json()).toMatchObject({ refusal: { code: "AGT-0203" } });
+    expect(s.mcp.calls).toHaveLength(0);
+  });
+
+  it("falls back to an answer-only turn when the gateway lists neither task tool", async () => {
+    const s = await setup([verdict({ routeKey: "receivables.openItems" })], { mcpTools: [tool("depot.ap.invoice.get", "ap.invoice.read")] });
+    expect(await (await task(s.base, "open items")).json()).toMatchObject({ navigationIntent: { path: "/receivables/open-items" } });
+    expect(s.provider.seen[0]?.allowedTools).toEqual([]);
+    expect(s.provider.seen[0]?.system).not.toContain("Tools you may call");
+  });
+
+  it("fails the request, with no intent, when the gateway session cannot be opened", async () => {
+    const s = await setup([verdict({ routeKey: "receivables.openItems" })], { mcpFails: true });
+    const res = await task(s.base, "open items");
+    expect(res.status).toBeGreaterThanOrEqual(500);
+    expect(await res.text()).not.toContain("navigationIntent");
+    expect(s.provider.seen).toHaveLength(0);
   });
 
   it("does not cache a task answer, so every call is counted against the budget", async () => {
@@ -87,13 +132,6 @@ describe("mode=task", () => {
     await task(s.base, "create a PO from Acme");
     expect(s.store.reserved).toHaveLength(2);
     expect(s.provider.seen).toHaveLength(2);
-  });
-
-  it("ignores a tool the model proposes and answers a clarifying question", async () => {
-    const named: ModelResponse = { text: "", proposal: { tool: "depot.ap.invoice.get", args: {}, confidence: 1, amount: { amount: "0", currency: "USD" } } };
-    const s = await setup([named]);
-    expect(await (await task(s.base, "hmm")).json()).toEqual({ clarifyingQuestion: CLARIFY_FALLBACK, generated: true });
-    expect(s.mcp.calls).toHaveLength(0);
   });
 
   it("refuses with AGT-0203 and a generic message when the caller lacks the screen's duty", async () => {

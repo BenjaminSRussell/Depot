@@ -1,6 +1,6 @@
 import type { Catalog } from "./catalog.js";
 import { schemaViolations } from "./schema.js";
-import { isObject, type JsonObject, type ToolDefinition } from "./tool.js";
+import { isObject, ToolInputError, type JsonObject, type ToolDefinition } from "./tool.js";
 
 /** FR-47.1: read tools return at most 200 rows per call. */
 export const READ_PAGE_LIMIT = 200;
@@ -124,6 +124,26 @@ export async function callTool(deps: GatewayDeps, p: Principal, name: string, ra
     if (typeof args.cursor !== "string" || args.cursor.length === 0 || args.cursor.length > MAX_CURSOR_LENGTH) {
       return fail(deps, p, name, "INVALID", 400, "MCP-0400", `cursor must be a string of 1 to ${MAX_CURSOR_LENGTH} characters`);
     }
+  }
+
+  if (tool.local !== undefined) {
+    let body: unknown;
+    try {
+      body = tool.local({ args, duties: p.duties, catalog: deps.catalog });
+    } catch (err) {
+      if (err instanceof ToolInputError) return fail(deps, p, name, "INVALID", 400, "MCP-0400", err.message);
+      return fail(deps, p, name, "UPSTREAM_ERROR", 500, "MCP-0500", `tool ${name} failed`);
+    }
+    await deps.audit.record({
+      at: deps.now().toISOString(),
+      tenantId: p.tenantId,
+      userId: p.userId,
+      tool: name,
+      outcome: "OK",
+      status: 200,
+      ...(p.runId !== undefined ? { runId: p.runId } : {}),
+    });
+    return { kind: "ok", status: 200, body };
   }
 
   const headers: Record<string, string> = { authorization: `Bearer ${p.userToken}` };
