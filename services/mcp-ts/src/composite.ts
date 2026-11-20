@@ -4,8 +4,9 @@ import { ToolInputError, type ToolDefinition } from "./tool.js";
 export const SEARCH_TOOLS_NAME = "depot.meta.search_tools";
 export const HELP_SEARCH_NAME = "depot.help.search";
 
-const COPILOT_DUTY = "mcp.copilot.use";
+export const COPILOT_DUTY = "mcp.copilot.use";
 const MAX_QUERY_CHARS = 500;
+const MAX_HELP_QUERY_CHARS = 1000;
 const MAX_TOKENS = 20;
 const DEFAULT_LIMIT = 10;
 const MAX_DESCRIPTION_CHARS = 160;
@@ -69,6 +70,7 @@ const searchToolsTool: ToolDefinition = {
   approvalMode: "none",
   readOnly: true,
   idempotent: true,
+  enforceMaxLength: true,
   local: ({ args, duties, catalog }) => {
     if (typeof args.query !== "string") throw new ToolInputError("query must be a string");
     const limit = typeof args.limit === "number" ? args.limit : DEFAULT_LIMIT;
@@ -85,7 +87,7 @@ const helpSearchTool: ToolDefinition = {
   sourceRef: "composite.help_search",
   inputSchema: {
     type: "object",
-    properties: { query: { type: "string", maxLength: 1000 } },
+    properties: { query: { type: "string", maxLength: MAX_HELP_QUERY_CHARS } },
     required: ["query"],
   },
   outputSchema: {
@@ -97,6 +99,7 @@ const helpSearchTool: ToolDefinition = {
   approvalMode: "none",
   readOnly: true,
   idempotent: true,
+  enforceMaxLength: true,
 };
 
 export function compositeTools(): ToolDefinition[] {

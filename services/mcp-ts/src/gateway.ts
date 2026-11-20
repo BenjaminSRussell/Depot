@@ -128,9 +128,8 @@ export async function callTool(deps: GatewayDeps, p: Principal, name: string, ra
     // A missing path parameter would otherwise change the URL, and so the operation, upstream.
     return fail(deps, p, name, "INVALID", 400, "MCP-0422", `missing required argument ${missing.join(", ")}`);
   }
-  const tooLong = overLengthArgument(tool, args);
-  if (tooLong !== undefined) {
-    return fail(deps, p, name, "INVALID", 400, "MCP-0400", `${tooLong} is longer than its maxLength`);
+  if (tool.enforceMaxLength === true && hasOverLengthArgument(tool, args)) {
+    return fail(deps, p, name, "INVALID", 400, "MCP-0400", "an argument is longer than its maximum length");
   }
   if (tool.readOnly && hasProperty(tool, "limit")) {
     const requested = typeof args.limit === "number" && Number.isFinite(args.limit) ? Math.trunc(args.limit) : READ_PAGE_LIMIT;
@@ -228,13 +227,12 @@ function missingRequired(tool: ToolDefinition, args: JsonObject): string[] {
   );
 }
 
-function overLengthArgument(tool: ToolDefinition, args: JsonObject): string | undefined {
-  if (!isObject(tool.inputSchema.properties)) return undefined;
-  for (const [key, prop] of Object.entries(tool.inputSchema.properties)) {
+function hasOverLengthArgument(tool: ToolDefinition, args: JsonObject): boolean {
+  if (!isObject(tool.inputSchema.properties)) return false;
+  return Object.entries(tool.inputSchema.properties).some(([key, prop]) => {
     const value = args[key];
-    if (isObject(prop) && typeof prop.maxLength === "number" && typeof value === "string" && value.length > prop.maxLength) return key;
-  }
-  return undefined;
+    return isObject(prop) && typeof prop.maxLength === "number" && typeof value === "string" && Array.from(value).length > prop.maxLength;
+  });
 }
 
 function hasProperty(tool: ToolDefinition, key: string): boolean {

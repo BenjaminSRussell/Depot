@@ -72,9 +72,10 @@ describe("ROUTE_CATALOG against apps/web module.ts", () => {
   const modules = parseModules();
 
   it("parses the web modules, so an unmatched regex cannot pass the drift checks", () => {
-    expect(modules.count).toBeGreaterThanOrEqual(snapshot.modules * MAX_SHRINK);
-    expect(modules.nav.length).toBeGreaterThanOrEqual(snapshot.nav * MAX_SHRINK);
-    expect(modules.routes.length).toBeGreaterThanOrEqual(snapshot.routes * MAX_SHRINK);
+    const refresh = "If apps/web modules legitimately shrank, set modules, nav and routes in test/fixtures/web-modules-snapshot.json to the counts parseModules() now returns; otherwise a module.ts regex stopped matching.";
+    expect(modules.count, `web modules parsed ${modules.count}, snapshot ${snapshot.modules}. ${refresh}`).toBeGreaterThanOrEqual(snapshot.modules * MAX_SHRINK);
+    expect(modules.nav.length, `nav items parsed ${modules.nav.length}, snapshot ${snapshot.nav}. ${refresh}`).toBeGreaterThanOrEqual(snapshot.nav * MAX_SHRINK);
+    expect(modules.routes.length, `routes parsed ${modules.routes.length}, snapshot ${snapshot.routes}. ${refresh}`).toBeGreaterThanOrEqual(snapshot.routes * MAX_SHRINK);
   });
 
   it.each(ROUTE_CATALOG.map((e) => [e.routeKey, e] as const))("%s keeps the path and duty the shell enforces", (_key, entry) => {

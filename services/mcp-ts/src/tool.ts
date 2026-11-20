@@ -40,6 +40,8 @@ export interface ToolDefinition {
   idempotent: boolean;
   /** Answered inside the gateway instead of by the Depot API; the caller's token is never forwarded. */
   local?: LocalHandler;
+  /** Composite tools only: string arguments longer than their schema maxLength (in characters) are refused before the call. */
+  enforceMaxLength?: boolean;
 }
 
 /**

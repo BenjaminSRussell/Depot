@@ -40,6 +40,8 @@ export const KNOWLEDGE_READ_DUTY = COPILOT_DUTY;
 export const SEARCH_TOOLS_TOOL = "depot.meta.search_tools";
 export const HELP_SEARCH_TOOL = "depot.help.search";
 const TASK_TOOLS: readonly string[] = [SEARCH_TOOLS_TOOL, HELP_SEARCH_TOOL];
+export const TASK_CONNECT_TIMEOUT_MS = 2000;
+export const TASK_MAX_TURNS = 2;
 
 /** Request and response of POST /api/v1/copilot/chat; the shape apps/web/src/modules/copilot/api/client.ts validates. */
 export interface ChatRequest {
@@ -95,6 +97,8 @@ export interface CopilotConfig {
   /** Most model turns of one chat (read-tool calls feed further turns). */
   maxTurns: number;
   pseudonymTtlMs: number;
+  /** How long task mode waits for the gateway session before answering without tools; defaults to TASK_CONNECT_TIMEOUT_MS. */
+  taskConnectTimeoutMs?: number;
 }
 
 export interface CopilotDeps {
@@ -164,6 +168,25 @@ export const TYPED_REPLACED_NOTICE = "I replaced sensitive numbers in your messa
 
 const clip = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n)}...` : s);
 
+const errorClassOf = (err: unknown): string => {
+  if (!(err instanceof Error)) return typeof err;
+  const code = (err as { code?: unknown }).code;
+  return typeof code === "string" ? code.slice(0, 40) : err.name;
+};
+
+async function connectWithin(connect: Promise<McpSession>, ms: number): Promise<McpSession> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("gateway connect timed out")), ms);
+  });
+  try {
+    return await Promise.race([connect, timeout]);
+  } finally {
+    clearTimeout(timer);
+    connect.catch(() => undefined);
+  }
+}
+
 function modePolicy(mode: CopilotMode, hasAct: boolean) {
   const toolless = mode === "route";
   const task = mode === "task";
@@ -171,6 +194,9 @@ function modePolicy(mode: CopilotMode, hasAct: boolean) {
     toolless,
     task,
     cacheable: !toolless && !task && !hasAct,
+    knowledgeTool: !toolless && !task,
+    answerOnly: (allowed: number): boolean => toolless || (task && allowed === 0),
+    maxTurns: (configured: number): number => (task ? Math.min(TASK_MAX_TURNS, configured) : configured),
     offers: (tool: string): boolean => (task ? TASK_TOOLS.includes(tool) : READ_TOOL.test(tool)),
   };
 }
@@ -204,21 +230,22 @@ export function createCopilotService(deps: CopilotDeps) {
       let gatewayError: string | undefined;
       if (!policy.toolless) {
         try {
-          session = await deps.mcp.connect(caller, token, runId);
+          const opening = deps.mcp.connect(caller, token, runId);
+          session = policy.task ? await connectWithin(opening, deps.config.taskConnectTimeoutMs ?? TASK_CONNECT_TIMEOUT_MS) : await opening;
         } catch (err) {
           if (!policy.task) throw err;
-          gatewayError = clip(err instanceof Error ? err.message : String(err), 200);
+          gatewayError = errorClassOf(err);
         }
       }
       const candidates = session === undefined ? [] : session.tools.filter((t) => t.approvalMode === "none" && policy.offers(t.name));
-      if (!policy.task && session !== undefined && deps.knowledge !== undefined && !candidates.some((t) => t.name === KNOWLEDGE_SEARCH_TOOL)) {
+      if (policy.knowledgeTool && session !== undefined && deps.knowledge !== undefined && !candidates.some((t) => t.name === KNOWLEDGE_SEARCH_TOOL)) {
         candidates.push({ name: KNOWLEDGE_SEARCH_TOOL, requiredDuty: KNOWLEDGE_READ_DUTY, approvalMode: "none" } as (typeof candidates)[number]);
       }
       const gate = gateCopilotTools(caller.duties, candidates.map((t) => ({ name: t.name, requiredDuty: t.requiredDuty })));
-      const answerOnly = policy.toolless || (policy.task && gate.allowed.length === 0);
+      const answerOnly = policy.answerOnly(gate.allowed.length);
       if (policy.task && answerOnly) {
         const reason: TaskFallbackReason = gatewayError !== undefined ? "gateway_unavailable" : "no_task_tools";
-        deps.log?.("warn", "copilot task mode fell back to an answer-only turn", { tenantId: caller.tenantId, runId, reason, ...(gatewayError !== undefined ? { error: gatewayError } : {}) });
+        deps.log?.("warn", "copilot task mode fell back to an answer-only turn", { tenantId: caller.tenantId, runId, reason, ...(gatewayError !== undefined ? { errorClass: gatewayError } : {}) });
         deps.onTaskFallback?.(reason);
       }
       if (session !== undefined && !policy.task && gate.allowed.length === 0) {
@@ -342,7 +369,7 @@ export function createCopilotService(deps: CopilotDeps) {
       };
 
       try {
-        const turns = rules === undefined ? (answerOnly ? 1 : (hooks.act?.maxTurns ?? deps.config.maxTurns)) : rules.status === "decided" ? 0 : 1;
+        const turns = rules === undefined ? (answerOnly ? 1 : (hooks.act?.maxTurns ?? policy.maxTurns(deps.config.maxTurns))) : rules.status === "decided" ? 0 : 1;
         for (let turn = 0; turn < turns; turn += 1) {
           const verdict = await guard.inspect({ tenantId: caller.tenantId, callId: randomUUID(), routeId, pseudo, system, typed: prompt, results, recordIds, excluded: Object.fromEntries(Object.entries({ [AMOUNT_WITHHELD]: amountsWithheld, NO_APPROVED_ROUTE: withheldCount, NEED_TO_KNOW: needToKnowHidden, TENANT_POLICY: policyDropped }).filter(([, n]) => n > 0)), declared, ...(policyCell !== undefined ? { policyCell } : {}), ...(policyVersion !== undefined ? { policyVersion } : {}) });
           guardRow(verdict.result);

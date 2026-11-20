@@ -134,6 +134,8 @@ npm run typecheck
 npm run build
 ```
 
+After changing a prompt (for example the task-mode instruction in `src/domain/routeCatalog.ts`), re-record the red-team replay with `REDTEAM_RECORD=1 npm run redteam` (see `evals/README.md`); a missing or stale row fails with MISSING or STALE. When apps/web modules legitimately shrink, refresh `test/fixtures/web-modules-snapshot.json` (the route catalog drift test says how).
+
 Postgres-backed tests (`approvals-pg`, `budget-store`) run when `DEPOT_TEST_DATABASE_URL` (owner) and `DEPOT_TEST_APP_DATABASE_URL` (`depot_app`) are set, as in CI; without them they are skipped.
 
 The tests run without a database or network. Ports are faked in `test/fakes.ts`.

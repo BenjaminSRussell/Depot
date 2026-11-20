@@ -189,11 +189,28 @@ describe("depot.help.search", () => {
     expect(r.audit.entries).toMatchObject([{ outcome: "INVALID" }]);
   });
 
+  it("counts characters by code point, so 1000 astral characters pass and the 400 does not name the argument", async () => {
+    const r = helpRig();
+    r.upstream.responses.push({ status: 200, body: { chunks: [] } });
+    expect(await call(r, [COPILOT], { query: "\u{1F600}".repeat(1000) })).toMatchObject({ kind: "ok" });
+    const refused = await call(r, [COPILOT], { query: "secret-value".padEnd(1001, "x") });
+    expect(refused).toEqual({ kind: "error", status: 400, code: "MCP-0400", message: "an argument is longer than its maximum length" });
+  });
+
   it("refuses tenant_id in the arguments", async () => {
     const r = helpRig();
     expect(await call(r, [COPILOT], { query: "x", tenant_id: "t" })).toMatchObject({ code: "MCP-0400" });
     expect(r.upstream.calls).toHaveLength(0);
   });
+});
+
+it("leaves a generated upstream tool with maxLength in its schema to the upstream", async () => {
+  const generated = readTool("depot.ar.invoice.list", "receivables.view", { inputSchema: { type: "object", properties: { note: { type: "string", maxLength: 5 } } } });
+  const r = rig([generated]);
+  r.upstream.responses.push({ status: 200, body: {} });
+  const res = await callTool(r.deps, principal(["receivables.view"]), "depot.ar.invoice.list", { note: "longer than five" });
+  expect(res).toMatchObject({ kind: "ok" });
+  expect(r.upstream.calls).toHaveLength(1);
 });
 
 it("maps the forbidden RPC code for a search_tools denial", async () => {
