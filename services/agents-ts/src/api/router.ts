@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { KillSwitchRegistry } from "../domain/killswitch.js";
-import { type ApprovalStore, handleApprovalDecision } from "./decision.js";
+import {
+  type ApprovalReader,
+  type ApprovalStore,
+  handleApprovalDecision,
+  handleGetApproval,
+} from "./decision.js";
 import {
   HEADER as SERVICE_TOKEN_HEADER,
   ServiceTokenError,
@@ -57,6 +62,8 @@ export interface AgentsApiBase {
   authenticate: Authenticate;
   registry: KillSwitchRegistry;
   approvals: ApprovalStore;
+  /** The approval lookup by action id; absent and its route answers 404. */
+  approvalReader?: ApprovalReader;
   /** Run start and read endpoints; absent in a process that serves only the control routes. */
   runs?: RunService;
   /** Decline of an ungated action and undo; absent and an action with no approval request answers 404. */
@@ -110,6 +117,7 @@ const KNOWLEDGE_SEARCH_PATH = "/api/v1/knowledge/search";
 const STEP_PATH = new RegExp(
   `^/api/v1/agents/runs/(${UUID})/steps/(begin|plan|resolve|commit|abort)$`,
 );
+const APPROVAL_PATH = new RegExp(`^/api/v1/agents/approvals/(${UUID})$`);
 const DECISION_PATH = new RegExp(
   `^/api/v1/agents/runs/(${UUID})/actions/(${UUID})/decision$`,
 );
@@ -597,6 +605,14 @@ export function createAgentsHandler(
           (undo[2] ?? "").toLowerCase(),
           await readBody(req, true),
         );
+        return;
+      }
+      const approvalGet = APPROVAL_PATH.exec(path);
+      if (approvalGet !== null) {
+        if (deps.approvalReader === undefined) throw new ApiError(404, "AGT-0404", "no such route");
+        if (req.method !== "GET") throw new MethodNotAllowed("GET");
+        const principal = await deps.authenticate(req.headers);
+        send(res, 200, await handleGetApproval({ principal, actionId: (approvalGet[1] ?? "").toLowerCase(), reader: deps.approvalReader, now }));
         return;
       }
       const match = DECISION_PATH.exec(path);

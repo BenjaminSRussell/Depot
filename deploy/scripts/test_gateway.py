@@ -1046,6 +1046,7 @@ AGENTS_API_PATHS = (
     "/agents/definitions",
     "/agents/availability",
     "/agents/approvals",
+    "/agents/approvals/a1",
     "/agents/runs",
     "/agents/runs/r1/actions/a1/decision",
     "/agents/runs/r1/actions/a1:undo",

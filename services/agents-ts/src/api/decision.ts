@@ -1,4 +1,4 @@
-import { decideApproval } from "../domain/approval.js";
+import { approvalExpiresAtMs, decideApproval } from "../domain/approval.js";
 import type { Money } from "../domain/money.js";
 import { ApiError, asObject, type Principal, requireDuty, toApiError } from "./principal.js";
 
@@ -133,4 +133,57 @@ export async function handleApprovalDecision(input: {
     stored = replay(await input.store.record(tenantId, input.runId, input.actionId, ours), requested);
   }
   return { runId: input.runId, actionId: input.actionId, ...stored };
+}
+
+export type ApprovalState = "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED";
+
+export interface ApprovalDetail extends ApprovalRequest {
+  runId: string;
+  actionId: string;
+  tool: string;
+}
+
+export interface ApprovalReader {
+  findByAction(tenantId: string, actionId: string): Promise<ApprovalDetail | undefined>;
+}
+
+export interface ApprovalView {
+  runId: string;
+  actionId: string;
+  tool: string;
+  state: ApprovalState;
+  amount: Money;
+  requestedAt: string;
+  expiresAt: string;
+  decided?: { decision: Decision; reason?: "EXPIRED"; decidedAt: string };
+}
+
+export function approvalStateOf(request: ApprovalRequest, nowMs: number): ApprovalState {
+  if (request.decided !== undefined) return request.decided.reason === "EXPIRED" ? "EXPIRED" : request.decided.decision;
+  return nowMs >= approvalExpiresAtMs(request.requestedAtMs, request.expiryHours) ? "EXPIRED" : "PENDING";
+}
+
+export async function handleGetApproval(input: {
+  principal: Principal;
+  actionId: string;
+  reader: ApprovalReader;
+  now: () => Date;
+}): Promise<ApprovalView> {
+  const detail = await input.reader.findByAction(input.principal.tenantId, input.actionId);
+  if (detail === undefined || !input.principal.duties.has(detail.approvalDuty)) {
+    throw new ApiError(404, "AGT-0404", "no approval request for this action");
+  }
+  const { decided } = detail;
+  return {
+    runId: detail.runId,
+    actionId: detail.actionId,
+    tool: detail.tool,
+    state: approvalStateOf(detail, input.now().getTime()),
+    amount: detail.amount,
+    requestedAt: new Date(detail.requestedAtMs).toISOString(),
+    expiresAt: new Date(approvalExpiresAtMs(detail.requestedAtMs, detail.expiryHours)).toISOString(),
+    ...(decided !== undefined
+      ? { decided: { decision: decided.decision, ...(decided.reason !== undefined ? { reason: decided.reason } : {}), decidedAt: decided.decidedAt } }
+      : {}),
+  };
 }

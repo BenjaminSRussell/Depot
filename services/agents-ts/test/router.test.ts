@@ -293,6 +293,7 @@ describe("api/openapi.yaml matches the router", () => {
   it("documents exactly the operations the router serves", async () => {
     expect(documentedOperations()).toEqual([
       "GET /api/v1/agents/ai-data-policy",
+      "GET /api/v1/agents/approvals/{actionId}",
       "GET /api/v1/agents/availability",
       "GET /api/v1/agents/briefings",
       "GET /api/v1/agents/briefings/{id}",
@@ -326,6 +327,7 @@ describe("api/openapi.yaml matches the router", () => {
         find: async () => undefined,
         record: async (_t, _r, _a, d) => d,
       },
+      approvalReader: { findByAction: async () => undefined },
       publish: async () => undefined,
       // Never reached: an anonymous call is refused at the edge identity check.
       runs: {} as RunService,
