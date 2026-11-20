@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertNoPii, maskValue, Pseudonymizer, scanPii, SENSITIVE_DUTY } from "../src/domain/redaction.js";
+import { assertNoPii, maskValue, piiPatternSource, Pseudonymizer, scanPii, SENSITIVE_DUTY, type PiiCategory } from "../src/domain/redaction.js";
 
 const TTL = 24 * 3_600_000;
 
@@ -138,5 +138,21 @@ describe("maskValue", () => {
     expect(maskValue("4111111111111111", "CARD")).toBe("****1111");
     expect(maskValue("123-45-6789", "SSN")).toBe("****6789");
     expect(maskValue("DE89370400440532013000", "IBAN")).toBe("****3000");
+  });
+});
+
+describe("pattern sources", () => {
+  const previous: Record<PiiCategory, string> = {
+    SSN: String.raw`\b\d{3}-\d{2}-\d{4}\b|(?<=\bssn\w{0,12}["']?\s{0,3}[:=#]?\s{0,3}"?)\d{9}\b`,
+    TAXID: String.raw`(?<=\b(?:(?:EIN|VAT|GSTIN|RFC|TIN)(?:[ _]?(?:id|number|no|num)\.?)?|tax[ _]?(?:id|number|no|num)\.?)["']?\s{0,3}[:=#]?\s{0,3}"?(?:[A-Z]{2} )?)[A-Z0-9&][A-Z0-9&.-]{4,20}[A-Z0-9]`,
+    BANKACCT: String.raw`(?<=(?:account|acct)\w{0,12}(?: (?:number|no|num)\.?)?["']?\s{0,3}[:=#]?\s{0,3}"?)\d(?:[ -]?\d){5,16}\b`,
+    PAY: String.raw`(?<=(?:salary|wage|pay[ _-]?rate|base[ _-]?pay|hourly[ _-]?rate|bonus|compensation)\w{0,12}["']?(?:\s{0,3}[:=]\s{0,3}|\s(?:is|of)\s)(?:\{[^{}]{0,80}?"(?:amount|value|gross|net|base)"\s{0,3}:\s{0,3})?"?(?:[A-Za-z]{3}\s?|[$€£]\s?)?)\d(?:[\d,.]*\d)?`,
+    EMAIL: String.raw`(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}`,
+    IBAN: String.raw`\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b`,
+    CARD: String.raw`\b(?:\d{13,19}|\d{4}([ -])\d{4}\1\d{4}\1\d{1,7}|\d{4}([ -])\d{6}\2\d{4,5})\b`,
+  };
+
+  it.each(Object.entries(previous))("keeps the %s pattern source character for character", (category, source) => {
+    expect(piiPatternSource(category as PiiCategory)).toBe(source);
   });
 });

@@ -287,6 +287,7 @@ describe("guard inspect", () => {
     { name: "a card number after letters", token: "INV4111111111111111,", cutAt: 3 },
     { name: "an SSN after a letter", token: "x123-45-6789,", cutAt: 1 },
     { name: "a tax id after a letter", token: "XTIN:123456789,", cutAt: 1 },
+    { name: "a spaced card number", token: "5555 4111 1111 1111 1111,", cutAt: 1 },
     { name: "the tail of a long digit run", token: `${"1".repeat(640)}4111111111111111,`, cutAt: 640 },
   ];
 
@@ -309,19 +310,50 @@ describe("guard inspect", () => {
     expect(seen.some((t) => t.startsWith(run) && t.includes("\n\n"))).toBe(true);
   });
 
-  it("merges overlapping seam windows into one scan of each stretch of text", async () => {
+  it("scans identical seam windows once", async () => {
     const seen: string[] = [];
     await testGuard({ analyzer: recordingAnalyzer(seen) }).inspect(input(new Pseudonymizer("t", 1000, () => 0), { results: ["a", "b", "c"] }));
     expect(seen.filter((t) => t.includes("\n\n"))).toHaveLength(1);
   });
 
-  it("analyses each segment once across a growing conversation and keeps seam windows out of the memo", async () => {
+  it("analyses each segment and each seam window once across a growing conversation", async () => {
     const seen: string[] = [];
     const guard = testGuard({ analyzer: recordingAnalyzer(seen) });
     const pseudo = new Pseudonymizer("t", 1000, () => 0);
     const results = Array.from({ length: 6 }, (_, i) => `Result ${i}: INV-${i}`);
     for (let turn = 1; turn <= results.length; turn++) await guard.inspect(input(pseudo, { results: results.slice(0, turn) }));
     for (const text of ["system", "hello", ...results]) expect(seen.filter((t) => t === text), text).toHaveLength(1);
+    expect(new Set(seen).size).toBe(seen.length);
+  });
+
+  it("hands the analyzer a bounded number of characters per turn however long the conversation grows", async () => {
+    const seen: string[] = [];
+    const guard = testGuard({ analyzer: recordingAnalyzer(seen) });
+    const pseudo = new Pseudonymizer("t", 1000, () => 0);
+    const results = Array.from({ length: 30 }, (_, i) => `Result ${i}: ${"lorem ipsum ".repeat(25)}${i}`);
+    const perTurn: number[] = [];
+    for (let turn = 1; turn <= results.length; turn++) {
+      const before = seen.length;
+      await guard.inspect(input(pseudo, { results: results.slice(0, turn) }));
+      perTurn.push(seen.slice(before).reduce((sum, t) => sum + t.length, 0));
+    }
+    const newest = results[results.length - 1] ?? "";
+    const accumulated = results.join("").length;
+    const bound = newest.length + 3 * (2 * SEAM_WINDOW_CHARS + SEPARATOR_LENGTH);
+    expect(accumulated).toBeGreaterThan(2 * bound);
+    for (const scanned of perTurn.slice(4)) expect(scanned).toBeLessThanOrEqual(bound);
+  });
+
+  it("blocks on a seam window finding and does not memoise the window after a failed scan", async () => {
+    let failing = true;
+    const analyzer: Analyzer = { scan: (text) => (failing && text.includes("\n\n") ? (undefined as never) : scanPii(text)) };
+    const pseudo = new Pseudonymizer("t", 1000, () => 0);
+    const guard = testGuard({ analyzer });
+    const failed = await guard.inspect(input(pseudo, { typed: "the account", results: ["123456789 is ours"] }));
+    failing = false;
+    const retry = await guard.inspect(input(pseudo, { typed: "the account", results: ["123456789 is ours"] }));
+    expect(failed.result).toMatchObject({ decision: "BLOCKED", errorCode: "ANALYZER_ERROR" });
+    expect(retry.result).toMatchObject({ decision: "BLOCKED", errorCode: "RESIDUAL_PII" });
   });
 
   it("keeps the system prompt and typed text memoised while later turns add more than the memo holds", async () => {
@@ -369,6 +401,29 @@ describe("guard inspect", () => {
     await guard.inspect(input(pseudo, { results: Array.from({ length: 520 }, (_, i) => `row ${i}`) }));
     release();
     expect((await pending).result).toMatchObject({ decision: "REDACTED", counts: { IBAN: 1 } });
+  });
+
+  it("keeps the memo within 512 texts when a turn re-inserts entries a concurrent turn evicted", async () => {
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const seen: string[] = [];
+    const analyzer: Analyzer = {
+      scan: async (text) => {
+        seen.push(text);
+        return text === "slow" ? gate.then(() => scanPii(text)) : scanPii(text);
+      },
+    };
+    const pseudo = new Pseudonymizer("t", 1000, () => 0);
+    const guard = testGuard({ analyzer });
+    const rows = Array.from({ length: 520 }, (_, i) => `row ${i}`);
+    await guard.inspect(input(pseudo, { results: ["known"] }));
+    const pending = guard.inspect(input(pseudo, { results: ["known", "slow"] }));
+    await guard.inspect(input(pseudo, { results: rows }));
+    release();
+    await pending;
+    seen.length = 0;
+    await guard.inspect(input(pseudo, { results: rows }));
+    expect(seen.filter((t) => t.startsWith("row ") && !t.includes("\n"))).toHaveLength(20);
   });
 
   it("does not memoise a failed scan, so a retry scans again", async () => {
@@ -427,20 +482,59 @@ describe("guard inspect", () => {
     expect(verdict.user).toBe("");
   });
 
-  it("logs only the name and a detail code, never the message, for a foreign error", async () => {
+  const logsFor = async (thrown: () => never) => {
     const logs: Record<string, unknown>[] = [];
-    const failing: Analyzer = {
-      scan: () => {
-        throw Object.assign(new Error(`down ${CANARIES.iban} 1234567 ${"x".repeat(300)}`), { code: "ECONNREFUSED" });
-      },
-    };
-    await testGuard({ analyzer: failing, log: (_l, _m, extra) => logs.push(extra ?? {}) }).inspect(input(new Pseudonymizer("t", 1000, () => 0)));
-    expect(logs[0]).toMatchObject({ errorCode: "ANALYZER_ERROR", error: "Error", errorDetailCode: "ECONNREFUSED" });
-    expect(logs[0]).not.toHaveProperty("errorMessage");
+    await testGuard({ analyzer: { scan: thrown }, log: (_l, _m, extra) => logs.push(extra ?? {}) }).inspect(input(new Pseudonymizer("t", 1000, () => 0)));
+    return logs;
+  };
+
+  it("logs a fixed message and the detail code, never the raw text, for a foreign error", async () => {
+    const logs = await logsFor(() => {
+      throw Object.assign(new Error(`down ${CANARIES.iban} 1234567 ${"x".repeat(300)}`), { code: "ECONNREFUSED" });
+    });
+    expect(logs[0]).toMatchObject({ errorCode: "ANALYZER_ERROR", error: "Error", errorDetailCode: "ECONNREFUSED", errorMessage: "analyzer connection refused" });
     expect(JSON.stringify(logs)).not.toContain(CANARIES.iban);
   });
 
-  it("omits the detail code when it is not a code and logs no message for admit", async () => {
+  it("logs a message for a codeless error that names a system condition", async () => {
+    const logs = await logsFor(() => {
+      throw new Error("connect ETIMEDOUT host:3000");
+    });
+    expect(logs[0]).toMatchObject({ errorCode: "ANALYZER_ERROR", error: "Error", errorMessage: "analyzer connection timed out" });
+    expect(JSON.stringify(logs)).not.toContain("host:3000");
+  });
+
+  it.each([
+    { name: "a hostile message with a system token", message: `getaddrinfo ENOTFOUND ${CANARIES.ssn}.corp.example:5432`, expected: "analyzer host could not be resolved" },
+    { name: "a hostile message with no known token", message: `bad row ${CANARIES.ssn} at db-7.corp.example`, expected: "analyzer error" },
+  ])("never logs $name", async ({ message, expected }) => {
+    const logs = await logsFor(() => {
+      throw new Error(message);
+    });
+    expect(logs[0]).toMatchObject({ errorMessage: expected });
+    const logged = JSON.stringify(logs);
+    expect(logged).not.toContain(CANARIES.ssn);
+    expect(logged).not.toContain("corp.example");
+  });
+
+  it("names only the class of a programming error", async () => {
+    const logs = await logsFor(() => {
+      throw new TypeError(`cannot read ${CANARIES.ssn}`);
+    });
+    expect(logs[0]).toMatchObject({ error: "TypeError", errorMessage: "analyzer error: TypeError" });
+    expect(JSON.stringify(logs)).not.toContain(CANARIES.ssn);
+  });
+
+  it("logs the guard's own code once and a message only when it adds something", async () => {
+    const logs: Record<string, unknown>[] = [];
+    const guard = testGuard({ analyzer: { scan: () => [{ category: "IBAN", value: "absent" }] }, log: (_l, _m, extra) => logs.push(extra ?? {}) });
+    await guard.inspect(input(new Pseudonymizer("t", 1000, () => 0)));
+    expect(logs[0]).toMatchObject({ errorCode: "RESIDUAL_PII", error: "GuardFailure" });
+    expect(logs[0]).not.toHaveProperty("errorDetailCode");
+    expect(logs[0]).not.toHaveProperty("errorMessage");
+  });
+
+  it("omits the detail code when it is not a code and still logs a fixed message for admit", async () => {
     const logs: Record<string, unknown>[] = [];
     const failing: Analyzer = {
       scan: () => {
@@ -450,7 +544,7 @@ describe("guard inspect", () => {
     const admission = await testGuard({ analyzer: failing, log: (_l, _m, extra) => logs.push(extra ?? {}) }).admit({ tenantId: "t", tool: GET, text: "x" });
     expect(admission).toMatchObject({ pass: false, failure: "ANALYZER_ERROR" });
     expect(logs[0]).not.toHaveProperty("errorDetailCode");
-    expect(logs[0]).not.toHaveProperty("errorMessage");
+    expect(logs[0]).toMatchObject({ errorMessage: "analyzer error" });
     expect(JSON.stringify(logs)).not.toContain(CANARIES.iban);
   });
 

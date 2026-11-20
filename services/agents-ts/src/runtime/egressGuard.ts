@@ -28,6 +28,7 @@ export interface GuardResult {
   errorCode?: GuardErrorCode | OutputGuardReason;
 }
 
+// ponytail: seam coverage assumes scanPii's lookbehind bounds (MAX_LOOKBEHIND_CHARS) and results, empty ones included, are memoised per digest for any analyzer; an analyzer with wider context or non-deterministic output needs a declared context span.
 export interface Analyzer {
   scan(text: string): PiiFinding[] | Promise<PiiFinding[]>;
 }
@@ -100,13 +101,40 @@ const ERROR_CODE_RE = /^[A-Z][A-Z0-9_-]{1,31}$/;
 const ERROR_MESSAGE_MAX = 160;
 const ERROR_SCAN_MAX = 4096;
 
+const SYSTEM_ERROR_MESSAGES: Readonly<Record<string, string>> = {
+  ETIMEDOUT: "analyzer connection timed out",
+  ECONNREFUSED: "analyzer connection refused",
+  ECONNRESET: "analyzer connection reset",
+  ENOTFOUND: "analyzer host could not be resolved",
+  EAI_AGAIN: "analyzer host could not be resolved",
+  ABORT_ERR: "analyzer request aborted",
+};
+const SYSTEM_ERROR_TOKEN_RE = new RegExp(`\\b(${Object.keys(SYSTEM_ERROR_MESSAGES).join("|")})\\b`);
+const NAME_ERROR_MESSAGES: Readonly<Record<string, string>> = {
+  AbortError: "analyzer request aborted",
+  TimeoutError: "analyzer timed out",
+  SyntaxError: "analyzer error: SyntaxError",
+  TypeError: "analyzer error: TypeError",
+  RangeError: "analyzer error: RangeError",
+};
+const UNKNOWN_ERROR_MESSAGE = "analyzer error";
+
+function foreignErrorMessage(err: Error, code: unknown): string {
+  const byCode = typeof code === "string" ? SYSTEM_ERROR_MESSAGES[code] : undefined;
+  const token = SYSTEM_ERROR_TOKEN_RE.exec(err.message.slice(0, ERROR_SCAN_MAX))?.[1];
+  return byCode ?? (token === undefined ? undefined : SYSTEM_ERROR_MESSAGES[token]) ?? NAME_ERROR_MESSAGES[err.name] ?? UNKNOWN_ERROR_MESSAGE;
+}
+
 // Deliberately the local scanPii, not the injected analyzer: error text must be scrubbed even when the analyzer is the thing that failed.
 function describeError(err: unknown): Record<string, string> {
   if (!(err instanceof Error)) return { error: "unknown" };
   const code = (err as { code?: unknown }).code;
   const detail: Record<string, string> = { error: err.name };
-  if (typeof code === "string" && ERROR_CODE_RE.test(code)) detail.errorDetailCode = code;
-  if (!(err instanceof GuardFailure)) return detail;
+  if (!(err instanceof GuardFailure)) {
+    if (typeof code === "string" && ERROR_CODE_RE.test(code)) detail.errorDetailCode = code;
+    detail.errorMessage = foreignErrorMessage(err, code);
+    return detail;
+  }
   const bounded = err.message.slice(0, ERROR_SCAN_MAX);
   const scrubbed = scanPii(bounded)
     .filter((f) => f.value.length > 0)
@@ -114,7 +142,7 @@ function describeError(err: unknown): Record<string, string> {
     .reduce((text, f) => text.split(f.value).join("[REDACTED]"), bounded)
     .replace(/\d{4,}/g, "[N]")
     .slice(0, ERROR_MESSAGE_MAX);
-  if (scrubbed.length > 0) detail.errorMessage = scrubbed;
+  if (scrubbed.length > 0 && scrubbed !== err.code) detail.errorMessage = scrubbed;
   return detail;
 }
 
@@ -129,33 +157,45 @@ function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
 export const SEAM_WINDOW_CHARS = 4 * MAX_LOOKBEHIND_CHARS;
 const SEPARATOR = "\n\n";
 
+const isAlnum = (c: string | undefined): boolean => c !== undefined && /[A-Za-z0-9]/.test(c);
+const isDigit = (c: string | undefined): boolean => c !== undefined && /\d/.test(c);
+
+function isCutPoint(text: string, i: number): boolean {
+  const c = text.charAt(i);
+  if (/\w/.test(c)) return false;
+  const before = text[i - 1];
+  const after = text[i + 1];
+  const insideGroupedNumber = (c === " " || c === "-") && isAlnum(before) && isAlnum(after) && (isDigit(before) || isDigit(after));
+  return !insideGroupedNumber;
+}
+
 function seamWindows(parts: readonly string[]): string[] {
   const joined = parts.join(SEPARATOR);
-  const ranges: Array<[number, number]> = [];
+  const windows: string[] = [];
   let offset = 0;
   for (const part of parts.slice(0, -1)) {
     offset += part.length;
     const lead = Math.max(0, offset - SEAM_WINDOW_CHARS);
-    const leadCut = joined.slice(lead, offset - MAX_LOOKBEHIND_CHARS).search(/\W/);
     let start = lead;
-    if (lead > 0 && leadCut >= 0) start = lead + leadCut + 1;
-    else while (start > 0 && /\w/.test(joined.charAt(start - 1))) start--;
+    if (lead > 0) {
+      let cut = -1;
+      for (let i = lead; i < offset - MAX_LOOKBEHIND_CHARS && cut < 0; i++) if (isCutPoint(joined, i)) cut = i;
+      if (cut >= 0) start = cut + 1;
+      else while (start > 0 && /\w/.test(joined.charAt(start - 1))) start--;
+    }
     const tailStart = offset + SEPARATOR.length + MAX_LOOKBEHIND_CHARS;
     const trail = Math.min(joined.length, offset + SEPARATOR.length + SEAM_WINDOW_CHARS);
-    const trailCut = joined.slice(tailStart, trail).search(/\W\w*$/);
     let end = trail;
-    if (trail < joined.length && trailCut >= 0) end = tailStart + trailCut;
-    else while (end < joined.length && /\w/.test(joined.charAt(end))) end++;
-    ranges.push([start, end]);
+    if (trail < joined.length) {
+      let cut = -1;
+      for (let i = trail - 1; i >= tailStart && cut < 0; i--) if (isCutPoint(joined, i)) cut = i;
+      if (cut >= 0) end = cut;
+      else while (end < joined.length && /\w/.test(joined.charAt(end))) end++;
+    }
+    windows.push(joined.slice(start, end));
     offset += SEPARATOR.length;
   }
-  const merged: Array<[number, number]> = [];
-  for (const [start, end] of ranges.sort((x, y) => x[0] - y[0])) {
-    const last = merged[merged.length - 1];
-    if (last !== undefined && start < last[1]) last[1] = Math.max(last[1], end);
-    else merged.push([start, end]);
-  }
-  return merged.map(([start, end]) => joined.slice(start, end));
+  return windows;
 }
 
 const SCAN_MEMO_MAX = 512;
@@ -188,20 +228,21 @@ async function memoisedCategories(
     });
   }
   const out = segments.map((t) => scanned.get(t) ?? known.get(t) ?? []);
-  for (const [t, held] of known) {
-    const key = keys.get(t);
-    if (key === undefined) continue;
+  const remember = (key: string, categories: PiiCategory[]) => {
     memo.delete(key);
-    memo.set(key, held);
-  }
-  for (const [t, categories] of scanned) {
-    const key = keys.get(t);
-    if (key === undefined) continue;
     if (memo.size >= SCAN_MEMO_MAX) {
       const oldest = memo.keys().next();
       if (!oldest.done) memo.delete(oldest.value);
     }
     memo.set(key, categories);
+  };
+  for (const [t, held] of known) {
+    const key = keys.get(t);
+    if (key !== undefined) remember(key, held);
+  }
+  for (const [t, categories] of scanned) {
+    const key = keys.get(t);
+    if (key !== undefined) remember(key, categories);
   }
   return out;
 }
@@ -211,7 +252,7 @@ export function createEgressGuard(
 ): EgressGuard {
   const analyzer = deps.analyzer ?? { scan: scanPii };
   const deadlineMs = deps.deadlineMs ?? ANALYZER_DEADLINE_MS;
-  const memos = new WeakMap<Pseudonymizer, ScanMemo>();
+  const memos = new WeakMap<Pseudonymizer, { segments: ScanMemo; windows: ScanMemo }>();
   const scan = (texts: readonly string[]): Promise<PiiFinding[][]> => withDeadline(Promise.all(texts.map(async (t) => analyzer.scan(t))), deadlineMs);
 
   return {
@@ -249,21 +290,17 @@ export function createEgressGuard(
       };
       try {
         const texts = [input.typed, ...input.results];
-        const memo = memos.get(input.pseudo) ?? new Map<string, PiiCategory[]>();
-        memos.set(input.pseudo, memo);
-        const categoriesOf = (segments: readonly string[]) => memoisedCategories(memo, scan, segments);
-        const perText = await categoriesOf(texts);
+        const held = memos.get(input.pseudo) ?? { segments: new Map<string, PiiCategory[]>(), windows: new Map<string, PiiCategory[]>() };
+        memos.set(input.pseudo, held);
+        const perText = await memoisedCategories(held.segments, scan, texts);
         const found = perText.flat();
         for (const category of found) result.counts[category] = (result.counts[category] ?? 0) + 1;
         result.highestClass = highestClassOf([input.declared ?? "P0", ...found.map((c) => CATEGORY_CLASS[c])]);
         const redacted = texts.map((t) => input.pseudo.redact(t));
         const user = redacted.join(SEPARATOR);
         const parts = [input.system, ...redacted];
-        const residual = await categoriesOf(parts);
-        if (residual.some((categories) => categories.length > 0)) throw new GuardFailure("RESIDUAL_PII");
-        const seams = await scan(seamWindows(parts));
-        if (seams.some((findings) => !Array.isArray(findings))) throw new GuardFailure("ANALYZER_ERROR", "analyzer returned a non-array");
-        if (seams.some((findings) => findings.length > 0)) throw new GuardFailure("RESIDUAL_PII");
+        const residual = await Promise.all([memoisedCategories(held.segments, scan, parts), memoisedCategories(held.windows, scan, seamWindows(parts))]);
+        if (residual.some((perPart) => perPart.some((categories) => categories.length > 0))) throw new GuardFailure("RESIDUAL_PII");
         result.decision = found.length > 0 ? "REDACTED" : "ALLOWED";
         return { user, context: { inputTokens: new Set(user.match(PSEUDONYM_RE)), inputRecordIds: new Set(input.recordIds), highestClass: result.highestClass }, result, typedReplaced: (perText[0] ?? []).filter((c) => c !== "EMAIL").length };
       } catch (err) {
