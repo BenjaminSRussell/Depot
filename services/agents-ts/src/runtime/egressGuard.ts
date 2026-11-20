@@ -3,7 +3,7 @@ import type { LogFn } from "../logging/pseudonymize.js";
 import { toolAnnotation, type ToolClass } from "../agents/catalog.js";
 import type { AiPolicyGuard } from "./aiPolicyGuard.js";
 import { AI_POLICY_MODULES } from "../domain/aiDataPolicy.js";
-import { PSEUDONYM_RE, scanPii, type PiiCategory, type PiiFinding, type Pseudonymizer } from "../domain/redaction.js";
+import { MAX_LOOKBEHIND_CHARS, PSEUDONYM_RE, scanPii, type PiiCategory, type PiiFinding, type Pseudonymizer } from "../domain/redaction.js";
 
 export const EGRESS_GUARD_TOOL = "egress.guard";
 export const GUARD_POLICY_VERSION = 1;
@@ -106,18 +106,15 @@ function describeError(err: unknown): Record<string, string> {
   const code = (err as { code?: unknown }).code;
   const detail: Record<string, string> = { error: err.name };
   if (typeof code === "string" && ERROR_CODE_RE.test(code)) detail.errorDetailCode = code;
-  try {
-    const bounded = err.message.slice(0, ERROR_SCAN_MAX);
-    const scrubbed = scanPii(bounded)
-      .filter((f) => f.value.length > 0)
-      .sort((a, b) => b.value.length - a.value.length)
-      .reduce((text, f) => text.split(f.value).join("[REDACTED]"), bounded)
-      .replace(/\d{4,}/g, "[N]")
-      .slice(0, ERROR_MESSAGE_MAX);
-    if (scrubbed.length > 0) detail.errorMessage = scrubbed;
-  } catch {
-    return detail;
-  }
+  if (!(err instanceof GuardFailure)) return detail;
+  const bounded = err.message.slice(0, ERROR_SCAN_MAX);
+  const scrubbed = scanPii(bounded)
+    .filter((f) => f.value.length > 0)
+    .sort((a, b) => b.value.length - a.value.length)
+    .reduce((text, f) => text.split(f.value).join("[REDACTED]"), bounded)
+    .replace(/\d{4,}/g, "[N]")
+    .slice(0, ERROR_MESSAGE_MAX);
+  if (scrubbed.length > 0) detail.errorMessage = scrubbed;
   return detail;
 }
 
@@ -129,31 +126,36 @@ function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
   return Promise.race([work, late]).finally(() => clearTimeout(timer));
 }
 
-const PAY_LABEL_TO_VALUE_CHARS = 12 + 12 + 1 + 7 + (1 + 80 + 1 + 6 + 1 + 3 + 1 + 3) + 1 + 4;
-export const LONGEST_LABEL_TO_VALUE_CHARS = PAY_LABEL_TO_VALUE_CHARS;
-export const SEAM_WINDOW_CHARS = 4 * LONGEST_LABEL_TO_VALUE_CHARS;
+export const SEAM_WINDOW_CHARS = 4 * MAX_LOOKBEHIND_CHARS;
 const SEPARATOR = "\n\n";
 
 function seamWindows(parts: readonly string[]): string[] {
   const joined = parts.join(SEPARATOR);
-  const windows = new Set<string>();
+  const ranges: Array<[number, number]> = [];
   let offset = 0;
   for (const part of parts.slice(0, -1)) {
     offset += part.length;
     const lead = Math.max(0, offset - SEAM_WINDOW_CHARS);
-    const trail = offset + SEPARATOR.length + SEAM_WINDOW_CHARS;
-    const leadCut = joined.slice(lead, offset - LONGEST_LABEL_TO_VALUE_CHARS).search(/\s/);
-    const trailTail = joined.slice(offset + SEPARATOR.length + LONGEST_LABEL_TO_VALUE_CHARS, trail);
-    const trailCut = trailTail.search(/\s\S*$/);
-    windows.add(
-      joined.slice(
-        lead > 0 && leadCut >= 0 ? lead + leadCut + 1 : lead,
-        trailCut >= 0 ? offset + SEPARATOR.length + LONGEST_LABEL_TO_VALUE_CHARS + trailCut : trail,
-      ),
-    );
+    const leadCut = joined.slice(lead, offset - MAX_LOOKBEHIND_CHARS).search(/\W/);
+    let start = lead;
+    if (lead > 0 && leadCut >= 0) start = lead + leadCut + 1;
+    else while (start > 0 && /\w/.test(joined.charAt(start - 1))) start--;
+    const tailStart = offset + SEPARATOR.length + MAX_LOOKBEHIND_CHARS;
+    const trail = Math.min(joined.length, offset + SEPARATOR.length + SEAM_WINDOW_CHARS);
+    const trailCut = joined.slice(tailStart, trail).search(/\W\w*$/);
+    let end = trail;
+    if (trail < joined.length && trailCut >= 0) end = tailStart + trailCut;
+    else while (end < joined.length && /\w/.test(joined.charAt(end))) end++;
+    ranges.push([start, end]);
     offset += SEPARATOR.length;
   }
-  return [...windows];
+  const merged: Array<[number, number]> = [];
+  for (const [start, end] of ranges.sort((x, y) => x[0] - y[0])) {
+    const last = merged[merged.length - 1];
+    if (last !== undefined && start < last[1]) last[1] = Math.max(last[1], end);
+    else merged.push([start, end]);
+  }
+  return merged.map(([start, end]) => joined.slice(start, end));
 }
 
 const SCAN_MEMO_MAX = 512;
@@ -170,11 +172,12 @@ async function memoisedCategories(
   segments: readonly string[],
 ): Promise<PiiCategory[][]> {
   const keys = new Map([...new Set(segments)].map((t) => [t, memoKey(t)] as const));
-  const known = (t: string): PiiCategory[] | undefined => {
-    const key = keys.get(t);
-    return key === undefined ? undefined : memo.get(key);
-  };
-  const fresh = [...keys.keys()].filter((t) => known(t) === undefined);
+  const known = new Map<string, PiiCategory[]>();
+  for (const [t, key] of keys) {
+    const held = key === undefined ? undefined : memo.get(key);
+    if (held !== undefined) known.set(t, held);
+  }
+  const fresh = [...keys.keys()].filter((t) => !known.has(t));
   const scanned = new Map<string, PiiCategory[]>();
   if (fresh.length > 0) {
     const results = await scan(fresh);
@@ -184,13 +187,12 @@ async function memoisedCategories(
       scanned.set(t, findings.map((f) => f.category));
     });
   }
-  const out = segments.map((t) => scanned.get(t) ?? known(t) ?? []);
-  for (const [t, key] of keys) {
-    const held = key === undefined ? undefined : memo.get(key);
-    if (key !== undefined && held !== undefined && !scanned.has(t)) {
-      memo.delete(key);
-      memo.set(key, held);
-    }
+  const out = segments.map((t) => scanned.get(t) ?? known.get(t) ?? []);
+  for (const [t, held] of known) {
+    const key = keys.get(t);
+    if (key === undefined) continue;
+    memo.delete(key);
+    memo.set(key, held);
   }
   for (const [t, categories] of scanned) {
     const key = keys.get(t);

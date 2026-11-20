@@ -1,18 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CopilotAnswerCache } from "../src/domain/copilot.js";
-import { Pseudonymizer, scanPii } from "../src/domain/redaction.js";
+import { MAX_LOOKBEHIND_CHARS, Pseudonymizer, scanPii } from "../src/domain/redaction.js";
 import { createCopilotService } from "../src/runtime/copilot.js";
 import type { ModelResponse } from "../src/runtime/engine.js";
 import { AMOUNT_WITHHELD_NOTICE } from "../src/domain/financialFields.js";
 import { createProviderFactory, loadConfig, withEgressGuard } from "../src/config.js";
 import { PROPOSE_TOOL_NAME } from "../src/providers/wire.js";
 import { AgentError } from "../src/errors.js";
-import { EGRESS_GUARD_TOOL, LONGEST_LABEL_TO_VALUE_CHARS, SEAM_WINDOW_CHARS, type Analyzer, type EgressInput, type GuardDecision } from "../src/runtime/egressGuard.js";
+import { EGRESS_GUARD_TOOL, SEAM_WINDOW_CHARS, type Analyzer, type EgressInput, type GuardDecision } from "../src/runtime/egressGuard.js";
 import { Metrics } from "../src/server.js";
 import { openRouter, ScriptedProvider, testGuard, allowAiAccess } from "./fakes.js";
 import { FakeMcp, headers, MemoryStore, serve, tool } from "./surface-fakes.js";
 
 const GET = "depot.ap.invoice.get";
+const SEPARATOR_LENGTH = 2;
 const DUTIES = "mcp.copilot.use,ap.invoice.read";
 const CANARIES = {
   iban: "DE89370400440532013000",
@@ -255,21 +256,63 @@ describe("guard inspect", () => {
     expect(verdict.result).toMatchObject({ decision: "BLOCKED", errorCode: "RESIDUAL_PII" });
   });
 
-  it("blocks the longest label-to-value span that ends one segment and starts the next", async () => {
-    const label = `compensation${"x".repeat(12)}"   =   {${"y".repeat(80)}"amount":`;
-    expect(label.length).toBeLessThanOrEqual(LONGEST_LABEL_TO_VALUE_CHARS);
-    expect(scanPii(`${label}\n\n85000`).map((f) => f.category)).toEqual(["PAY"]);
+  const word = (n: number) => "x".repeat(n);
+  const afterLabel = `"   :`;
+  const labelledSpans: Array<{ category: string; label: string; value: string; widened: string[] }> = [
+    { category: "PAY", label: `compensation${word(12)}"   =   {${"y".repeat(80)}"amount"   :`, value: `"USD 85000`, widened: [`compensation${word(13)}"   =   {${"y".repeat(80)}"amount"   :`, `compensation${word(12)}"   =   {${"y".repeat(81)}"amount"   :`] },
+    { category: "SSN", label: `ssn${word(12)}${afterLabel}`, value: "123456789", widened: [`ssn${word(13)}${afterLabel}`] },
+    { category: "TAXID", label: `GSTIN_number.${afterLabel}`, value: "DE 12-3456789", widened: [] },
+    { category: "BANKACCT", label: `account${word(12)} number.${afterLabel}`, value: "123456789", widened: [`account${word(13)} number.${afterLabel}`] },
+  ];
+
+  it.each(labelledSpans)("blocks the longest $category label-to-value span that ends one segment and starts the next", async ({ category, label, value }) => {
+    expect(label.length).toBeLessThanOrEqual(MAX_LOOKBEHIND_CHARS);
+    expect(scanPii(`${label}\n\n${value}`).map((f) => f.category)).toEqual([category]);
     expect(scanPii(label)).toEqual([]);
-    expect(scanPii("85000 and more")).toEqual([]);
-    expect(SEAM_WINDOW_CHARS).toBeGreaterThan(LONGEST_LABEL_TO_VALUE_CHARS);
-    const verdict = await testGuard().inspect(input(new Pseudonymizer("t", 1000, () => 0), { typed: `${"filler ".repeat(200)}${label}`, results: ["85000 and more"] }));
+    expect(scanPii(`${value} and more`)).toEqual([]);
+    const verdict = await testGuard().inspect(input(new Pseudonymizer("t", 1000, () => 0), { typed: `${"filler ".repeat(200)}${label}`, results: [`${value} and more`] }));
     expect(verdict.result).toMatchObject({ decision: "BLOCKED", errorCode: "RESIDUAL_PII" });
   });
 
-  it("does not block a long digit run that a seam window merely cuts through", async () => {
+  it.each(labelledSpans.flatMap((c) => c.widened.map((label) => ({ category: c.category, label, value: c.value }))))("does not match a $category label wider than the bound was sized for", ({ label, value }) => {
+    expect(scanPii(`${label}\n\n${value}`)).toEqual([]);
+  });
+
+  it("keeps the window bound above every labelled span", () => {
+    expect(SEAM_WINDOW_CHARS).toBeGreaterThan(MAX_LOOKBEHIND_CHARS);
+    expect(Math.max(...labelledSpans.map((c) => c.label.length))).toBeLessThanOrEqual(MAX_LOOKBEHIND_CHARS);
+  });
+
+  const cutShapes = [
+    { name: "a card number after letters", token: "INV4111111111111111,", cutAt: 3 },
+    { name: "an SSN after a letter", token: "x123-45-6789,", cutAt: 1 },
+    { name: "a tax id after a letter", token: "XTIN:123456789,", cutAt: 1 },
+    { name: "the tail of a long digit run", token: `${"1".repeat(640)}4111111111111111,`, cutAt: 640 },
+  ];
+
+  it.each(cutShapes)("does not block $name that a seam window would start inside", async ({ token, cutAt }) => {
+    const system = "system";
+    const preamble = `{${'"p":1,'.repeat(100)}"b":"`;
+    const typed = `${preamble}${token}${"z".repeat(SEAM_WINDOW_CHARS + cutAt - token.length)}`;
+    expect(system.length + SEPARATOR_LENGTH + typed.length - SEAM_WINDOW_CHARS).toBe(system.length + SEPARATOR_LENGTH + preamble.length + cutAt);
+    expect(scanPii(typed)).toEqual([]);
+    expect(scanPii(typed.slice(preamble.length + cutAt))).not.toEqual([]);
+    const verdict = await testGuard().inspect(input(new Pseudonymizer("t", 1000, () => 0), { system, typed, results: ['{"n":1}'] }));
+    expect(verdict.result.errorCode).toBeUndefined();
+  });
+
+  it("extends a seam window outward to the start of a word run longer than the cut zone", async () => {
     const run = "4111111111111111".repeat(40);
-    const verdict = await testGuard().inspect(input(new Pseudonymizer("t", 1000, () => 0), { typed: `note ${run}`, results: [`${run} end`] }));
-    expect(verdict.result.errorCode).not.toBe("RESIDUAL_PII");
+    const seen: string[] = [];
+    const verdict = await testGuard({ analyzer: recordingAnalyzer(seen) }).inspect(input(new Pseudonymizer("t", 1000, () => 0), { typed: `${"a ".repeat(300)}${run}`, results: [`${run} end`] }));
+    expect(verdict.result.errorCode).toBeUndefined();
+    expect(seen.some((t) => t.startsWith(run) && t.includes("\n\n"))).toBe(true);
+  });
+
+  it("merges overlapping seam windows into one scan of each stretch of text", async () => {
+    const seen: string[] = [];
+    await testGuard({ analyzer: recordingAnalyzer(seen) }).inspect(input(new Pseudonymizer("t", 1000, () => 0), { results: ["a", "b", "c"] }));
+    expect(seen.filter((t) => t.includes("\n\n"))).toHaveLength(1);
   });
 
   it("analyses each segment once across a growing conversation and keeps seam windows out of the memo", async () => {
@@ -312,6 +355,20 @@ describe("guard inspect", () => {
     await guard.inspect(input(pseudo, { results: ["row 0", "row 519"] }));
     expect(seen.filter((t) => t === "row 0")).toHaveLength(2);
     expect(seen.filter((t) => t === "row 519")).toHaveLength(1);
+  });
+
+  it("keeps a text's memoised categories when a concurrent turn evicts it while new text is still being scanned", async () => {
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const analyzer: Analyzer = { scan: async (text) => (text === "slow" ? gate.then(() => scanPii(text)) : scanPii(text)) };
+    const pseudo = new Pseudonymizer("t", 1000, () => 0);
+    const guard = testGuard({ analyzer });
+    const known = `x ${CANARIES.iban}`;
+    await guard.inspect(input(pseudo, { results: [known] }));
+    const pending = guard.inspect(input(pseudo, { results: [known, "slow"] }));
+    await guard.inspect(input(pseudo, { results: Array.from({ length: 520 }, (_, i) => `row ${i}`) }));
+    release();
+    expect((await pending).result).toMatchObject({ decision: "REDACTED", counts: { IBAN: 1 } });
   });
 
   it("does not memoise a failed scan, so a retry scans again", async () => {
@@ -370,7 +427,7 @@ describe("guard inspect", () => {
     expect(verdict.user).toBe("");
   });
 
-  it("logs a detail code and a scrubbed, truncated message, never the raw value, when inspect fails", async () => {
+  it("logs only the name and a detail code, never the message, for a foreign error", async () => {
     const logs: Record<string, unknown>[] = [];
     const failing: Analyzer = {
       scan: () => {
@@ -378,15 +435,12 @@ describe("guard inspect", () => {
       },
     };
     await testGuard({ analyzer: failing, log: (_l, _m, extra) => logs.push(extra ?? {}) }).inspect(input(new Pseudonymizer("t", 1000, () => 0)));
-    const record = logs[0] ?? {};
-    expect(record).toMatchObject({ errorCode: "ANALYZER_ERROR", error: "Error", errorDetailCode: "ECONNREFUSED" });
-    const message = String(record.errorMessage);
-    expect(message).toContain("down [REDACTED] [N]");
-    expect(message.length).toBeLessThanOrEqual(160);
-    expect(JSON.stringify(record)).not.toContain(CANARIES.iban);
+    expect(logs[0]).toMatchObject({ errorCode: "ANALYZER_ERROR", error: "Error", errorDetailCode: "ECONNREFUSED" });
+    expect(logs[0]).not.toHaveProperty("errorMessage");
+    expect(JSON.stringify(logs)).not.toContain(CANARIES.iban);
   });
 
-  it("logs the scrubbed message for admit and omits the detail code when it is not a code", async () => {
+  it("omits the detail code when it is not a code and logs no message for admit", async () => {
     const logs: Record<string, unknown>[] = [];
     const failing: Analyzer = {
       scan: () => {
@@ -395,8 +449,8 @@ describe("guard inspect", () => {
     };
     const admission = await testGuard({ analyzer: failing, log: (_l, _m, extra) => logs.push(extra ?? {}) }).admit({ tenantId: "t", tool: GET, text: "x" });
     expect(admission).toMatchObject({ pass: false, failure: "ANALYZER_ERROR" });
-    expect(logs[0]).toMatchObject({ errorMessage: "down [REDACTED]" });
     expect(logs[0]).not.toHaveProperty("errorDetailCode");
+    expect(logs[0]).not.toHaveProperty("errorMessage");
     expect(JSON.stringify(logs)).not.toContain(CANARIES.iban);
   });
 

@@ -340,7 +340,8 @@ describe("role home", () => {
         renderHome(["inbox.read", "agents.run.read"]);
         await main().findByText("1 item needs your attention.");
         await userEvent.setup().click(main().getByRole("button", { name: "Data used" }));
-        const feed = screen.getByRole("heading", { name: "Needs your attention", level: 2 }).closest("section") ?? document.body;
+        const feed = screen.getByRole("heading", { name: "Needs your attention", level: 2 }).parentElement?.parentElement;
+        if (!feed) throw new Error("feed card is missing");
         expect(panelHeadingSteps(feed)).toEqual([1, 1]);
       });
 
