@@ -40,6 +40,7 @@ describe("agents HTTP surface", () => {
 
   beforeAll(async () => {
     const handler = createAgentsHandler({
+      aiEnabled: true,
       authenticate: testAuthenticate,
       registry,
       versions: { next: () => ++version },
@@ -217,6 +218,7 @@ describe("agents HTTP surface", () => {
 
   it("never echoes an internal error", async () => {
     const failing = createAgentsHandler({
+      aiEnabled: true,
       authenticate: testAuthenticate,
       registry: new KillSwitchRegistry(() => Date.now()),
       versions: { next: () => 1 },
@@ -292,6 +294,7 @@ describe("api/openapi.yaml matches the router", () => {
       "PUT /api/v1/agents/budgets/{agentId}",
     ]);
     const handler = createAgentsHandler({
+      aiEnabled: true,
       authenticate: testAuthenticate,
       registry: new KillSwitchRegistry(() => Date.now()),
       versions: { next: () => 1 },
@@ -362,7 +365,7 @@ describe("agents availability sign-off gate", () => {
         generate: async () => ({ id: RUN, status: "RUNNING" }),
       } as unknown as BriefingService,
       ...(aiEnabled === undefined ? {} : { aiEnabled }),
-    });
+    } as Parameters<typeof createAgentsHandler>[0]);
     const server = createServer((req, res) => {
       void handler(req, res);
     });
@@ -405,10 +408,9 @@ describe("agents availability sign-off gate", () => {
     });
   });
 
-  it("leaves a process with no gate configured as it was", async () => {
+  it("refuses a process with no gate configured: a missing aiEnabled reads as closed", async () => {
     const out = await read(undefined);
-    expect(out.body).toMatchObject({ copilotEnabled: true });
-    expect(out.body).not.toHaveProperty("signoffPending");
+    expect(out.body).toMatchObject({ copilotEnabled: false, signoffPending: true });
   });
 
   it("answers 403 before disclosing the gate to a caller without the copilot duty", async () => {
@@ -446,7 +448,12 @@ describe("agents availability sign-off gate", () => {
   it("keeps the duty refusal ahead of the gate and an open gate reaching the route", async () => {
     expect(((await post(false, CONVERSATION, "")).body as { detail: string }).detail).toContain("duty");
     expect((await post(true, CONVERSATION)).status).toBe(201);
-    expect((await post(undefined, CONVERSATION)).status).toBe(201);
+  });
+
+  it.each(["/api/v1/copilot/chat", CONVERSATION, MESSAGES])("refuses %s when aiEnabled is missing", async (path) => {
+    const out = await post(undefined, path);
+    expect(out.status).toBe(403);
+    expect(out.body).toMatchObject({ code: "AGT-0203" });
   });
 
   const CHUNKS = JSON.stringify({
@@ -470,9 +477,14 @@ describe("agents availability sign-off gate", () => {
     expect((out.body as { detail: string }).detail).toContain("duty");
   });
 
-  it.each(knowledgeRoutes)("serves %s when the gate is open or unconfigured", async (path, duty, body) => {
+  it.each(knowledgeRoutes)("serves %s when the gate is open", async (path, duty, body) => {
     expect((await post(true, path, duty, body)).status).toBe(200);
-    expect((await post(undefined, path, duty, body)).status).toBe(200);
+  });
+
+  it.each(knowledgeRoutes)("refuses %s when aiEnabled is missing", async (path, duty, body) => {
+    const out = await post(undefined, path, duty, body);
+    expect(out.status).toBe(403);
+    expect(out.body).toMatchObject({ code: "AGT-0203" });
   });
 
   it("leaves briefing generation, which calls no model, reachable while the gate is closed", async () => {

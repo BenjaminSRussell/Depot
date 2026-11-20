@@ -165,7 +165,7 @@ export class MemoryActions implements ActionStore {
 
 export async function serve(deps: Partial<AgentsApiDeps> & Pick<AgentsApiDeps, "approvals">): Promise<{ base: string; close(): Promise<void>; registry: KillSwitchRegistry }> {
   const registry = deps.registry ?? new KillSwitchRegistry(() => Date.now());
-  const handler = createAgentsHandler({ registry, versions: { next: () => 1 }, publish: async () => undefined, authenticate: testAuthenticate, ...deps });
+  const handler = createAgentsHandler({ registry, versions: { next: () => 1 }, publish: async () => undefined, authenticate: testAuthenticate, aiEnabled: true, ...deps });
   const server: Server = createServer((req, res) => void handler(req, res));
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   return {

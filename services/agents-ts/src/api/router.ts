@@ -38,7 +38,7 @@ export interface AgentsApiBase {
   actions?: ActionService;
   /** The copilot chat endpoint. */
   copilot?: CopilotService;
-  aiEnabled?: boolean;
+  aiEnabled: boolean;
   act?: ActService;
   /** The knowledge index and its hybrid search; absent and the knowledge routes answer 404. */
   knowledge?: KnowledgeService;
@@ -206,7 +206,7 @@ async function handleStep(steps: NonNullable<AgentsApiBase["steps"]>, req: Incom
 export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
   const now = deps.now ?? (() => new Date());
   const requireAiSignoff = (): void => {
-    if (deps.aiEnabled === false) throw new ApiError(403, "AGT-0203", "AI is disabled for this deployment until its sign-off is recorded.");
+    if (deps.aiEnabled !== true) throw new ApiError(403, "AGT-0203", "AI is disabled for this deployment until its sign-off is recorded.");
   };
   return async (req, res) => {
     const path = new URL(req.url ?? "/", "http://agents.internal").pathname;
@@ -233,7 +233,7 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         const principal = await deps.authenticate(req.headers);
         requireDuty(principal, COPILOT_DUTY, "the assistant availability");
         const { halted, stale } = killSwitchStatusOf(principal, deps.registry);
-        const signoffPending = deps.aiEnabled === false;
+        const signoffPending = deps.aiEnabled !== true;
         send(res, 200, {
           killSwitch: { halted, stale },
           budgetStatus: deps.budgets === undefined ? "OK" : await deps.budgets.status(principal),
