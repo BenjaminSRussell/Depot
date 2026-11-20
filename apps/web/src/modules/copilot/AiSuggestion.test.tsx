@@ -87,6 +87,18 @@ describe("AiSuggestion", () => {
     },
   );
 
+  it.each([
+    ["answer", 4],
+    ["briefing-item", 4],
+    ["proposal", 3],
+    ["feed-item", 3],
+  ] as const)("%s: the Data used panel headings are level %i", async (host, level) => {
+    renderHost(host);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Data used" }));
+    expect(screen.getByRole("heading", { name: "Tools called", level })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Records read", level })).toBeInTheDocument();
+  });
+
   it("shows rationale, confidence and the agent version when the trace carries them", async () => {
     renderHost("answer");
     await userEvent

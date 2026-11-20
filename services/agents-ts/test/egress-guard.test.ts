@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CopilotAnswerCache } from "../src/domain/copilot.js";
 import { Pseudonymizer, scanPii } from "../src/domain/redaction.js";
 import { createCopilotService } from "../src/runtime/copilot.js";
@@ -42,6 +42,7 @@ const call = (): ModelResponse => ({
 
 let close: (() => Promise<void>) | undefined;
 afterEach(async () => {
+  vi.useRealTimers();
   await close?.();
   close = undefined;
 });
@@ -58,7 +59,7 @@ const chatWith = async (analyzer?: Analyzer, observe?: (seconds: number, decisio
     cache: new CopilotAnswerCache(),
     config: { tokenCap: 20_000, maxTurns: 3, pseudonymTtlMs: 60_000 },
     modelId: "claude-haiku-5-5",
-    guard: testGuard({ ...(analyzer !== undefined ? { analyzer } : {}), deadlineMs: 50, ...(observe !== undefined ? { observe } : {}) }),
+    guard: testGuard({ ...(analyzer !== undefined ? { analyzer } : {}), ...(observe !== undefined ? { observe } : {}) }),
   });
   const srv = await serve({ approvals: store, copilot });
   close = srv.close;
@@ -104,13 +105,6 @@ describe("egress guard before the provider", () => {
     expect(provider.seen).toHaveLength(0);
     expect(rows[0]?.guardResult).toMatchObject({ decision: "BLOCKED", errorCode: "ANALYZER_ERROR", counts: {} });
     expect(JSON.stringify(rows)).not.toContain(CANARIES.iban);
-  });
-
-  it("blocks with ANALYZER_TIMEOUT when the analyzer misses the deadline", async () => {
-    const { body, provider, rows } = await chatWith({ scan: () => new Promise(() => undefined) });
-    expect(body.refusal?.code).toBe("AGT-0219");
-    expect(provider.seen).toHaveLength(0);
-    expect(rows[0]?.guardResult).toMatchObject({ decision: "BLOCKED", errorCode: "ANALYZER_TIMEOUT" });
   });
 
   it("blocks with RESIDUAL_PII when a finding survives redaction", async () => {
@@ -163,6 +157,83 @@ describe("guard inspect", () => {
     expect([...verdict.context.inputTokens]).toEqual(["[IBAN-1]"]);
     expect([...verdict.context.inputRecordIds]).toEqual(["R-1"]);
     expect(verdict.context.highestClass).toBe("P3");
+  });
+
+  it("scans each distinct text once per pseudonymizer across turns and keeps the full-scan verdict", async () => {
+    const seen: string[] = [];
+    const analyzer: Analyzer = { scan: (text) => (seen.push(text), scanPii(text)) };
+    const pseudo = new Pseudonymizer("t", 1000, () => 0);
+    const guard = testGuard({ analyzer });
+    const first = `a ${CANARIES.iban}`;
+    const second = `b ${CANARIES.ssn}`;
+    await guard.inspect(input(pseudo, { results: [first] }));
+    const turn = await guard.inspect(input(pseudo, { results: [first, second] }));
+    expect(seen.filter((t) => t === first)).toHaveLength(1);
+    expect(seen.filter((t) => t === second)).toHaveLength(1);
+    expect(turn.result).toMatchObject({ decision: "REDACTED", counts: { IBAN: 1, SSN: 1 } });
+    expect(turn.user).toBe("hello\n\na [IBAN-1]\n\nb [SSN-1]");
+  });
+
+  it("does not memoise a failed scan, so a retry scans again", async () => {
+    let calls = 0;
+    const analyzer: Analyzer = { scan: (text) => { calls += 1; if (calls === 1) throw new Error("down"); return scanPii(text); } };
+    const pseudo = new Pseudonymizer("t", 1000, () => 0);
+    const guard = testGuard({ analyzer });
+    const failed = await guard.inspect(input(pseudo, { results: [`x ${CANARIES.iban}`] }));
+    const retry = await guard.inspect(input(pseudo, { results: [`x ${CANARIES.iban}`] }));
+    expect(failed.result.errorCode).toBe("ANALYZER_ERROR");
+    expect(retry.result).toMatchObject({ decision: "REDACTED", counts: { IBAN: 1 } });
+  });
+
+  it("still blocks on residual PII when the memoised texts were clean", async () => {
+    let residual = false;
+    const analyzer: Analyzer = { scan: (text) => (residual && text.startsWith("system") ? [{ category: "IBAN", value: "kept" }] : []) };
+    const pseudo = new Pseudonymizer("t", 1000, () => 0);
+    const guard = testGuard({ analyzer });
+    await guard.inspect(input(pseudo));
+    residual = true;
+    const verdict = await guard.inspect(input(pseudo));
+    expect(verdict.result).toMatchObject({ decision: "BLOCKED", errorCode: "RESIDUAL_PII" });
+  });
+
+  it("blocks with ANALYZER_TIMEOUT when the analyzer misses the deadline", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const guard = testGuard({ analyzer: { scan: () => new Promise(() => undefined) }, deadlineMs: 50 });
+    const pending = guard.inspect(input(new Pseudonymizer("t", 1000, () => 0)));
+    await vi.advanceTimersByTimeAsync(50);
+    const verdict = await pending;
+    expect(verdict.result).toMatchObject({ decision: "BLOCKED", errorCode: "ANALYZER_TIMEOUT" });
+    expect(verdict.user).toBe("");
+  });
+
+  it("logs a detail code and a scrubbed, truncated message, never the raw value, when inspect fails", async () => {
+    const logs: Record<string, unknown>[] = [];
+    const failing: Analyzer = { scan: () => { throw Object.assign(new Error(`down ${CANARIES.iban} 1234567 ${"x".repeat(300)}`), { code: "ECONNREFUSED" }); } };
+    await testGuard({ analyzer: failing, log: (_l, _m, extra) => logs.push(extra ?? {}) }).inspect(input(new Pseudonymizer("t", 1000, () => 0)));
+    const record = logs[0] ?? {};
+    expect(record).toMatchObject({ errorCode: "ANALYZER_ERROR", error: "Error", errorDetailCode: "ECONNREFUSED" });
+    const message = String(record.errorMessage);
+    expect(message).toContain("down [REDACTED] [N]");
+    expect(message.length).toBeLessThanOrEqual(160);
+    expect(JSON.stringify(record)).not.toContain(CANARIES.iban);
+  });
+
+  it("logs the scrubbed message for admit and omits the detail code when it is not a code", async () => {
+    const logs: Record<string, unknown>[] = [];
+    const failing: Analyzer = { scan: () => { throw Object.assign(new Error(`down ${CANARIES.iban}`), { code: "not a code" }); } };
+    const admission = await testGuard({ analyzer: failing, log: (_l, _m, extra) => logs.push(extra ?? {}) }).admit({ tenantId: "t", tool: GET, text: "x" });
+    expect(admission).toMatchObject({ pass: false, failure: "ANALYZER_ERROR" });
+    expect(logs[0]).toMatchObject({ errorMessage: "down [REDACTED]" });
+    expect(logs[0]).not.toHaveProperty("errorDetailCode");
+    expect(JSON.stringify(logs)).not.toContain(CANARIES.iban);
+  });
+
+  it("logs only the name for a non-Error throw", async () => {
+    const logs: Record<string, unknown>[] = [];
+    const failing: Analyzer = { scan: () => { throw "boom " + CANARIES.iban; } };
+    await testGuard({ analyzer: failing, log: (_l, _m, extra) => logs.push(extra ?? {}) }).inspect(input(new Pseudonymizer("t", 1000, () => 0)));
+    expect(logs[0]).toMatchObject({ error: "unknown" });
+    expect(logs[0]).not.toHaveProperty("errorMessage");
   });
 
   it("returns an empty context when the analyzer fails", async () => {

@@ -70,6 +70,7 @@ describe("AskAnswer", () => {
     await userEvent.setup().click(within(final).getByRole("button", { name: "Data used" }));
     expect(within(final).getByRole("list", { name: "Tools called" })).toHaveTextContent("analytics.query: OK");
     expect(within(final).getByRole("list", { name: "Sources" })).toHaveTextContent("Invoice INV-1042");
+    for (const name of ["Sources", "Tools called", "Records read"]) expect(within(final).getByRole("heading", { name, level: 4 })).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("The copilot has finished answering.");
     expect(pageViolations()).toEqual([]);
   });

@@ -103,6 +103,28 @@ function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
   return Promise.race([work, late]).finally(() => clearTimeout(timer));
 }
 
+const ERROR_CODE_RE = /^[A-Z][A-Z0-9_-]{1,31}$/;
+const ERROR_MESSAGE_MAX = 160;
+
+function describeError(err: unknown): Record<string, string> {
+  if (!(err instanceof Error)) return { error: "unknown" };
+  const code = (err as { code?: unknown }).code;
+  const detail: Record<string, string> = { error: err.name };
+  if (typeof code === "string" && ERROR_CODE_RE.test(code)) detail.errorDetailCode = code;
+  try {
+    const scrubbed = scanPii(err.message)
+      .reduce((text, f) => text.split(f.value).join("[REDACTED]"), err.message)
+      .replace(/\d{4,}/g, "[N]")
+      .slice(0, ERROR_MESSAGE_MAX);
+    if (scrubbed.length > 0) detail.errorMessage = scrubbed;
+  } catch {
+    return detail;
+  }
+  return detail;
+}
+
+const scannedTexts = new WeakMap<Pseudonymizer, Map<string, PiiFinding[]>>();
+
 export function createEgressGuard(
   deps: { analyzer?: Analyzer; policy: AiPolicyGuard; log?: LogFn; observe?: (seconds: number, decision: GuardDecision) => void; deadlineMs?: number },
 ): EgressGuard {
@@ -127,7 +149,7 @@ export function createEgressGuard(
         return { ...base, pass: decision.allowed, class: cls, policyVersion: decision.policyVersion };
       } catch (err) {
         const failure = err instanceof GuardFailure ? err.code : err instanceof Error && err.name === "AgentError" ? "POLICY_UNREADABLE" : "ANALYZER_ERROR";
-        deps.log?.("warn", "egress guard could not admit a tool result", { tenantId, tool, errorCode: failure, error: err instanceof Error ? err.name : "unknown" });
+        deps.log?.("warn", "egress guard could not admit a tool result", { tenantId, tool, errorCode: failure, ...describeError(err) });
         return { ...base, pass: false, class: "P3", failure };
       }
     },
@@ -144,11 +166,23 @@ export function createEgressGuard(
         decision: "BLOCKED",
       };
       try {
-        const perText = await scan([input.typed, ...input.results]);
+        const texts = [input.typed, ...input.results];
+        const memo = scannedTexts.get(input.pseudo) ?? new Map<string, PiiFinding[]>();
+        scannedTexts.set(input.pseudo, memo);
+        const fresh = [...new Set(texts)].filter((t) => !memo.has(t));
+        if (fresh.length > 0) {
+          const scanned = await scan(fresh);
+          fresh.forEach((t, i) => {
+            const findings = scanned[i];
+            if (!Array.isArray(findings)) throw new GuardFailure("ANALYZER_ERROR");
+            memo.set(t, findings);
+          });
+        }
+        const perText = texts.map((t) => memo.get(t) ?? []);
         const found = perText.flat();
         for (const f of found) result.counts[f.category] = (result.counts[f.category] ?? 0) + 1;
         result.highestClass = highestClassOf([input.declared ?? "P0", ...found.map((f) => CATEGORY_CLASS[f.category])]);
-        const user = [input.typed, ...input.results].map((t) => input.pseudo.redact(t)).join("\n\n");
+        const user = texts.map((t) => input.pseudo.redact(t)).join("\n\n");
         const [left = []] = await scan([`${input.system}\n\n${user}`]);
         if (left.length > 0) throw new GuardFailure("RESIDUAL_PII");
         result.decision = found.length > 0 ? "REDACTED" : "ALLOWED";
@@ -159,7 +193,7 @@ export function createEgressGuard(
           tenantId: input.tenantId,
           callId: input.callId,
           errorCode: result.errorCode,
-          error: err instanceof Error ? err.name : "unknown",
+          ...describeError(err),
           counts: result.counts,
         });
         return { user: "", context: { inputTokens: new Set(), inputRecordIds: new Set(), highestClass: result.highestClass }, result, typedReplaced: 0 };
