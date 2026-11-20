@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { getAvailability } from "../../../shell/assistant/availability";
 import { getKillSwitch, setKillSwitch } from "./agents";
-import { createConversation, postChat } from "./client";
+import { createConversation, postChat, postTask } from "./client";
 import { listTools } from "./mcp";
 import { askCopilot, streamChat } from "./stream";
 
@@ -20,6 +20,7 @@ const request = { mode: "ask" as const, message: "how is cash" };
 describe("copilot requests are never stored by the browser HTTP cache", () => {
   it.each([
     ["createConversation", (f: typeof fetch) => createConversation(f)],
+    ["postTask", (f: typeof fetch) => postTask("open invoices", f)],
     ["postChat", (f: typeof fetch) => postChat(request, f, CONVERSATION_ID)],
     ["streamChat", (f: typeof fetch) => streamChat(request, f, CONVERSATION_ID).next()],
     ["askCopilot", (f: typeof fetch) => askCopilot(request, undefined, undefined, f, CONVERSATION_ID)],
