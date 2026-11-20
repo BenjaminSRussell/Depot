@@ -71,6 +71,9 @@ describe("AskAnswer", () => {
     expect(within(final).getByRole("list", { name: "Tools called" })).toHaveTextContent("analytics.query: OK");
     expect(within(final).getByRole("list", { name: "Sources" })).toHaveTextContent("Invoice INV-1042");
     for (const name of ["Sources", "Tools called", "Records read"]) expect(within(final).getByRole("heading", { name, level: 4 })).toBeInTheDocument();
+    const levels = screen.getAllByRole("heading").map((h) => Number(h.tagName.slice(1)));
+    expect(levels[0]).toBe(3);
+    levels.forEach((level, i) => expect(level - (levels[i - 1] ?? 3)).toBeLessThanOrEqual(1));
     expect(screen.getByRole("status")).toHaveTextContent("The copilot has finished answering.");
     expect(pageViolations()).toEqual([]);
   });

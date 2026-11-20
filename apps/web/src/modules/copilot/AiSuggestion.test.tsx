@@ -97,6 +97,27 @@ describe("AiSuggestion", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: "Data used" }));
     expect(screen.getByRole("heading", { name: "Tools called", level })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Records read", level })).toBeInTheDocument();
+    const otherLevel = level === 3 ? 4 : 3;
+    expect(screen.queryByRole("heading", { name: "Tools called", level: otherLevel })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Records read", level: otherLevel })).toBeNull();
+  });
+
+  it.each([
+    ["answer", 3],
+    ["briefing-item", 3],
+  ] as const)("%s: the panel headings sit one level under a level %i parent heading", async (host, parentLevel) => {
+    const Parent = `h${parentLevel}` as "h3";
+    render(
+      <MemoryRouter>
+        <PrincipalProvider duties={[]}>
+          <Parent>Parent</Parent>
+          <AiSuggestion host={host} suggestion={suggestionFixtures[host].suggestion} />
+        </PrincipalProvider>
+      </MemoryRouter>,
+    );
+    await userEvent.setup().click(screen.getByRole("button", { name: "Data used" }));
+    const levels = screen.getAllByRole("heading").map((h) => Number(h.tagName.slice(1)));
+    expect(levels).toEqual([parentLevel, parentLevel + 1, parentLevel + 1]);
   });
 
   it("shows rationale, confidence and the agent version when the trace carries them", async () => {
