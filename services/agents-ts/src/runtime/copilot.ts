@@ -246,7 +246,7 @@ export function createCopilotService(deps: CopilotDeps) {
       let guardContext: GuardContext = { inputTokens: new Set(), inputRecordIds: new Set(), highestClass: "P0" };
       const outcome: { failure?: OutputGuardReason } = {};
       const verify = async (text: string, partial: boolean): Promise<string | undefined> => {
-        const verdict = await outputGuard.check({ tenantId: caller.tenantId, text, context: guardContext, pseudo, duties: caller.duties, declaredClass: dataClass, partial, inputs: [prompt, ...results] });
+        const verdict = await outputGuard.check({ tenantId: caller.tenantId, text, context: guardContext, pseudo, duties: caller.duties, declaredClass: dataClass, partial });
         dataClass = verdict.dataClass;
         if (verdict.ok) return verdict.text;
         if (outcome.failure === undefined) {
@@ -255,7 +255,7 @@ export function createCopilotService(deps: CopilotDeps) {
         }
         return undefined;
       };
-      const present = (text: string): string => stripUnreadableCitations(pseudo.restoreFor(text, caller.duties), guardContext.inputRecordIds);
+      const present = (text: string): string => stripUnreadableCitations(outputGuard.neutralise(pseudo.restoreFor(text, caller.duties)), guardContext.inputRecordIds);
       // Text is shown a sentence at a time, after the output guard passed it, unless a knowledge result already makes the answer unanswerable.
       const streamable = (): boolean => knowledge.length === 0 || gateCitations(knowledge).answerable;
       const releaser =

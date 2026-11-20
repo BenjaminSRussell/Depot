@@ -76,7 +76,7 @@ class TenantFreeStore extends MemoryStore {
   }
 }
 
-export const passThroughOutputGuard: OutputGuard = { check: async (input) => ({ ok: true, dataClass: "P0", text: input.text, linksRemoved: 0 }) };
+export const passThroughOutputGuard: OutputGuard = { check: async (input) => ({ ok: true, dataClass: "P0", text: input.text, linksRemoved: 0 }), neutralise: (text) => text };
 
 export const denyAllPolicy: AiPolicyGuard = {
   check: async () => ({ allowed: false, policyVersion: 1, reason: "denied" }),

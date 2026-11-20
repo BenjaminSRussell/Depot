@@ -1,5 +1,5 @@
 import type { LogFn } from "../logging/pseudonymize.js";
-import { dataCarryingLinks, neutraliseLinks } from "../domain/exfilLinks.js";
+import { neutraliseLinks, unsafeTail } from "../domain/exfilLinks.js";
 import { mayViewValue, P3_CATEGORIES, PSEUDONYM_RE, scanPii, type Pseudonymizer } from "../domain/redaction.js";
 import { GUARD_POLICY_VERSION, highestClassOf, type Analyzer, type DataClass, type GuardContext, type GuardDecision, type GuardResult, type OutputGuardReason } from "./egressGuard.js";
 
@@ -26,7 +26,6 @@ export interface OutputInput {
   duties: ReadonlySet<string>;
   declaredClass: DataClass;
   partial?: boolean;
-  inputs?: readonly string[];
   attachments?: string;
 }
 
@@ -34,6 +33,7 @@ export type OutputVerdict = { ok: true; dataClass: DataClass; text: string; link
 
 export interface OutputGuard {
   check(input: OutputInput): Promise<OutputVerdict>;
+  neutralise(text: string): string;
 }
 
 export async function checkRunOutput(
@@ -44,7 +44,6 @@ export async function checkRunOutput(
     tenantId: input.tenantId,
     text: input.response.text,
     attachments: JSON.stringify(input.response.proposal?.args ?? {}),
-    inputs: [input.prompt],
     context: { inputTokens: new Set(input.prompt.match(PSEUDONYM_RE)), inputRecordIds: new Set(), highestClass: "P0" },
     pseudo: input.pseudo,
     duties: input.duties,
@@ -85,10 +84,10 @@ export function createOutputGuard(deps: { analyzer?: Analyzer; log?: LogFn; obse
   const analyzer = deps.analyzer ?? { scan: scanPii };
   const deadlineMs = deps.deadlineMs ?? OUTPUT_GUARD_DEADLINE_MS;
 
-  async function violation(input: OutputInput): Promise<OutputGuardReason | undefined> {
+  async function violation(input: OutputInput, answer: string): Promise<OutputGuardReason | undefined> {
     const { context, pseudo, duties } = input;
-    const text = input.attachments === undefined ? input.text : `${input.text}\n${input.attachments}`;
-    if (input.attachments !== undefined && dataCarryingLinks(input.attachments, input.inputs).length > 0) return "LINK_IN_ARGS";
+    const text = input.attachments === undefined ? answer : `${answer}\n${input.attachments}`;
+    if (input.attachments !== undefined && neutraliseLinks(input.attachments).removed > 0) return "LINK_IN_ARGS";
     if ([...text.matchAll(PSEUDONYM_RE)].some((m) => !context.inputTokens.has(m[0]))) return "TOKEN_NOT_IN_INPUT";
     if (input.partial !== true) {
       const cited = [...text.matchAll(CITE_RE)].map((m) => m[1] ?? "");
@@ -106,13 +105,16 @@ export function createOutputGuard(deps: { analyzer?: Analyzer; log?: LogFn; obse
   }
 
   return {
+    neutralise: (text) => neutraliseLinks(text).text,
     async check(input) {
       const started = performance.now();
       const dataClass = highestClassOf([input.declaredClass, input.context.highestClass]);
       let reason: OutputGuardReason | undefined;
       let error: string | undefined;
+      let neutral = { text: "", removed: 0 };
       try {
-        reason = await withDeadline(violation(input), deadlineMs);
+        neutral = neutraliseLinks(input.text);
+        reason = await withDeadline(violation(input, neutral.text), deadlineMs);
       } catch (err) {
         reason = err instanceof GuardTimeout ? "GUARD_TIMEOUT" : "GUARD_ERROR";
         error = err instanceof Error ? err.name : "unknown";
@@ -128,8 +130,7 @@ export function createOutputGuard(deps: { analyzer?: Analyzer; log?: LogFn; obse
       }
       deps.observe?.((performance.now() - started) / 1000, reason === undefined ? "ALLOWED" : "OUTPUT_BLOCKED");
       if (reason !== undefined) return { ok: false, reason, dataClass };
-      const neutral = neutraliseLinks(input.text, input.inputs);
-      if (neutral.removed > 0) deps.log?.("warn", "output guard removed data-carrying links", { tenantId: input.tenantId, removed: neutral.removed });
+      if (neutral.removed > 0) deps.log?.("warn", "output guard removed links", { tenantId: input.tenantId, removed: neutral.removed });
       return { ok: true, dataClass, text: neutral.text, linksRemoved: neutral.removed };
     },
   };
@@ -147,8 +148,13 @@ export function createChunkReleaser(release: (chunk: string) => Promise<boolean>
   return {
     push(delta: string): void {
       buffer += delta;
+      const safe = unsafeTail(buffer);
       let cut = 0;
-      for (const m of buffer.matchAll(SENTENCE_END)) cut = (m.index ?? 0) + m[0].length;
+      for (const m of buffer.matchAll(SENTENCE_END)) {
+        const end = (m.index ?? 0) + m[0].length;
+        if (end > safe) break;
+        cut = end;
+      }
       if (cut === 0) return;
       send(buffer.slice(0, cut));
       buffer = buffer.slice(cut);
