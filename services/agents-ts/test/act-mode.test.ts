@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { defaultCatalog } from "../src/agents/catalog.js";
 import { CopilotAnswerCache } from "../src/domain/copilot.js";
 import { AgentError } from "../src/errors.js";
@@ -8,7 +8,7 @@ import { GUARD_REFUSAL_MESSAGE } from "../src/runtime/egressGuard.js";
 import type { ModelProvider, ModelResponse } from "../src/runtime/engine.js";
 import type { AiRouter } from "../src/runtime/aiRouter.js";
 import { createOutputGuard, OUTPUT_GUARD_MESSAGE } from "../src/runtime/outputGuard.js";
-import { createRunService } from "../src/runtime/service.js";
+import { createRunService, MAX_PROPOSALS_IN_FLIGHT } from "../src/runtime/service.js";
 import { allowAiAccess, openRouter, proposal, REAL_IBAN, ScriptedProvider, testGuard, usd } from "./fakes.js";
 import { FakeMcp, headers, MemoryStore, serve, tool } from "./surface-fakes.js";
 
@@ -157,6 +157,24 @@ describe("mode=act proposals", () => {
     expect(body).toMatchObject({ status: "RUNNING", agentId: "cash_app", refusal: { code: "AGT-0234" } });
     expect(body).not.toHaveProperty("proposal");
     expect(s.store.approvals.size).toBe(0);
+  });
+});
+
+describe("mode=act in-flight cap", () => {
+  it("answers 429 when a user already has the allowed number of proposals being prepared, and frees the slot afterwards", async () => {
+    let t = Date.UTC(2026, 10, 19);
+    let step = 0;
+    const hang: ModelProvider = { complete: () => new Promise<never>(() => undefined) };
+    const s = await setup(Array.from({ length: MAX_PROPOSALS_IN_FLIGHT + 2 }, () => say(PAYMENT_PARAMS)), [], { proposer: hang, now: () => new Date((t += step)) });
+    const waiting = Array.from({ length: MAX_PROPOSALS_IN_FLIGHT }, () => s.post({ mode: "act", ...PAYMENT_MESSAGE }));
+    await vi.waitFor(() => expect(s.agentRuns()).toHaveLength(MAX_PROPOSALS_IN_FLIGHT));
+    const refused = await s.post({ mode: "act", ...PAYMENT_MESSAGE });
+    expect(refused.status).toBe(429);
+    expect(await json(refused)).toMatchObject({ code: "AGT-0230" });
+    expect(s.agentRuns()).toHaveLength(MAX_PROPOSALS_IN_FLIGHT);
+    step = 20_000;
+    expect((await Promise.all(waiting)).map((r) => r.status)).toEqual(Array(MAX_PROPOSALS_IN_FLIGHT).fill(202));
+    expect((await s.post({ mode: "act", ...PAYMENT_MESSAGE })).status).toBe(202);
   });
 });
 

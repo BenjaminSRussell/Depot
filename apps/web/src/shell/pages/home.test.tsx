@@ -312,6 +312,20 @@ describe("role home", () => {
       expect(chats()).toHaveLength(0);
     });
 
+    it("answers a question asked from the command bar while the copilot page is already open", async () => {
+      const user = userEvent.setup();
+      clearHandedOffPrompt();
+      server.handler = chat();
+      renderHome([COPILOT_DUTY], modules, { pathname: "/copilot" });
+      await screen.findByRole("heading", { name: "Copilot" });
+      expect(chats()).toHaveLength(0);
+      await user.keyboard("{Control>}k{/Control}");
+      await user.type(await screen.findByLabelText("Find a page"), "zzqq");
+      await screen.findByRole("group", { name: "Assistant" });
+      await user.keyboard("{Enter}");
+      await waitFor(() => expect(chats().map((c) => c.body)).toContainEqual({ mode: "ask", message: "zzqq" }));
+    });
+
     it("sends nothing when the handed-off prompt is older than ten seconds", async () => {
       handOffPrompt("how is cash");
       const now = Date.now();

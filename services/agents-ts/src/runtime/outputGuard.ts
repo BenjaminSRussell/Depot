@@ -88,7 +88,7 @@ export function createOutputGuard(deps: { analyzer?: Analyzer; log?: LogFn; obse
   async function violation(input: OutputInput): Promise<OutputGuardReason | undefined> {
     const { context, pseudo, duties } = input;
     const text = input.attachments === undefined ? input.text : `${input.text}\n${input.attachments}`;
-    if (input.attachments !== undefined && dataCarryingLinks(input.attachments, input.inputs).length > 0) return "LINK_IN_ARGS";
+    if (input.attachments !== undefined && dataCarryingLinks(input.attachments).length > 0) return "LINK_IN_ARGS";
     if ([...text.matchAll(PSEUDONYM_RE)].some((m) => !context.inputTokens.has(m[0]))) return "TOKEN_NOT_IN_INPUT";
     if (input.partial !== true) {
       const cited = [...text.matchAll(CITE_RE)].map((m) => m[1] ?? "");
@@ -128,7 +128,7 @@ export function createOutputGuard(deps: { analyzer?: Analyzer; log?: LogFn; obse
       }
       deps.observe?.((performance.now() - started) / 1000, reason === undefined ? "ALLOWED" : "OUTPUT_BLOCKED");
       if (reason !== undefined) return { ok: false, reason, dataClass };
-      const neutral = neutraliseLinks(input.text, input.inputs);
+      const neutral = neutraliseLinks(input.text);
       if (neutral.removed > 0) deps.log?.("warn", "output guard removed data-carrying links", { tenantId: input.tenantId, removed: neutral.removed });
       return { ok: true, dataClass, text: neutral.text, linksRemoved: neutral.removed };
     },

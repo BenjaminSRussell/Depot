@@ -98,6 +98,8 @@ type OpenedHook = (actionId: string, info: Omit<OpenedProposal, "actionId">) => 
 
 export const PROPOSAL_WAIT_MS = 30_000;
 const PROPOSAL_POLL_MS = 100;
+const PROPOSAL_POLL_MAX_MS = 500;
+export const MAX_PROPOSALS_IN_FLIGHT = 3;
 const isFinished = (status: string): boolean => (RUN_STATUSES as readonly string[]).includes(status) && isTerminal(status as RunStatus);
 
 export interface RunView {
@@ -124,6 +126,8 @@ export function createRunService(deps: RunServiceDeps) {
     });
   const newRunId = deps.newRunId ?? randomUUID;
   const prod = new Map(deps.agents.map((a) => [a.agentId, a]));
+
+  const proposalsInFlight = new Map<string, number>();
 
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
 
@@ -250,18 +254,30 @@ export function createRunService(deps: RunServiceDeps) {
     async startForProposal(caller: Principal, token: string, agentId: string, prompt: string, tool: string): Promise<ProposalStart> {
       if (deps.workflow !== undefined) throw new AgentError("AGT-0234", "act mode needs the in-process run engine");
       const agent = await assertStartable(caller, agentId);
-      let opened: OpenedProposal | undefined;
-      const started = await launch(caller, token, { ...agent, allowedTools: [tool] }, prompt, (actionId, info) => {
-        opened = { actionId, ...info };
-      });
-      const deadline = now().getTime() + PROPOSAL_WAIT_MS;
-      for (;;) {
-        const pending = await deps.inbox.pendingForRun(caller.tenantId, started.runId);
-        if (opened !== undefined && pending.some((p) => p.actionId === opened?.actionId)) return { started, opened };
-        const run = await deps.store.getRun(caller.tenantId, started.runId);
-        if (run !== undefined && isFinished(run.status)) return { started, endedWith: run.code ?? run.status };
-        if (now().getTime() >= deadline) return { started };
-        await sleep(PROPOSAL_POLL_MS);
+      const key = `${caller.tenantId}:${caller.userId}`;
+      const active = proposalsInFlight.get(key) ?? 0;
+      if (active >= MAX_PROPOSALS_IN_FLIGHT) throw new ApiError(429, "AGT-0230", "too many changes are being prepared for you; wait for one to finish", { headers: { "Retry-After": "5" } });
+      proposalsInFlight.set(key, active + 1);
+      try {
+        let opened: OpenedProposal | undefined;
+        const started = await launch(caller, token, { ...agent, allowedTools: [tool] }, prompt, (actionId, info) => {
+          opened = { actionId, ...info };
+        });
+        const deadline = now().getTime() + PROPOSAL_WAIT_MS;
+        let delay = PROPOSAL_POLL_MS;
+        for (;;) {
+          const pending = await deps.inbox.pendingForRun(caller.tenantId, started.runId);
+          if (opened !== undefined && pending.some((p) => p.actionId === opened?.actionId)) return { started, opened };
+          const run = await deps.store.getRun(caller.tenantId, started.runId);
+          if (run !== undefined && isFinished(run.status)) return { started, endedWith: run.code ?? run.status };
+          if (now().getTime() >= deadline) return { started };
+          await sleep(delay);
+          delay = Math.min(delay * 2, PROPOSAL_POLL_MAX_MS);
+        }
+      } finally {
+        const left = (proposalsInFlight.get(key) ?? 1) - 1;
+        if (left <= 0) proposalsInFlight.delete(key);
+        else proposalsInFlight.set(key, left);
       }
     },
 

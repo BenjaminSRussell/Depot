@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { recordRefOf } from "../../shell/assistant/recordContext";
 import { clearHandedOffPrompt, peekHandedOffPrompt, takeRecordContext } from "../../shell/assistant/session";
 import { AssistantNotice } from "../../shell/assistant/AvailabilityProvider";
@@ -7,6 +8,10 @@ import { CopilotPanel } from "./CopilotPanel";
 import styles from "./pages.module.css";
 
 export function CopilotHome() {
+  return <CopilotHomeContent key={useLocation().key} />;
+}
+
+function CopilotHomeContent() {
   const [initialMessage] = useState(() => peekHandedOffPrompt());
   const [recordRef] = useState(() => {
     const context = takeRecordContext();
