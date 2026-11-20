@@ -3887,8 +3887,12 @@ test_cui_view_is_a_flag_duty_no_designation_duty_grants if {
 	not data.duties["datadesignation.read"].flag
 }
 
+# The output guard in services/agents-ts reads the token duties claim, not held_duties, so these
+# cases pin the policy data and the OPA assignment model only; they do not prove the guard is scoped.
+sensitive_view_duties := ["agents.sensitive-payroll.view", "agents.sensitive-worker.view"]
+
 test_sensitive_view_duties_are_flag_duties if {
-	every duty in ["agents.sensitive-payroll.view", "agents.sensitive-worker.view"] {
+	every duty in sensitive_view_duties {
 		data.duties[duty].flag == true
 		count(data.duties[duty].permissions) == 0
 		not data.duties[duty].tenant_level
@@ -3897,14 +3901,14 @@ test_sensitive_view_duties_are_flag_duties if {
 }
 
 test_sensitive_view_duties_open_no_route if {
-	every duty in ["agents.sensitive-payroll.view", "agents.sensitive-worker.view"] {
+	every duty in sensitive_view_duties {
 		not allowed(duty, "GET", "/v1/hr/workers/w1/pii")
 		not allowed(duty, "GET", "/v1/hr/workers/w1/compensation")
 	}
 }
 
 test_sensitive_view_duties_are_held_and_scoped if {
-	every duty in ["agents.sensitive-payroll.view", "agents.sensitive-worker.view"] {
+	every duty in sensitive_view_duties {
 		held := held_duties with input as cui_input("")
 			with data.assignments as {"tenant-a": {"user-a": [duty]}}
 		held == {duty}
@@ -3919,7 +3923,7 @@ test_sensitive_view_duties_are_held_and_scoped if {
 	}
 }
 
-test_pii_read_holders_do_not_hold_sensitive_view_duties if {
+test_no_duty_implies_the_sensitive_view_duties if {
 	held := held_duties with input as cui_input("")
 		with data.assignments as {"tenant-a": {"user-a": ["hr.pii.read", "pii.read"]}}
 	not "agents.sensitive-payroll.view" in held
