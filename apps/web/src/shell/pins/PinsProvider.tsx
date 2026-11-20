@@ -3,7 +3,8 @@ import { useLocation } from "react-router-dom";
 import { copy } from "../copy";
 import { localPreferenceStorage, type PreferenceStorage } from "../preferenceStorage";
 import { RECORD_TYPE_NOUN } from "../search/records";
-import { Button } from "../ui";
+import styles from "../Shell.module.css";
+import { Button, Icon } from "../ui";
 import { addPin, MAX_PINS, moveAmong, pinKey, probeStorage, readPins, removePin, type Pin, type PinChange, type PinTarget } from "./pinStore";
 import { pinTargetFor } from "./pinTargets";
 
@@ -94,8 +95,9 @@ export function PinToggle() {
   const { available, target, pinned, toggle } = usePins();
   if (!available || target === null) return null;
   return (
-    <Button variant="ghost" size="sm" aria-pressed={pinned} onClick={toggle}>
-      {pinned ? copy.pins.unpin : copy.pins.pin}
+    <Button variant="ghost" size="sm" className={styles.pinToggle} aria-pressed={pinned} onClick={toggle}>
+      <Icon name="pin" />
+      <span className={styles.pinToggleLabel}>{pinned ? copy.pins.unpin : copy.pins.pin}</span>
     </Button>
   );
 }

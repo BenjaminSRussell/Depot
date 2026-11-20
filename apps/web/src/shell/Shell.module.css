@@ -511,6 +511,10 @@
     display: none;
   }
 
+  .title {
+    min-inline-size: 4rem;
+  }
+
   .topbarActions {
     flex: none;
   }
@@ -521,6 +525,22 @@
 
   .banner {
     padding-inline: var(--space-4);
+  }
+}
+
+@media (max-width: 959px) {
+  .pinToggleLabel {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .pinToggle {
+    min-inline-size: 44px;
+    min-block-size: 44px;
   }
 }
 
