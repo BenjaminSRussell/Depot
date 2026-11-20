@@ -19,9 +19,18 @@ export function devIdentity(): string {
 }
 
 const PrincipalContext = createContext<readonly string[]>([]);
+const IdentityContext = createContext("");
 
-export function PrincipalProvider({ duties, children }: { duties: readonly string[]; children: ReactNode }) {
-  return <PrincipalContext.Provider value={duties}>{children}</PrincipalContext.Provider>;
+export function PrincipalProvider({ duties, identity = "", children }: { duties: readonly string[]; identity?: string; children: ReactNode }) {
+  return (
+    <PrincipalContext.Provider value={duties}>
+      <IdentityContext.Provider value={identity}>{children}</IdentityContext.Provider>
+    </PrincipalContext.Provider>
+  );
+}
+
+export function usePrincipalIdentity(): string {
+  return useContext(IdentityContext);
 }
 
 export function usePrincipalDuties(): readonly string[] {

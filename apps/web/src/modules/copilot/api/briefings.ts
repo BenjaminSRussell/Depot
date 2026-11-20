@@ -62,3 +62,38 @@ export async function listBriefings(signal?: AbortSignal, fetchFn: typeof fetch 
     deadline.clear();
   }
 }
+
+export type GenerateOutcome = { kind: "started" } | { kind: "busy" } | { kind: "limited"; retryAfterSeconds: number } | { kind: "failed" };
+
+const DEFAULT_RETRY_SECONDS = 60;
+
+export async function generateBriefing(signal?: AbortSignal, fetchFn: typeof fetch = apiFetch): Promise<GenerateOutcome> {
+  const deadline = withDeadline(AI_REQUEST_TIMEOUT_MS, signal);
+  try {
+    const res = await fetchFn(`${BRIEFINGS_PATH}:generate`, { method: "POST", cache: "no-store", headers: { accept: "application/json" }, signal: deadline.signal });
+    if (res.status === 202) return { kind: "started" };
+    if (res.status === 409) return { kind: "busy" };
+    if (res.status === 429) {
+      const seconds = Number.parseInt(res.headers.get("Retry-After") ?? "", 10);
+      return { kind: "limited", retryAfterSeconds: seconds > 0 ? seconds : DEFAULT_RETRY_SECONDS };
+    }
+    return { kind: "failed" };
+  } catch {
+    return { kind: "failed" };
+  } finally {
+    deadline.clear();
+  }
+}
+
+export async function markBriefingRead(id: string, fetchFn: typeof fetch = apiFetch): Promise<Briefing> {
+  const deadline = withDeadline(AI_REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetchFn(`${BRIEFINGS_PATH}/${encodeURIComponent(id)}:mark-read`, { method: "POST", cache: "no-store", headers: { accept: "application/json" }, signal: deadline.signal });
+    if (!res.ok) throw await failedCopilotCall(res);
+    return briefingSchema.parse(await res.json());
+  } catch (err) {
+    throw deadline.expired() ? new CopilotError(COPILOT_TIMEOUT_MESSAGE) : err;
+  } finally {
+    deadline.clear();
+  }
+}

@@ -363,7 +363,7 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
   }
 
   return (
-    <PrincipalProvider duties={principalDuties}>
+    <PrincipalProvider duties={principalDuties} identity={userId}>
       <AvailabilityProvider value={availability}>
       <TenantSettingsProvider value={settings}>
       <WorkContextProvider identity={userId} enabled={principalDuties.includes("org.read")}>

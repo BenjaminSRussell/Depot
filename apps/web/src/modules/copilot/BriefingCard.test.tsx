@@ -1,7 +1,9 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import { AvailabilityProvider, type AiAvailability } from "../../shell/assistant/AvailabilityProvider";
+import { PrincipalProvider } from "../../shell/principal";
 import { json, server, useFakeServer } from "../../shell/testing/fakeServer";
 import { pageViolations } from "./a11yTest";
 import { briefingItemRoute, briefingListSchema, type Briefing, type BriefingItem } from "./api/briefings";
@@ -110,11 +112,13 @@ describe("BriefingCard", () => {
   it.each([
     ["an empty list", () => list()],
     ["only RUNNING and FAILED briefings", () => list(briefing({ status: "RUNNING" }), briefing({ status: "FAILED" }))],
-  ])("renders nothing for %s", async (_label, reply) => {
+  ])("offers Generate now, disabled with an explanation while AI is unavailable, for %s", async (_label, reply) => {
     server.handler = reply;
-    const { container } = renderCard();
-    await vi.waitFor(() => expect(server.calls).toHaveLength(1));
-    await vi.waitFor(() => expect(container).toBeEmptyDOMElement());
+    renderCard();
+    expect(await screen.findByText("No briefing yet")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate now" })).toBeDisabled();
+    expect(screen.getByText(/needs the assistant/)).toBeInTheDocument();
+    expect(server.calls.every((call) => call.method === "GET")).toBe(true);
   });
 
   it("shows an inline error with Retry on a server failure and recovers on the second request", async () => {
@@ -153,6 +157,149 @@ describe("BriefingCard", () => {
     await screen.findByRole("alert");
     expect(pageViolations(failed.container)).toEqual([]);
     expect(within(failed.container).getByRole("button", { name: "Try again" })).toBeInTheDocument();
+  });
+});
+
+const ENABLED: AiAvailability = { state: { status: "enabled", budget: "OK" }, reportRefusal: () => undefined, reportFailure: () => undefined };
+const DISABLED: AiAvailability = { ...ENABLED, state: { status: "unavailable", reason: "off" } };
+const INVOKE = ["agents.invoke", "agents.run.read"];
+const GENERATE = "/api/v1/agents/briefings:generate";
+const STALE = "2020-01-01T10:00:00.000Z";
+let sequence = 0;
+
+function renderAi({ duties = INVOKE, availability = ENABLED, identity = `user-${++sequence}` } = {}) {
+  const ui = (
+    <MemoryRouter>
+      <PrincipalProvider duties={duties} identity={identity}>
+        <AvailabilityProvider value={availability}>
+          <BriefingCard />
+        </AvailabilityProvider>
+      </PrincipalProvider>
+    </MemoryRouter>
+  );
+  return { ...render(ui), ui, identity };
+}
+
+const posts = (suffix: string) => server.calls.filter((call) => call.method === "POST" && call.url.pathname.endsWith(suffix));
+
+describe("BriefingCard daily generation", () => {
+  it("generates once on the first visit of the day, announces it politely and renders the briefing when ready", async () => {
+    let reads = 0;
+    server.handler = (url) => {
+      if (url.pathname === GENERATE) return json(202, { id: "b-1", status: "RUNNING" });
+      return ++reads === 1 ? list(briefing({ createdAt: STALE, completedAt: STALE })) : list(briefing({ changes: [{ agentId: "ap_coding", factId: "f", text: "Fresh one" }] }), briefing({ createdAt: STALE, completedAt: STALE }));
+    };
+    renderAi();
+    expect(await screen.findByRole("status")).toHaveTextContent("Preparing your briefing");
+    await waitFor(() => expect(screen.getByRole("status")).toBeEmptyDOMElement(), { timeout: 6000 });
+    expect(posts(":generate")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Past briefings (1)" })).toBeInTheDocument();
+  }, 10000);
+
+  it("does not generate again on a second mount for the same user and day (second tab)", async () => {
+    server.handler = (url) => (url.pathname === GENERATE ? json(409, { code: "AGT-0231" }) : list());
+    const first = renderAi();
+    await waitFor(() => expect(posts(":generate")).toHaveLength(1));
+    first.unmount();
+    renderAi({ identity: first.identity });
+    await screen.findByText("No briefing yet");
+    expect(posts(":generate")).toHaveLength(1);
+  });
+
+  it.each([
+    ["409 in flight", json(409, { code: "AGT-0231" })],
+    ["429 rate limited", json(429, { code: "AGT-0230" }, { "Retry-After": "120" })],
+    ["a server error", json(500, { code: "AGT-0500" })],
+  ])("makes no further automatic attempt after %s and shows no dialog", async (_label, reply) => {
+    server.handler = (url) => (url.pathname === GENERATE ? reply : list(briefing({ createdAt: STALE, completedAt: STALE })));
+    renderAi();
+    await screen.findByRole("button", { name: "Recommended actions (1)" });
+    await waitFor(() => expect(posts(":generate")).toHaveLength(1));
+    await waitFor(() => expect(screen.getByRole("status")).toBeEmptyDOMElement());
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(posts(":generate")).toHaveLength(1);
+  });
+
+  it("skips the automatic call when a briefing already exists for the current local day", async () => {
+    server.handler = () => list(briefing({ createdAt: new Date().toISOString(), completedAt: null }));
+    renderAi();
+    await screen.findByRole("button", { name: "Recommended actions (1)" });
+    expect(posts(":generate")).toHaveLength(0);
+  });
+
+  it.each([
+    ["AI is unavailable", { availability: DISABLED }],
+    ["the user lacks agents.invoke", { duties: ["agents.run.read"] }],
+  ])("makes no automatic call when %s, and not later that day either", async (_label, options) => {
+    server.handler = () => list();
+    const view = renderAi(options);
+    await screen.findByText("No briefing yet");
+    view.unmount();
+    renderAi({ identity: view.identity });
+    await screen.findByText("No briefing yet");
+    expect(posts(":generate")).toHaveLength(0);
+  });
+});
+
+describe("BriefingCard on-demand generation, read state and past briefings", () => {
+  it("shows Try again in N minutes from Retry-After when Generate now is rate limited", async () => {
+    server.handler = (url) => (url.pathname === GENERATE ? json(429, { code: "AGT-0230" }, { "Retry-After": "120" }) : list());
+    renderAi({ identity: "claimed-today" });
+    await screen.findByText("No briefing yet");
+    await waitFor(() => expect(posts(":generate")).toHaveLength(1));
+    expect(await screen.findByText("Try again in 2 minutes.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate now" })).toBeDisabled();
+  });
+
+  it("starts a generation from Generate now on the empty state", async () => {
+    server.handler = (url) => (url.pathname === GENERATE ? json(500, { code: "AGT-0500" }) : list());
+    renderAi({ availability: ENABLED, duties: ["agents.invoke"] });
+    await waitFor(() => expect(posts(":generate")).toHaveLength(1));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Generate now" })).toBeEnabled());
+    await userEvent.setup().click(screen.getByRole("button", { name: "Generate now" }));
+    expect(posts(":generate")).toHaveLength(2);
+    expect(await screen.findByText("The briefing could not be started. Try again in a moment.")).toBeInTheDocument();
+  });
+
+  it("marks the briefing read on the server and collapses it to a one-line summary", async () => {
+    const shown = briefing({ createdAt: new Date().toISOString() });
+    server.handler = (url) => (url.pathname.endsWith(":mark-read") ? json(200, { ...shown, readAt: "2026-11-20T09:00:00.000Z" }) : list(shown));
+    renderCard();
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Mark as read" }));
+    expect(await screen.findByText("Read: 1 changes, 1 risks, 1 recommended actions.")).toBeInTheDocument();
+    expect(posts(`/${shown.id}:mark-read`)).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Recommended actions (1)" })).toBeNull();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Show briefing" }));
+    expect(screen.getByRole("button", { name: "Recommended actions (1)" })).toBeInTheDocument();
+  });
+
+  it("keeps the briefing open and says so when mark-read fails", async () => {
+    server.handler = (url) => (url.pathname.endsWith(":mark-read") ? json(500, { code: "AGT-0500" }) : list(briefing({ createdAt: new Date().toISOString() })));
+    renderCard();
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Mark as read" }));
+    expect(await screen.findByText("The briefing could not be marked as read. Try again in a moment.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Recommended actions (1)" })).toBeInTheDocument();
+  });
+
+  it("renders a briefing whose readAt is set collapsed and lists past briefings", async () => {
+    const today = new Date().toISOString();
+    server.handler = () => list(briefing({ id: "a", readAt: today, createdAt: today }), briefing({ id: "b", createdAt: STALE, completedAt: STALE }));
+    const { container } = renderCard();
+    expect(await screen.findByText("Read: 1 changes, 1 risks, 1 recommended actions.")).toBeInTheDocument();
+    const past = screen.getByRole("button", { name: "Past briefings (1)" });
+    expect(past).toHaveAttribute("aria-expanded", "false");
+    await userEvent.setup().click(past);
+    expect(past).toHaveAttribute("aria-expanded", "true");
+    expect(within(screen.getByRole("list", { name: "Past briefings (1)" })).getAllByRole("listitem")).toHaveLength(1);
+    expect(pageViolations(container)).toEqual([]);
+  });
+
+  it("has no axe violations on the empty state", async () => {
+    server.handler = () => list();
+    const { container } = renderCard();
+    await screen.findByText("No briefing yet");
+    expect(pageViolations(container)).toEqual([]);
   });
 });
 

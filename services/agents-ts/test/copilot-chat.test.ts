@@ -97,8 +97,21 @@ describe("POST /api/v1/copilot/chat", () => {
     const res = await chat(s.srv.base, { mode: "explain", message: "What changed", recordRef: "record:purchase-order/PO-1" }, `${DUTIES},audit.read`);
     const body = (await res.json()) as { citations: unknown[]; toolCalls: unknown[] };
     expect(body.toolCalls).toEqual([{ tool: AUDIT, status: "OK" }]);
-    expect(body.citations).toContainEqual({ sourceType: "RECORD", sourceRef: "record:platform/purchase-order/PO-1", label: "purchase-order PO-1" });
+    expect(body.citations).toContainEqual({ sourceType: "RECORD", sourceRef: "record:platform/purchase-order/PO-1", label: "purchase order PO-1" });
     expect(body.toolCalls).not.toContainEqual(expect.objectContaining({ tool: "depot.platform.document_flow.get" }));
+  });
+
+  it.each([
+    ["an unrelated tool", GET, { invoiceId: "PO-1" }, { id: "INV-7" }],
+    ["a different record", "depot.platform.audit_trail.get", { entity: "purchase-order", recordId: "PO-2" }, { items: [{ id: "chg-1" }] }],
+    ["an empty audit trail", "depot.platform.audit_trail.get", { entity: "purchase-order", recordId: "PO-1" }, { items: [] }],
+  ])("adds no typed record citation for %s", async (_name, toolName, args, output) => {
+    const mcp = new FakeMcp([tool(toolName, "audit.read")], { [toolName]: { ok: true, output, ref: "x-1" } });
+    const s = await setup([call(toolName, args), answer("Done.")], mcp);
+    close = s.srv.close;
+    const res = await chat(s.srv.base, { mode: "explain", message: "What changed", recordRef: "record:purchase-order/PO-1" }, `${DUTIES},audit.read`);
+    const body = (await res.json()) as { citations: { sourceRef: string }[] };
+    expect(body.citations.filter((c) => c.sourceRef.startsWith("record:"))).toEqual([]);
   });
 
   it("sends the provider and the audit row only redacted text and masks a value the user holds no duty for", async () => {
