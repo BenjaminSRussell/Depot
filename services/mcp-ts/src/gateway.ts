@@ -55,6 +55,7 @@ export interface GatewayDeps {
   audit: AuditSink;
   now: () => Date;
   sleep: (ms: number) => Promise<void>;
+  log?: (record: Record<string, unknown>) => void;
 }
 
 /** Longest cursor the gateway forwards; upstream cursors are opaque tokens. */
@@ -87,6 +88,18 @@ async function fail(
   return { kind: "error", status, code, message };
 }
 
+async function recordOk(deps: GatewayDeps, p: Principal, tool: string, status: number): Promise<void> {
+  await deps.audit.record({
+    at: deps.now().toISOString(),
+    tenantId: p.tenantId,
+    userId: p.userId,
+    tool,
+    outcome: "OK",
+    status,
+    ...(p.runId !== undefined ? { runId: p.runId } : {}),
+  });
+}
+
 /**
  * Runs one tool call for a principal. Order matters: the tool must exist, the
  * caller must hold the tool's duty, and only then is the user's token forwarded.
@@ -115,6 +128,10 @@ export async function callTool(deps: GatewayDeps, p: Principal, name: string, ra
     // A missing path parameter would otherwise change the URL, and so the operation, upstream.
     return fail(deps, p, name, "INVALID", 400, "MCP-0422", `missing required argument ${missing.join(", ")}`);
   }
+  const tooLong = overLengthArgument(tool, args);
+  if (tooLong !== undefined) {
+    return fail(deps, p, name, "INVALID", 400, "MCP-0400", `${tooLong} is longer than its maxLength`);
+  }
   if (tool.readOnly && hasProperty(tool, "limit")) {
     const requested = typeof args.limit === "number" && Number.isFinite(args.limit) ? Math.trunc(args.limit) : READ_PAGE_LIMIT;
     args.limit = Math.max(1, Math.min(requested, READ_PAGE_LIMIT));
@@ -132,17 +149,20 @@ export async function callTool(deps: GatewayDeps, p: Principal, name: string, ra
       body = tool.local({ args, duties: p.duties, catalog: deps.catalog });
     } catch (err) {
       if (err instanceof ToolInputError) return fail(deps, p, name, "INVALID", 400, "MCP-0400", err.message);
+      deps.log?.({
+        level: "error",
+        message: "mcp.local_tool_failed",
+        service: "mcp-ts",
+        tool: name,
+        code: "MCP-0500",
+        tenantId: p.tenantId,
+        errorName: err instanceof Error ? err.name : typeof err,
+        error: err instanceof Error ? err.message.slice(0, 200) : String(err).slice(0, 200),
+        ...(p.runId !== undefined ? { runId: p.runId } : {}),
+      });
       return fail(deps, p, name, "UPSTREAM_ERROR", 500, "MCP-0500", `tool ${name} failed`);
     }
-    await deps.audit.record({
-      at: deps.now().toISOString(),
-      tenantId: p.tenantId,
-      userId: p.userId,
-      tool: name,
-      outcome: "OK",
-      status: 200,
-      ...(p.runId !== undefined ? { runId: p.runId } : {}),
-    });
+    await recordOk(deps, p, name, 200);
     return { kind: "ok", status: 200, body };
   }
 
@@ -187,15 +207,7 @@ export async function callTool(deps: GatewayDeps, p: Principal, name: string, ra
       );
     }
   }
-  await deps.audit.record({
-    at: deps.now().toISOString(),
-    tenantId: p.tenantId,
-    userId: p.userId,
-    tool: name,
-    outcome: "OK",
-    status: res.status,
-    ...(p.runId !== undefined ? { runId: p.runId } : {}),
-  });
+  await recordOk(deps, p, name, res.status);
   const nextCursor = tool.readOnly ? nextCursorOf(res.body) : undefined;
   return nextCursor === undefined
     ? { kind: "ok", status: res.status, body: res.body }
@@ -214,6 +226,15 @@ function missingRequired(tool: ToolDefinition, args: JsonObject): string[] {
   return required.filter(
     (r): r is string => typeof r === "string" && r !== "tenant_id" && (args[r] === undefined || args[r] === null || args[r] === ""),
   );
+}
+
+function overLengthArgument(tool: ToolDefinition, args: JsonObject): string | undefined {
+  if (!isObject(tool.inputSchema.properties)) return undefined;
+  for (const [key, prop] of Object.entries(tool.inputSchema.properties)) {
+    const value = args[key];
+    if (isObject(prop) && typeof prop.maxLength === "number" && typeof value === "string" && value.length > prop.maxLength) return key;
+  }
+  return undefined;
 }
 
 function hasProperty(tool: ToolDefinition, key: string): boolean {

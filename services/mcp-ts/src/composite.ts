@@ -25,6 +25,17 @@ function firstSentence(text: string): string {
   return sentence.length > MAX_DESCRIPTION_CHARS ? `${sentence.slice(0, MAX_DESCRIPTION_CHARS - 3)}...` : sentence;
 }
 
+const toolTokens = new WeakMap<ToolDefinition, { name: Set<string>; description: Set<string> }>();
+
+function tokensOfTool(t: ToolDefinition): { name: Set<string>; description: Set<string> } {
+  let tokens = toolTokens.get(t);
+  if (tokens === undefined) {
+    tokens = { name: new Set(tokensOf(t.name)), description: new Set(tokensOf(t.description)) };
+    toolTokens.set(t, tokens);
+  }
+  return tokens;
+}
+
 /** Duty filter first, then lexical rank: a tool the caller cannot see is never scored or returned. */
 export function searchTools(catalog: Catalog, duties: ReadonlySet<string>, query: string, limit: number): ToolHit[] {
   const wanted = new Set(tokensOf(query.slice(0, MAX_QUERY_CHARS).replace(/\p{Cc}/gu, " ")).slice(0, MAX_TOKENS));
@@ -32,10 +43,9 @@ export function searchTools(catalog: Catalog, duties: ReadonlySet<string>, query
   return catalog.tools
     .filter((t) => duties.has(t.requiredDuty))
     .map((t) => {
-      const nameTokens = new Set(tokensOf(t.name));
-      const descriptionTokens = new Set(tokensOf(t.description));
+      const tokens = tokensOfTool(t);
       let score = 0;
-      for (const w of wanted) score += (nameTokens.has(w) ? 3 : 0) + (descriptionTokens.has(w) ? 1 : 0);
+      for (const w of wanted) score += (tokens.name.has(w) ? 3 : 0) + (tokens.description.has(w) ? 1 : 0);
       return { t, score };
     })
     .filter((s) => s.score > 0)
@@ -48,8 +58,6 @@ const searchToolsTool: ToolDefinition = {
   name: SEARCH_TOOLS_NAME,
   description: "Find Depot tools by what they do. Returns the names and one-line descriptions of the tools you may call, best match first.",
   version: 1,
-  method: "GET",
-  path: "/mcp/tools/search",
   sourceRef: "composite.search_tools",
   inputSchema: {
     type: "object",

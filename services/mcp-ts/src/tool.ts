@@ -25,8 +25,9 @@ export interface ToolDefinition {
   name: string;
   description: string;
   version: number;
-  method: HttpMethod;
-  path: string;
+  /** Absent for a local tool, which never reaches the Depot API. */
+  method?: HttpMethod;
+  path?: string;
   /** OpenAPI operationId (or report id). */
   sourceRef: string;
   inputSchema: JsonObject;
@@ -60,8 +61,9 @@ export function validateToolDefinition(t: ToolDefinition): string[] {
   const errors: string[] = [];
   if (!TOOL_NAME_PATTERN.test(t.name)) errors.push(`${t.name}: name must match depot.<domain>.<entity>.<verb>`);
   if (!Number.isInteger(t.version) || t.version < 1) errors.push(`${t.name}: version must be a positive integer`);
-  if (!HTTP_METHODS.includes(t.method)) errors.push(`${t.name}: unsupported method ${String(t.method)}`);
-  if (!t.path.startsWith("/")) errors.push(`${t.name}: path must start with /`);
+  if (t.local === undefined && (t.method === undefined || t.path === undefined)) errors.push(`${t.name}: method and path are required unless the tool is local`);
+  if (t.method !== undefined && !HTTP_METHODS.includes(t.method)) errors.push(`${t.name}: unsupported method ${String(t.method)}`);
+  if (t.path !== undefined && !t.path.startsWith("/")) errors.push(`${t.name}: path must start with /`);
   if (!t.sourceRef) errors.push(`${t.name}: sourceRef is required`);
   if (!t.requiredDuty) errors.push(`${t.name}: x-depot-duty is required`);
   if (!APPROVAL_MODES.includes(t.approvalMode)) errors.push(`${t.name}: unknown x-depot-approval`);

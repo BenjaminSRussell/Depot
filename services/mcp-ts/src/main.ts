@@ -65,6 +65,7 @@ async function main(): Promise<void> {
     audit: stdoutAuditSink(process.env),
     now: () => new Date(),
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    log: jsonLine(process.env),
   };
   const metrics = new Metrics();
   const admin = await startAdminServer(metrics, { host: cfg.adminHost, port: cfg.adminPort });

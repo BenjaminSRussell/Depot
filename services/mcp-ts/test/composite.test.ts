@@ -58,22 +58,33 @@ describe("depot.meta.search_tools", () => {
     expect(await search([COPILOT], { query: "invoice", tenant_id: "x" }).result).toMatchObject({ code: "MCP-0400" });
   });
 
-  it.each([["5"], [0], [-3], [1e9], [Number.NaN], [{}]])("clamps limit %j without failing", async (limit) => {
+  it.each([
+    [0, 1],
+    [-3, 1],
+    [1e9, 3],
+    ["5", 3],
+    [Number.NaN, 3],
+    [{}, 3],
+  ])("clamps limit %j to %i result(s) without failing", async (limit, expected) => {
     const res = await search([COPILOT, "receivables.view", "ap.invoice.read", "hr.salary.read"], { query: "invoice", limit }).result;
     expect(res.kind).toBe("ok");
-    const found = (res as { body: { tools: unknown[] } }).body.tools.length;
-    expect(found).toBeGreaterThanOrEqual(1);
-    expect(found).toBeLessThanOrEqual(10);
+    expect((res as { body: { tools: unknown[] } }).body.tools).toHaveLength(expected);
   });
 
-  it("returns exactly one tool for limit 1", async () => {
-    const res = await search([COPILOT, "receivables.view", "ap.invoice.read"], { query: "invoice", limit: 1 }).result;
-    expect((res as { body: { tools: unknown[] } }).body.tools).toHaveLength(1);
+  it("caps a huge limit at ten results", async () => {
+    const many = Array.from({ length: 12 }, (_, i) => readTool(`depot.ar.invoice${i}.list`, "receivables.view", { description: "List invoices." }));
+    const r = rig([...compositeTools(), ...many]);
+    const res = await callTool(r.deps, principal([COPILOT, "receivables.view"]), SEARCH_TOOLS_NAME, { query: "invoices", limit: 1e9 });
+    expect((res as { body: { tools: unknown[] } }).body.tools).toHaveLength(10);
   });
 
-  it("tokenises control characters and long queries instead of failing", async () => {
-    const res = await search([COPILOT, "receivables.view"], { query: `customer\u0000\n${"x".repeat(900)}` }).result;
+  it("tokenises control characters instead of failing", async () => {
+    const res = await search([COPILOT, "receivables.view"], { query: "customer\u0000\n" }).result;
     expect(res).toMatchObject({ kind: "ok", body: { tools: [{ name: "depot.ar.invoice.list" }] } });
+  });
+
+  it("refuses a query longer than the advertised maxLength with MCP-0400", async () => {
+    expect(await search([COPILOT], { query: "x".repeat(501) }).result).toMatchObject({ kind: "error", status: 400, code: "MCP-0400" });
   });
 
   it("reports 500 MCP-0500 without internals when the handler throws, and never calls the upstream", async () => {
@@ -84,6 +95,15 @@ describe("depot.meta.search_tools", () => {
     expect(JSON.stringify(res)).not.toContain("secret");
     expect(r.audit.entries).toMatchObject([{ outcome: "UPSTREAM_ERROR", status: 500 }]);
     expect(r.upstream.calls).toHaveLength(0);
+  });
+
+  it("logs the failing local handler's error name and message server-side, without the arguments", async () => {
+    const boom = { ...compositeTools()[0]!, local: () => { throw new RangeError("handler broke"); } };
+    const r = rig([boom, ...compositeTools().slice(1)]);
+    const lines: Record<string, unknown>[] = [];
+    await callTool({ ...r.deps, log: (rec) => lines.push(rec) }, principal([COPILOT]), SEARCH_TOOLS_NAME, { query: "private-words" });
+    expect(lines).toEqual([expect.objectContaining({ level: "error", message: "mcp.local_tool_failed", tool: SEARCH_TOOLS_NAME, code: "MCP-0500", errorName: "RangeError", error: "handler broke" })]);
+    expect(JSON.stringify(lines)).not.toContain("private-words");
   });
 
   it("audits an OK call without the query text and forwards nothing upstream", async () => {
@@ -160,6 +180,13 @@ describe("depot.help.search", () => {
     const r = helpRig();
     r.upstream.responses.push({ status: 200, body: { chunks: "nope" } });
     expect(await call(r, [COPILOT], { query: "x" })).toMatchObject({ kind: "error", status: 502, code: "MCP-0502" });
+  });
+
+  it("refuses a query longer than the advertised 1000 characters with MCP-0400 and never reaches the upstream", async () => {
+    const r = helpRig();
+    expect(await call(r, [COPILOT], { query: "x".repeat(1001) })).toMatchObject({ kind: "error", status: 400, code: "MCP-0400" });
+    expect(r.upstream.calls).toHaveLength(0);
+    expect(r.audit.entries).toMatchObject([{ outcome: "INVALID" }]);
   });
 
   it("refuses tenant_id in the arguments", async () => {
