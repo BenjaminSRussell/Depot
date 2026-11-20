@@ -1,6 +1,6 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { ApprovalRequest, RecordedDecision } from "../src/api/decision.js";
+import type { ApprovalDetail, ApprovalRequest, RecordedDecision } from "../src/api/decision.js";
 import { createAgentsHandler, type AgentsApiDeps } from "../src/api/router.js";
 import { edgeHeaders, testAuthenticate } from "./jwt.js";
 import type { ActionDecline, ActionRecord } from "../src/domain/audit.js";
@@ -126,6 +126,9 @@ export class MemoryStore implements RunStore {
   }
   async find(_t: string, _r: string, actionId: string): Promise<ApprovalRequest | undefined> {
     return this.approvals.get(actionId);
+  }
+  async findByAction(tenantId: string, actionId: string): Promise<ApprovalDetail | undefined> {
+    return tenantId === T1 ? this.approvals.get(actionId) : undefined;
   }
   async record(_t: string, _r: string, actionId: string, d: RecordedDecision): Promise<RecordedDecision> {
     const a = this.approvals.get(actionId);

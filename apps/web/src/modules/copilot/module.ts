@@ -1,8 +1,10 @@
 import { createElement } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { copy } from "../../shell/copy";
 import type { DepotModule } from "../registry";
 import { KillSwitchPage } from "./KillSwitchPage";
 import { CopilotHome } from "./pages";
+import { ProposalPage } from "./ProposalPage";
 import { ToolCatalogPage } from "./ToolCatalogPage";
 import { ToolDetailPage } from "./ToolDetailPage";
 
@@ -16,6 +18,11 @@ function ToolDetailRoute() {
   return createElement(ToolDetailPage, { name });
 }
 
+function ProposalRoute() {
+  const { approvalId = "" } = useParams();
+  return createElement(ProposalPage, { approvalId });
+}
+
 const copilot: DepotModule = {
   id: "copilot",
   title: "Copilot",
@@ -25,6 +32,7 @@ const copilot: DepotModule = {
     { path: "/copilot/tools", element: createElement(ToolCatalogRoute), handle: { title: "Tool catalog" } },
     { path: "/copilot/tools/:name", element: createElement(ToolDetailRoute), handle: { title: "Tool" } },
     { path: "/copilot/kill-switch", element: createElement(KillSwitchPage), handle: { title: "Agent kill switch" } },
+    { path: "/assistant/proposals/:approvalId", element: createElement(ProposalRoute), handle: { title: copy.proposal.pageTitle } },
   ],
   nav: [
     { label: "Copilot", to: "/copilot", duty: "mcp.copilot.use" },

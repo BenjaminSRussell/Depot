@@ -241,6 +241,7 @@ async function main(): Promise<void> {
     // The toggle, its version and its killswitch.changed outbox row are stored in one transaction.
     log: killLog,
     approvals: inbox,
+    approvalReader: inbox,
     aiPolicy,
     runs,
     actions: createActionService({

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { KillSwitchRegistry } from "../domain/killswitch.js";
-import { type ApprovalStore, handleApprovalDecision } from "./decision.js";
+import { type ApprovalReader, type ApprovalStore, handleApprovalDecision, handleGetApproval } from "./decision.js";
 import { HEADER as SERVICE_TOKEN_HEADER, ServiceTokenError, type ServiceTokenVerifier } from "./serviceToken.js";
 import { StepRefusal, type RunSteps } from "../runtime/steps.js";
 import { handleKillSwitchCommand, type KillSwitchWiring, killSwitchStatusOf, readKillSwitchStatus } from "./killswitch.js";
@@ -30,6 +30,8 @@ export interface AgentsApiBase {
   authenticate: Authenticate;
   registry: KillSwitchRegistry;
   approvals: ApprovalStore;
+  /** The approval lookup by action id; absent and its route answers 404. */
+  approvalReader?: ApprovalReader;
   /** Run start and read endpoints; absent in a process that serves only the control routes. */
   runs?: RunService;
   /** Decline of an ungated action and undo; absent and an action with no approval request answers 404. */
@@ -73,7 +75,8 @@ const MESSAGES_PATH = new RegExp(`^/api/v1/agents/copilot/conversations/(${UUID}
 const KNOWLEDGE_CHUNKS_PATH = "/api/v1/knowledge/chunks";
 const KNOWLEDGE_SEARCH_PATH = "/api/v1/knowledge/search";
 const STEP_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/steps/(begin|plan|resolve|commit|abort)$`);
-const DECISION_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/actions/(${UUID})/decision$`);
+const APPROVAL_PATH = new RegExp(`^/api/v1/agents/approvals/(${UUID})$`);
+const DECISION_PATH =new RegExp(`^/api/v1/agents/runs/(${UUID})/actions/(${UUID})/decision$`);
 const UNDO_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/actions/(${UUID}):undo$`);
 
 async function readBody(req: IncomingMessage, emptyAllowed = false): Promise<unknown> {
@@ -348,6 +351,14 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         if (req.method !== "POST") throw new MethodNotAllowed("POST");
         const principal = await deps.authenticate(req.headers);
         await deps.actions.undo(principal, (undo[1] ?? "").toLowerCase(), (undo[2] ?? "").toLowerCase(), await readBody(req, true));
+        return;
+      }
+      const approvalGet = APPROVAL_PATH.exec(path);
+      if (approvalGet !== null) {
+        if (deps.approvalReader === undefined) throw new ApiError(404, "AGT-0404", "no such route");
+        if (req.method !== "GET") throw new MethodNotAllowed("GET");
+        const principal = await deps.authenticate(req.headers);
+        send(res, 200, await handleGetApproval({ principal, actionId: (approvalGet[1] ?? "").toLowerCase(), reader: deps.approvalReader, now }));
         return;
       }
       const match = DECISION_PATH.exec(path);
