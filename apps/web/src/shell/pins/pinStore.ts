@@ -5,7 +5,7 @@ import { RECORD_TYPES } from "../search/records";
 export const MAX_PINS = 20;
 
 const at = z.iso.datetime();
-const PinSchema = z.discriminatedUnion("kind", [
+export const PinSchema =z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("page"), route: z.string().regex(/^\/[A-Za-z0-9_\-./:]{0,199}$/), at }),
   z.strictObject({ kind: z.literal("record"), recordType: z.enum(RECORD_TYPES), id: z.string().regex(/^[A-Za-z0-9_.:-]{1,128}$/), at }),
 ]);

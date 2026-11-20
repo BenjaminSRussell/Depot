@@ -8,7 +8,9 @@ import { holdsDuty, requiredDuty, visibleModules } from "./dutyGate";
 import { plannedRouteFor } from "./plannedRoutes";
 import { newActions } from "./search/newActions";
 import { InboxProvider } from "./inbox/InboxProvider";
-import { PinsProvider } from "./pins/PinsProvider";
+import { PinsProvider, usePins } from "./pins/PinsProvider";
+import { pinKey } from "./pins/pinStore";
+import { recordActivity } from "./personal/activityStore";
 import { RecentProvider, useRecentPages } from "./recent";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { NotAvailablePage } from "./pages/NotAvailablePage";
@@ -43,6 +45,15 @@ const DRAWER_BREAKPOINT = "(min-width: 960px)";
 
 function isShown(el: HTMLElement): boolean {
   return el.offsetParent !== null && window.getComputedStyle(el).visibility !== "hidden";
+}
+
+function ActivityTracker({ identity }: { identity: string }) {
+  const { target } = usePins();
+  const targetKey = target === null ? null : pinKey(target);
+  useEffect(() => {
+    if (target !== null) recordActivity(identity, target);
+  }, [identity, targetKey]);
+  return null;
 }
 
 /** Remembers the last pages opened, for the home page. Renders nothing. */
@@ -372,6 +383,7 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
       <RecentProvider identity={userId}>
       <PinsProvider key={userId} identity={userId} canOpen={canOpen} pageLabels={navEntryByTo} literalRoutes={literalRoutes} announce={announce}>
       <RecentTracker entries={navEntryByTo} />
+      <ActivityTracker identity={userId} />
       <TourProvider identity={userId} storage={onboardingStorage} titleRef={titleRef}>
       <div className={styles.root} data-density={density}>
         <a href="#main" className="skip-link">
