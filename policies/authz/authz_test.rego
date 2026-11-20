@@ -3907,7 +3907,7 @@ test_sensitive_view_duties_open_no_route if {
 	}
 }
 
-test_sensitive_view_duties_are_held_and_scoped if {
+test_sensitive_view_duties_follow_the_assignment_model if {
 	every duty in sensitive_view_duties {
 		held := held_duties with input as cui_input("")
 			with data.assignments as {"tenant-a": {"user-a": [duty]}}
@@ -3923,9 +3923,10 @@ test_sensitive_view_duties_are_held_and_scoped if {
 	}
 }
 
-test_no_duty_implies_the_sensitive_view_duties if {
+test_pii_read_holders_do_not_hold_the_sensitive_view_duties if {
 	held := held_duties with input as cui_input("")
 		with data.assignments as {"tenant-a": {"user-a": ["hr.pii.read", "pii.read"]}}
+	held == {"hr.pii.read", "pii.read"}
 	not "agents.sensitive-payroll.view" in held
 	not "agents.sensitive-worker.view" in held
 }
