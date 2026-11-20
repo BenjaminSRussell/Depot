@@ -22,6 +22,7 @@ SOURCE_TOOLS = {
     "depot.ap.vendor.history.list": "services/payables/api/openapi.yaml",
     "depot.ar.payment.get": "services/receivables/api/openapi.yaml",
     "depot.ar.invoice.prediction.get": "services/prediction-py/api/openapi.yaml",
+    "depot.platform.audit_trail.get": "services/audit/api/openapi.yaml",
 }
 
 

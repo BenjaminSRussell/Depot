@@ -448,6 +448,8 @@ export function createCopilotService(deps: CopilotDeps) {
           for (const r of found) if (r.recordId !== "" && !dropped.some((e) => e.recordId === r.recordId)) recordIds.add(r.recordId);
           if (p.tool === KNOWLEDGE_SEARCH_TOOL) knowledge.push(...knowledgeCitations(out.output));
           else citations.push({ sourceType: "RECORD", sourceRef: out.ref ?? p.tool, label: p.tool });
+          const typed = req.mode === "explain" ? typedRecordCitation(req.recordRef, p.tool) : undefined;
+          if (typed !== undefined && !citations.some((c) => c.sourceRef === typed.sourceRef)) citations.push(typed);
           results.push(`Result of ${p.tool}: ${clip(JSON.stringify(governed.value) ?? "null", 4000)}`);
         }
         if (refused === null && knowledge.length > 0) {
@@ -540,6 +542,15 @@ async function recordBoundaryBlock(store: CopilotStore, runReq: RunRequest, at: 
   });
   await store.startRun(runReq);
   await store.finishRun(runReq, finished(runReq.runId, "FAILED", [action], { tokensIn: 0, tokensOut: 0 }, NO_ROUTE_MESSAGE));
+}
+
+const REQUEST_RECORD_REF = /^record:([A-Za-z0-9_-]{1,64})\/([A-Za-z0-9_-]{1,120})$/;
+
+function typedRecordCitation(recordRef: string | undefined, tool: string): ChatCitation | undefined {
+  const match = recordRef === undefined ? null : REQUEST_RECORD_REF.exec(recordRef);
+  const domain = tool.split(".")[1];
+  if (match === null || domain === undefined || domain === "") return undefined;
+  return { sourceType: "RECORD", sourceRef: `record:${domain}/${match[1]}/${match[2]}`, label: `${match[1]} ${match[2]}` };
 }
 
 function auditableId(id: string): string {

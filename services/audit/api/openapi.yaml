@@ -140,7 +140,8 @@ paths:
   /v1/audit/records/{entity}/{recordId}:
     get:
       operationId: queryRecord
-      summary: "Get the audit history of one record"
+      summary: "Get the audit history of one record (agent tool depot.platform.audit_trail.get)"
+      x-depot-tool: depot.platform.audit_trail.get
       description: >-
         AUD-API-6. Open to audit.read, and to the holder of the read duty of the record's entity (party.read for a
         vendor, customer or vendor bank account, and so on) for rows in the caller's legal-entity scope. An entity with

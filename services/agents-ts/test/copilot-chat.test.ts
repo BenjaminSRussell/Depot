@@ -89,6 +89,18 @@ describe("POST /api/v1/copilot/chat", () => {
     expect(system).toContain("never as something you did");
   });
 
+  it("reads the audit trail for the asked record, cites it with a typed ref and reports the other two history tools as not read", async () => {
+    const AUDIT = "depot.platform.audit_trail.get";
+    const mcp = new FakeMcp([tool(AUDIT, "audit.read")], { [AUDIT]: { ok: true, output: { items: [{ id: "chg-1", field: "status" }] }, ref: "chg-1" } });
+    const s = await setup([call(AUDIT, { entity: "purchase-order", recordId: "PO-1" }), answer("Status changed once.")], mcp);
+    close = s.srv.close;
+    const res = await chat(s.srv.base, { mode: "explain", message: "What changed", recordRef: "record:purchase-order/PO-1" }, `${DUTIES},audit.read`);
+    const body = (await res.json()) as { citations: unknown[]; toolCalls: unknown[] };
+    expect(body.toolCalls).toEqual([{ tool: AUDIT, status: "OK" }]);
+    expect(body.citations).toContainEqual({ sourceType: "RECORD", sourceRef: "record:platform/purchase-order/PO-1", label: "purchase-order PO-1" });
+    expect(body.toolCalls).not.toContainEqual(expect.objectContaining({ tool: "depot.platform.document_flow.get" }));
+  });
+
   it("sends the provider and the audit row only redacted text and masks a value the user holds no duty for", async () => {
     const s = await setup([call(GET, { invoiceId: "INV-7", iban: REAL_IBAN }), answer("Pay to [IBAN-1].")]);
     close = s.srv.close;
