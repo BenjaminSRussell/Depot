@@ -150,10 +150,10 @@ describe("CopilotPanel", () => {
     const safe = "This answer could not be shown. Try again or ask your administrator.";
     let finish: (r: ChatResponse) => void = () => undefined;
     const ask = vi.fn(
-      (_req: unknown, onToken?: (text: string) => void, onWithdrawn?: (message: string) => void) =>
+      (_req: unknown, onToken?: (text: string) => void, onWithdrawn?: (message: string, code: string) => void) =>
         new Promise<ChatResponse>((resolve) => {
           onToken?.("The salary is 85000. ");
-          onWithdrawn?.(safe);
+          onWithdrawn?.(safe, "AGT-0220");
           finish = resolve;
         }),
     );
@@ -164,6 +164,7 @@ describe("CopilotPanel", () => {
     const live = await screen.findByRole("article", { name: "Copilot answer in progress" });
     expect(live).toHaveTextContent(safe);
     expect(live).not.toHaveTextContent("85000");
+    expect(live).toHaveTextContent("AGT-0220");
 
     finish({ answer: safe, citations: [], toolCalls: [], refusal: { code: "AGT-0220", message: safe }, generated: true });
     const final = await screen.findByRole("article", { name: "Copilot answer" });

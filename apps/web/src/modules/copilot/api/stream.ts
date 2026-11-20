@@ -155,7 +155,7 @@ function isEventStream(res: Response): boolean {
 export async function askCopilot(
   req: ChatRequest,
   onToken?: (text: string) => void,
-  onWithdrawn?: (message: string) => void,
+  onWithdrawn?: (message: string, code: string) => void,
   fetchFn: typeof fetch = apiFetch,
   conversationId?: string,
 ): Promise<ChatResponse> {
@@ -184,7 +184,7 @@ export async function askCopilot(
     for await (const event of readChatStream(res)) {
       deadline.clear();
       if (event.type === "token") onToken?.(event.text);
-      else if (event.type === "withdrawn") onWithdrawn?.(event.message);
+      else if (event.type === "withdrawn") onWithdrawn?.(event.message, event.code);
       else if (event.type === "done") return event.response;
       else throw new CopilotError(`${event.code}: ${event.message}`, event.code);
     }

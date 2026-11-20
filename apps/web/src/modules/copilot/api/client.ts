@@ -131,7 +131,7 @@ export async function postTask(message: string, fetchFn: typeof fetch = apiFetch
 
 const CONVERSATIONS_PATH = "/api/v1/agents/copilot/conversations";
 
-const conversationSchema = z.object({ conversationId: z.string().uuid() });
+export const conversationSchema = z.object({ conversationId: z.string().uuid() });
 
 export async function createConversation(fetchFn: typeof fetch = apiFetch): Promise<string> {
   const deadline = withDeadline(AI_REQUEST_TIMEOUT_MS);

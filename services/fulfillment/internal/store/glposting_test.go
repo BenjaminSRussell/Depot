@@ -1,9 +1,11 @@
 package store_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -125,8 +127,10 @@ func TestSlipGL_CancelPostsTheMirror(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n, err := g.s.PostSlipsToGL(context.Background()); err != nil || n != 2 {
-		t.Fatalf("PostSlipsToGL = %d, %v; want the slip and its mirror", n, err)
+	for pass := 1; pass <= 2; pass++ {
+		if n, err := g.s.PostSlipsToGL(context.Background()); err != nil || n != 1 {
+			t.Fatalf("pass %d: PostSlipsToGL = %d, %v; want the slip, then its mirror", pass, n, err)
+		}
 	}
 	keys := map[string]bool{}
 	for _, e := range g.ledger.Entries() {
@@ -241,5 +245,147 @@ func TestSlipGL_ReconcileCutsTheReportAtTheMonthTheLedgerIsReadTo(t *testing.T) 
 	rec, err := g.s.ReconcileDNI(g.ctx, g.f.legalEntity, "USD", monthStart)
 	if err != nil || !rec.Reconciled || !rec.ReportNet.Equal(dq("37.5")) || !rec.LedgerNet.Equal(dq("37.5")) {
 		t.Fatalf("asOf the first of the month: %+v, %v; want the report and the ledger cut at the month's end", rec, err)
+	}
+}
+
+func (g slipGL) park(t *testing.T) {
+	t.Helper()
+	g.ledger.FailPosts(&ledgerclient.Error{Op: "post", Status: http.StatusUnprocessableEntity, Code: ledgerclient.CodePeriodClosed})
+	if _, err := g.s.PostSlipsToGL(context.Background()); err == nil {
+		t.Fatal("a closed period must refuse the post")
+	}
+	g.ledger.FailPosts(nil)
+}
+
+func (g slipGL) gauges(t *testing.T) string {
+	t.Helper()
+	var out bytes.Buffer
+	g.s.WriteSlipGLMetrics(&out)
+	return out.String()
+}
+
+func TestSlipGL_ReleaseReschedulesAParkedRow(t *testing.T) {
+	g := newSlipGL(t, 38)
+	slip := g.post(t, "")
+	g.park(t)
+	key := idem("release")
+	released, err := g.s.ReleaseSlipGL(g.ctx, slip.ID, key)
+	if err != nil || released.Parked || released.Attempts != 0 || released.Status != "PENDING" || released.LastError == "" {
+		t.Fatalf("release: %+v, %v; want unparked, attempts 0, the last error kept", released, err)
+	}
+	if again, err := g.s.ReleaseSlipGL(g.ctx, slip.ID, key); err != nil || again.SlipID != slip.ID {
+		t.Fatalf("a replay of the release: %+v, %v", again, err)
+	}
+	if _, err := g.s.ReleaseSlipGL(g.ctx, slip.ID, store.Idem{Key: key.Key, Hash: "other"}); problemCode(err) != "idempotency_key_reuse" {
+		t.Fatalf("the key with another request: %v", err)
+	}
+	if n, err := g.s.PostSlipsToGL(context.Background()); err != nil || n != 1 {
+		t.Fatalf("after the release PostSlipsToGL = %d, %v; want the journal posted", n, err)
+	}
+	if status, _, parked, _ := g.row(t, slip.ID); status != "POSTED" || parked {
+		t.Fatalf("row %s parked %t", status, parked)
+	}
+}
+
+func TestSlipGL_ReleaseRefusesWhatIsNotParked(t *testing.T) {
+	g := newSlipGL(t, 39)
+	slip := g.post(t, "")
+	if _, err := g.s.ReleaseSlipGL(g.ctx, slip.ID, idem("pending")); problemCode(err) != store.CodeSlipGLState {
+		t.Fatalf("release of a pending row: %v, want %s", err, store.CodeSlipGLState)
+	}
+	if _, err := g.s.PostSlipsToGL(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.s.ReleaseSlipGL(g.ctx, slip.ID, idem("posted")); problemCode(err) != store.CodeSlipGLState {
+		t.Fatalf("release of a posted row: %v, want %s", err, store.CodeSlipGLState)
+	}
+	if status, attempts, _, _ := g.row(t, slip.ID); status != "POSTED" || attempts != 1 {
+		t.Fatalf("the refused release changed the row: %s attempts %d", status, attempts)
+	}
+	if _, err := g.s.ReleaseSlipGL(g.ctx, ids.New(), idem("none")); problemCode(err) != store.CodeSlipGLNotFound {
+		t.Fatalf("release of a slip with no journal: %v, want %s", err, store.CodeSlipGLNotFound)
+	}
+	if _, err := g.s.ReleaseSlipGL(ctxFor(40, ""), slip.ID, idem("other-tenant")); problemCode(err) != store.CodeSlipGLNotFound {
+		t.Fatalf("release across tenants: %v, want %s", err, store.CodeSlipGLNotFound)
+	}
+}
+
+func TestSlipGL_CancelWaitsForAParkedOrPendingOriginal(t *testing.T) {
+	g := newSlipGL(t, 41)
+	slip := g.post(t, "")
+	g.park(t)
+	rev, err := g.s.CancelPackingSlip(g.ctx, slip.ID, idem("cancel"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, err := g.s.PostSlipsToGL(context.Background()); err != nil || n != 0 || len(g.ledger.Entries()) != 0 {
+		t.Fatalf("original parked: PostSlipsToGL = %d, %v with %d entries; want neither posted", n, err, len(g.ledger.Entries()))
+	}
+	if status, attempts, parked, _ := g.row(t, rev.ID); status != "PENDING" || attempts != 0 || parked {
+		t.Fatalf("the held cancel: %s attempts %d parked %t; want PENDING, untouched", status, attempts, parked)
+	}
+	if _, err := g.s.ReleaseSlipGL(g.ctx, slip.ID, idem("release")); err != nil {
+		t.Fatal(err)
+	}
+	for pass := 1; pass <= 2; pass++ {
+		if n, err := g.s.PostSlipsToGL(context.Background()); err != nil || n != 1 {
+			t.Fatalf("pass %d after the release: %d, %v; want one journal", pass, n, err)
+		}
+	}
+	entries := g.ledger.Entries()
+	if len(entries) != 2 || !strings.HasSuffix(entries[0].IdempotencyKey, slip.ID+":issue") || !strings.HasSuffix(entries[1].IdempotencyKey, rev.ID+":cancel") {
+		t.Fatalf("ledger entries %+v; want the original, then its mirror", entries)
+	}
+}
+
+func TestSlipGL_ACancelWhoseOriginalQueuedNothingStillPosts(t *testing.T) {
+	g := newSlipGL(t, 42)
+	slip := g.post(t, "")
+	rev, err := g.s.CancelPackingSlip(g.ctx, slip.ID, idem("cancel"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.admin.Exec(context.Background(), `delete from packing_slip_gl where slip_id = $1`, slip.ID); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := g.s.PostSlipsToGL(context.Background()); err != nil || n != 1 {
+		t.Fatalf("PostSlipsToGL = %d, %v; want the cancel posted", n, err)
+	}
+	if status, _, _, _ := g.row(t, rev.ID); status != "POSTED" {
+		t.Fatalf("cancel row %s", status)
+	}
+}
+
+func TestSlipGL_GaugesCountPendingAndParked(t *testing.T) {
+	g := newSlipGL(t, 43)
+	slip := g.post(t, "")
+	if _, err := g.s.CancelPackingSlip(g.ctx, slip.ID, idem("cancel")); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.gauges(t); !strings.Contains(got, "depot_fulfillment_slip_gl_pending 2\n") || !strings.Contains(got, "depot_fulfillment_slip_gl_parked 0\n") {
+		t.Fatalf("two pending: %s", got)
+	}
+	g.park(t)
+	if got := g.gauges(t); !strings.Contains(got, "depot_fulfillment_slip_gl_pending 1\n") || !strings.Contains(got, "depot_fulfillment_slip_gl_parked 1\n") {
+		t.Fatalf("one parked, the held cancel pending: %s", got)
+	}
+	if _, err := g.s.ReleaseSlipGL(g.ctx, slip.ID, idem("release")); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.gauges(t); !strings.Contains(got, "depot_fulfillment_slip_gl_pending 2\n") || !strings.Contains(got, "depot_fulfillment_slip_gl_parked 0\n") {
+		t.Fatalf("released: %s", got)
+	}
+}
+
+func TestSlipGL_GaugesWriteNothingWhenTheCountsAreUnreadable(t *testing.T) {
+	pool, err := pgxpool.New(context.Background(), "postgres://nobody@127.0.0.1:1/none")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool.Close()
+	var out bytes.Buffer
+	store.New(pool, "", 0).WriteSlipGLMetrics(&out)
+	if out.Len() != 0 {
+		t.Fatalf("wrote %q for an unreadable count; a missing series is the honest answer", out.String())
 	}
 }

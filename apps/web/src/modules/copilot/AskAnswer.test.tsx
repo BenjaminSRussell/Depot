@@ -153,4 +153,85 @@ describe("AskAnswer", () => {
     expect(within(alert).getByRole("button", { name: "Try again" })).toBeInTheDocument();
     await waitFor(() => expect(send).not.toHaveBeenCalled());
   });
+
+  it("keeps every turn as a labelled list item and reuses one conversation", async () => {
+    const send = vi.fn<AskFn>(async () => answer);
+    const create = newConversation();
+    render(<Harness ask={send} createConversation={create} />);
+    await ask();
+    await screen.findByRole("article", { name: "Copilot answer" });
+    await ask();
+    await waitFor(() => expect(screen.getAllByRole("article", { name: "Copilot answer" })).toHaveLength(2));
+    expect(within(screen.getByRole("list", { name: "Conversation so far" })).getAllByRole("heading", { level: 3 })).toHaveLength(2);
+    expect(screen.getAllByRole("heading", { level: 3, name: `You asked: ${QUESTION}` })).toHaveLength(2);
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders unverified badges and numbered citation links, and strips unmatched markers", async () => {
+    const marked: ChatResponse = {
+      ...answer,
+      answer: "Total is 48,200 [unverified] per [[cite:metric:overdue]] and [[cite:nothing]] done.",
+    };
+    render(<Harness ask={async () => marked} createConversation={newConversation()} />);
+    await ask();
+    const final = await screen.findByRole("article", { name: "Copilot answer" });
+    expect(within(final).getByText("Unverified")).toBeInTheDocument();
+    expect(within(final).getByRole("link", { name: "Source 3" })).toHaveAttribute("href", expect.stringMatching(/-source-3$/));
+    expect(final).not.toHaveTextContent("[[cite");
+    expect(final).not.toHaveTextContent("[unverified]");
+  });
+
+  it.each([
+    ["eight tool calls", { toolCalls: Array.from({ length: 8 }, () => ({ tool: "analytics.query", status: "OK" as const })) }],
+    ["the limit message", { answer: "I could not complete the answer within the tool-call limit." }],
+  ])("shows the may-be-partial note for %s", async (_name, patch) => {
+    render(<Harness ask={async () => ({ ...answer, ...patch })} createConversation={newConversation()} />);
+    await ask();
+    expect(await screen.findByText(/may be partial/)).toBeInTheDocument();
+  });
+
+  it("shows no partial note below the limit", async () => {
+    render(<Harness ask={async () => answer} createConversation={newConversation()} />);
+    await ask();
+    await screen.findByRole("article", { name: "Copilot answer" });
+    expect(screen.queryByText(/may be partial/)).toBeNull();
+  });
+
+  it("announces the left-out notice once, in the polite region", async () => {
+    const left: ChatResponse = { ...answer, excluded: { count: 2, reason: "NO_APPROVED_ROUTE" } };
+    render(<Harness ask={async () => left} createConversation={newConversation()} />);
+    await ask();
+    await screen.findByRole("article", { name: "Copilot answer" });
+    expect(screen.getByRole("status")).toHaveTextContent(/2/);
+    expect(screen.getAllByRole("status")).toHaveLength(1);
+  });
+
+  it("shows the withdrawal code while streaming and then the refusal", async () => {
+    let finish: (r: ChatResponse) => void = () => undefined;
+    const send: AskFn = (_req, onToken, onWithdrawn) =>
+      new Promise<ChatResponse>((resolve) => {
+        onToken?.("secret 85000");
+        onWithdrawn?.("Withdrawn for safety.", "AGT-0220");
+        finish = resolve;
+      });
+    render(<Harness ask={send} createConversation={newConversation()} />);
+    await ask();
+    const live = await screen.findByRole("article", { name: "Copilot answer in progress" });
+    expect(live).toHaveTextContent("AGT-0220");
+    expect(live).toHaveTextContent("Withdrawn for safety.");
+    expect(live).not.toHaveTextContent("85000");
+    finish({ answer: "Withdrawn for safety.", citations: [], toolCalls: [], refusal: { code: "AGT-0220", message: "Withdrawn for safety." }, generated: true });
+    expect(await screen.findByRole("alert")).toHaveTextContent("AGT-0220");
+  });
+
+  it("keeps answer text out of localStorage and sessionStorage", async () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    render(<Harness ask={async () => answer} createConversation={newConversation()} />);
+    await ask();
+    await screen.findByRole("article", { name: "Copilot answer" });
+    expect(JSON.stringify({ ...localStorage, ...sessionStorage })).not.toContain("48,200");
+    expect(localStorage).toHaveLength(0);
+    expect(sessionStorage).toHaveLength(0);
+  });
 });

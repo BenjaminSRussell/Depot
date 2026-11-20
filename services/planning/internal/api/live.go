@@ -3,6 +3,7 @@ package api
 import (
 	"cmp"
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -15,16 +16,20 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/planning/internal/openinputs"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/store"
 )
 
 const (
 	codeLiveUnavailable = "PLAN-LIVE-UNAVAILABLE"
 	codeLiveEmpty       = "PLAN-LIVE-EMPTY"
+	codeLiveUnit        = "PLAN-LIVE-UNIT"
+	codeLiveSupply      = "PLAN-LIVE-SUPPLY-NOT-READ"
+	liveSupplyMessage   = "open purchase, production and transfer supply is not read; this plan may order what is already on order"
 )
 
 type OpenInputs interface {
 	OpenSalesLines(ctx context.Context, tenantID, legalEntityID, siteID, dueTo string) ([]openinputs.SalesLine, error)
-	OnHand(ctx context.Context, tenantID, legalEntityID, siteID string) (map[string]decimal.Decimal, error)
+	OnHand(ctx context.Context, tenantID, legalEntityID, siteID string) (map[string]openinputs.OnHandQty, error)
 }
 
 func (a *API) WithOpenInputs(o OpenInputs) *API {
@@ -70,7 +75,13 @@ func (a *API) loadLiveItems(w http.ResponseWriter, r *http.Request, code string,
 		return a.liveUnreadable(w, r, code, err)
 	}
 	demand := map[string][]requirementDTO{}
+	unitMismatch := map[string]string{}
 	for _, l := range lines {
+		if stock, stocked := onHand[l.ProductID]; stocked && l.Unit != stock.Unit {
+			if _, seen := unitMismatch[l.ProductID]; !seen {
+				unitMismatch[l.ProductID] = l.Unit
+			}
+		}
 		demand[l.ProductID] = append(demand[l.ProductID], requirementDTO{Ref: l.Ref, RefType: "sales-line", Date: l.Date, Qty: l.Qty})
 	}
 	products := make([]string, 0, len(demand))
@@ -78,11 +89,20 @@ func (a *API) loadLiveItems(w http.ResponseWriter, r *http.Request, code string,
 		products = append(products, product)
 	}
 	slices.Sort(products)
+	for _, product := range products {
+		if demandUnit, differs := unitMismatch[product]; differs {
+			stockUnit := onHand[product].Unit
+			slog.ErrorContext(ctx, "live plan demand and on-hand units differ", "productId", product, "demandUnit", demandUnit, "onHandUnit", stockUnit, "planCode", code, "correlationId", middleware.GetReqID(ctx))
+			return a.liveRefused(w, r, &a.liveUnit, http.StatusUnprocessableEntity, codeLiveUnit,
+				fmt.Sprintf("product %s is demanded in %s but stocked in %s; no conversion is attempted", product, demandUnit, stockUnit))
+		}
+	}
 	req.Items = make([]itemDTO, 0, len(products))
 	for _, product := range products {
-		req.Items = append(req.Items, itemDTO{ItemID: product, OnHand: decimal.Max(decimal.Zero, onHand[product]), Demand: demand[product],
+		req.Items = append(req.Items, itemDTO{ItemID: product, OnHand: decimal.Max(decimal.Zero, onHand[product].Qty), Demand: demand[product],
 			Receipts: []requirementDTO{}, Components: []bomDTO{}})
 	}
+	req.liveWarnings = []store.Warning{{Code: codeLiveSupply, Message: liveSupplyMessage}}
 	a.liveLoaded.Add(1)
 	return true
 }

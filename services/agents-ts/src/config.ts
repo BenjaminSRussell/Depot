@@ -241,7 +241,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     copilotModel: env["AGENTS_COPILOT_MODEL"] ?? model,
     runTokenCap: positiveInt(env, "AGENTS_RUN_TOKEN_CAP", 20_000),
     copilotTokenCap: positiveInt(env, "AGENTS_COPILOT_TOKEN_CAP", 8_000),
-    copilotMaxTurns: positiveInt(env, "AGENTS_COPILOT_MAX_TURNS", 4),
+    copilotMaxTurns: positiveInt(env, "AGENTS_COPILOT_MAX_TURNS", 8),
     outputGuardTimeoutMs,
     needToKnowCacheMs,
     selfApprovalLimit: { amount: limit, currency },

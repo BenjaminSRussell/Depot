@@ -21,7 +21,7 @@ type openLinesStore struct {
 func (f *openLinesStore) ListOpenOrderLines(_ context.Context, filter store.OpenLineFilter) (store.OpenLinePage, error) {
 	f.calls++
 	f.filter = filter
-	line := store.OpenOrderLine{LineID: ids.New(), OrderNumber: "SO-1", LineNo: 1, OpenQty: decimal.NewFromInt(120), DueDate: "2026-11-30"}
+	line := store.OpenOrderLine{LineID: ids.New(), OrderNumber: "SO-1", LineNo: 1, OpenQty: decimal.NewFromInt(120), Unit: "BOX", DueDate: "2026-11-30"}
 	return store.OpenLinePage{Items: []store.OpenOrderLine{line}, Next: "2026-11-30|" + line.LineID}, nil
 }
 
@@ -75,7 +75,7 @@ func TestOpenOrderLines_PageCarriesTheFilterAndTheNextCursor(t *testing.T) {
 	if f.LegalEntityID != testLE || f.SiteID != site || f.DueTo != "2027-01-31" || f.Limit != 2 || f.After == nil {
 		t.Fatalf("filter %+v", f)
 	}
-	for _, want := range []string{`"openQty":"120"`, `"orderNumber":"SO-1"`, `"next":"2026-11-30|`} {
+	for _, want := range []string{`"openQty":"120"`, `"unit":"BOX"`, `"orderNumber":"SO-1"`, `"next":"2026-11-30|`} {
 		if !strings.Contains(rec.Body.String(), want) {
 			t.Errorf("body %s lacks %s", rec.Body.String(), want)
 		}

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { takeHandedOffFeatureFilter } from "../assistant/session";
 import { copy } from "../copy";
 import { matchesQuery, type NavEntry } from "../workspaces/model";
 import { useWorkspaceNav } from "../workspaces/WorkspaceNav";
@@ -25,8 +26,7 @@ function EntryList({ entries }: { entries: NavEntry[] }) {
 
 export function AllFeaturesPage() {
   const { areaGroups } = useWorkspaceNav();
-  const [searchParams] = useSearchParams();
-  const [query, setQuery] = useState(searchParams.get("q") ?? "");
+  const [query, setQuery] = useState(() => takeHandedOffFeatureFilter() ?? "");
   const searching = query.trim() !== "";
   const groups = areaGroups
     .map((g) => ({

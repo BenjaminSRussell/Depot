@@ -71,6 +71,42 @@ describe("AssistantPrompt", () => {
     expect(prompt()).toHaveValue("hello");
   });
 
+  describe("mode selector and clarify chooser", () => {
+    const modeRadio = (name: string) => screen.getByRole("radio", { name });
+
+    it("groups Auto, Ask, Go to and Do, defaults to Auto and disables Do without the duty", () => {
+      const { container } = render(<AssistantPrompt onSubmit={async () => {}} />);
+      expect(screen.getByRole("group", { name: copy.home.assistantModeLegend })).toBeInTheDocument();
+      expect(modeRadio("Auto")).toBeChecked();
+      expect(modeRadio("Do")).toBeDisabled();
+      expect(modeRadio("Ask")).toBeEnabled();
+      expect(pageViolations(container)).toEqual([]);
+    });
+
+    it("sends the chosen mode with the text and enables Do with the duty", async () => {
+      const onSubmit = vi.fn(async (_text: string, _mode?: string) => {});
+      const user = userEvent.setup();
+      render(<AssistantPrompt onSubmit={onSubmit} canAct />);
+      await user.click(modeRadio("Do"));
+      await user.type(prompt(), "cancel this planned order{Enter}");
+      expect(onSubmit).toHaveBeenLastCalledWith("cancel this planned order", "act");
+    });
+
+    it("offers the two clarify options and resends the text with the one picked", async () => {
+      const onSubmit = vi
+        .fn(async (_text: string, _mode?: string): Promise<RouterOutcome> => ({ status: "dispatched", kind: "ask", handled: "own" }))
+        .mockResolvedValueOnce({ status: "clarify", options: ["navigate", "ask"] });
+      const user = userEvent.setup();
+      const { container } = render(<AssistantPrompt onSubmit={onSubmit} />);
+      await user.type(prompt(), "invoices{Enter}");
+      expect(await screen.findByRole("button", { name: copy.home.assistantChoices.navigate })).toBeInTheDocument();
+      expect(pageViolations(container)).toEqual([]);
+      await user.click(screen.getByRole("button", { name: copy.home.assistantChoices.ask }));
+      expect(onSubmit).toHaveBeenLastCalledWith("invoices", "ask");
+      await vi.waitFor(() => expect(screen.queryByRole("button", { name: copy.home.assistantChoices.navigate })).not.toBeInTheDocument());
+    });
+  });
+
   describe("router outcomes", () => {
     const sendWith = async (outcome: RouterOutcome) => {
       const onSubmit = vi.fn(async (_text: string, _mode?: string) => outcome);

@@ -45,6 +45,21 @@ func availFor(t *testing.T, s *store.Postgres, ctx context.Context, product stri
 	return res.Rows[0].AvailPhysical, res.Rows[0].Blocked
 }
 
+func TestOnHandByProductCarriesTheLatestEnteredUnit(t *testing.T) {
+	s, _, _ := setup(t)
+	ctx := entityCtx(1, ids.New())
+	product := ids.New()
+	post(t, ctx, s, domain.JournalOpeningBalance, line(product, "10", "2", dims()))
+	res, err := s.ListOnHand(ctx, store.OnHandFilter{ProductID: product, GroupBy: []string{store.GroupProduct}})
+	if err != nil || len(res.Rows) != 1 || res.Rows[0].EnteredUnit != "EA" {
+		t.Fatalf("on-hand by product: %v %+v", err, res.Rows)
+	}
+	site, err := s.ListOnHand(ctx, store.OnHandFilter{ProductID: product, GroupBy: []string{domain.DimSite}})
+	if err != nil || len(site.Rows) != 1 || site.Rows[0].EnteredUnit != "" {
+		t.Fatalf("on-hand by site names no unit: %v %+v", err, site.Rows)
+	}
+}
+
 func outboxCount(t *testing.T, admin *pgxpool.Pool, typ string) int {
 	t.Helper()
 	var n int

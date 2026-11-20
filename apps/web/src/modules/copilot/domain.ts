@@ -11,6 +11,8 @@ export const MODE_LABELS: Readonly<Record<CopilotMode, string>> = {
 };
 
 /** Every generated answer carries this label; it is never hidden. */
+export const TOOL_LIMIT_CALLS = 8;
+export const TOOL_LIMIT_MESSAGE = "I could not complete the answer within the tool-call limit.";
 export const GENERATED_BADGE = "AI-generated: check before you use it";
 
 export function isCopilotMode(value: string): value is CopilotMode {

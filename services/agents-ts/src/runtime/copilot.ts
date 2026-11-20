@@ -32,6 +32,7 @@ import type { KnowledgeService } from "./knowledge.js";
 export const COPILOT_DUTY = "mcp.copilot.use";
 export const COPILOT_AGENT_ID = "copilot";
 export const MAX_MESSAGE_CHARS = 4000;
+export const TOOL_LIMIT_MESSAGE = "I could not complete the answer within the tool-call limit.";
 export const KNOWLEDGE_SEARCH_TOOL = "depot.knowledge.search";
 /** Searching the knowledge index is part of using the copilot: the route is seeded under the same duty (policies/authz/data.json). */
 export const KNOWLEDGE_READ_DUTY = COPILOT_DUTY;
@@ -247,15 +248,15 @@ export function createCopilotService(deps: CopilotDeps) {
       const recordIds = new Set<string>();
       let guardContext: GuardContext = { inputTokens: new Set(), inputRecordIds: new Set(), highestClass: "P0" };
       const outcome: { failure?: OutputGuardReason } = {};
-      const verify = async (text: string, partial: boolean): Promise<boolean> => {
-        const verdict = await outputGuard.check({ tenantId: caller.tenantId, text, context: guardContext, pseudo, duties: caller.duties, declaredClass: dataClass, partial });
+      const verify = async (text: string, partial: boolean): Promise<string | undefined> => {
+        const verdict = await outputGuard.check({ tenantId: caller.tenantId, text, context: guardContext, pseudo, duties: caller.duties, declaredClass: dataClass, partial, inputs: [prompt, ...results] });
         dataClass = verdict.dataClass;
-        if (verdict.ok) return true;
+        if (verdict.ok) return verdict.text;
         if (outcome.failure === undefined) {
           outcome.failure = verdict.reason;
           hooks.onWithdraw?.();
         }
-        return false;
+        return undefined;
       };
       const present = (text: string): string => stripUnreadableCitations(pseudo.restoreFor(text, caller.duties), guardContext.inputRecordIds);
       // Text is shown a sentence at a time, after the output guard passed it, unless a knowledge result already makes the answer unanswerable.
@@ -265,8 +266,9 @@ export function createCopilotService(deps: CopilotDeps) {
           ? undefined
           : createChunkReleaser(async (chunk) => {
               if (!streamable()) return true;
-              if (!(await verify(chunk, true))) return false;
-              sink(present(chunk));
+              const clean = await verify(chunk, true);
+              if (clean === undefined) return false;
+              sink(present(clean));
               return true;
             });
       const row = (tool: string, input: unknown, output: unknown, decision: Decision, why?: string): void => {
@@ -456,8 +458,8 @@ export function createCopilotService(deps: CopilotDeps) {
             for (const c of g.citations) citations.push({ sourceType: c.sourceType, sourceRef: c.sourceRef, label: c.section });
           }
         }
-        if (answer === "" && refused === null && !toolless) answer = "I could not complete the answer within the tool-call limit.";
-        if (refused === null && outcome.failure === undefined && answer !== "") await verify(answer, false);
+        if (answer === "" && refused === null && !toolless) answer = TOOL_LIMIT_MESSAGE;
+        if (refused === null && outcome.failure === undefined && answer !== "") answer = (await verify(answer, false)) ?? answer;
         if (outcome.failure !== undefined) {
           refused = { code: OUTPUT_GUARD_CODE, message: OUTPUT_GUARD_MESSAGE };
           answer = refused.message;

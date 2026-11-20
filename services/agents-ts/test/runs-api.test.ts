@@ -78,8 +78,9 @@ describe("POST /api/v1/agents/{agent_id}/runs", () => {
     expect(decide.status).toBe(200);
     await Promise.all(s.spawned);
 
-    const done = (await (await fetch(`${s.srv.base}/api/v1/agents/runs/${started.runId}`, { headers: headers("agents.run.read") })).json()) as { run: { status: string }; pendingApprovals: unknown[] };
+    const done = (await (await fetch(`${s.srv.base}/api/v1/agents/runs/${started.runId}`, { headers: headers("agents.run.read") })).json()) as { run: { status: string; actor: string }; pendingApprovals: unknown[] };
     expect(done.run.status).toBe("COMMITTED");
+    expect(done.run.actor).toBe(`agent:ap_coding@user:${USER}`);
     expect(done.pendingApprovals).toEqual([]);
     const actions = (await (await fetch(`${s.srv.base}/api/v1/agents/runs/${started.runId}/actions`, { headers: headers("agents.run.read") })).json()) as { items: Array<{ toolName: string; decision: string; approverUserId: string; committedEntityRef: string }> };
     expect(actions.items).toEqual([expect.objectContaining({ toolName: PROPOSE, decision: "APPROVED", approverUserId: OTHER, committedEntityRef: "coding-1" })]);

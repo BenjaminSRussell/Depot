@@ -429,6 +429,7 @@ type Store interface {
 	TrackingStore
 	ManifestStore
 	SalesReportStore
+	SlipGLStore
 	Ping(ctx context.Context) error
 }
 

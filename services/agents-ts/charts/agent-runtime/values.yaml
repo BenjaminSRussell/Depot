@@ -39,7 +39,7 @@ bedrock: { region: "" }
 # one of them is never sent to a model: the run fails AGT-0215 (#606).
 phiFields: []
 runTokenCap: 20000
-copilot: { tokenCap: 8000, maxTurns: 4 }
+copilot: { tokenCap: 8000, maxTurns: 8 }
 # agent.approval_expiry_h (BR-47.3): 1 to 240; empty means 72.
 approvalExpiryHours: ""
 # How a run executes. inprocess (the default, for dev): one promise in the pod that took the request, lost with the pod.

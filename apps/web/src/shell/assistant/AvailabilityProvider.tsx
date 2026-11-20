@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { copy } from "../copy";
 import { holdsDuty } from "../dutyGate";
 import { usePrincipalDuties } from "../principal";
@@ -83,11 +84,15 @@ export function useAvailabilityController(enabled: boolean, fetchFn?: FetchLike)
   return { state, reportRefusal, reportFailure };
 }
 
-function noticeFor(state: AvailabilityState, admin: boolean): { title: string; body: string } | undefined {
+const BUDGETS_ROUTE = "/copilot/budgets";
+
+function noticeFor(state: AvailabilityState, admin: boolean): { title: string; body: string; budgets?: true } | undefined {
   const text = copy.assistantStatus;
-  if (state.status === "enabled") return state.budget === "SOFT" && admin ? { title: text.softTitle, body: text.softBody } : undefined;
+  if (state.status === "enabled") return state.budget === "SOFT" && admin ? { title: text.softTitle, body: text.softBody, budgets: true } : undefined;
   if (state.status === "degraded") {
-    return state.reason === "budget" ? { title: text.budgetTitle, body: text.budgetBody } : { title: text.unreachableTitle, body: text.unreachableBody };
+    return state.reason === "budget"
+      ? { title: text.budgetTitle, body: text.budgetBody, ...(admin ? { budgets: true as const } : {}) }
+      : { title: text.unreachableTitle, body: text.unreachableBody };
   }
   if (state.status === "unavailable" && state.reason !== "noAccess") {
     if (state.reason === "paused") return { title: text.pausedTitle, body: text.pausedBody };
@@ -104,6 +109,12 @@ export function AssistantNotice() {
   return (
     <Alert tone={state.status === "enabled" ? "info" : "warning"} live="status" title={notice.title}>
       {notice.body}
+      {notice.budgets ? (
+        <>
+          {" "}
+          <Link to={BUDGETS_ROUTE}>{copy.assistantStatus.budgetsLink}</Link>
+        </>
+      ) : null}
     </Alert>
   );
 }
