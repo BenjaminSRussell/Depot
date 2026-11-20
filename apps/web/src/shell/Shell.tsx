@@ -8,6 +8,7 @@ import { holdsDuty, requiredDuty, visibleModules } from "./dutyGate";
 import { plannedRouteFor } from "./plannedRoutes";
 import { newActions } from "./search/newActions";
 import { InboxProvider } from "./inbox/InboxProvider";
+import { PinsProvider } from "./pins/PinsProvider";
 import { RecentProvider, useRecentPages } from "./recent";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { NotAvailablePage } from "./pages/NotAvailablePage";
@@ -20,7 +21,9 @@ import { recordContextFor } from "./assistant/recordContext";
 import { handOffFeatureFilter, handOffPrompt, setRecordContext } from "./assistant/session";
 import { ASSISTANT_DUTY, COPILOT_PATH } from "./home/assistantRouter";
 import { devDuties, devIdentity, PrincipalProvider } from "./principal";
+import { TourProvider } from "./OnboardingTour";
 import { readDensity, writeDensity, type Density } from "./personalization";
+import { localPreferenceStorage, type PreferenceStorage } from "./preferenceStorage";
 import { RouteErrorBoundary } from "./RouteErrorBoundary";
 import styles from "./Shell.module.css";
 import { shellNav } from "./shellNav";
@@ -61,6 +64,7 @@ export interface ShellProps {
   workspaceConfig?: WorkspaceConfig;
   /** Fixed feature states that replace the read of the tenant's features, for tests and demos. */
   features?: Readonly<Record<string, boolean>>;
+  onboardingStorage?: PreferenceStorage;
 }
 
 function PageSkeleton() {
@@ -74,7 +78,7 @@ function PageSkeleton() {
   );
 }
 
-export function Shell({ modules: allModules, duties, identity, workspaceConfig, features: fixedFeatures }: ShellProps) {
+export function Shell({ modules: allModules, duties, identity, workspaceConfig, features: fixedFeatures, onboardingStorage = localPreferenceStorage }: ShellProps) {
   const principalDuties = useMemo(() => duties ?? devDuties(), [duties]);
   const settings = useTenantSettingsLoader(principalDuties, fixedFeatures);
   const availability = useAvailabilityController(principalDuties.includes(ASSISTANT_DUTY));
@@ -116,9 +120,18 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
     [available, pathname, allModules],
   );
 
+  const canOpen = useCallback(
+    (to: string) => isPathEnabled(settings.features, to) && plannedRouteFor(to) === undefined && holdsDuty(principalDuties, requiredDuty(to, allModules)),
+    [settings.features, principalDuties, allModules],
+  );
+
   const config = useMemo(() => workspaceConfig ?? loadWorkspaceConfig(settings.workspaceOverride), [workspaceConfig, settings.workspaceOverride]);
   const navEntries = useMemo(() => resolveNavEntries(modules, config.areas), [modules, config]);
   const navEntryByTo = useMemo(() => new Map(navEntries.map((e) => [e.to, e])), [navEntries]);
+  const literalRoutes = useMemo(
+    () => new Set(allModules.flatMap((m) => m.routes.map((r) => r.path ?? "")).filter((path) => path !== "" && !path.includes(":"))),
+    [allModules],
+  );
   const entries = useMemo<PaletteEntry[]>(
     () => [
       ...shellNav.map((n) => ({ id: `shell:${n.to}`, group: copy.nav.general, label: n.label, to: n.to, icon: n.icon })),
@@ -357,7 +370,9 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
       <WorkspaceNavProvider entries={navEntries} config={config}>
       <InboxProvider>
       <RecentProvider identity={userId}>
+      <PinsProvider key={userId} identity={userId} canOpen={canOpen} pageLabels={navEntryByTo} literalRoutes={literalRoutes} announce={announce}>
       <RecentTracker entries={navEntryByTo} />
+      <TourProvider identity={userId} storage={onboardingStorage} titleRef={titleRef}>
       <div className={styles.root} data-density={density}>
         <a href="#main" className="skip-link">
           Skip to content
@@ -409,6 +424,8 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
         ) : null}
         {paletteOpen ? <CommandPalette entries={entries} identity={userId} onSelect={selectEntry} onClose={() => closePalette()} announce={announceQuietly} onAsk={(text) => void askAssistant(text)} assistantState={availability.state} /> : null}
       </div>
+      </TourProvider>
+      </PinsProvider>
       </RecentProvider>
       </InboxProvider>
       </WorkspaceNavProvider>

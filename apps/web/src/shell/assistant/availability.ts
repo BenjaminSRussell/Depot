@@ -14,6 +14,7 @@ export const availabilitySchema = z.object({
   killSwitch: killSwitchStatusSchema.pick({ halted: true, stale: true }),
   budgetStatus: z.enum(["OK", "SOFT", "HARD"]),
   copilotEnabled: z.boolean(),
+  signoffPending: z.boolean().optional(),
 });
 
 export type Availability = z.infer<typeof availabilitySchema>;
@@ -24,7 +25,7 @@ export type AvailabilityState =
   | { status: "checking" }
   | { status: "enabled"; budget: "OK" | "SOFT" }
   | { status: "degraded"; reason: "budget" | "unreachable" }
-  | { status: "unavailable"; reason: "paused" | "off" | "noAccess" };
+  | { status: "unavailable"; reason: "paused" | "off" | "signoff" | "noAccess" };
 
 export const CHECKING: AvailabilityState = { status: "checking" };
 export const NO_ACCESS: AvailabilityState = { status: "unavailable", reason: "noAccess" };
@@ -57,9 +58,9 @@ export async function getAvailability(signal?: AbortSignal, fetchFn: FetchLike =
 
 export function deriveAvailability(read: AvailabilityRead): AvailabilityState {
   if (!read.ok) return { status: "degraded", reason: "unreachable" };
-  const { killSwitch, budgetStatus, copilotEnabled } = read.data;
+  const { killSwitch, budgetStatus, copilotEnabled, signoffPending } = read.data;
   if (killSwitch.halted || killSwitch.stale) return { status: "unavailable", reason: "paused" };
-  if (!copilotEnabled) return { status: "unavailable", reason: "off" };
+  if (!copilotEnabled) return { status: "unavailable", reason: signoffPending ? "signoff" : "off" };
   if (budgetStatus === "HARD") return { status: "degraded", reason: "budget" };
   return { status: "enabled", budget: budgetStatus };
 }

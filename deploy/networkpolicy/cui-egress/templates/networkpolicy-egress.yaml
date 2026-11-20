@@ -1,0 +1,40 @@
+{{- if eq ((.Values.global | default dict).boundary | default "standard") "cui" }}
+{{- range .Values.workloads }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $.Release.Name }}-{{ .name }}-egress
+  namespace: {{ .namespace | quote }}
+  labels:
+    depot.dev/network-policy: cui-egress
+  annotations:
+    depot.dev/egress-allow-hosts: {{ join "," $.Values.allowHosts | quote }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .podName | quote }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $.Values.dns.namespace | quote }}
+          podSelector:
+            matchLabels:
+              {{- toYaml $.Values.dns.podLabels | nindent 14 }}
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              {{ $.Values.boundaryNamespaceLabel }}: cui
+    {{- with $.Values.privateEndpointCidrs }}
+    - to:
+        {{- range . }}
+        - ipBlock: { cidr: {{ . | quote }} }
+        {{- end }}
+    {{- end }}
+{{- end }}
+{{- end }}

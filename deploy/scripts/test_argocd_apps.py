@@ -82,6 +82,9 @@ EXEMPT = {
     # The portal BFFs' session store (ADR-0014, D26): stage and prod only (session-valkey-stage). Dev portals run one replica
     # with sessions in memory, which needs no store.
     "deploy/session-valkey",
+    # Egress allow-list of the isolated CUI deployment (DEPOT-310): installed with deploy/cloud-profiles/values/cui.yaml in
+    # that deployment only; renders nothing under any other profile (docs/ops/NOT-IMPLEMENTED.md).
+    "deploy/networkpolicy/cui-egress",
 }
 # Dev sync-wave order (#106): each group syncs strictly after the one before. The operator, then the Kafka cluster
 # and the databases, then what the cluster's operators reconcile and Temporal, then Connect and its connectors.

@@ -40,6 +40,7 @@ describe("agents HTTP surface", () => {
 
   beforeAll(async () => {
     const handler = createAgentsHandler({
+      aiEnabled: true,
       authenticate: testAuthenticate,
       registry,
       versions: { next: () => ++version },
@@ -70,13 +71,23 @@ describe("agents HTTP surface", () => {
 
   const admin = edgeHeaders(T1, ADMIN, "agents.admin");
   const kill = (active: boolean, headers: Record<string, string> = admin) =>
-    fetch(`${base}/api/v1/agents/kill-switch`, { method: "POST", headers, body: JSON.stringify({ scope: "TENANT", tenantId: T1, active }) });
+    fetch(`${base}/api/v1/agents/kill-switch`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ scope: "TENANT", tenantId: T1, active }),
+    });
 
   it("POST kill-switch halts the tenant, publishes the event and answers 200; GET shows it", async () => {
     const res = await kill(true);
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
-    expect(await res.json()).toMatchObject({ scope: "TENANT", tenantId: T1, active: true, version: 1, byUser: ADMIN });
+    expect(await res.json()).toMatchObject({
+      scope: "TENANT",
+      tenantId: T1,
+      active: true,
+      version: 1,
+      byUser: ADMIN,
+    });
     expect(published.map((e) => e.type)).toEqual(["dev.depot.agent.killswitch.changed.v1"]);
     expect(registry.isHalted(T1)).toBe(true);
 
@@ -84,22 +95,40 @@ describe("agents HTTP surface", () => {
     expect(await again.json()).toMatchObject({ active: true, version: 1 });
     expect(published).toHaveLength(1);
 
-    const status = await fetch(`${base}/api/v1/agents/kill-switch`, { headers: admin });
+    const status = await fetch(`${base}/api/v1/agents/kill-switch`, {
+      headers: admin,
+    });
     expect(status.status).toBe(200);
-    expect(await status.json()).toMatchObject({ tenantId: T1, halted: true, tenant: { active: true, version: 1, byUser: ADMIN }, global: { active: false } });
+    expect(await status.json()).toMatchObject({
+      tenantId: T1,
+      halted: true,
+      tenant: { active: true, version: 1, byUser: ADMIN },
+      global: { active: false },
+    });
   });
 
   it("GET availability answers a copilot user with only the halt flags", async () => {
-    const res = await fetch(`${base}/api/v1/agents/availability`, { headers: edgeHeaders(T1, CLERK, "mcp.copilot.use") });
+    const res = await fetch(`${base}/api/v1/agents/availability`, {
+      headers: edgeHeaders(T1, CLERK, "mcp.copilot.use"),
+    });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ killSwitch: { halted: true, stale: false }, budgetStatus: "OK", copilotEnabled: false });
+    expect(await res.json()).toEqual({
+      killSwitch: { halted: true, stale: false },
+      budgetStatus: "OK",
+      copilotEnabled: false,
+    });
   });
 
   it("GET availability answers 403 without mcp.copilot.use, even for an agents.admin", async () => {
     for (const headers of [edgeHeaders(T1, ADMIN, ""), admin]) {
-      const res = await fetch(`${base}/api/v1/agents/availability`, { headers });
+      const res = await fetch(`${base}/api/v1/agents/availability`, {
+        headers,
+      });
       expect(res.status).toBe(403);
-      expect(await res.json()).toMatchObject({ code: "AGT-0203", detail: expect.stringContaining("mcp.copilot.use") });
+      expect(await res.json()).toMatchObject({
+        code: "AGT-0203",
+        detail: expect.stringContaining("mcp.copilot.use"),
+      });
     }
   });
 
@@ -121,30 +150,56 @@ describe("agents HTTP surface", () => {
     const anon = await kill(true, { "content-type": "application/json" });
     expect(anon.status).toBe(401);
     expect(await anon.json()).toMatchObject({ code: "AGT-0401" });
-    const missing = await fetch(`${base}/api/v1/agents/runs/${RUN}`, { headers: admin });
+    const missing = await fetch(`${base}/api/v1/agents/runs/${RUN}`, {
+      headers: admin,
+    });
     expect(missing.status).toBe(404);
     const badId = await fetch(`${base}/api/v1/agents/runs/%E0%A4%A/actions/${ACT}/decision`, { method: "POST", headers: admin, body: "{}" });
     expect(badId.status).toBe(404);
-    const wrong = await fetch(`${base}/api/v1/agents/kill-switch`, { method: "DELETE", headers: admin });
+    const wrong = await fetch(`${base}/api/v1/agents/kill-switch`, {
+      method: "DELETE",
+      headers: admin,
+    });
     expect(wrong.status).toBe(405);
     expect(wrong.headers.get("allow")).toBe("GET, POST");
   });
 
   it("answers 400 for a body that is not JSON or is empty, and 413 above the limit", async () => {
-    const bad = await fetch(`${base}/api/v1/agents/kill-switch`, { method: "POST", headers: admin, body: "{not json" });
+    const bad = await fetch(`${base}/api/v1/agents/kill-switch`, {
+      method: "POST",
+      headers: admin,
+      body: "{not json",
+    });
     expect(bad.status).toBe(400);
     expect(await bad.json()).toMatchObject({ code: "AGT-0400" });
-    const empty = await fetch(`${base}/api/v1/agents/kill-switch`, { method: "POST", headers: admin });
+    const empty = await fetch(`${base}/api/v1/agents/kill-switch`, {
+      method: "POST",
+      headers: admin,
+    });
     expect(empty.status).toBe(400);
-    const big = await fetch(`${base}/api/v1/agents/kill-switch`, { method: "POST", headers: admin, body: "x".repeat(MAX_BODY_BYTES + 1) });
+    const big = await fetch(`${base}/api/v1/agents/kill-switch`, {
+      method: "POST",
+      headers: admin,
+      body: "x".repeat(MAX_BODY_BYTES + 1),
+    });
     expect(big.status).toBe(413);
   });
 
   it("records an approval decision and answers 404 for an action that does not exist", async () => {
     const sup = edgeHeaders(T1, SUP, "APInvoicePost");
-    const ok = await fetch(`${base}/api/v1/agents/runs/${RUN}/actions/${ACT}/decision`, { method: "POST", headers: sup, body: JSON.stringify({ decision: "APPROVED" }) });
+    const ok = await fetch(`${base}/api/v1/agents/runs/${RUN}/actions/${ACT}/decision`, {
+      method: "POST",
+      headers: sup,
+      body: JSON.stringify({ decision: "APPROVED" }),
+    });
     expect(ok.status).toBe(200);
-    expect(await ok.json()).toEqual({ runId: RUN, actionId: ACT, decision: "APPROVED", approverUserId: SUP, decidedAt: NOW.toISOString() });
+    expect(await ok.json()).toEqual({
+      runId: RUN,
+      actionId: ACT,
+      decision: "APPROVED",
+      approverUserId: SUP,
+      decidedAt: NOW.toISOString(),
+    });
     const conflict = await fetch(`${base}/api/v1/agents/runs/${RUN}/actions/${ACT}/decision`, {
       method: "POST",
       headers: sup,
@@ -152,17 +207,25 @@ describe("agents HTTP surface", () => {
     });
     expect(conflict.status).toBe(409);
     const other = "00000000-0000-7000-8000-00000000f003";
-    const missing = await fetch(`${base}/api/v1/agents/runs/${RUN}/actions/${other}/decision`, { method: "POST", headers: sup, body: JSON.stringify({ decision: "APPROVED" }) });
+    const missing = await fetch(`${base}/api/v1/agents/runs/${RUN}/actions/${other}/decision`, {
+      method: "POST",
+      headers: sup,
+      body: JSON.stringify({ decision: "APPROVED" }),
+    });
     expect(missing.status).toBe(404);
     expect(await missing.json()).toMatchObject({ code: "AGT-0404" });
   });
 
   it("never echoes an internal error", async () => {
     const failing = createAgentsHandler({
+      aiEnabled: true,
       authenticate: testAuthenticate,
       registry: new KillSwitchRegistry(() => Date.now()),
       versions: { next: () => 1 },
-      approvals: { find: async () => undefined, record: async (_t, _r, _a, d) => d },
+      approvals: {
+        find: async () => undefined,
+        record: async (_t, _r, _a, d) => d,
+      },
       publish: async () => {
         throw new Error("secret connection string");
       },
@@ -204,6 +267,7 @@ describe("api/openapi.yaml matches the router", () => {
   it("documents exactly the operations the router serves", async () => {
     expect(documentedOperations()).toEqual([
       "GET /api/v1/agents/ai-data-policy",
+      "GET /api/v1/agents/approvals/{actionId}",
       "GET /api/v1/agents/availability",
       "GET /api/v1/agents/briefings",
       "GET /api/v1/agents/briefings/{id}",
@@ -230,10 +294,15 @@ describe("api/openapi.yaml matches the router", () => {
       "PUT /api/v1/agents/budgets/{agentId}",
     ]);
     const handler = createAgentsHandler({
+      aiEnabled: true,
       authenticate: testAuthenticate,
       registry: new KillSwitchRegistry(() => Date.now()),
       versions: { next: () => 1 },
-      approvals: { find: async () => undefined, record: async (_t, _r, _a, d) => d },
+      approvals: {
+        find: async () => undefined,
+        record: async (_t, _r, _a, d) => d,
+      },
+      approvalReader: { findByAction: async () => undefined },
       publish: async () => undefined,
       // Never reached: an anonymous call is refused at the edge identity check.
       runs: {} as RunService,
@@ -244,7 +313,14 @@ describe("api/openapi.yaml matches the router", () => {
       definitions: {} as AgentDefinitionService,
       briefings: {} as BriefingService,
       aiPolicy: {} as AiPolicyStore,
-      steps: { service: {} as never, verifier: { verify: () => { throw new Error("no"); } } },
+      steps: {
+        service: {} as never,
+        verifier: {
+          verify: () => {
+            throw new Error("no");
+          },
+        },
+      },
     });
     const s = createServer((req, res) => void handler(req, res));
     await new Promise<void>((resolve) => s.listen(0, "127.0.0.1", resolve));
@@ -254,11 +330,165 @@ describe("api/openapi.yaml matches the router", () => {
         const [method, template] = op.split(" ") as [string, string];
         const url = template.replace("{runId}", RUN).replace("{id}", RUN).replace("{actionId}", ACT).replace("{agentId}", "ap_coding").replace("{conversationId}", RUN).replace("{step}", "plan");
         // Anonymous: a served route answers 401, an unserved one 404 or 405.
-        const res = await fetch(`${base}${url}`, { method, ...(method === "GET" ? {} : { body: "{}" }) });
+        const res = await fetch(`${base}${url}`, {
+          method,
+          ...(method === "GET" ? {} : { body: "{}" }),
+        });
         expect(res.status, op).toBe(401);
       }
     } finally {
       await new Promise<void>((resolve) => s.close(() => resolve()));
     }
+  });
+});
+
+describe("agents availability sign-off gate", () => {
+  const COPILOT = {} as CopilotService;
+  const serve = async (aiEnabled: boolean | undefined) => {
+    let version = 0;
+    const handler = createAgentsHandler({
+      authenticate: testAuthenticate,
+      registry: new KillSwitchRegistry(() => Date.now()),
+      versions: { next: () => ++version },
+      approvals: {
+        find: async () => undefined,
+        record: async (_t, _r, _a, decision: RecordedDecision) => decision,
+      },
+      publish: async () => {},
+      now: () => NOW,
+      copilot: COPILOT,
+      knowledge: {
+        index: async () => ({ indexed: 1, embedded: 0 }),
+        search: async () => [],
+      } as unknown as KnowledgeService,
+      briefings: {
+        generate: async () => ({ id: RUN, status: "RUNNING" }),
+      } as unknown as BriefingService,
+      ...(aiEnabled === undefined ? {} : { aiEnabled }),
+    } as Parameters<typeof createAgentsHandler>[0]);
+    const server = createServer((req, res) => {
+      void handler(req, res);
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    return {
+      server,
+      base: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+    };
+  };
+  const closeServer = (server: Server) => new Promise<void>((resolve) => server.close(() => resolve()));
+  const read = async (aiEnabled: boolean | undefined, duty = "mcp.copilot.use") => {
+    const { server, base } = await serve(aiEnabled);
+    try {
+      const res = await fetch(`${base}/api/v1/agents/availability`, {
+        headers: edgeHeaders(T1, CLERK, duty),
+      });
+      return { status: res.status, body: await res.json() };
+    } finally {
+      await closeServer(server);
+    }
+  };
+
+  it("reports the assistant off and the sign-off pending while the gate is closed", async () => {
+    const out = await read(false);
+    expect(out.status).toBe(200);
+    expect(out.body).toEqual({
+      killSwitch: { halted: false, stale: false },
+      budgetStatus: "OK",
+      copilotEnabled: false,
+      signoffPending: true,
+    });
+  });
+
+  it("reports the assistant on without a sign-off flag once the gate is open", async () => {
+    const out = await read(true);
+    expect(out.body).toEqual({
+      killSwitch: { halted: false, stale: false },
+      budgetStatus: "OK",
+      copilotEnabled: true,
+    });
+  });
+
+  it("refuses a process with no gate configured: a missing aiEnabled reads as closed", async () => {
+    const out = await read(undefined);
+    expect(out.body).toMatchObject({ copilotEnabled: false, signoffPending: true });
+  });
+
+  it("answers 403 before disclosing the gate to a caller without the copilot duty", async () => {
+    const out = await read(false, "");
+    expect(out.status).toBe(403);
+    expect(out.body).toMatchObject({ code: "AGT-0203" });
+    expect(out.body).not.toHaveProperty("signoffPending");
+  });
+
+  const post = async (aiEnabled: boolean | undefined, path: string, duty = "mcp.copilot.use", body = "{}") => {
+    const { server, base } = await serve(aiEnabled);
+    try {
+      const res = await fetch(`${base}${path}`, {
+        method: "POST",
+        headers: {
+          ...edgeHeaders(T1, CLERK, duty),
+          "content-type": "application/json",
+        },
+        body,
+      });
+      return { status: res.status, body: await res.json() };
+    } finally {
+      await closeServer(server);
+    }
+  };
+  const CONVERSATION = "/api/v1/agents/copilot/conversations";
+  const MESSAGES = `${CONVERSATION}/${RUN}/messages`;
+
+  it.each(["/api/v1/copilot/chat", CONVERSATION, MESSAGES])("refuses %s while the gate is closed", async (path) => {
+    const out = await post(false, path);
+    expect(out.status).toBe(403);
+    expect(out.body).toMatchObject({ code: "AGT-0203" });
+  });
+
+  it("keeps the duty refusal ahead of the gate and an open gate reaching the route", async () => {
+    expect(((await post(false, CONVERSATION, "")).body as { detail: string }).detail).toContain("duty");
+    expect((await post(true, CONVERSATION)).status).toBe(201);
+  });
+
+  it.each(["/api/v1/copilot/chat", CONVERSATION, MESSAGES])("refuses %s when aiEnabled is missing", async (path) => {
+    const out = await post(undefined, path);
+    expect(out.status).toBe(403);
+    expect(out.body).toMatchObject({ code: "AGT-0203" });
+  });
+
+  const CHUNKS = JSON.stringify({
+    chunks: [{ sourceType: "DOC", sourceRef: "d1", section: "s", body: "text" }],
+  });
+  const SEARCH = JSON.stringify({ query: "how" });
+  const knowledgeRoutes = [
+    ["/api/v1/knowledge/chunks", "knowledge.write", CHUNKS],
+    ["/api/v1/knowledge/search", "mcp.copilot.use", SEARCH],
+  ] as const;
+
+  it.each(knowledgeRoutes)("refuses %s while the gate is closed, with the chat status and code", async (path, duty, body) => {
+    const out = await post(false, path, duty, body);
+    expect(out.status).toBe(403);
+    expect(out.body).toMatchObject({ code: "AGT-0203" });
+  });
+
+  it.each(knowledgeRoutes)("keeps the duty refusal ahead of the gate on %s", async (path, _duty, body) => {
+    const out = await post(false, path, "", body);
+    expect(out.status).toBe(403);
+    expect((out.body as { detail: string }).detail).toContain("duty");
+  });
+
+  it.each(knowledgeRoutes)("serves %s when the gate is open", async (path, duty, body) => {
+    expect((await post(true, path, duty, body)).status).toBe(200);
+  });
+
+  it.each(knowledgeRoutes)("refuses %s when aiEnabled is missing", async (path, duty, body) => {
+    const out = await post(undefined, path, duty, body);
+    expect(out.status).toBe(403);
+    expect(out.body).toMatchObject({ code: "AGT-0203" });
+  });
+
+  it("leaves briefing generation, which calls no model, reachable while the gate is closed", async () => {
+    const out = await post(false, "/api/v1/agents/briefings:generate", "agents.invoke");
+    expect(out.status).toBe(202);
   });
 });

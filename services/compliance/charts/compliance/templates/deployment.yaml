@@ -81,7 +81,7 @@ spec:
             - name: TRADE_LICENSE_CHECK
               value: {{ .Values.config.tradeLicenseCheck | quote }}
             - name: COMPLIANCE_BOUNDARY
-              value: {{ .Values.config.boundary | quote }}
+              value: {{ ternary (.Values.global | default dict).boundary .Values.config.boundary (hasKey (.Values.global | default dict) "boundary") | quote }}
             - name: DEPOT_SERVICE_NAME
               value: compliance
 {{- if .Values.serviceIdentity.publicKeys }}

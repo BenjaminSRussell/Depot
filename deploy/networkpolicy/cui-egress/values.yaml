@@ -1,0 +1,11 @@
+workloads:
+  - { name: agents-ts, namespace: hello-ledger, podName: agent-runtime }
+  - { name: model-serving, namespace: hello-ledger, podName: model-serving }
+  - { name: audit, namespace: hello-ledger, podName: audit }
+boundaryNamespaceLabel: depot.dev/boundary
+dns:
+  namespace: kube-system
+  podLabels: { k8s-app: kube-dns }
+privateEndpointCidrs: []
+allowHosts:
+  - bedrock-runtime.us-gov-west-1.amazonaws.com

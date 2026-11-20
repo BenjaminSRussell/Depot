@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { ApprovalRequest, ApprovalStore, RecordedDecision } from "../api/decision.js";
+import type { ApprovalDetail, ApprovalReader, ApprovalRequest, ApprovalStore, RecordedDecision } from "../api/decision.js";
 import type { Money } from "../domain/money.js";
 import { approvalRequestedEvent } from "../domain/events.js";
 import { enqueueOutbox } from "./outbox.js";
@@ -66,11 +66,25 @@ const asDecision = (r: Row): RecordedDecision | undefined =>
         decidedAt: r.decided_at.toISOString(),
       };
 
+const requestOf = (row: Row): ApprovalRequest => {
+  const decided = asDecision(row);
+  return {
+    invokerUserId: row.invoker_user_id,
+    requestedAtMs: row.requested_at.getTime(),
+    ...(row.expiry_hours !== null ? { expiryHours: row.expiry_hours } : {}),
+    approvalDuty: row.approval_duty,
+    amount: { amount: row.amount, currency: row.currency },
+    selfApprovalLimit: { amount: row.self_approval_limit, currency: row.self_approval_currency },
+    ...(row.proposal_hash !== null ? { proposalHash: row.proposal_hash } : {}),
+    ...(decided !== undefined ? { decided } : {}),
+  };
+};
+
 /**
  * `approval_request` behind the decision endpoint (FR-47.8). Every statement runs in the caller's
  * tenant under row-level security; `record` is first-writer-wins.
  */
-export class PgApprovalStore implements ApprovalStore {
+export class PgApprovalStore implements ApprovalStore, ApprovalReader {
   constructor(private readonly store: PgAgentStore) {}
 
   /** Opens a request and returns its action id (the id the decision endpoint takes). */
@@ -115,18 +129,14 @@ export class PgApprovalStore implements ApprovalStore {
     const row = await this.store.withTenant(tenantId, async (c) =>
       (await c.query<Row>("select * from approval_request where tenant_id = $1 and run_id = $2 and action_id = $3", [tenantId, runId, actionId])).rows[0],
     );
-    if (row === undefined) return undefined;
-    const decided = asDecision(row);
-    return {
-      invokerUserId: row.invoker_user_id,
-      requestedAtMs: row.requested_at.getTime(),
-      ...(row.expiry_hours !== null ? { expiryHours: row.expiry_hours } : {}),
-      approvalDuty: row.approval_duty,
-      amount: { amount: row.amount, currency: row.currency },
-      selfApprovalLimit: { amount: row.self_approval_limit, currency: row.self_approval_currency },
-      ...(row.proposal_hash !== null ? { proposalHash: row.proposal_hash } : {}),
-      ...(decided !== undefined ? { decided } : {}),
-    };
+    return row === undefined ? undefined : requestOf(row);
+  }
+
+  async findByAction(tenantId: string, actionId: string): Promise<ApprovalDetail | undefined> {
+    const row = await this.store.withTenant(tenantId, async (c) =>
+      (await c.query<Row>("select * from approval_request where tenant_id = $1 and action_id = $2", [tenantId, actionId])).rows[0],
+    );
+    return row === undefined ? undefined : { ...requestOf(row), runId: row.run_id, actionId: row.action_id, tool: row.tool_name };
   }
 
   async record(tenantId: string, runId: string, actionId: string, d: RecordedDecision): Promise<RecordedDecision> {

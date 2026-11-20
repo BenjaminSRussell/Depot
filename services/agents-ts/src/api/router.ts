@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { KillSwitchRegistry } from "../domain/killswitch.js";
-import { type ApprovalStore, handleApprovalDecision } from "./decision.js";
+import { type ApprovalReader, type ApprovalStore, handleApprovalDecision, handleGetApproval } from "./decision.js";
 import { HEADER as SERVICE_TOKEN_HEADER, ServiceTokenError, type ServiceTokenVerifier } from "./serviceToken.js";
 import { StepRefusal, type RunSteps } from "../runtime/steps.js";
 import { handleKillSwitchCommand, type KillSwitchWiring, killSwitchStatusOf, readKillSwitchStatus } from "./killswitch.js";
@@ -30,12 +30,15 @@ export interface AgentsApiBase {
   authenticate: Authenticate;
   registry: KillSwitchRegistry;
   approvals: ApprovalStore;
+  /** The approval lookup by action id; absent and its route answers 404. */
+  approvalReader?: ApprovalReader;
   /** Run start and read endpoints; absent in a process that serves only the control routes. */
   runs?: RunService;
   /** Decline of an ungated action and undo; absent and an action with no approval request answers 404. */
   actions?: ActionService;
   /** The copilot chat endpoint. */
   copilot?: CopilotService;
+  aiEnabled: boolean;
   act?: ActService;
   /** The knowledge index and its hybrid search; absent and the knowledge routes answer 404. */
   knowledge?: KnowledgeService;
@@ -73,6 +76,7 @@ const MESSAGES_PATH = new RegExp(`^/api/v1/agents/copilot/conversations/(${UUID}
 const KNOWLEDGE_CHUNKS_PATH = "/api/v1/knowledge/chunks";
 const KNOWLEDGE_SEARCH_PATH = "/api/v1/knowledge/search";
 const STEP_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/steps/(begin|plan|resolve|commit|abort)$`);
+const APPROVAL_PATH = new RegExp(`^/api/v1/agents/approvals/(${UUID})$`);
 const DECISION_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/actions/(${UUID})/decision$`);
 const UNDO_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/actions/(${UUID}):undo$`);
 
@@ -201,6 +205,9 @@ async function handleStep(steps: NonNullable<AgentsApiBase["steps"]>, req: Incom
  */
 export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
   const now = deps.now ?? (() => new Date());
+  const requireAiSignoff = (): void => {
+    if (deps.aiEnabled !== true) throw new ApiError(403, "AGT-0203", "AI is disabled for this deployment until its sign-off is recorded.");
+  };
   return async (req, res) => {
     const path = new URL(req.url ?? "/", "http://agents.internal").pathname;
     try {
@@ -226,10 +233,12 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         const principal = await deps.authenticate(req.headers);
         requireDuty(principal, COPILOT_DUTY, "the assistant availability");
         const { halted, stale } = killSwitchStatusOf(principal, deps.registry);
+        const signoffPending = deps.aiEnabled !== true;
         send(res, 200, {
           killSwitch: { halted, stale },
           budgetStatus: deps.budgets === undefined ? "OK" : await deps.budgets.status(principal),
-          copilotEnabled: deps.copilot !== undefined,
+          copilotEnabled: deps.copilot !== undefined && !signoffPending,
+          ...(signoffPending ? { signoffPending } : {}),
         });
         return;
       }
@@ -240,7 +249,13 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         const policy =
           req.method === "GET"
             ? await handleGetAiDataPolicy({ principal, store: deps.aiPolicy })
-            : await handlePutAiDataPolicy({ principal, ifMatch: headerValue(req.headers["if-match"]), body: await readBody(req), store: deps.aiPolicy, now });
+            : await handlePutAiDataPolicy({
+                principal,
+                ifMatch: headerValue(req.headers["if-match"]),
+                body: await readBody(req),
+                store: deps.aiPolicy,
+                now,
+              });
         send(res, 200, policy, { etag: `"${policy.version}"` });
         return;
       }
@@ -248,13 +263,24 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         if (deps.copilot === undefined) throw new ApiError(404, "AGT-0404", "no such route");
         if (req.method !== "POST") throw new MethodNotAllowed("POST");
         const principal = await deps.authenticate(req.headers);
-        await handleChat({ principal, token: bearerToken(req.headers), body: await readBody(req), accept: String(req.headers["accept"] ?? ""), copilot: deps.copilot, ...(deps.act !== undefined ? { act: deps.act } : {}), res });
+        requireDuty(principal, COPILOT_DUTY, "the copilot");
+        requireAiSignoff();
+        await handleChat({
+          principal,
+          token: bearerToken(req.headers),
+          body: await readBody(req),
+          accept: String(req.headers["accept"] ?? ""),
+          copilot: deps.copilot,
+          ...(deps.act !== undefined ? { act: deps.act } : {}),
+          res,
+        });
         return;
       }
       if (path === CONVERSATIONS_PATH) {
         if (deps.copilot === undefined) throw new ApiError(404, "AGT-0404", "no such route");
         if (req.method !== "POST") throw new MethodNotAllowed("POST");
         requireDuty(await deps.authenticate(req.headers), COPILOT_DUTY, "the copilot");
+        requireAiSignoff();
         send(res, 201, { conversationId: randomUUID() });
         return;
       }
@@ -262,7 +288,17 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         if (deps.copilot === undefined) throw new ApiError(404, "AGT-0404", "no such route");
         if (req.method !== "POST") throw new MethodNotAllowed("POST");
         const principal = await deps.authenticate(req.headers);
-        await handleChat({ principal, token: bearerToken(req.headers), body: await readBody(req), accept: String(req.headers["accept"] ?? ""), copilot: deps.copilot, ...(deps.act !== undefined ? { act: deps.act } : {}), res });
+        requireDuty(principal, COPILOT_DUTY, "the copilot");
+        requireAiSignoff();
+        await handleChat({
+          principal,
+          token: bearerToken(req.headers),
+          body: await readBody(req),
+          accept: String(req.headers["accept"] ?? ""),
+          copilot: deps.copilot,
+          ...(deps.act !== undefined ? { act: deps.act } : {}),
+          res,
+        });
         return;
       }
       if (path === KNOWLEDGE_CHUNKS_PATH || path === KNOWLEDGE_SEARCH_PATH) {
@@ -271,9 +307,11 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         const principal = await deps.authenticate(req.headers);
         if (path === KNOWLEDGE_CHUNKS_PATH) {
           requireDuty(principal, "knowledge.write", "the knowledge index");
+          requireAiSignoff();
           send(res, 200, await deps.knowledge.index(principal.tenantId, parseChunks(await readBody(req))));
         } else {
           requireDuty(principal, COPILOT_DUTY, "the knowledge search");
+          requireAiSignoff();
           const q = parseSearch(await readBody(req));
           send(res, 200, await deps.knowledge.search(principal.tenantId, q.query, q.limit));
         }
@@ -288,9 +326,36 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         const principal = await deps.authenticate(req.headers);
         const briefings = deps.briefings;
         if (path === BRIEFING_GENERATE_PATH) send(res, 202, await handleGenerate({ principal, briefings }));
-        else if (briefingRead !== null) send(res, 200, await handleMarkRead({ principal, id: (briefingRead[1] ?? "").toLowerCase(), briefings }));
-        else if (briefingGet !== null) send(res, 200, await handleGet({ principal, id: (briefingGet[1] ?? "").toLowerCase(), briefings }));
-        else send(res, 200, await handleList({ principal, params: new URL(req.url ?? "/", "http://agents.internal").searchParams, briefings }));
+        else if (briefingRead !== null)
+          send(
+            res,
+            200,
+            await handleMarkRead({
+              principal,
+              id: (briefingRead[1] ?? "").toLowerCase(),
+              briefings,
+            }),
+          );
+        else if (briefingGet !== null)
+          send(
+            res,
+            200,
+            await handleGet({
+              principal,
+              id: (briefingGet[1] ?? "").toLowerCase(),
+              briefings,
+            }),
+          );
+        else
+          send(
+            res,
+            200,
+            await handleList({
+              principal,
+              params: new URL(req.url ?? "/", "http://agents.internal").searchParams,
+              briefings,
+            }),
+          );
         return;
       }
       const budgetAgent = BUDGET_AGENT_PATH.exec(path);
@@ -323,7 +388,14 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
       if (start !== null && deps.runs !== undefined) {
         if (req.method !== "POST") throw new MethodNotAllowed("POST");
         const principal = await deps.authenticate(req.headers);
-        const started = await handleStartRun({ principal, token: bearerToken(req.headers), agentId: start[1] ?? "", body: await readBody(req), runs: deps.runs });
+        requireAiSignoff();
+        const started = await handleStartRun({
+          principal,
+          token: bearerToken(req.headers),
+          agentId: start[1] ?? "",
+          body: await readBody(req),
+          runs: deps.runs,
+        });
         send(res, 202, started);
         return;
       }
@@ -348,6 +420,14 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         if (req.method !== "POST") throw new MethodNotAllowed("POST");
         const principal = await deps.authenticate(req.headers);
         await deps.actions.undo(principal, (undo[1] ?? "").toLowerCase(), (undo[2] ?? "").toLowerCase(), await readBody(req, true));
+        return;
+      }
+      const approvalGet = APPROVAL_PATH.exec(path);
+      if (approvalGet !== null) {
+        if (deps.approvalReader === undefined) throw new ApiError(404, "AGT-0404", "no such route");
+        if (req.method !== "GET") throw new MethodNotAllowed("GET");
+        const principal = await deps.authenticate(req.headers);
+        send(res, 200, await handleGetApproval({ principal, actionId: (approvalGet[1] ?? "").toLowerCase(), reader: deps.approvalReader, now }));
         return;
       }
       const match = DECISION_PATH.exec(path);

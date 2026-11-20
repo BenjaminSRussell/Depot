@@ -10,6 +10,7 @@ import { copy } from "../copy";
 import { holdsDuty } from "../dutyGate";
 import { AssistantPrompt } from "../home/AssistantPrompt";
 import { ASSISTANT_DUTY, COPILOT_PATH } from "../home/assistantRouter";
+import { PinnedRegion } from "../pins/PinnedRegion";
 import { plannedRouteFor } from "../plannedRoutes";
 import homeStyles from "../home/home.module.css";
 import { usePrincipalDuties } from "../principal";
@@ -161,6 +162,7 @@ export function HomePage() {
         {demoTour}
         <SetupBanner />
         <MyWorkSummary />
+        <PinnedRegion />
         <WorkspaceKpis workspace={active} />
         {cards}
         <Recent />
@@ -177,6 +179,7 @@ export function HomePage() {
       {demoTour}
       <SetupBanner />
       <MyWorkSummary />
+      <PinnedRegion />
       <WorkspaceKpis workspace={active} />
       <section aria-labelledby="home-browse-title" className={homeStyles.browse}>
         <h2 id="home-browse-title" className={homeStyles.browseTitle}>

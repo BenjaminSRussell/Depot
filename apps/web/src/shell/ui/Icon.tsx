@@ -83,6 +83,7 @@ const glyphs = {
       <rect x="13" y="13" width="7" height="7" rx="1" />
     </>
   ),
+  pin: <path d="M9 4h6l-1 6 3 3v2H7v-2l3-3zM12 15v5" />,
 } satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof glyphs;

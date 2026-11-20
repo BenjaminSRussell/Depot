@@ -271,6 +271,7 @@ describe("server wiring", () => {
     let ready = true;
     const handler = createRequestHandler({
       api: {
+        aiEnabled: true,
         authenticate: testAuthenticate,
         registry: new KillSwitchRegistry(() => Date.now()),
         versions: { next: () => 1 },

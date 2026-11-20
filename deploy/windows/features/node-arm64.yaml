@@ -13,5 +13,6 @@ services:
       AGENTS_JWT_AUDIENCE: "{oidcAudience}"
       AGENTS_JWKS_URL: "{oidcJwksUrl}"
       MCP_URL: "{mcpUrl}"
+      AGENTS_AI_ENABLED: "true"
     feature: node
     optional: true

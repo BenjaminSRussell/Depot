@@ -95,7 +95,9 @@ function noticeFor(state: AvailabilityState, admin: boolean): { title: string; b
       : { title: text.unreachableTitle, body: text.unreachableBody };
   }
   if (state.status === "unavailable" && state.reason !== "noAccess") {
-    return state.reason === "paused" ? { title: text.pausedTitle, body: text.pausedBody } : { title: text.offTitle, body: text.offBody };
+    if (state.reason === "paused") return { title: text.pausedTitle, body: text.pausedBody };
+    if (state.reason === "signoff") return { title: text.signoffTitle, body: text.signoffBody };
+    return { title: text.offTitle, body: text.offBody };
   }
   return undefined;
 }

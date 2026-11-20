@@ -1,6 +1,6 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { ApprovalRequest, RecordedDecision } from "../src/api/decision.js";
+import type { ApprovalDetail, ApprovalRequest, RecordedDecision } from "../src/api/decision.js";
 import { createAgentsHandler, type AgentsApiDeps } from "../src/api/router.js";
 import { edgeHeaders, testAuthenticate } from "./jwt.js";
 import type { ActionDecline, ActionRecord } from "../src/domain/audit.js";
@@ -127,6 +127,9 @@ export class MemoryStore implements RunStore {
   async find(_t: string, _r: string, actionId: string): Promise<ApprovalRequest | undefined> {
     return this.approvals.get(actionId);
   }
+  async findByAction(tenantId: string, actionId: string): Promise<ApprovalDetail | undefined> {
+    return tenantId === T1 ? this.approvals.get(actionId) : undefined;
+  }
   async record(_t: string, _r: string, actionId: string, d: RecordedDecision): Promise<RecordedDecision> {
     const a = this.approvals.get(actionId);
     if (a === undefined) throw new Error("no approval");
@@ -162,7 +165,7 @@ export class MemoryActions implements ActionStore {
 
 export async function serve(deps: Partial<AgentsApiDeps> & Pick<AgentsApiDeps, "approvals">): Promise<{ base: string; close(): Promise<void>; registry: KillSwitchRegistry }> {
   const registry = deps.registry ?? new KillSwitchRegistry(() => Date.now());
-  const handler = createAgentsHandler({ registry, versions: { next: () => 1 }, publish: async () => undefined, authenticate: testAuthenticate, ...deps });
+  const handler = createAgentsHandler({ registry, versions: { next: () => 1 }, publish: async () => undefined, authenticate: testAuthenticate, aiEnabled: true, ...deps });
   const server: Server = createServer((req, res) => void handler(req, res));
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   return {

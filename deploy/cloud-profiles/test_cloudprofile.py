@@ -29,7 +29,7 @@ class ParityTests(unittest.TestCase):
         self.assertEqual(cp.check_parity(self.doc), [])
 
     def test_all_profiles_and_overlays_present(self) -> None:
-        self.assertEqual(sorted(self.doc["profiles"]), ["china", "commercial", "dod", "gcc", "gcc-high"])
+        self.assertEqual(sorted(self.doc["profiles"]), ["china", "commercial", "cui", "dod", "gcc", "gcc-high"])
         self.assertEqual(sorted(self.doc["overlays"]), ["eu-data-boundary", "hipaa"])
 
     def test_a_profile_missing_a_key_another_has_fails(self) -> None:
@@ -48,6 +48,15 @@ class ParityTests(unittest.TestCase):
         doc["profiles"]["dod"]["endpoints"]["graphRoot"]["source"] = "https://example.com/blog"
         self.assertTrue(any("Microsoft Learn source" in p for p in cp.check_parity(doc)))
 
+    def test_an_unknown_boundary_fails_and_the_optional_keys_do_not_break_parity(self) -> None:
+        doc = copy.deepcopy(self.doc)
+        self.assertEqual(cp.check_parity(doc), [])
+        doc["profiles"]["cui"]["boundary"] = "other"
+        self.assertTrue(any(p.startswith("cui: boundary 'other' is not one of") for p in cp.check_parity(doc)))
+        doc["profiles"]["cui"]["boundary"] = "cui"
+        doc["profiles"]["cui"]["aiEnabled"] = "false"
+        self.assertTrue(any("cui: aiEnabled 'false' is not a boolean" in p for p in cp.check_parity(doc)))
+
     def test_status_is_verified_or_unverified(self) -> None:
         doc = copy.deepcopy(self.doc)
         doc["profiles"]["dod"]["endpoints"]["graphRoot"]["status"] = "probably"
@@ -64,7 +73,7 @@ class ParityTests(unittest.TestCase):
         self.assertEqual(
             unverified,
             {("china", "containerRegistrySuffix"), ("china", "azureOpenAISuffix"), ("china", "managedHsmSuffix"),
-             ("gcc-high", "managedHsmSuffix"), ("dod", "managedHsmSuffix")},
+             ("cui", "managedHsmSuffix"), ("gcc-high", "managedHsmSuffix"), ("dod", "managedHsmSuffix")},
         )
 
 

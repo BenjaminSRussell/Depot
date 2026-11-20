@@ -46,6 +46,7 @@ paths:
                       stale: {type: boolean}
                   budgetStatus: {type: string, enum: [OK, SOFT, HARD]}
                   copilotEnabled: {type: boolean}
+                  signoffPending: {type: boolean}
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
   /api/v1/agents/kill-switch:
@@ -156,6 +157,31 @@ paths:
         "413": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
         "428": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/approvals/{actionId}:
+    get:
+      operationId: getAgentApproval
+      summary: The current state of one approval request, looked up by action id
+      description: |
+        Reads the request under the caller's tenant and derives its state:
+        PENDING, APPROVED, REJECTED, or EXPIRED (a stored decision with reason
+        EXPIRED, or an undecided request past its expiry, 72 hours by default).
+        Nothing is written. An unknown id, another tenant's id and a caller who
+        does not hold the request's approval duty all answer the same 404
+        AGT-0404, so the answer never reveals whether the request exists. The
+        proposal arguments and the request prompt are not returned.
+      x-depot-duty: agents.run.read
+      x-depot-approval: none
+      parameters:
+        - {name: actionId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: The approval request and its current state.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ApprovalDetail"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "405": {$ref: "#/components/responses/Problem"}
   /api/v1/agents/runs/{runId}/actions/{actionId}/decision:
     post:
       operationId: decideAgentAction
@@ -506,7 +532,7 @@ paths:
               type: object
               required: [mode, message]
               properties:
-                mode: {type: string, enum: [ask, explain, draft, summarize, route, act]}
+                mode: {type: string, enum: [ask, explain, draft, summarize, route, act, task]}
                 message: {type: string, minLength: 1, maxLength: 4000}
                 recordRef: {type: string, minLength: 1, maxLength: 200}
               additionalProperties: false
@@ -515,9 +541,12 @@ paths:
           description: The answer.
           content:
             application/json:
-              schema: {$ref: "#/components/schemas/ChatResponse"}
+              schema:
+                oneOf:
+                  - {$ref: "#/components/schemas/ChatResponse"}
+                  - {$ref: "#/components/schemas/TaskResponse"}
             text/event-stream:
-              schema: {type: string, description: "token frames, optionally one answer.withdrawn frame, then one done frame"}
+              schema: {type: string, description: "token frames, optionally one answer.withdrawn frame, then one done frame; never for mode=task"}
         "400": {$ref: "#/components/responses/Problem"}
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
@@ -563,6 +592,13 @@ paths:
         switch, budget stop, provider failure, missing AI route or guard block
         answers HTTP 200 with a RefusalResponse and no kind. A route call is
         never cached and counts against the budget and the kill switch.
+        With mode=task the model resolves the prompt to one screen of the
+        server route catalog with no tool and no write: the answer is a
+        navigationIntent (routeKey, path, params, draft, summary), a
+        clarifyingQuestion or a refusal. The path comes only from the catalog,
+        never from model text; a screen the caller lacks the duty for is a
+        refusal AGT-0203 that names nothing restricted. A task answer is always
+        JSON, never cached and counts against the budget and the kill switch.
       x-depot-duty: mcp.copilot.use
       x-depot-approval: none
       parameters:
@@ -575,7 +611,7 @@ paths:
               type: object
               required: [mode, message]
               properties:
-                mode: {type: string, enum: [ask, explain, draft, summarize, route, act]}
+                mode: {type: string, enum: [ask, explain, draft, summarize, route, act, task]}
                 message: {type: string, minLength: 1, maxLength: 4000}
                 recordRef: {type: string, minLength: 1, maxLength: 200}
               additionalProperties: false
@@ -588,6 +624,7 @@ paths:
                 oneOf:
                   - {$ref: "#/components/schemas/ChatResponse"}
                   - {$ref: "#/components/schemas/RouteResponse"}
+                  - {$ref: "#/components/schemas/TaskResponse"}
                   - {$ref: "#/components/schemas/RefusalResponse"}
                   - {$ref: "#/components/schemas/ActProposalResponse"}
                   - {$ref: "#/components/schemas/ActClarifyResponse"}
@@ -1073,6 +1110,37 @@ components:
           maxItems: 2
           items: {type: string, enum: [ask, navigate, act]}
         generated: {type: boolean, enum: [true]}
+    TaskResponse:
+      description: The answer of a mode=task call. Exactly one of navigationIntent, clarifyingQuestion or refusal is present.
+      oneOf:
+        - type: object
+          required: [navigationIntent, generated]
+          additionalProperties: false
+          properties:
+            navigationIntent:
+              type: object
+              required: [routeKey, path, params, draft, summary]
+              properties:
+                routeKey: {type: string, description: A key of the server route catalog.}
+                path: {type: string, pattern: "^/[^/?#:]", description: An app path taken from the route catalog, never from model text.}
+                params:
+                  type: object
+                  description: List filters declared by the catalog entry, such as overdue and amountGt.
+                  additionalProperties: {type: [boolean, number, string]}
+                draft:
+                  type: object
+                  description: Form values declared by the catalog entry, such as vendor, product and qty; names to resolve, never ids.
+                  additionalProperties: {type: [boolean, number, string]}
+                summary: {type: string, description: Plain-language statement of what was resolved, built from the validated values.}
+            generated: {type: boolean, enum: [true]}
+        - type: object
+          required: [clarifyingQuestion, generated]
+          additionalProperties: false
+          properties:
+            clarifyingQuestion: {type: string}
+            candidates: {type: array, items: {type: string}}
+            generated: {type: boolean, enum: [true]}
+        - {$ref: "#/components/schemas/RefusalResponse"}
     RefusalResponse:
       type: object
       required: [refusal, generated]
@@ -1229,6 +1297,29 @@ components:
         code: {type: string, enum: [AGT-0208]}
         approverUserId: {type: string, format: uuid}
         decidedAt: {type: string, format: date-time}
+    ApprovalDetail:
+      type: object
+      required: [runId, actionId, tool, state, amount, requestedAt, expiresAt]
+      properties:
+        runId: {type: string, format: uuid}
+        actionId: {type: string, format: uuid}
+        tool: {type: string}
+        state: {type: string, enum: [PENDING, APPROVED, REJECTED, EXPIRED]}
+        amount:
+          type: object
+          required: [amount, currency]
+          properties:
+            amount: {type: string, description: Decimal string, never a float.}
+            currency: {type: string, pattern: "^[A-Z]{3}$"}
+        requestedAt: {type: string, format: date-time}
+        expiresAt: {type: string, format: date-time}
+        decided:
+          type: object
+          required: [decision, decidedAt]
+          properties:
+            decision: {type: string, enum: [APPROVED, REJECTED]}
+            reason: {type: string, enum: [EXPIRED]}
+            decidedAt: {type: string, format: date-time}
     RunStatus:
       type: string
       description: BR-47.1 run state machine. COMMITTED, REJECTED, FAILED and KILLED are terminal.

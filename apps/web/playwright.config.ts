@@ -56,6 +56,12 @@ const E2E_DUTIES = [
   "warehouse.mobile-flow.admin",
 ].join(",");
 
+const DEV_IDENTITY = "00000000-0000-0000-0000-000000000001.dev";
+const ONBOARDING_COMPLETED = {
+  cookies: [],
+  origins: [{ origin: `http://localhost:${PORT}`, localStorage: [{ name: `depot.onboarding.v1.${DEV_IDENTITY}`, value: "completed" }] }],
+};
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -69,7 +75,11 @@ export default defineConfig({
     reducedMotion: "reduce",
   },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: [/warehouse-mobile/, /\.demo\.spec/] },
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"], storageState: ONBOARDING_COMPLETED },
+      testIgnore: [/warehouse-mobile/, /\.demo\.spec/],
+    },
     // Procure-to-pay and order-to-cash flows run against the demo build: a fake backend and every duty held.
     { name: "demo-flows", use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${DEMO_PORT}/Depot/` }, testMatch: /\.demo\.spec/ },
     {

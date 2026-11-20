@@ -49,6 +49,16 @@ describe.runIf(ownerUrl)("persisted approvals in Postgres", () => {
     expect(await approvals.pendingForRun(TENANT, runId)).toEqual([expect.objectContaining({ actionId, seq: 1, tool: "depot.ap.invoice.propose_coding" })]);
   });
 
+  it("finds a request by action id alone, with its stored decision, and hides it from another tenant", async () => {
+    const { runId, actionId } = await openOne();
+    const open = await approvals.findByAction(TENANT, actionId);
+    expect(open).toMatchObject({ runId, actionId, tool: "depot.ap.invoice.propose_coding", approvalDuty: "ap.invoice.propose" });
+    expect(open?.decided).toBeUndefined();
+    await approvals.record(TENANT, runId, actionId, { decision: "REJECTED", approverUserId: APPROVER, decidedAt: NOW.toISOString() });
+    expect((await approvals.findByAction(TENANT, actionId))?.decided).toMatchObject({ decision: "REJECTED", approverUserId: APPROVER });
+    expect(await approvals.findByAction(OTHER_TENANT, actionId)).toBeUndefined();
+  });
+
   it("records the first decision only: a second approver gets the stored one, and the decision endpoint answers 409 for a different decision", async () => {
     const { runId, actionId } = await openOne();
     const first = await approvals.record(TENANT, runId, actionId, { decision: "APPROVED", approverUserId: APPROVER, decidedAt: NOW.toISOString() });

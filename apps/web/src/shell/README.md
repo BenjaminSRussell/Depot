@@ -26,6 +26,17 @@ The sidebar shows one persona workspace at a time, not every module. All of it i
 - A user holds several workspaces (every one with a visible entry, minus the ones they dropped, so workspaces gained later appear on their own) and switches with the Workspace selector. The default is the workspace with the most duty-gated entries the user can see; home shows at most four. The choice is kept in this browser only (`localStorage`).
 - Labels in the sidebar, All features and search are task labels. The page title stays the module's own label.
 
+## Pinned items (DEPOT-289)
+
+`shell/pins/` lets a person pin the current page or record from the top bar. Pins show in the Pinned region on the home, can be moved up, moved down and removed with buttons (each change is announced in the shell live region), and persist in this browser only.
+
+- Key `depot.pins.v1.<identity>` over `localPreferenceStorage`, one key per signed-in identity. An empty identity stores nothing.
+- Value: a JSON array of strict objects, `{kind: "page", route, at}` or `{kind: "record", recordType, id, at}`. Only the route key, the record type and id, and the timestamp are stored. Names are never stored: the region resolves them at render time (`resolveOption`), shows the record type's plural name when the type has no lookup, and hides a pin whose lookup returns nothing or whose page or record the person can no longer open.
+- At most `MAX_PINS` (20) pins. A 21st is refused with a message and nothing is dropped. A corrupt stored value, or an item that does not match the schema, is ignored on read.
+- `probeStorage` writes, reads and removes a test key once. When it fails, the pin control and the region are not rendered.
+- `RECORD_ROUTES` in `pinTargets.ts` copies the search service's record links; `pins.test.tsx` fails when the service changes them.
+- Saved list views and assistant prompts are not pinnable yet (follow-up slice of DEPOT-289). The assistant store's own `pins` kind (`depot.assistant.pins.v1.<identity>`) is separate and untouched.
+
 ## Assistant storage (#309)
 
 Prompts, answers, citations, tool results, proposals and briefings are held in memory only. They are never written to `localStorage`, `sessionStorage`, IndexedDB or the Cache API, never placed in a URL, history state or document title, and never sent in a telemetry event. The home page hands a typed prompt to the copilot through `shell/assistant/session.ts` (memory, read once, expires after 10 seconds) instead of router state.

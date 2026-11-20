@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "comment": "The non-AI sub-processors (DEPOT-310). `enabled` is per deployment boundary: null means decided per tenant, false means off by configuration. Under boundary cui every entry must be false. Hosts are representative public endpoints, kept here so a test can prove none is reachable; no credential or endpoint secret belongs in this file.",
+  "subprocessors": [
+    {"id": "slack-teams", "name": "Slack and Microsoft Teams notifications", "hosts": ["hooks.slack.com", "slack.com", "webhook.office.com"], "enabled": {"standard": null, "cui": false}},
+    {"id": "email-smtp", "name": "Email and SMTP, including collections email", "hosts": ["smtp.sendgrid.net", "smtp.office365.com"], "enabled": {"standard": null, "cui": false}},
+    {"id": "ocr-invoice-capture", "name": "OCR and invoice capture", "hosts": ["api.veryfi.com"], "enabled": {"standard": null, "cui": false}},
+    {"id": "tax-provider", "name": "Tax calculation provider", "hosts": ["rest.avatax.com"], "enabled": {"standard": null, "cui": false}},
+    {"id": "carriers", "name": "Carrier rating and shipping", "hosts": ["onlinetools.ups.com", "apis.fedex.com"], "enabled": {"standard": null, "cui": false}},
+    {"id": "payment-processor", "name": "Payment processor for the customer portal", "hosts": ["api.stripe.com"], "enabled": {"standard": null, "cui": false}},
+    {"id": "payroll-provider", "name": "Payroll provider", "hosts": ["api.adp.com"], "enabled": {"standard": null, "cui": false}},
+    {"id": "card-feed", "name": "Card feed import", "hosts": ["production.plaid.com"], "enabled": {"standard": null, "cui": false}},
+    {"id": "e-invoice-gateways", "name": "E-invoice gateways", "hosts": ["api.storecove.com"], "enabled": {"standard": null, "cui": false}}
+  ]
+}

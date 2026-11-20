@@ -11,6 +11,8 @@ killSwitchPollMs: 1000
 mcpUrl: http://mcp-gateway.depot.svc.cluster.local:8080
 # Deployment profile: standard (CUI and unclassified records never reach a model) or cui (only attested in-boundary routes).
 boundary: standard
+# AI sign-off gate (AGENTS_AI_ENABLED). Standard deployments keep the assistant on; the cui profile sets global.aiEnabled false until the sign-off record exists.
+aiEnabled: true
 # Gateway base URL of services/compliance, where record data classes are resolved under this service's own signed service token
 # (grant agents -> compliance, serviceIdentity below; the compliance chart needs agents's public key in serviceIdentity.publicKeys).
 # Empty, or no signing key: every record is UNKNOWN and withheld.

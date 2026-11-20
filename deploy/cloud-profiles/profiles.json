@@ -273,6 +273,94 @@
         "source": "https://learn.microsoft.com/en-us/azure/azure-government/documentation-government-impact-level-5"
       }
     },
+    "cui": {
+      "description": "Isolated CUI deployment (DEPOT-310): boundary cui, AI disabled until sign-off, Amazon Bedrock in AWS GovCloud (US) the only AI host. The endpoint table is a copy of gcc-high because the offline profile renderer needs an Azure Government substrate; the AWS GovCloud accounts, network and cluster are a follow-up (docs/ops/NOT-IMPLEMENTED.md).",
+      "cloud": "AzureUSGovernment",
+      "fips": true,
+      "allowedRegions": [
+        "usgovvirginia",
+        "usgovarizona",
+        "usgovtexas"
+      ],
+      "endpoints": {
+        "entraAuthority": {
+          "value": "https://login.microsoftonline.us",
+          "source": "https://learn.microsoft.com/en-us/entra/identity-platform/authentication-national-cloud"
+        },
+        "appRegistrationPortal": {
+          "value": "portal.azure.us",
+          "source": "https://learn.microsoft.com/en-us/graph/deployments"
+        },
+        "graphRoot": {
+          "value": "https://graph.microsoft.us",
+          "source": "https://learn.microsoft.com/en-us/graph/deployments"
+        },
+        "armEndpoint": {
+          "value": "https://management.usgovcloudapi.net",
+          "source": "https://learn.microsoft.com/en-us/azure/azure-government/compare-azure-government-global-azure"
+        },
+        "keyVaultSuffix": {
+          "value": "vault.usgovcloudapi.net",
+          "source": "https://learn.microsoft.com/en-us/azure/key-vault/general/access-behind-firewall"
+        },
+        "blobSuffix": {
+          "value": "blob.core.usgovcloudapi.net",
+          "source": "https://learn.microsoft.com/en-us/azure/azure-government/compare-azure-government-global-azure"
+        },
+        "containerRegistrySuffix": {
+          "value": "azurecr.us",
+          "source": "https://learn.microsoft.com/en-us/azure/azure-government/compare-azure-government-global-azure"
+        },
+        "postgresSuffix": {
+          "value": "postgres.database.usgovcloudapi.net",
+          "source": "https://learn.microsoft.com/en-us/azure/azure-government/compare-azure-government-global-azure"
+        },
+        "azureOpenAISuffix": {
+          "value": "openai.azure.us",
+          "source": "https://learn.microsoft.com/en-us/azure/azure-government/compare-azure-government-global-azure"
+        },
+        "keyVaultPrivateLinkZone": {
+          "value": "privatelink.vaultcore.usgovcloudapi.net",
+          "source": "https://learn.microsoft.com/en-us/azure/private-link/private-endpoint-dns"
+        },
+        "managedHsmSuffix": {
+          "value": "managedhsm.usgovcloudapi.net",
+          "source": "https://learn.microsoft.com/en-us/azure/private-link/private-endpoint-dns",
+          "status": "unverified",
+          "note": "Checked on Microsoft Learn 2026-11-11: private-link/private-endpoint-dns lists Managed HSM (privatelink.managedhsm.azure.net, forwarder managedhsm.azure.net) only for the commercial cloud; its Government and China sections have no Managed HSM row. The value follows the cloud's Key Vault naming; confirm in a subscription in that cloud before relying on it."
+        }
+      },
+      "registry": {
+        "default": "ghcr.io/benjaminsrussell",
+        "requireMirror": true
+      },
+      "egress": {
+        "llmProviders": [
+          "bedrock"
+        ],
+        "enforceProviders": true,
+        "pagerDuty": false,
+        "extraAllow": []
+      },
+      "keycloak": {
+        "passwordHash": "pbkdf2-sha512",
+        "passwordMinLength": 14,
+        "eventRetentionDays": 365
+      },
+      "deployment": {
+        "azureEnvironment": "usgovernment",
+        "privateCluster": true,
+        "customerManagedKeys": true,
+        "managedHsm": true,
+        "isolatedNodes": false,
+        "isolatedNodesRegions": [],
+        "postgresSslMode": "verify-full",
+        "source": "https://learn.microsoft.com/en-us/azure/azure-government/documentation-government-impact-level-5"
+      },
+      "boundary": "cui",
+      "aiEnabled": false,
+      "deploymentName": "depot-cui"
+    },
     "dod": {
       "description": "Microsoft 365 DoD on Azure Government (IL5). Same Entra authority as GCC High; Graph is dod-graph.microsoft.us. Customer-managed keys in Managed HSM everywhere they apply, and in the US Gov regions (not US DoD East/Central) isolated VM sizes or a dedicated host group for node pools (#603).",
       "cloud": "AzureUSGovernment",

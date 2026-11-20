@@ -5,6 +5,8 @@ import { useFocusTrap } from "../hooks/useFocusTrap";
 import styles from "./HelpPanel.module.css";
 import { helpForRoute, type RouteHelp } from "./routeHelp";
 import { isOptedOut, setOptOut } from "../uxEvents";
+import { useOpenTour } from "../OnboardingTour";
+import { Button } from "../ui";
 
 /** Where the end-user guides are read. A docs site can replace this at build time. */
 const GUIDE_BASE = import.meta.env.VITE_USER_GUIDE_BASE ?? "https://github.com/BenjaminSRussell/Depot/blob/main/docs/user/";
@@ -17,10 +19,11 @@ export const guideUrl = (guide: RouteHelp["guide"]): string => {
 export interface HelpPanelProps {
   pathname: string;
   onClose(): void;
+  onTakeTour?(): void;
 }
 
 /** The side panel: the page's purpose, its common tasks and a link to the guide section. */
-export function HelpPanel({ pathname, onClose }: HelpPanelProps) {
+export function HelpPanel({ pathname, onClose, onTakeTour }: HelpPanelProps) {
   const panel = useRef<HTMLElement>(null);
   const titleId = useId();
   const help = helpForRoute(pathname);
@@ -66,6 +69,16 @@ export function HelpPanel({ pathname, onClose }: HelpPanelProps) {
         )}
         <footer className={styles.foot}>
           <UsageDataChoice />
+          {onTakeTour ? (
+            <Button
+              onClick={() => {
+                onClose();
+                onTakeTour();
+              }}
+            >
+              {copy.help.takeTour}
+            </Button>
+          ) : null}
           <Link to="/whats-new" onClick={onClose}>
             {copy.help.whatsNew}
           </Link>
@@ -101,6 +114,7 @@ export function HelpButton({ announce }: { announce?(message: string): void }) {
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
+  const openTour = useOpenTour();
   const wasOpen = useRef(false);
 
   useEffect(() => {
@@ -125,7 +139,7 @@ export function HelpButton({ announce }: { announce?(message: string): void }) {
       >
         <span aria-hidden="true">?</span>
       </button>
-      {open ? <HelpPanel pathname={pathname} onClose={() => setOpen(false)} /> : null}
+      {open ? <HelpPanel pathname={pathname} onClose={() => setOpen(false)} onTakeTour={openTour ? () => openTour(button.current) : undefined} /> : null}
     </>
   );
 }
