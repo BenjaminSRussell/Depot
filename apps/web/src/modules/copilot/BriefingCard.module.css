@@ -1,0 +1,31 @@
+.body {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm-size);
+}
+
+.sectionHeading {
+  margin: 0;
+  font-size: var(--text-sm-size);
+}
+
+.items {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding-inline-start: var(--space-5);
+}
+
+.source {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-semibold);
+}

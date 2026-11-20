@@ -39,7 +39,7 @@ The sidebar shows one persona workspace at a time, not every module. All of it i
 
 ## Assistant storage (#309)
 
-Prompts, answers, citations, tool results, proposals and briefings are held in memory only. They are never written to `localStorage`, `sessionStorage`, IndexedDB or the Cache API, never placed in a URL, history state or document title, and never sent in a telemetry event. The home page hands a typed prompt to the copilot through `shell/assistant/session.ts` (memory, read once, expires after 10 seconds) instead of router state.
+Prompts, answers, citations, tool results, proposals and briefings are held in memory only (the home's briefing card reads the list into component state and nothing else). They are never written to `localStorage`, `sessionStorage`, IndexedDB or the Cache API, never placed in a URL, history state or document title, and never sent in a telemetry event. The home page hands a typed prompt to the copilot through `shell/assistant/session.ts` (memory, read once, expires after 10 seconds) instead of router state.
 
 The only browser storage an assistant surface may use is `shell/assistant/assistantStorage.ts`:
 
