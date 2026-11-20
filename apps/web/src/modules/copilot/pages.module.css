@@ -39,6 +39,10 @@
   white-space: pre-wrap;
 }
 
+.citation {
+  text-decoration: underline;
+}
+
 .sectionTitle {
   margin: 0;
   color: var(--color-text-muted);
