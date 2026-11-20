@@ -360,6 +360,7 @@ export const copy = {
     errorTitle: "Your briefing could not be loaded",
     errorBody: "Something went wrong on our side. The rest of this page still works. Try again in a moment.",
     retry: "Try again",
+    unavailable: "Your briefing is unavailable while the assistant is. Every page and workflow still works.",
     preparing: "Preparing your briefing…",
     emptyTitle: "No briefing yet",
     emptyDescription: "Generate a briefing of what your agents did and what needs you.",
