@@ -47,12 +47,24 @@ afterEach(async () => {
   close = undefined;
 });
 
-const chatWith = async (analyzer?: Analyzer, observe?: (seconds: number, decision: GuardDecision) => void, deadlineMs?: number) => {
+interface ChatOptions {
+  analyzer?: Analyzer;
+  observe?: (seconds: number, decision: GuardDecision) => void;
+  deadlineMs?: number;
+}
+
+const chatWith = async ({ analyzer, observe, deadlineMs }: ChatOptions = {}) => {
   const store = new MemoryStore();
   const provider = new ScriptedProvider([call(), answer("Done.")]);
   let reached = () => {};
   const analyzerReached = new Promise<void>((resolve) => (reached = resolve));
-  const watched: Analyzer | undefined = analyzer && { scan: (text) => (reached(), analyzer.scan(text)) };
+  const watched: Analyzer | undefined = analyzer && {
+    scan: (text) => {
+      reached();
+      return analyzer.scan(text);
+    },
+  };
+  const timed = deadlineMs !== undefined && analyzer !== undefined;
   const copilot = createCopilotService({
     aiAccess: allowAiAccess(),
     router: openRouter(provider),
@@ -66,13 +78,13 @@ const chatWith = async (analyzer?: Analyzer, observe?: (seconds: number, decisio
   });
   const srv = await serve({ approvals: store, copilot });
   close = srv.close;
-  if (deadlineMs !== undefined) vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  if (timed) vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const pending = fetch(`${srv.base}/api/v1/copilot/chat`, {
     method: "POST",
     headers: headers(DUTIES),
     body: JSON.stringify({ mode: "ask", message: `Check invoice INV-7 paid with ${CANARIES.typedCard}` }),
   });
-  if (deadlineMs !== undefined) {
+  if (timed) {
     await analyzerReached;
     await vi.advanceTimersByTimeAsync(deadlineMs);
   }
@@ -106,8 +118,10 @@ describe("egress guard before the provider", () => {
 
   it("blocks with ANALYZER_ERROR and calls no provider when the analyzer throws", async () => {
     const { body, provider, rows } = await chatWith({
-      scan: () => {
-        throw new Error(`down ${CANARIES.iban}`);
+      analyzer: {
+        scan: () => {
+          throw new Error(`down ${CANARIES.iban}`);
+        },
       },
     });
     expect(body.refusal?.code).toBe("AGT-0219");
@@ -117,26 +131,33 @@ describe("egress guard before the provider", () => {
   });
 
   it("blocks with ANALYZER_TIMEOUT when the analyzer misses the deadline", async () => {
-    const { body, provider, rows } = await chatWith({ scan: () => new Promise(() => undefined) }, undefined, 50);
+    const { body, provider, rows } = await chatWith({ analyzer: { scan: () => new Promise(() => undefined) }, deadlineMs: 50 });
     expect(body.refusal?.code).toBe("AGT-0219");
     expect(provider.seen).toHaveLength(0);
     expect(rows[0]?.guardResult).toMatchObject({ decision: "BLOCKED", errorCode: "ANALYZER_TIMEOUT" });
   });
 
   it("blocks with RESIDUAL_PII when a finding survives redaction", async () => {
-    const { provider, rows } = await chatWith({ scan: () => [{ category: "IBAN", value: "kept" }] });
+    const { provider, rows } = await chatWith({ analyzer: { scan: () => [{ category: "IBAN", value: "kept" }] } });
     expect(provider.seen).toHaveLength(0);
     expect(rows[0]?.guardResult).toMatchObject({ decision: "BLOCKED", errorCode: "RESIDUAL_PII" });
   });
 
   it("exports the duration histogram by decision and never a value", async () => {
     const metrics = new Metrics();
-    await chatWith(undefined, (seconds, decision) => metrics.observeGuard(seconds, decision));
+    await chatWith({ observe: (seconds, decision) => metrics.observeGuard(seconds, decision) });
     const text = metrics.render();
     expect(text).toContain('agents_egress_guard_duration_seconds_count{decision="REDACTED"} 2');
     expect(text).toContain('agents_egress_guard_duration_seconds_bucket{decision="REDACTED",le="+Inf"} 2');
     for (const value of Object.values(CANARIES)) expect(text).not.toContain(value);
   });
+});
+
+const recordingAnalyzer = (seen: string[]): Analyzer => ({
+  scan: (text) => {
+    seen.push(text);
+    return scanPii(text);
+  },
 });
 
 describe("guard inspect", () => {
@@ -177,7 +198,7 @@ describe("guard inspect", () => {
 
   it("scans each distinct text and the system prompt once per pseudonymizer across turns and keeps the full-scan verdict", async () => {
     const seen: string[] = [];
-    const analyzer: Analyzer = { scan: (text) => (seen.push(text), scanPii(text)) };
+    const analyzer = recordingAnalyzer(seen);
     const pseudo = new Pseudonymizer("t", 1000, () => 0);
     const guard = testGuard({ analyzer });
     const first = `a ${CANARIES.iban}`;
@@ -193,14 +214,53 @@ describe("guard inspect", () => {
     expect(turn.user).toBe("hello\n\na [IBAN-1]\n\nb [SSN-1]");
   });
 
+  it("scans the same text again under a different guard", async () => {
+    const seen: string[] = [];
+    const pseudo = new Pseudonymizer("t", 1000, () => 0);
+    const text = `x ${CANARIES.iban}`;
+    await testGuard({ analyzer: recordingAnalyzer(seen) }).inspect(input(pseudo, { results: [text] }));
+    await testGuard({ analyzer: recordingAnalyzer(seen) }).inspect(input(pseudo, { results: [text] }));
+    expect(seen.filter((t) => t === text)).toHaveLength(2);
+  });
+
   it("scans the same text again under a different pseudonymizer", async () => {
     const seen: string[] = [];
-    const analyzer: Analyzer = { scan: (text) => (seen.push(text), scanPii(text)) };
+    const analyzer = recordingAnalyzer(seen);
     const guard = testGuard({ analyzer });
     const text = `x ${CANARIES.iban}`;
     await guard.inspect(input(new Pseudonymizer("t", 1000, () => 0), { results: [text] }));
     await guard.inspect(input(new Pseudonymizer("t", 1000, () => 0), { results: [text] }));
     expect(seen.filter((t) => t === text)).toHaveLength(2);
+  });
+
+  it("blocks a labelled value that only forms across the blank line between two segments", async () => {
+    const verdict = await testGuard().inspect(input(new Pseudonymizer("t", 1000, () => 0), { typed: "the account", results: ["123456789 is ours"] }));
+    expect(scanPii("the account")).toEqual([]);
+    expect(scanPii("123456789 is ours")).toEqual([]);
+    expect(verdict.result).toMatchObject({ decision: "BLOCKED", errorCode: "RESIDUAL_PII" });
+    expect(verdict.user).toBe("");
+  });
+
+  it("does not memoise a text above the size threshold, so it is scanned again by the input pass and the residual pass of every turn", async () => {
+    const seen: string[] = [];
+    const guard = testGuard({ analyzer: recordingAnalyzer(seen) });
+    const pseudo = new Pseudonymizer("t", 1000, () => 0);
+    const large = "x".repeat(64 * 1024 + 1);
+    await guard.inspect(input(pseudo, { results: [large] }));
+    await guard.inspect(input(pseudo, { results: [large] }));
+    expect(seen.filter((t) => t === large)).toHaveLength(4);
+    expect(seen.filter((t) => t === "hello")).toHaveLength(1);
+  });
+
+  it("keeps at most 512 memoised texts per conversation, dropping the oldest", async () => {
+    const seen: string[] = [];
+    const guard = testGuard({ analyzer: recordingAnalyzer(seen) });
+    const pseudo = new Pseudonymizer("t", 1000, () => 0);
+    const texts = Array.from({ length: 520 }, (_, i) => `row ${i}`);
+    await guard.inspect(input(pseudo, { results: texts }));
+    await guard.inspect(input(pseudo, { results: ["row 0", "row 519"] }));
+    expect(seen.filter((t) => t === "row 0")).toHaveLength(2);
+    expect(seen.filter((t) => t === "row 519")).toHaveLength(1);
   });
 
   it("does not memoise a failed scan, so a retry scans again", async () => {
