@@ -8,6 +8,7 @@
 package cloudprofile
 
 import (
+	"cmp"
 	_ "embed"
 	"encoding/json"
 	"fmt"
@@ -75,6 +76,7 @@ type profile struct {
 	Registry       registry            `json:"registry"`
 	Egress         egress              `json:"egress"`
 	Keycloak       Keycloak            `json:"keycloak"`
+	Boundary       string              `json:"boundary"`
 }
 
 type overlay struct {
@@ -135,6 +137,7 @@ func ProfileNames() []string {
 // Profile is a base profile with its overlays applied.
 type Profile struct {
 	Name                  string
+	Boundary              string
 	Overlays              []string
 	Cloud                 string
 	FIPS                  bool
@@ -196,7 +199,7 @@ func Resolve(base string, overlays ...string) (*Profile, error) {
 		return nil, fmt.Errorf("cloudprofile: unknown cloud profile %q (known: %s)", base, strings.Join(ProfileNames(), ", "))
 	}
 	r := &Profile{
-		Name: base, Overlays: slices.Clone(overlays), Cloud: p.Cloud, FIPS: p.FIPS,
+		Name: base, Boundary: cmp.Or(p.Boundary, BoundaryStandard), Overlays: slices.Clone(overlays), Cloud: p.Cloud, FIPS: p.FIPS,
 		AllowedRegions: slices.Clone(p.AllowedRegions), Endpoints: map[string]string{},
 		EntraAuthorityAliases: slices.Clone(p.Endpoints["entraAuthority"].Aliases),
 		RequireMirror:         p.Registry.RequireMirror, RegistryDefault: p.Registry.Default,
@@ -248,6 +251,12 @@ func Resolve(base string, overlays ...string) (*Profile, error) {
 	return r, nil
 }
 
+const (
+	BoundaryStandard = "standard"
+	BoundaryCUI      = "cui"
+	CUIBedrockHost   = "bedrock-runtime.us-gov-west-1.amazonaws.com"
+)
+
 var llmHosts = map[string]string{
 	"anthropic": "api.anthropic.com",
 	"bedrock":   "bedrock-runtime.*.amazonaws.com",
@@ -265,6 +274,8 @@ func buildAllowlist(r *Profile, extra []string) []string {
 	for _, name := range r.LLMProviders {
 		if name == "azure-openai" {
 			hosts = append(hosts, "*."+ep["azureOpenAISuffix"])
+		} else if name == "bedrock" && r.Boundary == BoundaryCUI {
+			hosts = append(hosts, CUIBedrockHost)
 		} else {
 			hosts = append(hosts, llmHosts[name])
 		}
