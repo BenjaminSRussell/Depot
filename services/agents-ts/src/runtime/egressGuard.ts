@@ -119,17 +119,20 @@ const NAME_ERROR_MESSAGES: Readonly<Record<string, string>> = {
 };
 const UNKNOWN_ERROR_MESSAGE = "analyzer error";
 
+const ownMessage = (messages: Readonly<Record<string, string>>, key: unknown): string | undefined =>
+  typeof key === "string" && Object.hasOwn(messages, key) ? messages[key] : undefined;
+
 function foreignErrorMessage(err: Error, code: unknown): string {
-  const byCode = typeof code === "string" ? SYSTEM_ERROR_MESSAGES[code] : undefined;
-  const token = SYSTEM_ERROR_TOKEN_RE.exec(err.message.slice(0, ERROR_SCAN_MAX))?.[1];
-  return byCode ?? (token === undefined ? undefined : SYSTEM_ERROR_MESSAGES[token]) ?? NAME_ERROR_MESSAGES[err.name] ?? UNKNOWN_ERROR_MESSAGE;
+  const message = typeof err.message === "string" ? err.message.slice(0, ERROR_SCAN_MAX) : "";
+  const token = SYSTEM_ERROR_TOKEN_RE.exec(message)?.[1];
+  return ownMessage(SYSTEM_ERROR_MESSAGES, code) ?? ownMessage(SYSTEM_ERROR_MESSAGES, token) ?? ownMessage(NAME_ERROR_MESSAGES, err.name) ?? UNKNOWN_ERROR_MESSAGE;
 }
 
 // Deliberately the local scanPii, not the injected analyzer: error text must be scrubbed even when the analyzer is the thing that failed.
 function describeError(err: unknown): Record<string, string> {
   if (!(err instanceof Error)) return { error: "unknown" };
   const code = (err as { code?: unknown }).code;
-  const detail: Record<string, string> = { error: err.name };
+  const detail: Record<string, string> = { error: String(err.name) };
   if (!(err instanceof GuardFailure)) {
     if (typeof code === "string" && ERROR_CODE_RE.test(code)) detail.errorDetailCode = code;
     detail.errorMessage = foreignErrorMessage(err, code);
@@ -199,12 +202,10 @@ function seamWindows(parts: readonly string[]): string[] {
 }
 
 const SCAN_MEMO_MAX = 512;
-const SCAN_MEMO_MAX_CHARS = 64 * 1024;
 
 type ScanMemo = Map<string, PiiCategory[]>;
 
-const memoKey = (text: string): string | undefined =>
-  text.length > SCAN_MEMO_MAX_CHARS ? undefined : createHash("sha256").update(text).digest("hex");
+const memoKey = (text: string): string => createHash("sha256").update(text).digest("hex");
 
 async function memoisedCategories(
   memo: ScanMemo,

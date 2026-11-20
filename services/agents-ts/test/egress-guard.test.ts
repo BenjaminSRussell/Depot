@@ -367,14 +367,14 @@ describe("guard inspect", () => {
     expect(seen.filter((t) => t === "hello")).toHaveLength(1);
   });
 
-  it("does not memoise a text above the size threshold, so it is scanned again by the input pass and the residual pass of every turn", async () => {
+  it("memoises a large text too, because keys are digests, so it is analysed once per conversation", async () => {
     const seen: string[] = [];
     const guard = testGuard({ analyzer: recordingAnalyzer(seen) });
     const pseudo = new Pseudonymizer("t", 1000, () => 0);
     const large = "x".repeat(64 * 1024 + 1);
     await guard.inspect(input(pseudo, { results: [large] }));
     await guard.inspect(input(pseudo, { results: [large] }));
-    expect(seen.filter((t) => t === large)).toHaveLength(4);
+    expect(seen.filter((t) => t === large)).toHaveLength(1);
     expect(seen.filter((t) => t === "hello")).toHaveLength(1);
   });
 
@@ -515,6 +515,18 @@ describe("guard inspect", () => {
     const logged = JSON.stringify(logs);
     expect(logged).not.toContain(CANARIES.ssn);
     expect(logged).not.toContain("corp.example");
+  });
+
+  it.each([
+    { name: "a code that is an Object.prototype key", make: () => Object.assign(new Error("boom"), { code: "toString" }) },
+    { name: "a name that is an Object.prototype key", make: () => Object.assign(new Error("boom"), { name: "constructor" }) },
+    { name: "a non-string message", make: () => Object.assign(new Error(), { message: 42 }) },
+  ])("logs a string message and still blocks for $name", async ({ make }) => {
+    const logs = await logsFor(() => {
+      throw make();
+    });
+    expect(logs[0]).toMatchObject({ errorCode: "ANALYZER_ERROR" });
+    expect(logs[0]?.errorMessage).toBe("analyzer error");
   });
 
   it("names only the class of a programming error", async () => {
