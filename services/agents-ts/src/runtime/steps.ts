@@ -19,7 +19,7 @@ import type { McpConnector, McpSession } from "./mcp.js";
 import { createFactRisk } from "./risk.js";
 import type { RunStatus } from "../domain/run.js";
 import type { GuardResult } from "./egressGuard.js";
-import { checkRunOutput, createOutputGuard, OUTPUT_GUARD_CODE, OUTPUT_GUARD_MESSAGE, OUTPUT_GUARD_TOOL, outputBlockedResult, type OutputGuard } from "./outputGuard.js";
+import { checkRunOutput, createOutputGuard, OUTPUT_GUARD_CODE, OUTPUT_GUARD_MESSAGE, OUTPUT_GUARD_TOOL, outputBlockedResult, presentForCaller, type OutputGuard } from "./outputGuard.js";
 
 /**
  * The agent run as resumable steps (FR-47.4, FR-47.8). The in-process engine (engine.ts) runs one run in one
@@ -431,7 +431,7 @@ export function createRunSteps(deps: StepsDeps) {
             s.outputBlocked = verdict.reason;
             s.displayText = OUTPUT_GUARD_MESSAGE;
           } else {
-            s.displayText = c.pseudo.restore(response.text);
+            s.displayText = presentForCaller(outputGuard, c.pseudo, verdict.text);
           }
           const p0 = verdict.ok ? response.proposal : undefined;
           if (p0) {

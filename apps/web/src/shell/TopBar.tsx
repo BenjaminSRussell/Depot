@@ -2,7 +2,7 @@ import { useEffect, useState, type RefObject } from "react";
 import { Link } from "react-router-dom";
 import { UserMenu } from "./auth/account";
 import { ContextSheet } from "./ContextSheet";
-import { copy } from "./copy";
+import { copy, shortcutHint } from "./copy";
 import type { PageMeta } from "./pageMeta";
 import { HelpButton } from "./help/HelpPanel";
 import { ContextPicker } from "./lookup/workContext";
@@ -13,10 +13,12 @@ export interface TopBarProps {
   page: PageMeta;
   titleRef: RefObject<HTMLHeadingElement | null>;
   menuRef: RefObject<HTMLButtonElement | null>;
+  searchRef: RefObject<HTMLButtonElement | null>;
   drawerOpen: boolean;
   compact: boolean;
   showContext?: boolean;
   onOpenDrawer(): void;
+  onOpenSearch(): void;
   onToggleCompact(): void;
 }
 
@@ -35,9 +37,16 @@ function usePhone(): boolean {
   return phone;
 }
 
-export function TopBar({ page, titleRef, menuRef, drawerOpen, compact, showContext = false, onOpenDrawer, onToggleCompact }: TopBarProps) {
+export function TopBar({ page, titleRef, menuRef, searchRef, drawerOpen, compact, showContext = false, onOpenDrawer, onOpenSearch, onToggleCompact }: TopBarProps) {
   const phone = usePhone();
   const workspace = page.workspace && page.workspace.title !== page.title ? page.workspace : undefined;
+  const searchTrigger = (
+    <Button ref={searchRef} variant="ghost" size="sm" className={styles.searchTrigger} aria-keyshortcuts="Control+K Meta+K" aria-haspopup="dialog" onClick={onOpenSearch}>
+      <Icon name="search" />
+      <span className={styles.searchTriggerLabel}>{copy.buttons.searchOrAsk}</span>
+      <kbd aria-hidden="true">{shortcutHint}</kbd>
+    </Button>
+  );
   return (
     <div className={styles.topbar}>
       <button
@@ -70,11 +79,13 @@ export function TopBar({ page, titleRef, menuRef, drawerOpen, compact, showConte
       </h1>
       {phone ? (
         <div className={styles.topbarActions}>
+          {searchTrigger}
           <ContextSheet showContext={showContext} compact={compact} onToggleCompact={onToggleCompact} />
         </div>
       ) : (
         <div className={styles.topbarActions}>
           {showContext ? <ContextPicker /> : null}
+          {searchTrigger}
           <HelpButton />
           <Button variant="ghost" size="sm" aria-pressed={compact} className={styles.compactToggle} onClick={onToggleCompact}>
             {copy.buttons.compactView}

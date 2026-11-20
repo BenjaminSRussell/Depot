@@ -84,7 +84,7 @@ test("the procure-to-pay menu is reachable and every dialog traps and returns fo
   await page.keyboard.press("ControlOrMeta+k");
   await expect(page.getByRole("combobox", { name: "Find a page" })).toBeFocused();
   await page.keyboard.type("Vendor invoices");
-  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("option", { name: /^Find a vendor invoice/ })).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/ap-invoices/);
 });

@@ -1,30 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { BUDGET_REFUSAL_CODE } from "../../shell/assistant/availability";
-import { useAiAvailability } from "../../shell/assistant/AvailabilityProvider";
-import { copy } from "../../shell/copy";
-import { Alert, Badge, Button, Card, EmptyState, FormField, Textarea } from "../../shell/ui";
-import { CopilotError, type ChatRequest, type ChatResponse } from "./api/client";
-import { askCopilot } from "./api/stream";
-import { AiMarking } from "./AiSuggestion";
-import {
-  canInsertDraft,
-  COPILOT_MODES,
-  GENERATED_BADGE,
-  MODE_LABELS,
-  readRememberedMode,
-  rememberMode,
-  toolCallLabel,
-  type CopilotMode,
-  type ModeStore,
-} from "./domain";
+import { Button, Card, EmptyState, FormField, Textarea } from "../../shell/ui";
+import { AskAnswer } from "./AskAnswer";
+import { COPILOT_MODES, MODE_LABELS, readRememberedMode, rememberMode, type CopilotMode, type ModeStore } from "./domain";
 import styles from "./pages.module.css";
+import { useCopilotConversation, type AskFn } from "./useCopilotConversation";
 
 export interface CopilotPanelProps {
-  /**
-   * Injected for tests; defaults to the BFF chat endpoint, which may stream.
-   * `onToken` receives each streamed piece of the answer as it arrives.
-   */
-  ask?: (req: ChatRequest, onToken?: (text: string) => void, onWithdrawn?: (message: string) => void) => Promise<ChatResponse>;
+  ask?: AskFn;
+  createConversation?: () => Promise<string>;
   /** Record the user is looking at, sent as context for explain and summarize. */
   recordRef?: string;
   /** Called only when the user clicks "Insert draft". Never called automatically. */
@@ -38,11 +21,6 @@ export interface CopilotPanelProps {
   memory?: { store: ModeStore; userId: string; workspace: string };
 }
 
-interface Result {
-  mode: CopilotMode;
-  response: ChatResponse;
-}
-
 const PROMPT_HINTS: Readonly<Record<CopilotMode, string>> = {
   ask: "For example: what was revenue last month against the month before?",
   explain: "Name the record, or open the copilot from it, and ask why it looks the way it does.",
@@ -50,7 +28,7 @@ const PROMPT_HINTS: Readonly<Record<CopilotMode, string>> = {
   summarize: "Name the workflow or case to summarize.",
 };
 
-export function CopilotPanel({ ask = askCopilot, recordRef, onInsertDraft, initialMode = "ask", initialMessage, memory }: CopilotPanelProps) {
+export function CopilotPanel({ ask, createConversation, recordRef, onInsertDraft, initialMode = "ask", initialMessage, memory }: CopilotPanelProps) {
   const [mode, setModeState] = useState<CopilotMode>(
     () => (memory ? readRememberedMode(memory.store, memory.userId, memory.workspace) : undefined) ?? initialMode,
   );
@@ -59,54 +37,19 @@ export function CopilotPanel({ ask = askCopilot, recordRef, onInsertDraft, initi
     if (memory) rememberMode(memory.store, memory.userId, memory.workspace, next);
   }
   const [message, setMessage] = useState("");
-  const [result, setResult] = useState<Result | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-  /** The answer so far while the server streams it (FR-47.3). */
-  const [partial, setPartial] = useState("");
-  const { reportRefusal, reportFailure } = useAiAvailability();
-
-  async function send(text: string) {
-    if (text === "" || pending) return;
-    setPending(true);
-    setError(null);
-    setResult(null);
-    setPartial("");
-    try {
-      const response = await ask(
-        { mode, message: text, ...(recordRef ? { recordRef } : {}) },
-        (token) => setPartial((so) => so + token),
-        (safeMessage) => setPartial(safeMessage),
-      );
-      setResult({ mode, response });
-      const code = response.refusal?.code;
-      if (code === BUDGET_REFUSAL_CODE) reportRefusal(code);
-      else if (code !== undefined) reportFailure();
-    } catch (err) {
-      if (err instanceof CopilotError && err.code === BUDGET_REFUSAL_CODE) {
-        setResult({ mode, response: { answer: "", citations: [], toolCalls: [], refusal: { code: err.code, message: err.message }, generated: true } });
-        reportRefusal(err.code);
-      } else {
-        setResult(null);
-        setError(err instanceof Error ? err.message : "Copilot is unavailable.");
-        reportFailure();
-      }
-    } finally {
-      setPartial("");
-      setPending(false);
-    }
-  }
+  const conversation = useCopilotConversation({ ask, createConversation });
+  const { send, pending, result, error } = conversation;
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void send(message.trim());
+    void send(message.trim(), mode, recordRef);
   }
 
   const sentInitial = useRef(false);
   useEffect(() => {
     if (sentInitial.current || !initialMessage?.trim()) return;
     sentInitial.current = true;
-    void send(initialMessage.trim());
+    void send(initialMessage.trim(), mode, recordRef);
   }, []);
 
   return (
@@ -130,20 +73,8 @@ export function CopilotPanel({ ask = askCopilot, recordRef, onInsertDraft, initi
             {pending ? <p className={styles.muted}>Copilot is working on your answer…</p> : null}
           </div>
         </form>
-        <Alert tone="danger" live="alert">
-          {error}
-        </Alert>
-        {pending && partial !== "" ? (
-          <article aria-label="Copilot answer in progress" aria-busy="true" className={styles.answer}>
-            <div>
-              <Badge tone="info">{GENERATED_BADGE}</Badge>
-            </div>
-            <p className={styles.answerText}>{partial}</p>
-          </article>
-        ) : null}
-        {result ? (
-          <Answer result={result} onInsertDraft={onInsertDraft} />
-        ) : !pending && !error ? (
+        <AskAnswer conversation={conversation} onInsertDraft={onInsertDraft} />
+        {!result && !pending && !error ? (
           <EmptyState
             compact
             title="No answer yet"
@@ -152,52 +83,5 @@ export function CopilotPanel({ ask = askCopilot, recordRef, onInsertDraft, initi
         ) : null}
       </div>
     </Card>
-  );
-}
-
-function Answer({ result, onInsertDraft }: { result: Result; onInsertDraft?: ((text: string) => void) | undefined }) {
-  const { mode, response } = result;
-  const refused = response.refusal != null;
-  return (
-    <article aria-label="Copilot answer" className={styles.answer}>
-      <div>
-        <Badge tone="info">{GENERATED_BADGE}</Badge> <AiMarking dataClass={response.dataClass} excluded={response.excluded} />
-      </div>
-      {response.refusal ? (
-        <Alert tone="warning" title={response.refusal.code} live="alert">
-          {copy.assistantStatus.refusals[response.refusal.code] ?? response.refusal.message}
-        </Alert>
-      ) : null}
-      {response.answer ? <p className={styles.answerText}>{response.answer}</p> : null}
-      <h4 className={styles.sectionTitle}>Tool calls</h4>
-      {response.toolCalls.length > 0 ? (
-        <ul aria-label="Tool calls" className={`${styles.list} ${styles.mono}`}>
-          {response.toolCalls.map((call, i) => (
-            <li key={`${call.tool}-${i}`}>{toolCallLabel(call)}</li>
-          ))}
-        </ul>
-      ) : (
-        <p className={styles.muted}>No tool calls.</p>
-      )}
-      {response.citations.length > 0 ? (
-        <>
-          <h4 className={styles.sectionTitle}>Sources</h4>
-          <ol aria-label="Citations" className={styles.list}>
-            {response.citations.map((c) => (
-              <li key={`${c.sourceType}-${c.sourceRef}`}>
-                {c.label} ({c.sourceType}: <span className={styles.mono}>{c.sourceRef}</span>)
-              </li>
-            ))}
-          </ol>
-        </>
-      ) : null}
-      {onInsertDraft && canInsertDraft(mode, refused) ? (
-        <div>
-          <Button variant="primary" onClick={() => onInsertDraft(response.answer)}>
-            Insert draft
-          </Button>
-        </div>
-      ) : null}
-    </article>
   );
 }

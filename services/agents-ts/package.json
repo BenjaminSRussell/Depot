@@ -6,6 +6,7 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "test": "vitest --run",
+    "redteam": "vitest --run test/redteam",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

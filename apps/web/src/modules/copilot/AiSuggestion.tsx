@@ -79,7 +79,8 @@ export function AiSuggestion({
       {children}
       <Disclosure label="Why this?">
         <p>
-          Produced by {suggestion.agentLabel}, version {suggestion.agentVersion}
+          Produced by {suggestion.agentLabel}
+          {suggestion.agentVersion === undefined ? "" : `, version ${suggestion.agentVersion}`}
           .
         </p>
         {suggestion.rationale === undefined ? (
@@ -94,8 +95,8 @@ export function AiSuggestion({
       <Disclosure label="Data used">
         <h4 className={styles.heading}>Tools called</h4>
         <ul className={styles.list} aria-label="Tools called">
-          {suggestion.tools.map((tool) => (
-            <li key={tool}>{tool}</li>
+          {suggestion.tools.map((tool, i) => (
+            <li key={`${tool}-${i}`}>{tool}</li>
           ))}
         </ul>
         <h4 className={styles.heading}>Records read</h4>

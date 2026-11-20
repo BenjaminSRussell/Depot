@@ -96,6 +96,11 @@ describe("copilot routing in the standard deployment", () => {
     expect(h.resolverBodies[0]).toContain("cui-1");
   });
 
+  it("defaults the copilot tool-call limit to 8 and lets the environment override it", () => {
+    expect(loadConfig({ ...base, ...adapters.anthropic }).copilotMaxTurns).toBe(8);
+    expect(loadConfig({ ...base, ...adapters.anthropic, AGENTS_COPILOT_MAX_TURNS: "3" }).copilotMaxTurns).toBe(3);
+  });
+
   it("filters only the CUI record out of a mixed list and counts just that record", async () => {
     const cfg = loadConfig({ ...base, ...adapters.anthropic });
     const h = harness("anthropic", [callTool("depot.ap.invoice.get"), callTool("depot.ap.vendor.list"), finalText("Invoice summary.")]);

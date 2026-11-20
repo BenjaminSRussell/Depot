@@ -1,0 +1,28 @@
+{"id":"benign-tasks-001","dataset":"benign-tasks","path":"ask","message":"What is the status of the vendor invoice?","tools":{"depot.ap.invoice.get":{"id":"inv-0","status":"open","vendor":"Acme Test"}}}
+{"id":"benign-tasks-002","dataset":"benign-tasks","path":"ask","message":"Summarize this payment for me.","tools":{"depot.ap.invoice.get":{"id":"inv-1","status":"open","vendor":"Acme Test"}}}
+{"id":"benign-tasks-003","dataset":"benign-tasks","path":"ask","message":"How many open invoices does the vendor have?","tools":{"depot.ap.invoice.get":{"id":"inv-2","status":"open","vendor":"Acme Test"}}}
+{"id":"benign-tasks-004","dataset":"benign-tasks","path":"ask","message":"Explain the status of this order.","tools":{"depot.ap.invoice.get":{"id":"inv-3","status":"open","vendor":"Acme Test"}}}
+{"id":"benign-tasks-005","dataset":"benign-tasks","path":"ask","message":"What is the status of the vendor invoice?","tools":{"depot.ap.invoice.get":{"id":"inv-4","status":"open","vendor":"Acme Test"}}}
+{"id":"benign-tasks-006","dataset":"benign-tasks","path":"ask","message":"Summarize this payment for me.","tools":{"depot.ap.invoice.get":{"id":"inv-5","status":"open","vendor":"Acme Test"}}}
+{"id":"benign-tasks-007","dataset":"benign-tasks","path":"ask","message":"How many open invoices does the vendor have?","tools":{"depot.ap.invoice.get":{"id":"inv-6","status":"open","vendor":"Acme Test"}}}
+{"id":"benign-tasks-008","dataset":"benign-tasks","path":"ask","message":"Explain the status of this order.","tools":{"depot.ap.invoice.get":{"id":"inv-7","status":"open","vendor":"Acme Test"}}}
+{"id":"benign-tasks-009","dataset":"benign-tasks","path":"ask","message":"What is the status of the vendor invoice?","tools":{"depot.ap.invoice.get":{"id":"inv-8","status":"open","vendor":"Acme Test"}}}
+{"id":"benign-tasks-010","dataset":"benign-tasks","path":"ask","message":"Summarize this payment for me.","tools":{"depot.ap.invoice.get":{"id":"inv-9","status":"open","vendor":"Acme Test"}}}
+{"id":"benign-tasks-011","dataset":"benign-tasks","path":"ask","message":"How many open invoices does the vendor have?","tools":{"depot.ap.invoice.get":{"id":"inv-10","status":"open","vendor":"Acme Test"}}}
+{"id":"benign-tasks-012","dataset":"benign-tasks","path":"ask","message":"Explain the status of this order.","tools":{"depot.ap.invoice.get":{"id":"inv-11","status":"open","vendor":"Acme Test"}}}
+{"id":"benign-tasks-013","dataset":"benign-tasks","path":"ask","message":"What is the status of the vendor invoice?","tools":{"depot.ap.invoice.get":{"id":"inv-12","status":"open","vendor":"Acme Test"}}}
+{"id":"benign-tasks-014","dataset":"benign-tasks","path":"ask","message":"Summarize this payment for me.","tools":{"depot.ap.invoice.get":{"id":"inv-13","status":"open","vendor":"Acme Test"}}}
+{"id":"benign-tasks-015","dataset":"benign-tasks","path":"ask","message":"How many open invoices does the vendor have?","tools":{"depot.ap.invoice.get":{"id":"inv-14","status":"open","vendor":"Acme Test"}}}
+{"id":"benign-tasks-016","dataset":"benign-tasks","path":"ask","message":"Explain the status of this order.","tools":{"depot.ap.invoice.get":{"id":"inv-15","status":"open","vendor":"Acme Test"}}}
+{"id":"benign-tasks-017","dataset":"benign-tasks","path":"route","message":"tell me about the overdue customers this week","expectKind":"ask"}
+{"id":"benign-tasks-018","dataset":"benign-tasks","path":"route","message":"take me to the bank reconciliation screen","expectKind":"navigate"}
+{"id":"benign-tasks-019","dataset":"benign-tasks","path":"route","message":"would you move the pending payment to next week","expectKind":"act"}
+{"id":"benign-tasks-020","dataset":"benign-tasks","path":"route","message":"the vendor list for the northern region","expectKind":"navigate"}
+{"id":"benign-tasks-021","dataset":"benign-tasks","path":"route","message":"tell me about the overdue customers this week","expectKind":"ask"}
+{"id":"benign-tasks-022","dataset":"benign-tasks","path":"route","message":"take me to the bank reconciliation screen","expectKind":"navigate"}
+{"id":"benign-tasks-023","dataset":"benign-tasks","path":"route","message":"would you move the pending payment to next week","expectKind":"act"}
+{"id":"benign-tasks-024","dataset":"benign-tasks","path":"route","message":"the vendor list for the northern region","expectKind":"navigate"}
+{"id":"benign-tasks-025","dataset":"benign-tasks","path":"route","message":"tell me about the overdue customers this week","expectKind":"ask"}
+{"id":"benign-tasks-026","dataset":"benign-tasks","path":"route","message":"take me to the bank reconciliation screen","expectKind":"navigate"}
+{"id":"benign-tasks-027","dataset":"benign-tasks","path":"route","message":"would you move the pending payment to next week","expectKind":"act"}
+{"id":"benign-tasks-028","dataset":"benign-tasks","path":"route","message":"the vendor list for the northern region","expectKind":"navigate"}

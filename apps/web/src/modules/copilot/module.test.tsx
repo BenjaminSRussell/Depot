@@ -33,6 +33,8 @@ describe("copilot module", () => {
   });
 });
 
+const CONVERSATION_ID = "6f1c1f0e-8f0a-4a52-9a43-0a8c5a1f2b11";
+
 describe("postChat", () => {
   const body = {
     answer: "ok",
@@ -48,20 +50,20 @@ describe("postChat", () => {
       sent = { url, ...(init ? { init } : {}) };
       return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
     }) as typeof fetch;
-    const res = await postChat({ mode: "ask", message: "hi" }, fakeFetch);
+    const res = await postChat({ mode: "ask", message: "hi" }, fakeFetch, CONVERSATION_ID);
     expect(res.answer).toBe("ok");
-    expect(sent?.url).toBe("/api/v1/copilot/chat");
+    expect(sent?.url).toBe(`/api/v1/agents/copilot/conversations/${CONVERSATION_ID}/messages`);
     expect(sent?.init?.method).toBe("POST");
   });
 
   it("rejects a response that is not marked generated", async () => {
     const fakeFetch = (async () =>
       new Response(JSON.stringify({ ...body, generated: false }), { status: 200 })) as typeof fetch;
-    await expect(postChat({ mode: "ask", message: "hi" }, fakeFetch)).rejects.toThrow();
+    await expect(postChat({ mode: "ask", message: "hi" }, fakeFetch, CONVERSATION_ID)).rejects.toThrow();
   });
 
   it("surfaces a non-2xx status", async () => {
     const fakeFetch = (async () => new Response("nope", { status: 503 })) as typeof fetch;
-    await expect(postChat({ mode: "ask", message: "hi" }, fakeFetch)).rejects.toThrow("HTTP 503");
+    await expect(postChat({ mode: "ask", message: "hi" }, fakeFetch, CONVERSATION_ID)).rejects.toThrow("HTTP 503");
   });
 });

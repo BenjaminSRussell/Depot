@@ -24,7 +24,7 @@ import { assertNoPii, Pseudonymizer, scanPii } from "../domain/redaction.js";
 import { isTerminal, transition, type RunStatus } from "../domain/run.js";
 import { AgentError } from "../errors.js";
 import { EGRESS_GUARD_TOOL, type GuardResult } from "./egressGuard.js";
-import { checkRunOutput, createOutputGuard, OUTPUT_GUARD_CODE, OUTPUT_GUARD_MESSAGE, OUTPUT_GUARD_TOOL, outputBlockedResult, type OutputGuard } from "./outputGuard.js";
+import { checkRunOutput, createOutputGuard, OUTPUT_GUARD_CODE, OUTPUT_GUARD_MESSAGE, OUTPUT_GUARD_TOOL, outputBlockedResult, presentForCaller, type OutputGuard } from "./outputGuard.js";
 
 export interface ModelUsage {
   tokensIn: number;
@@ -573,14 +573,15 @@ async function executeRun(
     await charge(usage);
     assertRunWithinCap(ledger.tokensIn + ledger.tokensOut, req.runTokenCap);
     moveTo("ACTING");
-    const verdict = await checkRunOutput(deps.outputGuard ?? createOutputGuard(), { tenantId: req.tenantId, prompt, response, pseudo, duties: req.userDuties });
+    const guard = deps.outputGuard ?? createOutputGuard();
+    const verdict = await checkRunOutput(guard, { tenantId: req.tenantId, prompt, response, pseudo, duties: req.userDuties });
     if (!verdict.ok) {
       actions.push(guardActionRecord(req.runId, seq + 1, outputBlockedResult(req.runId, verdict), deps.now(), OUTPUT_GUARD_TOOL));
       seq += 1;
       displayText = OUTPUT_GUARD_MESSAGE;
       return finish("FAILED", OUTPUT_GUARD_CODE, verdict.reason);
     }
-    displayText = pseudo.restore(response.text);
+    displayText = presentForCaller(guard, pseudo, verdict.text);
 
     const p = response.proposal;
     if (!p) return finish("FAILED", undefined, "model returned no proposal");

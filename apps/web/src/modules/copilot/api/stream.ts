@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { chatResponseSchema, COPILOT_TIMEOUT_MESSAGE, CopilotError, failedCopilotCall, type ChatRequest, type ChatResponse } from "./client";
+import { chatResponseSchema, COPILOT_TIMEOUT_MESSAGE, CopilotError, createConversation, failedCopilotCall, messagesPath, type ChatRequest, type ChatResponse } from "./client";
 import { apiFetch } from "../../../shell/api/http";
 import { AI_FIRST_TOKEN_TIMEOUT_MS, AI_REQUEST_TIMEOUT_MS, withDeadline } from "../../../shell/assistant/availability";
 
 /**
- * Streaming client for POST /api/v1/copilot/chat when the server answers with
+ * Streaming client for POST /api/v1/agents/copilot/conversations/{id}/messages when the server answers with
  * text/event-stream (FR-47.3). Frames: `token` ({text}) while the answer is
  * generated, then exactly one terminal frame: `done` (the full ChatResponse,
  * validated like the JSON path) or `error` ({code, message}). Unknown event
@@ -84,10 +84,11 @@ export function toStreamEvent(frame: SseFrame): StreamEvent | undefined {
  * when the connection closes before a terminal frame, so a truncated answer is
  * never shown as complete.
  */
-export async function* streamChat(req: ChatRequest, fetchFn: typeof fetch = apiFetch): AsyncGenerator<StreamEvent> {
+export async function* streamChat(req: ChatRequest, fetchFn: typeof fetch = apiFetch, conversationId?: string): AsyncGenerator<StreamEvent> {
+  const path = messagesPath(conversationId ?? (await createConversation(fetchFn)));
   const deadline = withDeadline(AI_FIRST_TOKEN_TIMEOUT_MS);
   try {
-    const res = await fetchFn("/api/v1/copilot/chat", {
+    const res = await fetchFn(path, {
       method: "POST",
       cache: "no-store",
       headers: { "content-type": "application/json", accept: "text/event-stream" },
@@ -154,13 +155,15 @@ function isEventStream(res: Response): boolean {
 export async function askCopilot(
   req: ChatRequest,
   onToken?: (text: string) => void,
-  onWithdrawn?: (message: string) => void,
+  onWithdrawn?: (message: string, code: string) => void,
   fetchFn: typeof fetch = apiFetch,
+  conversationId?: string,
 ): Promise<ChatResponse> {
+  const path = messagesPath(conversationId ?? (await createConversation(fetchFn)));
   const deadline = withDeadline(AI_FIRST_TOKEN_TIMEOUT_MS);
   let bodyLimit: ReturnType<typeof withDeadline> | undefined;
   try {
-    const res = await fetchFn("/api/v1/copilot/chat", {
+    const res = await fetchFn(path, {
       method: "POST",
       cache: "no-store",
       headers: { "content-type": "application/json", accept: "text/event-stream, application/json;q=0.9" },
@@ -181,7 +184,7 @@ export async function askCopilot(
     for await (const event of readChatStream(res)) {
       deadline.clear();
       if (event.type === "token") onToken?.(event.text);
-      else if (event.type === "withdrawn") onWithdrawn?.(event.message);
+      else if (event.type === "withdrawn") onWithdrawn?.(event.message, event.code);
       else if (event.type === "done") return event.response;
       else throw new CopilotError(`${event.code}: ${event.message}`, event.code);
     }

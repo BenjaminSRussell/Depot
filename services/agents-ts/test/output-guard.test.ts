@@ -61,10 +61,48 @@ describe("output guard checks", () => {
     expect(await reasonOf("The salary: 85000.", { duties: HOLDER })).toBeUndefined();
   });
 
+  it("removes every non-relative link, keeps a relative record link and logs only a count", async () => {
+    const logs: unknown[][] = [];
+    const guard = createOutputGuard({ log: (...args: unknown[]) => void logs.push(args) } as Parameters<typeof createOutputGuard>[0]);
+    const verdict = await guard.check(turn({ text: "See [PO 123](/purchasing/purchase-orders/123), [site](https://evil.example/c?d=hello) and ![i](https://evil.example/i.png)." }));
+    expect(verdict).toMatchObject({ ok: true, text: "See [PO 123](/purchasing/purchase-orders/123), site and .", linksRemoved: 2 });
+    expect(JSON.stringify(logs)).not.toContain("evil.example");
+    expect(JSON.stringify(logs)).toContain('"removed":2');
+  });
+
+  it("neutralises before it checks: a duty leak or token hidden by link syntax is still caught", async () => {
+    expect(await reasonOf("Pay [85000](https://evil.example/x).")).toBe("DUTY_LEAK");
+    expect(await reasonOf("<a href='https://evil.example'>85000</a>")).toBe("DUTY_LEAK");
+    expect(await reasonOf("[[EMAIL-9]](https://evil.example/x)")).toBe("TOKEN_NOT_IN_INPUT");
+    expect(await reasonOf("[a@x.io](/x)", { duties: HOLDER })).toBeUndefined();
+  });
+
+  it("returns only text that passed the checks, with no surviving disallowed link", async () => {
+    const verdict = await createOutputGuard().check(turn({ text: "[x][1]\n[1]: //evil.example/a\n<img src=//evil.example/a> https://c2VjcmV0.evil.example/" }));
+    expect(verdict).toMatchObject({ ok: true, text: "x\n\n [link removed]" });
+  });
+
+  it("re-neutralises after pseudonym restore so a restored value never lands in a link", () => {
+    const pseudo = new Pseudonymizer("t", 60_000, () => 0);
+    const token = pseudo.tokenize("AMOUNT", "/evil.example/x");
+    const guarded = `[go](/${token})`;
+    expect(pseudo.restoreFor(guarded, new Set())).toBe("[go](//evil.example/x)");
+    expect(createOutputGuard().neutralise(pseudo.restoreFor(guarded, new Set()))).toBe("go");
+  });
+
+  it("refuses a proposal whose args carry a link and leaves a relative link in args alone", async () => {
+    const guard = createOutputGuard();
+    const check = (attachments: string) => guard.check(turn({ text: "ok", attachments }));
+    expect(await check('{"memo":"[x](https://evil.example/c?d=1)"}')).toMatchObject({ ok: false, reason: "LINK_IN_ARGS" });
+    expect(await check('{"memo":"[x](https://docs.example/guide)"}')).toMatchObject({ ok: false, reason: "LINK_IN_ARGS" });
+    expect(await check('{"memo":"<img src=//evil.example/a>"}')).toMatchObject({ ok: false, reason: "LINK_IN_ARGS" });
+    expect(await check('{"ref":"/purchasing/purchase-orders/123"}')).toMatchObject({ ok: true });
+  });
+
   it("raises the class to the highest class of the inputs and never lowers it", async () => {
     const guard = createOutputGuard();
-    expect(await guard.check(turn({ text: "ok" }, { highestClass: "P3" }))).toEqual({ ok: true, dataClass: "P3" });
-    expect(await guard.check(turn({ text: "ok", declaredClass: "P3" }, { highestClass: "P1" }))).toEqual({ ok: true, dataClass: "P3" });
+    expect(await guard.check(turn({ text: "ok" }, { highestClass: "P3" }))).toMatchObject({ ok: true, dataClass: "P3" });
+    expect(await guard.check(turn({ text: "ok", declaredClass: "P3" }, { highestClass: "P1" }))).toMatchObject({ ok: true, dataClass: "P3" });
   });
 
   it("fails closed on a throwing analyzer and on a missed deadline, logging reasons and counts only", async () => {
@@ -114,6 +152,38 @@ describe("streamed answers and the unverified-citation share", () => {
   it("still applies the other rules to a partial chunk", async () => {
     const verdict = await createOutputGuard().check(turn({ text: "Write to [EMAIL-9]. ", partial: true }));
     expect(verdict).toMatchObject({ ok: false, reason: "TOKEN_NOT_IN_INPUT" });
+  });
+});
+
+describe("streaming never releases a link before it is complete", () => {
+  const sunk = async (deltas: string[]) => {
+    const guard = createOutputGuard();
+    const released: string[] = [];
+    const releaser = createChunkReleaser(async (chunk) => {
+      const verdict = await guard.check(turn({ text: chunk, partial: true }));
+      if (verdict.ok) released.push(verdict.text);
+      return verdict.ok;
+    });
+    for (const d of deltas) releaser.push(d);
+    await releaser.end();
+    return released.join("");
+  };
+
+  it.each([
+    ["a link split across 2 chunks", ["Go [see. here](https://evil", ".example/c?d=1) now."]],
+    ["a link split across 3 chunks", ["Go [see. ", "here](https://evil.example", "/c?d=1) now."]],
+    ["an image split right after the destination opener", ["Go ![a. b](", "https://evil.example/i.png) now."]],
+    ["an html img split mid tag", ["Go <img src=\"https://evil.example/i.png. ", "x\" alt=y> now."]],
+    ["a reference definition split from its label", ["Go [x][1]. \n[1]: //evil", ".example/c\nnow."]],
+  ])("%s", async (_name, deltas) => {
+    const shown = await sunk(deltas);
+    expect(shown).not.toContain("evil");
+    expect(shown).toContain("now.");
+  });
+
+  it("keeps a relative link split across chunks intact and flushes an unclosed tail at the end", async () => {
+    expect(await sunk(["See [PO. 1](/purchasing/", "purchase-orders/1) ok. "])).toBe("See [PO. 1](/purchasing/purchase-orders/1) ok. ");
+    expect(await sunk(["Tail [open"])).toBe("Tail [open");
   });
 });
 

@@ -19,6 +19,7 @@ Executed at T+24 h of the production cutover. Any open item is NO-GO. The decisi
 | 12 | Support rota, escalation and rollback decision owner named | rota document | Support lead | open |
 | 13 | Monitoring dashboards and alerts green for 24 h | dashboard export | SRE on-call | open |
 | 14 | Legacy freeze confirmed and rollback plan rehearsed | freeze notice, rehearsal record | Project manager | open |
+| 15 | AI release: leakage gate green and, for a release or a provider or model change, the red-team session signed off | `redteam-report` CI artifact, sign-off record from `docs/signoff/redteam-template.md` | Security lead | open |
 
 Status values: open, done, waived (waiver requires CutoverDecisionOwner signature; not allowed for items 1-4 or 8-9).
 

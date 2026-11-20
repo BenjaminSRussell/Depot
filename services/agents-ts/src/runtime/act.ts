@@ -139,11 +139,11 @@ export function createActService(deps: ActDeps) {
     return {
       tool: entry.tool,
       agent: entry.agent,
-      summary: verdict.ok ? firstSentence(req.rationale) : OUTPUT_GUARD_MESSAGE,
+      summary: verdict.ok ? firstSentence(verdict.text) : OUTPUT_GUARD_MESSAGE,
       diff: verdict.ok ? diff : [],
       amount: req.amount,
       confidence: req.confidence,
-      rationale: verdict.ok ? req.rationale : OUTPUT_GUARD_MESSAGE,
+      rationale: verdict.ok ? verdict.text : OUTPUT_GUARD_MESSAGE,
       expiresAt: new Date(approvalExpiresAtMs(requestedAtMs, expiryHours)).toISOString(),
     };
   }

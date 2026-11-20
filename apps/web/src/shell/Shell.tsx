@@ -1,4 +1,5 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { postRoute } from "../modules/copilot/api/client";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import type { DepotModule } from "../modules/registry";
 import { CommandPalette, type PaletteEntry } from "./CommandPalette";
@@ -14,7 +15,10 @@ import { resolvePage } from "./pageMeta";
 import { WorkContextProvider } from "./lookup/workContext";
 import { AvailabilityProvider, useAvailabilityController } from "./assistant/AvailabilityProvider";
 import { hideAssistantEntries } from "./assistant/availability";
-import { ASSISTANT_DUTY } from "./home/assistantRouter";
+import { createPromptRouter } from "./assistant/router";
+import { recordContextFor } from "./assistant/recordContext";
+import { handOffFeatureFilter, handOffPrompt, setRecordContext } from "./assistant/session";
+import { ASSISTANT_DUTY, COPILOT_PATH } from "./home/assistantRouter";
 import { devDuties, devIdentity, PrincipalProvider } from "./principal";
 import { readDensity, writeDensity, type Density } from "./personalization";
 import { RouteErrorBoundary } from "./RouteErrorBoundary";
@@ -29,7 +33,7 @@ import { workspaceIcon } from "./workspaceIcons";
 import { filterModulesByFeatures, isPathEnabled } from "./tenant/featureRules";
 import { TenantSettingsProvider, useTenantSettingsLoader } from "./tenant/TenantSettings";
 import { WorkspaceNavProvider } from "./workspaces/WorkspaceNav";
-import { loadWorkspaceConfig, resolveNavEntries, type WorkspaceConfig } from "./workspaces/model";
+import { ALL_FEATURES_PATH, loadWorkspaceConfig, resolveNavEntries, type WorkspaceConfig } from "./workspaces/model";
 
 const TOAST_MS = 4000;
 const DRAWER_BREAKPOINT = "(min-width: 960px)";
@@ -88,6 +92,7 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
   const [toast, setToast] = useState("");
   const userId = identity ?? devIdentity();
   const [density, setDensity] = useState<Density>(() => readDensity(userId));
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLButtonElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -98,6 +103,10 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
   const announced = useRef("");
   const announceFrame = useRef<number | undefined>(undefined);
   const toastTimer = useRef<number | undefined>(undefined);
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
+  const availabilityRef = useRef(availability.state);
+  availabilityRef.current = availability.state;
 
   const featureOn = isPathEnabled(settings.features, pathname);
   const planned = plannedRouteFor(pathname) !== undefined;
@@ -200,10 +209,21 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
       const stored = returnFocusRef.current;
       const target = stored?.isConnected
         ? stored
-        : [searchRef.current, menuRef.current].find((el): el is HTMLButtonElement => el !== null && isShown(el)) ?? titleRef.current;
+        : [triggerRef.current, searchRef.current, menuRef.current].find((el): el is HTMLButtonElement => el !== null && isShown(el)) ?? titleRef.current;
       target?.focus();
     }
   }, []);
+
+  const askWithRecordContext = useCallback(() => {
+    const state = availabilityRef.current;
+    if (state.status !== "enabled") {
+      announce(state.status === "checking" ? copy.palette.assistantChecking : copy.palette.assistantUnavailable[state.reason]);
+      return;
+    }
+    setRecordContext(recordContextFor(pathnameRef.current, allModules));
+    handOffPrompt("");
+    navigate(COPILOT_PATH);
+  }, [allModules, announce, navigate]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -215,13 +235,16 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
           openPalette();
           announce(copy.announce.searchOpened);
         }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "/") {
+        e.preventDefault();
+        askWithRecordContext();
       } else if (e.key === "Escape" && paletteOpenRef.current) {
         closePalette();
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openPalette, closePalette, announce]);
+  }, [openPalette, closePalette, announce, askWithRecordContext]);
 
   useEffect(() => {
     document.title = `${page.title} · Depot`;
@@ -266,6 +289,35 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
     wide.addEventListener("change", closeWhenWide);
     return () => wide.removeEventListener("change", closeWhenWide);
   }, []);
+
+  const router = useMemo(
+    () =>
+      createPromptRouter({
+        handlers: {
+          ask: (text) => {
+            announceQuietly(copy.home.assistantLoading);
+            handOffPrompt(text);
+            navigate(COPILOT_PATH);
+          },
+        },
+        getAvailability: () => availabilityRef.current,
+        hasDuty: (duty) => holdsDuty(principalDuties, duty),
+        postRoute,
+        searchFallback: (text) => {
+          announceQuietly(copy.home.assistantSearchNote);
+          handOffFeatureFilter(text);
+          navigate(ALL_FEATURES_PATH);
+        },
+      }),
+    [announceQuietly, navigate, principalDuties],
+  );
+
+  async function askAssistant(text: string) {
+    const outcome = await router.submit(text);
+    if (outcome.status === "refused") announceQuietly(copy.home.assistantRefused(outcome.code, outcome.message));
+    else if (outcome.status === "clarify") announceQuietly(copy.home.assistantClarify);
+    else if (outcome.status === "blocked") announceQuietly(copy.home.assistantBlocked);
+  }
 
   function openSearch() {
     clickTrace("search");
@@ -325,10 +377,12 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
               page={page}
               titleRef={titleRef}
               menuRef={menuRef}
+              searchRef={triggerRef}
               drawerOpen={drawerOpen}
               compact={density === "compact"}
               showContext={principalDuties.includes("org.read")}
               onOpenDrawer={() => setDrawerOpen(true)}
+              onOpenSearch={openSearch}
               onToggleCompact={toggleDensity}
             />
             {online ? null : (
@@ -353,7 +407,7 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
             {toast}
           </div>
         ) : null}
-        {paletteOpen ? <CommandPalette entries={entries} identity={userId} onSelect={selectEntry} onClose={() => closePalette()} announce={announceQuietly} /> : null}
+        {paletteOpen ? <CommandPalette entries={entries} identity={userId} onSelect={selectEntry} onClose={() => closePalette()} announce={announceQuietly} onAsk={(text) => void askAssistant(text)} assistantState={availability.state} /> : null}
       </div>
       </RecentProvider>
       </InboxProvider>

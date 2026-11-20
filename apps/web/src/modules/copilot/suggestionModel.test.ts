@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { runTraceSchema } from "./api/runTrace";
 import { toolActionLabel } from "./domain";
 import { suggestionFixtures, UNRENDERED_MARKER } from "./suggestionFixtures";
-import { resolveRecord, toSuggestionViewModels } from "./suggestionModel";
+import { answerViewModel, citationRoute, resolveRecord, toSuggestionViewModels } from "./suggestionModel";
 
 const run = { runId: "r1", agentId: "ap_coding", agentVersion: 1 };
 const action = {
@@ -141,5 +141,52 @@ describe("resolveRecord", () => {
         href: undefined,
       });
     }
+  });
+});
+
+describe("citationRoute", () => {
+  const duties = ["receiving.ap.inquire"];
+
+  it("links a record the user may open to its page, and nothing else", () => {
+    expect(citationRoute({ sourceRef: "record:ledger/ap-invoice/INV-1042" }, duties)).toBe("/ap-invoices/INV-1042");
+  });
+
+  it.each([
+    "https://evil.example/x",
+    "//evil.example/x",
+    "javascript:alert(1)",
+    "![x](http://a/b.png)",
+    "/ap-invoices/INV-1042",
+    "INV-1042",
+    "depot.ledger.journal.get",
+    "metric:revenue",
+    "audit:12",
+    "record:ledger/ap-invoice",
+    "record:ledger/ap-invoice/INV-1/extra",
+    "record:ledger/ap-invoice/",
+    "record:ledger/ap-invoice/a%2Fb",
+    "record:ledger/ap-invoice/a b",
+    "record:ledger/ap-invoice/a\nb",
+    "record:ledger/unknown-entity/1",
+    "record:ledger/__proto__/1",
+    "record:ledger/constructor/1",
+  ])("renders %j as plain text", (sourceRef) => {
+    expect(citationRoute({ sourceRef }, duties)).toBeUndefined();
+  });
+
+  it("gives no link when the user lacks the duty for the entity", () => {
+    expect(citationRoute({ sourceRef: "record:ledger/ap-invoice/INV-1042" }, [])).toBeUndefined();
+    expect(citationRoute({ sourceRef: "record:ledger/journal-entry/1" }, duties)).toBeUndefined();
+  });
+});
+
+describe("answerViewModel", () => {
+  it("labels the copilot with no version and lists each tool call", () => {
+    const model = answerViewModel(
+      { answer: "x", citations: [], toolCalls: [{ tool: "metric.search", status: "OK" }, { tool: "analytics.query", status: "DENIED", code: "AGT-0203" }], generated: true, dataClass: "CUI" },
+      "turn-1",
+    );
+    expect(model).toMatchObject({ actionId: "turn-1", agentLabel: "Copilot", tools: ["metric.search: OK", "analytics.query: DENIED (AGT-0203)"], records: [], dataClass: "CUI" });
+    expect(model.agentVersion).toBeUndefined();
   });
 });

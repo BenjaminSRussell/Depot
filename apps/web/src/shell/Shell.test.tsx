@@ -1,11 +1,12 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { DepotModule } from "../modules/registry";
 import { checkAxeAA } from "./a11y";
 import { FormRenderer } from "./forms";
 import { demoNote } from "./metadata";
+import { clearHandedOffPrompt, peekHandedOffPrompt, takeHandedOffFeatureFilter, takeRecordContext } from "./assistant/session";
 import { availableAssistant, pageViolations } from "./testing/fakeServer";
 import { HomePage } from "./pages/HomePage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -197,7 +198,7 @@ describe("command palette", () => {
     const user = userEvent.setup();
     renderShell();
     await user.keyboard("{Control>}k{/Control}");
-    expect(within(screen.getByRole("group", { name: "Admin" })).getByRole("option", { name: /Import data/ })).toBeInTheDocument();
+    expect(within(screen.getByRole("group", { name: "Navigate" })).getByRole("option", { name: /Import data/ })).toBeInTheDocument();
     await user.type(screen.getByRole("combobox", { name: "Find a page" }), "zzz");
     expect(screen.getByText(/No pages match/)).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Find a page" })).toHaveAttribute("aria-expanded", "false");
@@ -261,6 +262,147 @@ describe("command palette", () => {
     await user.click(trigger);
     await user.keyboard("{Escape}");
     expect(trigger).toHaveFocus();
+  });
+
+  it("opens from the top-bar Search or ask button and returns focus to it on Escape", async () => {
+    const user = userEvent.setup();
+    renderShell();
+    const trigger = screen.getByRole("button", { name: "Search or ask" });
+    expect(trigger).toHaveAttribute("aria-keyshortcuts", "Control+K Meta+K");
+    expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+    await user.click(trigger);
+    expect(screen.getByRole("dialog", { name: "Search" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Find a page")).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(trigger).toHaveFocus();
+  });
+});
+
+describe("command bar assistant group", () => {
+  function stubApi(availability: unknown, route: unknown = { kind: "ask", confidence: 0.9 }) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        const body = url.includes("/agents/availability") ? availability : url.includes("/copilot/chat") ? route : { results: [] };
+        return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
+      }),
+    );
+  }
+
+  it("sends text with no match to the assistant through the prompt router and closes the bar", async () => {
+    stubApi(availableAssistant);
+    const user = userEvent.setup();
+    renderShell("/", undefined, ["mcp.copilot.use"]);
+    await user.keyboard("{Control>}k{/Control}");
+    await user.type(screen.getByLabelText("Find a page"), "zzqq");
+    const group = await screen.findByRole("group", { name: "Assistant" });
+    expect(within(group).getByRole("option", { name: /Ask the assistant: zzqq/ })).toBeInTheDocument();
+    await user.keyboard("{Enter}");
+    expect(screen.queryByRole("dialog", { name: "Search" })).not.toBeInTheDocument();
+    await waitFor(() => expect(peekHandedOffPrompt()).toBe("zzqq"));
+    clearHandedOffPrompt();
+  });
+
+  it("announces a refusal after the bar has closed", async () => {
+    stubApi(availableAssistant, { refusal: { code: "AGT-0202", message: "Over the limit." } });
+    const user = userEvent.setup();
+    renderShell("/", undefined, ["mcp.copilot.use"]);
+    await user.keyboard("{Control>}k{/Control}");
+    await user.type(screen.getByLabelText("Find a page"), "zzqq");
+    await screen.findByRole("group", { name: "Assistant" });
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(document.body.textContent).toContain("Over the limit"), { timeout: 1500 });
+  });
+
+  it("replaces only the assistant group with a message when the assistant is turned off", async () => {
+    stubApi({ ...availableAssistant, copilotEnabled: false });
+    const user = userEvent.setup();
+    renderShell("/", undefined, ["mcp.copilot.use"]);
+    await user.keyboard("{Control>}k{/Control}");
+    await user.type(screen.getByLabelText("Find a page"), "import");
+    expect(await screen.findByText(/The assistant is turned off for your company/)).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Assistant" })).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Import data, Admin" })).toBeInTheDocument();
+  });
+});
+
+describe("command bar fallback and record shortcut", () => {
+  function LocationProbe() {
+    const { pathname, search } = useLocation();
+    return <p data-testid="location">{`${pathname}${search}`}</p>;
+  }
+
+  const recordModules: DepotModule[] = [
+    { id: "ledger", title: "Ledger", routes: [{ path: "/ledger/entries/:entryId", element: <p>Entry</p> }], nav: [{ label: "Entries", to: "/ledger/entries" }] },
+  ];
+
+  function renderProbe(path: string) {
+    return render(
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route element={<Shell modules={recordModules} duties={["mcp.copilot.use"]} />}>
+            <Route path="*" element={<LocationProbe />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+  }
+
+  function stubFetch(availability: unknown, chat: () => Response) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/copilot/chat")) return chat();
+        const body = url.includes("/agents/availability") ? availability : { results: [] };
+        return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
+      }),
+    );
+  }
+
+  it("keeps the typed prompt out of the URL when classification fails and hands it to the features filter", async () => {
+    stubFetch(availableAssistant, () => new Response("{}", { status: 500 }));
+    const user = userEvent.setup();
+    renderProbe("/start");
+    await user.keyboard("{Control>}k{/Control}");
+    await user.type(screen.getByLabelText("Find a page"), "salary of Ann");
+    await screen.findByRole("group", { name: "Assistant" });
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/features"));
+    expect(screen.getByTestId("location").textContent).toBe("/features");
+    expect(takeHandedOffFeatureFilter()).toBe("salary of Ann");
+  });
+
+  it("opens the assistant from a record page on Ctrl+/ with the record as context and no prompt", async () => {
+    stubFetch(availableAssistant, () => new Response("{}", { status: 500 }));
+    clearHandedOffPrompt();
+    takeRecordContext();
+    const user = userEvent.setup();
+    renderProbe("/ledger/entries/JE-77");
+    await user.keyboard("{Control>}k{/Control}");
+    await user.type(screen.getByLabelText("Find a page"), "zzqq");
+    await screen.findByRole("group", { name: "Assistant" });
+    await user.keyboard("{Escape}");
+    await user.keyboard("{Control>}/{/Control}");
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/copilot"));
+    expect(peekHandedOffPrompt()).toBeUndefined();
+    expect(takeRecordContext()).toEqual({ kind: "entries", id: "JE-77", path: "/ledger/entries/JE-77" });
+  });
+
+  it("announces that the assistant is off on Ctrl+/ and stays on the page", async () => {
+    stubFetch({ ...availableAssistant, copilotEnabled: false }, () => new Response("{}", { status: 500 }));
+    takeRecordContext();
+    const user = userEvent.setup();
+    renderProbe("/ledger/entries/JE-77");
+    await user.keyboard("{Control>}k{/Control}");
+    await user.type(screen.getByLabelText("Find a page"), "zzqq");
+    await screen.findByText(/The assistant is turned off for your company/);
+    await user.keyboard("{Escape}");
+    await user.keyboard("{Control>}/{/Control}");
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/turned off for your company/));
+    expect(screen.getByTestId("location")).toHaveTextContent("/ledger/entries/JE-77");
+    expect(takeRecordContext()).toBeUndefined();
   });
 });
 

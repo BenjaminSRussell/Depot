@@ -7,6 +7,9 @@ import { pageViolations } from "./a11yTest";
 import { CopilotPanel } from "./CopilotPanel";
 import { canInsertDraft, GENERATED_BADGE, isCopilotMode, toolCallLabel } from "./domain";
 
+const CONVERSATION_ID = "6f1c1f0e-8f0a-4a52-9a43-0a8c5a1f2b11";
+const newConversation = async () => CONVERSATION_ID;
+
 const answer: ChatResponse = {
   answer: "Revenue was 1,200.00 USD in October, against 1,050.00 in September.",
   citations: [{ sourceType: "METRIC", sourceRef: "revenue", label: "Revenue, 2026-10 vs 2026-09" }],
@@ -34,54 +37,55 @@ describe("copilot domain rules", () => {
 describe("CopilotPanel", () => {
   it("sends the mode and message, then shows a labelled answer with tool calls and citations", async () => {
     const ask = vi.fn(async () => answer);
-    render(<CopilotPanel ask={ask} />);
+    render(<CopilotPanel createConversation={newConversation} ask={ask} />);
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Ask Copilot"), "what was revenue last month vs the month before");
     await user.click(screen.getByRole("button", { name: "Send" }));
 
-    expect(ask).toHaveBeenCalledWith({ mode: "ask", message: "what was revenue last month vs the month before" }, expect.any(Function), expect.any(Function));
+    expect(ask).toHaveBeenCalledWith({ mode: "ask", message: "what was revenue last month vs the month before" }, expect.any(Function), expect.any(Function), undefined, CONVERSATION_ID);
     expect(await screen.findByRole("article", { name: "Copilot answer" })).toHaveTextContent(answer.answer);
     expect(screen.getByText(GENERATED_BADGE)).toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "Tool calls" })).toHaveTextContent("depot.ledger.journal.get: OK");
-    expect(screen.getByRole("list", { name: "Citations" })).toHaveTextContent("Revenue, 2026-10 vs 2026-09");
+    await user.click(screen.getByRole("button", { name: "Data used" }));
+    expect(screen.getByRole("list", { name: "Tools called" })).toHaveTextContent("depot.ledger.journal.get: OK");
+    expect(screen.getByRole("list", { name: "Sources" })).toHaveTextContent("Revenue, 2026-10 vs 2026-09");
     expect(screen.queryByText("No answer yet")).toBeNull();
     expect(pageViolations()).toEqual([]);
   });
 
   it("sends the initial message once in ask mode and shows the answer", async () => {
     const ask = vi.fn(async () => answer);
-    render(<CopilotPanel ask={ask} initialMessage="  how is cash  " />);
+    render(<CopilotPanel createConversation={newConversation} ask={ask} initialMessage="  how is cash  " />);
     expect(await screen.findByRole("article", { name: "Copilot answer" })).toHaveTextContent(answer.answer);
     expect(ask).toHaveBeenCalledTimes(1);
-    expect(ask).toHaveBeenCalledWith({ mode: "ask", message: "how is cash" }, expect.any(Function), expect.any(Function));
+    expect(ask).toHaveBeenCalledWith({ mode: "ask", message: "how is cash" }, expect.any(Function), expect.any(Function), undefined, CONVERSATION_ID);
   });
 
   it("sends nothing without an initial message and shows an alert when the initial message fails", async () => {
     const quiet = vi.fn(async () => answer);
-    const { unmount } = render(<CopilotPanel ask={quiet} initialMessage="   " />);
+    const { unmount } = render(<CopilotPanel createConversation={newConversation} ask={quiet} initialMessage="   " />);
     expect(quiet).not.toHaveBeenCalled();
     unmount();
     const failing = vi.fn(async () => Promise.reject(new Error("Copilot is down.")));
-    render(<CopilotPanel ask={failing} initialMessage="hello" />);
+    render(<CopilotPanel createConversation={newConversation} ask={failing} initialMessage="hello" />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Copilot is down.");
     expect(failing).toHaveBeenCalledTimes(1);
   });
 
   it("switches mode with pressed state and sends the record context", async () => {
     const ask = vi.fn(async () => answer);
-    render(<CopilotPanel ask={ask} recordRef="ledger.journal:JV-0042" />);
+    render(<CopilotPanel createConversation={newConversation} ask={ask} recordRef="ledger.journal:JV-0042" />);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Explain this record" }));
     expect(screen.getByRole("button", { name: "Explain this record" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Ask the data" })).toHaveAttribute("aria-pressed", "false");
     await user.type(screen.getByLabelText("Ask Copilot"), "why is this journal reversed");
     await user.click(screen.getByRole("button", { name: "Send" }));
-    expect(ask).toHaveBeenCalledWith({ mode: "explain", message: "why is this journal reversed", recordRef: "ledger.journal:JV-0042" }, expect.any(Function), expect.any(Function));
+    expect(ask).toHaveBeenCalledWith({ mode: "explain", message: "why is this journal reversed", recordRef: "ledger.journal:JV-0042" }, expect.any(Function), expect.any(Function), undefined, CONVERSATION_ID);
   });
 
   it("inserts a draft only when the user clicks Insert draft", async () => {
     const onInsertDraft = vi.fn();
-    render(<CopilotPanel ask={async () => ({ ...answer, answer: "Dear customer, your invoice is overdue." })} onInsertDraft={onInsertDraft} initialMode="draft" />);
+    render(<CopilotPanel createConversation={newConversation} ask={async () => ({ ...answer, answer: "Dear customer, your invoice is overdue." })} onInsertDraft={onInsertDraft} initialMode="draft" />);
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Ask Copilot"), "dunning letter for ACME");
     await user.click(screen.getByRole("button", { name: "Send" }));
@@ -99,7 +103,7 @@ describe("CopilotPanel", () => {
       toolCalls: [{ tool: "depot.ap.invoice.post", status: "DENIED", code: "AGT-0203" }],
       refusal: { code: "AGT-0203", message: "I cannot do that: you do not hold duty APInvoicePost required by depot.ap.invoice.post." },
     };
-    render(<CopilotPanel ask={async () => refusal} onInsertDraft={vi.fn()} initialMode="draft" />);
+    render(<CopilotPanel createConversation={newConversation} ask={async () => refusal} onInsertDraft={vi.fn()} initialMode="draft" />);
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Ask Copilot"), "post the invoice");
     await user.click(screen.getByRole("button", { name: "Send" }));
@@ -108,7 +112,7 @@ describe("CopilotPanel", () => {
   });
 
   it("reports an unavailable copilot as an alert", async () => {
-    render(<CopilotPanel ask={async () => { throw new Error("Copilot is unavailable (HTTP 503)."); }} />);
+    render(<CopilotPanel createConversation={newConversation} ask={async () => { throw new Error("Copilot is unavailable (HTTP 503)."); }} />);
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Ask Copilot"), "hello");
     await user.click(screen.getByRole("button", { name: "Send" }));
@@ -125,7 +129,7 @@ describe("CopilotPanel", () => {
           finish = resolve;
         }),
     );
-    render(<CopilotPanel ask={ask} />);
+    render(<CopilotPanel createConversation={newConversation} ask={ask} />);
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Ask Copilot"), "revenue last month");
     await user.click(screen.getByRole("button", { name: "Send" }));
@@ -146,20 +150,21 @@ describe("CopilotPanel", () => {
     const safe = "This answer could not be shown. Try again or ask your administrator.";
     let finish: (r: ChatResponse) => void = () => undefined;
     const ask = vi.fn(
-      (_req: unknown, onToken?: (text: string) => void, onWithdrawn?: (message: string) => void) =>
+      (_req: unknown, onToken?: (text: string) => void, onWithdrawn?: (message: string, code: string) => void) =>
         new Promise<ChatResponse>((resolve) => {
           onToken?.("The salary is 85000. ");
-          onWithdrawn?.(safe);
+          onWithdrawn?.(safe, "AGT-0220");
           finish = resolve;
         }),
     );
-    render(<CopilotPanel ask={ask} />);
+    render(<CopilotPanel createConversation={newConversation} ask={ask} />);
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Ask Copilot"), "pay");
     await user.click(screen.getByRole("button", { name: "Send" }));
     const live = await screen.findByRole("article", { name: "Copilot answer in progress" });
     expect(live).toHaveTextContent(safe);
     expect(live).not.toHaveTextContent("85000");
+    expect(live).toHaveTextContent("AGT-0220");
 
     finish({ answer: safe, citations: [], toolCalls: [], refusal: { code: "AGT-0220", message: safe }, generated: true });
     const final = await screen.findByRole("article", { name: "Copilot answer" });
@@ -172,7 +177,7 @@ describe("CopilotPanel", () => {
       onToken?.("half an ans");
       throw new Error("AGT-0206: Provider unavailable.");
     });
-    render(<CopilotPanel ask={ask} />);
+    render(<CopilotPanel createConversation={newConversation} ask={ask} />);
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Ask Copilot"), "hello");
     await user.click(screen.getByRole("button", { name: "Send" }));
@@ -182,7 +187,7 @@ describe("CopilotPanel", () => {
 
   it("does not send an empty message", async () => {
     const ask = vi.fn(async () => answer);
-    render(<CopilotPanel ask={ask} />);
+    render(<CopilotPanel createConversation={newConversation} ask={ask} />);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Send" }));
     expect(ask).not.toHaveBeenCalled();
@@ -199,7 +204,7 @@ describe("CopilotPanel", () => {
       };
       render(
         <AvailabilityProvider value={availability}>
-          <CopilotPanel ask={ask} />
+          <CopilotPanel createConversation={newConversation} ask={ask} />
         </AvailabilityProvider>,
       );
       return availability;
