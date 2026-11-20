@@ -49,6 +49,12 @@ type SalesLine struct {
 	ProductID string
 	Date      string
 	Qty       decimal.Decimal
+	Unit      string
+}
+
+type OnHandQty struct {
+	Qty  decimal.Decimal
+	Unit string
 }
 
 func New(salesURL, inventoryURL string, signer *tenant.ServiceSigner, timeout time.Duration) (*Client, error) {
@@ -83,6 +89,7 @@ type salesPage struct {
 		LineNo      int    `json:"lineNo"`
 		ProductID   string `json:"productId"`
 		OpenQty     string `json:"openQty"`
+		Unit        string `json:"unit"`
 		DueDate     string `json:"dueDate"`
 	} `json:"items"`
 	Next string `json:"next"`
@@ -108,7 +115,7 @@ func (c *Client) OpenSalesLines(ctx context.Context, tenantID, legalEntityID, si
 			return nil, refused(ctx, salesLinesPath, "unreadable body", err)
 		}
 		for _, it := range page.Items {
-			line, err := toSalesLine(it.OrderNumber, it.LineNo, it.ProductID, it.OpenQty, it.DueDate)
+			line, err := toSalesLine(it.OrderNumber, it.LineNo, it.ProductID, it.OpenQty, it.Unit, it.DueDate)
 			if err != nil {
 				return nil, refused(ctx, salesLinesPath, "unusable line", err)
 			}
@@ -127,24 +134,28 @@ func (c *Client) OpenSalesLines(ctx context.Context, tenantID, legalEntityID, si
 	}
 }
 
-func toSalesLine(orderNumber string, lineNo int, productID, openQty, dueDate string) (SalesLine, error) {
+func normalizeUnit(unit string) string { return strings.ToUpper(strings.TrimSpace(unit)) }
+
+func toSalesLine(orderNumber string, lineNo int, productID, openQty, unit, dueDate string) (SalesLine, error) {
 	product, ok := ids.Canonical(productID)
 	qty, err := decimal.NewFromString(openQty)
-	if _, derr := time.Parse(dateLayout, dueDate); !ok || err != nil || derr != nil || !qty.IsPositive() || orderNumber == "" || lineNo < 1 {
-		return SalesLine{}, fmt.Errorf("line %s/%d product %q qty %q date %q", orderNumber, lineNo, productID, openQty, dueDate)
+	unit = normalizeUnit(unit)
+	if _, derr := time.Parse(dateLayout, dueDate); !ok || err != nil || derr != nil || !qty.IsPositive() || orderNumber == "" || lineNo < 1 || unit == "" {
+		return SalesLine{}, fmt.Errorf("line %s/%d product %q qty %q unit %q date %q", orderNumber, lineNo, productID, openQty, unit, dueDate)
 	}
-	return SalesLine{Ref: orderNumber + "/" + strconv.Itoa(lineNo), ProductID: product, Date: dueDate, Qty: qty}, nil
+	return SalesLine{Ref: orderNumber + "/" + strconv.Itoa(lineNo), ProductID: product, Date: dueDate, Qty: qty, Unit: unit}, nil
 }
 
 type onHandBody struct {
 	Items []struct {
 		Group          map[string]string `json:"group"`
 		PhysicalInvent string            `json:"physicalInvent"`
+		Unit           string            `json:"unit"`
 	} `json:"items"`
 	Truncated bool `json:"truncated"`
 }
 
-func (c *Client) OnHand(ctx context.Context, tenantID, legalEntityID, siteID string) (map[string]decimal.Decimal, error) {
+func (c *Client) OnHand(ctx context.Context, tenantID, legalEntityID, siteID string) (map[string]OnHandQty, error) {
 	raw, err := c.get(ctx, c.inventoryURL, onHandPath, url.Values{"site": {siteID}, "groupBy": {"product"}}, inventoryAud, DutyOnHand, tenantID, legalEntityID)
 	if err != nil {
 		return nil, err
@@ -156,14 +167,19 @@ func (c *Client) OnHand(ctx context.Context, tenantID, legalEntityID, siteID str
 	if body.Truncated {
 		return nil, refused(ctx, onHandPath, "answer truncated", errors.New("on-hand answer is cut"))
 	}
-	out := make(map[string]decimal.Decimal, len(body.Items))
+	out := make(map[string]OnHandQty, len(body.Items))
 	for _, it := range body.Items {
 		product, ok := ids.Canonical(it.Group["product"])
 		qty, err := decimal.NewFromString(it.PhysicalInvent)
-		if !ok || err != nil {
-			return nil, refused(ctx, onHandPath, "unusable row", fmt.Errorf("product %q physicalInvent %q", it.Group["product"], it.PhysicalInvent))
+		unit := normalizeUnit(it.Unit)
+		if !ok || err != nil || unit == "" {
+			return nil, refused(ctx, onHandPath, "unusable row", fmt.Errorf("product %q physicalInvent %q unit %q", it.Group["product"], it.PhysicalInvent, unit))
 		}
-		out[product] = out[product].Add(qty)
+		prior, seen := out[product]
+		if seen && prior.Unit != unit {
+			return nil, refused(ctx, onHandPath, "one product in two units", fmt.Errorf("product %q units %q and %q", product, prior.Unit, unit))
+		}
+		out[product] = OnHandQty{Qty: prior.Qty.Add(qty), Unit: unit}
 	}
 	return out, nil
 }

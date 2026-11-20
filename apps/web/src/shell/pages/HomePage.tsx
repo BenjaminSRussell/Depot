@@ -4,7 +4,8 @@ import { postRoute } from "../../modules/copilot/api/client";
 import { AskAnswer } from "../../modules/copilot/AskAnswer";
 import { useCopilotConversation } from "../../modules/copilot/useCopilotConversation";
 import { AssistantNotice, useAiAvailability } from "../assistant/AvailabilityProvider";
-import { createPromptRouter } from "../assistant/router";
+import { AGENTS_INVOKE_DUTY, createPromptRouter } from "../assistant/router";
+import { handOffFeatureFilter } from "../assistant/session";
 import { copy } from "../copy";
 import { holdsDuty } from "../dutyGate";
 import { AssistantPrompt } from "../home/AssistantPrompt";
@@ -97,7 +98,8 @@ export function HomePage() {
         postRoute,
         searchFallback: (text) => {
           announce?.(copy.home.assistantSearchNote);
-          navigate({ pathname: ALL_FEATURES_PATH, search: `?${new URLSearchParams({ q: text })}` });
+          handOffFeatureFilter(text);
+          navigate(ALL_FEATURES_PATH);
         },
       }),
     [announce, duties, navigate],
@@ -170,7 +172,7 @@ export function HomePage() {
     <>
       <PageHeader title={copy.home.pageTitle} description={copy.home.description} />
       <AssistantNotice />
-      <AssistantPrompt onSubmit={router.submit} />
+      <AssistantPrompt onSubmit={router.submit} canAct={holdsDuty(duties, AGENTS_INVOKE_DUTY)} />
       <AskAnswer conversation={conversation} />
       {demoTour}
       <SetupBanner />

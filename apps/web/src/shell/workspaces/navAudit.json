@@ -108,6 +108,8 @@
     {"to": "/copilot", "module": "copilot", "label": "Copilot", "area": "administration", "decision": "keep"},
     {"to": "/copilot/tools", "module": "copilot", "label": "Tool catalog", "area": "administration", "decision": "advanced"},
     {"to": "/copilot/kill-switch", "module": "copilot", "label": "Agent kill switch", "area": "administration", "decision": "advanced"},
+    {"to": "/copilot/budgets", "module": "copilot", "label": "AI controls", "area": "administration", "decision": "advanced"},
+    {"to": "/copilot/agents", "module": "copilot", "label": "Agents", "area": "administration", "decision": "advanced"},
     {"to": "/costacct", "module": "costacct", "label": "Cost objects", "area": "finance", "decision": "keep"},
     {"to": "/costacct/cost-elements", "module": "costacct", "label": "Cost elements", "area": "finance", "decision": "advanced"},
     {"to": "/costacct/behavior-rules", "module": "costacct", "label": "Cost behavior rules", "area": "finance", "decision": "advanced"},

@@ -3424,6 +3424,7 @@ components:
       properties:
         group: { type: object, additionalProperties: { type: string } }
         physicalInvent: { $ref: '#/components/schemas/Decimal' }
+        unit: { type: string, description: 'Inventory (base) unit of the product that physicalInvent is counted in; present on rows grouped by product when the product service answers' }
         availPhysical: { $ref: '#/components/schemas/Decimal', description: Present for the live projection; absent in an asOf replay }
         availOrdered: { $ref: '#/components/schemas/Decimal', description: Present for the live projection; absent in an asOf replay }
         postedValue: { $ref: '#/components/schemas/Decimal' }

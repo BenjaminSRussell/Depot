@@ -105,6 +105,7 @@ func run() error {
 		}
 	}
 	s := store.New(pool, prefix, ext).WithReleaseDefaults(horizon, fullATP).WithHolds(holds)
+	httpx.RegisterMetrics(s.WriteSlipGLMetrics)
 	if sales != nil {
 		// Every replica runs the reporter: reports are leased, so each is sent by one at a time (#496).
 		reporter := &salesreport.Reporter{Store: s, Sales: sales}

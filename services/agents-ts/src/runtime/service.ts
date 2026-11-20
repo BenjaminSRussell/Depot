@@ -101,7 +101,7 @@ const PROPOSAL_POLL_MS = 100;
 const isFinished = (status: string): boolean => (RUN_STATUSES as readonly string[]).includes(status) && isTerminal(status as RunStatus);
 
 export interface RunView {
-  run: StoredRun;
+  run: StoredRun & { actor: string };
   pendingApprovals: PendingApproval[];
   actions: ActionView[];
 }
@@ -297,7 +297,7 @@ export function createRunService(deps: RunServiceDeps) {
       const run = await deps.store.getRun(caller.tenantId, runId);
       if (run === undefined) throw new ApiError(404, "AGT-0404", "no such run");
       const [pendingApprovals, actions] = await Promise.all([deps.inbox.pendingForRun(caller.tenantId, runId), deps.store.loadActions(caller.tenantId, runId)]);
-      return { run, pendingApprovals, actions: actions.map(toActionView) };
+      return { run: { ...run, actor: `agent:${run.agentId}@user:${run.invokerUserId}` }, pendingApprovals, actions: actions.map(toActionView) };
     },
 
     async actions(caller: Principal, runId: string): Promise<ActionView[]> {

@@ -61,7 +61,7 @@ func TestPostgres_ListOpenOrderLinesIsOpenDemandOfTheSiteAndEntity(t *testing.T)
 	if first.OrderID != partial.ID || !first.OpenQty.Equal(d(6)) || first.DueDate != "2027-03-01" {
 		t.Fatalf("partly delivered line %+v, want 6 open due on its confirmed date", first)
 	}
-	if second.OrderID != open.ID || !second.OpenQty.Equal(d(10)) || second.DueDate != "2027-03-04" || second.ProductID != product || second.SiteID != site || second.LineNo != 1 {
+	if second.OrderID != open.ID || !second.OpenQty.Equal(d(10)) || second.DueDate != "2027-03-04" || second.ProductID != product || second.SiteID != site || second.LineNo != 1 || second.Unit != "EA" || first.Unit != "EA" {
 		t.Fatalf("open line %+v", second)
 	}
 

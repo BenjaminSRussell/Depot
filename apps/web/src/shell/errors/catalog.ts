@@ -396,6 +396,7 @@ const sales: Record<string, ProblemCatalogEntry> = {
   "SLS-0048": { message: "Product configurations can't be checked right now.", action: TRY_LATER },
   "SLS-0049": { message: "Only a confirmed order can be planned for production.", action: "Confirm the order first." },
   "SLS-0050": { message: "Production planning isn't available right now.", action: TRY_LATER },
+  "PLAN-LIVE-UNIT": { message: "The open sales quantity and the stock for a product are counted in different units, so the plan can't compare them.", action: "Have the product's sales and stock units aligned, or send the items yourself. The product and both units are listed under Details." },
   "SLS-0052": { message: "The sales agreement is closed.", action: "Choose another agreement." },
   "SLS-0053": { message: "The commitment can't go below what has already been released.", action: "Enter an amount at least equal to the released amount." },
   "SLS-0055": { message: "This alternative product is already set up.", action: "Edit the existing one instead." },
@@ -556,6 +557,8 @@ const fulfillment: Record<string, ProblemCatalogEntry> = {
   "FUL-0080": { message: "We couldn't find that sales delivery report.", action: "Go back to the list and open it again." },
   "FUL-0081": { message: "A sales delivery report can only be retried while it is parked or pending.", action: "Reload the page to see the report's status." },
   "FUL-0082": { message: "Inventory values a shipment line in a different currency than the packing slip uses.", action: "Check the currency on the slip and on the product's cost, then post again." },
+  "FUL-0083": { message: "There is no ledger journal to release for that packing slip.", action: "Check the slip number. A slip with nothing to book has no journal." },
+  "FUL-0084": { message: "Only a journal the ledger refused can be released.", action: "Reload the page to see the journal's status." },
 };
 
 const billing: Record<string, ProblemCatalogEntry> = {
