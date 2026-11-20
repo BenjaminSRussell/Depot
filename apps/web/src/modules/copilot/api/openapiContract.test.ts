@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import spec from "../../../../../../services/agents-ts/api/openapi.yaml?raw";
+import { BRIEFING_AGENT_IDS, briefingListSchema } from "./briefings";
 import { chatResponseSchema, citationSchema, conversationSchema, toolCallSchema } from "./client";
 
 function schemaBlock(name: string): string {
@@ -25,6 +26,9 @@ function enumAfter(block: string, property: string): string[] {
 }
 
 const chat = schemaBlock("ChatResponse");
+const briefingBlock = schemaBlock("Briefing");
+const briefingItemBlock = schemaBlock("BriefingItem");
+const briefingListBlock = schemaBlock("BriefingList");
 const refusal = schemaBlock("RefusalResponse");
 
 const fixture = {
@@ -63,5 +67,28 @@ describe("web client against services/agents-ts/api/openapi.yaml", () => {
     expect(requiredOf(refusal)).toEqual(["refusal", "generated"]);
     const refused = { ...fixture, answer: "", citations: [], toolCalls: [], refusal: { code: "AGT-0203", message: "Not allowed." } };
     expect(chatResponseSchema.parse(refused).refusal?.code).toBe("AGT-0203");
+  });
+
+  it("parses a BriefingList fixture carrying every key the spec requires and keeps the agent enum in step", () => {
+    const item = { agentId: "cash_app", factId: "f1", text: "Apply payment", actionId: "6f1c1f0e-8f0a-4a52-9a43-0a8c5a1f2b11", route: "/assistant/proposals/6f1c1f0e-8f0a-4a52-9a43-0a8c5a1f2b11" };
+    const briefing = {
+      id: "0b9a6b5e-2f4c-4f6e-9c1d-3d2b1a0f9e88",
+      status: "READY",
+      narrative: false,
+      createdAt: "2026-11-19T10:00:00.000Z",
+      completedAt: null,
+      readAt: null,
+      changes: [item],
+      risks: [],
+      recommendedActions: [],
+      notes: [],
+    };
+    const body = { items: [briefing], nextCursor: null, nextScheduledAt: null };
+    for (const key of requiredOf(briefingBlock)) expect(briefing).toHaveProperty(key);
+    for (const key of requiredOf(briefingListBlock)) expect(body).toHaveProperty(key);
+    for (const key of requiredOf(briefingItemBlock)) expect(item).toHaveProperty(key);
+    expect(briefingListSchema.parse(body).items).toHaveLength(1);
+    expect(new Set(enumAfter(briefingItemBlock, "agentId"))).toEqual(new Set(BRIEFING_AGENT_IDS));
+    expect(new Set(enumAfter(briefingBlock, "status"))).toEqual(new Set(["RUNNING", "READY", "FAILED"]));
   });
 });

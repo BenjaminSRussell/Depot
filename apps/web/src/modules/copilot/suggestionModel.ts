@@ -92,6 +92,9 @@ const AGENT_LABELS: Readonly<Record<string, string>> = {
   mrp_triage: "Planning triage agent",
   collections_outreach: "Collections outreach agent",
   journal_anomaly: "Journal review agent",
+  cash_app: "Cash application agent",
+  collections: "Collections outreach agent",
+  anomaly: "Journal review agent",
 };
 
 const UNKNOWN_RECORD_LABEL = "A record";

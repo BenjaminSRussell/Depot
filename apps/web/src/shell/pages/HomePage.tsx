@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo, useRef } from "react";
 import { Link, useNavigate, useOutletContext } from "react-router-dom";
 import { postRoute } from "../../modules/copilot/api/client";
 import { AskAnswer } from "../../modules/copilot/AskAnswer";
+import { BriefingCard } from "../../modules/copilot/BriefingCard";
 import { useCopilotConversation } from "../../modules/copilot/useCopilotConversation";
 import { AssistantNotice, useAiAvailability } from "../assistant/AvailabilityProvider";
 import { AGENTS_INVOKE_DUTY, createPromptRouter } from "../assistant/router";
@@ -25,6 +26,7 @@ import { useWorkspaceNav } from "../workspaces/WorkspaceNav";
 import styles from "./pages.module.css";
 
 const SETUP_PATH = "/setup";
+const BRIEFING_READ_DUTY = "agents.run.read";
 
 // Loaded only in the demo build, like the banner in main.tsx: a static import would put the demo company and its tour
 // in every production bundle even though nothing renders them there (UXS-01).
@@ -149,6 +151,7 @@ export function HomePage() {
       <Link to={ALL_FEATURES_PATH}>{copy.home.seeAll}</Link>
     </p>
   );
+  const briefing = holdsDuty(duties, BRIEFING_READ_DUTY) ? <BriefingCard /> : null;
   const demoTour = DemoTour ? (
     <Suspense fallback={null}>
       <DemoTour />
@@ -159,6 +162,7 @@ export function HomePage() {
       <>
         <PageHeader title={copy.home.pageTitle} description={copy.home.description} />
         <AssistantNotice />
+        {briefing}
         {demoTour}
         <SetupBanner />
         <MyWorkSummary />
@@ -176,6 +180,7 @@ export function HomePage() {
       <AssistantNotice />
       <AssistantPrompt onSubmit={router.submit} canAct={holdsDuty(duties, AGENTS_INVOKE_DUTY)} />
       <AskAnswer conversation={conversation} />
+      {briefing}
       {demoTour}
       <SetupBanner />
       <MyWorkSummary />

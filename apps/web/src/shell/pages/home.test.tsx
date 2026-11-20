@@ -407,6 +407,51 @@ describe("role home", () => {
     });
   });
 
+  describe("briefing card", () => {
+    const BRIEFINGS = "/api/v1/agents/briefings";
+    const READ_DUTY = "agents.run.read";
+    const readyBriefing = {
+      id: "0b9a6b5e-2f4c-4f6e-9c1d-3d2b1a0f9e88",
+      status: "READY",
+      narrative: true,
+      createdAt: "2026-11-19T10:00:00.000Z",
+      completedAt: "2026-11-19T10:00:05.000Z",
+      readAt: null,
+      changes: [],
+      risks: [],
+      recommendedActions: [{ agentId: "collections", factId: "f1", text: "Send the reminder", actionId: "6f1c1f0e-8f0a-4a52-9a43-0a8c5a1f2b11" }],
+      notes: [],
+    };
+    const serveBriefings = () => {
+      server.handler = (url) => (url.pathname === BRIEFINGS ? json(200, { items: [readyBriefing], nextCursor: null, nextScheduledAt: null }) : undefined);
+    };
+
+    it("sits below the prompt and above the workspace cards on the assistant-led home", async () => {
+      serveBriefings();
+      renderHome(["mcp.copilot.use", READ_DUTY]);
+      const box = await main().findByRole("textbox", { name: "Ask or do anything..." });
+      const card = await main().findByRole("heading", { level: 2, name: "Your briefing" });
+      expect(box.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(card.compareDocumentPosition(main().getByRole("region", { name: "Browse workspaces" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("shows on the classic home too, and a failing briefing leaves the rest of the home working", async () => {
+      server.handler = (url) => (url.pathname === BRIEFINGS ? json(500, { code: "AGT-0500" }) : undefined);
+      renderHome([READ_DUTY]);
+      expect(await main().findByText("Your briefing could not be loaded")).toBeInTheDocument();
+      expect(main().getByText("Current workspace")).toBeInTheDocument();
+      expect(main().getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
+    });
+
+    it("is absent, and asks nothing of the server, without the agents.run.read duty", async () => {
+      serveBriefings();
+      renderHome(["mcp.copilot.use"]);
+      await main().findByRole("textbox", { name: "Ask or do anything..." });
+      expect(main().queryByRole("heading", { name: "Your briefing" })).not.toBeInTheDocument();
+      expect(server.calls.filter((c) => c.url.pathname === BRIEFINGS)).toHaveLength(0);
+    });
+  });
+
   describe("when the assistant is not available", () => {
     const COPILOT_DUTY = "mcp.copilot.use";
     const promptBox = () => screen.queryByRole("textbox", { name: "Ask or do anything..." });

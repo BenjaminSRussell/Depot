@@ -7,6 +7,7 @@ const PORT = 4173;
 const DEMO_PORT = 4174;
 
 const E2E_DUTIES = [
+  "agents.run.read",
   "audit.read",
   "batch.read",
   "engineering.read",
