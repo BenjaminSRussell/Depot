@@ -141,6 +141,22 @@ describe("assistant group", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it("selects the top Navigate match on open and lets the arrow keys reach every row, Assistant included", async () => {
+    const onAsk = vi.fn();
+    const { user } = open(vi.fn<RecordSearch>().mockResolvedValue([]), "user-a", vi.fn(), { onAsk, assistantState: ENABLED });
+    const input = screen.getByRole("combobox");
+    await user.type(input, "purchase");
+    const options = screen.getAllByRole("option");
+    expect(options).toHaveLength(2);
+    expect(options[0]).toHaveAttribute("aria-selected", "true");
+    expect(options[0]).toHaveAccessibleName(/Purchase orders, Purchasing/);
+    await user.keyboard("{ArrowDown}");
+    expect(input).toHaveAttribute("aria-activedescendant", options[1].id);
+    expect(options[1]).toHaveAccessibleName(/Ask the assistant: purchase/);
+    await user.keyboard("{Enter}");
+    expect(onAsk).toHaveBeenCalledExactlyOnceWith("purchase");
+  });
+
   it("shows the group in Navigate, Records, Assistant order", async () => {
     const { user } = open(vi.fn<RecordSearch>().mockResolvedValue([po]), "user-a", vi.fn(), { onAsk: vi.fn(), assistantState: ENABLED });
     await user.type(screen.getByRole("combobox"), "purchase");

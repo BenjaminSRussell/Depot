@@ -569,7 +569,8 @@
 }
 
 @media (pointer: coarse) {
-  .topbarActions .compactToggle {
+  .topbarActions .compactToggle,
+  .topbarActions .searchTrigger {
     min-block-size: 44px;
   }
 }

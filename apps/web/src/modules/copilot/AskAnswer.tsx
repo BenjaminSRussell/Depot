@@ -66,7 +66,7 @@ function TurnView({ turn, turnId, latest, conversation, onInsertDraft }: TurnVie
                   if (segment.kind === "text") return <Fragment key={i}>{segment.text}</Fragment>;
                   if (segment.kind === "unverified") return <Badge key={i} tone="warning">{copy.answer.unverified}</Badge>;
                   return (
-                    <a key={i} href={`#${turnId}-source-${segment.n}`} aria-label={`Source ${segment.n}`}>
+                    <a key={i} className={styles.citation} href={`#${turnId}-source-${segment.n}`} aria-label={`Source ${segment.n}`}>
                       [{segment.n}]
                     </a>
                   );
