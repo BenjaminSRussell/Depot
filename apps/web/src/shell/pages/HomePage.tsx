@@ -12,11 +12,17 @@ import { holdsDuty } from "../dutyGate";
 import { AssistantPrompt } from "../home/AssistantPrompt";
 import { AttentionFeed } from "../home/AttentionFeed";
 import { ASSISTANT_DUTY, COPILOT_PATH } from "../home/assistantRouter";
-import { PinnedRegion } from "../pins/PinnedRegion";
+import { PinnedRegion, useLookedUpLabels } from "../pins/PinnedRegion";
+import { usePins } from "../pins/PinsProvider";
+import { pinKey } from "../pins/pinStore";
+import { pinHref, RECORD_LOOKUP } from "../pins/pinTargets";
+import { readActivity, type Activity } from "../personal/activityStore";
+import { orderWorkspaces, recentRecords, suggestedPrompts } from "../personal/homeOrder";
 import { plannedRouteFor } from "../plannedRoutes";
 import homeStyles from "../home/home.module.css";
-import { usePrincipalDuties } from "../principal";
+import { usePrincipalDuties, usePrincipalIdentity } from "../principal";
 import { useRecentPages } from "../recent";
+import { RECORD_TYPE_LABEL } from "../search/records";
 import { isPathEnabled } from "../tenant/featureRules";
 import { useTenantSettings } from "../tenant/TenantSettings";
 import { Alert, Badge, Button, Card, CardGrid, EmptyState, Icon, PageHeader } from "../ui";
@@ -50,23 +56,47 @@ function SetupBanner() {
   );
 }
 
-function Recent() {
+function Recent({ activity }: { activity: readonly Activity[] }) {
+  // TODO DEPOT-288: Reset personalization control (AC5, follow-up slice)
   const { pages } = useRecentPages();
+  const { canOpen } = usePins();
+  const records = useMemo(() => recentRecords(activity, canOpen), [activity, canOpen]);
+  const looked = useLookedUpLabels(records, canOpen);
+  const shown = records.flatMap((record) => {
+    const label = RECORD_LOOKUP[record.recordType] === undefined ? RECORD_TYPE_LABEL[record.recordType] : looked.get(pinKey(record));
+    return typeof label === "string" ? [{ record, label }] : [];
+  });
   return (
     <Card title={copy.home.recentTitle} headingLevel={2}>
-      {pages.length === 0 ? (
+      {pages.length === 0 && shown.length === 0 ? (
         <EmptyState compact title={copy.home.recentTitle} description={copy.home.recentEmpty} />
       ) : (
-        <ul className={styles.links} aria-label={copy.home.recentTitle}>
-          {pages.map((p) => (
-            <li key={p.to}>
-              <Link to={p.to} className={styles.link}>
-                <span>{p.label}</span>
-                <Icon name="chevronRight" />
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <>
+          {pages.length > 0 ? (
+            <ul className={styles.links} aria-label={copy.home.recentTitle}>
+              {pages.map((p) => (
+                <li key={p.to}>
+                  <Link to={p.to} className={styles.link}>
+                    <span>{p.label}</span>
+                    <Icon name="chevronRight" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {shown.length > 0 ? (
+            <ul className={styles.links} aria-label={copy.home.recentRecords}>
+              {shown.map(({ record, label }) => (
+                <li key={pinKey(record)}>
+                  <Link to={pinHref(record)} className={styles.link}>
+                    <span>{label}</span>
+                    <Icon name="chevronRight" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </>
       )}
     </Card>
   );
@@ -83,6 +113,9 @@ export function HomePage() {
   const announce = useOutletContext<((message: string) => void) | undefined>();
   const { features } = useTenantSettings();
   const duties = usePrincipalDuties();
+  const identity = usePrincipalIdentity();
+  const now = useMemo(() => new Date(), []);
+  const activity = useMemo(() => readActivity(identity), [identity]);
   const availability = useAiAvailability().state;
   const availabilityRef = useRef(availability);
   availabilityRef.current = availability;
@@ -109,7 +142,8 @@ export function HomePage() {
   );
   const assistant =
     availability.status === "enabled" && holdsDuty(duties, ASSISTANT_DUTY) && isPathEnabled(features, COPILOT_PATH) && plannedRouteFor(COPILOT_PATH) === undefined;
-  const ordered = (active ? [active, ...held.filter((w) => w.id !== active.id)] : held).slice(0, HOME_WORKSPACE_LIMIT);
+  const rest = orderWorkspaces(held.filter((w) => w.id !== active?.id), duties, activity, now);
+  const ordered = (active ? [active, ...rest] : rest).slice(0, HOME_WORKSPACE_LIMIT);
   const cards =
     ordered.length === 0 ? (
       <Card>
@@ -169,7 +203,7 @@ export function HomePage() {
         <PinnedRegion />
         <WorkspaceKpis workspace={active} />
         {cards}
-        <Recent />
+        <Recent activity={activity} />
         {seeAll}
       </>
     );
@@ -178,7 +212,7 @@ export function HomePage() {
     <>
       <PageHeader title={copy.home.pageTitle} description={copy.home.description} />
       <AssistantNotice />
-      <AssistantPrompt onSubmit={router.submit} canAct={holdsDuty(duties, AGENTS_INVOKE_DUTY)} />
+      <AssistantPrompt onSubmit={router.submit} canAct={holdsDuty(duties, AGENTS_INVOKE_DUTY)} suggestions={suggestedPrompts(duties, activity, now)} />
       <AskAnswer conversation={conversation} />
       {briefing}
       {demoTour}
@@ -193,7 +227,7 @@ export function HomePage() {
         {cards}
         {seeAll}
       </section>
-      <Recent />
+      <Recent activity={activity} />
     </>
   );
 }
