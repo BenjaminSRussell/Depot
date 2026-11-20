@@ -386,6 +386,13 @@ describe("agents availability sign-off gate", () => {
       publish: async () => {},
       now: () => NOW,
       copilot: COPILOT,
+      knowledge: {
+        index: async () => ({ indexed: 1, embedded: 0 }),
+        search: async () => [],
+      } as unknown as KnowledgeService,
+      briefings: {
+        generate: async () => ({ id: RUN, status: "RUNNING" }),
+      } as unknown as BriefingService,
       ...(aiEnabled === undefined ? {} : { aiEnabled }),
     });
     const server = createServer((req, res) => {
@@ -453,6 +460,7 @@ describe("agents availability sign-off gate", () => {
     aiEnabled: boolean | undefined,
     path: string,
     duty = "mcp.copilot.use",
+    body = "{}",
   ) => {
     const { server, base } = await serve(aiEnabled);
     try {
@@ -462,7 +470,7 @@ describe("agents availability sign-off gate", () => {
           ...edgeHeaders(T1, CLERK, duty),
           "content-type": "application/json",
         },
-        body: "{}",
+        body,
       });
       return { status: res.status, body: await res.json() };
     } finally {
@@ -487,5 +495,51 @@ describe("agents availability sign-off gate", () => {
     ).toContain("duty");
     expect((await post(true, CONVERSATION)).status).toBe(201);
     expect((await post(undefined, CONVERSATION)).status).toBe(201);
+  });
+
+  const CHUNKS = JSON.stringify({
+    chunks: [
+      { sourceType: "DOC", sourceRef: "d1", section: "s", body: "text" },
+    ],
+  });
+  const SEARCH = JSON.stringify({ query: "how" });
+  const knowledgeRoutes = [
+    ["/api/v1/knowledge/chunks", "knowledge.write", CHUNKS],
+    ["/api/v1/knowledge/search", "mcp.copilot.use", SEARCH],
+  ] as const;
+
+  it.each(knowledgeRoutes)(
+    "refuses %s while the gate is closed, with the chat status and code",
+    async (path, duty, body) => {
+      const out = await post(false, path, duty, body);
+      expect(out.status).toBe(403);
+      expect(out.body).toMatchObject({ code: "AGT-0203" });
+    },
+  );
+
+  it.each(knowledgeRoutes)(
+    "keeps the duty refusal ahead of the gate on %s",
+    async (path, _duty, body) => {
+      const out = await post(false, path, "", body);
+      expect(out.status).toBe(403);
+      expect((out.body as { detail: string }).detail).toContain("duty");
+    },
+  );
+
+  it.each(knowledgeRoutes)(
+    "serves %s when the gate is open or unconfigured",
+    async (path, duty, body) => {
+      expect((await post(true, path, duty, body)).status).toBe(200);
+      expect((await post(undefined, path, duty, body)).status).toBe(200);
+    },
+  );
+
+  it("leaves briefing generation, which calls no model, reachable while the gate is closed", async () => {
+    const out = await post(
+      false,
+      "/api/v1/agents/briefings:generate",
+      "agents.invoke",
+    );
+    expect(out.status).toBe(202);
   });
 });

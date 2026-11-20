@@ -413,6 +413,7 @@ export function createAgentsHandler(
         const principal = await deps.authenticate(req.headers);
         if (path === KNOWLEDGE_CHUNKS_PATH) {
           requireDuty(principal, "knowledge.write", "the knowledge index");
+          requireAiSignoff();
           send(
             res,
             200,
@@ -423,6 +424,7 @@ export function createAgentsHandler(
           );
         } else {
           requireDuty(principal, COPILOT_DUTY, "the knowledge search");
+          requireAiSignoff();
           const q = parseSearch(await readBody(req));
           send(
             res,
