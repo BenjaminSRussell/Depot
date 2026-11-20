@@ -1,7 +1,7 @@
 import { AgentError } from "../errors.js";
 import { ApiError, asObject } from "../api/principal.js";
 
-export const AI_POLICY_MODULES = ["ap", "ar"] as const;
+export const AI_POLICY_MODULES = ["ap", "ar", "platform"] as const;
 export const DATA_CLASSES = ["P0", "P1", "P2", "P3", "CUI"] as const;
 export const MAX_REASON_LENGTH = 500;
 
