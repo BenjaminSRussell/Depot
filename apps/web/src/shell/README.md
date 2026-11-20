@@ -87,3 +87,20 @@ The home card "Needs your attention" (`shell/home/AttentionFeed.tsx`, rules in `
 - De-duplication: one row per key; when categories collide the exception wins over the inbox task.
 - One-click: not built. Every row is Review-only, so no posting or payment action is reachable from home. The default-deny inline Approve and Reject rule is a later slice.
 - Deferred sources, none queried or shown: three-way match exceptions (DEPOT-342), anomaly review tasks (DEPOT-343), agent approvals in the inbox (DEPOT-344). Agent approvals as a source are a later slice of DEPOT-280. See `modules/copilot/NOT-IMPLEMENTED.md`.
+
+## Record assistant opt-in (DEPOT-284)
+
+`PageHeader` takes one optional prop, `askAbout={{ entity, id }}`, and shows an "Ask about this record" button on a record page. A list page never passes it, so the button is never there.
+
+To opt a module in:
+
+1. Add the entity to `RECORD_ASSIST` in `shell/assist/recordAssist.ts` with its plain label and the next-step screens (`nextLinks`, each with the duty its navigation entry carries). The key must also exist in `RECORD_PAGES` in `modules/copilot/suggestionModel.ts`, so citations can link to it; `recordAssist.test.ts` checks both.
+2. Pass `askAbout={{ entity: "<key>", id: record.id }}` to the record page's `PageHeader` once the record has loaded.
+
+Opted in today: `purchase-order`, `ap-invoice`, `ar-payment`, `journal-entry`.
+
+- The button renders only when the user holds `mcp.copilot.use` and availability is `enabled`. Otherwise nothing renders and the page is unchanged.
+- The panel sends `record:<entity>/<id>` in `explain` mode with one of three fixed requests. It reads the answer through `AskAnswer`, so the AI badge, tool calls, sources and "left out" notice are the shared ones.
+- The panel names every history source the answer did not read (change history, related documents, approval and task history) from `toolCalls`, whatever the model wrote.
+- Next steps are ordinary links filtered by duty. The panel never inserts text into the page and never performs an action. The proposal-start button waits for the act handler (DEPOT-281).
+- Closing the panel (Escape or Close) discards the conversation and returns focus to the button.

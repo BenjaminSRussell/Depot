@@ -280,6 +280,34 @@ export const copy = {
     youAsked: (question: string) => `You asked: ${question}`,
     withdrawn: "The answer was withdrawn",
   },
+  recordAssist: {
+    button: "Ask about this record",
+    panelTitle: (entityLabel: string) => `Ask about this ${entityLabel}`,
+    close: "Close",
+    actionsLabel: "What would you like to know?",
+    actions: {
+      explain: {
+        label: "Explain this record",
+        message: "Explain this record: its status, how it got here, and the documents and tasks it relates to. Count related records I cannot open, never name them.",
+      },
+      changed: {
+        label: "What changed",
+        message: "List what changed on this record, oldest first, with who changed it, when and what. Say so if there is no change history.",
+      },
+      next: {
+        label: "What should I do next",
+        message: "What should I do next with this record, given its status and what I am allowed to do? Point me to a screen or a proposal. Do not do anything yourself.",
+      },
+    },
+    missingTitle: "Part of this record could not be read",
+    missing: {
+      "depot.platform.audit_trail.get": "The change history could not be read, so nothing here says who changed what.",
+      "depot.platform.document_flow.get": "The related documents could not be read, so some links to other documents may be missing.",
+      "depot.workflow.history.get": "The approval and task history could not be read, so open tasks may be missing.",
+    } as Readonly<Record<string, string>>,
+    nextHeading: "Where to go next",
+    nextNote: "These open an ordinary screen. Nothing changes until you save there.",
+  },
   proposal: {
     pageTitle: "Proposal",
     title: "Assistant proposal",
