@@ -38,3 +38,8 @@ agent runtime's new `GET`/`POST /api/v1/agents/kill-switch`.
 | AI data policy editor at `/copilot/ai-policy` (DEPOT-278, DEPOT-306) | later slice of DEPOT-306 | The AI controls page shows a read-only summary for callers holding aipolicy.read and links to the planned route in `plannedRoutes.json` |
 | Audit consumer for kill switch, budget, data policy and agent-disabled changes (DEPOT-278) | later slice | Each change writes its change table row with actor and time; a `services/audit` consumer is out of scope |
 | Playwright coverage of the AI controls and agents pages (DEPOT-278) | later slice of DEPOT-278 | The pages are covered by component tests with axe; the browser run against the agents service fixture is not added |
+| Three-way match exceptions in the attention feed (DEPOT-280) | DEPOT-342 | Not queried and not shown; `/v1/procurement/match-results` and `matchresult.read` do not exist |
+| Anomaly category and the `journal_anomaly_review` constant with its contract test (DEPOT-280) | DEPOT-343 | Not queried and not shown |
+| Inbox consumer for agent approvals and inbox-versus-approval de-duplication (DEPOT-280) | DEPOT-344 | Not built; the feed de-duplicates only by key and exception-before-inbox precedence |
+| Agent approvals as a feed source with the shared AI suggestion, disabled-agent filter and the Review link to `/assistant/proposals/:approvalId` (DEPOT-280) | later slice of DEPOT-280 | Needs `GET /api/v1/agents/approvals` in agents-ts and `agents.run.read` in the e2e duties |
+| Safe inline Approve and Reject, SoD reason (AGT-0209) and failed-decision restore with ProblemMessage (DEPOT-280) | later slice of DEPOT-280 | Every feed row is Review-only today, so no money-moving action is reachable in one click |

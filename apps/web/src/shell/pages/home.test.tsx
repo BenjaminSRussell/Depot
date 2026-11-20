@@ -69,19 +69,29 @@ function renderHome(duties: string[], shellModules: DepotModule[] = modules, ent
 const main = () => within(screen.getByRole("main"));
 
 describe("role home", () => {
-  it("shows the My work count and the top five items with a link to all of them", async () => {
+  it("shows the count and every item, each with a Review link named by its identifier", async () => {
     server.handler = () => json(200, { items: [1, 2, 3, 4, 5, 6, 7].map(item), unavailable: [], truncated: [] });
     renderHome(["inbox.read"]);
-    expect(await main().findByText("7 items are waiting for you.")).toBeInTheDocument();
-    const list = main().getByRole("list", { name: "My work" });
-    expect(within(list).getAllByRole("link")).toHaveLength(5);
+    expect(await main().findByText("7 items need your attention.")).toBeInTheDocument();
+    const list = main().getByRole("list", { name: "Needs your attention" });
+    expect(within(list).getAllByRole("link")).toHaveLength(7);
+    expect(within(list).getByRole("link", { name: "Review Requisition approval PR-3" })).toHaveAttribute("href", "/purchasing/requisitions/3");
+    expect(main().queryByRole("link", { name: "See all my work" })).not.toBeInTheDocument();
+  });
+
+  it("shows the first eight of eleven items and a See all link to the inbox", async () => {
+    server.handler = () => json(200, { items: Array.from({ length: 11 }, (_, n) => item(n + 1)), unavailable: [], truncated: [] });
+    renderHome(["inbox.read"]);
+    await main().findByText("11 items need your attention.");
+    expect(within(main().getByRole("list", { name: "Needs your attention" })).getAllByRole("link")).toHaveLength(8);
     expect(main().getByRole("link", { name: "See all my work" })).toHaveAttribute("href", "/workflow/inbox");
   });
 
   it("shows a plus when more work is waiting than was read", async () => {
     server.handler = () => json(200, { items: [item(1), item(2)], unavailable: [], truncated: ["ledger"] });
     renderHome(["inbox.read"]);
-    expect(await main().findByText("2+ items are waiting for you.")).toBeInTheDocument();
+    expect(await main().findByText("2+ items need your attention.")).toBeInTheDocument();
+    expect(main().getByRole("link", { name: "See all my work" })).toBeInTheDocument();
   });
 
   it("marks the active workspace and offers at most five shortcuts in it", () => {
@@ -90,18 +100,19 @@ describe("role home", () => {
     expect(main().getAllByRole("list", { name: /Top tasks/ }).every((l) => within(l).getAllByRole("link").length <= 5)).toBe(true);
   });
 
-  it("says You're all caught up when nothing is waiting, and has no axe violations", async () => {
+  it("says nothing needs attention when nothing is waiting, and has no axe violations", async () => {
     server.handler = () => json(200, { items: [], unavailable: [], truncated: [] });
     const { container } = renderHome(["inbox.read"]);
-    expect(await main().findByText("You're all caught up")).toBeInTheDocument();
+    expect(await main().findByText("Nothing needs your attention")).toBeInTheDocument();
     expect(pageViolations(container)).toEqual([]);
   });
 
-  it("explains a partial load and retries", async () => {
+  it("explains a partial load, names the source, retries once per click and has no axe violations", async () => {
     const user = userEvent.setup();
     server.handler = () => json(200, { items: [item(1)], unavailable: [{ source: "ledger", reason: "timeout" }], truncated: [] });
-    renderHome(["inbox.read"]);
+    const { container } = renderHome(["inbox.read"]);
     expect(await main().findByText("Some items could not be loaded: journal batches")).toBeInTheDocument();
+    expect(pageViolations(container)).toEqual([]);
     await user.click(main().getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(server.calls.filter((c) => c.url.pathname === "/api/v1/inbox")).toHaveLength(2));
   });
@@ -112,9 +123,9 @@ describe("role home", () => {
     expect(await main().findByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 
-  it("leaves My work out, and asks nothing of the server, for users without the inbox duty", () => {
+  it("leaves the feed out, and asks nothing of the server, for users with neither inbox nor planning duty", () => {
     renderHome([]);
-    expect(main().queryByText("My work")).not.toBeInTheDocument();
+    expect(main().queryByText("Needs your attention")).not.toBeInTheDocument();
     expect(server.calls).toHaveLength(0);
   });
 
@@ -124,22 +135,9 @@ describe("role home", () => {
     const duties = [...new Set(all.flatMap((m) => m.nav.flatMap((n) => (n.duty ? [n.duty] : []))).concat("inbox.read", ...kpiDuties))];
     server.handler = () => json(200, { items: [1, 2, 3, 4, 5, 6, 7].map(item), unavailable: [], truncated: [] });
     renderHome(duties, all);
-    await main().findByText("7 items are waiting for you.");
-    // The current workspace's number tiles count toward the limit too.
-    await waitFor(() => expect(main().getAllByRole("list", { name: / at a glance$/ }).length).toBeGreaterThan(1));
+    await main().findByText("7 items need your attention.");
+    await waitFor(() => expect(main().getAllByRole("list", { name: / at a glance$/ }).length).toBeGreaterThan(0));
     expect(main().getAllByRole("link").length).toBeLessThanOrEqual(MAX_HOME_LINKS);
-  });
-
-  it("shows at-a-glance tiles: waiting, approvals, overdue and the oldest wait", async () => {
-    const old = { ...item(1), actions: ["approve"], createdAt: "2026-01-01T00:00:00Z", dueDate: "2026-01-02" };
-    const fresh = { ...item(2), actions: ["open"], createdAt: new Date().toISOString() };
-    server.handler = () => json(200, { items: [old, fresh], unavailable: [], truncated: [] });
-    renderHome(["inbox.read"]);
-    const tiles = within(await main().findByRole("list", { name: "My work at a glance" }));
-    expect(tiles.getByText("Waiting for me").closest("li")).toHaveTextContent("2");
-    expect(tiles.getByText("To approve").closest("li")).toHaveTextContent("1");
-    expect(tiles.getByText("Overdue").closest("li")).toHaveTextContent("1");
-    expect(Number(tiles.getByText("Oldest, in days").closest("li")?.textContent?.replace(/\D/g, ""))).toBeGreaterThan(100);
   });
 
   it("puts the count on a My work link in the sidebar, and no badge when nothing waits", async () => {
@@ -150,24 +148,126 @@ describe("role home", () => {
     unmount();
     server.handler = () => json(200, { items: [], unavailable: [], truncated: [] });
     renderHome(["inbox.read"]);
-    await main().findByText("You're all caught up");
+    await main().findByText("Nothing needs your attention");
     expect(screen.getByRole("link", { name: "My work" })).toBeInTheDocument();
   });
 
-  it("reads the inbox once for the sidebar, the tiles and the list", async () => {
+  it("reads the inbox once for the sidebar and the feed", async () => {
     server.handler = () => json(200, { items: [item(1)], unavailable: [], truncated: [] });
     renderHome(["inbox.read"]);
-    await main().findByText("1 item is waiting for you.");
+    await main().findByText("1 item needs your attention.");
     expect(server.calls.filter((c) => c.url.pathname === "/api/v1/inbox")).toHaveLength(1);
   });
 
-  it("tells a new user what will appear in My work and offers no My work link without the duty", async () => {
+  it("tells a new user what will appear and offers no My work link without the duty", async () => {
     server.handler = () => json(200, { items: [], unavailable: [], truncated: [] });
     renderHome(["inbox.read"]);
-    expect(await main().findByText(/Approvals, holds and other tasks assigned to you will appear here/)).toBeInTheDocument();
+    expect(await main().findByText(/Approvals, holds, overdue tasks and planning messages assigned to you will appear here/)).toBeInTheDocument();
     cleanup();
     renderHome([]);
     expect(screen.queryByRole("link", { name: /^My work/ })).not.toBeInTheDocument();
+  });
+
+  describe("attention feed sources", () => {
+    const message = (n: number, over: Record<string, unknown> = {}) => ({
+      id: `msg-${n}`,
+      status: "open",
+      version: 1,
+      action: "postpone",
+      itemId: `item-${n}`,
+      supplyRef: `PO-${n}`,
+      text: "Move the order out",
+      delayDays: 0,
+      qty: "5",
+      ...over,
+    });
+    const inboxBody = (...items: Record<string, unknown>[]) => json(200, { items, unavailable: [], truncated: [] });
+    const PLANNING = "/api/v1/planning/messages";
+    const serveBoth = (planning: Reply, inbox: Reply = inboxBody(item(1))) => {
+      server.handler = (url) => (url.pathname === "/api/v1/inbox" ? inbox : url.pathname === PLANNING ? planning : undefined);
+    };
+    const planningCalls = () => server.calls.filter((c) => c.url.pathname === PLANNING);
+
+    it("merges inbox tasks and planning messages, overdue first, and requests open messages by priority", async () => {
+      serveBoth(json(200, { items: [message(1), message(2, { delayDays: 4 })] }), inboxBody({ ...item(1), dueDate: "2026-11-02" }, item(2)));
+      renderHome(["inbox.read", "planning.read"]);
+      await main().findByText("4 items need your attention.");
+      const names = within(main().getByRole("list", { name: "Needs your attention" })).getAllByRole("link").map((l) => l.getAttribute("aria-label"));
+      expect(names).toEqual([
+        "Review Requisition approval PR-1",
+        "Review Planning delay PO-2",
+        "Review Requisition approval PR-2",
+        "Review Planning action PO-1",
+      ]);
+      expect(main().getByRole("link", { name: "Review Planning delay PO-2" })).toHaveAttribute("href", "/planning/messages/msg-2?plan=MAIN");
+      expect(planningCalls()[0].url.search).toBe("?planCode=MAIN&sort=priority&status=open&limit=50");
+    });
+
+    it("does not request planning messages, and shows no placeholder, without planning.read", async () => {
+      serveBoth(json(200, { items: [message(1)] }));
+      renderHome(["inbox.read"]);
+      await main().findByText("1 item needs your attention.");
+      expect(planningCalls()).toHaveLength(0);
+      expect(within(main().getByRole("list", { name: "Needs your attention" })).queryByText(/Planning/)).not.toBeInTheDocument();
+    });
+
+    it("does not request the inbox without inbox.read and still shows planning messages", async () => {
+      serveBoth(json(200, { items: [message(1)] }));
+      renderHome(["planning.read"]);
+      await main().findByText("1 item needs your attention.");
+      expect(server.calls.filter((c) => c.url.pathname === "/api/v1/inbox")).toHaveLength(0);
+    });
+
+    it.each([
+      ["a 500", json(500, { code: "PLAN-500" })],
+      ["a 403", json(403, { code: "PLAN-403" })],
+      ["a body of the wrong type", json(200, { items: "none" })],
+      ["a message with a string delay", json(200, { items: [message(1, { delayDays: "3" })] })],
+    ])("names planning messages as unavailable on %s while inbox rows still render", async (_name, reply: Reply) => {
+      serveBoth(reply);
+      const { container } = renderHome(["inbox.read", "planning.read"]);
+      expect(await main().findByText("Some items could not be loaded: planning messages")).toBeInTheDocument();
+      expect(main().getByRole("link", { name: "Review Requisition approval PR-1" })).toBeInTheDocument();
+      expect(main().queryByText(/Planning (action|delay)/)).not.toBeInTheDocument();
+      expect(pageViolations(container)).toEqual([]);
+    });
+
+    it("names workflow tasks as unavailable when the inbox fails and planning rows still render", async () => {
+      serveBoth(json(200, { items: [message(1)] }), json(500, { code: "COM-0500" }));
+      renderHome(["inbox.read", "planning.read"]);
+      expect(await main().findByText("Some items could not be loaded: workflow tasks")).toBeInTheDocument();
+      expect(main().getByRole("link", { name: "Review Planning action PO-1" })).toBeInTheDocument();
+    });
+
+    it("retries planning once per click and never on its own", async () => {
+      const user = userEvent.setup();
+      serveBoth(json(500, {}));
+      renderHome(["inbox.read", "planning.read"]);
+      await main().findByText("Some items could not be loaded: planning messages");
+      expect(planningCalls()).toHaveLength(1);
+      await user.click(main().getByRole("button", { name: "Try again" }));
+      await waitFor(() => expect(planningCalls()).toHaveLength(2));
+      await main().findByText("Some items could not be loaded: planning messages");
+      expect(planningCalls()).toHaveLength(2);
+    });
+
+    it("offers only Review for every row, even an approvable inbox item", async () => {
+      serveBoth(json(200, { items: [message(1)] }), inboxBody({ ...item(1), actions: ["approve", "reject", "open"] }));
+      const { container } = renderHome(["inbox.read", "planning.read"]);
+      await main().findByText("2 items need your attention.");
+      const list = within(main().getByRole("list", { name: "Needs your attention" }));
+      expect(list.queryByRole("button")).not.toBeInTheDocument();
+      expect(list.queryByRole("link", { name: /approve|reject/i })).not.toBeInTheDocument();
+      expect(list.getAllByRole("link").every((l) => l.textContent === "Review")).toBe(true);
+      expect(pageViolations(container)).toEqual([]);
+    });
+
+    it("says nothing needs attention when both enabled sources are empty", async () => {
+      serveBoth(json(200, { items: [] }), inboxBody());
+      renderHome(["inbox.read", "planning.read"]);
+      expect(await main().findByText("Nothing needs your attention")).toBeInTheDocument();
+      expect(main().queryByRole("list", { name: "Needs your attention" })).not.toBeInTheDocument();
+    });
   });
 
   it("offers a switch button, not more links, for the other workspaces", async () => {
@@ -431,11 +531,11 @@ describe("role home", () => {
       expect(main().getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
     });
 
-    it("keeps My work working and has no axe violations while the assistant is unreachable", async () => {
+    it("keeps the feed working and has no axe violations while the assistant is unreachable", async () => {
       availability = json(503, {});
       server.handler = (url) => (url.pathname === "/api/v1/inbox" ? json(200, { items: [item(1), item(2)], unavailable: [], truncated: [] }) : undefined);
       const { container } = renderHome([COPILOT_DUTY, "inbox.read"]);
-      expect(await main().findByText("2 items are waiting for you.")).toBeInTheDocument();
+      expect(await main().findByText("2 items need your attention.")).toBeInTheDocument();
       expect(await main().findByText(unreachable)).toBeInTheDocument();
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(pageViolations(container)).toEqual([]);

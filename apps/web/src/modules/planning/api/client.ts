@@ -292,11 +292,13 @@ export async function listMessages(
   sort?: ListSort,
   /** Left out, the service lists open messages; `all` lists every status. */
   status?: MessageStatus | "all",
+  limit?: number,
 ): Promise<Message[]> {
   const params = new URLSearchParams({ planCode });
   if (action) params.set("action", action);
   if (sort) params.set("sort", sort);
   if (status) params.set("status", status);
+  if (limit !== undefined) params.set("limit", String(limit));
   const body = await request(`/messages?${params.toString()}`, z.object({ items: z.array(Message) }), init);
   return body.items;
 }
