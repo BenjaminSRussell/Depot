@@ -201,6 +201,8 @@ async function main(): Promise<void> {
     );
   const copilot = createCopilotService({
     aiAccess: createAiAccessAudit({ baseUrl: cfg.auditUrl, signer: serviceSigner, log }),
+    log,
+    onTaskFallback: (reason) => metrics.countTaskFallback(reason),
     guard: createEgressGuard({ log, policy: aiPolicyGuard, observe: (seconds, decision) => metrics.observeGuard(seconds, decision) }),
     outputGuard,
     knowledge,

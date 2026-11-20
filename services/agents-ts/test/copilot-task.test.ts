@@ -1,14 +1,16 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { CopilotAnswerCache } from "../src/domain/copilot.js";
+import { CLARIFY_FALLBACK } from "../src/domain/routeCatalog.js";
 import { AgentError } from "../src/errors.js";
+import { Metrics } from "../src/server.js";
 import { providerUnavailable } from "../src/providers/wire.js";
 import { createCopilotService } from "../src/runtime/copilot.js";
 import type { createEgressGuard } from "../src/runtime/egressGuard.js";
 import { GUARD_REFUSAL_MESSAGE } from "../src/runtime/egressGuard.js";
-import type { ModelProvider, ModelResponse } from "../src/runtime/engine.js";
+import type { ModelProvider, ModelResponse, ToolResult } from "../src/runtime/engine.js";
+import type { McpToolInfo } from "../src/runtime/mcp.js";
 import { createOutputGuard, OUTPUT_GUARD_MESSAGE } from "../src/runtime/outputGuard.js";
 import { allowAiAccess, openRouter, ScriptedProvider, testGuard } from "./fakes.js";
-import type { McpToolInfo } from "../src/runtime/mcp.js";
 import { FakeMcp, headers, MemoryStore, serve, tool } from "./surface-fakes.js";
 
 const DUTIES = "mcp.copilot.use,receivables.view,procurement.purchase-order.inquire";
@@ -29,6 +31,7 @@ interface Options {
   outputGuard?: ReturnType<typeof createOutputGuard>;
   mcpTools?: McpToolInfo[];
   mcpFails?: boolean;
+  helpResult?: ToolResult;
 }
 
 let close: (() => Promise<void>) | undefined;
@@ -40,7 +43,10 @@ afterEach(async () => {
 const setup = async (script: ModelResponse[], options: Options = {}) => {
   const store = options.store ?? new MemoryStore();
   const provider = new ScriptedProvider(script);
-  const mcp = new FakeMcp(options.mcpTools ?? [tool("depot.ap.invoice.get", "ap.invoice.read"), ...TASK_GATEWAY_TOOLS], { "depot.help.search": { ok: true, output: { chunks: [{ section: "Open items", sourceRef: "https://evil.example/help" }] } } });
+  const logs: Array<{ level: string; message: string; extra: Record<string, unknown> | undefined }> = [];
+  const fallbacks: string[] = [];
+  const helpResult = options.helpResult ?? { ok: true, output: { chunks: [{ section: "Open items", sourceRef: "https://evil.example/help" }] } };
+  const mcp = new FakeMcp(options.mcpTools ?? [tool("depot.ap.invoice.get", "ap.invoice.read"), ...TASK_GATEWAY_TOOLS], { "depot.help.search": helpResult });
   mcp.fail = options.mcpFails ?? false;
   const copilot = createCopilotService({
     router: openRouter(options.provider ?? provider),
@@ -52,11 +58,13 @@ const setup = async (script: ModelResponse[], options: Options = {}) => {
     modelId: "claude-haiku-5-5",
     guard: options.guard ?? testGuard(),
     aiAccess: allowAiAccess(),
+    log: (level, message, extra) => void logs.push({ level, message, extra }),
+    onTaskFallback: (reason) => void fallbacks.push(reason),
     ...(options.outputGuard !== undefined ? { outputGuard: options.outputGuard } : {}),
   });
   const srv = await serve({ approvals: store, copilot });
   close = srv.close;
-  return { store, provider, mcp, base: srv.base };
+  return { store, provider, mcp, base: srv.base, logs, fallbacks };
 };
 
 const task = (base: string, message: unknown, duties = DUTIES, accept = "application/json") =>
@@ -117,12 +125,75 @@ describe("mode=task", () => {
     expect(s.provider.seen[0]?.system).not.toContain("Tools you may call");
   });
 
-  it("fails the request, with no intent, when the gateway session cannot be opened", async () => {
+  it("answers from the catalog with no tool, and signals the fallback, when the gateway session cannot be opened", async () => {
     const s = await setup([verdict({ routeKey: "receivables.openItems" })], { mcpFails: true });
     const res = await task(s.base, "open items");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ navigationIntent: { path: "/receivables/open-items" } });
+    expect(s.provider.seen).toHaveLength(1);
+    expect(s.provider.seen[0]?.allowedTools).toEqual([]);
+    expect(s.provider.seen[0]?.system).not.toContain("Tools you may call");
+    expect(s.fallbacks).toEqual(["gateway_unavailable"]);
+    expect(s.logs).toEqual([expect.objectContaining({ level: "warn", extra: expect.objectContaining({ reason: "gateway_unavailable", error: "gateway down" }) })]);
+    expect([...s.store.runs.values()]).toEqual([expect.objectContaining({ status: "COMMITTED" })]);
+  });
+
+  it("signals the no_task_tools fallback when the gateway lists neither task tool", async () => {
+    const s = await setup([verdict({ routeKey: "receivables.openItems" })], { mcpTools: [tool("depot.ap.invoice.get", "ap.invoice.read")] });
+    await task(s.base, "open items");
+    expect(s.fallbacks).toEqual(["no_task_tools"]);
+  });
+
+  it("does not signal a fallback when the task tools are available", async () => {
+    const s = await setup([verdict({ routeKey: "receivables.openItems" })]);
+    await task(s.base, "open items");
+    expect(s.fallbacks).toEqual([]);
+    expect(s.logs).toEqual([]);
+  });
+
+  it("still fails a non-task chat with a 5xx when the gateway session cannot be opened", async () => {
+    const s = await setup([], { mcpFails: true });
+    const res = await fetch(`${s.base}/api/v1/copilot/chat`, { method: "POST", headers: headers(DUTIES), body: JSON.stringify({ mode: "ask", message: "x" }) });
     expect(res.status).toBeGreaterThanOrEqual(500);
-    expect(await res.text()).not.toContain("navigationIntent");
-    expect(s.provider.seen).toHaveLength(0);
+    expect(s.fallbacks).toEqual([]);
+  });
+
+  it("asks a clarifying question when the tool-call budget is spent without an answer", async () => {
+    const search: ModelResponse = { text: "", proposal: { tool: "depot.help.search", args: { query: "open invoices" }, confidence: 1, amount: { amount: "0", currency: "USD" } } };
+    const s = await setup([search, search, search]);
+    const body = await (await task(s.base, "where are unpaid invoices")).json();
+    expect(s.mcp.calls).toHaveLength(3);
+    expect(s.provider.seen).toHaveLength(3);
+    expect(body).toEqual({ clarifyingQuestion: CLARIFY_FALLBACK, generated: true });
+  });
+
+  it("keeps going and answers when depot.help.search fails, telling the model it failed", async () => {
+    const search: ModelResponse = { text: "", proposal: { tool: "depot.help.search", args: { query: "open invoices" }, confidence: 1, amount: { amount: "0", currency: "USD" } } };
+    const s = await setup([search, verdict({ routeKey: "receivables.openItems" })], { helpResult: { ok: false, code: "AGT-0214", message: "the MCP gateway answered 503" } });
+    const body = await (await task(s.base, "where are unpaid invoices")).json();
+    expect(body).toMatchObject({ navigationIntent: { path: "/receivables/open-items" } });
+    expect(s.provider.seen[1]?.user).toContain("Tool depot.help.search failed with AGT-0214.");
+  });
+
+  it("refuses with AGT-0203 when depot.help.search is denied upstream", async () => {
+    const search: ModelResponse = { text: "", proposal: { tool: "depot.help.search", args: { query: "x" }, confidence: 1, amount: { amount: "0", currency: "USD" } } };
+    const s = await setup([search], { helpResult: { ok: false, code: "AGT-0203", message: "the API refused depot.help.search for your permissions" } });
+    expect(await (await task(s.base, "hmm")).json()).toMatchObject({ refusal: { code: "AGT-0203" } });
+  });
+
+  it("asks a clarifying question when the model answers with text that is not a route", async () => {
+    const s = await setup([verdict("I think you want the invoices")]);
+    expect(await (await task(s.base, "hmm")).json()).toEqual({ clarifyingQuestion: CLARIFY_FALLBACK, generated: true });
+  });
+
+  it("masks personal data in a depot.help.search chunk before the model sees it", async () => {
+    const chunk = { section: "Escalate to jane.doe@example.com", sourceRef: "doc:help" };
+    const search: ModelResponse = { text: "", proposal: { tool: "depot.help.search", args: { query: "escalate" }, confidence: 1, amount: { amount: "0", currency: "USD" } } };
+    const s = await setup([search, verdict({ routeKey: "receivables.openItems" })], { helpResult: { ok: true, output: { chunks: [chunk] } } });
+    await task(s.base, "who do I escalate to");
+    expect(s.provider.seen).toHaveLength(2);
+    expect(s.provider.seen[1]?.user).toContain("Result of depot.help.search");
+    expect(s.provider.seen[1]?.user).not.toContain("jane.doe@example.com");
   });
 
   it("does not cache a task answer, so every call is counted against the budget", async () => {
@@ -204,5 +275,17 @@ describe("mode=task", () => {
     const body = (await (await task(s.base, "hmm")).json()) as Record<string, unknown>;
     expect(body).toMatchObject({ refusal: { code: "AGT-0220", message: OUTPUT_GUARD_MESSAGE } });
     expect(body).not.toHaveProperty("navigationIntent");
+  });
+});
+
+describe("task fallback metric", () => {
+  it("counts each fallback by reason on the admin metrics", () => {
+    const metrics = new Metrics();
+    metrics.countTaskFallback("gateway_unavailable");
+    metrics.countTaskFallback("gateway_unavailable");
+    metrics.countTaskFallback("no_task_tools");
+    const text = metrics.render();
+    expect(text).toContain('agents_copilot_task_fallback_total{reason="gateway_unavailable"} 2');
+    expect(text).toContain('agents_copilot_task_fallback_total{reason="no_task_tools"} 1');
   });
 });

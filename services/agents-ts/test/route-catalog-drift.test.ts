@@ -20,6 +20,8 @@ interface Modules {
 
 type Entry = Pick<CatalogEntry, "routeKey" | "path" | "duty">;
 
+const MAX_SHRINK = 0.8;
+const snapshot = JSON.parse(readFileSync(new URL("./fixtures/web-modules-snapshot.json", import.meta.url), "utf8")) as { modules: number; nav: number; routes: number };
 const MODULES_DIR = new URL("../../../apps/web/src/modules/", import.meta.url);
 const NAV_ITEM = /\{\s*label:\s*"[^"]*",\s*to:\s*"([^"]+)"(?:,\s*duty:\s*"([^"]+)")?\s*\}/g;
 const ROUTE_ITEM = /\{\s*path:\s*"([^"]+)"([^\n]*)/g;
@@ -70,9 +72,9 @@ describe("ROUTE_CATALOG against apps/web module.ts", () => {
   const modules = parseModules();
 
   it("parses the web modules, so an unmatched regex cannot pass the drift checks", () => {
-    expect(modules.count).toBeGreaterThanOrEqual(50);
-    expect(modules.nav.length).toBeGreaterThanOrEqual(200);
-    expect(modules.routes.length).toBeGreaterThanOrEqual(200);
+    expect(modules.count).toBeGreaterThanOrEqual(snapshot.modules * MAX_SHRINK);
+    expect(modules.nav.length).toBeGreaterThanOrEqual(snapshot.nav * MAX_SHRINK);
+    expect(modules.routes.length).toBeGreaterThanOrEqual(snapshot.routes * MAX_SHRINK);
   });
 
   it.each(ROUTE_CATALOG.map((e) => [e.routeKey, e] as const))("%s keeps the path and duty the shell enforces", (_key, entry) => {
