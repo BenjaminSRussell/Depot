@@ -2,8 +2,6 @@ import { expect, test, type Page } from "@playwright/test";
 import { ShellPage } from "../shell.page";
 import { covers, FAULTS, postInvoice, stubBriefings, stubCoreApi, stubFault, type Fault } from "./support";
 
-const UNREACHABLE: readonly Fault[] = ["503", "timeout"];
-
 async function expectNoAiError(page: Page) {
   await expect(page.getByRole("alert")).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -19,7 +17,6 @@ async function arrange(page: Page, fault: Fault) {
 for (const fault of FAULTS) {
   test.describe(`AI layer failing (${fault})`, () => {
     test("the home shows no AI error alert", async ({ page }) => {
-      test.fail(UNREACHABLE.includes(fault), "DEPOT-291: the briefing card renders a 'could not be loaded' alert on the home when the AI layer is unreachable; remove this marker when the home hides it");
       covers("O8");
       await arrange(page, fault);
       await new ShellPage(page).goto("/");

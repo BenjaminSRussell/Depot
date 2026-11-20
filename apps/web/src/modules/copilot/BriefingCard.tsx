@@ -230,7 +230,7 @@ export function BriefingCard() {
           <Skeleton height="tile" />
         </div>
       ) : list === null ? (
-        <Alert tone="danger" live="alert" title={copy.briefing.errorTitle} action={<Button onClick={state.reload}>{copy.briefing.retry}</Button>}>
+        <Alert tone="danger" live="status" title={copy.briefing.errorTitle} action={<Button onClick={state.reload}>{copy.briefing.retry}</Button>}>
           {copy.briefing.errorBody}
         </Alert>
       ) : (

@@ -125,7 +125,8 @@ describe("BriefingCard", () => {
     let attempts = 0;
     server.handler = () => (++attempts === 1 ? json(500, { code: "AGT-0500" }) : list(briefing()));
     renderCard();
-    expect(await screen.findByRole("alert")).toHaveTextContent("Your briefing could not be loaded");
+    expect(await screen.findByText("Your briefing could not be loaded")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
     await userEvent.setup().click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByRole("button", { name: "Recommended actions (1)" })).toBeInTheDocument();

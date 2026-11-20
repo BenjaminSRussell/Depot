@@ -17,7 +17,6 @@ const PINS = [
 interface Surface {
   outcomes: string[];
   fresh?: true;
-  knownGap?: { viewport: string; reason: string };
   open(page: Page): Promise<void>;
 }
 
@@ -32,7 +31,6 @@ const SURFACES: Record<string, Surface> = {
   },
   "home-feed": {
     outcomes: ["O2"],
-    knownGap: { viewport: "mobile", reason: "DEPOT-291: the Review link on a feed item is below the 24px target size at 375px; remove this marker when the feed link grows" },
     open: async (page) => {
       await stubInbox(page);
       await new ShellPage(page).goto("/");
@@ -123,7 +121,6 @@ for (const [name, surface] of Object.entries(SURFACES)) {
         if (surface.fresh) test.use({ storageState: { cookies: [], origins: [] } });
 
         test("has no axe violations", async ({ page }, testInfo) => {
-          test.fail(surface.knownGap?.viewport === label, surface.knownGap?.reason);
           covers(...surface.outcomes);
           await stubAvailability(page);
           await stubBriefings(page);
