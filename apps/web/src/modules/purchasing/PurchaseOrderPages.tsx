@@ -1241,6 +1241,7 @@ export function PurchaseOrderDetailPage() {
     <div className={styles.stack}>
       <PageHeader
         title={`Purchase order ${po.number}`}
+        askAbout={{ entity: "purchase-order", id: po.id }}
         meta={<StatusBadge status={po.approvalStatus} />}
         actions={
           (

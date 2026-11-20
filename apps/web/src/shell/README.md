@@ -73,3 +73,20 @@ No ERP flow depends on the assistant (ADR-0001). `shell/assistant/AvailabilityPr
 | Opens with `show me`, `list`, `open`, `go to`, `find`, `create`, `new` or `start`, such as "show me overdue invoices over $10k" or "create a PO for 50 widgets from Acme" | navigate |
 | Ends with `?` or starts with `what`, `which`, `who`, `why`, `how many`, `how much`, `when`, `compare`, `explain`, `total` or `trend`, such as "what is the total of our overdue invoices over $10k?" | ask |
 | Anything else goes to the model; confidence under 0.6, or under 0.15 ahead of the runner-up | clarify |
+
+## Record assistant opt-in (DEPOT-284)
+
+`PageHeader` takes one optional prop, `askAbout={{ entity, id }}`, and shows an "Ask about this record" button on a record page. A list page never passes it, so the button is never there.
+
+To opt a module in:
+
+1. Add the entity to `RECORD_ASSIST` in `shell/assist/recordAssist.ts` with its plain label and the next-step screens (`nextLinks`, each with the duty its navigation entry carries). The key must also exist in `RECORD_PAGES` in `modules/copilot/suggestionModel.ts`, so citations can link to it; `recordAssist.test.ts` checks both.
+2. Pass `askAbout={{ entity: "<key>", id: record.id }}` to the record page's `PageHeader` once the record has loaded.
+
+Opted in today: `purchase-order`, `ap-invoice`, `ar-payment`, `journal-entry`.
+
+- The button renders only when the user holds `mcp.copilot.use` and availability is `enabled`. Otherwise nothing renders and the page is unchanged.
+- The panel sends `record:<entity>/<id>` in `explain` mode with one of three fixed requests. It reads the answer through `AskAnswer`, so the AI badge, tool calls, sources and "left out" notice are the shared ones.
+- The panel names every history source the answer did not read (change history, related documents, approval and task history) from `toolCalls`, whatever the model wrote.
+- Next steps are ordinary links filtered by duty. The panel never inserts text into the page and never performs an action. The proposal-start button waits for the act handler (DEPOT-281).
+- Closing the panel (Escape or Close) discards the conversation and returns focus to the button.

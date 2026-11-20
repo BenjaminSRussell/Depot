@@ -77,6 +77,18 @@ describe("POST /api/v1/copilot/chat", () => {
     expect(s.store.settled).toEqual([[300, 30]]);
   });
 
+  it("tells the explain prompt to read the three history tools, name missing parts, count what the user cannot open and never act", async () => {
+    const s = await setup([answer("No change history.")]);
+    close = s.srv.close;
+    await chat(s.srv.base, { mode: "explain", message: "What changed", recordRef: "record:purchase-order/PO-1" });
+    const system = s.provider.seen[0]?.system ?? "";
+    for (const tool of ["depot.platform.audit_trail.get", "depot.platform.document_flow.get", "depot.workflow.history.get"]) expect(system).toContain(tool);
+    expect(system).toContain("Say which part you could not read");
+    expect(system).toContain("never name them");
+    expect(system).toContain("no change history");
+    expect(system).toContain("never as something you did");
+  });
+
   it("sends the provider and the audit row only redacted text and masks a value the user holds no duty for", async () => {
     const s = await setup([call(GET, { invoiceId: "INV-7", iban: REAL_IBAN }), answer("Pay to [IBAN-1].")]);
     close = s.srv.close;

@@ -113,7 +113,8 @@ export interface CopilotDeps {
 
 const MODE_PROMPTS: Record<CopilotMode, string> = {
   ask: "Answer the user's question about their Depot data. Use the read tools to fetch what you need and state only what the tool results show.",
-  explain: "Explain the record the user names: what it is, how it got into its state and what usually happens next. Use the read tools; state only what they show.",
+  explain:
+    "Explain the record the user names: what it is, how it got into its state and what usually happens next. Read depot.platform.audit_trail.get, depot.platform.document_flow.get and depot.workflow.history.get first; state only what the tools show. Say which part you could not read instead of guessing it. Count related records the user cannot open and never name them. List changes oldest first with who, when and what, and say plainly when there is no change history. Suggest next steps only as links to a screen or a proposal for a person to approve, never as something you did.",
   draft: "Draft the document text the user asks for. The draft is for a person to review and is never sent or posted by you.",
   summarize: "Summarize the workflow or case history the user names. Use the read tools; state only what they show.",
   route:

@@ -124,6 +124,7 @@ export function InvoiceDetailPage() {
       <PageHeader
         title={invoice ? `Invoice ${invoice.invoiceNumber}` : "Vendor invoice"}
         description="What was invoiced, which receipts it was matched to and where it landed in the ledger."
+        askAbout={invoice ? { entity: "ap-invoice", id: invoice.id } : undefined}
         meta={invoice ? <Badge tone={invoiceStatusTone[invoice.status]}>{invoiceStatusLabel[invoice.status]}</Badge> : undefined}
         actions={
           <Link className={buttonClassName("ghost")} to="/ap-invoices">
