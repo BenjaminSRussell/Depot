@@ -79,7 +79,7 @@ describe("output guard checks", () => {
 
   it("returns only text that passed the checks, with no surviving disallowed link", async () => {
     const verdict = await createOutputGuard().check(turn({ text: "[x][1]\n[1]: //evil.example/a\n<img src=//evil.example/a> https://c2VjcmV0.evil.example/" }));
-    expect(verdict).toMatchObject({ ok: true, text: "[x][1]\n\n [link removed]" });
+    expect(verdict).toMatchObject({ ok: true, text: "x\n\n [link removed]" });
   });
 
   it("re-neutralises after pseudonym restore so a restored value never lands in a link", () => {

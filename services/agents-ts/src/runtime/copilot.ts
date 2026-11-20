@@ -22,7 +22,7 @@ import type { AuditPort, BudgetPort, KillSwitchPort, ModelUsage, RunRequest, Run
 import type { AiAccessAudit, AiAccessRow } from "./aiAccessAudit.js";
 import type { AiPlan, AiRouter } from "./aiRouter.js";
 import { EGRESS_GUARD_TOOL, GUARD_POLICY_VERSION, GUARD_REFUSAL_MESSAGE, highestClassOf, type DataClass, type EgressGuard, type GuardContext, type GuardResult, type OutputGuardReason } from "./egressGuard.js";
-import { createChunkReleaser, createOutputGuard, OUTPUT_GUARD_CODE, OUTPUT_GUARD_MESSAGE, OUTPUT_GUARD_TOOL, stripUnreadableCitations, type OutputGuard } from "./outputGuard.js";
+import { createChunkReleaser, createOutputGuard, OUTPUT_GUARD_CODE, OUTPUT_GUARD_MESSAGE, OUTPUT_GUARD_TOOL, presentForCaller, stripUnreadableCitations, type OutputGuard } from "./outputGuard.js";
 import { CUI_VIEW_DUTY, type NeedToKnowClient } from "./needToKnow.js";
 import type { McpConnector } from "./mcp.js";
 import type { KnowledgeService } from "./knowledge.js";
@@ -255,7 +255,7 @@ export function createCopilotService(deps: CopilotDeps) {
         }
         return undefined;
       };
-      const present = (text: string): string => stripUnreadableCitations(outputGuard.neutralise(pseudo.restoreFor(text, caller.duties)), guardContext.inputRecordIds);
+      const present = (text: string): string => stripUnreadableCitations(presentForCaller(outputGuard, pseudo, text, caller.duties), guardContext.inputRecordIds);
       // Text is shown a sentence at a time, after the output guard passed it, unless a knowledge result already makes the answer unanswerable.
       const streamable = (): boolean => knowledge.length === 0 || gateCitations(knowledge).answerable;
       const releaser =

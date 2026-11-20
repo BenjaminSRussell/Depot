@@ -13,9 +13,10 @@ const AUTOLINK = /<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^\s<>]*>/y;
 const SCHEME_URL = /[A-Za-z][A-Za-z0-9+.-]*:\/\/\S/y;
 const WWW_HOST = /www\./iy;
 const OPAQUE_URI = /(?:data|javascript|vbscript|file):(?=\S)/iy;
-const DEFINITION = /[ \t>]*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?(\[[^\]\n]*\]):[ \t]*(<[^>\n]*>|\S*)/y;
 const PSEUDONYM_LABEL = new RegExp(`^${PSEUDONYM_RE.source}$`);
 const WORD_CHAR = /[A-Za-z0-9+.-]/;
+const PROTOCOL_RELATIVE = /\/\/[^\s/\\]/y;
+const LABEL_CAP = 999;
 
 export function isAllowedDestination(dest: string): boolean {
   if (dest.length < 2 || dest[0] !== "/" || dest[1] === "/" || dest.includes("//")) return false;
@@ -77,11 +78,88 @@ function matches(re: RegExp, text: string, at: number): RegExpExecArray | null {
   return re.exec(text);
 }
 
-function definitionEnd(text: string, at: number): number {
-  const found = matches(DEFINITION, text, at);
-  if (found === null || PSEUDONYM_LABEL.test(found[1] ?? "") || isAllowedDestination((found[2] ?? "").replace(/^<|>$/g, ""))) return at;
-  const newline = text.indexOf("\n", at);
-  return newline === -1 ? text.length : newline;
+const normalised = (label: string): string => label.trim().replace(/\s+/g, " ").toLowerCase();
+const isTokenLabel = (inner: string): boolean => PSEUDONYM_LABEL.test(`[${inner}]`);
+
+function prefixLength(line: string): number {
+  let i = 0;
+  for (;;) {
+    while (i < line.length && (/\s/.test(line[i] as string) || line[i] === ">")) i += 1;
+    const marker = /^(?:[-*+]|\d{1,9}[.)])(?=\s|$)/.exec(line.slice(i, i + 12));
+    if (marker === null) return i;
+    i += marker[0].length;
+  }
+}
+
+function labelEnd(s: string, from: number): number {
+  for (let j = from; j < s.length; j += 1) {
+    if (s[j] === "\\") j += 1;
+    else if (s[j] === "[") return -1;
+    else if (s[j] === "]") return s[j + 1] === ":" ? j : -1;
+  }
+  return -1;
+}
+
+function bracketBalance(s: string): number {
+  let balance = 0;
+  for (let j = 0; j < s.length; j += 1) {
+    if (s[j] === "\\") j += 1;
+    else if (s[j] === "[") balance += 1;
+    else if (s[j] === "]") balance -= 1;
+  }
+  return balance;
+}
+
+function destinationOf(rest: string): string {
+  const t = rest.trimStart();
+  if (t.startsWith("<")) {
+    const close = t.indexOf(">");
+    return close === -1 ? t : t.slice(1, close);
+  }
+  return t.split(/\s/, 1)[0] ?? "";
+}
+
+function dropDefinitions(text: string): { text: string; removed: number; labels: Set<string> } {
+  const lines = text.split("\n");
+  const labels = new Set<string>();
+  let removed = 0;
+  let depth = 0;
+  for (let n = 0; n < lines.length; n += 1) {
+    const line = lines[n] as string;
+    const s = line.slice(prefixLength(line));
+    if (s === "") {
+      depth = 0;
+      continue;
+    }
+    const close = s.startsWith("[") ? labelEnd(s, 1) : depth > 0 ? labelEnd(s, 0) : -1;
+    if (close !== -1) {
+      const label = s.slice(s.startsWith("[") ? 1 : 0, close);
+      if (s.startsWith("[") && label.length <= LABEL_CAP) labels.add(normalised(label));
+      let dest = destinationOf(s.slice(close + 2));
+      const nextLine = lines[n + 1];
+      const onNextLine = dest === "" && nextLine !== undefined;
+      if (onNextLine) dest = destinationOf(nextLine.slice(prefixLength(nextLine)));
+      if (!(dest === "" && isTokenLabel(label)) && !isAllowedDestination(dest)) {
+        removed += 1;
+        lines[n] = "";
+        if (onNextLine && dest !== "") lines[n + 1] = "";
+        depth = 0;
+        continue;
+      }
+    }
+    depth = Math.max(0, depth + bracketBalance(s));
+  }
+  return { text: lines.join("\n"), removed, labels };
+}
+
+function refClose(text: string, from: number): number {
+  const stop = Math.min(text.length, from + SCAN_CAP);
+  for (let j = from; j < stop; j += 1) {
+    if (text[j] === "\\") j += 1;
+    else if (text[j] === "[") return -1;
+    else if (text[j] === "]") return j;
+  }
+  return -1;
 }
 
 function tagEnd(text: string, at: number): number {
@@ -92,29 +170,28 @@ function tagEnd(text: string, at: number): number {
   return at + 1;
 }
 
-export function neutraliseLinks(text: string): { text: string; removed: number } {
+export function neutraliseLinks(input: string): { text: string; removed: number } {
+  const dropped = dropDefinitions(input);
+  const text = dropped.text;
   const out: string[] = [];
-  const open: number[] = [];
-  let removed = 0;
+  const open: Array<{ out: number; at: number }> = [];
+  let removed = dropped.removed;
   let i = 0;
   while (i < text.length) {
     const c = text[i] as string;
-    if (i === 0 || text[i - 1] === "\n") {
-      const skip = definitionEnd(text, i);
-      if (skip > i) {
-        removed += 1;
-        i = skip;
-        continue;
-      }
-    }
     if (c === "[") {
-      open.push(out.length);
+      open.push({ out: out.length, at: i });
       out.push(c);
       i += 1;
     } else if (c === "]") {
-      const from = open.pop();
+      const opener = open.pop();
+      const from = opener?.out;
+      const label = opener === undefined ? "" : text.slice(opener.at + 1, i);
       const inline = text[i + 1] === "(" ? readDestination(text, i + 2) : undefined;
       const image = from !== undefined && out[from - 1] === "!";
+      const refAt = text[i + 1] === "[" ? refClose(text, i + 2) : -1;
+      const ref = refAt === -1 ? undefined : text.slice(i + 2, refAt);
+      const exempt = /^\[cite:[^\]]*\]$/.test(label) || (isTokenLabel(label) && (ref === undefined || ref === "" || isTokenLabel(ref)));
       if (inline !== undefined && (image || !isAllowedDestination(inline.dest))) {
         removed += 1;
         if (from !== undefined) {
@@ -122,6 +199,14 @@ export function neutraliseLinks(text: string): { text: string; removed: number }
           else out[from] = "";
         }
         i = closeParen(text, inline.end);
+      } else if (from !== undefined && image) {
+        removed += 1;
+        out.length = from - 1;
+        i = refAt === -1 ? i + 1 : refAt + 1;
+      } else if (from !== undefined && !exempt && (ref !== undefined || dropped.labels.has(normalised(label)))) {
+        removed += 1;
+        out[from] = "";
+        i = refAt === -1 ? i + 1 : refAt + 1;
       } else {
         out.push(c);
         i += 1;
@@ -144,6 +229,10 @@ export function neutraliseLinks(text: string): { text: string; removed: number }
       removed += 1;
       out.push(LINK_REMOVED);
       i = Math.max(i + 1, runEnd(text, i));
+    } else if (c === "/" && (i === 0 || /[\s("'<[=]/.test(text[i - 1] as string)) && matches(PROTOCOL_RELATIVE, text, i) !== null) {
+      removed += 1;
+      out.push(LINK_REMOVED);
+      i = Math.max(i + 2, runEnd(text, i));
     } else {
       out.push(c);
       i += 1;
@@ -166,7 +255,10 @@ export function unsafeTail(text: string): number {
     else if (c === ">") tag = -1;
     else if (c === "]") {
       const from = open.pop() ?? i;
-      const unresolved = i === text.length - 1 || (text[i + 1] === "(" && !text.slice(i + 2, i + 2 + SCAN_CAP).includes(")"));
+      const unresolved =
+        i === text.length - 1 ||
+        (text[i + 1] === "(" && !text.slice(i + 2, i + 2 + SCAN_CAP).includes(")")) ||
+        (text[i + 1] === "[" && !text.slice(i + 2, i + 2 + SCAN_CAP).includes("]"));
       if (unresolved) hold = Math.min(hold, from);
     }
   }

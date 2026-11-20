@@ -18,6 +18,9 @@ export function stripUnreadableCitations(text: string, readable: ReadonlySet<str
   return text.replace(CITE_RE, (marker, id: string) => (readable.has(id) ? marker : UNVERIFIED_MARK));
 }
 
+export const presentForCaller = (guard: OutputGuard, pseudo: Pseudonymizer, text: string, duties?: ReadonlySet<string>): string =>
+  guard.neutralise(duties === undefined ? pseudo.restore(text) : pseudo.restoreFor(text, duties));
+
 export interface OutputInput {
   tenantId: string;
   text: string;
