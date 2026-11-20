@@ -8,6 +8,7 @@ import type { DepotModule } from "../../modules/registry";
 import { resolveOption } from "../lookup/entities";
 import { Shell } from "../Shell";
 import { pageViolations, useFakeServer } from "../testing/fakeServer";
+import { completedOnboardingStorage } from "../testing/onboardingFixtures";
 import { HomePage } from "../pages/HomePage";
 import { addPin, MAX_PINS, readPins, type PinTarget } from "./pinStore";
 import { RECORD_ROUTES } from "./pinTargets";
@@ -55,7 +56,7 @@ function renderShell(path: string, { identity = "ann", duties = ["po.read", "led
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route element={<Shell modules={modules} duties={duties} identity={identity} features={{}} />}>
+        <Route element={<Shell modules={modules} duties={duties} identity={identity} features={{}} onboardingStorage={completedOnboardingStorage(identity)} />}>
           <Route path="/" element={<HomePage />} />
           <Route path={PAGE} element={home} />
           <Route path={GUARDED_PAGE} element={home} />
