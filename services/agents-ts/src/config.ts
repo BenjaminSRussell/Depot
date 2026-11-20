@@ -78,6 +78,7 @@ export interface Config {
   /** Public keys of the services allowed to call the run-step routes (DEPOT_SERVICE_PUBLIC_KEYS, `name[:kid]=base64` comma separated); required with `temporal`. */
   servicePublicKeys: string;
   boundary: Boundary;
+  aiEnabled: boolean;
   complianceUrl: string | undefined;
   auditUrl: string | undefined;
 }
@@ -218,6 +219,9 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
   const boundary = env["AGENTS_BOUNDARY"] || "standard";
   if (boundary !== "standard" && boundary !== "cui")
     throw new Error("AGENTS_BOUNDARY must be standard or cui");
+  const aiEnabledRaw = env["AGENTS_AI_ENABLED"] || "false";
+  if (aiEnabledRaw !== "true" && aiEnabledRaw !== "false")
+    throw new Error("AGENTS_AI_ENABLED must be true or false");
   const complianceUrl = env["AGENTS_COMPLIANCE_URL"] || undefined;
   if (complianceUrl !== undefined && !/^https?:\/\//.test(complianceUrl))
     throw new Error("AGENTS_COMPLIANCE_URL must be an http(s) URL");
@@ -274,6 +278,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     workflowUrl,
     servicePublicKeys,
     boundary,
+    aiEnabled: aiEnabledRaw === "true",
     complianceUrl,
     auditUrl,
   };

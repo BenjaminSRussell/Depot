@@ -43,7 +43,9 @@ spec:
             - name: MCP_URL
               value: {{ .Values.mcpUrl | quote }}
             - name: AGENTS_BOUNDARY
-              value: {{ .Values.boundary | quote }}
+              value: {{ ternary (.Values.global | default dict).boundary .Values.boundary (hasKey (.Values.global | default dict) "boundary") | quote }}
+            - name: AGENTS_AI_ENABLED
+              value: {{ ternary (.Values.global | default dict).aiEnabled .Values.aiEnabled (hasKey (.Values.global | default dict) "aiEnabled") | quote }}
             {{- if .Values.auditUrl }}
             - name: AGENTS_AUDIT_URL
               value: {{ .Values.auditUrl | quote }}

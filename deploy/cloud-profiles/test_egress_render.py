@@ -26,7 +26,7 @@ import cloudprofile as cp  # noqa: E402
 
 REPO = cp.REPO
 HELM = shutil.which("helm")
-PROFILES = ("commercial", "gcc", "gcc-high", "dod", "china")
+PROFILES = ("commercial", "gcc", "gcc-high", "dod", "china", "cui")
 
 # Values a chart insists on before it renders. Nothing here names an external host except where a test says so.
 REQUIRED_VALUES = {

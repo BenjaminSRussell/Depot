@@ -152,3 +152,22 @@ needs another owner or an out-of-path edit.
 ## Coverage closure notes (PRD 9.50.21)
 Inventory rows cited there (tenant provisioning, DR game days, masked refresh, license reports) map to
 FR-50.8, FR-50.5/50.6, FR-48.26 and FR-3.14. Their code is in the owning waves; this wave consumes them.
+
+## DEPOT-310: isolated CUI deployment (offline slice)
+
+Built: the `cui` cloud profile (`deploy/cloud-profiles`), the egress deny-by-default policy chart
+`deploy/networkpolicy/cui-egress` with its render checks, the sub-processor registry
+`deploy/cloud-profiles/subprocessors.json` with the failing config test, the boundary render tests, the AI sign-off gate
+and the runbook `docs/runbooks/cui-deployment.md`. The repository has no Pulumi or AWS code, so the rest is deferred.
+
+| Item | Status | Reason |
+|---|---|---|
+| AWS accounts and partition, VPC and PrivateLink, EKS, Vault transit keys, object-lock storage, database, disaster-recovery replicas, event streams and support access modules (AC1, AC6) | later slice of DEPOT-310 | no AWS infrastructure code exists; the `cui` profile's endpoint table is a copy of `gcc-high` and its allowlist is wider than the intended boundary until the AWS substrate replaces it |
+| Resource inventory test showing nothing shared with the standard deployment (AC1) | later slice of DEPOT-310 | offline, only the stack name, profile name and generated values are checked to differ |
+| Live probe-pod tests, blocked-and-logged egress, per-integration outbound probe (AC3, AC11) | later slice of DEPOT-310 | needs a running cluster and a CNI that logs denials; a NetworkPolicy cannot match hostnames, so `cui-egress` allows ranges (`privateEndpointCidrs`, empty until PrivateLink exists) and the render test checks the declared hosts |
+| `cui-egress` applied by Argo CD | later slice of DEPOT-310 | no `cui` environment under `deploy/envs`; the chart is exempt in `deploy/scripts/test_argocd_apps.py` |
+| model-serving-py with Presidio, embedding and reranker (AC2) | later slice of DEPOT-310 | the service does not exist; `cui-egress` selects its pods by the label `app.kubernetes.io/name: model-serving` |
+| Provider registry and startup self-check inside the deployment (AC4) | DEPOT-303 slice 2 | `assertBoundarySupported` keeps `AGENTS_BOUNDARY=cui` from starting |
+| E1-S33 suite and CUI Q&A smoke test inside the deployment (AC5) | later slice of DEPOT-310, after DEPOT-308 | needs a live deployment |
+| Per-screen sub-processor "unavailable" states with the manual alternative (AC12, G4) | later slice of DEPOT-310 | explicitly deferred; the registry and the network boundary are built, the screens are not |
+| CMMC and FedRAMP authorization route, ITAR personnel limits | open question | recorded in the runbook, not decided |

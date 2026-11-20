@@ -46,6 +46,7 @@ paths:
                       stale: {type: boolean}
                   budgetStatus: {type: string, enum: [OK, SOFT, HARD]}
                   copilotEnabled: {type: boolean}
+                  signoffPending: {type: boolean}
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
   /api/v1/agents/kill-switch:
