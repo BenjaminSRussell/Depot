@@ -52,7 +52,8 @@ LLM_HOSTS = {
     "bedrock": "bedrock-runtime.*.amazonaws.com",
     "openai": "api.openai.com",
 }
-PAGERDUTY_HOST = "events.pagerduty.com"
+CUI_BEDROCK_HOST = "bedrock-runtime.us-gov-west-1.amazonaws.com"
+PAGERDUTY_HOST ="events.pagerduty.com"
 GHCR_HOST = "ghcr.io"
 GENERATED_NOTE = "Generated from deploy/cloud-profiles/profiles.json by deploy/cloud-profiles/cloudprofile.py; do not edit."
 
@@ -209,7 +210,12 @@ def egress_allowlist(r: dict[str, Any]) -> list[str]:
     hosts = [host_of(ep["entraAuthority"]), *map(host_of, r["entraAuthorityAliases"]), host_of(ep["graphRoot"]), host_of(ep["armEndpoint"])]
     hosts += [f"*.{ep['keyVaultSuffix']}", f"*.{ep['managedHsmSuffix']}", f"*.{ep['blobSuffix']}", f"*.{ep['containerRegistrySuffix']}", f"*.{ep['postgresSuffix']}"]
     for name in r["llmProviders"]:
-        hosts.append(f"*.{ep['azureOpenAISuffix']}" if name == "azure-openai" else LLM_HOSTS[name])
+        if name == "azure-openai":
+            hosts.append(f"*.{ep['azureOpenAISuffix']}")
+        elif name == "bedrock" and r["boundary"] == "cui":
+            hosts.append(CUI_BEDROCK_HOST)
+        else:
+            hosts.append(LLM_HOSTS[name])
     if r["pagerDutyAllowed"]:
         hosts.append(PAGERDUTY_HOST)
     if not r["requireMirror"]:

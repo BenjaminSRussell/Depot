@@ -19,10 +19,9 @@ Off or denied:
 - AI for every tenant: `AGENTS_AI_ENABLED` is `false` until the sign-off record exists (see Enabling AI).
 - Every non-AI sub-processor (next section).
 - Any telemetry exporter, paging service (`pagerDuty: false`) or public registry (`registry.requireMirror: true`).
-- Any model host other than Bedrock. `llmProviders` is `["bedrock"]` with `enforceProviders: true`. The profile matcher
-  `bedrock-runtime.*.amazonaws.com` also matches commercial regions, so the endpoint is pinned to
-  `bedrock-runtime.us-gov-west-1.amazonaws.com` in `deploy/networkpolicy/cui-egress/values.yaml` (`allowHosts`) and in the
-  endpoint attestation below.
+- Any model host other than Bedrock. `llmProviders` is `["bedrock"]` with `enforceProviders: true`. Under boundary `cui` the generated
+  profile allowlist pins Bedrock to `bedrock-runtime.us-gov-west-1.amazonaws.com` (not the commercial-region wildcard), as
+  do `deploy/networkpolicy/cui-egress/values.yaml` (`allowHosts`) and the endpoint attestation below.
 
 The profile's Azure endpoint table is a copy of `gcc-high`: the offline renderer needs an Azure Government substrate to
 verify against. Those hosts stay on the cui allowlist although no Azure service is in an AWS boundary, which is wider than

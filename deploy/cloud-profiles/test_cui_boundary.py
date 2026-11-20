@@ -120,7 +120,7 @@ class CuiProfileTests(unittest.TestCase):
         self.assertEqual(self.resolved["llmProviders"], ["bedrock"])
         self.assertTrue(self.resolved["enforceProviders"])
         self.assertTrue(cp.host_allowed("bedrock-runtime.us-gov-west-1.amazonaws.com", allow))
-        for host in ("api.anthropic.com", "api.openai.com", "res.openai.azure.com", "events.pagerduty.com", "ghcr.io", *subprocessor_hosts()):
+        for host in ("bedrock-runtime.us-east-1.amazonaws.com", "bedrock-runtime.eu-central-1.amazonaws.com", "api.anthropic.com", "api.openai.com", "res.openai.azure.com", "events.pagerduty.com", "ghcr.io", *subprocessor_hosts()):
             self.assertFalse(cp.host_allowed(host, allow), host)
 
     def test_the_deployment_owns_its_stack_name_and_profile_values(self) -> None:
