@@ -60,7 +60,7 @@ describe("need-to-know client", () => {
 });
 
 describe("guard admission order", () => {
-  const policy = (p1: boolean) => createAiPolicyGuard({ read: async () => ({ ...defaultPolicy(), modules: { ap: { ...defaultPolicy().modules.ap, P1: p1 }, ar: defaultPolicy().modules.ar } }) });
+  const policy = (p1: boolean) => createAiPolicyGuard({ read: async () => ({ ...defaultPolicy(), modules: { ...defaultPolicy().modules, ap: { ...defaultPolicy().modules.ap, P1: p1 } } }) });
 
   it("uses the default cell for a module outside ap and ar and the tenant policy inside", async () => {
     const guard = createEgressGuard({ policy: policy(false) });
@@ -76,7 +76,7 @@ describe("guard admission order", () => {
   });
 
   const moduleCells = (cells: Partial<Record<"P0" | "P1" | "P2", boolean>>) =>
-    createAiPolicyGuard({ read: async () => ({ ...defaultPolicy(), modules: { ap: defaultPolicy().modules.ap, ar: { ...defaultPolicy().modules.ar, ...cells } } }) });
+    createAiPolicyGuard({ read: async () => ({ ...defaultPolicy(), modules: { ...defaultPolicy().modules, ar: { ...defaultPolicy().modules.ar, ...cells } } }) });
 
   it("drops an ar result with reason TENANT_POLICY when the tenant denied the module (P0 and P1 off)", async () => {
     const guard = createEgressGuard({ policy: moduleCells({ P0: false, P1: false }) });
@@ -136,7 +136,7 @@ describe("tenant-denied module in the copilot", () => {
       { text: "", proposal: { tool: GET, args: {}, confidence: 1, amount: { amount: "0", currency: "USD" } }, usage: { tokensIn: 10, tokensOut: 1 } } as ModelResponse,
       { text: "Done.", usage: { tokensIn: 10, tokensOut: 1 } },
     ]);
-    const denied = createAiPolicyGuard({ read: async () => ({ ...defaultPolicy(), modules: { ap: { ...defaultPolicy().modules.ap, P0: false, P1: false }, ar: defaultPolicy().modules.ar } }) });
+    const denied = createAiPolicyGuard({ read: async () => ({ ...defaultPolicy(), modules: { ...defaultPolicy().modules, ap: { ...defaultPolicy().modules.ap, P0: false, P1: false } } }) });
     const copilot = createCopilotService({
       guard: createEgressGuard({ policy: denied }),
       aiAccess: allowAiAccess(),
