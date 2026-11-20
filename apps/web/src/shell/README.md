@@ -39,7 +39,7 @@ The sidebar shows one persona workspace at a time, not every module. All of it i
 
 ## Assistant storage (#309)
 
-Prompts, answers, citations, tool results, proposals and briefings are held in memory only. They are never written to `localStorage`, `sessionStorage`, IndexedDB or the Cache API, never placed in a URL, history state or document title, and never sent in a telemetry event. The home page hands a typed prompt to the copilot through `shell/assistant/session.ts` (memory, read once, expires after 10 seconds) instead of router state.
+Prompts, answers, citations, tool results, proposals and briefings are held in memory only (the home's briefing card reads the list into component state; the only thing it stores is the per-user local-date marker of the automatic daily generation, as a `briefingDay` row in `shell/assistant/assistantStorage.ts`). They are never written to `localStorage`, `sessionStorage`, IndexedDB or the Cache API, never placed in a URL, history state or document title, and never sent in a telemetry event. The home page hands a typed prompt to the copilot through `shell/assistant/session.ts` (memory, read once, expires after 10 seconds) instead of router state.
 
 The only browser storage an assistant surface may use is `shell/assistant/assistantStorage.ts`:
 
@@ -73,3 +73,37 @@ No ERP flow depends on the assistant (ADR-0001). `shell/assistant/AvailabilityPr
 | Opens with `show me`, `list`, `open`, `go to`, `find`, `create`, `new` or `start`, such as "show me overdue invoices over $10k" or "create a PO for 50 widgets from Acme" | navigate |
 | Ends with `?` or starts with `what`, `which`, `who`, `why`, `how many`, `how much`, `when`, `compare`, `explain`, `total` or `trend`, such as "what is the total of our overdue invoices over $10k?" | ask |
 | Anything else goes to the model; confidence under 0.6, or under 0.15 ahead of the runner-up | clarify |
+
+## Attention feed (DEPOT-280)
+
+The home card "Needs your attention" (`shell/home/AttentionFeed.tsx`, rules in `shell/home/feedSources.ts`) replaces the My work strip. Each source is requested only when the user holds its duty, and fails on its own: the card names the unavailable source in a warning with a Retry button.
+
+| Source | API | Duty | Dedupe key | Category |
+|---|---|---|---|---|
+| Workflow inbox tasks | `GET /api/v1/inbox` (the shared inbox read) | `inbox.read` | `inbox:<source>:<id>` | inbox |
+| Agent approvals | `GET /api/v1/agents/approvals?limit=50` (pending, unexpired, caller's approval duties, agents disabled for the tenant left out by the server) | `agents.run.read` | `approval:<actionId>` | approval |
+| MRP messages | `GET /api/v1/planning/messages?planCode=MAIN&status=open&sort=priority&limit=50` | `planning.read` | `planning:<id>` | exception |
+
+- Ranking: overdue or expiring within 24 hours first (a due date before today, a planning delay above zero, an approval expiring soon), then amount, then age in days, then key. Planning messages carry no amount.
+- De-duplication: one row per key; precedence among categories is agent approval, then exception, then inbox task.
+- Agent approvals render inside the shared AI suggestion (AI badge, Why this?, Data used) and Review opens `/assistant/proposals/:approvalId`. The disabled-agent filter runs in the list endpoint because `GET /api/v1/agents/definitions` needs `agents.admin`, which an approver does not hold.
+- One-click is default deny (`inlineDecisions` in `feedSources.ts`). An inbox task gets Approve and Reject only when `decideInboxItem` supports its source (party today), its own `actions` offer the decision and the user holds the source's decision duty. An agent approval gets them only when its tool is in `SAFE_INLINE_TOOLS`, which is empty: no catalog tool is clearly non-posting, so every settlement, payment or posting proposal is Review-only. Exceptions are always Review-only.
+- Inline decisions: inbox tasks through `decideInboxItem`, agent approvals through `POST /api/v1/agents/runs/{runId}/actions/{actionId}/decision`. Success removes the row and announces it in a live region. A failure keeps the row, shows the problem with `ProblemMessage` and retries nothing. On `AGT-0209` the controls are disabled and the reason is shown; the web does not compute SoD and the server stays authoritative.
+- Deferred sources, none queried or shown: three-way match exceptions (DEPOT-342), anomaly review tasks (DEPOT-343), agent approvals in the inbox (DEPOT-344). See `modules/copilot/NOT-IMPLEMENTED.md`.
+
+## Record assistant opt-in (DEPOT-284)
+
+`PageHeader` takes one optional prop, `askAbout={{ entity, id }}`, and shows an "Ask about this record" button on a record page. A list page never passes it, so the button is never there.
+
+To opt a module in:
+
+1. Add the entity to `RECORD_ASSIST` in `shell/assist/recordAssist.ts` with its plain label and the next-step screens (`nextLinks`, each with the duty its navigation entry carries). The key must also exist in `RECORD_PAGES` in `modules/copilot/suggestionModel.ts`, so citations can link to it; `recordAssist.test.ts` checks both.
+2. Pass `askAbout={{ entity: "<key>", id: record.id }}` to the record page's `PageHeader` once the record has loaded.
+
+Opted in today: `purchase-order`, `ap-invoice`, `ar-payment`, `journal-entry`.
+
+- The button renders only when the user holds `mcp.copilot.use` and availability is `enabled`. Otherwise nothing renders and the page is unchanged.
+- The panel sends `record:<entity>/<id>` in `explain` mode with one of three fixed requests. It reads the answer through `AskAnswer`, so the AI badge, tool calls, sources and "left out" notice are the shared ones.
+- The panel names every history source the answer did not read (change history, related documents, approval and task history) from `toolCalls`, whatever the model wrote.
+- Next steps are ordinary links filtered by duty. The panel never inserts text into the page and never performs an action. The proposal-start button waits for the act handler (DEPOT-281).
+- Closing the panel (Escape or Close) discards the conversation and returns focus to the button.

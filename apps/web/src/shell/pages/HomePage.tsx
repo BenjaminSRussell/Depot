@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo, useRef } from "react";
 import { Link, useNavigate, useOutletContext } from "react-router-dom";
 import { postRoute } from "../../modules/copilot/api/client";
 import { AskAnswer } from "../../modules/copilot/AskAnswer";
+import { BriefingCard } from "../../modules/copilot/BriefingCard";
 import { useCopilotConversation } from "../../modules/copilot/useCopilotConversation";
 import { AssistantNotice, useAiAvailability } from "../assistant/AvailabilityProvider";
 import { AGENTS_INVOKE_DUTY, createPromptRouter } from "../assistant/router";
@@ -9,6 +10,7 @@ import { handOffFeatureFilter } from "../assistant/session";
 import { copy } from "../copy";
 import { holdsDuty } from "../dutyGate";
 import { AssistantPrompt } from "../home/AssistantPrompt";
+import { AttentionFeed } from "../home/AttentionFeed";
 import { ASSISTANT_DUTY, COPILOT_PATH } from "../home/assistantRouter";
 import { PinnedRegion } from "../pins/PinnedRegion";
 import { plannedRouteFor } from "../plannedRoutes";
@@ -18,13 +20,13 @@ import { useRecentPages } from "../recent";
 import { isPathEnabled } from "../tenant/featureRules";
 import { useTenantSettings } from "../tenant/TenantSettings";
 import { Alert, Badge, Button, Card, CardGrid, EmptyState, Icon, PageHeader } from "../ui";
-import { MyWorkSummary } from "./MyWorkSummary";
 import { WorkspaceKpis } from "./WorkspaceKpis";
 import { ALL_FEATURES_PATH, HOME_WORKSPACE_LIMIT, TOP_TASK_COUNT } from "../workspaces/model";
 import { useWorkspaceNav } from "../workspaces/WorkspaceNav";
 import styles from "./pages.module.css";
 
 const SETUP_PATH = "/setup";
+const BRIEFING_READ_DUTY = "agents.run.read";
 
 // Loaded only in the demo build, like the banner in main.tsx: a static import would put the demo company and its tour
 // in every production bundle even though nothing renders them there (UXS-01).
@@ -149,6 +151,7 @@ export function HomePage() {
       <Link to={ALL_FEATURES_PATH}>{copy.home.seeAll}</Link>
     </p>
   );
+  const briefing = holdsDuty(duties, BRIEFING_READ_DUTY) ? <BriefingCard /> : null;
   const demoTour = DemoTour ? (
     <Suspense fallback={null}>
       <DemoTour />
@@ -159,9 +162,10 @@ export function HomePage() {
       <>
         <PageHeader title={copy.home.pageTitle} description={copy.home.description} />
         <AssistantNotice />
+        {briefing}
         {demoTour}
         <SetupBanner />
-        <MyWorkSummary />
+        <AttentionFeed />
         <PinnedRegion />
         <WorkspaceKpis workspace={active} />
         {cards}
@@ -176,9 +180,10 @@ export function HomePage() {
       <AssistantNotice />
       <AssistantPrompt onSubmit={router.submit} canAct={holdsDuty(duties, AGENTS_INVOKE_DUTY)} />
       <AskAnswer conversation={conversation} />
+      {briefing}
       {demoTour}
       <SetupBanner />
-      <MyWorkSummary />
+      <AttentionFeed />
       <PinnedRegion />
       <WorkspaceKpis workspace={active} />
       <section aria-labelledby="home-browse-title" className={homeStyles.browse}>

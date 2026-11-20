@@ -230,6 +230,7 @@ export function PaymentDetailPage() {
     <div className={styles.stack}>
       <PageHeader
         title={`Payment ${payment.sourceRef ?? payment.receivedDate}`}
+        askAbout={{ entity: "ar-payment", id: payment.id }}
         description="Score the open items against this payment, choose what it settles and apply it. Whatever is not settled stays on account."
         meta={<Badge tone={STATUS_TONES[payment.status] ?? "neutral"}>{STATUS_LABELS[payment.status] ?? payment.status}</Badge>}
         actions={

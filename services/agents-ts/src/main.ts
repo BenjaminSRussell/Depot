@@ -243,6 +243,7 @@ async function main(): Promise<void> {
     log: killLog,
     approvals: inbox,
     approvalReader: inbox,
+    disabledAgents,
     aiPolicy,
     runs,
     actions: createActionService({

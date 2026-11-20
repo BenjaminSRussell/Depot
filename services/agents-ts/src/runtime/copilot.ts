@@ -113,7 +113,8 @@ export interface CopilotDeps {
 
 const MODE_PROMPTS: Record<CopilotMode, string> = {
   ask: "Answer the user's question about their Depot data. Use the read tools to fetch what you need and state only what the tool results show.",
-  explain: "Explain the record the user names: what it is, how it got into its state and what usually happens next. Use the read tools; state only what they show.",
+  explain:
+    "Explain the record the user names: what it is, how it got into its state and what usually happens next. Read depot.platform.audit_trail.get, depot.platform.document_flow.get and depot.workflow.history.get first; state only what the tools show. Say which part you could not read instead of guessing it. Count related records the user cannot open and never name them. List changes oldest first with who, when and what, and say plainly when there is no change history. Suggest next steps only as links to a screen or a proposal for a person to approve, never as something you did.",
   draft: "Draft the document text the user asks for. The draft is for a person to review and is never sent or posted by you.",
   summarize: "Summarize the workflow or case history the user names. Use the read tools; state only what they show.",
   route:
@@ -447,6 +448,8 @@ export function createCopilotService(deps: CopilotDeps) {
           for (const r of found) if (r.recordId !== "" && !dropped.some((e) => e.recordId === r.recordId)) recordIds.add(r.recordId);
           if (p.tool === KNOWLEDGE_SEARCH_TOOL) knowledge.push(...knowledgeCitations(out.output));
           else citations.push({ sourceType: "RECORD", sourceRef: out.ref ?? p.tool, label: p.tool });
+          const typed = req.mode === "explain" ? typedRecordCitation(req.recordRef, p.tool, args, out.output) : undefined;
+          if (typed !== undefined && !citations.some((c) => c.sourceType === "RECORD" && c.sourceRef.endsWith(typed.sourceRef.slice(typed.sourceRef.indexOf("/"))))) citations.push(typed);
           results.push(`Result of ${p.tool}: ${clip(JSON.stringify(governed.value) ?? "null", 4000)}`);
         }
         if (refused === null && knowledge.length > 0) {
@@ -539,6 +542,26 @@ async function recordBoundaryBlock(store: CopilotStore, runReq: RunRequest, at: 
   });
   await store.startRun(runReq);
   await store.finishRun(runReq, finished(runReq.runId, "FAILED", [action], { tokensIn: 0, tokensOut: 0 }, NO_ROUTE_MESSAGE));
+}
+
+const REQUEST_RECORD_REF = /^record:([A-Za-z0-9_-]{1,64})\/([A-Za-z0-9_-]{1,120})$/;
+
+const RECORD_HISTORY_TOOLS = ["depot.platform.audit_trail.get", "depot.platform.document_flow.get", "depot.workflow.history.get"];
+
+function hasContent(output: unknown): boolean {
+  if (output === null || output === undefined || output === "") return false;
+  if (Array.isArray(output)) return output.length > 0;
+  if (typeof output !== "object") return true;
+  const values = Object.values(output);
+  return values.length > 0 && values.some(hasContent);
+}
+
+function typedRecordCitation(recordRef: string | undefined, tool: string, args: Record<string, unknown>, output: unknown): ChatCitation | undefined {
+  const match = recordRef === undefined ? null : REQUEST_RECORD_REF.exec(recordRef);
+  const domain = tool.split(".")[1];
+  if (match === null || match[1] === undefined || match[2] === undefined || domain === undefined || !RECORD_HISTORY_TOOLS.includes(tool)) return undefined;
+  if (!Object.values(args).includes(match[2]) || !hasContent(output)) return undefined;
+  return { sourceType: "RECORD", sourceRef: `record:${domain}/${match[1]}/${match[2]}`, label: `${match[1].replaceAll("-", " ")} ${match[2]}` };
 }
 
 function auditableId(id: string): string {

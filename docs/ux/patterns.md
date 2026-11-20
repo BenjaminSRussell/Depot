@@ -649,7 +649,7 @@ Floor devices use the supervisor PIN override (BR-32.7: one action within 60 sec
 
 **Build or reuse**
 - `shell/workspaces/workspaces.json`: add `operator` (home `/kiosk`), `maintenance` (the maintenance planner and technician lead: `/eam/work-orders`, `/eam/requests`, `/eam/plans`, `/service/dispatch`, `/service/technicians`), `master-data` (the steward: `/party/pending-changes`, `/party/duplicates`, `/product/items`, `/pricing/price-list`, `/engineering/boms`), `approver` (any manager: `/workflow/inbox` first) and `auditor` (read-only: `/admin/audit`, `/finreport`). Split nothing else until usability data asks for it. Use `navAudit.json` "keep / advanced / merge" to cut each workspace's primary nav. A person may hold several workspaces (an approver is usually also a buyer or a controller); the switcher already supports that.
-- Home (`shell/pages/HomePage.tsx`, `MyWorkSummary.tsx`): first block is "Your tasks" with the workspace's top five task routes and their counts.
+- Home (`shell/pages/HomePage.tsx`, `shell/home/AttentionFeed.tsx`): first block is "Your tasks" with the workspace's top five task routes and their counts.
 - Store the chosen workspace through the server `PreferenceStorage` (UXS-04).
 
 **Acceptance**

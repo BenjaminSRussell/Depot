@@ -7,7 +7,7 @@ import { afterEach, beforeEach, vi } from "vitest";
 import type { RouteObject } from "react-router-dom";
 import { checkAxeAA } from "../a11y";
 
-export type Reply = { status: number; body: unknown };
+export type Reply = { status: number; body: unknown; headers?: Record<string, string> };
 export type Handler = (url: URL, init: RequestInit) => Reply | undefined;
 export interface Call {
   method: string;
@@ -24,8 +24,8 @@ export const availableAssistant = {
   copilotEnabled: true,
 };
 
-export function json(status: number, body: unknown): Reply {
-  return { status, body };
+export function json(status: number, body: unknown, headers?: Record<string, string>): Reply {
+  return { status, body, ...(headers === undefined ? {} : { headers }) };
 }
 
 /** Installs the fetch stub for the calling test file. */
@@ -39,7 +39,7 @@ export function useFakeServer() {
         const url = new URL(input, "http://localhost");
         server.calls.push({ method: init.method ?? "GET", url, init, body: init.body ? JSON.parse(String(init.body)) : undefined });
         const reply = server.handler(url, init) ?? json(404, { code: "TEST-404", detail: `no fake for ${init.method ?? "GET"} ${url.pathname}` });
-        return new Response(JSON.stringify(reply.body), { status: reply.status, headers: { "Content-Type": "application/json" } });
+        return new Response(JSON.stringify(reply.body), { status: reply.status, headers: { "Content-Type": "application/json", ...reply.headers } });
       }),
     );
   });

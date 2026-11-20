@@ -9,6 +9,7 @@ const count = z.number().int().min(0);
 export const ASSISTANT_SCHEMAS = {
   pins: z.array(z.strictObject({ id, at })),
   activity: z.array(z.strictObject({ id, route, at, count })),
+  briefingDay: z.array(z.strictObject({ day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), at })),
 };
 
 export type AssistantKind = keyof typeof ASSISTANT_SCHEMAS;

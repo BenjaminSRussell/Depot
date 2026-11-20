@@ -267,7 +267,11 @@ export function EntryScreen() {
   const entry = result.data;
   return (
     <div className={styles.stack}>
-      <PageHeader title={entry ? `Journal entry ${entry.voucher}` : "Journal entry"} description={entry?.description} />
+      <PageHeader
+        title={entry ? `Journal entry ${entry.voucher}` : "Journal entry"}
+        description={entry?.description}
+        askAbout={entry ? { entity: "journal-entry", id } : undefined}
+      />
       {entry ? (
         <Card title="Details">
           <dl className={styles.details}>

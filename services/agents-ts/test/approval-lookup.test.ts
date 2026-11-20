@@ -132,3 +132,72 @@ describe("GET /api/v1/agents/approvals/{actionId}", () => {
     expect((await get(srv.base, UNKNOWN)).status).toBe(404);
   });
 });
+
+describe("GET /api/v1/agents/approvals", () => {
+  const open = (store: MemoryStore, runId: string, agentId: string, over: { duty?: string; ageHours?: number; expiryHours?: number } = {}) =>
+    store
+      .open({
+        tenantId: T1,
+        runId,
+        seq: 1,
+        tool: "depot.ar.settlement.propose",
+        invokerUserId: OTHER,
+        approvalDuty: over.duty ?? DUTY,
+        amount: { amount: "10.00", currency: "USD" },
+        selfApprovalLimit: { amount: "0", currency: "USD" },
+        ...(over.expiryHours !== undefined ? { expiryHours: over.expiryHours } : {}),
+        proposalJson: "{}",
+      })
+      .then((actionId) => {
+        const request = store.approvals.get(actionId);
+        if (request === undefined) throw new Error("no request");
+        request.requestedAtMs = NOW - (over.ageHours ?? 1) * HOUR_MS;
+        store.agentOfRun.set(runId, agentId);
+        return actionId;
+      });
+  const list = (base: string, query = "", h: Record<string, string> = headers(DUTY)) => fetch(`${base}/api/v1/agents/approvals${query}`, { headers: h });
+  const boot = async (store: MemoryStore, disabled: string[] = []) => {
+    const srv = await serve({ approvals: store, approvalReader: store, disabledAgents: async () => new Set(disabled), now: () => new Date(NOW) });
+    close = srv.close;
+    return srv;
+  };
+
+  it("lists pending, unexpired requests the caller may decide, newest first, with agentId and expiresAt", async () => {
+    const store = new MemoryStore();
+    const older = await open(store, "00000000-0000-7000-8000-0000000000e1", "ap_coding", { ageHours: 5 });
+    const newer = await open(store, "00000000-0000-7000-8000-0000000000e2", "cash_application", { ageHours: 1 });
+    await open(store, "00000000-0000-7000-8000-0000000000e3", "ap_coding", { duty: "other.duty" });
+    await open(store, "00000000-0000-7000-8000-0000000000e4", "ap_coding", { ageHours: 100 });
+    const srv = await boot(store);
+    const res = await list(srv.base);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { items: Array<{ actionId: string; agentId: string; expiresAt: string; state: string }> };
+    expect(body.items.map((i) => i.actionId)).toEqual([newer, older]);
+    expect(body.items[0]).toMatchObject({ agentId: "cash_application", state: "PENDING", expiresAt: new Date(NOW - HOUR_MS + 72 * HOUR_MS).toISOString() });
+  });
+
+  it("leaves out requests of a disabled agent and honours limit", async () => {
+    const store = new MemoryStore();
+    await open(store, "00000000-0000-7000-8000-0000000000e1", "ap_coding");
+    await open(store, "00000000-0000-7000-8000-0000000000e2", "cash_application");
+    await open(store, "00000000-0000-7000-8000-0000000000e3", "cash_application");
+    const srv = await boot(store, ["ap_coding"]);
+    const all = (await (await list(srv.base)).json()) as { items: Array<{ agentId: string }> };
+    expect(all.items.map((i) => i.agentId)).toEqual(["cash_application", "cash_application"]);
+    const one = (await (await list(srv.base, "?limit=1")).json()) as { items: unknown[] };
+    expect(one.items).toHaveLength(1);
+  });
+
+  it("answers 400 for a bad limit, 401 without a token, 405 for other methods and 404 when the reader is not wired", async () => {
+    const srv = await boot(new MemoryStore());
+    for (const bad of ["?limit=0", "?limit=201", "?limit=abc"]) expect((await list(srv.base, bad)).status, bad).toBe(400);
+    expect((await fetch(`${srv.base}/api/v1/agents/approvals`)).status).toBe(401);
+    const post = await fetch(`${srv.base}/api/v1/agents/approvals`, { method: "POST", headers: headers(DUTY), body: "{}" });
+    expect(post.status).toBe(405);
+    expect(post.headers.get("allow")).toBe("GET");
+    await srv.close();
+    const bare = await serve({ approvals: new MemoryStore() });
+    close = bare.close;
+    expect((await list(bare.base)).status).toBe(404);
+  });
+});

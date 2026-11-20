@@ -104,7 +104,7 @@ paths:
       summary: The tenant's AI data policy, a matrix of module by data class
       description: |
         Modules are the domains of the read tools the MCP gateway exposes (the
-        `x-depot-tool` operations of the services): ap and ar. Each module has
+        `x-depot-tool` operations of the services): ap, ar and platform. Each module has
         a boolean per data class P0 to P3 and CUI. A tenant that never set a
         policy gets version 1 with P0 and P1 allowed and P2, P3 and CUI denied
         for every module. The ETag is the version, to be sent as If-Match.
@@ -157,6 +157,40 @@ paths:
         "413": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
         "428": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/approvals:
+    get:
+      operationId: listAgentApprovals
+      summary: The caller's pending, unexpired approval requests, newest first
+      description: |
+        Lists approval requests of the caller's tenant that are undecided and
+        not past their expiry (72 hours by default), for approval duties the
+        caller holds. Requests of an agent disabled for the tenant are left
+        out. Never reveals another approver's requests. Nothing is written.
+      x-depot-duty: agents.run.read
+      x-depot-approval: none
+      parameters:
+        - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      responses:
+        "200":
+          description: Pending approval requests.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      allOf:
+                        - {$ref: "#/components/schemas/ApprovalDetail"}
+                        - type: object
+                          required: [agentId]
+                          properties:
+                            agentId: {type: string}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "405": {$ref: "#/components/responses/Problem"}
   /api/v1/agents/approvals/{actionId}:
     get:
       operationId: getAgentApproval
@@ -940,10 +974,11 @@ components:
         version: {type: integer, minimum: 1}
         modules:
           type: object
-          required: [ap, ar]
+          required: [ap, ar, platform]
           properties:
             ap: {$ref: "#/components/schemas/AiDataPolicyCells"}
             ar: {$ref: "#/components/schemas/AiDataPolicyCells"}
+            platform: {$ref: "#/components/schemas/AiDataPolicyCells"}
           additionalProperties: false
     AiDataPolicyPatch:
       type: object
@@ -955,6 +990,7 @@ components:
           properties:
             ap: {$ref: "#/components/schemas/AiDataPolicyCells"}
             ar: {$ref: "#/components/schemas/AiDataPolicyCells"}
+            platform: {$ref: "#/components/schemas/AiDataPolicyCells"}
           additionalProperties: false
         reason: {type: string, maxLength: 500}
       additionalProperties: false

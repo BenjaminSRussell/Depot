@@ -1,11 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearHandedOffPrompt, handOffPrompt } from "../assistant/session";
 import { CopilotHome } from "../../modules/copilot/pages";
 import { loadModules, type DepotModule } from "../../modules/registry";
 import { Shell } from "../Shell";
+import { SAFE_INLINE_TOOLS } from "../home/feedSources";
 import { AVAILABILITY_PATH } from "../assistant/availability";
 import { availableAssistant, json, pageViolations, server, useFakeServer, type Reply } from "../testing/fakeServer";
 import { completedOnboardingStorage } from "../testing/onboardingFixtures";
@@ -69,19 +70,29 @@ function renderHome(duties: string[], shellModules: DepotModule[] = modules, ent
 const main = () => within(screen.getByRole("main"));
 
 describe("role home", () => {
-  it("shows the My work count and the top five items with a link to all of them", async () => {
+  it("shows the count and every item, each with a Review link named by its identifier", async () => {
     server.handler = () => json(200, { items: [1, 2, 3, 4, 5, 6, 7].map(item), unavailable: [], truncated: [] });
     renderHome(["inbox.read"]);
-    expect(await main().findByText("7 items are waiting for you.")).toBeInTheDocument();
-    const list = main().getByRole("list", { name: "My work" });
-    expect(within(list).getAllByRole("link")).toHaveLength(5);
+    expect(await main().findByText("7 items need your attention.")).toBeInTheDocument();
+    const list = main().getByRole("list", { name: "Needs your attention" });
+    expect(within(list).getAllByRole("link")).toHaveLength(7);
+    expect(within(list).getByRole("link", { name: "Review Requisition approval PR-3" })).toHaveAttribute("href", "/purchasing/requisitions/3");
+    expect(main().queryByRole("link", { name: "See all my work" })).not.toBeInTheDocument();
+  });
+
+  it("shows the first eight of eleven items and a See all link to the inbox", async () => {
+    server.handler = () => json(200, { items: Array.from({ length: 11 }, (_, n) => item(n + 1)), unavailable: [], truncated: [] });
+    renderHome(["inbox.read"]);
+    await main().findByText("11 items need your attention.");
+    expect(within(main().getByRole("list", { name: "Needs your attention" })).getAllByRole("link")).toHaveLength(8);
     expect(main().getByRole("link", { name: "See all my work" })).toHaveAttribute("href", "/workflow/inbox");
   });
 
   it("shows a plus when more work is waiting than was read", async () => {
     server.handler = () => json(200, { items: [item(1), item(2)], unavailable: [], truncated: ["ledger"] });
     renderHome(["inbox.read"]);
-    expect(await main().findByText("2+ items are waiting for you.")).toBeInTheDocument();
+    expect(await main().findByText("2+ items need your attention.")).toBeInTheDocument();
+    expect(main().getByRole("link", { name: "See all my work" })).toBeInTheDocument();
   });
 
   it("marks the active workspace and offers at most five shortcuts in it", () => {
@@ -90,18 +101,19 @@ describe("role home", () => {
     expect(main().getAllByRole("list", { name: /Top tasks/ }).every((l) => within(l).getAllByRole("link").length <= 5)).toBe(true);
   });
 
-  it("says You're all caught up when nothing is waiting, and has no axe violations", async () => {
+  it("says nothing needs attention when nothing is waiting, and has no axe violations", async () => {
     server.handler = () => json(200, { items: [], unavailable: [], truncated: [] });
     const { container } = renderHome(["inbox.read"]);
-    expect(await main().findByText("You're all caught up")).toBeInTheDocument();
+    expect(await main().findByText("Nothing needs your attention")).toBeInTheDocument();
     expect(pageViolations(container)).toEqual([]);
   });
 
-  it("explains a partial load and retries", async () => {
+  it("explains a partial load, names the source, retries once per click and has no axe violations", async () => {
     const user = userEvent.setup();
     server.handler = () => json(200, { items: [item(1)], unavailable: [{ source: "ledger", reason: "timeout" }], truncated: [] });
-    renderHome(["inbox.read"]);
+    const { container } = renderHome(["inbox.read"]);
     expect(await main().findByText("Some items could not be loaded: journal batches")).toBeInTheDocument();
+    expect(pageViolations(container)).toEqual([]);
     await user.click(main().getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(server.calls.filter((c) => c.url.pathname === "/api/v1/inbox")).toHaveLength(2));
   });
@@ -112,9 +124,9 @@ describe("role home", () => {
     expect(await main().findByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 
-  it("leaves My work out, and asks nothing of the server, for users without the inbox duty", () => {
+  it("leaves the feed out, and asks nothing of the server, for users with neither inbox nor planning duty", () => {
     renderHome([]);
-    expect(main().queryByText("My work")).not.toBeInTheDocument();
+    expect(main().queryByText("Needs your attention")).not.toBeInTheDocument();
     expect(server.calls).toHaveLength(0);
   });
 
@@ -124,22 +136,9 @@ describe("role home", () => {
     const duties = [...new Set(all.flatMap((m) => m.nav.flatMap((n) => (n.duty ? [n.duty] : []))).concat("inbox.read", ...kpiDuties))];
     server.handler = () => json(200, { items: [1, 2, 3, 4, 5, 6, 7].map(item), unavailable: [], truncated: [] });
     renderHome(duties, all);
-    await main().findByText("7 items are waiting for you.");
-    // The current workspace's number tiles count toward the limit too.
-    await waitFor(() => expect(main().getAllByRole("list", { name: / at a glance$/ }).length).toBeGreaterThan(1));
+    await main().findByText("7 items need your attention.");
+    await waitFor(() => expect(main().getAllByRole("list", { name: / at a glance$/ }).length).toBeGreaterThan(0));
     expect(main().getAllByRole("link").length).toBeLessThanOrEqual(MAX_HOME_LINKS);
-  });
-
-  it("shows at-a-glance tiles: waiting, approvals, overdue and the oldest wait", async () => {
-    const old = { ...item(1), actions: ["approve"], createdAt: "2026-01-01T00:00:00Z", dueDate: "2026-01-02" };
-    const fresh = { ...item(2), actions: ["open"], createdAt: new Date().toISOString() };
-    server.handler = () => json(200, { items: [old, fresh], unavailable: [], truncated: [] });
-    renderHome(["inbox.read"]);
-    const tiles = within(await main().findByRole("list", { name: "My work at a glance" }));
-    expect(tiles.getByText("Waiting for me").closest("li")).toHaveTextContent("2");
-    expect(tiles.getByText("To approve").closest("li")).toHaveTextContent("1");
-    expect(tiles.getByText("Overdue").closest("li")).toHaveTextContent("1");
-    expect(Number(tiles.getByText("Oldest, in days").closest("li")?.textContent?.replace(/\D/g, ""))).toBeGreaterThan(100);
   });
 
   it("puts the count on a My work link in the sidebar, and no badge when nothing waits", async () => {
@@ -150,24 +149,238 @@ describe("role home", () => {
     unmount();
     server.handler = () => json(200, { items: [], unavailable: [], truncated: [] });
     renderHome(["inbox.read"]);
-    await main().findByText("You're all caught up");
+    await main().findByText("Nothing needs your attention");
     expect(screen.getByRole("link", { name: "My work" })).toBeInTheDocument();
   });
 
-  it("reads the inbox once for the sidebar, the tiles and the list", async () => {
+  it("reads the inbox once for the sidebar and the feed", async () => {
     server.handler = () => json(200, { items: [item(1)], unavailable: [], truncated: [] });
     renderHome(["inbox.read"]);
-    await main().findByText("1 item is waiting for you.");
+    await main().findByText("1 item needs your attention.");
     expect(server.calls.filter((c) => c.url.pathname === "/api/v1/inbox")).toHaveLength(1);
   });
 
-  it("tells a new user what will appear in My work and offers no My work link without the duty", async () => {
+  it("tells a new user what will appear and offers no My work link without the duty", async () => {
     server.handler = () => json(200, { items: [], unavailable: [], truncated: [] });
     renderHome(["inbox.read"]);
-    expect(await main().findByText(/Approvals, holds and other tasks assigned to you will appear here/)).toBeInTheDocument();
+    expect(await main().findByText(/Approvals, holds, overdue tasks and planning messages assigned to you will appear here/)).toBeInTheDocument();
     cleanup();
     renderHome([]);
     expect(screen.queryByRole("link", { name: /^My work/ })).not.toBeInTheDocument();
+  });
+
+  describe("attention feed sources", () => {
+    const message = (n: number, over: Record<string, unknown> = {}) => ({
+      id: `msg-${n}`,
+      status: "open",
+      version: 1,
+      action: "postpone",
+      itemId: `item-${n}`,
+      supplyRef: `PO-${n}`,
+      text: "Move the order out",
+      delayDays: 0,
+      qty: "5",
+      ...over,
+    });
+    const inboxBody = (...items: Record<string, unknown>[]) => json(200, { items, unavailable: [], truncated: [] });
+    const PLANNING = "/api/v1/planning/messages";
+    const APPROVALS = "/api/v1/agents/approvals";
+    const NO_APPROVALS = json(200, { items: [] });
+    const serveBoth = (planning: Reply, inbox: Reply = inboxBody(item(1)), approvals: Reply = NO_APPROVALS) => {
+      server.handler = (url) => (url.pathname === "/api/v1/inbox" ? inbox : url.pathname === PLANNING ? planning : url.pathname === APPROVALS ? approvals : undefined);
+    };
+    const approval = (n: number, over: Record<string, unknown> = {}) => ({
+      runId: `00000000-0000-4000-8000-0000000000a${n}`,
+      actionId: `00000000-0000-4000-8000-0000000000b${n}`,
+      agentId: "cash_application",
+      tool: "depot.ar.settlement.propose",
+      state: "PENDING",
+      amount: { amount: "1200.50", currency: "USD" },
+      requestedAt: "2026-11-19T10:00:00.000Z",
+      expiresAt: "2099-11-22T10:00:00.000Z",
+      ...over,
+    });
+    const partyItem = { ...item(1), id: "p1", source: "party", kind: "Customer change", number: "CC-1", actions: ["approve", "reject"] };
+    const decisionCalls = () => server.calls.filter((c) => c.method === "POST");
+    const planningCalls = () => server.calls.filter((c) => c.url.pathname === PLANNING);
+
+    it("merges inbox tasks and planning messages, overdue first, and requests open messages by priority", async () => {
+      serveBoth(json(200, { items: [message(1), message(2, { delayDays: 4 })] }), inboxBody({ ...item(1), dueDate: "2026-11-02" }, item(2)));
+      renderHome(["inbox.read", "planning.read"]);
+      await main().findByText("4 items need your attention.");
+      const names = within(main().getByRole("list", { name: "Needs your attention" })).getAllByRole("link").map((l) => l.getAttribute("aria-label"));
+      expect(names).toEqual([
+        "Review Requisition approval PR-1",
+        "Review Planning delay PO-2",
+        "Review Requisition approval PR-2",
+        "Review Planning action PO-1",
+      ]);
+      expect(main().getByRole("link", { name: "Review Planning delay PO-2" })).toHaveAttribute("href", "/planning/messages/msg-2?plan=MAIN");
+      expect(planningCalls()[0].url.search).toBe("?planCode=MAIN&sort=priority&status=open&limit=50");
+    });
+
+    it("does not request planning messages, and shows no placeholder, without planning.read", async () => {
+      serveBoth(json(200, { items: [message(1)] }));
+      renderHome(["inbox.read"]);
+      await main().findByText("1 item needs your attention.");
+      expect(planningCalls()).toHaveLength(0);
+      expect(within(main().getByRole("list", { name: "Needs your attention" })).queryByText(/Planning/)).not.toBeInTheDocument();
+    });
+
+    it("does not request the inbox without inbox.read and still shows planning messages", async () => {
+      serveBoth(json(200, { items: [message(1)] }));
+      renderHome(["planning.read"]);
+      await main().findByText("1 item needs your attention.");
+      expect(server.calls.filter((c) => c.url.pathname === "/api/v1/inbox")).toHaveLength(0);
+    });
+
+    it.each([
+      ["a 500", json(500, { code: "PLAN-500" })],
+      ["a 403", json(403, { code: "PLAN-403" })],
+      ["a body of the wrong type", json(200, { items: "none" })],
+      ["a message with a string delay", json(200, { items: [message(1, { delayDays: "3" })] })],
+    ])("names planning messages as unavailable on %s while inbox rows still render", async (_name, reply: Reply) => {
+      serveBoth(reply);
+      const { container } = renderHome(["inbox.read", "planning.read"]);
+      expect(await main().findByText("Some items could not be loaded: planning messages")).toBeInTheDocument();
+      expect(main().getByRole("link", { name: "Review Requisition approval PR-1" })).toBeInTheDocument();
+      expect(main().queryByText(/Planning (action|delay)/)).not.toBeInTheDocument();
+      expect(pageViolations(container)).toEqual([]);
+    });
+
+    it("names workflow tasks as unavailable when the inbox fails and planning rows still render", async () => {
+      serveBoth(json(200, { items: [message(1)] }), json(500, { code: "COM-0500" }));
+      renderHome(["inbox.read", "planning.read"]);
+      expect(await main().findByText("Some items could not be loaded: workflow tasks")).toBeInTheDocument();
+      expect(main().getByRole("link", { name: "Review Planning action PO-1" })).toBeInTheDocument();
+    });
+
+    it("retries planning once per click and never on its own", async () => {
+      const user = userEvent.setup();
+      serveBoth(json(500, {}));
+      renderHome(["inbox.read", "planning.read"]);
+      await main().findByText("Some items could not be loaded: planning messages");
+      expect(planningCalls()).toHaveLength(1);
+      await user.click(main().getByRole("button", { name: "Try again" }));
+      await waitFor(() => expect(planningCalls()).toHaveLength(2));
+      await main().findByText("Some items could not be loaded: planning messages");
+      expect(planningCalls()).toHaveLength(2);
+    });
+
+    it("offers only Review for exceptions and for inbox items of a source with no inline decision", async () => {
+      serveBoth(json(200, { items: [message(1)] }), inboxBody({ ...item(1), actions: ["approve", "reject", "open"] }));
+      const { container } = renderHome(["inbox.read", "planning.read", "procurement.requisition.approve"]);
+      await main().findByText("2 items need your attention.");
+      const list = within(main().getByRole("list", { name: "Needs your attention" }));
+      expect(list.queryByRole("button")).not.toBeInTheDocument();
+      expect(list.getAllByRole("link").every((l) => l.textContent === "Review")).toBe(true);
+      expect(pageViolations(container)).toEqual([]);
+    });
+
+    it("offers inline Approve and Reject on a party task only to a holder of its decision duty", async () => {
+      serveBoth(json(200, { items: [] }), inboxBody(partyItem));
+      renderHome(["inbox.read"]);
+      await main().findByText("1 item needs your attention.");
+      expect(main().queryByRole("button", { name: /Approve Customer change CC-1/ })).not.toBeInTheDocument();
+      cleanup();
+      renderHome(["inbox.read", "party.approve"]);
+      expect(await main().findByRole("button", { name: "Approve Customer change CC-1" })).toBeInTheDocument();
+      expect(main().getByRole("button", { name: "Reject Customer change CC-1" })).toBeInTheDocument();
+      expect(main().getByRole("link", { name: "Review Customer change CC-1" })).toBeInTheDocument();
+    });
+
+    it("calls the decision endpoint once, removes the row and announces the result", async () => {
+      const user = userEvent.setup();
+      serveBoth(json(200, { items: [] }), inboxBody(partyItem));
+      const inner = server.handler;
+      server.handler = (url, init) => (url.pathname === "/api/v1/party/pending-changes/p1:approve" ? json(200, {}) : inner(url, init));
+      const { container } = renderHome(["inbox.read", "party.approve"]);
+      await user.click(await main().findByRole("button", { name: "Approve Customer change CC-1" }));
+      expect(await main().findByText("Customer change CC-1 approved.")).toBeInTheDocument();
+      expect(main().queryByRole("button", { name: /Customer change CC-1/ })).not.toBeInTheDocument();
+      expect(decisionCalls()).toHaveLength(1);
+      expect(pageViolations(container)).toEqual([]);
+    });
+
+    it.each([
+      ["a 409 conflict", 409, "PTY-0409"],
+      ["a 403", 403, "COM-0403"],
+    ])("restores the row and shows the problem on %s, with no retry", async (_name, status, code) => {
+      const user = userEvent.setup();
+      serveBoth(json(200, { items: [] }), inboxBody(partyItem));
+      const inner = server.handler;
+      server.handler = (url, init) => (url.pathname === "/api/v1/party/pending-changes/p1:approve" ? json(status, { code, detail: "refused" }) : inner(url, init));
+      renderHome(["inbox.read", "party.approve"]);
+      await user.click(await main().findByRole("button", { name: "Approve Customer change CC-1" }));
+      expect(await main().findByText(/Customer change CC-1 was not decided/)).toBeInTheDocument();
+      expect(main().getByRole("button", { name: "Approve Customer change CC-1" })).toBeEnabled();
+      expect(decisionCalls()).toHaveLength(1);
+    });
+
+    describe("agent approvals", () => {
+      afterEach(() => SAFE_INLINE_TOOLS.clear());
+
+      it("lists approvals with the AI badge, Why this?, Data used and a Review link to the proposal, and no inline decision for a settlement", async () => {
+        serveBoth(json(200, { items: [] }), inboxBody(), json(200, { items: [approval(1)] }));
+        const { container } = renderHome(["inbox.read", "agents.run.read"]);
+        await main().findByText("1 item needs your attention.");
+        const row = within(main().getByRole("group", { name: "AI suggestion" }));
+        expect(row.getByText(/AI-generated/)).toBeInTheDocument();
+        expect(row.getByRole("button", { name: "Why this?" })).toBeInTheDocument();
+        expect(row.getByRole("button", { name: "Data used" })).toBeInTheDocument();
+        expect(main().getByRole("link", { name: /^Review Agent approval/ })).toHaveAttribute("href", "/assistant/proposals/00000000-0000-4000-8000-0000000000b1");
+        expect(main().queryByRole("button", { name: /^(Approve|Reject)/ })).not.toBeInTheDocument();
+        expect(server.calls.filter((c) => c.url.pathname === APPROVALS)[0].url.search).toBe("?limit=50");
+        expect(pageViolations(container)).toEqual([]);
+      });
+
+      it("does not request approvals without agents.run.read", async () => {
+        serveBoth(json(200, { items: [] }), inboxBody(item(1)));
+        renderHome(["inbox.read"]);
+        await main().findByText("1 item needs your attention.");
+        expect(server.calls.filter((c) => c.url.pathname === APPROVALS)).toHaveLength(0);
+      });
+
+      it("names agent approvals as unavailable while the other sources render", async () => {
+        serveBoth(json(200, { items: [] }), inboxBody(item(1)), json(500, {}));
+        renderHome(["inbox.read", "agents.run.read"]);
+        expect(await main().findByText("Some items could not be loaded: agent approvals")).toBeInTheDocument();
+        expect(main().getByRole("link", { name: "Review Requisition approval PR-1" })).toBeInTheDocument();
+      });
+
+      it("decides an allowlisted tool inline through the run decision endpoint", async () => {
+        const user = userEvent.setup();
+        SAFE_INLINE_TOOLS.add("depot.ar.settlement.propose");
+        serveBoth(json(200, { items: [] }), inboxBody(), json(200, { items: [approval(1)] }));
+        const inner = server.handler;
+        server.handler = (url, init) => (url.pathname.endsWith("/decision") ? json(200, {}) : inner(url, init));
+        renderHome(["inbox.read", "agents.run.read"]);
+        await user.click(await main().findByRole("button", { name: /^Reject Agent approval/ }));
+        await waitFor(() => expect(decisionCalls()).toHaveLength(1));
+        expect(decisionCalls()[0].url.pathname).toBe("/api/v1/agents/runs/00000000-0000-4000-8000-0000000000a1/actions/00000000-0000-4000-8000-0000000000b1/decision");
+        expect(decisionCalls()[0].body).toEqual({ decision: "REJECTED" });
+      });
+
+      it("disables the control and gives the reason on AGT-0209", async () => {
+        const user = userEvent.setup();
+        SAFE_INLINE_TOOLS.add("depot.ar.settlement.propose");
+        serveBoth(json(200, { items: [] }), inboxBody(), json(200, { items: [approval(1)] }));
+        const inner = server.handler;
+        server.handler = (url, init) => (url.pathname.endsWith("/decision") ? json(403, { code: "AGT-0209", detail: "self approval" }) : inner(url, init));
+        renderHome(["inbox.read", "agents.run.read"]);
+        await user.click(await main().findByRole("button", { name: /^Approve Agent approval/ }));
+        expect(await main().findByText(/someone else must decide/)).toBeInTheDocument();
+        expect(main().getByRole("button", { name: /^Approve Agent approval/ })).toBeDisabled();
+        expect(decisionCalls()).toHaveLength(1);
+      });
+    });
+
+    it("says nothing needs attention when both enabled sources are empty", async () => {
+      serveBoth(json(200, { items: [] }), inboxBody());
+      renderHome(["inbox.read", "planning.read"]);
+      expect(await main().findByText("Nothing needs your attention")).toBeInTheDocument();
+      expect(main().queryByRole("list", { name: "Needs your attention" })).not.toBeInTheDocument();
+    });
   });
 
   it("offers a switch button, not more links, for the other workspaces", async () => {
@@ -407,6 +620,51 @@ describe("role home", () => {
     });
   });
 
+  describe("briefing card", () => {
+    const BRIEFINGS = "/api/v1/agents/briefings";
+    const READ_DUTY = "agents.run.read";
+    const readyBriefing = {
+      id: "0b9a6b5e-2f4c-4f6e-9c1d-3d2b1a0f9e88",
+      status: "READY",
+      narrative: true,
+      createdAt: "2026-11-19T10:00:00.000Z",
+      completedAt: "2026-11-19T10:00:05.000Z",
+      readAt: null,
+      changes: [],
+      risks: [],
+      recommendedActions: [{ agentId: "collections", factId: "f1", text: "Send the reminder", actionId: "6f1c1f0e-8f0a-4a52-9a43-0a8c5a1f2b11" }],
+      notes: [],
+    };
+    const serveBriefings = () => {
+      server.handler = (url) => (url.pathname === BRIEFINGS ? json(200, { items: [readyBriefing], nextCursor: null, nextScheduledAt: null }) : undefined);
+    };
+
+    it("sits below the prompt and above the workspace cards on the assistant-led home", async () => {
+      serveBriefings();
+      renderHome(["mcp.copilot.use", READ_DUTY]);
+      const box = await main().findByRole("textbox", { name: "Ask or do anything..." });
+      const card = await main().findByRole("heading", { level: 2, name: "Your briefing" });
+      expect(box.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(card.compareDocumentPosition(main().getByRole("region", { name: "Browse workspaces" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("shows on the classic home too, and a failing briefing leaves the rest of the home working", async () => {
+      server.handler = (url) => (url.pathname === BRIEFINGS ? json(500, { code: "AGT-0500" }) : undefined);
+      renderHome([READ_DUTY]);
+      expect(await main().findByText("Your briefing could not be loaded")).toBeInTheDocument();
+      expect(main().getByText("Current workspace")).toBeInTheDocument();
+      expect(main().getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
+    });
+
+    it("is absent, and asks nothing of the server, without the agents.run.read duty", async () => {
+      serveBriefings();
+      renderHome(["mcp.copilot.use"]);
+      await main().findByRole("textbox", { name: "Ask or do anything..." });
+      expect(main().queryByRole("heading", { name: "Your briefing" })).not.toBeInTheDocument();
+      expect(server.calls.filter((c) => c.url.pathname === BRIEFINGS)).toHaveLength(0);
+    });
+  });
+
   describe("when the assistant is not available", () => {
     const COPILOT_DUTY = "mcp.copilot.use";
     const promptBox = () => screen.queryByRole("textbox", { name: "Ask or do anything..." });
@@ -431,11 +689,11 @@ describe("role home", () => {
       expect(main().getByRole("link", { name: "See all features" })).toHaveAttribute("href", "/features");
     });
 
-    it("keeps My work working and has no axe violations while the assistant is unreachable", async () => {
+    it("keeps the feed working and has no axe violations while the assistant is unreachable", async () => {
       availability = json(503, {});
       server.handler = (url) => (url.pathname === "/api/v1/inbox" ? json(200, { items: [item(1), item(2)], unavailable: [], truncated: [] }) : undefined);
       const { container } = renderHome([COPILOT_DUTY, "inbox.read"]);
-      expect(await main().findByText("2 items are waiting for you.")).toBeInTheDocument();
+      expect(await main().findByText("2 items need your attention.")).toBeInTheDocument();
       expect(await main().findByText(unreachable)).toBeInTheDocument();
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(pageViolations(container)).toEqual([]);

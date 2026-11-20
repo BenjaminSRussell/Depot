@@ -4174,6 +4174,7 @@
     "aipolicy.write": {"permissions": [{"resource": "/api/v1/agents/ai-data-policy", "methods": ["PUT"]}]},
     "agents.run.read": {"permissions": [
       {"resource": "/api/v1/agents/runs/*", "methods": ["GET"]},
+      {"resource": "/api/v1/agents/approvals", "methods": ["GET"]},
       {"resource": "/api/v1/agents/approvals/*", "methods": ["GET"]},
       {"resource": "/api/v1/agents/runs/*/actions", "methods": ["GET"]},
       {"resource": "/api/v1/agents/runs/*/actions/*/decision", "methods": ["POST"]},
