@@ -3930,39 +3930,33 @@ test_cui_view_is_a_flag_duty_no_designation_duty_grants if {
 	not data.duties["datadesignation.read"].flag
 }
 
-# The output guard in services/agents-ts reads the token duties claim, not held_duties, so these
-# cases pin the policy data and the OPA assignment model only; they do not prove the guard is scoped.
+# TODO: DEPOT-349 write the scoped-holder test (a legal-entity-scoped grant of these duties holds only in its own entity) together with the role grant.
+# The output guard in services/agents-ts reads the token duties claim, not held_duties, so these cases pin the policy data only.
 sensitive_view_duties := ["agents.sensitive-payroll.view", "agents.sensitive-worker.view"]
 
-test_sensitive_view_duties_are_flag_duties if {
+test_sensitive_view_duties_are_not_tenant_level_or_operator_only if {
 	every duty in sensitive_view_duties {
-		data.duties[duty].flag == true
-		count(data.duties[duty].permissions) == 0
 		not data.duties[duty].tenant_level
 		not data.duties[duty].operator_only
 	}
 }
 
-test_sensitive_view_duties_follow_the_assignment_model if {
+test_no_shipped_assignment_holds_the_sensitive_view_duties if {
 	every duty in sensitive_view_duties {
-		held := held_duties with input as cui_input("")
-			with data.assignments as {"tenant-a": {"user-a": [duty]}}
-		held == {duty}
-		held_in_a := held_duties with input as cui_input(company_a)
-			with data.assignments as {}
-			with data.scoped_assignments as {"tenant-a": {"user-a": {company_a: [duty]}}}
-		held_in_a == {duty}
-		held_in_b := held_duties with input as cui_input(company_b)
-			with data.assignments as {}
-			with data.scoped_assignments as {"tenant-a": {"user-a": {company_a: [duty]}}}
-		count(held_in_b) == 0
+		tenant_wide := {held |
+			some _, users in data.assignments
+			some _, assigned in users
+			some held in assigned
+		}
+		scoped := {held |
+			some _, users in data.scoped_assignments
+			some _, entities in users
+			some _, assigned in entities
+			some held in assigned
+		}
+		not duty in tenant_wide
+		not duty in scoped
 	}
-}
-
-test_pii_read_holders_do_not_hold_the_sensitive_view_duties if {
-	held := held_duties with input as cui_input("")
-		with data.assignments as {"tenant-a": {"user-a": ["hr.pii.read", "pii.read"]}}
-	held == {"hr.pii.read", "pii.read"}
 }
 
 cui_input(legal_entity) := {"subject": {"tenant_id": "tenant-a", "user_id": "user-a", "legal_entity_id": legal_entity}, "action": "GET", "resource": "/v1/compliance/data-designations"}

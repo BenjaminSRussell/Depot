@@ -256,6 +256,22 @@ describe("output guard on the chat", () => {
     expect(retiredBody.answer).not.toContain("12-3456789");
   });
 
+  it("keeps SSN and tax-id masked for a token holding only the payroll duty, and PAY masked for a token holding only the worker duty", async () => {
+    const sensitive = { mode: "ask", message: "Is ssn 123-45-6789 and tax id 12-3456789 on file?" };
+    const payrollOnly = await setup([answer("SSN [SSN-1], tax id [TAXID-1].")]);
+    const payrollBody = (await (await chat(payrollOnly.srv.base, sensitive, PAYROLL)).json()) as { answer: string };
+    await payrollOnly.srv.close();
+    expect(payrollBody.answer).toContain("SSN ****6789, tax id ****6789");
+    expect(payrollBody.answer).not.toContain("123-45-6789");
+    expect(payrollBody.answer).not.toContain("12-3456789");
+
+    const workerOnly = await setup([answer("The pay is [PAY-1].")]);
+    close = workerOnly.srv.close;
+    const workerBody = (await (await chat(workerOnly.srv.base, ask, `${DUTIES},${SENSITIVE_DUTY.worker}`)).json()) as { answer: string };
+    expect(workerBody.answer).toContain("The pay is ****.");
+    expect(workerBody.answer).not.toContain("85000");
+  });
+
   it("withholds an answer that prints the raw payroll value for a viewer without the duty, stores only the guard row and caches nothing", async () => {
     const s = await setup([answer("Their salary: 85000."), answer("The pay is [PAY-1].")]);
     close = s.srv.close;
