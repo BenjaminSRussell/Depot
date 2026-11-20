@@ -213,6 +213,7 @@ describe("egress guard on the chat", () => {
 
 describe("output guard on the chat", () => {
   const PAYROLL = `${DUTIES},${SENSITIVE_DUTY.payroll}`;
+  const RETIRED_DUTY = { payroll: "ViewSensitivePayroll", worker: "ViewSensitiveWorker" } as const;
   const ask = { mode: "ask", message: "Is salary: 85000 correct for the vendor?" };
   const guardRows = (s: Awaited<ReturnType<typeof setup>>) => [...s.store.actionRows.values()].flat().filter((r) => r.toolName === OUTPUT_GUARD_TOOL);
 
@@ -233,7 +234,7 @@ describe("output guard on the chat", () => {
   it("masks the payroll value for a token that carries only the retired PascalCase duty name", async () => {
     const s = await setup([answer("The pay is [PAY-1].")]);
     close = s.srv.close;
-    const body = (await (await chat(s.srv.base, ask, `${DUTIES},ViewSensitivePayroll`)).json()) as { answer: string };
+    const body = (await (await chat(s.srv.base, ask, `${DUTIES},${RETIRED_DUTY.payroll}`)).json()) as { answer: string };
     expect(body.answer).toContain("The pay is ****.");
   });
 
@@ -248,7 +249,9 @@ describe("output guard on the chat", () => {
 
     const retired = await setup([answer("SSN [SSN-1], tax id [TAXID-1].")]);
     close = retired.srv.close;
-    const retiredBody = (await (await chat(retired.srv.base, sensitive, `${DUTIES},ViewSensitiveWorker`)).json()) as { answer: string };
+    const retiredBody = (await (await chat(retired.srv.base, sensitive, `${DUTIES},${RETIRED_DUTY.worker}`)).json()) as { answer: string; refusal: unknown };
+    expect(retiredBody.refusal).toBeNull();
+    expect(retiredBody.answer).toContain("SSN ****6789, tax id ****6789");
     expect(retiredBody.answer).not.toContain("123-45-6789");
     expect(retiredBody.answer).not.toContain("12-3456789");
   });

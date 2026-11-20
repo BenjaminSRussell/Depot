@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { assertNoPii, maskValue, Pseudonymizer, scanPii, SENSITIVE_DUTY } from "../src/domain/redaction.js";
 
 const TTL = 24 * 3_600_000;
@@ -115,7 +115,6 @@ describe("Pseudonymizer.restoreFor", () => {
 describe("SENSITIVE_DUTY", () => {
   it("names only duties seeded in policies/authz/data.json, so a rename in one place fails here", () => {
     const file = new URL("../../../policies/authz/data.json", import.meta.url);
-    if (!existsSync(file)) throw new Error(`policies/authz/data.json not found at ${file.pathname}; run the tests from a full repo checkout`);
     const data = JSON.parse(readFileSync(file, "utf8")) as { duties: Record<string, { flag?: boolean }> };
     for (const duty of Object.values(SENSITIVE_DUTY)) expect(data.duties[duty]?.flag).toBe(true);
   });

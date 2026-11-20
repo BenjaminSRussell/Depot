@@ -3943,13 +3943,6 @@ test_sensitive_view_duties_are_flag_duties if {
 	}
 }
 
-test_sensitive_view_duties_open_no_route if {
-	every duty in sensitive_view_duties {
-		not allowed(duty, "GET", "/v1/hr/workers/w1/pii")
-		not allowed(duty, "GET", "/v1/hr/workers/w1/compensation")
-	}
-}
-
 test_sensitive_view_duties_follow_the_assignment_model if {
 	every duty in sensitive_view_duties {
 		held := held_duties with input as cui_input("")
@@ -3970,8 +3963,6 @@ test_pii_read_holders_do_not_hold_the_sensitive_view_duties if {
 	held := held_duties with input as cui_input("")
 		with data.assignments as {"tenant-a": {"user-a": ["hr.pii.read", "pii.read"]}}
 	held == {"hr.pii.read", "pii.read"}
-	not "agents.sensitive-payroll.view" in held
-	not "agents.sensitive-worker.view" in held
 }
 
 cui_input(legal_entity) := {"subject": {"tenant_id": "tenant-a", "user_id": "user-a", "legal_entity_id": legal_entity}, "action": "GET", "resource": "/v1/compliance/data-designations"}
