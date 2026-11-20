@@ -6,6 +6,7 @@ import { copy } from "../copy";
 import { holdsDuty } from "../dutyGate";
 import { sourceList } from "../inbox/inbox";
 import { useSharedInbox } from "../inbox/InboxProvider";
+import { prioritizeFeed } from "../personal/homeOrder";
 import { usePrincipalDuties } from "../principal";
 import { APPROVALS_DUTY, approvalToFeedItem, buildFeed, FEED_PLAN_CODE, inboxToFeedItem, messageToFeedItem, PLANNING_DUTY, PLANNING_FETCH_LIMIT, type FeedItem } from "./feedSources";
 
@@ -72,12 +73,15 @@ export function useAttentionFeed(now: Date = new Date()): AttentionFeed {
   const pendingApprovals = approvals.rows;
   const items = useMemo(
     () =>
-      buildFeed([
-        ...(inboxItems ?? []).map((i) => inboxToFeedItem(i, now)),
-        ...messages.map((m) => messageToFeedItem(m, now)),
-        ...pendingApprovals.map((a) => approvalToFeedItem(a, now)),
-      ]),
-    [inboxItems, messages, pendingApprovals, now.toDateString()],
+      prioritizeFeed(
+        buildFeed([
+          ...(inboxItems ?? []).map((i) => inboxToFeedItem(i, now)),
+          ...messages.map((m) => messageToFeedItem(m, now)),
+          ...pendingApprovals.map((a) => approvalToFeedItem(a, now)),
+        ]),
+        duties,
+      ),
+    [inboxItems, messages, pendingApprovals, duties, now.toDateString()],
   );
 
   const unavailable = [

@@ -15,7 +15,7 @@ interface Shown {
   label: string;
 }
 
-function useLookedUpLabels(pins: readonly Pin[], canOpen: (to: string) => boolean): ReadonlyMap<string, string | null> {
+export function useLookedUpLabels(pins: readonly Pin[], canOpen: (to: string) => boolean): ReadonlyMap<string, string | null> {
   const [labels, setLabels] = useState<ReadonlyMap<string, string | null>>(new Map());
   useEffect(() => {
     let live = true;

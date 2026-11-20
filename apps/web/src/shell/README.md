@@ -37,6 +37,25 @@ The sidebar shows one persona workspace at a time, not every module. All of it i
 - `RECORD_ROUTES` in `pinTargets.ts` copies the search service's record links; `pins.test.tsx` fails when the service changes them.
 - Saved list views and assistant prompts are not pinnable yet (follow-up slice of DEPOT-289). The assistant store's own `pins` kind (`depot.assistant.pins.v1.<identity>`) is separate and untouched.
 
+## Role- and activity-aware home (DEPOT-288)
+
+The home orders and filters what it shows by the person's duties and by what they opened recently. Personalization only reorders and filters. It never grants access: every list it works on is already gated by duty (`dutyGate.ts`, the duty-gated `held` workspaces, `usePins().canOpen`), and the services still authorize every call.
+
+Role-to-priority table (`shell/personal/homeOrder.ts`, `ROLE_PRIORITY`). A person has a role when they hold any one marker duty. No marker means the defaults: urgency order for the feed, the held order for workspaces, general prompts. With several roles, the first row in the table sets the feed order and the workspace and prompt priorities are joined in table order.
+
+| Role | Marker duties (any one) | Feed source order | Workspace order | Suggested prompts |
+|---|---|---|---|---|
+| ap-clerk | `receiving.vendor-invoice.post`, `receiving.ap.inquire`, `payment-proposal.read` | inbox, approval, exception | ap-clerk, buyer, controller | invoices waiting to be matched, invoices due for payment |
+| planner | `planning.run` | exception, approval, inbox | production-planner, shopfloor-supervisor, buyer | urgent planning messages, late production orders |
+
+- Feed: items whose source duty is not held are dropped, then (only when a role matched) sorted by source order. Urgency order is kept inside one source.
+- Workspaces: the current workspace stays first. The rest sort by recent activity, then role order, then held order. The home shows at most four.
+- Prompts ("Try asking..."): a prompt tied to a duty the person lacks is never shown. Prompts sort by recent activity on their page, then role order. At most three show, and the general prompt needs no duty.
+- Activity: key `depot.activity.v1.<identity>` over `localPreferenceStorage`, a JSON array of at most 50 strict pin-shaped rows, `{kind: "page", route, at}` or `{kind: "record", recordType, id, at}`, newest first. Only the entity type, the route or record id and the timestamp are stored, never names, labels, amounts or prompt text. Labels of recent records are looked up at render time through the duty-gated lookup, and a record that cannot be opened or looked up is hidden. An empty identity stores nothing. A corrupt value, or a row that does not match the schema, is ignored on read.
+- Ranking: each row adds `0.5 ** (age in days / 7)` to the list page it belongs to (a record row counts for its record type's list page), and a workspace scores the sum over its entries. Fewer than 3 rows is too little data, so role defaults apply. An unreadable timestamp scores 0 and a future one counts as now.
+- The home reads activity once when it opens, so a visit changes the order the next time the home opens.
+- Not in this slice (follow-up slice of DEPOT-288): the Reset personalization control and the Playwright spec.
+
 ## Assistant storage (#309)
 
 Prompts, answers, citations, tool results, proposals and briefings are held in memory only (the home's briefing card reads the list into component state; the only thing it stores is the per-user local-date marker of the automatic daily generation, as a `briefingDay` row in `shell/assistant/assistantStorage.ts`). They are never written to `localStorage`, `sessionStorage`, IndexedDB or the Cache API, never placed in a URL, history state or document title, and never sent in a telemetry event. The home page hands a typed prompt to the copilot through `shell/assistant/session.ts` (memory, read once, expires after 10 seconds) instead of router state.

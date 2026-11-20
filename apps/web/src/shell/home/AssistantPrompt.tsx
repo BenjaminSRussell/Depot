@@ -7,6 +7,7 @@ import styles from "./home.module.css";
 export interface AssistantPromptProps {
   onSubmit: (text: string, mode?: PromptMode) => Promise<RouterOutcome | void>;
   canAct?: boolean;
+  suggestions?: readonly string[];
 }
 
 const MODE_ORDER = ["auto", "ask", "navigate", "act"] as const;
@@ -25,7 +26,7 @@ function noticeFor(outcome: RouterOutcome | void): string {
   }
 }
 
-export function AssistantPrompt({ onSubmit, canAct = false }: AssistantPromptProps) {
+export function AssistantPrompt({ onSubmit, canAct = false, suggestions = [] }: AssistantPromptProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const sending = useRef(false);
   const [text, setText] = useState("");
@@ -99,6 +100,27 @@ export function AssistantPrompt({ onSubmit, canAct = false }: AssistantPromptPro
           {copy.home.assistantSend}
         </Button>
       </div>
+      {suggestions.length > 0 ? (
+        <div role="group" aria-label={copy.home.suggestionsTitle} className={styles.suggestions}>
+          <span aria-hidden="true" className={styles.suggestionsTitle}>
+            {copy.home.suggestionsTitle}
+          </span>
+          {suggestions.map((suggestion) => (
+            <Button
+              key={suggestion}
+              type="button"
+              size="sm"
+              onClick={() => {
+                setText(suggestion);
+                setError(null);
+                inputRef.current?.focus();
+              }}
+            >
+              {suggestion}
+            </Button>
+          ))}
+        </div>
+      ) : null}
       <fieldset className={styles.modes}>
         <legend>{copy.home.assistantModeLegend}</legend>
         {MODE_ORDER.map((m) => (
