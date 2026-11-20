@@ -89,18 +89,10 @@ export const highestClassOf = (classes: readonly DataClass[]): DataClass =>
   classes.reduce<DataClass>((top, c) => (CLASS_ORDER.indexOf(c) > CLASS_ORDER.indexOf(top) ? c : top), "P0");
 
 class GuardFailure extends Error {
-  constructor(readonly code: GuardErrorCode) {
-    super(code);
+  constructor(readonly code: GuardErrorCode, detail: string = code) {
+    super(detail);
     this.name = "GuardFailure";
   }
-}
-
-function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
-  let timer: NodeJS.Timeout | undefined;
-  const late = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new GuardFailure("ANALYZER_TIMEOUT")), ms);
-  });
-  return Promise.race([work, late]).finally(() => clearTimeout(timer));
 }
 
 const ERROR_CODE_RE = /^[A-Z][A-Z0-9_-]{1,31}$/;
@@ -113,6 +105,7 @@ function describeError(err: unknown): Record<string, string> {
   if (typeof code === "string" && ERROR_CODE_RE.test(code)) detail.errorDetailCode = code;
   try {
     const scrubbed = scanPii(err.message)
+      .filter((f) => f.value.length > 0)
       .reduce((text, f) => text.split(f.value).join("[REDACTED]"), err.message)
       .replace(/\d{4,}/g, "[N]")
       .slice(0, ERROR_MESSAGE_MAX);
@@ -123,7 +116,16 @@ function describeError(err: unknown): Record<string, string> {
   return detail;
 }
 
-const scannedTexts = new WeakMap<Pseudonymizer, Map<string, PiiFinding[]>>();
+function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new GuardFailure("ANALYZER_TIMEOUT")), ms);
+  });
+  return Promise.race([work, late]).finally(() => clearTimeout(timer));
+}
+
+const SCAN_MEMO_MAX = 512;
+const scanMemo = new WeakMap<Pseudonymizer, Map<string, PiiCategory[]>>();
 
 export function createEgressGuard(
   deps: { analyzer?: Analyzer; policy: AiPolicyGuard; log?: LogFn; observe?: (seconds: number, decision: GuardDecision) => void; deadlineMs?: number },
@@ -167,26 +169,36 @@ export function createEgressGuard(
       };
       try {
         const texts = [input.typed, ...input.results];
-        const memo = scannedTexts.get(input.pseudo) ?? new Map<string, PiiFinding[]>();
-        scannedTexts.set(input.pseudo, memo);
-        const fresh = [...new Set(texts)].filter((t) => !memo.has(t));
-        if (fresh.length > 0) {
-          const scanned = await scan(fresh);
-          fresh.forEach((t, i) => {
-            const findings = scanned[i];
-            if (!Array.isArray(findings)) throw new GuardFailure("ANALYZER_ERROR");
-            memo.set(t, findings);
-          });
-        }
-        const perText = texts.map((t) => memo.get(t) ?? []);
+        const memo = scanMemo.get(input.pseudo) ?? new Map<string, PiiCategory[]>();
+        scanMemo.set(input.pseudo, memo);
+        const categoriesOf = async (segments: readonly string[]): Promise<PiiCategory[][]> => {
+          const fresh = [...new Set(segments)].filter((t) => !memo.has(t));
+          const scanned = new Map<string, PiiCategory[]>();
+          if (fresh.length > 0) {
+            const results = await scan(fresh);
+            fresh.forEach((t, i) => {
+              const findings = results[i];
+              if (!Array.isArray(findings)) throw new GuardFailure("ANALYZER_ERROR", "analyzer returned a non-array");
+              scanned.set(t, findings.map((f) => f.category));
+            });
+          }
+          const out = segments.map((t) => memo.get(t) ?? scanned.get(t) ?? []);
+          for (const [t, categories] of scanned) {
+            if (memo.size >= SCAN_MEMO_MAX) memo.delete(memo.keys().next().value as string);
+            memo.set(t, categories);
+          }
+          return out;
+        };
+        const perText = await categoriesOf(texts);
         const found = perText.flat();
-        for (const f of found) result.counts[f.category] = (result.counts[f.category] ?? 0) + 1;
-        result.highestClass = highestClassOf([input.declared ?? "P0", ...found.map((f) => CATEGORY_CLASS[f.category])]);
-        const user = texts.map((t) => input.pseudo.redact(t)).join("\n\n");
-        const [left = []] = await scan([`${input.system}\n\n${user}`]);
-        if (left.length > 0) throw new GuardFailure("RESIDUAL_PII");
+        for (const category of found) result.counts[category] = (result.counts[category] ?? 0) + 1;
+        result.highestClass = highestClassOf([input.declared ?? "P0", ...found.map((c) => CATEGORY_CLASS[c])]);
+        const redacted = texts.map((t) => input.pseudo.redact(t));
+        const user = redacted.join("\n\n");
+        const residual = await categoriesOf([input.system, ...redacted]);
+        if (residual.some((categories) => categories.length > 0)) throw new GuardFailure("RESIDUAL_PII");
         result.decision = found.length > 0 ? "REDACTED" : "ALLOWED";
-        return { user, context: { inputTokens: new Set(user.match(PSEUDONYM_RE)), inputRecordIds: new Set(input.recordIds), highestClass: result.highestClass }, result, typedReplaced: (perText[0] ?? []).filter((f) => f.category !== "EMAIL").length };
+        return { user, context: { inputTokens: new Set(user.match(PSEUDONYM_RE)), inputRecordIds: new Set(input.recordIds), highestClass: result.highestClass }, result, typedReplaced: (perText[0] ?? []).filter((c) => c !== "EMAIL").length };
       } catch (err) {
         result.errorCode = err instanceof GuardFailure ? err.code : "ANALYZER_ERROR";
         deps.log?.("warn", "egress guard blocked the provider call", {
