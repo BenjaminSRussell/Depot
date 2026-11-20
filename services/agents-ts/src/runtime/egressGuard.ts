@@ -13,7 +13,7 @@ export const GUARD_REFUSAL_MESSAGE =
 export type DataClass = "P0" | "P1" | "P2" | "P3";
 export type GuardDecision = "ALLOWED" | "REDACTED" | "BLOCKED" | "BLOCKED_BOUNDARY" | "OUTPUT_BLOCKED";
 export type GuardErrorCode = "ANALYZER_ERROR" | "ANALYZER_TIMEOUT" | "RESIDUAL_PII" | "NO_APPROVED_ROUTE" | "POLICY_UNREADABLE";
-export type OutputGuardReason = "TOKEN_NOT_IN_INPUT" | "RECORD_NOT_IN_INPUT" | "DUTY_LEAK" | "RAW_IDENTIFIER" | "GUARD_TIMEOUT" | "GUARD_ERROR";
+export type OutputGuardReason = "TOKEN_NOT_IN_INPUT" | "RECORD_NOT_IN_INPUT" | "DUTY_LEAK" | "RAW_IDENTIFIER" | "LINK_IN_ARGS" | "GUARD_TIMEOUT" | "GUARD_ERROR";
 
 export interface GuardResult {
   callId: string;

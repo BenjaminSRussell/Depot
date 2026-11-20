@@ -431,7 +431,7 @@ export function createRunSteps(deps: StepsDeps) {
             s.outputBlocked = verdict.reason;
             s.displayText = OUTPUT_GUARD_MESSAGE;
           } else {
-            s.displayText = c.pseudo.restore(response.text);
+            s.displayText = c.pseudo.restore(verdict.text);
           }
           const p0 = verdict.ok ? response.proposal : undefined;
           if (p0) {

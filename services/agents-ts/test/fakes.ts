@@ -21,7 +21,7 @@ import type { AiPolicyGuard } from "../src/runtime/aiPolicyGuard.js";
 import { createEgressGuard } from "../src/runtime/egressGuard.js";
 import type { OutputGuard } from "../src/runtime/outputGuard.js";
 
-export const allowAllOutput: OutputGuard = { check: async () => ({ ok: true, dataClass: "P0" }) };
+export const allowAllOutput: OutputGuard = { check: async (input) => ({ ok: true, dataClass: "P0", text: input.text, linksRemoved: 0 }) };
 
 export const TENANT = "00000000-0000-7000-8000-0000000000aa";
 export const INVOKER = "00000000-0000-7000-8000-000000000001";

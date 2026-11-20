@@ -1,4 +1,5 @@
 import type { LogFn } from "../logging/pseudonymize.js";
+import { dataCarryingLinks, neutraliseLinks } from "../domain/exfilLinks.js";
 import { mayViewValue, P3_CATEGORIES, PSEUDONYM_RE, scanPii, type Pseudonymizer } from "../domain/redaction.js";
 import { GUARD_POLICY_VERSION, highestClassOf, type Analyzer, type DataClass, type GuardContext, type GuardDecision, type GuardResult, type OutputGuardReason } from "./egressGuard.js";
 
@@ -25,9 +26,11 @@ export interface OutputInput {
   duties: ReadonlySet<string>;
   declaredClass: DataClass;
   partial?: boolean;
+  inputs?: readonly string[];
+  attachments?: string;
 }
 
-export type OutputVerdict = { ok: true; dataClass: DataClass } | { ok: false; reason: OutputGuardReason; dataClass: DataClass };
+export type OutputVerdict = { ok: true; dataClass: DataClass; text: string; linksRemoved: number } | { ok: false; reason: OutputGuardReason; dataClass: DataClass };
 
 export interface OutputGuard {
   check(input: OutputInput): Promise<OutputVerdict>;
@@ -39,7 +42,9 @@ export async function checkRunOutput(
 ): Promise<OutputVerdict> {
   return guard.check({
     tenantId: input.tenantId,
-    text: `${input.response.text}\n${JSON.stringify(input.response.proposal?.args ?? {})}`,
+    text: input.response.text,
+    attachments: JSON.stringify(input.response.proposal?.args ?? {}),
+    inputs: [input.prompt],
     context: { inputTokens: new Set(input.prompt.match(PSEUDONYM_RE)), inputRecordIds: new Set(), highestClass: "P0" },
     pseudo: input.pseudo,
     duties: input.duties,
@@ -81,7 +86,9 @@ export function createOutputGuard(deps: { analyzer?: Analyzer; log?: LogFn; obse
   const deadlineMs = deps.deadlineMs ?? OUTPUT_GUARD_DEADLINE_MS;
 
   async function violation(input: OutputInput): Promise<OutputGuardReason | undefined> {
-    const { text, context, pseudo, duties } = input;
+    const { context, pseudo, duties } = input;
+    const text = input.attachments === undefined ? input.text : `${input.text}\n${input.attachments}`;
+    if (input.attachments !== undefined && dataCarryingLinks(input.attachments, input.inputs).length > 0) return "LINK_IN_ARGS";
     if ([...text.matchAll(PSEUDONYM_RE)].some((m) => !context.inputTokens.has(m[0]))) return "TOKEN_NOT_IN_INPUT";
     if (input.partial !== true) {
       const cited = [...text.matchAll(CITE_RE)].map((m) => m[1] ?? "");
@@ -120,7 +127,10 @@ export function createOutputGuard(deps: { analyzer?: Analyzer; log?: LogFn; obse
         });
       }
       deps.observe?.((performance.now() - started) / 1000, reason === undefined ? "ALLOWED" : "OUTPUT_BLOCKED");
-      return reason === undefined ? { ok: true, dataClass } : { ok: false, reason, dataClass };
+      if (reason !== undefined) return { ok: false, reason, dataClass };
+      const neutral = neutraliseLinks(input.text, input.inputs);
+      if (neutral.removed > 0) deps.log?.("warn", "output guard removed data-carrying links", { tenantId: input.tenantId, removed: neutral.removed });
+      return { ok: true, dataClass, text: neutral.text, linksRemoved: neutral.removed };
     },
   };
 }

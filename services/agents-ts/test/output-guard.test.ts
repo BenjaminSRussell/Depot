@@ -61,10 +61,26 @@ describe("output guard checks", () => {
     expect(await reasonOf("The salary: 85000.", { duties: HOLDER })).toBeUndefined();
   });
 
+  it("strips a data-carrying link, keeps a relative record link and logs only a count", async () => {
+    const logs: unknown[][] = [];
+    const guard = createOutputGuard({ log: (...args: unknown[]) => void logs.push(args) } as Parameters<typeof createOutputGuard>[0]);
+    const verdict = await guard.check(turn({ text: "See [PO 123](/purchasing/purchase-orders/123), [site](https://evil.example/c?d=hello) and ![i](https://evil.example/i.png)." }));
+    expect(verdict).toMatchObject({ ok: true, text: "See [PO 123](/purchasing/purchase-orders/123), site and .", linksRemoved: 2 });
+    expect(JSON.stringify(logs)).not.toContain("evil.example");
+    expect(JSON.stringify(logs)).toContain('"removed":2');
+  });
+
+  it("refuses a proposal whose args carry a data link and leaves a relative link in args alone", async () => {
+    const guard = createOutputGuard();
+    const check = (attachments: string) => guard.check(turn({ text: "ok", attachments }));
+    expect(await check('{"memo":"[x](https://evil.example/c?d=1)"}')).toMatchObject({ ok: false, reason: "LINK_IN_ARGS" });
+    expect(await check('{"ref":"/purchasing/purchase-orders/123"}')).toMatchObject({ ok: true });
+  });
+
   it("raises the class to the highest class of the inputs and never lowers it", async () => {
     const guard = createOutputGuard();
-    expect(await guard.check(turn({ text: "ok" }, { highestClass: "P3" }))).toEqual({ ok: true, dataClass: "P3" });
-    expect(await guard.check(turn({ text: "ok", declaredClass: "P3" }, { highestClass: "P1" }))).toEqual({ ok: true, dataClass: "P3" });
+    expect(await guard.check(turn({ text: "ok" }, { highestClass: "P3" }))).toMatchObject({ ok: true, dataClass: "P3" });
+    expect(await guard.check(turn({ text: "ok", declaredClass: "P3" }, { highestClass: "P1" }))).toMatchObject({ ok: true, dataClass: "P3" });
   });
 
   it("fails closed on a throwing analyzer and on a missed deadline, logging reasons and counts only", async () => {

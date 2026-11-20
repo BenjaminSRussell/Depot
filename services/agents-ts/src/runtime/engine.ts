@@ -580,7 +580,7 @@ async function executeRun(
       displayText = OUTPUT_GUARD_MESSAGE;
       return finish("FAILED", OUTPUT_GUARD_CODE, verdict.reason);
     }
-    displayText = pseudo.restore(response.text);
+    displayText = pseudo.restore(verdict.text);
 
     const p = response.proposal;
     if (!p) return finish("FAILED", undefined, "model returned no proposal");

@@ -13,7 +13,7 @@ import { COPILOT_DUTY, createCopilotService } from "../../src/runtime/copilot.js
 import type { DesignationClient } from "../../src/runtime/cuiDesignation.js";
 import { createEgressGuard } from "../../src/runtime/egressGuard.js";
 import type { AiPolicyGuard } from "../../src/runtime/aiPolicyGuard.js";
-import { createOutputGuard } from "../../src/runtime/outputGuard.js";
+import { createOutputGuard, type OutputGuard } from "../../src/runtime/outputGuard.js";
 import { createRunService } from "../../src/runtime/service.js";
 import { allowAiAccess, testGuard } from "../fakes.js";
 import { FakeMcp, MemoryStore, tool } from "../surface-fakes.js";
@@ -76,6 +76,8 @@ class TenantFreeStore extends MemoryStore {
   }
 }
 
+export const passThroughOutputGuard: OutputGuard = { check: async (input) => ({ ok: true, dataClass: "P0", text: input.text, linksRemoved: 0 }) };
+
 export const denyAllPolicy: AiPolicyGuard = {
   check: async () => ({ allowed: false, policyVersion: 1, reason: "denied" }),
   invalidate: () => undefined,
@@ -83,7 +85,7 @@ export const denyAllPolicy: AiPolicyGuard = {
 
 export const actionIdOf = (c: RedTeamCase): string => `00000000-0000-7000-8000-${createHash("sha256").update(c.id).digest("hex").slice(0, 12)}`;
 
-export async function runCase(profile: Profile, c: RedTeamCase, responderFor: ResponderFor, options: { leaky?: boolean; policy?: AiPolicyGuard } = {}): Promise<Observed> {
+export async function runCase(profile: Profile, c: RedTeamCase, responderFor: ResponderFor, options: { leaky?: boolean; policy?: AiPolicyGuard; outputGuard?: OutputGuard } = {}): Promise<Observed> {
   if (c.path === "route" && classifyByRules(expandedMessage(c)).status === "decided") throw new Error(`route case ${c.id} is decided by the rules, so no model is called`);
   const sink: Captured[] = [];
   const state = { phase: 0 };
@@ -107,7 +109,7 @@ export async function runCase(profile: Profile, c: RedTeamCase, responderFor: Re
   const mcp = new FakeMcp(gateway, answers);
   const store = new TenantFreeStore();
   const killSwitch = { isHalted: () => false };
-  const outputGuard = createOutputGuard();
+  const outputGuard = options.outputGuard ?? createOutputGuard();
   const agents = defaultCatalog("claude-sonnet-5-5");
   const spawned: Array<Promise<unknown>> = [];
   const runs = createRunService({
