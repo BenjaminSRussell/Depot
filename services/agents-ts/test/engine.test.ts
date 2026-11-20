@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { runAgent } from "../src/runtime/engine.js";
 import { withEgressGuard } from "../src/config.js";
+import { createOutputGuard } from "../src/runtime/outputGuard.js";
 import { EGRESS_GUARD_TOOL } from "../src/runtime/egressGuard.js";
 import { APPROVER, codingDescriptor, FakeApprovals, FakeTools, INVOKER, makeDeps, makeRequest, memoryBudgets, postDescriptor, proposal, REAL_IBAN, ScriptedProvider, testGuard, usd } from "./fakes.js";
 
@@ -26,6 +27,16 @@ describe("runAgent gates and commits", () => {
     ]);
     expect(result.actions[0]?.inputJson).not.toContain(REAL_IBAN);
     expect(approvals.requests[0]?.rationale).toContain(REAL_IBAN);
+  });
+
+  it("neutralises the restored display text, so a restored value never reaches the approver or the caller un-neutralised", async () => {
+    const outputGuard = { ...createOutputGuard(), neutralise: (text: string) => text.replaceAll(REAL_IBAN, "[link removed]") };
+    const approvals = new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER });
+    const result = await runAgent(makeDeps({ provider: new ScriptedProvider([proposal(0.8)]), tools: tools(), approvals, outputGuard }), makeRequest());
+
+    expect(result.displayText).not.toContain(REAL_IBAN);
+    expect(result.displayText).toContain("[link removed]");
+    expect(approvals.requests[0]?.rationale).not.toContain(REAL_IBAN);
   });
 
   it("drops a proposal whose arguments carry a pseudonym this run never held, and runs no tool (AC5)", async () => {
