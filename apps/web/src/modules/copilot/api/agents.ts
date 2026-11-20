@@ -88,7 +88,7 @@ const agentDefinitionListSchema = z.object({ items: z.array(agentDefinitionSchem
 
 const cellsSchema = z.object({ P0: z.boolean(), P1: z.boolean(), P2: z.boolean(), P3: z.boolean(), CUI: z.boolean() });
 
-export const aiDataPolicySchema = z.object({ version: z.number().int().positive(), modules: z.object({ ap: cellsSchema, ar: cellsSchema }) });
+export const aiDataPolicySchema = z.object({ version: z.number().int().positive(), modules: z.object({ ap: cellsSchema, ar: cellsSchema, platform: cellsSchema }) });
 
 export type BudgetEntry = z.infer<typeof budgetEntrySchema>;
 export type BudgetList = z.infer<typeof budgetListSchema>;

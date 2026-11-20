@@ -41,6 +41,7 @@ const policy: AiDataPolicy = {
   modules: {
     ap: { P0: true, P1: true, P2: false, P3: false, CUI: false },
     ar: { P0: true, P1: true, P2: false, P3: false, CUI: false },
+    platform: { P0: true, P1: true, P2: false, P3: false, CUI: false },
   },
 };
 
@@ -156,7 +157,7 @@ describe("BudgetsPage", () => {
   it("shows the data policy summary with a planned-route link only with aipolicy.read", async () => {
     mount(<BudgetsPage load={async () => budgets} loadPolicy={async () => policy} duties={[...writer, "aipolicy.read"]} />);
     expect(await screen.findByRole("heading", { name: "Data the assistant may use" })).toBeInTheDocument();
-    expect(await screen.findAllByText(/May reach AI: P0, P1\. Denied: P2, P3, CUI\./)).toHaveLength(2);
+    expect(await screen.findAllByText(/May reach AI: P0, P1\. Denied: P2, P3, CUI\./)).toHaveLength(3);
     expect(screen.getByRole("link", { name: "Open the data policy page" })).toHaveAttribute("href", "/copilot/ai-policy");
   });
 });
