@@ -3936,11 +3936,13 @@ sensitive_view_duties := ["agents.sensitive-payroll.view", "agents.sensitive-wor
 
 test_sensitive_view_duties_are_not_tenant_level_or_operator_only if {
 	every duty in sensitive_view_duties {
+		data.duties[duty]
 		not data.duties[duty].tenant_level
 		not data.duties[duty].operator_only
 	}
 }
 
+# A tripwire against hand-seeding an assignment into data.json (the shipped maps are empty; identity compiles real assignments into the bundle at runtime). It does not check real grants.
 test_no_shipped_assignment_holds_the_sensitive_view_duties if {
 	every duty in sensitive_view_duties {
 		tenant_wide := {held |
