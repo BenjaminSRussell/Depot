@@ -9,6 +9,7 @@ import { handOffFeatureFilter } from "../assistant/session";
 import { copy } from "../copy";
 import { holdsDuty } from "../dutyGate";
 import { AssistantPrompt } from "../home/AssistantPrompt";
+import { AttentionFeed } from "../home/AttentionFeed";
 import { ASSISTANT_DUTY, COPILOT_PATH } from "../home/assistantRouter";
 import { PinnedRegion } from "../pins/PinnedRegion";
 import { plannedRouteFor } from "../plannedRoutes";
@@ -18,7 +19,6 @@ import { useRecentPages } from "../recent";
 import { isPathEnabled } from "../tenant/featureRules";
 import { useTenantSettings } from "../tenant/TenantSettings";
 import { Alert, Badge, Button, Card, CardGrid, EmptyState, Icon, PageHeader } from "../ui";
-import { MyWorkSummary } from "./MyWorkSummary";
 import { WorkspaceKpis } from "./WorkspaceKpis";
 import { ALL_FEATURES_PATH, HOME_WORKSPACE_LIMIT, TOP_TASK_COUNT } from "../workspaces/model";
 import { useWorkspaceNav } from "../workspaces/WorkspaceNav";
@@ -161,7 +161,7 @@ export function HomePage() {
         <AssistantNotice />
         {demoTour}
         <SetupBanner />
-        <MyWorkSummary />
+        <AttentionFeed />
         <PinnedRegion />
         <WorkspaceKpis workspace={active} />
         {cards}
@@ -178,7 +178,7 @@ export function HomePage() {
       <AskAnswer conversation={conversation} />
       {demoTour}
       <SetupBanner />
-      <MyWorkSummary />
+      <AttentionFeed />
       <PinnedRegion />
       <WorkspaceKpis workspace={active} />
       <section aria-labelledby="home-browse-title" className={homeStyles.browse}>

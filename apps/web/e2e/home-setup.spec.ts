@@ -13,13 +13,13 @@ const item = (n: number) => ({
   dueDate: "2026-11-06",
 });
 
-test("home shows my work, tiles, a badge on My work and stays under 30 links", async ({ page }) => {
+test("home shows the attention feed, a badge on My work and stays under 30 links", async ({ page }) => {
   await page.route("**/api/v1/inbox**", (route) => route.fulfill({ json: { items: [item(1), item(2), item(3)], unavailable: [], truncated: [] } }));
   const shell = new ShellPage(page);
   await shell.goto("/");
   const main = page.getByRole("main");
-  await expect(main.getByText("3 items are waiting for you.")).toBeVisible();
-  await expect(main.getByRole("list", { name: "My work at a glance" })).toContainText("Overdue");
+  await expect(main.getByText("3 items need your attention.")).toBeVisible();
+  await expect(main.getByRole("list", { name: "Needs your attention" }).getByRole("link", { name: "Review Requisition approval PR-1001" })).toBeVisible();
   await expect(shell.workspaceNav.getByRole("link", { name: /^My work.*3 waiting$/ })).toBeVisible();
   expect(await main.getByRole("link").count()).toBeLessThanOrEqual(30);
 });

@@ -73,3 +73,17 @@ No ERP flow depends on the assistant (ADR-0001). `shell/assistant/AvailabilityPr
 | Opens with `show me`, `list`, `open`, `go to`, `find`, `create`, `new` or `start`, such as "show me overdue invoices over $10k" or "create a PO for 50 widgets from Acme" | navigate |
 | Ends with `?` or starts with `what`, `which`, `who`, `why`, `how many`, `how much`, `when`, `compare`, `explain`, `total` or `trend`, such as "what is the total of our overdue invoices over $10k?" | ask |
 | Anything else goes to the model; confidence under 0.6, or under 0.15 ahead of the runner-up | clarify |
+
+## Attention feed (DEPOT-280)
+
+The home card "Needs your attention" (`shell/home/AttentionFeed.tsx`, rules in `shell/home/feedSources.ts`) replaces the My work strip. Each source is requested only when the user holds its duty, and fails on its own: the card names the unavailable source in a warning with a Retry button.
+
+| Source | API | Duty | Dedupe key | Category |
+|---|---|---|---|---|
+| Workflow inbox tasks | `GET /api/v1/inbox` (the shared inbox read) | `inbox.read` | `inbox:<source>:<id>` | inbox |
+| MRP messages | `GET /api/v1/planning/messages?planCode=MAIN&status=open&sort=priority&limit=50` | `planning.read` | `planning:<id>` | exception |
+
+- Ranking: overdue first (a due date before today, or a planning delay above zero), then amount, then age in days, then key. Planning messages carry no amount.
+- De-duplication: one row per key; when categories collide the exception wins over the inbox task.
+- One-click: not built. Every row is Review-only, so no posting or payment action is reachable from home. The default-deny inline Approve and Reject rule is a later slice.
+- Deferred sources, none queried or shown: three-way match exceptions (DEPOT-342), anomaly review tasks (DEPOT-343), agent approvals in the inbox (DEPOT-344). Agent approvals as a source are a later slice of DEPOT-280. See `modules/copilot/NOT-IMPLEMENTED.md`.
