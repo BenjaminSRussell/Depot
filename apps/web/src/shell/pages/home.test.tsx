@@ -30,6 +30,8 @@ const modules: DepotModule[] = [
   },
 ];
 
+const recordModules: DepotModule[] = [{ id: "ledger", title: "General ledger", routes: [{ path: "/ledger/entries/:id", element: <div>Entry</div> }], nav: [] }];
+
 const item = (n: number) => ({
   id: `00000000-0000-4000-8000-00000000000${n}`,
   source: "purchasing",
@@ -57,6 +59,7 @@ function renderHome(duties: string[], shellModules: DepotModule[] = modules, ent
           <Route path="/" element={<HomePage />} />
           <Route path="/copilot" element={<CopilotHome />} />
           <Route path="/features" element={<AllFeaturesPage />} />
+          <Route path="/ledger/entries/:id" element={<div>Entry</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -311,6 +314,53 @@ describe("role home", () => {
       renderHome([COPILOT_DUTY], modules, { pathname: "/copilot" });
       await screen.findByRole("heading", { name: "Copilot" });
       expect(chats()).toHaveLength(0);
+    });
+
+    it("answers a question asked from the command bar while the copilot page is already open", async () => {
+      const user = userEvent.setup();
+      clearHandedOffPrompt();
+      server.handler = chat();
+      renderHome([COPILOT_DUTY], modules, { pathname: "/copilot" });
+      await screen.findByRole("heading", { name: "Copilot" });
+      expect(chats()).toHaveLength(0);
+      await user.keyboard("{Control>}k{/Control}");
+      await user.type(await screen.findByLabelText("Find a page"), "zzqq");
+      await screen.findByRole("group", { name: "Assistant" });
+      await user.keyboard("{Enter}");
+      await waitFor(() => expect(chats().map((c) => c.body)).toContainEqual({ mode: "ask", message: "zzqq" }));
+    });
+
+    it("sends each new command-bar prompt once while the copilot page stays open", async () => {
+      const user = userEvent.setup();
+      clearHandedOffPrompt();
+      server.handler = chat();
+      renderHome([COPILOT_DUTY], modules, { pathname: "/copilot" });
+      await screen.findByRole("heading", { name: "Copilot" });
+      for (const text of ["zzqq", "yyww"]) {
+        await user.keyboard("{Control>}k{/Control}");
+        await user.type(await screen.findByLabelText("Find a page"), text);
+        await screen.findByRole("group", { name: "Assistant" });
+        await user.keyboard("{Enter}");
+        await waitFor(() => expect(chats().map((c) => c.body)).toContainEqual({ mode: "ask", message: text }));
+      }
+      await user.type(screen.getByLabelText("Ask Copilot"), "more");
+      const sent = chats().map((c) => c.body as { mode: string; message: string });
+      expect(sent.filter((b) => b.mode === "ask" && (b.message === "zzqq" || b.message === "yyww"))).toHaveLength(2);
+    });
+
+    it("updates the record context when Ctrl+/ is pressed on a record page and again on the copilot page", async () => {
+      const user = userEvent.setup();
+      clearHandedOffPrompt();
+      server.handler = chat();
+      renderHome([COPILOT_DUTY], recordModules, { pathname: "/ledger/entries/JE-77" });
+      await user.keyboard("{Control>}/{/Control}");
+      await user.type(await screen.findByLabelText("Ask Copilot"), "first");
+      await user.click(screen.getByRole("button", { name: "Send" }));
+      await waitFor(() => expect(chats().map((c) => c.body)).toContainEqual({ mode: "ask", message: "first", recordRef: "record:entries/JE-77" }));
+      await user.keyboard("{Control>}/{/Control}");
+      await user.type(await screen.findByLabelText("Ask Copilot"), "second");
+      await user.click(screen.getByRole("button", { name: "Send" }));
+      await waitFor(() => expect(chats().map((c) => c.body)).toContainEqual({ mode: "ask", message: "second" }));
     });
 
     it("sends nothing when the handed-off prompt is older than ten seconds", async () => {
