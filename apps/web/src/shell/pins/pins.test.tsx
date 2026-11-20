@@ -11,7 +11,7 @@ import { pageViolations, useFakeServer } from "../testing/fakeServer";
 import { completedOnboardingStorage } from "../testing/onboardingFixtures";
 import { HomePage } from "../pages/HomePage";
 import { addPin, MAX_PINS, readPins, type PinTarget } from "./pinStore";
-import { RECORD_ROUTES } from "./pinTargets";
+import { pinTargetFor, RECORD_ROUTES } from "./pinTargets";
 
 vi.mock("../lookup/entities", async (importOriginal) => ({ ...(await importOriginal<typeof import("../lookup/entities")>()), resolveOption: vi.fn() }));
 
@@ -243,5 +243,15 @@ describe("record links", () => {
     const typeNames = new Map([...storeSource.matchAll(/^\s*(Type\w+)\s*=\s*"(\w+)"/gm)].map((m) => [m[1], m[2]]));
     const sources = [...apiSource.matchAll(/\{store\.(Type\w+), \[\]string\{[^}]*\}, "([^"]+)"/g)].map((m) => [typeNames.get(m[1] ?? "") ?? m[1], m[2]]);
     expect(Object.fromEntries(Object.entries(RECORD_ROUTES).map(([type, path]) => [type, path.replace(":id", "%s")]))).toEqual(Object.fromEntries(sources));
+  });
+});
+
+describe("pinTargetFor", () => {
+  const literalRoutes = new Set(["/product/released"]);
+
+  it("offers no pin for a registered literal route that is not a nav page", () => {
+    expect(pinTargetFor("/product/released", false, literalRoutes)).toBeNull();
+    expect(pinTargetFor("/product/p-1", false, literalRoutes)).toEqual({ kind: "record", recordType: "product", id: "p-1" });
+    expect(pinTargetFor("/product/released", true, literalRoutes)).toEqual({ kind: "page", route: "/product/released" });
   });
 });

@@ -128,6 +128,10 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
   const config = useMemo(() => workspaceConfig ?? loadWorkspaceConfig(settings.workspaceOverride), [workspaceConfig, settings.workspaceOverride]);
   const navEntries = useMemo(() => resolveNavEntries(modules, config.areas), [modules, config]);
   const navEntryByTo = useMemo(() => new Map(navEntries.map((e) => [e.to, e])), [navEntries]);
+  const literalRoutes = useMemo(
+    () => new Set(allModules.flatMap((m) => m.routes.map((r) => r.path ?? "")).filter((path) => path !== "" && !path.includes(":"))),
+    [allModules],
+  );
   const entries = useMemo<PaletteEntry[]>(
     () => [
       ...shellNav.map((n) => ({ id: `shell:${n.to}`, group: copy.nav.general, label: n.label, to: n.to, icon: n.icon })),
@@ -366,7 +370,7 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
       <WorkspaceNavProvider entries={navEntries} config={config}>
       <InboxProvider>
       <RecentProvider identity={userId}>
-      <PinsProvider key={userId} identity={userId} canOpen={canOpen} pageLabels={navEntryByTo} announce={announce}>
+      <PinsProvider key={userId} identity={userId} canOpen={canOpen} pageLabels={navEntryByTo} literalRoutes={literalRoutes} announce={announce}>
       <RecentTracker entries={navEntryByTo} />
       <TourProvider identity={userId} storage={onboardingStorage} titleRef={titleRef}>
       <div className={styles.root} data-density={density}>

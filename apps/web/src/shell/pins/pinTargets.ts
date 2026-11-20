@@ -27,8 +27,9 @@ export const RECORD_LOOKUP: Partial<Record<RecordType, LookupEntityKey>> = {
   worker: "worker",
 };
 
-export function pinTargetFor(pathname: string, hasPage: boolean): PinTarget | null {
+export function pinTargetFor(pathname: string, hasPage: boolean, literalRoutes: ReadonlySet<string> = new Set()): PinTarget | null {
   if (hasPage) return { kind: "page", route: pathname };
+  if (literalRoutes.has(pathname)) return null;
   for (const [recordType, path] of Object.entries(RECORD_ROUTES) as [RecordType, string][]) {
     const id = matchPath({ path, end: true }, pathname)?.params.id;
     if (id !== undefined && id !== "new") return { kind: "record", recordType, id };

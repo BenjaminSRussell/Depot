@@ -53,7 +53,7 @@ LLM_HOSTS = {
     "openai": "api.openai.com",
 }
 CUI_BEDROCK_HOST = "bedrock-runtime.us-gov-west-1.amazonaws.com"
-PAGERDUTY_HOST ="events.pagerduty.com"
+PAGERDUTY_HOST = "events.pagerduty.com"
 GHCR_HOST = "ghcr.io"
 GENERATED_NOTE = "Generated from deploy/cloud-profiles/profiles.json by deploy/cloud-profiles/cloudprofile.py; do not edit."
 

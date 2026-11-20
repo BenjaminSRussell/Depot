@@ -39,18 +39,19 @@ export interface PinsProviderProps {
   identity: string;
   canOpen(to: string): boolean;
   pageLabels: ReadonlyMap<string, { label: string }>;
+  literalRoutes?: ReadonlySet<string>;
   announce(message: string, visual?: boolean): void;
   storage?: PreferenceStorage;
   children: ReactNode;
 }
 
 /** The pages and records this person pinned, kept in this browser only, per signed-in identity. */
-export function PinsProvider({ identity, canOpen, pageLabels, announce, storage = localPreferenceStorage, children }: PinsProviderProps) {
+export function PinsProvider({ identity, canOpen, pageLabels, literalRoutes, announce, storage = localPreferenceStorage, children }: PinsProviderProps) {
   const { pathname } = useLocation();
   const [available] = useState(() => identity !== "" && probeStorage(storage));
   const [pins, setPins] = useState<Pin[]>(() => (available ? readPins(identity, storage) : []));
   const pageLabel = useCallback((route: string) => pageLabels.get(route)?.label, [pageLabels]);
-  const target = useMemo(() => (canOpen(pathname) ? pinTargetFor(pathname, pageLabels.has(pathname)) : null), [canOpen, pathname, pageLabels]);
+  const target = useMemo(() => (canOpen(pathname) ? pinTargetFor(pathname, pageLabels.has(pathname), literalRoutes) : null), [canOpen, pathname, pageLabels, literalRoutes]);
   const key = target === null ? null : pinKey(target);
   const pinned = key !== null && pins.some((p) => pinKey(p) === key);
 

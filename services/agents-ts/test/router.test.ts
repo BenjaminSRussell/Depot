@@ -45,9 +45,7 @@ describe("agents HTTP surface", () => {
       versions: { next: () => ++version },
       approvals: {
         async find(tenantId, runId, actionId) {
-          return tenantId === T1 && runId === RUN && actionId === ACT
-            ? pending
-            : undefined;
+          return tenantId === T1 && runId === RUN && actionId === ACT ? pending : undefined;
         },
         async record(_t, _r, _a, decision: RecordedDecision) {
           pending.decided ??= decision;
@@ -62,9 +60,7 @@ describe("agents HTTP surface", () => {
     server = createServer((req, res) => {
       void handler(req, res);
     });
-    await new Promise<void>((resolve) =>
-      server.listen(0, "127.0.0.1", resolve),
-    );
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 
@@ -91,9 +87,7 @@ describe("agents HTTP surface", () => {
       version: 1,
       byUser: ADMIN,
     });
-    expect(published.map((e) => e.type)).toEqual([
-      "dev.depot.agent.killswitch.changed.v1",
-    ]);
+    expect(published.map((e) => e.type)).toEqual(["dev.depot.agent.killswitch.changed.v1"]);
     expect(registry.isHalted(T1)).toBe(true);
 
     const again = await kill(true);
@@ -146,8 +140,7 @@ describe("agents HTTP surface", () => {
       title: "Forbidden",
       status: 403,
       code: "AGT-0203",
-      detail:
-        "I cannot do that: you do not hold duty agents.admin required by the tenant kill switch.",
+      detail: "I cannot do that: you do not hold duty agents.admin required by the tenant kill switch.",
       instance: "/api/v1/agents/kill-switch",
     });
   });
@@ -160,10 +153,7 @@ describe("agents HTTP surface", () => {
       headers: admin,
     });
     expect(missing.status).toBe(404);
-    const badId = await fetch(
-      `${base}/api/v1/agents/runs/%E0%A4%A/actions/${ACT}/decision`,
-      { method: "POST", headers: admin, body: "{}" },
-    );
+    const badId = await fetch(`${base}/api/v1/agents/runs/%E0%A4%A/actions/${ACT}/decision`, { method: "POST", headers: admin, body: "{}" });
     expect(badId.status).toBe(404);
     const wrong = await fetch(`${base}/api/v1/agents/kill-switch`, {
       method: "DELETE",
@@ -196,14 +186,11 @@ describe("agents HTTP surface", () => {
 
   it("records an approval decision and answers 404 for an action that does not exist", async () => {
     const sup = edgeHeaders(T1, SUP, "APInvoicePost");
-    const ok = await fetch(
-      `${base}/api/v1/agents/runs/${RUN}/actions/${ACT}/decision`,
-      {
-        method: "POST",
-        headers: sup,
-        body: JSON.stringify({ decision: "APPROVED" }),
-      },
-    );
+    const ok = await fetch(`${base}/api/v1/agents/runs/${RUN}/actions/${ACT}/decision`, {
+      method: "POST",
+      headers: sup,
+      body: JSON.stringify({ decision: "APPROVED" }),
+    });
     expect(ok.status).toBe(200);
     expect(await ok.json()).toEqual({
       runId: RUN,
@@ -212,24 +199,18 @@ describe("agents HTTP surface", () => {
       approverUserId: SUP,
       decidedAt: NOW.toISOString(),
     });
-    const conflict = await fetch(
-      `${base}/api/v1/agents/runs/${RUN}/actions/${ACT}/decision`,
-      {
-        method: "POST",
-        headers: sup,
-        body: JSON.stringify({ decision: "REJECTED" }),
-      },
-    );
+    const conflict = await fetch(`${base}/api/v1/agents/runs/${RUN}/actions/${ACT}/decision`, {
+      method: "POST",
+      headers: sup,
+      body: JSON.stringify({ decision: "REJECTED" }),
+    });
     expect(conflict.status).toBe(409);
     const other = "00000000-0000-7000-8000-00000000f003";
-    const missing = await fetch(
-      `${base}/api/v1/agents/runs/${RUN}/actions/${other}/decision`,
-      {
-        method: "POST",
-        headers: sup,
-        body: JSON.stringify({ decision: "APPROVED" }),
-      },
-    );
+    const missing = await fetch(`${base}/api/v1/agents/runs/${RUN}/actions/${other}/decision`, {
+      method: "POST",
+      headers: sup,
+      body: JSON.stringify({ decision: "APPROVED" }),
+    });
     expect(missing.status).toBe(404);
     expect(await missing.json()).toMatchObject({ code: "AGT-0404" });
   });
@@ -250,14 +231,11 @@ describe("agents HTTP surface", () => {
     const s = createServer((req, res) => void failing(req, res));
     await new Promise<void>((resolve) => s.listen(0, "127.0.0.1", resolve));
     try {
-      const res = await fetch(
-        `http://127.0.0.1:${(s.address() as AddressInfo).port}/api/v1/agents/kill-switch`,
-        {
-          method: "POST",
-          headers: admin,
-          body: JSON.stringify({ scope: "TENANT", tenantId: T1, active: true }),
-        },
-      );
+      const res = await fetch(`http://127.0.0.1:${(s.address() as AddressInfo).port}/api/v1/agents/kill-switch`, {
+        method: "POST",
+        headers: admin,
+        body: JSON.stringify({ scope: "TENANT", tenantId: T1, active: true }),
+      });
       expect(res.status).toBe(500);
       const text = await res.text();
       expect(text).toContain("AGT-0500");
@@ -270,14 +248,8 @@ describe("agents HTTP surface", () => {
 
 /** `METHOD /path` for every operation under `paths:` in api/openapi.yaml. */
 function documentedOperations(): string[] {
-  const text = readFileSync(
-    new URL("../api/openapi.yaml", import.meta.url),
-    "utf8",
-  );
-  const paths = text.slice(
-    text.indexOf("\npaths:\n"),
-    text.indexOf("\ncomponents:\n"),
-  );
+  const text = readFileSync(new URL("../api/openapi.yaml", import.meta.url), "utf8");
+  const paths = text.slice(text.indexOf("\npaths:\n"), text.indexOf("\ncomponents:\n"));
   const ops: string[] = [];
   let current = "";
   for (const line of paths.split("\n")) {
@@ -353,13 +325,7 @@ describe("api/openapi.yaml matches the router", () => {
       const base = `http://127.0.0.1:${(s.address() as AddressInfo).port}`;
       for (const op of documentedOperations()) {
         const [method, template] = op.split(" ") as [string, string];
-        const url = template
-          .replace("{runId}", RUN)
-          .replace("{id}", RUN)
-          .replace("{actionId}", ACT)
-          .replace("{agentId}", "ap_coding")
-          .replace("{conversationId}", RUN)
-          .replace("{step}", "plan");
+        const url = template.replace("{runId}", RUN).replace("{id}", RUN).replace("{actionId}", ACT).replace("{agentId}", "ap_coding").replace("{conversationId}", RUN).replace("{step}", "plan");
         // Anonymous: a served route answers 401, an unserved one 404 or 405.
         const res = await fetch(`${base}${url}`, {
           method,
@@ -400,20 +366,14 @@ describe("agents availability sign-off gate", () => {
     const server = createServer((req, res) => {
       void handler(req, res);
     });
-    await new Promise<void>((resolve) =>
-      server.listen(0, "127.0.0.1", resolve),
-    );
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     return {
       server,
       base: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
     };
   };
-  const closeServer = (server: Server) =>
-    new Promise<void>((resolve) => server.close(() => resolve()));
-  const read = async (
-    aiEnabled: boolean | undefined,
-    duty = "mcp.copilot.use",
-  ) => {
+  const closeServer = (server: Server) => new Promise<void>((resolve) => server.close(() => resolve()));
+  const read = async (aiEnabled: boolean | undefined, duty = "mcp.copilot.use") => {
     const { server, base } = await serve(aiEnabled);
     try {
       const res = await fetch(`${base}/api/v1/agents/availability`, {
@@ -458,12 +418,7 @@ describe("agents availability sign-off gate", () => {
     expect(out.body).not.toHaveProperty("signoffPending");
   });
 
-  const post = async (
-    aiEnabled: boolean | undefined,
-    path: string,
-    duty = "mcp.copilot.use",
-    body = "{}",
-  ) => {
+  const post = async (aiEnabled: boolean | undefined, path: string, duty = "mcp.copilot.use", body = "{}") => {
     const { server, base } = await serve(aiEnabled);
     try {
       const res = await fetch(`${base}${path}`, {
@@ -482,27 +437,20 @@ describe("agents availability sign-off gate", () => {
   const CONVERSATION = "/api/v1/agents/copilot/conversations";
   const MESSAGES = `${CONVERSATION}/${RUN}/messages`;
 
-  it.each(["/api/v1/copilot/chat", CONVERSATION, MESSAGES])(
-    "refuses %s while the gate is closed",
-    async (path) => {
-      const out = await post(false, path);
-      expect(out.status).toBe(403);
-      expect(out.body).toMatchObject({ code: "AGT-0203" });
-    },
-  );
+  it.each(["/api/v1/copilot/chat", CONVERSATION, MESSAGES])("refuses %s while the gate is closed", async (path) => {
+    const out = await post(false, path);
+    expect(out.status).toBe(403);
+    expect(out.body).toMatchObject({ code: "AGT-0203" });
+  });
 
   it("keeps the duty refusal ahead of the gate and an open gate reaching the route", async () => {
-    expect(
-      ((await post(false, CONVERSATION, "")).body as { detail: string }).detail,
-    ).toContain("duty");
+    expect(((await post(false, CONVERSATION, "")).body as { detail: string }).detail).toContain("duty");
     expect((await post(true, CONVERSATION)).status).toBe(201);
     expect((await post(undefined, CONVERSATION)).status).toBe(201);
   });
 
   const CHUNKS = JSON.stringify({
-    chunks: [
-      { sourceType: "DOC", sourceRef: "d1", section: "s", body: "text" },
-    ],
+    chunks: [{ sourceType: "DOC", sourceRef: "d1", section: "s", body: "text" }],
   });
   const SEARCH = JSON.stringify({ query: "how" });
   const knowledgeRoutes = [
@@ -510,38 +458,25 @@ describe("agents availability sign-off gate", () => {
     ["/api/v1/knowledge/search", "mcp.copilot.use", SEARCH],
   ] as const;
 
-  it.each(knowledgeRoutes)(
-    "refuses %s while the gate is closed, with the chat status and code",
-    async (path, duty, body) => {
-      const out = await post(false, path, duty, body);
-      expect(out.status).toBe(403);
-      expect(out.body).toMatchObject({ code: "AGT-0203" });
-    },
-  );
+  it.each(knowledgeRoutes)("refuses %s while the gate is closed, with the chat status and code", async (path, duty, body) => {
+    const out = await post(false, path, duty, body);
+    expect(out.status).toBe(403);
+    expect(out.body).toMatchObject({ code: "AGT-0203" });
+  });
 
-  it.each(knowledgeRoutes)(
-    "keeps the duty refusal ahead of the gate on %s",
-    async (path, _duty, body) => {
-      const out = await post(false, path, "", body);
-      expect(out.status).toBe(403);
-      expect((out.body as { detail: string }).detail).toContain("duty");
-    },
-  );
+  it.each(knowledgeRoutes)("keeps the duty refusal ahead of the gate on %s", async (path, _duty, body) => {
+    const out = await post(false, path, "", body);
+    expect(out.status).toBe(403);
+    expect((out.body as { detail: string }).detail).toContain("duty");
+  });
 
-  it.each(knowledgeRoutes)(
-    "serves %s when the gate is open or unconfigured",
-    async (path, duty, body) => {
-      expect((await post(true, path, duty, body)).status).toBe(200);
-      expect((await post(undefined, path, duty, body)).status).toBe(200);
-    },
-  );
+  it.each(knowledgeRoutes)("serves %s when the gate is open or unconfigured", async (path, duty, body) => {
+    expect((await post(true, path, duty, body)).status).toBe(200);
+    expect((await post(undefined, path, duty, body)).status).toBe(200);
+  });
 
   it("leaves briefing generation, which calls no model, reachable while the gate is closed", async () => {
-    const out = await post(
-      false,
-      "/api/v1/agents/briefings:generate",
-      "agents.invoke",
-    );
+    const out = await post(false, "/api/v1/agents/briefings:generate", "agents.invoke");
     expect(out.status).toBe(202);
   });
 });

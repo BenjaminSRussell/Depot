@@ -1,19 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { PreferenceStorage } from "../preferenceStorage";
+import { memoryStorage as fixtureStorage } from "../testing/onboardingFixtures";
 import { addPin, MAX_PINS, moveAmong, pinKey, pinsKey, probeStorage, readPins, removePin, type PinTarget } from "./pinStore";
 
-function memoryStorage(initial: Record<string, string> = {}, refuseWrites = false): PreferenceStorage & { data: Map<string, string> } {
-  const data = new Map(Object.entries(initial));
-  return {
-    data,
-    read: (key) => data.get(key) ?? null,
-    write: (key, value) => {
-      if (refuseWrites) return false;
-      data.set(key, value);
-      return true;
-    },
-    remove: (key) => void data.delete(key),
-  };
+function memoryStorage(initial: Record<string, string> = {}, refuseWrites = false) {
+  const storage = fixtureStorage(initial);
+  return refuseWrites ? { ...storage, write: () => false } : storage;
 }
 
 const page = (route: string): PinTarget => ({ kind: "page", route });
@@ -33,7 +24,7 @@ describe("pin store", () => {
       { kind: "page", route: "/ledger/journal-batches", at: "2026-11-19T10:00:00.000Z" },
       { kind: "record", recordType: "purchase_order", id: "po-1", at: "2026-11-19T10:00:00.000Z" },
     ]);
-    expect(Object.keys(JSON.parse(storage.data.get("depot.pins.v1.ann") ?? "[]")[1]).sort()).toEqual(["at", "id", "kind", "recordType"]);
+    expect(Object.keys(JSON.parse(storage.entries.get("depot.pins.v1.ann") ?? "[]")[1]).sort()).toEqual(["at", "id", "kind", "recordType"]);
   });
 
   it("pins the same page twice as one row", () => {
@@ -43,9 +34,9 @@ describe("pin store", () => {
 
   it("refuses the 21st pin and drops nothing", () => {
     const storage = seeded(...Array.from({ length: MAX_PINS }, (_, n) => order(`po-${n}`)));
-    const before = storage.data.get(pinsKey("ann"));
+    const before = storage.entries.get(pinsKey("ann"));
     expect(addPin("ann", order("one-more"), storage, NOW)).toEqual({ ok: false, reason: "limit" });
-    expect(storage.data.get(pinsKey("ann"))).toBe(before);
+    expect(storage.entries.get(pinsKey("ann"))).toBe(before);
     expect(readPins("ann", storage)).toHaveLength(MAX_PINS);
   });
 
@@ -60,7 +51,7 @@ describe("pin store", () => {
     expect(readPins("ann", storage).map(pinKey)).toEqual(["page:/a"]);
     expect(readPins("bob", storage).map(pinKey)).toEqual(["page:/b"]);
     expect(addPin("", page("/c"), storage, NOW)).toEqual({ ok: false, reason: "storage" });
-    expect([...storage.data.keys()].sort()).toEqual(["depot.pins.v1.ann", "depot.pins.v1.bob"]);
+    expect([...storage.entries.keys()].sort()).toEqual(["depot.pins.v1.ann", "depot.pins.v1.bob"]);
   });
 
   it("removes a pin, and removing one that is not there changes nothing", () => {
@@ -121,7 +112,7 @@ describe("pin store", () => {
   it("probes storage with a write, a read and a remove", () => {
     const storage = memoryStorage();
     expect(probeStorage(storage)).toBe(true);
-    expect(storage.data.size).toBe(0);
+    expect(storage.entries.size).toBe(0);
     expect(probeStorage(memoryStorage({}, true))).toBe(false);
     expect(probeStorage({ read: () => "other", write: () => true, remove: () => undefined })).toBe(false);
   });
