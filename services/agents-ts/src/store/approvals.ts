@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { ApprovalDetail, ApprovalReader, ApprovalRequest, ApprovalStore, RecordedDecision } from "../api/decision.js";
+import type { ApprovalDetail, ApprovalReader, ApprovalRequest, ApprovalStore, PendingApprovalDetail, RecordedDecision } from "../api/decision.js";
+import { DEFAULT_APPROVAL_EXPIRY_H } from "../domain/approval.js";
 import type { Money } from "../domain/money.js";
 import { approvalRequestedEvent } from "../domain/events.js";
 import { enqueueOutbox } from "./outbox.js";
@@ -137,6 +138,20 @@ export class PgApprovalStore implements ApprovalStore, ApprovalReader {
       (await c.query<Row>("select * from approval_request where tenant_id = $1 and action_id = $2", [tenantId, actionId])).rows[0],
     );
     return row === undefined ? undefined : { ...requestOf(row), runId: row.run_id, actionId: row.action_id, tool: row.tool_name };
+  }
+
+  async listPending(tenantId: string, duties: readonly string[], excludedAgents: readonly string[], notExpiredAtMs: number, limit: number): Promise<PendingApprovalDetail[]> {
+    return this.store.withTenant(tenantId, async (c) =>
+      (
+        await c.query<Row & { agent_id: string }>(
+          `select r.*, a.agent_id from approval_request r join agent_run a on a.tenant_id = r.tenant_id and a.run_id = r.run_id
+            where r.tenant_id = $1 and r.decided_at is null and r.approval_duty = any($2::text[]) and not (a.agent_id = any($3::text[]))
+              and r.requested_at + make_interval(hours => coalesce(r.expiry_hours, $4::int)) > $5::timestamptz
+            order by r.requested_at desc limit $6`,
+          [tenantId, [...duties], [...excludedAgents], DEFAULT_APPROVAL_EXPIRY_H, new Date(notExpiredAtMs), limit],
+        )
+      ).rows.map((row) => ({ ...requestOf(row), runId: row.run_id, actionId: row.action_id, tool: row.tool_name, agentId: row.agent_id })),
+    );
   }
 
   async record(tenantId: string, runId: string, actionId: string, d: RecordedDecision): Promise<RecordedDecision> {

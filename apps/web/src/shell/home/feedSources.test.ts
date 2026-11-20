@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "../../modules/planning/api/client";
 import type { InboxItem } from "../inbox/inbox";
-import { buildFeed, dedupeFeed, inboxToFeedItem, messageToFeedItem, rankFeed, type FeedItem } from "./feedSources";
+import type { PendingApproval } from "../../modules/copilot/api/proposals";
+import { approvalToFeedItem, buildFeed, dedupeFeed, inboxToFeedItem, inlineDecisions, isSafeOneClick, isSodRefusal, messageToFeedItem, rankFeed, SAFE_INLINE_TOOLS, type FeedItem } from "./feedSources";
 
 const NOW = new Date("2026-11-20T10:00:00Z");
 
@@ -36,6 +37,7 @@ const feedItem = (over: Partial<FeedItem>): FeedItem => ({
   reason: "Why",
   link: "/x",
   overdue: false,
+  expiring: false,
   amount: 0,
   ageDays: 0,
   ...over,
@@ -85,12 +87,14 @@ describe("messageToFeedItem", () => {
 
 describe("dedupeFeed", () => {
   it.each([
-    ["exception first", ["exception", "inbox"]],
-    ["inbox first", ["inbox", "exception"]],
-  ] as const)("keeps one row for a key and lets the exception win when %s", (_name, order) => {
+    ["approval, exception, inbox", ["approval", "exception", "inbox"], "approval"],
+    ["inbox, exception, approval", ["inbox", "exception", "approval"], "approval"],
+    ["exception first", ["exception", "inbox"], "exception"],
+    ["inbox first", ["inbox", "exception"], "exception"],
+  ] as const)("keeps one row for a key and lets the highest category win when %s", (_name, order, winner) => {
     const out = dedupeFeed(order.map((category) => feedItem({ key: "same", category })));
     expect(out).toHaveLength(1);
-    expect(out[0].category).toBe("exception");
+    expect(out[0].category).toBe(winner);
   });
 
   it("keeps rows with different keys", () => {
@@ -121,5 +125,74 @@ describe("rankFeed", () => {
     rankFeed(items);
     expect(items.map((i) => i.key)).toEqual(["b", "a"]);
     expect(buildFeed([])).toEqual([]);
+  });
+});
+
+const approval = (over: Partial<PendingApproval> = {}): PendingApproval => ({
+  runId: "r1",
+  actionId: "11111111-2222-4333-8444-555555555555",
+  agentId: "cash_application",
+  tool: "depot.ar.settlement.propose",
+  state: "PENDING",
+  amount: { amount: "1200.50", currency: "USD" },
+  requestedAt: "2026-11-19T10:00:00.000Z",
+  expiresAt: "2026-11-22T10:00:00.000Z",
+  ...over,
+});
+
+describe("approvalToFeedItem", () => {
+  it("keys by action id, links to the proposal, ranks by amount and ages in days", () => {
+    expect(approvalToFeedItem(approval(), NOW)).toMatchObject({
+      key: "approval:11111111-2222-4333-8444-555555555555",
+      category: "approval",
+      link: "/assistant/proposals/11111111-2222-4333-8444-555555555555",
+      amount: 1200.5,
+      ageDays: 1,
+      expiring: false,
+      overdue: false,
+    });
+  });
+
+  it.each([
+    ["inside 24 hours", "2026-11-21T09:00:00.000Z", true],
+    ["beyond 24 hours", "2026-11-22T10:00:00.000Z", false],
+  ])("marks expiry %s", (_name, expiresAt, expiring) => {
+    expect(approvalToFeedItem(approval({ expiresAt }), NOW).expiring).toBe(expiring);
+  });
+
+  it("ranks an expiring approval ahead of a larger one that is not", () => {
+    const ranked = rankFeed([feedItem({ key: "big", amount: 900 }), feedItem({ key: "soon", expiring: true })]);
+    expect(ranked.map((i) => i.key)).toEqual(["soon", "big"]);
+  });
+});
+
+describe("inlineDecisions (default deny)", () => {
+  const party = inboxToFeedItem(inbox({ source: "party", actions: ["approve", "reject"] }), NOW);
+  const approvalItem = approvalToFeedItem(approval(), NOW);
+
+  it.each([
+    ["a party task, duty held, both actions", party, ["party.approve"], ["approve", "reject"]],
+    ["a party task, duty missing", party, [], []],
+    ["a party task offering only approve", inboxToFeedItem(inbox({ source: "party", actions: ["approve"] }), NOW), ["party.approve"], ["approve"]],
+    ["a party task offering only open", inboxToFeedItem(inbox({ source: "party", actions: ["open"] }), NOW), ["party.approve"], []],
+    ["a purchasing task the web cannot decide", inboxToFeedItem(inbox(), NOW), ["procurement.requisition.approve"], []],
+    ["a settlement approval, not allowlisted", approvalItem, ["agents.run.read"], []],
+    ["an exception", messageToFeedItem(message(), NOW), ["planning.read", "party.approve"], []],
+    ["an item with no origin", feedItem({}), ["party.approve"], []],
+  ])("%s", (_name, item, duties, expected) => {
+    expect(inlineDecisions(item, duties)).toEqual(expected);
+    expect(isSafeOneClick(item, duties)).toBe(expected.length > 0);
+  });
+
+  it("allows an approval only for a tool on the explicit allowlist", () => {
+    SAFE_INLINE_TOOLS.add(approvalItem.origin?.type === "approval" ? approvalItem.origin.tool : "");
+    expect(inlineDecisions(approvalItem, [])).toEqual(["approve", "reject"]);
+    SAFE_INLINE_TOOLS.clear();
+  });
+
+  it("recognises the self-approval refusal code only", () => {
+    expect(isSodRefusal({ code: "AGT-0209" })).toBe(true);
+    expect(isSodRefusal({ code: "AGT-0203" })).toBe(false);
+    expect(isSodRefusal(null)).toBe(false);
   });
 });

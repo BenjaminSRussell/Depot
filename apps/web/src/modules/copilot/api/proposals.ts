@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defaultFetch, readProblem, type FetchLike } from "../../../shell/api/http";
+import { defaultFetch, readProblem, requestUrl, type FetchLike } from "../../../shell/api/http";
 
 export const approvalPath = (actionId: string) => `/api/v1/agents/approvals/${encodeURIComponent(actionId)}`;
 
@@ -30,4 +30,20 @@ export async function getApproval(actionId: string, signal?: AbortSignal, fetchF
   const parsed = approvalSchema.safeParse(await res.json());
   if (!parsed.success) throw new Error("The agent runtime sent a response we couldn't read.");
   return parsed.data;
+}
+
+export const APPROVALS_LIST_LIMIT = 50;
+
+const pendingApprovalsSchema = z.object({ items: z.array(approvalSchema.extend({ agentId: z.string() })) });
+
+export type PendingApproval = z.infer<typeof pendingApprovalsSchema>["items"][number];
+
+export async function listPendingApprovals(signal?: AbortSignal, fetchFn: FetchLike = defaultFetch): Promise<PendingApproval[]> {
+  const url = `/api/v1/agents/approvals?limit=${APPROVALS_LIST_LIMIT}`;
+  return (await requestUrl("GET", url, pendingApprovalsSchema, fetchFn, {}, undefined, signal)).items;
+}
+
+export async function decideAgentApproval(runId: string, actionId: string, decision: "approve" | "reject", fetchFn: FetchLike = defaultFetch): Promise<void> {
+  const url = `/api/v1/agents/runs/${encodeURIComponent(runId)}/actions/${encodeURIComponent(actionId)}/decision`;
+  await requestUrl("POST", url, z.unknown(), fetchFn, {}, { decision: decision === "approve" ? "APPROVED" : "REJECTED" });
 }

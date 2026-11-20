@@ -1,11 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearHandedOffPrompt, handOffPrompt } from "../assistant/session";
 import { CopilotHome } from "../../modules/copilot/pages";
 import { loadModules, type DepotModule } from "../../modules/registry";
 import { Shell } from "../Shell";
+import { SAFE_INLINE_TOOLS } from "../home/feedSources";
 import { AVAILABILITY_PATH } from "../assistant/availability";
 import { availableAssistant, json, pageViolations, server, useFakeServer, type Reply } from "../testing/fakeServer";
 import { completedOnboardingStorage } from "../testing/onboardingFixtures";
@@ -183,9 +184,24 @@ describe("role home", () => {
     });
     const inboxBody = (...items: Record<string, unknown>[]) => json(200, { items, unavailable: [], truncated: [] });
     const PLANNING = "/api/v1/planning/messages";
-    const serveBoth = (planning: Reply, inbox: Reply = inboxBody(item(1))) => {
-      server.handler = (url) => (url.pathname === "/api/v1/inbox" ? inbox : url.pathname === PLANNING ? planning : undefined);
+    const APPROVALS = "/api/v1/agents/approvals";
+    const NO_APPROVALS = json(200, { items: [] });
+    const serveBoth = (planning: Reply, inbox: Reply = inboxBody(item(1)), approvals: Reply = NO_APPROVALS) => {
+      server.handler = (url) => (url.pathname === "/api/v1/inbox" ? inbox : url.pathname === PLANNING ? planning : url.pathname === APPROVALS ? approvals : undefined);
     };
+    const approval = (n: number, over: Record<string, unknown> = {}) => ({
+      runId: `00000000-0000-4000-8000-0000000000a${n}`,
+      actionId: `00000000-0000-4000-8000-0000000000b${n}`,
+      agentId: "cash_application",
+      tool: "depot.ar.settlement.propose",
+      state: "PENDING",
+      amount: { amount: "1200.50", currency: "USD" },
+      requestedAt: "2026-11-19T10:00:00.000Z",
+      expiresAt: "2099-11-22T10:00:00.000Z",
+      ...over,
+    });
+    const partyItem = { ...item(1), id: "p1", source: "party", kind: "Customer change", number: "CC-1", actions: ["approve", "reject"] };
+    const decisionCalls = () => server.calls.filter((c) => c.method === "POST");
     const planningCalls = () => server.calls.filter((c) => c.url.pathname === PLANNING);
 
     it("merges inbox tasks and planning messages, overdue first, and requests open messages by priority", async () => {
@@ -251,15 +267,112 @@ describe("role home", () => {
       expect(planningCalls()).toHaveLength(2);
     });
 
-    it("offers only Review for every row, even an approvable inbox item", async () => {
+    it("offers only Review for exceptions and for inbox items of a source with no inline decision", async () => {
       serveBoth(json(200, { items: [message(1)] }), inboxBody({ ...item(1), actions: ["approve", "reject", "open"] }));
-      const { container } = renderHome(["inbox.read", "planning.read"]);
+      const { container } = renderHome(["inbox.read", "planning.read", "procurement.requisition.approve"]);
       await main().findByText("2 items need your attention.");
       const list = within(main().getByRole("list", { name: "Needs your attention" }));
       expect(list.queryByRole("button")).not.toBeInTheDocument();
-      expect(list.queryByRole("link", { name: /approve|reject/i })).not.toBeInTheDocument();
       expect(list.getAllByRole("link").every((l) => l.textContent === "Review")).toBe(true);
       expect(pageViolations(container)).toEqual([]);
+    });
+
+    it("offers inline Approve and Reject on a party task only to a holder of its decision duty", async () => {
+      serveBoth(json(200, { items: [] }), inboxBody(partyItem));
+      renderHome(["inbox.read"]);
+      await main().findByText("1 item needs your attention.");
+      expect(main().queryByRole("button", { name: /Approve Customer change CC-1/ })).not.toBeInTheDocument();
+      cleanup();
+      renderHome(["inbox.read", "party.approve"]);
+      expect(await main().findByRole("button", { name: "Approve Customer change CC-1" })).toBeInTheDocument();
+      expect(main().getByRole("button", { name: "Reject Customer change CC-1" })).toBeInTheDocument();
+      expect(main().getByRole("link", { name: "Review Customer change CC-1" })).toBeInTheDocument();
+    });
+
+    it("calls the decision endpoint once, removes the row and announces the result", async () => {
+      const user = userEvent.setup();
+      serveBoth(json(200, { items: [] }), inboxBody(partyItem));
+      const inner = server.handler;
+      server.handler = (url, init) => (url.pathname === "/api/v1/party/pending-changes/p1:approve" ? json(200, {}) : inner(url, init));
+      const { container } = renderHome(["inbox.read", "party.approve"]);
+      await user.click(await main().findByRole("button", { name: "Approve Customer change CC-1" }));
+      expect(await main().findByText("Customer change CC-1 approved.")).toBeInTheDocument();
+      expect(main().queryByRole("button", { name: /Customer change CC-1/ })).not.toBeInTheDocument();
+      expect(decisionCalls()).toHaveLength(1);
+      expect(pageViolations(container)).toEqual([]);
+    });
+
+    it.each([
+      ["a 409 conflict", 409, "PTY-0409"],
+      ["a 403", 403, "COM-0403"],
+    ])("restores the row and shows the problem on %s, with no retry", async (_name, status, code) => {
+      const user = userEvent.setup();
+      serveBoth(json(200, { items: [] }), inboxBody(partyItem));
+      const inner = server.handler;
+      server.handler = (url, init) => (url.pathname === "/api/v1/party/pending-changes/p1:approve" ? json(status, { code, detail: "refused" }) : inner(url, init));
+      renderHome(["inbox.read", "party.approve"]);
+      await user.click(await main().findByRole("button", { name: "Approve Customer change CC-1" }));
+      expect(await main().findByText(/Customer change CC-1 was not decided/)).toBeInTheDocument();
+      expect(main().getByRole("button", { name: "Approve Customer change CC-1" })).toBeEnabled();
+      expect(decisionCalls()).toHaveLength(1);
+    });
+
+    describe("agent approvals", () => {
+      afterEach(() => SAFE_INLINE_TOOLS.clear());
+
+      it("lists approvals with the AI badge, Why this?, Data used and a Review link to the proposal, and no inline decision for a settlement", async () => {
+        serveBoth(json(200, { items: [] }), inboxBody(), json(200, { items: [approval(1)] }));
+        const { container } = renderHome(["inbox.read", "agents.run.read"]);
+        await main().findByText("1 item needs your attention.");
+        const row = within(main().getByRole("group", { name: "AI suggestion" }));
+        expect(row.getByText(/AI-generated/)).toBeInTheDocument();
+        expect(row.getByRole("button", { name: "Why this?" })).toBeInTheDocument();
+        expect(row.getByRole("button", { name: "Data used" })).toBeInTheDocument();
+        expect(main().getByRole("link", { name: /^Review Agent approval/ })).toHaveAttribute("href", "/assistant/proposals/00000000-0000-4000-8000-0000000000b1");
+        expect(main().queryByRole("button", { name: /^(Approve|Reject)/ })).not.toBeInTheDocument();
+        expect(server.calls.filter((c) => c.url.pathname === APPROVALS)[0].url.search).toBe("?limit=50");
+        expect(pageViolations(container)).toEqual([]);
+      });
+
+      it("does not request approvals without agents.run.read", async () => {
+        serveBoth(json(200, { items: [] }), inboxBody(item(1)));
+        renderHome(["inbox.read"]);
+        await main().findByText("1 item needs your attention.");
+        expect(server.calls.filter((c) => c.url.pathname === APPROVALS)).toHaveLength(0);
+      });
+
+      it("names agent approvals as unavailable while the other sources render", async () => {
+        serveBoth(json(200, { items: [] }), inboxBody(item(1)), json(500, {}));
+        renderHome(["inbox.read", "agents.run.read"]);
+        expect(await main().findByText("Some items could not be loaded: agent approvals")).toBeInTheDocument();
+        expect(main().getByRole("link", { name: "Review Requisition approval PR-1" })).toBeInTheDocument();
+      });
+
+      it("decides an allowlisted tool inline through the run decision endpoint", async () => {
+        const user = userEvent.setup();
+        SAFE_INLINE_TOOLS.add("depot.ar.settlement.propose");
+        serveBoth(json(200, { items: [] }), inboxBody(), json(200, { items: [approval(1)] }));
+        const inner = server.handler;
+        server.handler = (url, init) => (url.pathname.endsWith("/decision") ? json(200, {}) : inner(url, init));
+        renderHome(["inbox.read", "agents.run.read"]);
+        await user.click(await main().findByRole("button", { name: /^Reject Agent approval/ }));
+        await waitFor(() => expect(decisionCalls()).toHaveLength(1));
+        expect(decisionCalls()[0].url.pathname).toBe("/api/v1/agents/runs/00000000-0000-4000-8000-0000000000a1/actions/00000000-0000-4000-8000-0000000000b1/decision");
+        expect(decisionCalls()[0].body).toEqual({ decision: "REJECTED" });
+      });
+
+      it("disables the control and gives the reason on AGT-0209", async () => {
+        const user = userEvent.setup();
+        SAFE_INLINE_TOOLS.add("depot.ar.settlement.propose");
+        serveBoth(json(200, { items: [] }), inboxBody(), json(200, { items: [approval(1)] }));
+        const inner = server.handler;
+        server.handler = (url, init) => (url.pathname.endsWith("/decision") ? json(403, { code: "AGT-0209", detail: "self approval" }) : inner(url, init));
+        renderHome(["inbox.read", "agents.run.read"]);
+        await user.click(await main().findByRole("button", { name: /^Approve Agent approval/ }));
+        expect(await main().findByText(/someone else must decide/)).toBeInTheDocument();
+        expect(main().getByRole("button", { name: /^Approve Agent approval/ })).toBeDisabled();
+        expect(decisionCalls()).toHaveLength(1);
+      });
     });
 
     it("says nothing needs attention when both enabled sources are empty", async () => {

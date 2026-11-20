@@ -143,8 +143,24 @@ export interface ApprovalDetail extends ApprovalRequest {
   tool: string;
 }
 
+export interface PendingApprovalDetail extends ApprovalDetail {
+  agentId: string;
+}
+
 export interface ApprovalReader {
   findByAction(tenantId: string, actionId: string): Promise<ApprovalDetail | undefined>;
+  listPending(tenantId: string, duties: readonly string[], excludedAgents: readonly string[], notExpiredAtMs: number, limit: number): Promise<PendingApprovalDetail[]>;
+}
+
+export const DEFAULT_APPROVAL_LIST_LIMIT = 50;
+export const MAX_APPROVAL_LIST_LIMIT = 200;
+
+export function parseApprovalListLimit(params: URLSearchParams): number {
+  const raw = params.get("limit");
+  if (raw === null) return DEFAULT_APPROVAL_LIST_LIMIT;
+  const limit = /^[0-9]{1,3}$/.test(raw) ? Number(raw) : 0;
+  if (limit < 1 || limit > MAX_APPROVAL_LIST_LIMIT) throw new ApiError(400, "AGT-0400", `limit must be an integer from 1 to ${MAX_APPROVAL_LIST_LIMIT}`);
+  return limit;
 }
 
 export interface ApprovalView {
@@ -161,6 +177,38 @@ export interface ApprovalView {
 export function approvalStateOf(request: ApprovalRequest, nowMs: number): ApprovalState {
   if (request.decided !== undefined) return request.decided.reason === "EXPIRED" ? "EXPIRED" : request.decided.decision;
   return nowMs >= approvalExpiresAtMs(request.requestedAtMs, request.expiryHours) ? "EXPIRED" : "PENDING";
+}
+
+export interface PendingApprovalView extends ApprovalView {
+  agentId: string;
+}
+
+export async function handleListApprovals(input: {
+  principal: Principal;
+  params: URLSearchParams;
+  reader: ApprovalReader;
+  disabledAgents: (tenantId: string) => Promise<ReadonlySet<string>>;
+  now: () => Date;
+}): Promise<{ items: PendingApprovalView[] }> {
+  const limit = parseApprovalListLimit(input.params);
+  const { tenantId, duties } = input.principal;
+  const nowMs = input.now().getTime();
+  const disabled = await input.disabledAgents(tenantId);
+  const rows = await input.reader.listPending(tenantId, [...duties], [...disabled], nowMs, limit);
+  const items = rows
+    .filter((r) => r.decided === undefined && duties.has(r.approvalDuty) && !disabled.has(r.agentId))
+    .map((r) => ({
+      agentId: r.agentId,
+      runId: r.runId,
+      actionId: r.actionId,
+      tool: r.tool,
+      state: approvalStateOf(r, nowMs),
+      amount: r.amount,
+      requestedAt: new Date(r.requestedAtMs).toISOString(),
+      expiresAt: new Date(approvalExpiresAtMs(r.requestedAtMs, r.expiryHours)).toISOString(),
+    }))
+    .filter((r) => r.state === "PENDING");
+  return { items };
 }
 
 export async function handleGetApproval(input: {

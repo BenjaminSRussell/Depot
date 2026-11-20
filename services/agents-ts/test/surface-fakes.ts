@@ -1,6 +1,6 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { ApprovalDetail, ApprovalRequest, RecordedDecision } from "../src/api/decision.js";
+import type { ApprovalDetail, ApprovalRequest, PendingApprovalDetail, RecordedDecision } from "../src/api/decision.js";
 import { createAgentsHandler, type AgentsApiDeps } from "../src/api/router.js";
 import { edgeHeaders, testAuthenticate } from "./jwt.js";
 import type { ActionDecline, ActionRecord } from "../src/domain/audit.js";
@@ -64,6 +64,7 @@ export class MemoryStore implements RunStore {
   readonly reserved: Array<{ agentId: string; tokensIn: number }> = [];
   budgetUsed = { in: 0, out: 0, limit: 1_000_000 };
   readonly approvals = new Map<string, ApprovalRequest & NewApproval & { actionId: string }>();
+  readonly agentOfRun = new Map<string, string>();
   private n = 0;
 
   async startRun(req: RunRequest): Promise<void> {
@@ -129,6 +130,15 @@ export class MemoryStore implements RunStore {
   }
   async findByAction(tenantId: string, actionId: string): Promise<ApprovalDetail | undefined> {
     return tenantId === T1 ? this.approvals.get(actionId) : undefined;
+  }
+  async listPending(tenantId: string, duties: readonly string[], excludedAgents: readonly string[], _notExpiredAtMs: number, limit: number): Promise<PendingApprovalDetail[]> {
+    if (tenantId !== T1) return [];
+    return [...this.approvals.values()]
+      .filter((a) => a.decided === undefined && duties.includes(a.approvalDuty))
+      .map((a) => ({ ...a, agentId: this.agentOfRun.get(a.runId) ?? "ap_coding" }))
+      .filter((a) => !excludedAgents.includes(a.agentId))
+      .sort((a, b) => b.requestedAtMs - a.requestedAtMs)
+      .slice(0, limit);
   }
   async record(_t: string, _r: string, actionId: string, d: RecordedDecision): Promise<RecordedDecision> {
     const a = this.approvals.get(actionId);

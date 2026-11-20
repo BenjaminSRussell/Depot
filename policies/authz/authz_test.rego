@@ -3358,6 +3358,8 @@ test_agent_run_duties_open_only_their_routes if {
 	not allowed("agents.invoke", "GET", "/api/v1/agents/runs/r1")
 	allowed("agents.run.read", "GET", "/api/v1/agents/runs/r1")
 	allowed("agents.run.read", "GET", "/api/v1/agents/runs/r1/actions")
+	allowed("agents.run.read", "GET", "/api/v1/agents/approvals")
+	not allowed("agents.invoke", "GET", "/api/v1/agents/approvals")
 	allowed("agents.run.read", "GET", "/api/v1/agents/approvals/a1")
 	not allowed("agents.invoke", "GET", "/api/v1/agents/approvals/a1")
 	not allowed("agents.run.read", "POST", "/api/v1/agents/approvals/a1")

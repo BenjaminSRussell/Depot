@@ -81,12 +81,15 @@ The home card "Needs your attention" (`shell/home/AttentionFeed.tsx`, rules in `
 | Source | API | Duty | Dedupe key | Category |
 |---|---|---|---|---|
 | Workflow inbox tasks | `GET /api/v1/inbox` (the shared inbox read) | `inbox.read` | `inbox:<source>:<id>` | inbox |
+| Agent approvals | `GET /api/v1/agents/approvals?limit=50` (pending, unexpired, caller's approval duties, agents disabled for the tenant left out by the server) | `agents.run.read` | `approval:<actionId>` | approval |
 | MRP messages | `GET /api/v1/planning/messages?planCode=MAIN&status=open&sort=priority&limit=50` | `planning.read` | `planning:<id>` | exception |
 
-- Ranking: overdue first (a due date before today, or a planning delay above zero), then amount, then age in days, then key. Planning messages carry no amount.
-- De-duplication: one row per key; when categories collide the exception wins over the inbox task.
-- One-click: not built. Every row is Review-only, so no posting or payment action is reachable from home. The default-deny inline Approve and Reject rule is a later slice.
-- Deferred sources, none queried or shown: three-way match exceptions (DEPOT-342), anomaly review tasks (DEPOT-343), agent approvals in the inbox (DEPOT-344). Agent approvals as a source are a later slice of DEPOT-280. See `modules/copilot/NOT-IMPLEMENTED.md`.
+- Ranking: overdue or expiring within 24 hours first (a due date before today, a planning delay above zero, an approval expiring soon), then amount, then age in days, then key. Planning messages carry no amount.
+- De-duplication: one row per key; precedence among categories is agent approval, then exception, then inbox task.
+- Agent approvals render inside the shared AI suggestion (AI badge, Why this?, Data used) and Review opens `/assistant/proposals/:approvalId`. The disabled-agent filter runs in the list endpoint because `GET /api/v1/agents/definitions` needs `agents.admin`, which an approver does not hold.
+- One-click is default deny (`inlineDecisions` in `feedSources.ts`). An inbox task gets Approve and Reject only when `decideInboxItem` supports its source (party today), its own `actions` offer the decision and the user holds the source's decision duty. An agent approval gets them only when its tool is in `SAFE_INLINE_TOOLS`, which is empty: no catalog tool is clearly non-posting, so every settlement, payment or posting proposal is Review-only. Exceptions are always Review-only.
+- Inline decisions: inbox tasks through `decideInboxItem`, agent approvals through `POST /api/v1/agents/runs/{runId}/actions/{actionId}/decision`. Success removes the row and announces it in a live region. A failure keeps the row, shows the problem with `ProblemMessage` and retries nothing. On `AGT-0209` the controls are disabled and the reason is shown; the web does not compute SoD and the server stays authoritative.
+- Deferred sources, none queried or shown: three-way match exceptions (DEPOT-342), anomaly review tasks (DEPOT-343), agent approvals in the inbox (DEPOT-344). See `modules/copilot/NOT-IMPLEMENTED.md`.
 
 ## Record assistant opt-in (DEPOT-284)
 

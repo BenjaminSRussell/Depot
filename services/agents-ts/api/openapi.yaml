@@ -157,6 +157,40 @@ paths:
         "413": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
         "428": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/approvals:
+    get:
+      operationId: listAgentApprovals
+      summary: The caller's pending, unexpired approval requests, newest first
+      description: |
+        Lists approval requests of the caller's tenant that are undecided and
+        not past their expiry (72 hours by default), for approval duties the
+        caller holds. Requests of an agent disabled for the tenant are left
+        out. Never reveals another approver's requests. Nothing is written.
+      x-depot-duty: agents.run.read
+      x-depot-approval: none
+      parameters:
+        - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      responses:
+        "200":
+          description: Pending approval requests.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      allOf:
+                        - {$ref: "#/components/schemas/ApprovalDetail"}
+                        - type: object
+                          required: [agentId]
+                          properties:
+                            agentId: {type: string}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "405": {$ref: "#/components/responses/Problem"}
   /api/v1/agents/approvals/{actionId}:
     get:
       operationId: getAgentApproval

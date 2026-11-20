@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { KillSwitchRegistry } from "../domain/killswitch.js";
-import { type ApprovalReader, type ApprovalStore, handleApprovalDecision, handleGetApproval } from "./decision.js";
+import { type ApprovalReader, type ApprovalStore, handleApprovalDecision, handleGetApproval, handleListApprovals } from "./decision.js";
 import { HEADER as SERVICE_TOKEN_HEADER, ServiceTokenError, type ServiceTokenVerifier } from "./serviceToken.js";
 import { StepRefusal, type RunSteps } from "../runtime/steps.js";
 import { handleKillSwitchCommand, type KillSwitchWiring, killSwitchStatusOf, readKillSwitchStatus } from "./killswitch.js";
@@ -12,7 +12,7 @@ import type { RunService } from "../runtime/service.js";
 import type { ActService } from "../runtime/act.js";
 import { handleChat } from "./copilot.js";
 import type { AgentBudgetService } from "./agentBudgets.js";
-import type { AgentDefinitionService } from "./agentDefinitions.js";
+import type { AgentDefinitionService, DisabledAgents } from "./agentDefinitions.js";
 import { type AiPolicyStore, handleGetAiDataPolicy, handlePutAiDataPolicy } from "./aiDataPolicy.js";
 import type { Authenticate } from "./auth.js";
 import { ApiError, requireDuty, toApiError } from "./principal.js";
@@ -32,6 +32,8 @@ export interface AgentsApiBase {
   approvals: ApprovalStore;
   /** The approval lookup by action id; absent and its route answers 404. */
   approvalReader?: ApprovalReader;
+  /** Agents disabled for the tenant; the pending-approvals list leaves their requests out. */
+  disabledAgents?: DisabledAgents;
   /** Run start and read endpoints; absent in a process that serves only the control routes. */
   runs?: RunService;
   /** Decline of an ungated action and undo; absent and an action with no approval request answers 404. */
@@ -76,6 +78,7 @@ const MESSAGES_PATH = new RegExp(`^/api/v1/agents/copilot/conversations/(${UUID}
 const KNOWLEDGE_CHUNKS_PATH = "/api/v1/knowledge/chunks";
 const KNOWLEDGE_SEARCH_PATH = "/api/v1/knowledge/search";
 const STEP_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/steps/(begin|plan|resolve|commit|abort)$`);
+const APPROVALS_PATH = "/api/v1/agents/approvals";
 const APPROVAL_PATH = new RegExp(`^/api/v1/agents/approvals/(${UUID})$`);
 const DECISION_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/actions/(${UUID})/decision$`);
 const UNDO_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/actions/(${UUID}):undo$`);
@@ -420,6 +423,19 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         if (req.method !== "POST") throw new MethodNotAllowed("POST");
         const principal = await deps.authenticate(req.headers);
         await deps.actions.undo(principal, (undo[1] ?? "").toLowerCase(), (undo[2] ?? "").toLowerCase(), await readBody(req, true));
+        return;
+      }
+      if (path === APPROVALS_PATH) {
+        if (deps.approvalReader === undefined) throw new ApiError(404, "AGT-0404", "no such route");
+        if (req.method !== "GET") throw new MethodNotAllowed("GET");
+        const principal = await deps.authenticate(req.headers);
+        send(res, 200, await handleListApprovals({
+          principal,
+          params: new URL(req.url ?? "/", "http://agents.internal").searchParams,
+          reader: deps.approvalReader,
+          disabledAgents: deps.disabledAgents ?? (async () => new Set()),
+          now,
+        }));
         return;
       }
       const approvalGet = APPROVAL_PATH.exec(path);
