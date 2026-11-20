@@ -224,6 +224,7 @@ async function main(): Promise<void> {
     config: {
       tokenCap: cfg.copilotTokenCap,
       maxTurns: cfg.copilotMaxTurns,
+      taskConnectTimeoutMs: cfg.taskConnectTimeoutMs,
       pseudonymTtlMs: 24 * 3_600_000,
     },
     modelId: cfg.copilotModel,

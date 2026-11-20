@@ -58,13 +58,27 @@ function routesOf(source: string, constants: ReadonlyMap<string, string>): Route
   return routes;
 }
 
-function constantsOf(dir: string): Map<string, string> {
+function mergeConstants(sources: readonly string[]): Map<string, string> {
   const out = new Map<string, string>();
-  for (const f of readdirSync(new URL(`${dir}/`, MODULES_DIR))) {
-    if (!f.endsWith(".ts") || f.endsWith(".test.ts")) continue;
-    for (const m of readFileSync(new URL(`${dir}/${f}`, MODULES_DIR), "utf8").matchAll(CONST_STRING)) out.set(m[1] ?? "", m[2] ?? "");
+  const conflicting = new Set<string>();
+  for (const source of sources) {
+    for (const m of source.matchAll(CONST_STRING)) {
+      const name = m[1] ?? "";
+      const value = m[2] ?? "";
+      if (out.has(name) && out.get(name) !== value) conflicting.add(name);
+      out.set(name, value);
+    }
   }
+  for (const name of conflicting) out.delete(name);
   return out;
+}
+
+function constantsOf(dir: string): Map<string, string> {
+  const sources: string[] = [];
+  for (const f of readdirSync(new URL(`${dir}/`, MODULES_DIR))) {
+    if (f.endsWith(".ts") && !f.endsWith(".test.ts")) sources.push(readFileSync(new URL(`${dir}/${f}`, MODULES_DIR), "utf8"));
+  }
+  return mergeConstants(sources);
 }
 
 function parseModules(): Modules {
@@ -164,5 +178,14 @@ describe("ROUTE_CATALOG against apps/web module.ts", () => {
     const drift = driftOf([{ routeKey: "party.search", path: "/party", duty: "party.read" }], { count: 1, nav: [], routes });
     expect(drift).toHaveLength(1);
     expect(drift[0]).toContain("could not be parsed");
+  });
+
+  it("leaves a constant unresolved when two files give it different values, so the route is flagged", () => {
+    const constants = mergeConstants(['const DUTY_READ = "party.read";', 'const DUTY_READ = "party.other";', 'const SAME = "x"; const OTHER = "y";', 'const SAME = "x";']);
+    expect(constants.has("DUTY_READ")).toBe(false);
+    expect(constants.get("SAME")).toBe("x");
+    expect(constants.get("OTHER")).toBe("y");
+    const routes = routesOf(`{ path: "/party", handle: { duty: DUTY_READ } },`, constants);
+    expect(routes).toEqual([{ path: "/party", duty: undefined, unparsedHandle: true }]);
   });
 });

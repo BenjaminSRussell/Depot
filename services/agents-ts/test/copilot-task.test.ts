@@ -182,8 +182,9 @@ describe("mode=task", () => {
     const search: ModelResponse = { text: "", proposal: { tool: "depot.help.search", args: { query: "open invoices" }, confidence: 1, amount: { amount: "0", currency: "USD" } } };
     const s = await setup([search, search, search]);
     const body = await (await task(s.base, "where are unpaid invoices")).json();
-    expect(s.mcp.calls).toHaveLength(TASK_MAX_TURNS);
+    expect(s.mcp.calls).toHaveLength(TASK_MAX_TURNS - 1);
     expect(s.provider.seen).toHaveLength(TASK_MAX_TURNS);
+    expect(s.provider.seen.map((c) => c.answerOnly === true)).toEqual([false, true]);
     expect(body).toEqual({ clarifyingQuestion: CLARIFY_FALLBACK, generated: true });
   });
 
@@ -198,7 +199,10 @@ describe("mode=task", () => {
   it("refuses with AGT-0203 when depot.help.search is denied upstream", async () => {
     const search: ModelResponse = { text: "", proposal: { tool: "depot.help.search", args: { query: "x" }, confidence: 1, amount: { amount: "0", currency: "USD" } } };
     const s = await setup([search], { helpResult: { ok: false, code: "AGT-0203", message: "the API refused depot.help.search for your permissions" } });
-    expect(await (await task(s.base, "hmm")).json()).toMatchObject({ refusal: { code: "AGT-0203" } });
+    const body = (await (await task(s.base, "hmm")).json()) as { refusal: { code: string; message: string } };
+    expect(body.refusal.code).toBe("AGT-0203");
+    expect(body.refusal.message).toBe("the API refused depot.help.search for your permissions");
+    expect(body.refusal.message).not.toMatch(/duty|mcp\.copilot\.use/);
   });
 
   it("asks a clarifying question when the model answers with text that is not a route", async () => {

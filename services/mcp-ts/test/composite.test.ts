@@ -54,6 +54,10 @@ describe("depot.meta.search_tools", () => {
     expect(await search([COPILOT], args).result).toMatchObject({ kind: "error", status: 400, code: "MCP-0400" });
   });
 
+  it("refuses a whitespace-only query with MCP-0400", async () => {
+    expect(await search([COPILOT], { query: "   " }).result).toMatchObject({ kind: "error", status: 400, code: "MCP-0400" });
+  });
+
   it("refuses tenant_id in the arguments", async () => {
     expect(await search([COPILOT], { query: "invoice", tenant_id: "x" }).result).toMatchObject({ code: "MCP-0400" });
   });
@@ -97,12 +101,14 @@ describe("depot.meta.search_tools", () => {
     expect(r.upstream.calls).toHaveLength(0);
   });
 
-  it("logs the failing local handler's error name and message server-side, without the arguments", async () => {
+  it("logs the failing local handler's error name and a stable code, never its message,, without the arguments", async () => {
     const boom = { ...compositeTools()[0]!, local: () => { throw new RangeError("handler broke"); } };
     const r = rig([boom, ...compositeTools().slice(1)]);
     const lines: Record<string, unknown>[] = [];
     await callTool({ ...r.deps, log: (rec) => lines.push(rec) }, principal([COPILOT]), SEARCH_TOOLS_NAME, { query: "private-words" });
-    expect(lines).toEqual([expect.objectContaining({ level: "error", message: "mcp.local_tool_failed", tool: SEARCH_TOOLS_NAME, code: "MCP-0500", errorName: "RangeError", error: "handler broke" })]);
+    expect(lines).toEqual([expect.objectContaining({ level: "error", message: "mcp.local_tool_failed", tool: SEARCH_TOOLS_NAME, code: "MCP-0500", errorName: "RangeError" })]);
+    expect(lines[0]).not.toHaveProperty("error");
+    expect(JSON.stringify(lines)).not.toContain("handler broke");
     expect(JSON.stringify(lines)).not.toContain("private-words");
   });
 
@@ -112,7 +118,8 @@ describe("depot.meta.search_tools", () => {
     const lines: Record<string, unknown>[] = [];
     const res = await callTool({ ...r.deps, log: (rec) => lines.push(rec) }, principal([COPILOT]), SEARCH_TOOLS_NAME, { query: "private-words" });
     expect(res).toMatchObject({ kind: "error", status: 500, code: "MCP-0500" });
-    expect(lines).toEqual([expect.objectContaining({ message: "mcp.local_tool_failed", errorName: "RangeError", error: "async broke" })]);
+    expect(lines).toEqual([expect.objectContaining({ message: "mcp.local_tool_failed", errorName: "RangeError" })]);
+    expect(JSON.stringify(lines)).not.toContain("async broke");
     expect(r.audit.entries).toMatchObject([{ outcome: "UPSTREAM_ERROR", status: 500 }]);
   });
 
@@ -184,6 +191,13 @@ describe("depot.help.search", () => {
     const r = helpRig();
     expect(await call(r, [COPILOT], args)).toMatchObject({ status: 400, code: "MCP-0422" });
     expect(r.upstream.calls).toHaveLength(0);
+  });
+
+  it.each([[{ query: 5 }], [{ query: {} }], [{ query: ["x"] }], [{ query: "   " }], [{ query: "\n\t" }]])("refuses a mistyped or blank query %j with MCP-0400 before the upstream", async (args) => {
+    const r = helpRig();
+    expect(await call(r, [COPILOT], args)).toMatchObject({ kind: "error", status: 400, code: "MCP-0400" });
+    expect(r.upstream.calls).toHaveLength(0);
+    expect(r.audit.entries).toMatchObject([{ outcome: "INVALID" }]);
   });
 
   it("answers 503 AGT-0214 after retries when the upstream is down", async () => {

@@ -129,6 +129,9 @@ export async function callTool(deps: GatewayDeps, p: Principal, name: string, ra
     return fail(deps, p, name, "INVALID", 400, "MCP-0422", `missing required argument ${missing.join(", ")}`);
   }
   if (tool.enforceMaxLength === true) keepDeclaredArguments(tool, args);
+  if (tool.enforceMaxLength === true && hasInvalidStringArgument(tool, args)) {
+    return fail(deps, p, name, "INVALID", 400, "MCP-0400", "a string argument must be a non-empty string");
+  }
   if (tool.enforceMaxLength === true && hasOverLengthArgument(tool, args)) {
     return fail(deps, p, name, "INVALID", 400, "MCP-0400", "an argument is longer than its maximum length");
   }
@@ -157,7 +160,6 @@ export async function callTool(deps: GatewayDeps, p: Principal, name: string, ra
         code: "MCP-0500",
         tenantId: p.tenantId,
         errorName: err instanceof Error ? err.name : typeof err,
-        error: err instanceof Error ? err.message.slice(0, 200) : String(err).slice(0, 200),
         ...(p.runId !== undefined ? { runId: p.runId } : {}),
       });
       return fail(deps, p, name, "UPSTREAM_ERROR", 500, "MCP-0500", `tool ${name} failed`);
@@ -235,6 +237,15 @@ function missingRequired(tool: ToolDefinition, args: JsonObject): string[] {
 function keepDeclaredArguments(tool: ToolDefinition, args: JsonObject): void {
   const declared = isObject(tool.inputSchema.properties) ? tool.inputSchema.properties : {};
   for (const key of Object.keys(args)) if (!Object.prototype.hasOwnProperty.call(declared, key)) delete args[key];
+}
+
+function hasInvalidStringArgument(tool: ToolDefinition, args: JsonObject): boolean {
+  if (!isObject(tool.inputSchema.properties)) return false;
+  return Object.entries(tool.inputSchema.properties).some(([key, prop]) => {
+    if (!isObject(prop) || prop.type !== "string" || !(key in args)) return false;
+    const value = args[key];
+    return typeof value !== "string" || value.trim() === "";
+  });
 }
 
 function hasOverLengthArgument(tool: ToolDefinition, args: JsonObject): boolean {

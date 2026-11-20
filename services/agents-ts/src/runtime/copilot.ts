@@ -416,7 +416,8 @@ export function createCopilotService(deps: CopilotDeps) {
           guardContext = verdict.context;
           const context = verdict.user;
           assertNoPii(context);
-          const toolsText = JSON.stringify(proposeTool(gate.allowed, answerOnly));
+          const noTools = answerOnly || (policy.task && turn === turns - 1);
+          const toolsText = JSON.stringify(proposeTool(gate.allowed, noTools));
           assertPromptWithinCap([system, context, toolsText], deps.config.tokenCap - usage.tokensIn);
           const maxOutputTokens = outputBudgetForCall(
             deps.config.tokenCap,
@@ -425,7 +426,7 @@ export function createCopilotService(deps: CopilotDeps) {
           );
           let response;
           try {
-            const call = { system, user: context, allowedTools: gate.allowed, maxOutputTokens, ...(answerOnly ? { answerOnly: true } : {}), ...(hooks.signal !== undefined ? { signal: hooks.signal } : {}) };
+            const call = { system, user: context, allowedTools: gate.allowed, maxOutputTokens, ...(noTools ? { answerOnly: true } : {}), ...(hooks.signal !== undefined ? { signal: hooks.signal } : {}) };
             response = releaser !== undefined && provider.stream !== undefined ? await provider.stream(call, (delta) => releaser.push(delta)) : await provider.complete(call);
             await releaser?.end();
           } catch (err) {
@@ -437,7 +438,7 @@ export function createCopilotService(deps: CopilotDeps) {
           usage.tokensOut += used.tokensOut;
           answer = response.text;
           const p = response.proposal;
-          if (outcome.failure !== undefined || p === undefined || session === undefined) break;
+          if (outcome.failure !== undefined || p === undefined || session === undefined || noTools) break;
           if (!gate.allowed.includes(p.tool) && !policy.refusesUnofferedTool) {
             toolCalls.push({ tool: p.tool, status: "DENIED", code: "AGT-0203" });
             row(p.tool, p.args, { error: "AGT-0203" }, "DENIED");
