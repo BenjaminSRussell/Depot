@@ -253,6 +253,11 @@ export const copy = {
     tryAgain: "Try again",
     done: "The copilot has finished answering.",
     failed: "The copilot could not answer. Try again.",
+    unverified: "Unverified",
+    partial: "I reached my lookup limit, so this answer may be partial. Narrow the question to continue. Claims that no lookup backed are unverified.",
+    transcript: "Conversation so far",
+    youAsked: (question: string) => `You asked: ${question}`,
+    withdrawn: "The answer was withdrawn",
   },
   myWork: {
     title: "My work",

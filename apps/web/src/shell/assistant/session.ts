@@ -25,3 +25,21 @@ export function takeHandedOffFeatureFilter(): string | undefined {
   handedOffFilter = undefined;
   return text;
 }
+
+export interface RecordContext {
+  kind: string;
+  id: string;
+  path: string;
+}
+
+let recordContext: RecordContext | undefined;
+
+export function setRecordContext(context: RecordContext | undefined): void {
+  recordContext = context;
+}
+
+export function takeRecordContext(): RecordContext | undefined {
+  const context = recordContext;
+  recordContext = undefined;
+  return context;
+}

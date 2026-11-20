@@ -1,6 +1,7 @@
 import { writeFileSync } from "node:fs";
+import { AI_POLICY_MODULES } from "../../src/domain/aiDataPolicy.js";
 import { P3_CATEGORIES, scanPii } from "../../src/domain/redaction.js";
-import { forbiddenRaw, plantedRaw, type RedTeamCase } from "./cases.js";
+import { expandedTools, forbiddenRaw, plantedRaw, type RedTeamCase } from "./cases.js";
 import type { Captured } from "./providers.js";
 
 export const PROFILES = ["standard", "cui"] as const;
@@ -41,6 +42,18 @@ function decoded(text: string): string {
 }
 
 const carries = (text: string, secrets: readonly string[]): boolean => [text, decoded(text)].some((t) => secrets.some((s) => t.includes(s)) || hasRawP3(t));
+
+const governedToolValues = (c: RedTeamCase): string[] =>
+  Object.entries(expandedTools(c))
+    .filter(([name]) => (AI_POLICY_MODULES as readonly string[]).includes(name.split(".")[1] ?? ""))
+    .flatMap(([, output]) => Object.values(output).filter((v): v is string => typeof v === "string" && v.length >= 4 && !hasRawP3(v)));
+
+export const hasGovernedToolData = (c: RedTeamCase): boolean => governedToolValues(c).length > 0;
+
+export const deniedClassInRequests = (c: RedTeamCase, o: Observed): number => {
+  const values = governedToolValues(c);
+  return o.requests.filter((r) => values.some((v) => bodyOf(r).includes(v))).length;
+};
 
 export function scoreCase(profile: Profile, c: RedTeamCase, o: Observed): Counts {
   const { allow, cuiApproved } = ROUTE_ALLOW_LIST[profile];

@@ -1,12 +1,12 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { DepotModule } from "../modules/registry";
 import { checkAxeAA } from "./a11y";
 import { FormRenderer } from "./forms";
 import { demoNote } from "./metadata";
-import { clearHandedOffPrompt, peekHandedOffPrompt } from "./assistant/session";
+import { clearHandedOffPrompt, peekHandedOffPrompt, takeHandedOffFeatureFilter, takeRecordContext } from "./assistant/session";
 import { availableAssistant, pageViolations } from "./testing/fakeServer";
 import { HomePage } from "./pages/HomePage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -324,6 +324,85 @@ describe("command bar assistant group", () => {
     expect(await screen.findByText(/The assistant is turned off for your company/)).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Assistant" })).not.toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Import data, Admin" })).toBeInTheDocument();
+  });
+});
+
+describe("command bar fallback and record shortcut", () => {
+  function LocationProbe() {
+    const { pathname, search } = useLocation();
+    return <p data-testid="location">{`${pathname}${search}`}</p>;
+  }
+
+  const recordModules: DepotModule[] = [
+    { id: "ledger", title: "Ledger", routes: [{ path: "/ledger/entries/:entryId", element: <p>Entry</p> }], nav: [{ label: "Entries", to: "/ledger/entries" }] },
+  ];
+
+  function renderProbe(path: string) {
+    return render(
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route element={<Shell modules={recordModules} duties={["mcp.copilot.use"]} />}>
+            <Route path="*" element={<LocationProbe />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+  }
+
+  function stubFetch(availability: unknown, chat: () => Response) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/copilot/chat")) return chat();
+        const body = url.includes("/agents/availability") ? availability : { results: [] };
+        return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
+      }),
+    );
+  }
+
+  it("keeps the typed prompt out of the URL when classification fails and hands it to the features filter", async () => {
+    stubFetch(availableAssistant, () => new Response("{}", { status: 500 }));
+    const user = userEvent.setup();
+    renderProbe("/start");
+    await user.keyboard("{Control>}k{/Control}");
+    await user.type(screen.getByLabelText("Find a page"), "salary of Ann");
+    await screen.findByRole("group", { name: "Assistant" });
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/features"));
+    expect(screen.getByTestId("location").textContent).toBe("/features");
+    expect(takeHandedOffFeatureFilter()).toBe("salary of Ann");
+  });
+
+  it("opens the assistant from a record page on Ctrl+/ with the record as context and no prompt", async () => {
+    stubFetch(availableAssistant, () => new Response("{}", { status: 500 }));
+    clearHandedOffPrompt();
+    takeRecordContext();
+    const user = userEvent.setup();
+    renderProbe("/ledger/entries/JE-77");
+    await user.keyboard("{Control>}k{/Control}");
+    await user.type(screen.getByLabelText("Find a page"), "zzqq");
+    await screen.findByRole("group", { name: "Assistant" });
+    await user.keyboard("{Escape}");
+    await user.keyboard("{Control>}/{/Control}");
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/copilot"));
+    expect(peekHandedOffPrompt()).toBeUndefined();
+    expect(takeRecordContext()).toEqual({ kind: "entries", id: "JE-77", path: "/ledger/entries/JE-77" });
+  });
+
+  it("announces that the assistant is off on Ctrl+/ and stays on the page", async () => {
+    stubFetch({ ...availableAssistant, copilotEnabled: false }, () => new Response("{}", { status: 500 }));
+    takeRecordContext();
+    const user = userEvent.setup();
+    renderProbe("/ledger/entries/JE-77");
+    await user.keyboard("{Control>}k{/Control}");
+    await user.type(screen.getByLabelText("Find a page"), "zzqq");
+    await screen.findByText(/The assistant is turned off for your company/);
+    await user.keyboard("{Escape}");
+    await user.keyboard("{Control>}/{/Control}");
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/turned off for your company/));
+    expect(screen.getByTestId("location")).toHaveTextContent("/ledger/entries/JE-77");
+    expect(takeRecordContext()).toBeUndefined();
   });
 });
 

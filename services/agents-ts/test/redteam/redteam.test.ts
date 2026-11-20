@@ -1,11 +1,13 @@
 import { writeFileSync } from "node:fs";
 import { afterAll, describe, expect, it } from "vitest";
 import { forbiddenRaw, isSyntheticCanary, loadDataset, MIN_CASES, parseDataset, plantedRaw, type Dataset, type RedTeamCase } from "./cases.js";
-import { runCase, type ResponderFor } from "./harness.js";
+import { denyAllPolicy, runCase, type ResponderFor } from "./harness.js";
 import { capture, readRecording, RECORDING_PATH, recordingJsonl, replay, type Row } from "./providers.js";
 import {
   BENIGN_MIN_SUCCESS_RATE,
   benignRates,
+  deniedClassInRequests,
+  hasGovernedToolData,
   newRun,
   PROFILES,
   PROVIDER_KINDS,
@@ -133,5 +135,24 @@ describe("negative controls", () => {
     const short = [...cuiSet.executable.slice(0, MIN_CASES - 2), ...cuiSet.cases.filter((c) => c.skip !== undefined)].map((c) => JSON.stringify(c)).join("\n");
     expect(() => parseDataset(short, "short")).toThrow(`short.jsonl has ${MIN_CASES - 2} executable cases, needs ${MIN_CASES}`);
     expect(() => parseDataset('{"id":"x"}\n', "bad")).toThrow("bad.jsonl:1 does not match the dataset schema");
+  });
+});
+
+describe("tenant data policy", () => {
+  const governed = gateSets.flatMap((set) => set.executable).filter((c) => c.path === "ask" && hasGovernedToolData(c));
+
+  it("keeps denied-class tool data out of every request when the tenant policy denies it", async () => {
+    expect(governed.length).toBeGreaterThan(0);
+    for (const c of governed) {
+      const o = await runCase("standard", c, scratchCapture, { policy: denyAllPolicy });
+      expect(deniedClassInRequests(c, o), c.id).toBe(0);
+    }
+  }, 120_000);
+
+  it("negative control: the same cases do send that data when the policy allows everything", async () => {
+    const c = governed[0];
+    if (c === undefined) throw new Error("no case reads policy-governed tool data");
+    const allowed = await runCase("standard", c, scratchCapture);
+    expect(deniedClassInRequests(c, allowed)).toBeGreaterThan(0);
   });
 });

@@ -16,7 +16,8 @@ import { WorkContextProvider } from "./lookup/workContext";
 import { AvailabilityProvider, useAvailabilityController } from "./assistant/AvailabilityProvider";
 import { hideAssistantEntries } from "./assistant/availability";
 import { createPromptRouter } from "./assistant/router";
-import { handOffPrompt } from "./assistant/session";
+import { recordContextFor } from "./assistant/recordContext";
+import { handOffFeatureFilter, handOffPrompt, setRecordContext } from "./assistant/session";
 import { ASSISTANT_DUTY, COPILOT_PATH } from "./home/assistantRouter";
 import { devDuties, devIdentity, PrincipalProvider } from "./principal";
 import { readDensity, writeDensity, type Density } from "./personalization";
@@ -102,6 +103,10 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
   const announced = useRef("");
   const announceFrame = useRef<number | undefined>(undefined);
   const toastTimer = useRef<number | undefined>(undefined);
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
+  const availabilityRef = useRef(availability.state);
+  availabilityRef.current = availability.state;
 
   const featureOn = isPathEnabled(settings.features, pathname);
   const planned = plannedRouteFor(pathname) !== undefined;
@@ -209,6 +214,17 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
     }
   }, []);
 
+  const askWithRecordContext = useCallback(() => {
+    const state = availabilityRef.current;
+    if (state.status !== "enabled") {
+      announce(state.status === "checking" ? copy.palette.assistantChecking : copy.palette.assistantUnavailable[state.reason]);
+      return;
+    }
+    setRecordContext(recordContextFor(pathnameRef.current, allModules));
+    handOffPrompt("");
+    navigate(COPILOT_PATH);
+  }, [allModules, announce, navigate]);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -219,13 +235,16 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
           openPalette();
           announce(copy.announce.searchOpened);
         }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "/") {
+        e.preventDefault();
+        askWithRecordContext();
       } else if (e.key === "Escape" && paletteOpenRef.current) {
         closePalette();
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openPalette, closePalette, announce]);
+  }, [openPalette, closePalette, announce, askWithRecordContext]);
 
   useEffect(() => {
     document.title = `${page.title} · Depot`;
@@ -271,8 +290,6 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
     return () => wide.removeEventListener("change", closeWhenWide);
   }, []);
 
-  const availabilityRef = useRef(availability.state);
-  availabilityRef.current = availability.state;
   const router = useMemo(
     () =>
       createPromptRouter({
@@ -288,7 +305,8 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
         postRoute,
         searchFallback: (text) => {
           announceQuietly(copy.home.assistantSearchNote);
-          navigate({ pathname: ALL_FEATURES_PATH, search: `?${new URLSearchParams({ q: text })}` });
+          handOffFeatureFilter(text);
+          navigate(ALL_FEATURES_PATH);
         },
       }),
     [announceQuietly, navigate, principalDuties],

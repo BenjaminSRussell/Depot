@@ -30,6 +30,7 @@ describe("assistant storage scan", () => {
   it("scans the answer component and the conversation hook", () => {
     expect(inDirectory("modules/copilot/AskAnswer.tsx")).toHaveLength(1);
     expect(inDirectory("modules/copilot/useCopilotConversation.ts")).toHaveLength(1);
+    expect(inDirectory("modules/copilot/answerText.ts")).toHaveLength(1);
   });
 
   it("finds no direct browser storage write in the assistant surfaces", () => {

@@ -11,6 +11,8 @@ import { createAiRouter, type AiRouter } from "../../src/runtime/aiRouter.js";
 import { createBriefingService } from "../../src/runtime/briefing.js";
 import { COPILOT_DUTY, createCopilotService } from "../../src/runtime/copilot.js";
 import type { DesignationClient } from "../../src/runtime/cuiDesignation.js";
+import { createEgressGuard } from "../../src/runtime/egressGuard.js";
+import type { AiPolicyGuard } from "../../src/runtime/aiPolicyGuard.js";
 import { createOutputGuard } from "../../src/runtime/outputGuard.js";
 import { createRunService } from "../../src/runtime/service.js";
 import { allowAiAccess, testGuard } from "../fakes.js";
@@ -74,9 +76,14 @@ class TenantFreeStore extends MemoryStore {
   }
 }
 
+export const denyAllPolicy: AiPolicyGuard = {
+  check: async () => ({ allowed: false, policyVersion: 1, reason: "denied" }),
+  invalidate: () => undefined,
+};
+
 export const actionIdOf = (c: RedTeamCase): string => `00000000-0000-7000-8000-${createHash("sha256").update(c.id).digest("hex").slice(0, 12)}`;
 
-export async function runCase(profile: Profile, c: RedTeamCase, responderFor: ResponderFor, options: { leaky?: boolean } = {}): Promise<Observed> {
+export async function runCase(profile: Profile, c: RedTeamCase, responderFor: ResponderFor, options: { leaky?: boolean; policy?: AiPolicyGuard } = {}): Promise<Observed> {
   if (c.path === "route" && classifyByRules(expandedMessage(c)).status === "decided") throw new Error(`route case ${c.id} is decided by the rules, so no model is called`);
   const sink: Captured[] = [];
   const state = { phase: 0 };
@@ -125,9 +132,9 @@ export async function runCase(profile: Profile, c: RedTeamCase, responderFor: Re
     store,
     killSwitch,
     cache: new CopilotAnswerCache(),
-    config: { tokenCap: 20_000, maxTurns: 4, pseudonymTtlMs: 60_000 },
+    config: { tokenCap: 20_000, maxTurns: 8, pseudonymTtlMs: 60_000 },
     modelId: "claude-haiku-5-5",
-    guard: testGuard(),
+    guard: options.policy === undefined ? testGuard() : createEgressGuard({ policy: options.policy }),
     aiAccess: allowAiAccess(),
     outputGuard,
   });

@@ -31,6 +31,7 @@ import type { KnowledgeService } from "./knowledge.js";
 export const COPILOT_DUTY = "mcp.copilot.use";
 export const COPILOT_AGENT_ID = "copilot";
 export const MAX_MESSAGE_CHARS = 4000;
+export const TOOL_LIMIT_MESSAGE = "I could not complete the answer within the tool-call limit.";
 export const KNOWLEDGE_SEARCH_TOOL = "depot.knowledge.search";
 /** Searching the knowledge index is part of using the copilot: the route is seeded under the same duty (policies/authz/data.json). */
 export const KNOWLEDGE_READ_DUTY = COPILOT_DUTY;
@@ -453,7 +454,7 @@ export function createCopilotService(deps: CopilotDeps) {
             for (const c of g.citations) citations.push({ sourceType: c.sourceType, sourceRef: c.sourceRef, label: c.section });
           }
         }
-        if (answer === "" && refused === null && rules === undefined) answer = "I could not complete the answer within the tool-call limit.";
+        if (answer === "" && refused === null && rules === undefined) answer = TOOL_LIMIT_MESSAGE;
         if (refused === null && outcome.failure === undefined && answer !== "") await verify(answer, false);
         if (outcome.failure !== undefined) {
           refused = { code: OUTPUT_GUARD_CODE, message: OUTPUT_GUARD_MESSAGE };
