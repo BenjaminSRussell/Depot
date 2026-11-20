@@ -20,8 +20,8 @@ export interface PersistedApprovalOptions {
   expiryHours?: number;
   nowMs: () => number;
   now: () => string;
-  /** Called with the new request's action id, so a caller (or a test) can see what waits. */
-  onOpened?: (actionId: string) => void;
+  /** Called with the new request's action id and what was stored, so a caller (or a test) can see what waits. */
+  onOpened?: (actionId: string, info: { req: ApprovalRequest; requestedAtMs: number; expiryHours: number }) => void;
   sleep?: (ms: number) => Promise<void>;
   pollMs?: number;
 }
@@ -58,7 +58,7 @@ export function createPersistedApprovalPort(o: PersistedApprovalOptions): Approv
         confidence: req.confidence,
         ...(req.riskScore !== undefined ? { riskScore: req.riskScore } : {}),
       });
-      o.onOpened?.(actionId);
+      o.onOpened?.(actionId, { req, requestedAtMs, expiryHours });
       for (;;) {
         const found = await o.inbox.find(o.tenantId, req.runId, actionId);
         if (found === undefined) throw new Error(`approval ${actionId} disappeared`);

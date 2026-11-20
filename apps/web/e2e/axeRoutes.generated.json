@@ -81,6 +81,8 @@
   "/consolidation/translation",
   "/consolidation/validation",
   "/copilot",
+  "/copilot/agents",
+  "/copilot/budgets",
   "/copilot/kill-switch",
   "/copilot/tools",
   "/costacct",

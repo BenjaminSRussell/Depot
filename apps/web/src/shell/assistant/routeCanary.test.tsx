@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useLocation, type Location } from "react-r
 import { describe, expect, it } from "vitest";
 import { CopilotHome } from "../../modules/copilot/pages";
 import { Shell } from "../Shell";
+import { AllFeaturesPage } from "../pages/AllFeaturesPage";
 import { HomePage } from "../pages/HomePage";
 import { AVAILABILITY_PATH } from "./availability";
 import { availableAssistant, json, server, useFakeServer } from "../testing/fakeServer";
@@ -21,11 +22,13 @@ function Probe() {
   return null;
 }
 
-async function renderApp(prompt: string) {
+async function renderApp(prompt: string, routeFails = false) {
   locations = [];
-  server.handler = (url) =>
+  server.handler = (url, init) =>
     url.pathname === CHAT_PATH
-      ? json(200, { answer: `Answer for ${CANARY}`, citations: [], toolCalls: [], refusal: null, generated: true })
+      ? routeFails
+        ? json(503, { code: "AGT-0500" })
+        : json(200, JSON.parse(String(init?.body)).mode === "route" ? { kind: "ask", confidence: 1, generated: true } : { answer: `Answer for ${CANARY}`, citations: [], toolCalls: [], refusal: null, generated: true })
       : url.pathname === AVAILABILITY_PATH
         ? json(200, availableAssistant)
         : undefined;
@@ -36,6 +39,7 @@ async function renderApp(prompt: string) {
         <Route element={<Shell modules={[]} duties={["mcp.copilot.use"]} />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/copilot" element={<CopilotHome />} />
+          <Route path="/features" element={<AllFeaturesPage />} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -63,8 +67,22 @@ describe("assistant text stays out of browser-visible state on route change", ()
       expect(JSON.stringify({ url: call.url.href, headers: call.init.headers, body: call.body })).not.toContain(CANARY);
     }
     const chats = server.calls.filter((c) => c.url.pathname === CHAT_PATH);
-    expect(chats).toHaveLength(1);
-    expect(chats[0].url.search).toBe("");
-    expect(chats[0].body).toEqual({ mode: "ask", message: CANARY });
+    expect(chats.map((c) => c.body)).toEqual([
+      { mode: "route", message: CANARY },
+      { mode: "ask", message: CANARY },
+    ]);
+    expect(chats.every((c) => c.url.search === "")).toBe(true);
+  });
+
+  it("keeps the prompt out of the URL and history state when the search fallback opens the features page", async () => {
+    await renderApp(CANARY, true);
+    expect(await screen.findByRole("searchbox", { name: "Filter features" })).toHaveValue(CANARY);
+    expect(locations.some((l) => l.pathname === "/features")).toBe(true);
+    for (const location of locations) {
+      expect(location.search).toBe("");
+      expect(location.state).toBeNull();
+      expect(JSON.stringify(location)).not.toContain(CANARY);
+    }
+    expect(document.title).not.toContain(CANARY);
   });
 });

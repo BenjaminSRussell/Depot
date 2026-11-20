@@ -30,6 +30,7 @@ const setup = async (opts: { copilot?: boolean; runs?: boolean } = {}) => {
     store,
     inbox: store,
     killSwitch: { isHalted: () => false },
+    disabledAgents: async () => new Set(),
     config: { runTokenCap: 50_000, selfApprovalLimit: { amount: "0", currency: "USD" }, pseudonymTtlMs: 60_000, approvalPollMs: 1 },
     sleep: () => new Promise((r) => setTimeout(r, 2)),
     spawn: (p) => void p.catch(() => undefined),

@@ -3,8 +3,10 @@ import { createServer } from "node:http";
 import { pathToFileURL } from "node:url";
 import { AGENT_IDS, defaultCatalog } from "./agents/catalog.js";
 import { createAgentBudgetService } from "./api/agentBudgets.js";
+import { createAgentDefinitionService, type DisabledAgents } from "./api/agentDefinitions.js";
 import { createAuthenticator } from "./api/auth.js";
 import { PgAgentBudgets } from "./store/agentBudgets.js";
+import { PgAgentDefinitions } from "./store/agentDefinitions.js";
 import type { AgentsApiDeps } from "./api/router.js";
 import { createRunProviderFactory, loadConfig, type Config } from "./config.js";
 import { CopilotAnswerCache } from "./domain/copilot.js";
@@ -22,6 +24,7 @@ import {
 import { createBriefingService } from "./runtime/briefing.js";
 import { PgBriefingFacts, PgBriefingStore } from "./store/briefing.js";
 import { createAiAccessAudit } from "./runtime/aiAccessAudit.js";
+import { createActService } from "./runtime/act.js";
 import { createCopilotService } from "./runtime/copilot.js";
 import { createNeedToKnowClient } from "./runtime/needToKnow.js";
 import { createEgressGuard } from "./runtime/egressGuard.js";
@@ -96,6 +99,8 @@ async function main(): Promise<void> {
   const mcp = createMcpConnector({ baseUrl: cfg.mcpUrl });
   const providerFor = createRunProviderFactory(cfg, undefined, createEgressGuard({ log, policy: aiPolicyGuard }));
   const agents = agentCatalog(cfg);
+  const definitionStore = new PgAgentDefinitions(store);
+  const disabledAgents: DisabledAgents = async (tenantId) => new Set((await definitionStore.disabledAgents(tenantId)).keys());
   // Every definition this pod runs is in agent_version; a run starts only when its newest eval_run passed (AGT-0204).
   const versions = new PgVersionStore(pool);
   await versions.register(agents);
@@ -162,6 +167,7 @@ async function main(): Promise<void> {
     store,
     inbox,
     killSwitch: registry,
+    disabledAgents,
     config: {
       runTokenCap: cfg.runTokenCap,
       selfApprovalLimit: cfg.selfApprovalLimit,
@@ -220,6 +226,7 @@ async function main(): Promise<void> {
     },
     modelId: cfg.copilotModel,
   });
+  const act = createActService({ copilot, runs, mcp, store, outputGuard, modelId: cfg.copilotModel, tokenCap: cfg.copilotTokenCap, pseudonymTtlMs: 24 * 3_600_000, log });
   const api: AgentsApiDeps = {
     authenticate: createAuthenticator({
       issuer: cfg.jwt.issuer,
@@ -251,9 +258,11 @@ async function main(): Promise<void> {
         }
       : {}),
     copilot,
+    act,
     knowledge,
     budgets: createAgentBudgetService({ store: new PgAgentBudgets(store) }),
-    briefings: createBriefingService({ store: new PgBriefingStore(store), facts: new PgBriefingFacts(store), log }),
+    definitions: createAgentDefinitionService({ agents, store: definitionStore }),
+    briefings: createBriefingService({ store: new PgBriefingStore(store), facts: new PgBriefingFacts(store), disabledAgents, log }),
   };
   const handler = createRequestHandler({
     api,

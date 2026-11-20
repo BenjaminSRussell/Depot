@@ -1,3 +1,4 @@
+import type { DisabledAgents } from "../api/agentDefinitions.js";
 import type { Principal } from "../api/principal.js";
 import { buildBriefing, type BriefingFactsReader, type BriefingStore, type Cursor, type StoredBriefing } from "../domain/briefing.js";
 import type { LogFn } from "../logging/pseudonymize.js";
@@ -5,6 +6,7 @@ import type { LogFn } from "../logging/pseudonymize.js";
 export interface BriefingDeps {
   store: BriefingStore;
   facts: BriefingFactsReader;
+  disabledAgents: DisabledAgents;
   log?: LogFn;
   now?: () => Date;
 }
@@ -15,8 +17,8 @@ export function createBriefingService(deps: BriefingDeps) {
   async function build(principal: Principal, id: string): Promise<void> {
     try {
       const at = now();
-      const facts = await deps.facts.read(principal.tenantId, principal.userId, [...principal.duties], at);
-      await deps.store.finish(principal.tenantId, id, buildBriefing(facts, at));
+      const [facts, disabled] = await Promise.all([deps.facts.read(principal.tenantId, principal.userId, [...principal.duties], at), deps.disabledAgents(principal.tenantId)]);
+      await deps.store.finish(principal.tenantId, id, buildBriefing(facts, at, disabled));
     } catch (err) {
       deps.log?.("error", "briefing build failed", { briefingId: id, tenantId: principal.tenantId, error: err instanceof Error ? err.name : "unknown" });
       await deps.store.fail(principal.tenantId, id).catch(() => undefined);

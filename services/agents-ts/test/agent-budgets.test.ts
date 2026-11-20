@@ -57,6 +57,9 @@ describe("metric label", () => {
   it.each([
     ["/api/v1/agents/budgets", "budgets"],
     ["/api/v1/agents/budgets/ap_coding", "budgets"],
+    ["/api/v1/agents/definitions", "definitions"],
+    ["/api/v1/agents/definitions/ap_coding:disable", "definitions"],
+    ["/api/v1/agents/definitions/AP:disable", "other"],
     ["/api/v1/agents/budgets/AP", "other"],
     ["/api/v1/agents/budgets/a/b", "other"],
   ])("%s is labelled %s", (path, label) => {

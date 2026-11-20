@@ -1,7 +1,7 @@
 import { canCallTool } from "./authz.js";
 
 /** Copilot modes from PRD 9.47.13 (`copilot.modes`). */
-export const COPILOT_MODES = ["ask", "explain", "draft", "summarize", "route"] as const;
+export const COPILOT_MODES = ["ask", "explain", "draft", "summarize", "route", "act"] as const;
 export type CopilotMode = (typeof COPILOT_MODES)[number];
 
 export interface CopilotTool {

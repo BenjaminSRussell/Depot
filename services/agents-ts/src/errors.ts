@@ -16,7 +16,10 @@ export type AgentErrorCode =
   | "AGT-0218" // no approved AI route for the data, the call is refused
   | "AGT-0219" // the egress guard blocked the model call
   | "AGT-0220" // the output guard withheld the model answer
-  | "AGT-0232"; // the AI data-access audit write failed, the model call is refused
+  | "AGT-0232" // the AI data-access audit write failed, the model call is refused
+  | "AGT-0233" // the request maps to no propose tool
+  | "AGT-0234" // the proposal did not appear in time
+  | "AGT-0235"; // the agent is disabled by an administrator, the run is refused
 
 export class AgentError extends Error {
   readonly code: AgentErrorCode;

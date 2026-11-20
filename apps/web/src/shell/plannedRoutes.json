@@ -59,5 +59,11 @@
     "reason": "Device management screen is built by the B-37 slice; the WS1 task starts there once it ships",
     "issue": 703,
     "slice": 12
+  },
+  {
+    "route": "/copilot/ai-policy",
+    "reason": "The AI data policy editor is built by DEPOT-306; the AI controls page shows a read-only summary until then.",
+    "issue": 306,
+    "slice": 1
   }
 ]

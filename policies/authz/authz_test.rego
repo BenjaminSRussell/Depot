@@ -3382,6 +3382,17 @@ test_agent_run_duties_open_only_their_routes if {
 	not allowed("knowledge.write", "POST", "/api/v1/copilot/chat")
 }
 
+test_agents_admin_opens_the_agent_definition_routes if {
+	allowed("agents.admin", "GET", "/api/v1/agents/definitions")
+	allowed("agents.admin", "POST", "/api/v1/agents/definitions/ap_coding:disable")
+	allowed("agents.admin", "POST", "/api/v1/agents/definitions/ap_coding:enable")
+	not allowed("agents.admin", "GET", "/api/v1/agents/definitions/ap_coding:disable")
+	not allowed("agents.admin", "POST", "/api/v1/agents/definitions")
+	not allowed("agents.run.read", "GET", "/api/v1/agents/definitions")
+	not allowed("agentbudget.write", "POST", "/api/v1/agents/definitions/ap_coding:disable")
+	not allowed("agentbudget.read", "GET", "/api/v1/agents/definitions")
+}
+
 test_agent_budget_duties_open_only_their_routes if {
 	allowed("agentbudget.read", "GET", "/api/v1/agents/budgets")
 	not allowed("agentbudget.read", "PUT", "/api/v1/agents/budgets/ap_coding")

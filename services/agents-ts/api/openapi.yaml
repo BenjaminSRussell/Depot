@@ -506,7 +506,7 @@ paths:
               type: object
               required: [mode, message]
               properties:
-                mode: {type: string, enum: [ask, explain, draft, summarize, route]}
+                mode: {type: string, enum: [ask, explain, draft, summarize, route, act]}
                 message: {type: string, minLength: 1, maxLength: 4000}
                 recordRef: {type: string, minLength: 1, maxLength: 200}
               additionalProperties: false
@@ -575,7 +575,7 @@ paths:
               type: object
               required: [mode, message]
               properties:
-                mode: {type: string, enum: [ask, explain, draft, summarize, route]}
+                mode: {type: string, enum: [ask, explain, draft, summarize, route, act]}
                 message: {type: string, minLength: 1, maxLength: 4000}
                 recordRef: {type: string, minLength: 1, maxLength: 200}
               additionalProperties: false
@@ -589,8 +589,16 @@ paths:
                   - {$ref: "#/components/schemas/ChatResponse"}
                   - {$ref: "#/components/schemas/RouteResponse"}
                   - {$ref: "#/components/schemas/RefusalResponse"}
+                  - {$ref: "#/components/schemas/ActProposalResponse"}
+                  - {$ref: "#/components/schemas/ActClarifyResponse"}
+                  - {$ref: "#/components/schemas/ActRefusalResponse"}
             text/event-stream:
-              schema: {type: string, description: "token frames, optionally one answer.withdrawn frame, then one done frame; never for mode=route"}
+              schema: {type: string, description: "token frames, optionally one answer.withdrawn frame, then one done frame; never for mode=route or mode=act"}
+        "202":
+          description: mode=act only. The run was started but no approval appeared within 30 seconds; refusal.code is AGT-0234 and the run view shows its progress.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ActPendingResponse"}
         "400": {$ref: "#/components/responses/Problem"}
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
@@ -648,6 +656,77 @@ paths:
         "404": {$ref: "#/components/responses/Problem"}
         "413": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/definitions:
+    get:
+      operationId: listAgentDefinitions
+      summary: The tenant's agents with an enabled flag (DEPOT-278)
+      description: |
+        One entry per registered agent. An agent an administrator disabled
+        reports enabled false with who disabled it, when and why. Needs
+        agents.admin.
+      x-depot-duty: agents.admin
+      x-depot-approval: none
+      responses:
+        "200":
+          description: The agent definitions.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AgentDefinitionList"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/definitions/{agentId}:disable:
+    post:
+      operationId: disableAgent
+      summary: Disable an agent for the tenant (DEPOT-278)
+      description: |
+        A disabled agent's runs are refused with 422 AGT-0235 and a briefing
+        leaves out its items and states that it is disabled. Repeating the call
+        is a 200 and writes no second agent_disabled_change row. An unknown
+        agent is 404 AGT-0404; a reason over 500 characters or not a string is
+        422 AGT-0422. Runs already started continue; the kill switch halts them.
+      x-depot-duty: agents.admin
+      x-depot-approval: none
+      parameters:
+        - {name: agentId, in: path, required: true, schema: {type: string, pattern: "^[a-z][a-z0-9_]{0,63}$"}}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/DisableAgentCommand"}
+      responses:
+        "200":
+          description: The agent's definition, now disabled.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AgentDefinition"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "413": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/definitions/{agentId}:enable:
+    post:
+      operationId: enableAgent
+      summary: Enable a disabled agent for the tenant (DEPOT-278)
+      description: |
+        Takes no body keys. Enabling an agent that is not disabled is a 200 and
+        writes no agent_disabled_change row. An unknown agent is 404 AGT-0404.
+      x-depot-duty: agents.admin
+      x-depot-approval: none
+      parameters:
+        - {name: agentId, in: path, required: true, schema: {type: string, pattern: "^[a-z][a-z0-9_]{0,63}$"}}
+      responses:
+        "200":
+          description: The agent's definition, now enabled.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AgentDefinition"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "413": {$ref: "#/components/responses/Problem"}
   /api/v1/agents/briefings:generate:
     post:
       operationId: generateAgentBriefing
@@ -866,12 +945,13 @@ components:
       properties:
         run:
           type: object
-          required: [runId, agentId, agentVersion, invokerUserId, status, tokensIn, tokensOut, estimated, createdAt]
+          required: [runId, agentId, agentVersion, invokerUserId, actor, status, tokensIn, tokensOut, estimated, createdAt]
           properties:
             runId: {type: string}
             agentId: {type: string}
             agentVersion: {type: integer}
             invokerUserId: {type: string}
+            actor: {type: string, description: "agent:<agentId>@user:<invokerUserId>"}
             status: {type: string, enum: [RUNNING, COMMITTED, REJECTED, FAILED, KILLED, FAILED_AFTER_COMMIT]}
             code: {type: string}
             reason: {type: string}
@@ -912,6 +992,26 @@ components:
         agents:
           type: array
           items: {$ref: "#/components/schemas/BudgetEntry"}
+    AgentDefinition:
+      type: object
+      required: [agentId, version, enabled, disabledBy, disabledAt, reason]
+      properties:
+        agentId: {type: string}
+        version: {type: integer, minimum: 1}
+        enabled: {type: boolean}
+        disabledBy: {type: [string, "null"]}
+        disabledAt: {type: [string, "null"], format: date-time}
+        reason: {type: [string, "null"]}
+    AgentDefinitionList:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/AgentDefinition"}}
+    DisableAgentCommand:
+      type: object
+      properties:
+        reason: {type: string, maxLength: 500}
+      additionalProperties: false
     BudgetCapCommand:
       type: object
       required: [limitIn, limitOut]
@@ -983,6 +1083,79 @@ components:
           required: [code, message]
           properties:
             code: {type: string, description: "AGT-0201, AGT-0202, AGT-0206, AGT-0218, AGT-0219 or AGT-0220"}
+            message: {type: string}
+        generated: {type: boolean, enum: [true]}
+    ActProposal:
+      type: object
+      required: [tool, agent, summary, diff, amount, confidence, rationale, expiresAt]
+      properties:
+        tool: {type: string}
+        agent: {type: string}
+        summary: {type: string}
+        diff:
+          type: array
+          items:
+            type: object
+            required: [field, to]
+            properties:
+              field: {type: string}
+              to: {}
+        amount:
+          type: object
+          required: [currency]
+          properties:
+            amount: {type: string}
+            currency: {type: string}
+        confidence: {type: number, minimum: 0, maximum: 1}
+        rationale: {type: string}
+        expiresAt: {type: string, format: date-time}
+    ActProposalResponse:
+      type: object
+      required: [runId, approvalId, proposal, generated]
+      description: mode=act. A run was started and waits at the approval gate; no write call has been made.
+      properties:
+        runId: {type: string}
+        approvalId: {type: string}
+        proposal: {$ref: "#/components/schemas/ActProposal"}
+        generated: {type: boolean, enum: [true]}
+    ActClarifyResponse:
+      type: object
+      required: [clarifyingQuestion, generated]
+      description: mode=act. The request did not name enough to prepare a proposal; no run was started.
+      properties:
+        clarifyingQuestion: {type: string, minLength: 1}
+        generated: {type: boolean, enum: [true]}
+    ActRefusalResponse:
+      type: object
+      required: [refusal, generated]
+      description: mode=act. No run was started. A refusal for a request with no matching tool carries a navigate alternative.
+      properties:
+        refusal:
+          type: object
+          required: [code, message]
+          properties:
+            code: {type: string, description: "AGT-0201, AGT-0202, AGT-0203, AGT-0204, AGT-0218, AGT-0219, AGT-0220, AGT-0232, AGT-0233, AGT-0235 or AGT-0404"}
+            message: {type: string}
+        alternative:
+          type: object
+          required: [kind, route]
+          properties:
+            kind: {type: string, enum: [navigate]}
+            route: {$ref: "#/components/schemas/RouteResponse"}
+        generated: {type: boolean, enum: [true]}
+    ActPendingResponse:
+      type: object
+      required: [runId, agentId, agentVersion, status, refusal, generated]
+      properties:
+        runId: {type: string}
+        agentId: {type: string}
+        agentVersion: {type: integer, minimum: 1}
+        status: {type: string, enum: [RUNNING]}
+        refusal:
+          type: object
+          required: [code, message]
+          properties:
+            code: {type: string, enum: [AGT-0234]}
             message: {type: string}
         generated: {type: boolean, enum: [true]}
     KillSwitchCommand:
@@ -1069,7 +1242,7 @@ components:
     AgentErrorCode:
       type: string
       description: Stable codes from PRD 9.47.18 raised by this slice.
-      enum: [AGT-0201, AGT-0202, AGT-0203, AGT-0204, AGT-0208, AGT-0209, AGT-0210, AGT-0214]
+      enum: [AGT-0201, AGT-0202, AGT-0203, AGT-0204, AGT-0208, AGT-0209, AGT-0210, AGT-0214, AGT-0235]
     RunResult:
       type: object
       description: Returned by runAgent. Mirrors RunResult in src/runtime/engine.ts.
