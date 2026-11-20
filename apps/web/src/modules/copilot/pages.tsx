@@ -1,14 +1,13 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { recordRefOf } from "../../shell/assistant/recordContext";
-import { clearHandedOffPrompt, peekHandedOffPrompt, takeRecordContext } from "../../shell/assistant/session";
+import { clearHandedOffPrompt, getHandOffVersion, peekHandedOffPrompt, subscribeHandOff, takeRecordContext } from "../../shell/assistant/session";
 import { AssistantNotice } from "../../shell/assistant/AvailabilityProvider";
 import { PageHeader } from "../../shell/ui";
 import { CopilotPanel } from "./CopilotPanel";
 import styles from "./pages.module.css";
 
 export function CopilotHome() {
-  return <CopilotHomeContent key={useLocation().key} />;
+  return <CopilotHomeContent key={useSyncExternalStore(subscribeHandOff, getHandOffVersion)} />;
 }
 
 function CopilotHomeContent() {

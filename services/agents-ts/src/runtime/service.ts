@@ -114,7 +114,8 @@ type OpenedHook = (
 
 export const PROPOSAL_WAIT_MS = 30_000;
 const PROPOSAL_POLL_MS = 100;
-const PROPOSAL_POLL_MAX_MS = 500;
+const PROPOSAL_POLL_MAX_MS = 1000;
+const PROPOSAL_POLL_FACTOR = 1.5;
 export const MAX_PROPOSALS_IN_FLIGHT = 3;
 const isFinished = (status: string): boolean =>
   (RUN_STATUSES as readonly string[]).includes(status) &&
@@ -422,7 +423,7 @@ export function createRunService(deps: RunServiceDeps) {
           return { started, endedWith: run.code ?? run.status };
         if (now().getTime() >= deadline) return { started };
         await sleep(delay);
-        delay = Math.min(delay * 2, PROPOSAL_POLL_MAX_MS);
+        delay = Math.min(Math.round(delay * PROPOSAL_POLL_FACTOR), PROPOSAL_POLL_MAX_MS);
       }
     },
 

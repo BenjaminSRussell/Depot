@@ -97,6 +97,7 @@ interface Options {
   guard?: ReturnType<typeof testGuard>;
   aiAccess?: ReturnType<typeof allowAiAccess>;
   now?: () => Date;
+  sleep?: (ms: number) => Promise<void>;
   workflow?: boolean;
   disabled?: string[];
 }
@@ -133,7 +134,7 @@ const setup = async (
       pseudonymTtlMs: 60_000,
       approvalPollMs: 1,
     },
-    sleep: () => new Promise((r) => setTimeout(r, 2)),
+    sleep: options.sleep ?? (() => new Promise((r) => setTimeout(r, 2))),
     spawn: (p) => spawned.push(p.catch(() => undefined)),
     ...(options.now !== undefined ? { now: options.now } : {}),
     ...(options.workflow === true ? { workflow: {} as never } : {}),
@@ -304,6 +305,30 @@ describe("mode=act proposals", () => {
     });
     expect(body).not.toHaveProperty("proposal");
     expect(s.store.approvals.size).toBe(0);
+  });
+
+  it("polls for the proposal with 1.5x backoff from 100 ms capped at 1 s, and gives up at the 30 s deadline", async () => {
+    let t = Date.UTC(2026, 10, 19);
+    const delays: number[] = [];
+    const hang: ModelProvider = {
+      complete: () => new Promise<never>(() => undefined),
+    };
+    const s = await setup([say(PAYMENT_PARAMS)], [], {
+      proposer: hang,
+      now: () => new Date(t),
+      sleep: async (ms) => {
+        delays.push(ms);
+        t += ms;
+      },
+    });
+    const res = await s.post({ mode: "act", ...PAYMENT_MESSAGE });
+    expect(res.status).toBe(202);
+    expect(await json(res)).toMatchObject({ refusal: { code: "AGT-0234" } });
+    expect(delays.slice(0, 8)).toEqual([100, 150, 225, 338, 507, 761, 1000, 1000]);
+    expect(Math.max(...delays)).toBe(1000);
+    const total = delays.reduce((a, b) => a + b, 0);
+    expect(total).toBeGreaterThanOrEqual(30_000);
+    expect(total - delays.at(-1)!).toBeLessThan(30_000);
   });
 });
 
