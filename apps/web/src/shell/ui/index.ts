@@ -14,6 +14,7 @@ export { FormSection, type FormSectionProps } from "./FormSection";
 export { useFormBaseline, useUnsavedChanges } from "./useUnsavedChanges";
 export { Icon, type IconName, type IconProps } from "./Icon";
 export { Input, type InputProps } from "./Input";
+export { LineGrid, gridKeyAction, type GridAction, type KeyChord, type LineGridColumn, type LineGridProps } from "./LineGrid";
 export { PasteDialog, parsePaste, type PasteField } from "./PasteDialog";
 export { PageHeader, type PageHeaderProps } from "./PageHeader";
 export { Select, type SelectProps } from "./Select";
