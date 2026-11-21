@@ -9,10 +9,11 @@ import {
   type DeadLetterRecord,
   type EventMessage,
 } from "../src/eventConsumer.js";
+import { ecoSubmittedSource, ecoSubmittedType, nonconformanceCreatedSource, nonconformanceCreatedType } from "../src/workflowTriggers.js";
 import { loadReleasedSource, loadReleasedType } from "../src/tenderTriggers.js";
 import { planSubmittedSource, planSubmittedType } from "../src/budgetPlanTriggers.js";
 import { budgetPlanWorkflow, budgetPlanWorkflowId } from "../src/budgetPlanWorkflow.js";
-import { tenderResponseSignal, tenderWorkflow } from "../src/workflows.js";
+import { capaWorkflow, ecoApprovalWorkflow, tenderResponseSignal, tenderWorkflow } from "../src/workflows.js";
 import { CARRIERS, LOAD_ID } from "./fakeTransport.js";
 
 const TENANT = "00000000-0000-0000-0000-000000000001";
@@ -75,6 +76,22 @@ function message(value: unknown, topic: string = TENDER_TOPICS[0]): EventMessage
   };
 }
 
+const ECO = "00000000-0000-0000-0000-0000000000e1";
+const NCR = "00000000-0000-0000-0000-0000000000c1";
+const ecoSubmitted = (data: Record<string, unknown> = { ecoId: ECO, legalEntityId: ENTITY }) => ({
+  source: ecoSubmittedSource,
+  type: ecoSubmittedType,
+  tenantid: TENANT,
+  actor: "creator",
+  data,
+});
+const ncrCreated = (data: Record<string, unknown> = { ncr_id: NCR, legal_entity_id: ENTITY }, source = nonconformanceCreatedSource) => ({
+  source,
+  type: nonconformanceCreatedType,
+  tenantid: TENANT,
+  data,
+});
+
 function setup(start = vi.fn().mockResolvedValue({}), signal = vi.fn().mockResolvedValue(undefined)) {
   const getHandle = vi.fn(() => ({ signal }));
   const client = { workflow: { start, getHandle } } as unknown as Pick<Client, "workflow">;
@@ -82,8 +99,9 @@ function setup(start = vi.fn().mockResolvedValue({}), signal = vi.fn().mockResol
   const deadLetter = vi.fn(async (record: DeadLetterRecord) => {
     dead.push(record);
   });
-  const handle = createEventHandler({ client, taskQueue: "depot-approvals", dlqTopic: DEFAULT_DLQ_TOPIC, deadLetter });
-  return { handle, start, signal, getHandle, dead, deadLetter };
+  const warn = vi.fn();
+  const handle = createEventHandler({ client, taskQueue: "depot-approvals", dlqTopic: DEFAULT_DLQ_TOPIC, deadLetter, warn });
+  return { handle, start, signal, getHandle, dead, deadLetter, warn };
 }
 
 describe("tender event consumer", () => {
@@ -250,5 +268,43 @@ describe("tender event consumer", () => {
     const { handle, dead } = setup(vi.fn().mockRejectedValue(new Error("temporal unavailable")));
     await expect(handle(message(planSubmitted(), "depot.budget.plan"))).rejects.toThrow("temporal unavailable");
     expect(dead).toEqual([]);
+  });
+
+  it("subscribes to the engineering and quality topics only when WORKFLOW_ECO_CAPA_TRIGGERS is exactly true", () => {
+    const topics = (flag?: string) => eventConsumerConfigFromEnv({ KAFKA_BROKERS: "k1:9093", ...(flag === undefined ? {} : { WORKFLOW_ECO_CAPA_TRIGGERS: flag }) })?.topics;
+    for (const flag of [undefined, "false", "TRUE", ""]) expect(topics(flag)).toEqual(["depot.tms.load", "depot.tms.tender", "depot.budget.plan"]);
+    expect(topics("true")).toEqual(["depot.tms.load", "depot.tms.tender", "depot.budget.plan", "depot.engineering.eco", "depot.quality.nonconformance"]);
+  });
+
+  it("starts ecoApprovalWorkflow from eco.submitted and capaWorkflow from nonconformance.created", async () => {
+    const { handle, start, dead } = setup();
+    expect(await handle(message(ecoSubmitted(), "depot.engineering.eco"))).toEqual({ action: "started", workflowId: `eco-approval:${ECO}` });
+    expect(await handle(message(ncrCreated(), "depot.quality.nonconformance"))).toEqual({ action: "started", workflowId: `capa:${NCR}` });
+    expect(start).toHaveBeenNthCalledWith(1, ecoApprovalWorkflow, expect.objectContaining({ workflowId: `eco-approval:${ECO}` }));
+    expect(start).toHaveBeenNthCalledWith(2, capaWorkflow, expect.objectContaining({ workflowId: `capa:${NCR}` }));
+    expect(dead).toEqual([]);
+  });
+
+  it("commits an event without a legal entity as skipped, with a warning and no start or dead letter", async () => {
+    const { handle, start, dead, warn } = setup();
+    for (const [event, workflowId] of [
+      [ecoSubmitted({ ecoId: ECO }), `eco-approval:${ECO}`],
+      [ncrCreated({ ncr_id: NCR }), `capa:${NCR}`],
+    ] as const) {
+      expect(await handle(message(event, "depot.engineering.eco"))).toMatchObject({ action: "skipped", workflowId, reason: expect.stringContaining("no legal entity") });
+    }
+    expect(start).not.toHaveBeenCalled();
+    expect(dead).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledWith("workflow not started", expect.objectContaining({ workflowId: `capa:${NCR}`, reason: expect.any(String) }));
+  });
+
+  it("dead-letters an ncr event from a foreign source and commits a redelivered eco.submitted", async () => {
+    const { handle, start, dead } = setup();
+    expect(await handle(message(ncrCreated(undefined, "/depot/engineering/engineering"), "depot.quality.nonconformance"))).toMatchObject({ action: "dead-lettered" });
+    expect(dead).toHaveLength(1);
+    expect(start).not.toHaveBeenCalled();
+    const again = setup(vi.fn().mockRejectedValue(new WorkflowExecutionAlreadyStartedError("running", "eco", "ecoApprovalWorkflow")));
+    expect(await again.handle(message(ecoSubmitted(), "depot.engineering.eco"))).toEqual({ action: "already-running", workflowId: `eco-approval:${ECO}` });
   });
 });

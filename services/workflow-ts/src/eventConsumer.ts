@@ -19,12 +19,22 @@ import {
   type TenderOutcomeEvent,
 } from "./tenderTriggers.js";
 import { handlePlanSubmitted, planSubmittedType, type PlanSubmittedEvent } from "./budgetPlanTriggers.js";
+import {
+  ecoSubmittedType,
+  handleEcoSubmitted,
+  handleNonconformanceCreated,
+  nonconformanceCreatedType,
+  type EcoSubmittedEvent,
+  type NonconformanceCreatedEvent,
+} from "./workflowTriggers.js";
 import { startInBackground, type BackgroundStartOptions, type BackgroundStarted } from "./backgroundStart.js";
 
 /** Topics of transport's outbox (platform/go/events.Topic): depot.<context>.<entity>. */
 export const TENDER_TOPICS = ["depot.tms.load", "depot.tms.tender"] as const;
 /** Topic of budgeting's outbox: plan.submitted starts budgetPlanWorkflow. */
 export const BUDGET_PLAN_TOPICS = ["depot.budget.plan"] as const;
+export const ECO_TOPICS = ["depot.engineering.eco"] as const;
+export const NCR_TOPICS = ["depot.quality.nonconformance"] as const;
 export const DEFAULT_GROUP = "workflow-ts-tender";
 export const DEFAULT_DLQ_TOPIC = "depot.workflow.tender.dlq";
 
@@ -54,7 +64,7 @@ export function eventConsumerConfigFromEnv(env: Record<string, string | undefine
   return {
     brokers,
     group: env.KAFKA_GROUP || DEFAULT_GROUP,
-    topics: [...TENDER_TOPICS, ...BUDGET_PLAN_TOPICS],
+    topics: [...TENDER_TOPICS, ...BUDGET_PLAN_TOPICS, ...(env.WORKFLOW_ECO_CAPA_TRIGGERS === "true" ? [...ECO_TOPICS, ...NCR_TOPICS] : [])],
     dlqTopic: env.WORKFLOW_DLQ_TOPIC || DEFAULT_DLQ_TOPIC,
     ...(env.KAFKA_USERNAME ? { username: env.KAFKA_USERNAME } : {}),
     ...(env.KAFKA_PASSWORD_FILE ? { passwordFile: env.KAFKA_PASSWORD_FILE } : {}),
@@ -80,6 +90,7 @@ export interface DeadLetterRecord {
 export type EventOutcome =
   | { action: "started" | "already-running"; workflowId: string }
   | { action: "signalled" | "no-workflow"; workflowId: string }
+  | { action: "skipped"; workflowId: string; reason: string }
   | { action: "ignored"; type: string }
   | { action: "dead-lettered"; reason: string };
 
@@ -128,9 +139,21 @@ export function createEventHandler(options: EventHandlerOptions): (message: Even
     if (typeof type !== "string") return reject(message, "missing type");
     const isRelease = type === loadReleasedType;
     const isPlan = type === planSubmittedType;
-    if (!isRelease && !isPlan && !(tenderOutcomeTypes as readonly string[]).includes(type)) return { action: "ignored", type };
+    const isEco = type === ecoSubmittedType;
+    const isNcr = type === nonconformanceCreatedType;
+    if (!isRelease && !isPlan && !isEco && !isNcr && !(tenderOutcomeTypes as readonly string[]).includes(type)) return { action: "ignored", type };
     if (typeof data !== "object" || data === null || Array.isArray(data)) return reject(message, "missing data");
     try {
+      if (isEco || isNcr) {
+        const result = isEco
+          ? await handleEcoSubmitted(client, taskQueue, event as EcoSubmittedEvent)
+          : await handleNonconformanceCreated(client, taskQueue, event as NonconformanceCreatedEvent);
+        if (result.skipped !== undefined) {
+          warn?.("workflow not started", { topic: message.topic, offset: message.offset, workflowId: result.workflowId, reason: result.skipped });
+          return { action: "skipped", workflowId: result.workflowId, reason: result.skipped };
+        }
+        return { action: result.started ? "started" : "already-running", workflowId: result.workflowId };
+      }
       if (isPlan) {
         const { workflowId, started } = await handlePlanSubmitted(client, taskQueue, event as PlanSubmittedEvent);
         return { action: started ? "started" : "already-running", workflowId };
