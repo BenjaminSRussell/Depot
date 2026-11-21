@@ -1,4 +1,4 @@
-import { ActivityFailure, condition, defineQuery, defineSignal, metricMeter, proxyActivities, setHandler, sleep } from "@temporalio/workflow";
+import { ActivityFailure, ApplicationFailure, condition, defineQuery, defineSignal, metricMeter, proxyActivities, setHandler, sleep } from "@temporalio/workflow";
 import type { CapaActivities } from "./capaActivities.js";
 
 export type EffectivenessResult = "EFFECTIVE" | "NOT_EFFECTIVE";
@@ -124,15 +124,19 @@ export async function capaWorkflow(input: CapaInput): Promise<CapaState> {
     const giveUpAt = Date.now() + (input.approvalGiveUpMs ?? APPROVAL_GIVE_UP_MS);
     let delay = APPROVAL_POLL_START_MS;
     for (;;) {
-      let current: CapaNcr;
+      let current: CapaNcr | undefined;
       try {
         current = await activities.readNonconformance(as(input.startedBy, [input.legalEntityId]));
       } catch (error) {
         if (!(error instanceof ActivityFailure)) throw error;
-        return notStarted("The nonconformance could not be read, so no correction was started.");
+        if (error.cause instanceof ApplicationFailure && error.cause.type === "ServiceCallRejected") {
+          return notStarted("The nonconformance could not be read, so no correction was started.");
+        }
       }
-      if (current.status === "APPROVED" || current.correction) break;
-      if (current.status !== "NEW") return notStarted(`The nonconformance is ${current.status}, so no correction was started.`);
+      if (current) {
+        if (current.status === "APPROVED" || current.correction) break;
+        if (current.status !== "NEW") return notStarted(`The nonconformance is ${current.status}, so no correction was started.`);
+      }
       if (Date.now() >= giveUpAt) return notStarted("The nonconformance was not approved within the waiting period, so no correction was started.");
       await sleep(Math.min(delay, giveUpAt - Date.now()));
       delay = Math.min(delay * 2, APPROVAL_POLL_CAP_MS);

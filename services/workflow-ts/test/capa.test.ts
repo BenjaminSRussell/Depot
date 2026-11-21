@@ -293,6 +293,24 @@ describe("CAPA workflow", () => {
       expect(result).toMatchObject({ status: "not_started", outcome: expect.stringContaining("could not be read") });
       expect(fake.calls.start).toBe(0);
     }, 60_000);
+
+    it("keeps waiting through a transient read outage and starts once the NCR is approved", async () => {
+      const fake = new FakeQuality();
+      fake.ncr.status = "NEW";
+      fake.refuse("read", 503, "QM-0503", 100);
+      fake.after("read", async () => {
+        if (fake.calls.read > 100) fake.ncr.status = "APPROVED";
+      });
+      await run(
+        fake,
+        async (handle) => {
+          await environment.sleep(3 * 60 * 60_000);
+          await until(handle, (state) => state.status !== "awaiting_approval");
+        },
+        waiting,
+      );
+      expect(fake.effects.corrections).toBe(1);
+    }, 120_000);
   });
 
   it("reports its state to a query", async () => {
