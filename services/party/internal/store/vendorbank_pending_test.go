@@ -76,7 +76,7 @@ func TestVendorBankPending_AccountWaitsForASecondPerson(t *testing.T) {
 		t.Fatalf("masked = %+v, %v; want the pending account shown", masked, err)
 	}
 	queue, err := b.s.ListPendingChanges(b.second, 10, time.Time{}, "")
-	if err != nil || len(queue) != 1 || queue[0].Field != domain.FieldVendorBank || queue[0].BankAccountID != added.ID || queue[0].VendorID != b.vendorID {
+	if err != nil || len(queue) != 1 || queue[0].Field != domain.FieldVendorBank || queue[0].BankAccountID != added.ID || queue[0].VendorID != b.vendorID || queue[0].RequestedValue != "Acme (USD) ending 6789" {
 		t.Fatalf("pending queue = %+v, %v", queue, err)
 	}
 

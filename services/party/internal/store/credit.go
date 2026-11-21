@@ -33,7 +33,7 @@ const (
 	CodeReasonTooLong    = "PTY-REASON-TOO-LONG"
 	CodeFieldsInvalid    = "PTY-PROTECTED-FIELDS-INVALID"
 	CodeOutOfScope       = "PTY-LEGAL-ENTITY-OUT-OF-SCOPE"
-	changeColumns        = `id::text, coalesce(customer_id::text, ''), coalesce(vendor_id::text, ''), coalesce(bank_account_id::text, ''), legal_entity_id::text, field, current_value::text, coalesce(requested_value::text, ''), status, requested_by, decided_by, decision_reason, requested_at, decided_at`
+	changeColumns        = `id::text, coalesce(customer_id::text, ''), coalesce(vendor_id::text, ''), coalesce(bank_account_id::text, ''), legal_entity_id::text, field, current_value::text, coalesce(requested_value::text, (select b.account_holder || ' (' || b.currency_code || ') ending ' || b.account_last4 from vendor_bank_account b where b.tenant_id = pending_change.tenant_id and b.id = pending_change.bank_account_id), ''), status, requested_by, decided_by, decision_reason, requested_at, decided_at`
 )
 
 var creditLimitPattern = regexp.MustCompile(`^[0-9]{1,16}(\.[0-9]{1,2})?$`)
