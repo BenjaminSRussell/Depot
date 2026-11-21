@@ -1,4 +1,11 @@
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { copy } from "../copy";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import { Button } from "./Button";
@@ -31,7 +38,10 @@ export function parsePaste(text: string, fields: PasteField[]): Pasted {
     lines.pop();
   }
   const first = lines[0]?.split("\t").map((cell) => cell.trim().toLowerCase());
-  const headed = first !== undefined && first.length === fields.length && fields.every((f, i) => f.header.toLowerCase() === first[i]);
+  const headed =
+    first !== undefined &&
+    first.length === fields.length &&
+    fields.every((f, i) => f.header.toLowerCase() === first[i]);
   const body = headed ? lines.slice(1) : lines;
   if (body.length > MAX_PASTE_ROWS) {
     return { rows: [], tooMany: true };
@@ -43,7 +53,12 @@ export function parsePaste(text: string, fields: PasteField[]): Pasted {
     for (const [i, field] of fields.entries()) {
       const raw = (cells[i] ?? "").trim();
       values[field.key] = field.parse ? field.parse(raw) : raw;
-      if (typeof values[field.key] === "number" && Number.isNaN(values[field.key])) {
+      const blankParsed = field.parse !== undefined && raw === "";
+      if (
+        blankParsed ||
+        (typeof values[field.key] === "number" &&
+          Number.isNaN(values[field.key]))
+      ) {
         errors.push(copy.lists.pasteBadNumber(field.header));
       }
     }
@@ -87,8 +102,17 @@ export function PasteDialog({ fields, onApply, onClose }: PasteDialogProps) {
   const invalid = pasted.rows.some((row) => row.errors.length > 0);
   const columns: DataTableColumn<PastedRow & { number: number }>[] = [
     { key: "number", header: copy.lists.pasteRowNumber },
-    ...fields.map((f) => ({ key: f.key, header: f.header, render: (row: PastedRow) => String(row.values[f.key] ?? "") })),
-    { key: "problem", header: copy.lists.pasteProblem, render: (row) => (row.errors.length > 0 ? row.errors.join("; ") : copy.lists.pasteRowOk) },
+    ...fields.map((f) => ({
+      key: f.key,
+      header: f.header,
+      render: (row: PastedRow) => String(row.values[f.key] ?? ""),
+    })),
+    {
+      key: "problem",
+      header: copy.lists.pasteProblem,
+      render: (row) =>
+        row.errors.length > 0 ? row.errors.join("; ") : copy.lists.pasteRowOk,
+    },
   ];
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -99,24 +123,53 @@ export function PasteDialog({ fields, onApply, onClose }: PasteDialogProps) {
   };
 
   return (
-    <div className={styles.overlay} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} className={styles.panel} onKeyDown={onKeyDown}>
+    <div
+      className={styles.overlay}
+      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+    >
+      <div
+        ref={panel}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className={styles.panel}
+        onKeyDown={onKeyDown}
+      >
         <h2 id={titleId} className={styles.title}>
           {copy.lists.pasteTitle}
         </h2>
-        <p className={styles.help}>{copy.lists.pasteHelp(fields.map((f) => f.header).join(", "))}</p>
+        <p className={styles.help}>
+          {copy.lists.pasteHelp(fields.map((f) => f.header).join(", "))}
+        </p>
         <label htmlFor={boxId} className="visually-hidden">
           {copy.lists.pasteBox}
         </label>
-        <Textarea id={boxId} mono rows={6} value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} autoFocus />
+        <Textarea
+          id={boxId}
+          mono
+          rows={6}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          spellCheck={false}
+          autoFocus
+        />
         {pasted.tooMany ? (
           <p role="alert">{copy.lists.pasteTooMany(MAX_PASTE_ROWS)}</p>
         ) : pasted.rows.length > 0 ? (
-          <DataTable label={copy.lists.pasteTitle} columns={columns} rows={pasted.rows.map((row, i) => ({ ...row, number: i + 1 }))} getRowKey={(row) => String(row.number)} />
+          <DataTable
+            label={copy.lists.pasteTitle}
+            columns={columns}
+            rows={pasted.rows.map((row, i) => ({ ...row, number: i + 1 }))}
+            getRowKey={(row) => String(row.number)}
+          />
         ) : null}
         <div className={styles.actions}>
           <Button onClick={onClose}>{copy.lists.pasteClose}</Button>
-          <Button variant="primary" disabled={pasted.rows.length === 0 || invalid} onClick={() => onApply(pasted.rows.map((row) => row.values))}>
+          <Button
+            variant="primary"
+            disabled={pasted.rows.length === 0 || invalid}
+            onClick={() => onApply(pasted.rows.map((row) => row.values))}
+          >
             {copy.lists.pasteCommit(pasted.rows.length)}
           </Button>
         </div>

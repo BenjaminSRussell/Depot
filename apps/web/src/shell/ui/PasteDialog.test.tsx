@@ -3,7 +3,15 @@ import { MAX_PASTE_ROWS, parsePaste, type PasteField } from "./PasteDialog";
 
 const fields: PasteField[] = [
   { key: "item", header: "Item" },
-  { key: "qty", header: "Quantity", parse: (cell) => Number(cell), validate: (value) => (typeof value === "number" && value < 0 ? "Quantity cannot be negative" : null) },
+  {
+    key: "qty",
+    header: "Quantity",
+    parse: (cell) => Number(cell),
+    validate: (value) =>
+      typeof value === "number" && value < 0
+        ? "Quantity cannot be negative"
+        : null,
+  },
 ];
 
 describe("parsePaste", () => {
@@ -33,14 +41,23 @@ describe("parsePaste", () => {
 
   it("flags a ragged row: a missing cell is validated as empty and extra cells are an error", () => {
     const { rows } = parsePaste("A-1\nA-2\t1\tstray", fields);
-    expect(rows[0].values).toEqual({ item: "A-1", qty: 0 });
+    expect(rows[0].errors).toEqual(["Quantity is not a number"]);
+    expect(parsePaste("A-1\t \n", fields).rows[0].errors).toEqual([
+      "Quantity is not a number",
+    ]);
     expect(rows[1].errors).toEqual(["1 more cell than columns"]);
   });
 
   it("refuses more rows than the cap and keeps exactly the cap", () => {
     const line = (n: number) => `A-${n}\t1`;
-    const lines = (count: number) => Array.from({ length: count }, (_, i) => line(i)).join("\n");
-    expect(parsePaste(lines(MAX_PASTE_ROWS + 1), fields)).toEqual({ rows: [], tooMany: true });
-    expect(parsePaste(lines(MAX_PASTE_ROWS), fields)).toMatchObject({ tooMany: false });
+    const lines = (count: number) =>
+      Array.from({ length: count }, (_, i) => line(i)).join("\n");
+    expect(parsePaste(lines(MAX_PASTE_ROWS + 1), fields)).toEqual({
+      rows: [],
+      tooMany: true,
+    });
+    expect(parsePaste(lines(MAX_PASTE_ROWS), fields)).toMatchObject({
+      tooMany: false,
+    });
   });
 });
