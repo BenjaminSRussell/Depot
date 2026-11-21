@@ -724,6 +724,79 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '503': { $ref: '#/components/responses/Problem' }
+  /v1/interco/links:
+    post:
+      operationId: createIntercompanyDocumentLink
+      summary: Store the IcDocumentLink of a source document and its mirror (FR-40.2)
+      description: |
+        One link per source document. The same link sent again answers 200 with the stored row; a different mirror
+        for the same source is 409 IC-0866. The mirror matrix is sales_order to purchase_order, packing_slip to receipt
+        and invoice to vendor_invoice (an unmatched pair is 400).
+      x-depot-duty: intercompany.post
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/DutiesHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DocumentLink' }
+      responses:
+        '200':
+          description: The link was already stored
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DocumentLink' }
+        '201':
+          description: The link
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DocumentLink' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listIntercompanyDocumentLinks
+      summary: List document links, newest first
+      x-depot-duty: intercompany.view
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/DutiesHeader'
+        - { name: pairId, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: The links
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/DocumentLink' } }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/interco/links/{id}/compensate:
+    post:
+      operationId: compensateIntercompanyDocumentLink
+      summary: Mark a link compensated after the saga cancelled its documents
+      x-depot-duty: intercompany.post
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/DutiesHeader'
+        - $ref: '#/components/parameters/PartnerID'
+      responses:
+        '200':
+          description: The compensated link
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DocumentLink' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /v1/interco/reconciliations/run:
     post:
       operationId: runIntercompanyReconciliation
@@ -1086,6 +1159,22 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    DocumentLink:
+      type: object
+      required: [pairId, sourceEntity, sourceType, sourceId, mirrorEntity, mirrorType, mirrorId]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        pairId: { type: string, maxLength: 64 }
+        sourceEntity: { type: string, maxLength: 64 }
+        sourceType: { type: string, enum: [sales_order, packing_slip, invoice] }
+        sourceId: { type: string, maxLength: 64 }
+        mirrorEntity: { type: string, maxLength: 64 }
+        mirrorType: { type: string, enum: [purchase_order, receipt, vendor_invoice] }
+        mirrorId: { type: string, maxLength: 64 }
+        pricingBasis: { type: string, maxLength: 64 }
+        status: { type: string, enum: [linked, compensated], readOnly: true }
+        createdBy: { type: string, readOnly: true }
+        createdAt: { type: string, format: date-time, readOnly: true }
     Entity:
       type: object
       required: [legalEntityId, ledgerId, currency]

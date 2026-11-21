@@ -68,6 +68,7 @@ type API struct {
 	journals JournalStore
 	charges  ChargeStore
 	recon    ReconStore
+	links    LinkStore
 
 	registry    RegistryStore
 	ledgerRecon LedgerReconciler
@@ -80,6 +81,8 @@ type API struct {
 	chargesInvoiced  atomic.Int64
 	reconRuns        atomic.Int64
 	reconResolved    atomic.Int64
+	linksCreated     atomic.Int64
+	linksCompensated atomic.Int64
 
 	journalPreviews        atomic.Int64
 	reconItems             atomic.Int64
@@ -138,6 +141,9 @@ func (a *API) routes() []route {
 		{http.MethodPost, "/v1/interco/partners", DutyConfigure, a.createPartner},
 		{http.MethodGet, "/v1/interco/partners/{id}", DutyView, a.getPartner},
 		{http.MethodPatch, "/v1/interco/partners/{id}", DutyConfigure, a.updatePartner},
+		{http.MethodPost, "/v1/interco/links", DutyPost, a.createLink},
+		{http.MethodGet, "/v1/interco/links", DutyView, a.listLinks},
+		{http.MethodPost, "/v1/interco/links/{id}/compensate", DutyPost, a.compensateLink},
 		{http.MethodPost, "/v1/interco/partners/{id}/lines:price", DutyView, a.priceLine},
 		{http.MethodPost, "/v1/interco/partners/{id}/changes:evaluate", DutyView, a.evaluateChange},
 	}
@@ -174,6 +180,8 @@ func (a *API) Metrics() http.Handler {
 		counter("intercompany_charges_suspended_total", "IC charges kept on suspense for lack of a transfer price.", a.chargesSuspended.Load())
 		counter("intercompany_recon_runs_total", "Reconciliation runs stored.", a.reconRuns.Load())
 		counter("intercompany_recon_items_resolved_total", "Reconciliation items resolved.", a.reconResolved.Load())
+		counter("intercompany_links_created_total", "Mirror document links stored.", a.linksCreated.Load())
+		counter("intercompany_links_compensated_total", "Mirror document links compensated.", a.linksCompensated.Load())
 		counter("intercompany_change_evaluations_total", "Linked order changes checked against a pairing's tolerance.", a.changeEvaluations.Load())
 	})
 }
@@ -509,13 +517,13 @@ func problemFrom(err error) error {
 		switch de.Code {
 		case domain.CodeInvalid:
 			status = http.StatusBadRequest
-		case domain.CodePartnerNotFound, domain.CodePostingNotFound, domain.CodeChargeNotFound, domain.CodeReconRunNotFound, domain.CodeReconItemNotFound:
+		case domain.CodePartnerNotFound, domain.CodeLinkNotFound, domain.CodePostingNotFound, domain.CodeChargeNotFound, domain.CodeReconRunNotFound, domain.CodeReconItemNotFound:
 			status = http.StatusNotFound
 		case domain.CodeReconNotOpen, domain.CodeTransferPriceExist:
 			status = http.StatusConflict
 		case domain.CodeLedgerUnavailable, domain.CodeTaxUnavailable, domain.CodeNotConfigured, domain.CodePartyUnavailable:
 			status = http.StatusServiceUnavailable
-		case domain.CodePairingExists:
+		case domain.CodePairingExists, domain.CodeLinkConflict:
 			status = http.StatusConflict
 		case domain.CodeVersionConflict:
 			status = http.StatusPreconditionFailed

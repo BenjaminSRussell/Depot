@@ -76,3 +76,31 @@ func TestRunGate_NoOpenMismatchRunsAndUnreadableReconciliationRefuses(t *testing
 		t.Fatalf("unreadable reconciliation = %d %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestRunGate_ChecksEveryUnitEntity(t *testing.T) {
+	a, _ := groupsAPI(t)
+	g := created[groupOut](t, call(a, http.MethodPost, "/v1/consol/groups", tenantID, api.DutyConfigure, "g1", `{"code":"CRP","name":"Cedar Ridge Pumps group","currency":"USD"}`))
+	for i, le := range []string{leUS, leDE} {
+		created[unitOut](t, call(a, http.MethodPost, "/v1/consol/groups/"+g.ID+"/units", tenantID, api.DutyConfigure, fmt.Sprint("u", i), fmt.Sprintf(`{"legalEntityId":%q,"ledgerId":"L-%d","currency":"USD"}`, le, i)))
+	}
+	mism := &perEntityMismatches{open: map[string]int{leDE: 1}}
+	a.WithICGate(mism, &fakeAudit{})
+
+	rec := call(a, http.MethodPost, runsPath, tenantID, api.DutyRun, "r1", gateRunBody(g.ID, ""))
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "CNS-0901") {
+		t.Fatalf("mismatch under the second entity = %d %s", rec.Code, rec.Body.String())
+	}
+	if len(mism.seen) != 2 {
+		t.Fatalf("entities read = %v, want each distinct entity once", mism.seen)
+	}
+}
+
+type perEntityMismatches struct {
+	open map[string]int
+	seen []string
+}
+
+func (f *perEntityMismatches) OpenMismatches(_ context.Context, legalEntityID, _ string) (int, error) {
+	f.seen = append(f.seen, legalEntityID)
+	return f.open[legalEntityID], nil
+}

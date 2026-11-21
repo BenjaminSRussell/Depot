@@ -49,6 +49,9 @@ spec:
 {{- if .Values.orgUrl }}
             - { name: ORG_URL, value: {{ .Values.orgUrl | quote }} }
 {{- end }}
+{{- if .Values.intercompanyUrl }}
+            - { name: INTERCOMPANY_URL, value: {{ .Values.intercompanyUrl | quote }} }
+{{- end }}
 {{- if .Values.serviceIdentity.signingKeySecret }}
             - name: DEPOT_SERVICE_SIGNING_KEY_FILE
               value: /var/run/depot/service-identity/signing-key

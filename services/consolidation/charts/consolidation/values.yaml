@@ -17,6 +17,9 @@ fxAverageRateType: average
 fxClosingRateType: closing
 # The org service whose fiscal calendars give each unit's fiscal year (ORG_URL). Empty keeps the per-unit start month.
 orgUrl: ""
+# The intercompany service whose reconciliation gates a consolidation run (INTERCOMPANY_URL; needs the signing key and the
+# intercompany.view grant for consolidation). Empty turns the gate off, so stage and prod must set it.
+intercompanyUrl: "http://intercompany:8080"
 # Ed25519 seed (base64) in this secret signs the service-to-service tokens sent to the ledger.
 serviceIdentity:
   signingKeySecret: ""

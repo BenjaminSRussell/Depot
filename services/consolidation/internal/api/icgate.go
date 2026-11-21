@@ -33,20 +33,23 @@ func (a *API) WithICGate(m intercoclient.Mismatches, audit ICOverrideAudit) *API
 	return a
 }
 
-func (a *API) icGateEntity(ctx context.Context, groupID string) (string, error) {
+func (a *API) icGateEntities(ctx context.Context, groupID string) ([]string, error) {
 	if a.groups == nil || !ids.Valid(groupID) {
-		return "", nil
+		return nil, nil
 	}
 	group, err := a.groups.GetGroup(ctx, groupID)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
+	seen := map[string]bool{}
+	var entities []string
 	for _, u := range group.Units {
-		if u.LegalEntityID != "" {
-			return u.LegalEntityID, nil
+		if u.LegalEntityID != "" && !seen[u.LegalEntityID] {
+			seen[u.LegalEntityID] = true
+			entities = append(entities, u.LegalEntityID)
 		}
 	}
-	return "", nil
+	return entities, nil
 }
 
 // icGate refuses a run while the period's intercompany reconciliation has an open mismatch, unless the caller holds
@@ -56,19 +59,20 @@ func (a *API) icGate(w http.ResponseWriter, r *http.Request, groupID, period, re
 		return true
 	}
 	ctx := r.Context()
-	entity, err := a.icGateEntity(ctx, groupID)
+	entities, err := a.icGateEntities(ctx, groupID)
 	if err != nil {
 		httpx.Fail(w, r, problemFrom(err))
 		return false
 	}
-	if entity == "" {
-		return true
-	}
-	open, err := a.icMismatches.OpenMismatches(ctx, entity, period)
-	if err != nil {
-		slog.ErrorContext(ctx, "intercompany reconciliation could not be read for the consolidation gate", "err", err, "groupId", groupID, "period", period)
-		httpx.Fail(w, r, httpx.NewProblem(http.StatusServiceUnavailable, CodeICReconUnreadable, "the intercompany reconciliation of "+period+" could not be read, so the run cannot start"))
-		return false
+	open := 0
+	for _, entity := range entities {
+		n, err := a.icMismatches.OpenMismatches(ctx, entity, period)
+		if err != nil {
+			slog.ErrorContext(ctx, "intercompany reconciliation could not be read for the consolidation gate", "err", err, "groupId", groupID, "period", period, "legalEntityId", entity)
+			httpx.Fail(w, r, httpx.NewProblem(http.StatusServiceUnavailable, CodeICReconUnreadable, "the intercompany reconciliation of "+period+" could not be read, so the run cannot start"))
+			return false
+		}
+		open += n
 	}
 	if open == 0 {
 		return true

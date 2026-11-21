@@ -81,7 +81,7 @@ func run(ctx context.Context, getenv func(string) string) error {
 		}
 	}
 	st := store.New(pool)
-	a := api.New(st).WithReconciliation(st).WithRegistry(st)
+	a := api.New(st).WithReconciliation(st).WithRegistry(st).WithLinks(st)
 	rec, err := buildReconciler(getenv, st)
 	if err != nil {
 		return err

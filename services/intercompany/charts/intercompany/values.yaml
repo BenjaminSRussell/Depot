@@ -89,7 +89,9 @@ ingressPolicy:
     podsNamespace: envoy-gateway-system
     gatewaysNamespace: hello-ledger
     names: [depot-api]
-  peers: []
+  peers:
+  - name: consolidation
+    podNames: [consolidation]
   metricsPorts: [9090]
   prometheus:
     namespace: observability
