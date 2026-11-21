@@ -49,6 +49,8 @@ export interface EventConsumerConfig {
   group: string;
   topics: string[];
   dlqTopic: string;
+  /** ECO and CAPA triggers start workflows only when WORKFLOW_ECO_CAPA_TRIGGERS is exactly "true"; otherwise those events are ignored. */
+  ecoCapaTriggers: boolean;
   username?: string;
   passwordFile?: string;
   caFile?: string;
@@ -64,8 +66,9 @@ export function eventConsumerConfigFromEnv(env: Record<string, string | undefine
   return {
     brokers,
     group: env.KAFKA_GROUP || DEFAULT_GROUP,
-    topics: [...TENDER_TOPICS, ...BUDGET_PLAN_TOPICS, ...(env.WORKFLOW_ECO_CAPA_TRIGGERS === "true" ? [...ECO_TOPICS, ...NCR_TOPICS] : [])],
+    topics: [...TENDER_TOPICS, ...BUDGET_PLAN_TOPICS, ...ECO_TOPICS, ...NCR_TOPICS],
     dlqTopic: env.WORKFLOW_DLQ_TOPIC || DEFAULT_DLQ_TOPIC,
+    ecoCapaTriggers: env.WORKFLOW_ECO_CAPA_TRIGGERS === "true",
     ...(env.KAFKA_USERNAME ? { username: env.KAFKA_USERNAME } : {}),
     ...(env.KAFKA_PASSWORD_FILE ? { passwordFile: env.KAFKA_PASSWORD_FILE } : {}),
     ...(env.KAFKA_TLS_CA_FILE ? { caFile: env.KAFKA_TLS_CA_FILE } : {}),
@@ -99,6 +102,8 @@ export interface EventHandlerOptions {
   taskQueue: string;
   dlqTopic: string;
   deadLetter: (record: DeadLetterRecord) => Promise<void>;
+  /** Off unless set: an ECO or nonconformance event is then ignored instead of starting a workflow. */
+  ecoCapaTriggers?: boolean;
   warn?: (message: string, attributes: Record<string, string>) => void;
 }
 
@@ -111,7 +116,7 @@ function refusal(error: unknown): string | undefined {
 
 /** The per-message handler. Resolves when the message is safe to commit; throws when it must be retried. */
 export function createEventHandler(options: EventHandlerOptions): (message: EventMessage) => Promise<EventOutcome> {
-  const { client, taskQueue, dlqTopic, deadLetter, warn } = options;
+  const { client, taskQueue, dlqTopic, deadLetter, warn, ecoCapaTriggers = false } = options;
   const reject = async (message: EventMessage, reason: string): Promise<EventOutcome> => {
     await deadLetter({
       topic: dlqTopic,
@@ -141,6 +146,7 @@ export function createEventHandler(options: EventHandlerOptions): (message: Even
     const isPlan = type === planSubmittedType;
     const isEco = type === ecoSubmittedType;
     const isNcr = type === nonconformanceCreatedType;
+    if ((isEco || isNcr) && !ecoCapaTriggers) return { action: "ignored", type };
     if (!isRelease && !isPlan && !isEco && !isNcr && !(tenderOutcomeTypes as readonly string[]).includes(type)) return { action: "ignored", type };
     if (typeof data !== "object" || data === null || Array.isArray(data)) return reject(message, "missing data");
     try {
@@ -200,6 +206,7 @@ export async function startEventConsumer(
     client,
     taskQueue,
     dlqTopic: config.dlqTopic,
+    ecoCapaTriggers: config.ecoCapaTriggers,
     ...(warn ? { warn } : {}),
     deadLetter: async (record) => {
       await producer.send({ topic: record.topic, messages: [{ key: record.key, value: record.value, headers: record.headers }] });

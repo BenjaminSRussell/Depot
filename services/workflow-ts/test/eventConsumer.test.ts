@@ -100,7 +100,7 @@ function setup(start = vi.fn().mockResolvedValue({}), signal = vi.fn().mockResol
     dead.push(record);
   });
   const warn = vi.fn();
-  const handle = createEventHandler({ client, taskQueue: "depot-approvals", dlqTopic: DEFAULT_DLQ_TOPIC, deadLetter, warn });
+  const handle = createEventHandler({ client, taskQueue: "depot-approvals", dlqTopic: DEFAULT_DLQ_TOPIC, deadLetter, warn, ecoCapaTriggers: true });
   return { handle, start, signal, getHandle, dead, deadLetter, warn };
 }
 
@@ -111,8 +111,9 @@ describe("tender event consumer", () => {
     expect(eventConsumerConfigFromEnv({ KAFKA_BROKERS: "k1:9093, k2:9093" })).toEqual({
       brokers: ["k1:9093", "k2:9093"],
       group: DEFAULT_GROUP,
-      topics: ["depot.tms.load", "depot.tms.tender", "depot.budget.plan"],
+      topics: ["depot.tms.load", "depot.tms.tender", "depot.budget.plan", "depot.engineering.eco", "depot.quality.nonconformance"],
       dlqTopic: DEFAULT_DLQ_TOPIC,
+      ecoCapaTriggers: false,
     });
     expect(
       eventConsumerConfigFromEnv({
@@ -270,10 +271,23 @@ describe("tender event consumer", () => {
     expect(dead).toEqual([]);
   });
 
-  it("subscribes to the engineering and quality topics only when WORKFLOW_ECO_CAPA_TRIGGERS is exactly true", () => {
-    const topics = (flag?: string) => eventConsumerConfigFromEnv({ KAFKA_BROKERS: "k1:9093", ...(flag === undefined ? {} : { WORKFLOW_ECO_CAPA_TRIGGERS: flag }) })?.topics;
-    for (const flag of [undefined, "false", "TRUE", ""]) expect(topics(flag)).toEqual(["depot.tms.load", "depot.tms.tender", "depot.budget.plan"]);
-    expect(topics("true")).toEqual(["depot.tms.load", "depot.tms.tender", "depot.budget.plan", "depot.engineering.eco", "depot.quality.nonconformance"]);
+  it("turns the ECO and CAPA triggers on only when WORKFLOW_ECO_CAPA_TRIGGERS is exactly true", () => {
+    const on = (flag?: string) => eventConsumerConfigFromEnv({ KAFKA_BROKERS: "k1:9093", ...(flag === undefined ? {} : { WORKFLOW_ECO_CAPA_TRIGGERS: flag }) })?.ecoCapaTriggers;
+    for (const flag of [undefined, "false", "TRUE", ""]) expect(on(flag)).toBe(false);
+    expect(on("true")).toBe(true);
+  });
+
+  it("ignores eco.submitted and nonconformance.created while the triggers are off", async () => {
+    const start = vi.fn();
+    const off = createEventHandler({
+      client: { workflow: { start } } as unknown as Parameters<typeof createEventHandler>[0]["client"],
+      taskQueue: "depot-approvals",
+      dlqTopic: DEFAULT_DLQ_TOPIC,
+      deadLetter: async () => undefined,
+    });
+    expect(await off(message(ecoSubmitted(), "depot.engineering.eco"))).toMatchObject({ action: "ignored" });
+    expect(await off(message(ncrCreated(), "depot.quality.nonconformance"))).toMatchObject({ action: "ignored" });
+    expect(start).not.toHaveBeenCalled();
   });
 
   it("starts ecoApprovalWorkflow from eco.submitted and capaWorkflow from nonconformance.created", async () => {
