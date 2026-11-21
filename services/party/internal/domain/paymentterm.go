@@ -94,6 +94,9 @@ func (t NewPaymentTerm) Validate() map[string]string {
 	return errs
 }
 
+// MaxCalendarHolidays bounds one calendar's holiday list so a create cannot store an unbounded array.
+const MaxCalendarHolidays = 400
+
 type PaymentCalendar struct {
 	ID          string   `json:"id"`
 	Code        string   `json:"code"`
@@ -141,13 +144,20 @@ func (c NewPaymentCalendar) Validate() map[string]string {
 	default:
 		errs["shift"] = "must be following, preceding or modified_following"
 	}
-	if len(*c.WeekendDays) > 6 {
+	var weekend []int
+	if c.WeekendDays != nil {
+		weekend = *c.WeekendDays
+	}
+	if len(weekend) > 6 {
 		errs["weekendDays"] = "at most 6 weekend days"
 	}
-	for _, d := range *c.WeekendDays {
+	for _, d := range weekend {
 		if d < 0 || d > 6 {
 			errs["weekendDays"] = "each day must be 0 (Sunday) to 6 (Saturday)"
 		}
+	}
+	if len(c.Holidays) > MaxCalendarHolidays {
+		errs["holidays"] = "at most 400 holidays; keep one or two years at a time"
 	}
 	for _, h := range c.Holidays {
 		if _, err := time.Parse(time.DateOnly, h); err != nil {

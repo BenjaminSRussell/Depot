@@ -121,6 +121,20 @@ func TestPaymentTermValidate(t *testing.T) {
 	}
 }
 
+func TestPaymentCalendarValidate_WithoutCleanDoesNotPanicAndBoundsHolidays(t *testing.T) {
+	// Validate before Clean has no weekend list yet; it must report, not dereference nil.
+	if errs := (domain.NewPaymentCalendar{Code: "US", Name: "US", Shift: domain.ShiftFollowing}).Validate(); len(errs) != 0 {
+		t.Fatalf("unexpected errors: %v", errs)
+	}
+	many := make([]string, domain.MaxCalendarHolidays+1)
+	for i := range many {
+		many[i] = "2027-01-01"
+	}
+	if _, ok := (domain.NewPaymentCalendar{Code: "US", Name: "US", Holidays: many}).Clean().Validate()["holidays"]; !ok {
+		t.Fatal("an over-long holiday list was accepted")
+	}
+}
+
 func TestPaymentCalendarValidate(t *testing.T) {
 	if errs := (domain.NewPaymentCalendar{Code: "us", Name: "US"}).Clean().Validate(); len(errs) != 0 {
 		t.Fatalf("defaults rejected: %v", errs)
