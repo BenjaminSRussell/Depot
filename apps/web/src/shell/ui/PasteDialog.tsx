@@ -42,7 +42,8 @@ export function parsePaste(text: string, fields: PasteField[]): Pasted {
     first !== undefined &&
     first.length === fields.length &&
     fields.every((f, i) => f.header.toLowerCase() === first[i]);
-  const body = headed ? lines.slice(1) : lines;
+  // A blank line between rows is not a row; sending it on would show an empty "Ready" row and commit it.
+  const body = (headed ? lines.slice(1) : lines).filter((line) => line.trim() !== "");
   if (body.length > MAX_PASTE_ROWS) {
     return { rows: [], tooMany: true };
   }
@@ -57,7 +58,7 @@ export function parsePaste(text: string, fields: PasteField[]): Pasted {
       if (
         blankParsed ||
         (typeof values[field.key] === "number" &&
-          Number.isNaN(values[field.key]))
+          !Number.isFinite(values[field.key]))
       ) {
         errors.push(copy.lists.pasteBadNumber(field.header));
       }

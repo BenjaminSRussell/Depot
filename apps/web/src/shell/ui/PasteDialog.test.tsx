@@ -24,6 +24,19 @@ describe("parsePaste", () => {
     expect(rows.every((r) => r.errors.length === 0)).toBe(true);
   });
 
+  it("drops blank lines between rows instead of sending them on as empty rows", () => {
+    const { rows } = parsePaste("A-1\t2\n\n  \nA-2\t3\n", fields);
+    expect(rows.map((r) => r.values)).toEqual([
+      { item: "A-1", qty: 2 },
+      { item: "A-2", qty: 3 },
+    ]);
+  });
+
+  it("flags a number that is not finite", () => {
+    const { rows } = parsePaste("A-1\tInfinity\nA-2\t1e999", fields);
+    expect(rows.map((r) => r.errors)).toEqual([["Quantity is not a number"], ["Quantity is not a number"]]);
+  });
+
   it("skips a first row that repeats the headings, ignoring case", () => {
     expect(parsePaste("item\tquantity\nA-1\t2", fields).rows).toHaveLength(1);
   });
