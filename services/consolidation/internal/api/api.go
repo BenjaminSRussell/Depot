@@ -62,7 +62,6 @@ type API struct {
 	closingType          string
 	fiscal               *orgclient.Years
 	icMismatches         intercoclient.Mismatches
-	icAudit              ICOverrideAudit
 	collections          atomic.Int64
 	runsCompleted        atomic.Int64
 	eliminationPreviews  atomic.Int64

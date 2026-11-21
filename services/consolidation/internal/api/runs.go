@@ -23,7 +23,8 @@ import (
 // RunStore persists consolidation runs. internal/store implements it over
 // Postgres with row-level security and the outbox.
 type RunStore interface {
-	CreateRun(ctx context.Context, in domain.RunInput, res domain.RunResult, collectionID, key string) (store.RunRecord, bool, error)
+	CreateRun(ctx context.Context, in domain.RunInput, res domain.RunResult, collectionID, key string, override *store.ICOverride) (store.RunRecord, bool, error)
+	ReplayRun(ctx context.Context, in domain.RunInput, key string) (store.RunRecord, bool, error)
 	ListRuns(ctx context.Context, f store.RunFilter, after string, limit int) (store.RunPage, error)
 	GetRun(ctx context.Context, id string) (store.RunDetail, error)
 	GetStatements(ctx context.Context, id string) (store.RunStatements, error)
@@ -218,12 +219,8 @@ func (a *API) startRun(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, problemFrom(err))
 		return
 	}
-	if !a.icGate(w, r, body.GroupID, body.Period, body.ICMismatchOverrideReason) {
-		return
-	}
-	rec, replayed, err := a.runs.CreateRun(r.Context(), in, res, "", key)
-	if err != nil {
-		httpx.Fail(w, r, problemFrom(err))
+	rec, replayed, ok := a.createRun(w, r, in, res, "", key, body.ICMismatchOverrideReason)
+	if !ok {
 		return
 	}
 	if replayed {
@@ -477,12 +474,8 @@ func (a *API) startRunFromCollection(w http.ResponseWriter, r *http.Request, bod
 		httpx.Fail(w, r, problemFrom(err))
 		return
 	}
-	if !a.icGate(w, r, c.GroupID, c.Period, body.ICMismatchOverrideReason) {
-		return
-	}
-	rec, replayed, err := a.runs.CreateRun(r.Context(), run, res, c.ID, key)
-	if err != nil {
-		httpx.Fail(w, r, problemFrom(err))
+	rec, replayed, ok := a.createRun(w, r, run, res, c.ID, key, body.ICMismatchOverrideReason)
+	if !ok {
 		return
 	}
 	if replayed {

@@ -90,7 +90,7 @@ func principal(ctx context.Context) (tenant.Principal, error) {
 // currency and publishes consol.run.completed in the same transaction. With an
 // Idempotency-Key a retry returns the stored run and replayed=true; reusing the
 // key with other inputs fails with CNS-0922.
-func (s *Postgres) CreateRun(ctx context.Context, in domain.RunInput, res domain.RunResult, collectionID, key string) (RunRecord, bool, error) {
+func (s *Postgres) CreateRun(ctx context.Context, in domain.RunInput, res domain.RunResult, collectionID, key string, override *ICOverride) (RunRecord, bool, error) {
 	pr, err := principal(ctx)
 	if err != nil {
 		return RunRecord{}, false, err
@@ -114,7 +114,11 @@ func (s *Postgres) CreateRun(ctx context.Context, in domain.RunInput, res domain
 	)
 	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		create := func() (RunRecord, error) {
-			return insertRun(ctx, tx, pr.TenantID, createdBy, in, res, raw, hash, collectionID)
+			created, err := insertRun(ctx, tx, pr.TenantID, createdBy, in, res, raw, hash, collectionID)
+			if err != nil || override == nil {
+				return created, err
+			}
+			return created, insertICOverride(ctx, tx, pr, created.ID, *override)
 		}
 		if key == "" {
 			var err error
@@ -131,18 +135,52 @@ func (s *Postgres) CreateRun(ctx context.Context, in domain.RunInput, res domain
 	return rec, replayed, nil
 }
 
-// RecordICOverride keeps the approval to run over open intercompany mismatches: who, why, and how many were open.
-func (s *Postgres) RecordICOverride(ctx context.Context, groupID, period, reason string, open int) error {
+type ICOverride struct {
+	GroupID, Period, Reason string
+	Open                    int
+}
+
+func insertICOverride(ctx context.Context, tx pgx.Tx, pr tenant.Principal, runID string, o ICOverride) error {
+	_, err := tx.Exec(ctx, `insert into consolidation_ic_override (tenant_id, id, run_id, group_id, period, open_mismatches, reason, approved_by)
+		values ($1, $2, $3, $4, $5, $6, $7, $8)`, pr.TenantID, ids.New(), runID, o.GroupID, o.Period, o.Open, o.Reason, pr.UserID)
+	return err
+}
+
+// ReplayRun returns the run a stored Idempotency-Key already created for the same inputs, so a retry is answered without re-reading the intercompany gate.
+func (s *Postgres) ReplayRun(ctx context.Context, in domain.RunInput, key string) (RunRecord, bool, error) {
 	pr, err := principal(ctx)
 	if err != nil {
-		return err
+		return RunRecord{}, false, err
 	}
+	raw, err := in.Canonical()
+	if err != nil {
+		return RunRecord{}, false, err
+	}
+	sum := sha256.Sum256(raw)
+	var (
+		rec   RunRecord
+		found bool
+	)
 	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, `insert into consolidation_ic_override (tenant_id, id, group_id, period, open_mismatches, reason, approved_by)
-			values ($1, $2, $3, $4, $5, $6, $7)`, pr.TenantID, ids.New(), groupID, period, open, reason, pr.UserID)
-		return err
+		var stored string
+		var body []byte
+		err := tx.QueryRow(ctx, `select request_hash, response_body from idempotency_keys where tenant_id = $1 and key = $2 and response_status = 201`, pr.TenantID, key).Scan(&stored, &body)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if stored != hex.EncodeToString(sum[:]) {
+			return &domain.Error{Code: domain.CodeIdempotencyReuse, Detail: "Idempotency-Key was already used with different inputs"}
+		}
+		found = true
+		return json.Unmarshal(body, &rec)
 	})
-	return wrap("record intercompany override", err)
+	if err != nil {
+		return RunRecord{}, false, wrap("replay consolidation run", err)
+	}
+	return rec, found, nil
 }
 
 func insertRun(ctx context.Context, tx pgx.Tx, tenantID, createdBy string, in domain.RunInput, res domain.RunResult, raw []byte, hash, collectionID string) (RunRecord, error) {

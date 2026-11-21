@@ -70,6 +70,42 @@ func TestOpenMismatches_PeriodWithoutARunHasNone(t *testing.T) {
 	}
 }
 
+func pagedClient(t *testing.T, page func(after string) string) *Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/r9") {
+			_, _ = w.Write([]byte(`{"items":[{"resolution":"open"}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(page(r.URL.Query().Get("after"))))
+	}))
+	t.Cleanup(srv.Close)
+	c, err := New(srv.URL, testSigner(t), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+func TestOpenMismatches_FollowsTheCursorToAnOlderPeriod(t *testing.T) {
+	c := pagedClient(t, func(after string) string {
+		if after == "" {
+			return `{"items":[{"id":"r3","period":"2026-07"}],"nextCursor":"c1"}`
+		}
+		return `{"items":[{"id":"r9","period":"2026-06"}]}`
+	})
+	if got, err := c.OpenMismatches(principalCtx(), le, "2026-06"); err != nil || got != 1 {
+		t.Fatalf("got %d, %v; want the older page's run counted", got, err)
+	}
+}
+
+func TestOpenMismatches_UnboundedPagingIsAnErrorNotZero(t *testing.T) {
+	c := pagedClient(t, func(string) string { return `{"items":[{"id":"r3","period":"2026-07"}],"nextCursor":"more"}` })
+	if got, err := c.OpenMismatches(principalCtx(), le, "2026-06"); err == nil {
+		t.Fatalf("got %d, nil; want an error when the run list never ends", got)
+	}
+}
+
 func TestOpenMismatches_RefusalIsAnError(t *testing.T) {
 	c := serve(t, runsBody, "", http.StatusForbidden)
 	_, err := c.OpenMismatches(principalCtx(), le, "2026-06")

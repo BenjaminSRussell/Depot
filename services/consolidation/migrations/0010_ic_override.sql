@@ -1,15 +1,17 @@
 -- B-40: a consolidation run that goes ahead over open intercompany mismatches is approved with consolidation.approve and a reason. The
--- approval is kept here, immutable, before the run starts.
+-- approval is kept here, immutable, in the transaction that creates the run.
 CREATE TABLE IF NOT EXISTS consolidation_ic_override (
   tenant_id uuid NOT NULL,
   id uuid NOT NULL,
+  run_id uuid NOT NULL,
   group_id text NOT NULL,
   period text NOT NULL,
   open_mismatches integer NOT NULL CHECK (open_mismatches > 0),
   reason text NOT NULL CHECK (length(btrim(reason)) > 0 AND length(reason) <= 500),
   approved_by text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (tenant_id, id)
+  PRIMARY KEY (tenant_id, id),
+  FOREIGN KEY (tenant_id, run_id) REFERENCES consolidation_run (tenant_id, id)
 );
 
 CREATE TRIGGER consolidation_ic_override_immutable BEFORE UPDATE OR DELETE ON consolidation_ic_override

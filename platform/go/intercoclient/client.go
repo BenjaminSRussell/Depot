@@ -23,7 +23,8 @@ const (
 
 	audience        = "intercompany"
 	maxResponseSize = 1 << 20
-	runPageSize     = "100"
+	runPageSize     = "200"
+	maxRunPages     = 25
 	resolutionOpen  = "open"
 	statusMismatch  = "Mismatch"
 )
@@ -112,35 +113,51 @@ func (c *Client) get(ctx context.Context, legalEntityID, path string, q url.Valu
 }
 
 // OpenMismatches counts the unresolved Mismatch items of the newest reconciliation run of the period; a period with no run has none.
+// The run list is paged newest first until the period is found; running out of pages is the only way to learn there is none.
 func (c *Client) OpenMismatches(ctx context.Context, legalEntityID, period string) (int, error) {
-	var runs struct {
-		Items []struct {
-			ID     string `json:"id"`
-			Period string `json:"period"`
-		} `json:"items"`
-	}
-	if err := c.get(ctx, legalEntityID, "/v1/interco/reconciliations", url.Values{"limit": {runPageSize}}, &runs); err != nil {
-		return 0, err
-	}
-	for _, run := range runs.Items {
-		if run.Period != period {
-			continue
-		}
-		var detail struct {
+	after := ""
+	for range maxRunPages {
+		var runs struct {
 			Items []struct {
-				Resolution string `json:"resolution"`
+				ID     string `json:"id"`
+				Period string `json:"period"`
 			} `json:"items"`
+			NextCursor string `json:"nextCursor"`
 		}
-		if err := c.get(ctx, legalEntityID, "/v1/interco/reconciliations/"+url.PathEscape(run.ID), url.Values{"status": {statusMismatch}}, &detail); err != nil {
+		q := url.Values{"limit": {runPageSize}}
+		if after != "" {
+			q.Set("after", after)
+		}
+		if err := c.get(ctx, legalEntityID, "/v1/interco/reconciliations", q, &runs); err != nil {
 			return 0, err
 		}
-		open := 0
-		for _, it := range detail.Items {
-			if it.Resolution == resolutionOpen {
-				open++
+		for _, run := range runs.Items {
+			if run.Period == period {
+				return c.openItems(ctx, legalEntityID, run.ID)
 			}
 		}
-		return open, nil
+		if runs.NextCursor == "" {
+			return 0, nil
+		}
+		after = runs.NextCursor
 	}
-	return 0, nil
+	return 0, fmt.Errorf("intercoclient: no run of %s within %d pages of reconciliation runs", period, maxRunPages)
+}
+
+func (c *Client) openItems(ctx context.Context, legalEntityID, runID string) (int, error) {
+	var detail struct {
+		Items []struct {
+			Resolution string `json:"resolution"`
+		} `json:"items"`
+	}
+	if err := c.get(ctx, legalEntityID, "/v1/interco/reconciliations/"+url.PathEscape(runID), url.Values{"status": {statusMismatch}}, &detail); err != nil {
+		return 0, err
+	}
+	open := 0
+	for _, it := range detail.Items {
+		if it.Resolution == resolutionOpen {
+			open++
+		}
+	}
+	return open, nil
 }

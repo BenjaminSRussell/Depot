@@ -49,7 +49,7 @@ func compute(t *testing.T, in domain.RunInput) domain.RunResult {
 
 func start(t *testing.T, s *store.Postgres, ctx context.Context, in domain.RunInput, key string) (store.RunRecord, bool, error) {
 	t.Helper()
-	return s.CreateRun(ctx, in, compute(t, in), "", key)
+	return s.CreateRun(ctx, in, compute(t, in), "", key, nil)
 }
 
 func setup(t *testing.T) (*store.Postgres, *pgxpool.Pool, context.Context) {
@@ -170,7 +170,7 @@ func TestCreateRun_ConcurrentRerunsGetDistinctVersions(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			rec, _, err := s.CreateRun(ctx, runInput("G1", "2026-06", "150000"), compute(t, runInput("G1", "2026-06", "150000")), "", "")
+			rec, _, err := s.CreateRun(ctx, runInput("G1", "2026-06", "150000"), compute(t, runInput("G1", "2026-06", "150000")), "", "", nil)
 			versions[i], errs[i] = rec.Version, err
 		}(i)
 	}
@@ -428,23 +428,54 @@ func TestStore_PairAccountsAndForeignAssociateRegister(t *testing.T) {
 	}
 }
 
-func TestRecordICOverride_StoresWhoWhyAndHowManyAndIsImmutable(t *testing.T) {
+func TestCreateRun_ICOverrideIsStoredWithTheRunOnceAndRollsBackWithIt(t *testing.T) {
 	s, pool, ctx := setup(t)
-	if err := s.RecordICOverride(ctx, "G1", "2026-06", "accepted by group controller", 3); err != nil {
+	in := runInput("G1", "2026-06", "150000")
+	override := &store.ICOverride{GroupID: "G1", Period: "2026-06", Reason: "accepted by group controller", Open: 3}
+	rec, _, err := s.CreateRun(ctx, in, compute(t, in), "", "k1", override)
+	if err != nil {
 		t.Fatal(err)
 	}
-	var reason, by string
-	var open int
-	if err := pool.QueryRow(context.Background(), `select reason, approved_by, open_mismatches from consolidation_ic_override where group_id = 'G1' and period = '2026-06'`).Scan(&reason, &by, &open); err != nil {
+	if _, replayed, err := s.CreateRun(ctx, in, compute(t, in), "", "k1", override); err != nil || !replayed {
+		t.Fatalf("replay = %v, %v", replayed, err)
+	}
+	var runID, reason, by string
+	var open, rows int
+	if err := pool.QueryRow(context.Background(), `select count(*) over (), run_id::text, reason, approved_by, open_mismatches from consolidation_ic_override where group_id = 'G1'`).Scan(&rows, &runID, &reason, &by, &open); err != nil {
 		t.Fatal(err)
 	}
-	if reason != "accepted by group controller" || by == "" || open != 3 {
-		t.Fatalf("stored %q by %q open %d", reason, by, open)
+	if rows != 1 || runID != rec.ID || reason != "accepted by group controller" || by == "" || open != 3 {
+		t.Fatalf("stored %d rows, run %q reason %q by %q open %d", rows, runID, reason, by, open)
 	}
 	if _, err := pool.Exec(context.Background(), `update consolidation_ic_override set reason = 'x'`); err == nil {
 		t.Fatal("the approval record must be immutable")
 	}
-	if err := s.RecordICOverride(ctx, "G1", "2026-06", "  ", 3); err == nil {
+	blank := &store.ICOverride{GroupID: "G1", Period: "2026-07", Reason: "  ", Open: 3}
+	other := runInput("G1", "2026-07", "150000")
+	if _, _, err := s.CreateRun(ctx, other, compute(t, other), "", "k2", blank); err == nil {
 		t.Fatal("a blank reason must be refused by the table")
+	}
+	var runs int
+	if err := pool.QueryRow(context.Background(), `select count(*) from consolidation_run where period = '2026-07'`).Scan(&runs); err != nil || runs != 0 {
+		t.Fatalf("a refused override must leave no run, got %d (%v)", runs, err)
+	}
+}
+
+func TestReplayRun_FindsTheStoredRunAndRefusesKeyReuse(t *testing.T) {
+	s, _, ctx := setup(t)
+	in := runInput("G1", "2026-06", "150000")
+	if _, found, err := s.ReplayRun(ctx, in, "k1"); err != nil || found {
+		t.Fatalf("unknown key = %v, %v", found, err)
+	}
+	created, _, err := start(t, s, ctx, in, "k1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec, found, err := s.ReplayRun(ctx, in, "k1")
+	if err != nil || !found || rec.ID != created.ID {
+		t.Fatalf("replay = %v %v %v", rec.ID, found, err)
+	}
+	if _, _, err := s.ReplayRun(ctx, runInput("G1", "2026-06", "1"), "k1"); codeOf(err) != domain.CodeIdempotencyReuse {
+		t.Fatalf("key reuse = %v", err)
 	}
 }

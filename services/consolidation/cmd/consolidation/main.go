@@ -96,7 +96,9 @@ func run(ctx context.Context, getenv func(string) string) error {
 		return fmt.Errorf("intercompany client: %w", err)
 	}
 	if mismatches != nil {
-		a.WithICGate(mismatches, st)
+		a.WithICGate(mismatches)
+	} else {
+		slog.Warn("INTERCOMPANY_URL is not set: consolidation runs are not gated on open intercompany mismatches")
 	}
 	router := httpx.NewRouter()
 	a.Register(router)
