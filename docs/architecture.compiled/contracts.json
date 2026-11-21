@@ -5094,7 +5094,7 @@
         {"topic": "depot.party.merge", "types": ["dev.depot.party.merge.rejected.v1", "dev.depot.party.merge.requested.v1"]},
         {"topic": "depot.party.party", "types": ["dev.depot.party.party.created.v1", "dev.depot.party.party.merged.v1", "dev.depot.party.party.updated.v1"]},
         {"topic": "depot.party.protectedfields", "types": ["dev.depot.party.protectedfields.updated.v1"]},
-        {"topic": "depot.party.vendorbank", "types": ["dev.depot.party.vendorbank.revealed.v1"]},
+        {"topic": "depot.party.vendorbank", "types": ["dev.depot.party.vendorbank.changed.v1", "dev.depot.party.vendorbank.revealed.v1"]},
         {"topic": "depot.party.vendorgroup", "types": ["dev.depot.party.vendorgroup.created.v1"]},
         {"topic": "depot.party.vendorinvite", "types": ["dev.depot.party.vendorinvite.accepted.v1", "dev.depot.party.vendorinvite.created.v1"]}
       ],

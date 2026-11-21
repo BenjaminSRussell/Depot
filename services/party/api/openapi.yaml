@@ -473,14 +473,14 @@ paths:
     post:
       operationId: addVendorBankAccount
       x-depot-duty: party.vendor-bank.write
-      description: Stores a bank account; account and routing numbers are encrypted per tenant and field. Needs X-Depot-User. 503 PTY-BANK-ENCRYPTION-UNAVAILABLE when no field encryption keys are configured.
+      description: Stores a bank account as pending; account and routing numbers are encrypted per tenant and field. A second person approves it through POST /v1/party/pending-changes/{id}:approve (the requester gets 403 PTY-PENDING-SELF-APPROVAL); until then the account is not on the reveal route that payables reads. Needs X-Depot-User. 503 PTY-BANK-ENCRYPTION-UNAVAILABLE when no field encryption keys are configured.
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: '#/components/schemas/NewBankAccount' }
       responses:
-        '201': { description: 'The account, masked.', content: { application/json: { schema: { $ref: '#/components/schemas/BankAccount' } } } }
+        '202': { description: 'The pending account, masked, with pendingChangeId.', content: { application/json: { schema: { $ref: '#/components/schemas/BankAccount' } } } }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { description: PTY-VENDOR-NOT-FOUND., content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
@@ -2006,7 +2006,7 @@ components:
         routingNumber: { type: string }
     BankAccount:
       type: object
-      required: [id, vendorId, accountHolder, bankCountry, currencyCode, accountLast4]
+      required: [id, vendorId, accountHolder, bankCountry, currencyCode, accountLast4, status]
       properties:
         id: { type: string, format: uuid }
         vendorId: { type: string, format: uuid }
@@ -2014,6 +2014,8 @@ components:
         bankCountry: { type: string }
         currencyCode: { type: string }
         accountLast4: { type: string }
+        status: { type: string, enum: [pending, active, rejected] }
+        pendingChangeId: { type: string, format: uuid, description: Only on the response to an add. }
         accountNumber: { type: string, description: Only on the reveal route. }
         routingNumber: { type: string, description: Only on the reveal route. }
     ValidateTaxRegistration:
@@ -2138,14 +2140,16 @@ components:
         reason: { type: string, maxLength: 500 }
     PendingChange:
       type: object
-      required: [id, customerId, legalEntityId, field, currentValue, requestedValue, status, requestedBy, requestedAt]
+      required: [id, legalEntityId, field, currentValue, status, requestedBy, requestedAt]
       properties:
         id: { type: string, format: uuid }
-        customerId: { type: string, format: uuid }
+        customerId: { type: string, format: uuid, description: Set for credit_limit. }
+        vendorId: { type: string, format: uuid, description: Set for vendor_bank_account. }
+        bankAccountId: { type: string, format: uuid, description: Set for vendor_bank_account. }
         legalEntityId: { type: string, format: uuid }
-        field: { type: string, enum: [credit_limit] }
+        field: { type: string, enum: [credit_limit, vendor_bank_account] }
         currentValue: { type: [string, 'null'] }
-        requestedValue: { type: string }
+        requestedValue: { type: string, description: Set for credit_limit. }
         status: { type: string, enum: [pending, approved, rejected] }
         requestedBy: { type: string }
         decidedBy: { type: string }
