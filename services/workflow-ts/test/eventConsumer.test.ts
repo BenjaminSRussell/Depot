@@ -6,11 +6,20 @@ import {
   DEFAULT_GROUP,
   eventConsumerConfigFromEnv,
   TENDER_TOPICS,
+  WORKFLOW_TRIGGER_TOPICS,
   type DeadLetterRecord,
   type EventMessage,
 } from "../src/eventConsumer.js";
 import { loadReleasedSource, loadReleasedType } from "../src/tenderTriggers.js";
 import { planSubmittedSource, planSubmittedType } from "../src/budgetPlanTriggers.js";
+import {
+  ecoSubmittedSource,
+  ecoSubmittedType,
+  nonconformanceCreatedSource,
+  nonconformanceCreatedType,
+  paymentProposalApprovedSource,
+  paymentProposalApprovedType,
+} from "../src/workflowTriggers.js";
 import { budgetPlanWorkflow, budgetPlanWorkflowId } from "../src/budgetPlanWorkflow.js";
 import { tenderResponseSignal, tenderWorkflow } from "../src/workflows.js";
 import { CARRIERS, LOAD_ID } from "./fakeTransport.js";
@@ -93,7 +102,7 @@ describe("tender event consumer", () => {
     expect(eventConsumerConfigFromEnv({ KAFKA_BROKERS: "k1:9093, k2:9093" })).toEqual({
       brokers: ["k1:9093", "k2:9093"],
       group: DEFAULT_GROUP,
-      topics: ["depot.tms.load", "depot.tms.tender", "depot.budget.plan"],
+      topics: ["depot.tms.load", "depot.tms.tender", "depot.budget.plan", ...WORKFLOW_TRIGGER_TOPICS],
       dlqTopic: DEFAULT_DLQ_TOPIC,
     });
     expect(
@@ -250,5 +259,74 @@ describe("tender event consumer", () => {
     const { handle, dead } = setup(vi.fn().mockRejectedValue(new Error("temporal unavailable")));
     await expect(handle(message(planSubmitted(), "depot.budget.plan"))).rejects.toThrow("temporal unavailable");
     expect(dead).toEqual([]);
+  });
+});
+
+describe("workflow trigger routing", () => {
+  const ECO = "00000000-0000-0000-0000-0000000000e1";
+  const NCR = "00000000-0000-0000-0000-0000000000c1";
+  const PROPOSAL = "00000000-0000-0000-0000-0000000000d1";
+  const envelope = (type: string, source: string, data: unknown, actor?: string) => ({ specversion: "1.0", type, source, tenantid: TENANT, ...(actor ? { actor } : {}), data });
+  const ecoEvent = (data: Record<string, unknown> = { ecoId: ECO, legalEntityId: ENTITY }) => envelope(ecoSubmittedType, ecoSubmittedSource, data, "engineer");
+  const ncrEvent = (data: Record<string, unknown> = { ncr_id: NCR, legalEntityId: ENTITY }) => envelope(nonconformanceCreatedType, nonconformanceCreatedSource, data);
+  const proposalEvent = () => envelope(paymentProposalApprovedType, paymentProposalApprovedSource, { proposal_id: PROPOSAL, legal_entity_id: ENTITY, actor: "approver" });
+
+  it("subscribes to the engineering, quality and payables topics", () => {
+    expect(WORKFLOW_TRIGGER_TOPICS).toEqual(["depot.engineering.eco", "depot.quality.nonconformance", "depot.payables.paymentproposal"]);
+  });
+
+  it("starts the matching workflow for each trigger event", async () => {
+    const { handle, start, dead } = setup();
+    expect(await handle(message(ecoEvent(), "depot.engineering.eco"))).toEqual({ action: "started", workflowId: `eco-approval:${ECO}` });
+    expect(await handle(message(ncrEvent(), "depot.quality.nonconformance"))).toEqual({ action: "started", workflowId: `capa:${NCR}` });
+    expect(await handle(message(proposalEvent(), "depot.payables.paymentproposal"))).toEqual({ action: "started", workflowId: `payment-run:${ENTITY}:${PROPOSAL}` });
+    expect(start).toHaveBeenCalledTimes(3);
+    expect(dead).toEqual([]);
+  });
+
+  it("commits a redelivery while the workflow exists", async () => {
+    const { handle } = setup(vi.fn().mockRejectedValue(new WorkflowExecutionAlreadyStartedError("running", "wf", "type")));
+    expect(await handle(message(ecoEvent(), "depot.engineering.eco"))).toEqual({ action: "already-running", workflowId: `eco-approval:${ECO}` });
+  });
+
+  it("commits a skipped event with a warning and starts nothing", async () => {
+    const start = vi.fn();
+    const warn = vi.fn();
+    const handle = createEventHandler({
+      client: { workflow: { start } } as unknown as Pick<Client, "workflow">,
+      taskQueue: "depot-approvals",
+      dlqTopic: DEFAULT_DLQ_TOPIC,
+      deadLetter: vi.fn(),
+      warn,
+    });
+    const outcome = await handle(message(ecoEvent({ ecoId: ECO }), "depot.engineering.eco"));
+    expect(outcome).toEqual({ action: "skipped", reason: expect.stringContaining(ECO) });
+    expect(start).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith("workflow trigger skipped", expect.objectContaining({ topic: "depot.engineering.eco", offset: "41", reason: expect.stringContaining(ECO) }));
+  });
+
+  it("dead-letters a forged source and a payment proposal without its actor", async () => {
+    const { handle, start, dead } = setup();
+    const forged = await handle(message(envelope(ecoSubmittedType, "billing", { ecoId: ECO, legalEntityId: ENTITY }, "engineer"), "depot.engineering.eco"));
+    expect(forged).toMatchObject({ action: "dead-lettered", reason: expect.stringContaining("accepted only from") });
+    const noActor = await handle(message(envelope(paymentProposalApprovedType, paymentProposalApprovedSource, { proposal_id: PROPOSAL, legal_entity_id: ENTITY }), "depot.payables.paymentproposal"));
+    expect(noActor).toMatchObject({ action: "dead-lettered", reason: "actor must be a non-empty string" });
+    expect(start).not.toHaveBeenCalled();
+    expect(dead.map((d) => d.headers["x-origin-topic"])).toEqual(["depot.engineering.eco", "depot.payables.paymentproposal"]);
+  });
+
+  it("ignores other events on the trigger topics, dead-letters bad payloads and rethrows a Temporal outage", async () => {
+    const { handle, start, dead } = setup();
+    const other = "dev.depot.engineering.eco.approved.v1";
+    expect(await handle(message(envelope(other, ecoSubmittedSource, {}), "depot.engineering.eco"))).toEqual({ action: "ignored", type: other });
+    expect(await handle(message("{not json", "depot.quality.nonconformance"))).toMatchObject({ action: "dead-lettered", reason: "not JSON" });
+    expect(await handle(message({ specversion: "1.0" }, "depot.quality.nonconformance"))).toMatchObject({ action: "dead-lettered", reason: "missing type" });
+    expect(await handle(message({ type: nonconformanceCreatedType, data: null }, "depot.quality.nonconformance"))).toMatchObject({ action: "dead-lettered", reason: "missing data" });
+    expect(await handle(message({ type: "constructor", data: {} }, "depot.quality.nonconformance"))).toEqual({ action: "ignored", type: "constructor" });
+    expect(start).not.toHaveBeenCalled();
+    expect(dead).toHaveLength(3);
+    const down = setup(vi.fn().mockRejectedValue(new Error("14 UNAVAILABLE: connection refused")));
+    await expect(down.handle(message(proposalEvent(), "depot.payables.paymentproposal"))).rejects.toThrow(/UNAVAILABLE/);
+    expect(down.dead).toEqual([]);
   });
 });

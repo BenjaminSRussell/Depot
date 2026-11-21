@@ -170,6 +170,7 @@ components:
           releaseDate: { type: string, format: date }
           approverId: { type: string }
           ecrId: { type: string, description: The approved change request this ECO carries out; absent for an ECO raised directly. }
+          legalEntityId: { type: string, format: uuid, description: The single legal entity in the emitting request's scope; absent when the emitter is tenant-wide. }
       x-depot-type: dev.depot.engineering.eco.submitted.v1
     ecoApproved:
       name: ecoApproved

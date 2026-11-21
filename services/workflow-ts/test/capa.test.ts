@@ -103,6 +103,7 @@ describe("CAPA workflow", () => {
     expect(fake.tokens.map((claims) => claims.act)).toEqual([
       "quality-lead",
       "quality-lead",
+      "quality-lead",
       ...Array.from({ length: 7 }, () => "engineer").flatMap((actor) => [actor, actor]),
       "reviewer",
       "reviewer",
@@ -238,11 +239,59 @@ describe("CAPA workflow", () => {
     expect(fake.calls["complete-step"]).toBe(1);
   }, 60_000);
 
-  it("fails when the nonconformance is not approved, so no correction can start", async () => {
+  it("ends at once with a plain-language outcome when the nonconformance is closed", async () => {
     const fake = new FakeQuality();
     fake.ncr.status = "CLOSED";
-    await expect(run(fake, async () => {})).rejects.toBeInstanceOf(WorkflowFailedError);
+    const result = await run(fake, async () => {});
+    expect(result).toMatchObject({ status: "not_started", outcome: expect.stringContaining("closed") });
     expect(fake.effects.corrections).toBe(0);
+    expect(fake.calls.start).toBe(0);
+  }, 60_000);
+
+  it("ends at once when the nonconformance was refused", async () => {
+    const fake = new FakeQuality();
+    fake.ncr.status = "REFUSED";
+    const result = await run(fake, async () => {});
+    expect(result).toMatchObject({ status: "not_started", outcome: expect.stringContaining("refused") });
+    expect(fake.calls.start).toBe(0);
+  }, 60_000);
+
+  it("waits for a new nonconformance to be approved and then starts one correction", async () => {
+    const fake = new FakeQuality();
+    fake.ncr.status = "NEW";
+    fake.approveAfterReads(4);
+    const result = await run(fake, async (handle) => {
+      await environment.sleep(2 * 60 * 60_000);
+      await steps(handle, 1, 7);
+      await whenDue(fake, handle);
+      await check(handle, "reviewer");
+    });
+    expect(result.status).toBe("closed");
+    expect(fake.effects.corrections).toBe(1);
+    expect(fake.calls.read).toBeGreaterThan(4);
+  }, 60_000);
+
+  it("gives up when the waiting period ends on a nonconformance that is never approved and never starts a correction", async () => {
+    const fake = new FakeQuality();
+    fake.ncr.status = "NEW";
+    const result = await run(fake, async () => {}, { approvalWindowMs: 3 * 60 * 60_000 });
+    expect(result).toMatchObject({ status: "not_started", outcome: expect.stringContaining("waiting period") });
+    expect(fake.calls.read).toBeLessThanOrEqual(8);
+    expect(fake.calls.start).toBe(0);
+    expect(fake.effects.corrections).toBe(0);
+  }, 60_000);
+
+  it("retries a read of the nonconformance that quality refuses transiently, without starting early", async () => {
+    const fake = new FakeQuality();
+    fake.refuse("read", 503, "COM-0503", 2);
+    const result = await run(fake, async (handle) => {
+      await environment.sleep(60_000);
+      await steps(handle, 1, 7);
+      await whenDue(fake, handle);
+      await check(handle, "reviewer");
+    });
+    expect(result.status).toBe("closed");
+    expect(fake.effects.corrections).toBe(1);
   }, 60_000);
 
   it("reports its state to a query", async () => {
@@ -259,6 +308,7 @@ describe("CAPA workflow", () => {
     expect(() => validateCapaInput({ ...input, startedBy: "" })).toThrow(/required/);
     expect(() => validateCapaInput({ ...input, stepTimeoutMs: 0 })).toThrow(/positive/);
     expect(() => validateCapaInput({ ...input, maxReopens: -1 })).toThrow(/maxReopens/);
+    expect(() => validateCapaInput({ ...input, approvalWindowMs: 0 })).toThrow(/approvalWindowMs/);
     expect(() => validateCapaInput(input)).not.toThrow();
   });
 });

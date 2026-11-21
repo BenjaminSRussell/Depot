@@ -7,6 +7,31 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
+func TestSingleLegalEntity(t *testing.T) {
+	other := "0190a5f2-7b1c-7d3e-8a4f-1234567890ad"
+	tests := []struct {
+		name  string
+		claim string
+		want  string
+	}{
+		{"one entity", validLE, validLE},
+		{"uppercase entity canonicalised", strings.ToUpper(validLE), validLE},
+		{"one entity with padding", " " + validLE + " ", validLE},
+		{"one valid among garbage", validLE + ",garbage", validLE},
+		{"several entities", validLE + "," + other, ""},
+		{"no claim", "", ""},
+		{"nil uuid", nilUUID, ""},
+		{"whitespace", "   ", ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tenant.SingleLegalEntity(tenant.Principal{LegalEntityID: tc.claim}); got != tc.want {
+				t.Fatalf("SingleLegalEntity(%q) = %q, want %q", tc.claim, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestInLegalEntityScope(t *testing.T) {
 	other := "0190a5f2-7b1c-7d3e-8a4f-1234567890ad"
 	allScope := map[string]struct{}{tenant.DutyAllScope: {}}

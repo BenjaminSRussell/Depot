@@ -63,6 +63,14 @@ func LegalEntityScopeList(p Principal) []string {
 	return scopes
 }
 
+// SingleLegalEntity is the one legal entity the principal's claim names, or "" when it names none or several.
+func SingleLegalEntity(p Principal) string {
+	if scopes := LegalEntityScopeList(p); len(scopes) == 1 {
+		return scopes[0]
+	}
+	return ""
+}
+
 // HasDuty reports whether the principal holds the named duty.
 func (p Principal) HasDuty(duty string) bool { _, ok := p.Duties[duty]; return ok }
 

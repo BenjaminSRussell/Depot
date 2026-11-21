@@ -11,7 +11,7 @@ interface Step {
 
 export interface FakeNcr {
   id: string;
-  status: "APPROVED" | "IN_CORRECTION" | "CLOSED";
+  status: "NEW" | "APPROVED" | "REFUSED" | "IN_CORRECTION" | "CLOSED";
   version: number;
   correction?: {
     status: "OPEN" | "EFFECTIVENESS_PENDING" | "CLOSED";
@@ -36,7 +36,12 @@ export class FakeQuality {
   private readonly afterEffect = new Map<Action, Hook>();
   private readonly startKeys = new Set<string>();
   private bumpBeforeNext = false;
+  private approveAtRead = Number.POSITIVE_INFINITY;
   skewMs = 0;
+
+  approveAfterReads(reads: number): void {
+    this.approveAtRead = this.calls.read + reads;
+  }
 
   readonly fetch: typeof fetch = async (input, init) => {
     const claims = decodeClaims(new Headers(init?.headers).get("X-Depot-Service-Token"));
@@ -49,6 +54,7 @@ export class FakeQuality {
     const action = ({ "": "read", "/corrections": "start", ":complete-step": "complete-step", ":check-effectiveness": "check-effectiveness" } as Record<string, Action>)[suffix ?? "?"];
     if (!action) return problem(404, "unknown route");
     this.calls[action] += 1;
+    if (action === "read" && this.calls.read >= this.approveAtRead && this.ncr.status === "NEW") this.ncr.status = "APPROVED";
     const refusal = this.refusals.get(action);
     if (refusal && refusal.times > 0) {
       refusal.times -= 1;

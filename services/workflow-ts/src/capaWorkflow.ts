@@ -12,6 +12,7 @@ export interface CapaInput {
   stepTimeoutMs: number;
   effectivenessTimeoutMs: number;
   maxReopens: number;
+  approvalWindowMs?: number;
 }
 
 export interface CapaRef {
@@ -39,12 +40,13 @@ export interface CapaState {
   ncrId: string;
   tenantId: string;
   legalEntityId: string;
-  status: "in_correction" | "effectiveness_pending" | "awaiting_effectiveness" | "closed" | "stalled" | "escalated";
+  status: "not_started" | "in_correction" | "effectiveness_pending" | "awaiting_effectiveness" | "closed" | "stalled" | "escalated";
   currentStep: number;
   reopened: number;
   implementer?: string;
   refusedChecks: number;
   stalledAt?: "step" | "effectiveness";
+  outcome?: string;
 }
 
 interface StepDone {
@@ -66,6 +68,9 @@ export const capaEffectivenessSignal = defineSignal<[checked: EffectivenessCheck
 export const capaStateQuery = defineQuery<CapaState>("capa-state");
 
 const LAST_STEP = 7;
+const MINUTE_MS = 60_000;
+const NCR_POLL_CAP_MS = 60 * MINUTE_MS;
+const DEFAULT_APPROVAL_WINDOW_MS = 30 * 24 * 60 * MINUTE_MS;
 
 const activities = proxyActivities<CapaActivities>({
   startToCloseTimeout: "1 minute",
@@ -82,6 +87,7 @@ export function validateCapaInput(input: CapaInput): void {
     throw new TypeError("tenantId, legalEntityId, ncrId and startedBy are required");
   }
   if (!(input.stepTimeoutMs > 0) || !(input.effectivenessTimeoutMs > 0)) throw new TypeError("stepTimeoutMs and effectivenessTimeoutMs must be positive");
+  if (input.approvalWindowMs !== undefined && !(input.approvalWindowMs > 0)) throw new TypeError("approvalWindowMs must be positive");
   if (!Number.isInteger(input.maxReopens) || input.maxReopens < 0) throw new TypeError("maxReopens must be a whole number of at least 0");
 }
 
@@ -107,6 +113,18 @@ export async function capaWorkflow(input: CapaInput): Promise<CapaState> {
     state.reopened = ncr.correction?.reopened ?? state.reopened;
     state.implementer = ncr.correction?.steps.find((s) => s.step === LAST_STEP)?.completedBy;
   };
+
+  const notStarted = (outcome: string): CapaState => Object.assign(state, { status: "not_started" as const, outcome });
+  const approvalDeadline = Date.now() + (input.approvalWindowMs ?? DEFAULT_APPROVAL_WINDOW_MS);
+  let pollMs = MINUTE_MS;
+  for (;;) {
+    const current = await activities.readNcr(as(input.startedBy, [input.legalEntityId]));
+    if (current.status === "REFUSED" || current.status === "CLOSED") return notStarted(`The nonconformance is ${current.status.toLowerCase()}, so no corrective action was started.`);
+    if (current.status !== "NEW") break;
+    if (Date.now() + pollMs > approvalDeadline) return notStarted("The nonconformance was not approved within the waiting period, so no corrective action was started.");
+    await sleep(pollMs);
+    pollMs = Math.min(pollMs * 2, NCR_POLL_CAP_MS);
+  }
 
   let ncr = await activities.startCorrection({ ...as(input.startedBy, [input.legalEntityId]), effectivenessCheckDays: input.effectivenessCheckDays });
   follow(ncr);

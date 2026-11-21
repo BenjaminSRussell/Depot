@@ -759,7 +759,9 @@ func (s *Postgres) CreateEco(ctx context.Context, e domain.Eco, idem Idem) (doma
 				return err
 			}
 		}
-		if err := emit(ctx, tx, p, e.ID, engevents.EcoSubmitted, aggregateEco, e.ID, e.EventData()); err != nil {
+		submitted := e.EventData()
+		submitted.LegalEntityID = tenant.SingleLegalEntity(p)
+		if err := emit(ctx, tx, p, e.ID, engevents.EcoSubmitted, aggregateEco, e.ID, submitted); err != nil {
 			return err
 		}
 		return remember(ctx, tx, p.TenantID, idem, e.ID)
