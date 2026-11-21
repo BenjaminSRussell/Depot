@@ -25,6 +25,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/fxclient"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/intercoclient"
 	"github.com/BenjaminSRussell/depot/platform/money"
 	"github.com/BenjaminSRussell/depot/platform/orgclient"
 	"github.com/BenjaminSRussell/depot/platform/tenant"
@@ -60,6 +61,8 @@ type API struct {
 	averageType          string
 	closingType          string
 	fiscal               *orgclient.Years
+	icMismatches         intercoclient.Mismatches
+	icAudit              ICOverrideAudit
 	collections          atomic.Int64
 	runsCompleted        atomic.Int64
 	eliminationPreviews  atomic.Int64

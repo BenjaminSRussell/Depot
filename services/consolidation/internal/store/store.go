@@ -131,6 +131,20 @@ func (s *Postgres) CreateRun(ctx context.Context, in domain.RunInput, res domain
 	return rec, replayed, nil
 }
 
+// RecordICOverride keeps the approval to run over open intercompany mismatches: who, why, and how many were open.
+func (s *Postgres) RecordICOverride(ctx context.Context, groupID, period, reason string, open int) error {
+	pr, err := principal(ctx)
+	if err != nil {
+		return err
+	}
+	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `insert into consolidation_ic_override (tenant_id, id, group_id, period, open_mismatches, reason, approved_by)
+			values ($1, $2, $3, $4, $5, $6, $7)`, pr.TenantID, ids.New(), groupID, period, open, reason, pr.UserID)
+		return err
+	})
+	return wrap("record intercompany override", err)
+}
+
 func insertRun(ctx context.Context, tx pgx.Tx, tenantID, createdBy string, in domain.RunInput, res domain.RunResult, raw []byte, hash, collectionID string) (RunRecord, error) {
 	lock := fmt.Sprintf("%s|%s|%s|%s", tenantID, in.GroupID, in.Period, in.Currency)
 	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended($1, 0))`, lock); err != nil {

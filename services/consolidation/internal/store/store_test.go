@@ -427,3 +427,24 @@ func TestStore_PairAccountsAndForeignAssociateRegister(t *testing.T) {
 		t.Fatalf("cta = %s, want the associate's 16350", rec.CTA)
 	}
 }
+
+func TestRecordICOverride_StoresWhoWhyAndHowManyAndIsImmutable(t *testing.T) {
+	s, pool, ctx := setup(t)
+	if err := s.RecordICOverride(ctx, "G1", "2026-06", "accepted by group controller", 3); err != nil {
+		t.Fatal(err)
+	}
+	var reason, by string
+	var open int
+	if err := pool.QueryRow(context.Background(), `select reason, approved_by, open_mismatches from consolidation_ic_override where group_id = 'G1' and period = '2026-06'`).Scan(&reason, &by, &open); err != nil {
+		t.Fatal(err)
+	}
+	if reason != "accepted by group controller" || by == "" || open != 3 {
+		t.Fatalf("stored %q by %q open %d", reason, by, open)
+	}
+	if _, err := pool.Exec(context.Background(), `update consolidation_ic_override set reason = 'x'`); err == nil {
+		t.Fatal("the approval record must be immutable")
+	}
+	if err := s.RecordICOverride(ctx, "G1", "2026-06", "  ", 3); err == nil {
+		t.Fatal("a blank reason must be refused by the table")
+	}
+}

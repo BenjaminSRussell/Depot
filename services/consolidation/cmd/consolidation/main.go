@@ -12,6 +12,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/dbx"
 	"github.com/BenjaminSRussell/depot/platform/fxclient"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/intercoclient"
 	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 	"github.com/BenjaminSRussell/depot/platform/orgclient"
 	"github.com/BenjaminSRussell/depot/services/consolidation/internal/api"
@@ -89,6 +90,13 @@ func run(ctx context.Context, getenv func(string) string) error {
 	}
 	if calendars != nil {
 		a.WithFiscalCalendar(calendars)
+	}
+	mismatches, err := intercoclient.FromEnv(getenv)
+	if err != nil {
+		return fmt.Errorf("intercompany client: %w", err)
+	}
+	if mismatches != nil {
+		a.WithICGate(mismatches, st)
 	}
 	router := httpx.NewRouter()
 	a.Register(router)

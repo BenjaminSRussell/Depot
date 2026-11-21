@@ -68,9 +68,10 @@ var serviceGrants = map[string]map[string][]string{
 	// Consolidation collects each unit's trial balance from its ledger, translates it at the rate tables' average and closing
 	// rates and reads each unit's fiscal year from the org service's fiscal calendar.
 	"consolidation": {
-		"ledger": {"ledger.balance.read"},
-		"fx":     {"fx.rate.lookup"},
-		"org":    {"org.read"},
+		"intercompany": {"intercompany.view"},
+		"ledger":       {"ledger.balance.read"},
+		"fx":           {"fx.rate.lookup"},
+		"org":          {"org.read"},
 	},
 	// Intercompany posts both sides of a journal and reverses the first when the second fails; it reads the due-to and due-from
 	// balances of both sides to reconcile them, converts them at the rate tables' rates, reads the fiscal calendar to find the
@@ -584,7 +585,7 @@ func (s *ServiceSigner) legalEntityFor(p Principal, explicit string, duties []st
 
 var readDuties = map[string]struct{}{
 	"ledger.balance.read": {}, "ledger.ledger.lookup": {}, "ledger.account.lookup": {}, "ledger.entry.lookup": {}, "procurement.purchase-order.lookup": {},
-	"inventory.ownership-change.read": {}, "fx.rate.lookup": {}, "compliance.legal-hold.check": {}, "org.read": {},
+	"inventory.ownership-change.read": {}, "fx.rate.lookup": {}, "compliance.legal-hold.check": {}, "org.read": {}, "intercompany.view": {},
 }
 
 func onlyReads(duties []string) bool {

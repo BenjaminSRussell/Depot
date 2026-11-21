@@ -54,6 +54,8 @@ type startRunBody struct {
 	IC           []icOverrideRow `json:"ic"`
 	// OpeningRates gives the opening rate of a currency when no collection of the unit's previous fiscal year end holds it.
 	OpeningRates []openingRateRow `json:"openingRates"`
+	// ICMismatchOverrideReason lets a caller with consolidation.approve start the run although intercompany mismatches are open.
+	ICMismatchOverrideReason string `json:"icMismatchOverrideReason"`
 }
 
 type icOverrideRow struct {
@@ -214,6 +216,9 @@ func (a *API) startRun(w http.ResponseWriter, r *http.Request) {
 	res, err := domain.ComputeRun(in)
 	if err != nil {
 		httpx.Fail(w, r, problemFrom(err))
+		return
+	}
+	if !a.icGate(w, r, body.GroupID, body.Period, body.ICMismatchOverrideReason) {
 		return
 	}
 	rec, replayed, err := a.runs.CreateRun(r.Context(), in, res, "", key)
@@ -470,6 +475,9 @@ func (a *API) startRunFromCollection(w http.ResponseWriter, r *http.Request, bod
 	res, err := domain.ComputeRun(run)
 	if err != nil {
 		httpx.Fail(w, r, problemFrom(err))
+		return
+	}
+	if !a.icGate(w, r, c.GroupID, c.Period, body.ICMismatchOverrideReason) {
 		return
 	}
 	rec, replayed, err := a.runs.CreateRun(r.Context(), run, res, c.ID, key)

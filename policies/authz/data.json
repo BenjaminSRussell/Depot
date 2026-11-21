@@ -1390,6 +1390,7 @@
       {"resource": "/v1/consol/groups/*/units/*/terms", "methods": ["PUT"]},
       {"resource": "/v1/consol/groups/*/units/*/ownership", "methods": ["POST"]}
     ]},
+    "consolidation.approve": {"permissions": [{"resource": "/v1/consol/runs", "methods": ["POST"]}]},
     "consolidation.journal.maintain": {"permissions": [{"resource": "/v1/consol/group-journals:preview", "methods": ["POST"]}]},
     "consolidation.run": {"permissions": [
       {"resource": "/v1/consol/divestitures:preview", "methods": ["POST"]},
@@ -4199,7 +4200,8 @@
     "consolidation": {
       "ledger": ["ledger.balance.read"],
       "fx": ["fx.rate.lookup"],
-      "org": ["org.read"]
+      "org": ["org.read"],
+      "intercompany": ["intercompany.view"]
     },
     "intercompany": {
       "ledger": ["ledger.entry.post", "ledger.journal.reverse", "ledger.ledger.lookup", "ledger.balance.read"],
